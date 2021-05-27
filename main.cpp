@@ -21,7 +21,7 @@ typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int>> mers_vect
 
 
 
-static void read_references(std::vector<std::string> &seqs, idx_to_acc &acc_map, std::string fn)
+static void read_references(std::vector<std::string> &seqs, std::vector<unsigned int> &lengths, idx_to_acc &acc_map, std::string fn)
 {
     std::ifstream file(fn);
     std::string line, seq;
@@ -32,6 +32,7 @@ static void read_references(std::vector<std::string> &seqs, idx_to_acc &acc_map,
             if (seq.length() > 0){
 //                seqs[ref_index -1] = seq;
                 seqs.push_back(seq);
+                lengths.push_back(seq.length());
 //                std::cout << ref_index - 1 << " here " << seq << " " << seq.length() << " " << seq.size() << std::endl;
 //                generate_kmers(h, k, seq, ref_index);
             }
@@ -46,6 +47,7 @@ static void read_references(std::vector<std::string> &seqs, idx_to_acc &acc_map,
     if (seq.length() > 0){
 //        seqs[ref_index -1] = seq;
         seqs.push_back(seq);
+        lengths.push_back(seq.length());
 //        std::cout << ref_index -1 << " here2 " << seq << std::endl;
 //        generate_kmers(h, k, seq, ref_index);
     }
@@ -145,6 +147,9 @@ static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_re
                     }
                     o.previous_query_start = h.query_s;
                     o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
+                    o.query_last_hit_pos = h.query_s; // log the last strobemer hit in case of outputting paf
+                    o.ref_last_hit_pos = h.ref_s; // log the last strobemer hit in case of outputting paf
+                    o.n_hits ++;
                     is_added = true;
                     break;
                 }
@@ -162,6 +167,9 @@ static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_re
                 n.ref_id = ref_id;
                 n.previous_query_start = h.query_s;
                 n.previous_ref_start = h.ref_s;
+                n.query_last_hit_pos = h.query_s;
+                n.ref_last_hit_pos = h.ref_s;
+                n.n_hits = 1;
                 open_nams.push_back(n);
             }
 
@@ -286,6 +294,24 @@ static inline void output_hits(std::vector<nam> &nams, std::ofstream &output_fil
     }
 }
 
+static inline void output_hits_paf(std::vector<nam> &nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, bool is_rc, int read_len, std::vector<unsigned int> &ref_len_map) {
+    //Sort hits based on start choordinate on query sequence
+//    std::sort(nams.begin(), nams.end(), compareByQueryCoord);
+    // Output results
+    for (auto &n : nams) {
+        std::string o;
+        if (is_rc){
+            o = "+";
+        }
+        else{
+            o = "+";
+        }
+        output_file << query_acc << "\t" << read_len <<  "\t" << n.query_s << "\t" << n.query_last_hit_pos + k << "\t" << o  <<  "\t" << acc_map[n.ref_id] << "\t" << ref_len_map[n.ref_id] << "\t" << n.ref_s << "\t" << n.ref_last_hit_pos + k << "\t" << n.n_hits << "\t" << n.ref_last_hit_pos + k - n.ref_s << "\t" << "-" << "\n";
+//        output_file << "  " << acc_map[n.ref_id]  << " " << n.ref_s << " " << n.query_s << " -" << "\n";
+//      python: outfile.write("  {0} {1} {2} {3}\n".format(ref_acc, ref_p, q_pos, k))
+    }
+}
+
 static inline std::string reverse_complement(std::string &read) {
     auto read_rev = read;
     std::reverse(read_rev.begin(), read_rev.end()); // reverse
@@ -323,8 +349,8 @@ int main (int argc, char *argv[])
 
     std::string filename  = "/Users/kxs624/Documents/workspace/strobemers/cmake-build-debug/ecoli.fa";
 //    std::string reads_filename  = "ecoli.fa";
-//    std::string reads_filename  = "/Users/kxs624/Documents/workspace/strobemers/cmake-build-debug/SRR8187994_1_250k_subset.fasta";
-    std::string reads_filename  = "/Users/kxs624/Documents/workspace/strobemers/cmake-build-debug/SRR8187994_1_50_subset.fasta";
+    std::string reads_filename  = "/Users/kxs624/Documents/workspace/strobemers/cmake-build-debug/SRR8187994_1_250k_subset.fasta";
+//    std::string reads_filename  = "/Users/kxs624/Documents/workspace/strobemers/cmake-build-debug/SRR8187994_1_50_subset.fasta";
 //
 //    std::string filename  = "hg38_chr21.fa";
 //    std::string reads_filename  = "hg38_chr21.fa";
@@ -339,12 +365,16 @@ int main (int argc, char *argv[])
     int w = 10;
     int w_min = w/5;
     int w_max = w;
-    int filter_nams = 0;
+    std::string mode = "map";
+//    std::string mode = "align";
+
 //    assert(k <= w_min && "k have to be smaller than w_min");
     assert(k <= 32 && "k have to be smaller than 32!");
     std::vector<std::string> ref_seqs;
+    std::vector<unsigned int> ref_lengths;
     idx_to_acc acc_map;
-    read_references(ref_seqs, acc_map, filename);
+    read_references(ref_seqs, ref_lengths, acc_map, filename);
+
 
     //////////////////////////////////////////////////////
 
@@ -428,7 +458,7 @@ int main (int argc, char *argv[])
 
     std::ifstream query_file(reads_filename);
     std::ofstream output_file;
-    output_file.open ("output.tsv");
+    output_file.open ("output.paf");
 
     std::string line, seq, seq_rc, prev_acc;
     unsigned int q_id = 0;
@@ -464,8 +494,12 @@ int main (int argc, char *argv[])
                 nams_rc = find_nams(query_mers_rc, all_mers_vector, mers_index, k, ref_seqs, seq_rc );
 //                std::cout <<  "NAMs generated: " << nams.size() << std::endl;
                 // Output results
-                output_hits(nams, output_file, prev_acc, acc_map);
-                output_hits(nams_rc, output_file, prev_acc, acc_map);
+                if ( mode.compare("map") == 0) {
+//                    output_hits(nams, output_file, prev_acc, acc_map);
+//                    output_hits(nams_rc, output_file, prev_acc, acc_map);
+                    output_hits_paf(nams, output_file, prev_acc, acc_map, k, false, seq.length(), ref_lengths);
+                    output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
+                }
 //              output_file << "> " <<  prev_acc << "\n";
 //              output_file << "  " << ref_acc << " " << ref_p << " " << q_pos << " " << "\n";
 //              outfile.write("  {0} {1} {2} {3}\n".format(ref_acc, ref_p, q_pos, k))
@@ -505,9 +539,12 @@ int main (int argc, char *argv[])
         nams_rc = find_nams(query_mers_rc, all_mers_vector, mers_index, k, ref_seqs, seq_rc);
 //                std::cout <<  "NAMs generated: " << nams.size() << std::endl;
         // Output results
-        output_hits(nams, output_file, prev_acc, acc_map);
-        output_hits(nams_rc, output_file, prev_acc, acc_map);
-
+        if ( mode.compare("map") == 0) {
+//                    output_hits(nams, output_file, prev_acc, acc_map);
+//                    output_hits(nams_rc, output_file, prev_acc, acc_map);
+            output_hits_paf(nams, output_file, prev_acc, acc_map, k, false, seq.length(), ref_lengths);
+            output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
+        }
     }
 
     query_file.close();
