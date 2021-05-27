@@ -95,8 +95,8 @@ mers_vector construct_flat_vector_three_pos(one_pos_index &tmp_index){
 }
 
 
-robin_hood::unordered_map< uint64_t, std::tuple<uint64_t, unsigned int >> index_vector_one_pos(mers_vector  &flat_vector){
-    robin_hood::unordered_map< uint64_t, std::tuple<uint64_t, unsigned int >> mers_index;
+kmer_lookup index_vector_one_pos(mers_vector  &flat_vector){
+    kmer_lookup mers_index;
     uint64_t offset = 0;
     uint64_t prev_offset = 0;
     unsigned int count = 0;
@@ -113,7 +113,7 @@ robin_hood::unordered_map< uint64_t, std::tuple<uint64_t, unsigned int >> index_
             count ++;
         }
         else {
-            std::tuple<uint64_t, unsigned int> s(prev_offset, count);
+            std::tuple<unsigned int, unsigned int> s(prev_offset, count);
             mers_index[prev_k] = s;
             count = 1;
             prev_k = curr_k;
@@ -123,12 +123,20 @@ robin_hood::unordered_map< uint64_t, std::tuple<uint64_t, unsigned int >> index_
     }
 
     // last k-mer
-    std::tuple<uint64_t, unsigned int> s(prev_offset, count);
+    std::tuple<unsigned int, unsigned int> s(prev_offset, count);
     mers_index[curr_k] = s;
 
     return mers_index;
 }
 
+mers_vector_reduced remove_kmer_hash_from_flat_vector(mers_vector &flat_vector){
+    mers_vector_reduced flat_vector_reduced;
+    for ( auto &t : flat_vector ) {
+        std::tuple<unsigned int, unsigned int> s( std::get<1>(t), std::get<2>(t) );
+        flat_vector_reduced.push_back(s);
+    }
+    return flat_vector_reduced;
+}
 
 //// initialize queue and current minimum and position
 //static inline void initialize_window(std::vector<uint64_t> &string_hashes, std::deque <uint64_t> &q, uint64_t &q_min_val, int &q_min_pos, int w_min, int w_max, int k){

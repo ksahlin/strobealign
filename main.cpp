@@ -54,7 +54,7 @@ static void read_references(std::vector<std::string> &seqs, idx_to_acc &acc_map,
 
 
 
-static inline void print_diagnostics_new4(mers_vector &mers_vector, vector_index mers_index ) {
+static inline void print_diagnostics_new4(mers_vector_reduced &mers_vector, kmer_lookup mers_index ) {
     uint64_t tot_flat_vector_size = 0;
     for (size_t i = 0; i < mers_vector.size(); ++i)
     {
@@ -64,7 +64,7 @@ static inline void print_diagnostics_new4(mers_vector &mers_vector, vector_index
         tot_flat_vector_size += sizeof(t);
     }
     std::cout << "Total size of flat mers-vector : " << tot_flat_vector_size/1000000  << " Mb." << std::endl;
-
+    std::cout << "Total entries in flat mers-vector : " << mers_vector.size()  << std::endl;
 //    uint64_t tot_hashtable_index_size = 0;
 //    for (auto &it : mers_index)
 //    {
@@ -74,12 +74,136 @@ static inline void print_diagnostics_new4(mers_vector &mers_vector, vector_index
 //    }
 //    std::cout << "Total size of hash table index : " << tot_hashtable_index_size/1000000  << " Mb." << std::endl;
 
-    std::cout << "Total size of hash table index : " << (mers_index.size() * sizeof(vector_index::value_type))/1000000 << " Mb." << "\n";
+    std::cout << "Total size of hash table index : " << (mers_index.size() * sizeof(kmer_lookup::value_type))/1000000 << " Mb." << "\n";
 }
 
 
 
-static inline std::vector<hit> find_hits(mers_vector &query_mers, mers_vector &mers_vector, vector_index &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read){
+
+
+static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_reduced &mers_vector, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read){
+//    std::cout << "ENTER FIND NAMS " <<  std::endl;
+    robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref; // [ref_id] -> vector( struct hit)
+    uint64_t hit_count_reduced = 0;
+    uint64_t hit_count_all = 0;
+    int read_length = read.length();
+    for (auto &q : query_mers)
+//    for (size_t i = 0; i < query_mers.size(); ++i)
+    {
+        hit h;
+        h.query_s = std::get<2>(q);
+        h.query_e = h.query_s + read_length;
+//        std::cout << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
+        uint64_t mer_hashv = std::get<0>(q);
+        if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
+//            std::cout << "Found: " <<  h.query_s << " " << h.query_e  <<  std::endl;
+            std::tuple<uint64_t, unsigned int> mer;
+            mer = mers_index[mer_hashv];
+            uint64_t offset = std::get<0>(mer);
+            unsigned int count = std::get<1>(mer);
+            for(size_t j = offset; j < offset+count; ++j)
+            {
+
+                auto r = mers_vector[j];
+                unsigned int ref_s = std::get<1>(r);
+                unsigned int ref_e = ref_s + read_length;
+                unsigned int ref_id = std::get<0>(r);
+
+                h.ref_s = ref_s;
+                h.ref_e = ref_e;
+                hits_per_ref[ref_id].push_back(h);
+
+                hit_count_all ++;
+
+            }
+
+        }
+    }
+
+//    std::cout << "NUMBER OF HITS GENERATED: " << hit_count_all << std::endl;
+    std::vector<nam> open_nams;
+    std::vector<nam> final_nams; // [ref_id] -> vector(struct nam)
+
+    for (auto &it : hits_per_ref)
+    {
+        unsigned int ref_id = it.first;
+        std::vector<hit> hits = it.second;
+        open_nams = std::vector<nam> (); // Initialize vector
+        uint64_t prev_q_start = 0;
+        for (auto &h : hits){
+            bool is_added = false;
+//            std::cout << "HIT " << h.query_s <<  ", " << h.query_e << ", " << h.ref_s <<  ", " << h.ref_e << std::endl;
+            for (auto & o : open_nams) {
+
+                // Extend NAM
+                if ( ( o.previous_query_start <= h.query_s) && (h.query_s <= o.query_e ) && ( o.previous_ref_start <= h.ref_s) && (h.ref_s <= o.ref_e) ){
+                    if (h.query_e > o.query_e) {
+                        o.query_e = h.query_e;
+                    }
+                    if (h.ref_e > o.ref_e) {
+                        o.ref_e = h.ref_e;
+                    }
+                    o.previous_query_start = h.query_s;
+                    o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
+                    is_added = true;
+                    break;
+                }
+
+
+            }
+
+            // Add the hit to open matches
+            if (not is_added){
+                nam n;
+                n.query_s = h.query_s;
+                n.query_e = h.query_e;
+                n.ref_s = h.ref_s;
+                n.ref_e = h.ref_e;
+                n.ref_id = ref_id;
+                n.previous_query_start = h.query_s;
+                n.previous_ref_start = h.ref_s;
+                open_nams.push_back(n);
+            }
+
+
+            // Only filter if we have advanced at least k nucleotides
+            if (h.query_s > prev_q_start + k) {
+
+                // Output all NAMs from open_matches to final_nams that the current hit have passed
+                for (auto &n : open_nams) {
+                    if (n.query_e < h.query_s) {
+                        final_nams.push_back(n);
+                    }
+                }
+
+                // Remove all NAMs from open_matches that the current hit have passed
+                unsigned int c = h.query_s;
+                auto predicate = [c](decltype(open_nams)::value_type const &nam) { return nam.query_e < c; };
+                open_nams.erase(std::remove_if(open_nams.begin(), open_nams.end(), predicate), open_nams.end());
+                prev_q_start = h.query_s;
+            }
+
+
+        }
+
+        // Add all current open_matches to final NAMs
+        for (auto &n : open_nams){
+            final_nams.push_back(n);
+        }
+    }
+
+//    for (auto &n : final_nams){
+//        std::cout << n.ref_id << ": (" << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e << ")" << std::endl;
+//    }
+
+
+    return final_nams;
+}
+
+
+
+
+static inline std::vector<hit> find_hits(mers_vector &query_mers, mers_vector_reduced &mers_vector, vector_index &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read){
 //    std::cout << "ENTER FIND NAMS " <<  std::endl;
     std::vector<hit> query_hits;
     int extra = 20;
@@ -103,8 +227,8 @@ static inline std::vector<hit> find_hits(mers_vector &query_mers, mers_vector &m
             {
 
                 auto r = mers_vector[j];
-                unsigned int ref_s = std::get<2>(r);
-                unsigned int ref_id = std::get<1>(r);
+                unsigned int ref_s = std::get<1>(r);
+                unsigned int ref_id = std::get<0>(r);
 
                 h.ref_s = ref_s;
                 h.ref_id = ref_id;
@@ -112,18 +236,20 @@ static inline std::vector<hit> find_hits(mers_vector &query_mers, mers_vector &m
 
                 hit_count_all ++;
                 std::string ref_segm;
-                ref_segm = ref_seqs[ref_id].substr(ref_s - h.query_s - extra/2, read_length + extra);
+//                ref_segm = ref_seqs[ref_id].substr(ref_s - h.query_s, read_length);
 
 //                EdlibAlignResult result = edlibAlign("hello", 5, "world!", 6, edlibDefaultAlignConfig());
-                EdlibAlignResult result2 = edlibAlign(&read[0], read_length, &ref_segm[0], read_length, edlibNewAlignConfig(60, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
 //                if (result.status == EDLIB_STATUS_OK) {
 //                    printf("edit_distance('hello', 'world!') = %d\n", result.editDistance);
 //                    printf("edit_distance('hello', 'world!') = %d\n", result2.editDistance);
 //                }
-                char* cigar = edlibAlignmentToCigar(result2.alignment, result2.alignmentLength, EDLIB_CIGAR_STANDARD);
-//                std::cout <<  cigar << std::endl;
-                edlibFreeAlignResult(result2);
-                free(cigar);
+
+//                EdlibAlignResult result2 = edlibAlign(&read[0], read_length, &ref_segm[0], read_length, edlibNewAlignConfig(60, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
+//                char* cigar = edlibAlignmentToCigar(result2.alignment, result2.alignmentLength, EDLIB_CIGAR_STANDARD);
+////                std::cout <<  cigar << std::endl;
+//                edlibFreeAlignResult(result2);
+//                free(cigar);
+
 //                std::cout << "Hit! " << h.query_s << ", " << h.query_e << ", " << ref_s << ", " << ref_e << ", " << std::endl;
 
             }
@@ -149,9 +275,9 @@ static inline bool compareByQueryLength(const hit &a, const hit &b)
     return (a.query_e - a.query_s) < ( b.query_e - b.query_s);
 }
 
-static inline void output_hits(std::vector<hit> &nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map) {
+static inline void output_hits(std::vector<nam> &nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map) {
     //Sort hits based on start choordinate on query sequence
-    std::sort(nams.begin(), nams.end(), compareByQueryCoord);
+//    std::sort(nams.begin(), nams.end(), compareByQueryCoord);
     // Output results
     output_file << "> " << query_acc << "\n";
     for (auto &n : nams) {
@@ -277,11 +403,13 @@ int main (int argc, char *argv[])
     }
 
 
-    mers_vector all_mers_vector;
-    all_mers_vector = construct_flat_vector_three_pos(tmp_index);
-    robin_hood::unordered_map< uint64_t, std::tuple<uint64_t, unsigned int >> mers_index; // k-mer -> (offset in flat_vector, occurence count )
-    mers_index = index_vector_one_pos(all_mers_vector); // construct index over flat array
+    mers_vector all_mers_vector_tmp;
+    all_mers_vector_tmp = construct_flat_vector_three_pos(tmp_index);
+    kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
+    mers_index = index_vector_one_pos(all_mers_vector_tmp); // construct index over flat array
     tmp_index.clear();
+    mers_vector_reduced all_mers_vector;
+    all_mers_vector = remove_kmer_hash_from_flat_vector(all_mers_vector_tmp);
     print_diagnostics_new4(all_mers_vector, mers_index);
 
     //////////////////////////////////////////////////////////////////////////
@@ -318,11 +446,9 @@ int main (int argc, char *argv[])
                 else if (choice == "randstrobes" ){
                     if (n == 2 ){
                         query_mers = seq_to_randstrobes2(n, k, w_min, w_max, seq, q_id, w);
-                        std::string seq_rc;
-//                        std::cout << "Read: " << seq << "\n" <<  std::endl;
                         seq_rc = reverse_complement(seq);
-//                        std::cout << "Read rc: " << seq_rc << "\n" <<  std::endl;
                         query_mers_rc = seq_to_randstrobes2(n, k, w_min, w_max, seq_rc, q_id, w);
+//                        std::reverse(query_mers_rc.begin(), query_mers_rc.end());
                     }
 
                     else if (n == 3){
@@ -332,10 +458,10 @@ int main (int argc, char *argv[])
 //                std::cout << "HERE " << line << std::endl;
                 // Find NAMs
 //                std::cout << "Processing read: " << prev_acc << " kmers generated: " << query_mers.size() << ", read length: " <<  seq.length() << std::endl;
-                std::vector<hit> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-                std::vector<hit> nams_rc; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-                nams = find_hits(query_mers, all_mers_vector, mers_index, k, ref_seqs, seq );
-                nams_rc = find_hits(query_mers_rc, all_mers_vector, mers_index, k, ref_seqs, seq_rc );
+                std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
+                std::vector<nam> nams_rc; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
+                nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, seq );
+                nams_rc = find_nams(query_mers_rc, all_mers_vector, mers_index, k, ref_seqs, seq_rc );
 //                std::cout <<  "NAMs generated: " << nams.size() << std::endl;
                 // Output results
                 output_hits(nams, output_file, prev_acc, acc_map);
@@ -362,9 +488,9 @@ int main (int argc, char *argv[])
         else if (choice == "randstrobes" ){
             if (n == 2 ){
                 query_mers = seq_to_randstrobes2(n, k, w_min, w_max, seq, q_id, w);
-                std::string seq_rc;
                 seq_rc = reverse_complement(seq);
                 query_mers_rc = seq_to_randstrobes2(n, k, w_min, w_max, seq_rc, q_id, w);
+//                std::reverse(query_mers_rc.begin(), query_mers_rc.end());
             }
 
             else if (n == 3){
@@ -373,10 +499,10 @@ int main (int argc, char *argv[])
         }
         // Find NAMs
 //        std::cout << "Processing read: " << prev_acc << " kmers generated: " << query_mers.size() << ", read length: " <<  seq.length() << std::endl;
-        std::vector<hit> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-        std::vector<hit> nams_rc; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-        nams = find_hits(query_mers, all_mers_vector, mers_index, k, ref_seqs, seq);
-        nams_rc = find_hits(query_mers_rc, all_mers_vector, mers_index, k, ref_seqs, seq);
+        std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
+        std::vector<nam> nams_rc; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
+        nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, seq);
+        nams_rc = find_nams(query_mers_rc, all_mers_vector, mers_index, k, ref_seqs, seq_rc);
 //                std::cout <<  "NAMs generated: " << nams.size() << std::endl;
         // Output results
         output_hits(nams, output_file, prev_acc, acc_map);
