@@ -211,7 +211,7 @@ static inline void make_string_to_hashvalues2(std::string &seq, std::vector<uint
                     pos_to_seq_choord.push_back(q_min_pos);
                     hash_count ++;
                 }
-                // que sliding the queue
+                // sliding the queue
                 else{
                     bool new_minimizer = false;
                     update_window(q, q_min_val, q_min_pos, hash_k, w, i - k + 1, new_minimizer );
@@ -227,11 +227,11 @@ static inline void make_string_to_hashvalues2(std::string &seq, std::vector<uint
             l = 0, x = 0; // if there is an "N", restart
         }
     }
-    std::cout << hash_count << " values produced from string of length " <<   seq_length << std::endl;
-    for(auto t: pos_to_seq_choord){
-        std::cout << t << " ";
-    }
-    std::cout << " " << std::endl;
+//    std::cout << hash_count << " values produced from string of length " <<   seq_length << std::endl;
+//    for(auto t: pos_to_seq_choord){
+//        std::cout << t << " ";
+//    }
+//    std::cout << " " << std::endl;
 }
 
 
@@ -327,7 +327,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
             get_next_strobe(string_hashes, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q);
         }
         else{
-            std::cout << randstrobes2.size() << " randstrobes generated" << '\n';
+//            std::cout << randstrobes2.size() << " randstrobes generated" << '\n';
             return randstrobes2;
         }
 
@@ -344,7 +344,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 //        std::cout << std::string(i, ' ') << strobe1 << std::string(strobe_pos_next - (i+k), ' ') << std::string(k, 'X') << std::endl;
 
     }
-    std::cout << randstrobes2.size() << " randstrobes generated" << '\n';
+//    std::cout << randstrobes2.size() << " randstrobes generated" << '\n';
     return randstrobes2;
 }
 
