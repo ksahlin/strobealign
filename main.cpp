@@ -9,7 +9,9 @@
 #include "source/edlib.h"
 #include "source/index.hpp"
 
-
+//develop
+#include <chrono>
+#include <thread>
 
 
 //typedef robin_hood::unordered_map< unsigned int , std::string > references;
@@ -76,7 +78,13 @@ static inline void print_diagnostics_new4(mers_vector_reduced &mers_vector, kmer
 //    }
 //    std::cout << "Total size of hash table index : " << tot_hashtable_index_size/1000000  << " Mb." << std::endl;
 
-    std::cout << "Total size of hash table index : " << (mers_index.size() * sizeof(kmer_lookup::value_type))/1000000 << " Mb." << "\n";
+    std::cout << "Total entries in hash table : " << mers_index.size()  << std::endl;
+    std::cout << "Total size of hash table entries (ignoring internal nodes) : " << (mers_index.size() * sizeof(kmer_lookup::value_type))/1000000 << " Mb." << "\n";
+    // https://stackoverflow.com/questions/720507/how-can-i-estimate-memory-usage-of-stdmap/720520
+    std::cout << "Total size of hash table (applying approximation that about 2/3 of the memory is from internal nodes and 1/3 from the leafs, i.e., hash entries) : " << 3*(mers_index.size() * sizeof(kmer_lookup::value_type))/1000000 << " Mb." << "\n";
+    std::cout << "" << std::endl;
+    std::cout << "Total index size: " <<  tot_flat_vector_size/1000000 +  3*(mers_index.size() * sizeof(kmer_lookup::value_type))/1000000 << " Mb." << std::endl;
+
 }
 
 
@@ -325,6 +333,9 @@ static inline std::string reverse_complement(std::string &read) {
     return read_rev;
 }
 
+
+
+
 int main (int argc, char *argv[])
 {
 
@@ -347,28 +358,40 @@ int main (int argc, char *argv[])
 //    std::string filename  = "ecoli_randmer_bug.txt";
 //    std::string reads_filename  = "ecoli_randmer_bug.txt";
 
-    std::string filename  = "/Users/kxs624/Documents/workspace/strobemers/cmake-build-debug/ecoli.fa";
+//    std::string filename  = "/Users/kxs624/Documents/workspace/strobemers/cmake-build-debug/ecoli.fa";
 //    std::string reads_filename  = "ecoli.fa";
-    std::string reads_filename  = "/Users/kxs624/Documents/workspace/strobemers/cmake-build-debug/SRR8187994_1_250k_subset.fasta";
+//    std::string reads_filename  = "/Users/kxs624/Documents/workspace/strobemers/cmake-build-debug/SRR8187994_1_250k_subset.fasta";
 //    std::string reads_filename  = "/Users/kxs624/Documents/workspace/strobemers/cmake-build-debug/SRR8187994_1_50_subset.fasta";
 //
 //    std::string filename  = "hg38_chr21.fa";
 //    std::string reads_filename  = "hg38_chr21.fa";
+
+//    std::string filename  = "/Users/kxs624/Documents/data/genomes/human/chm13_chr1.fa";
+    std::string filename  = "/Users/kxs624/Documents/data/genomes/human/chm13_chr21.fa";
+    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/chm13_chr21_reads.fa";
 
 //    std::string filename  = "hg21_bug.txt";
 //    std::string reads_filename  = "hg21_bug.txt";
 
 //    std::string choice = "kmers";
     std::string choice = "randstrobes";
-    int n = 2;
-    int k = 12;
-    int w = 10;
-    int w_min = w/5;
-    int w_max = w;
+    int n = 3;
+    int k = 20;
+    int w = 8;
+    int w_min = k/(w/2);
+    int w_max = k/(w/2) + 10;
     std::string mode = "map";
 //    std::string mode = "align";
 
-//    assert(k <= w_min && "k have to be smaller than w_min");
+    std::cout << "Using" << std::endl;
+    std::cout << "n: " << n << std::endl;
+    std::cout << "k: " << k << std::endl;
+    std::cout << "w: " << w << std::endl;
+    std::cout << "w_min: " << w_min << std::endl;
+    std::cout << "w_max: " << w_max << std::endl;
+    std::cout << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (under random minimizer sampling): [" << (w/2)*w_min << ", " << (w/2)*w_max << "]" << std::endl;
+
+//    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
     assert(k <= 32 && "k have to be smaller than 32!");
     std::vector<std::string> ref_seqs;
     std::vector<unsigned int> ref_lengths;
@@ -440,7 +463,10 @@ int main (int argc, char *argv[])
     tmp_index.clear();
     mers_vector_reduced all_mers_vector;
     all_mers_vector = remove_kmer_hash_from_flat_vector(all_mers_vector_tmp);
+    all_mers_vector_tmp.clear();
     print_diagnostics_new4(all_mers_vector, mers_index);
+//    std::cout << "Wrote index to disc" << std::endl;
+
 
     //////////////////////////////////////////////////////////////////////////
 
@@ -449,7 +475,8 @@ int main (int argc, char *argv[])
     std::chrono::duration<double> elapsed = finish - start;
     std::cout << "Total time generating index: " << elapsed.count() << " s\n" <<  std::endl;
 
-
+//    std::chrono::milliseconds timespan(1000000); // or whatever
+//    std::this_thread::sleep_for(timespan);
 
     ///////////////////////////// MAP ///////////////////////////////////////
 
@@ -478,11 +505,12 @@ int main (int argc, char *argv[])
                         query_mers = seq_to_randstrobes2(n, k, w_min, w_max, seq, q_id, w);
                         seq_rc = reverse_complement(seq);
                         query_mers_rc = seq_to_randstrobes2(n, k, w_min, w_max, seq_rc, q_id, w);
-//                        std::reverse(query_mers_rc.begin(), query_mers_rc.end());
                     }
 
                     else if (n == 3){
                         query_mers = seq_to_randstrobes3(n, k, w_min, w_max, seq, q_id, w);
+                        seq_rc = reverse_complement(seq);
+                        query_mers_rc = seq_to_randstrobes3(n, k, w_min, w_max, seq_rc, q_id, w);
                     }
                 }
 //                std::cout << "HERE " << line << std::endl;
@@ -524,11 +552,12 @@ int main (int argc, char *argv[])
                 query_mers = seq_to_randstrobes2(n, k, w_min, w_max, seq, q_id, w);
                 seq_rc = reverse_complement(seq);
                 query_mers_rc = seq_to_randstrobes2(n, k, w_min, w_max, seq_rc, q_id, w);
-//                std::reverse(query_mers_rc.begin(), query_mers_rc.end());
             }
 
             else if (n == 3){
                 query_mers = seq_to_randstrobes3(n, k, w_min, w_max, seq, q_id, w);
+                seq_rc = reverse_complement(seq);
+                query_mers_rc = seq_to_randstrobes3(n, k, w_min, w_max, seq_rc, q_id, w);
             }
         }
         // Find NAMs

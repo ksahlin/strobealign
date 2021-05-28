@@ -101,6 +101,10 @@ kmer_lookup index_vector_one_pos(mers_vector  &flat_vector){
     uint64_t prev_offset = 0;
     unsigned int count = 0;
 
+    unsigned int tot_occur_once = 0;
+    unsigned int tot_high_ab = 0;
+    unsigned int tot_mid_ab = 0;
+
     uint64_t prev_k;
     std::tuple<uint64_t, unsigned int, unsigned int> t = flat_vector[0];
     prev_k = std::get<0>(t);
@@ -114,6 +118,16 @@ kmer_lookup index_vector_one_pos(mers_vector  &flat_vector){
         }
         else {
             std::tuple<unsigned int, unsigned int> s(prev_offset, count);
+            if (count == 1){
+                tot_occur_once ++;
+            }
+            else if (count > 100){
+                tot_high_ab ++;
+//                std::cout << count << std::endl;
+            }
+            else{
+                tot_mid_ab ++;
+            }
             mers_index[prev_k] = s;
             count = 1;
             prev_k = curr_k;
@@ -125,6 +139,14 @@ kmer_lookup index_vector_one_pos(mers_vector  &flat_vector){
     // last k-mer
     std::tuple<unsigned int, unsigned int> s(prev_offset, count);
     mers_index[curr_k] = s;
+
+    std::cout << "Total count: " << offset << std::endl;
+    std::cout << "Total Occur once: " << tot_occur_once << std::endl;
+    std::cout << "Total highly abundant > 100: " << tot_high_ab << std::endl;
+    std::cout << "Total mid abundance (between 2-100): " << tot_mid_ab << std::endl;
+    std::cout << "Total distinct kmers stored: " << mers_index.size() << std::endl;
+    std::cout << "Ratio distinct to highly abundant: " << mers_index.size()/tot_high_ab << std::endl;
+    std::cout << "Ratio distinct to non distinct: " << mers_index.size()/(tot_high_ab + tot_mid_ab) << std::endl;
 
     return mers_index;
 }
