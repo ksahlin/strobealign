@@ -95,7 +95,7 @@ mers_vector construct_flat_vector_three_pos(one_pos_index &tmp_index){
 }
 
 
-unsigned int index_vector_one_pos(mers_vector &flat_vector, kmer_lookup &mers_index){
+unsigned int index_vector_one_pos(mers_vector &flat_vector, kmer_lookup &mers_index, float f){
 
     std::cout << "Flat vector size: " << flat_vector.size() << std::endl;
 //    kmer_lookup mers_index;
@@ -158,7 +158,7 @@ unsigned int index_vector_one_pos(mers_vector &flat_vector, kmer_lookup &mers_in
     // get count for top -f fraction of strobemer count to filter them out
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
-    unsigned int index_cutoff = strobemer_counts.size()*0.0002;
+    unsigned int index_cutoff = strobemer_counts.size()*f;
     std::cout << "Filtered cutoff index: " << index_cutoff << std::endl;
     unsigned int filter_cutoff =  strobemer_counts[index_cutoff];
     std::cout << "Filtered cutoff count: " << filter_cutoff << std::endl;

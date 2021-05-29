@@ -406,6 +406,7 @@ int main (int argc, char *argv[])
     int w = 8;
     int w_min = k/(w/2);
     int w_max = k/(w/2) + 10;
+    float f = 0.0002;
     std::string mode = "map";
 //    std::string mode = "align";
 
@@ -486,14 +487,13 @@ int main (int argc, char *argv[])
     all_mers_vector_tmp = construct_flat_vector_three_pos(tmp_index);
     kmer_lookup mers_index_tmp; // k-mer -> (offset in flat_vector, occurence count )
     unsigned int filter_cutoff;
-    filter_cutoff = index_vector_one_pos(all_mers_vector_tmp, mers_index_tmp); // construct index over flat array
+    filter_cutoff = index_vector_one_pos(all_mers_vector_tmp, mers_index_tmp, f); // construct index over flat array
     tmp_index.clear();
 
     // filter fraction of repetitive strobes
     mers_vector flat_vector_reduced;
     kmer_lookup mers_index;
     filter_repetitive_strobemers(all_mers_vector_tmp, mers_index_tmp, flat_vector_reduced, mers_index, filter_cutoff);
-    all_mers_vector_tmp.clear();
 
     mers_vector_reduced all_mers_vector;
     all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector_reduced);
