@@ -291,6 +291,13 @@ static inline bool compareByQueryLength(const hit &a, const hit &b)
     return (a.query_e - a.query_s) < ( b.query_e - b.query_s);
 }
 
+static inline bool compareByNrHitsAndSimilarSpan(const nam &a, const nam &b)
+{
+    // first sort on nr hits, then on diff in span between query and reference, then on reference
+    return (a.n_hits > b.n_hits) ||
+           ( (a.n_hits == b.n_hits) && ( ((a.query_e - a.query_s) - (a.ref_e - a.ref_s)) < ((b.query_e - b.query_s) - (b.ref_e - b.ref_s)) ) );
+}
+
 static inline void output_hits(std::vector<nam> &nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map) {
     //Sort hits based on start choordinate on query sequence
 //    std::sort(nams.begin(), nams.end(), compareByQueryCoord);
@@ -302,11 +309,23 @@ static inline void output_hits(std::vector<nam> &nams, std::ofstream &output_fil
     }
 }
 
-static inline void output_hits_paf(std::vector<nam> &nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, bool is_rc, int read_len, std::vector<unsigned int> &ref_len_map) {
+static inline void output_hits_paf(std::vector<nam> &nams, std::vector<nam> &nams_rc, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, bool is_rc, int read_len, std::vector<unsigned int> &ref_len_map) {
+    // Merge fwd and reverse complement hits
+    std::vector<nam> all_nams;
+    all_nams.reserve( nams.size() + nams_rc.size() ); // preallocate memory
+    all_nams.insert( all_nams.end(), nams.begin(), nams.end() );
+    all_nams.insert( all_nams.end(), nams_rc.begin(), nams_rc.end() );
+
     //Sort hits based on start choordinate on query sequence
-//    std::sort(nams.begin(), nams.end(), compareByQueryCoord);
+    std::sort(all_nams.begin(), all_nams.end(), compareByNrHitsAndSimilarSpan);
+
     // Output results
-    for (auto &n : nams) {
+//    int cnt = 0;
+    // Only output single best hit based on: Firstly: number of randstrobe-hits. Secondly the concordance the span of the hits between ref and query (more simmilar ranked higher)
+    for (auto &n : all_nams) {
+//        if (cnt > 1){ // only output top 2 hits
+//            break;
+//        }
         std::string o;
         if (is_rc){
             o = "+";
@@ -315,7 +334,10 @@ static inline void output_hits_paf(std::vector<nam> &nams, std::ofstream &output
             o = "+";
         }
         output_file << query_acc << "\t" << read_len <<  "\t" << n.query_s << "\t" << n.query_last_hit_pos + k << "\t" << o  <<  "\t" << acc_map[n.ref_id] << "\t" << ref_len_map[n.ref_id] << "\t" << n.ref_s << "\t" << n.ref_last_hit_pos + k << "\t" << n.n_hits << "\t" << n.ref_last_hit_pos + k - n.ref_s << "\t" << "-" << "\n";
-//        output_file << "  " << acc_map[n.ref_id]  << " " << n.ref_s << " " << n.query_s << " -" << "\n";
+        break;
+//        cnt ++;
+
+        //        output_file << "  " << acc_map[n.ref_id]  << " " << n.ref_s << " " << n.query_s << " -" << "\n";
 //      python: outfile.write("  {0} {1} {2} {3}\n".format(ref_acc, ref_p, q_pos, k))
     }
 }
@@ -366,9 +388,13 @@ int main (int argc, char *argv[])
 //    std::string filename  = "hg38_chr21.fa";
 //    std::string reads_filename  = "hg38_chr21.fa";
 
-//    std::string filename  = "/Users/kxs624/Documents/data/genomes/human/chm13_chr1.fa";
-    std::string filename  = "/Users/kxs624/Documents/data/genomes/human/chm13_chr21.fa";
-    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/chm13_chr21_reads.fa";
+
+//    std::string filename  = "/Users/kxs624/Documents/data/genomes/human/chm13_chr21.fa";
+//    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/chm13_chr21_reads.fa";
+
+    std::string filename  = "/Users/kxs624/Documents/data/genomes/human/chm13_chr1.fa";
+    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/chm13_chr1_100k_reads.fa";
+
 
 //    std::string filename  = "hg21_bug.txt";
 //    std::string reads_filename  = "hg21_bug.txt";
@@ -376,7 +402,7 @@ int main (int argc, char *argv[])
 //    std::string choice = "kmers";
     std::string choice = "randstrobes";
     int n = 3;
-    int k = 20;
+    int k = 18;
     int w = 8;
     int w_min = k/(w/2);
     int w_max = k/(w/2) + 10;
@@ -458,12 +484,20 @@ int main (int argc, char *argv[])
 
     mers_vector all_mers_vector_tmp;
     all_mers_vector_tmp = construct_flat_vector_three_pos(tmp_index);
-    kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
-    mers_index = index_vector_one_pos(all_mers_vector_tmp); // construct index over flat array
+    kmer_lookup mers_index_tmp; // k-mer -> (offset in flat_vector, occurence count )
+    unsigned int filter_cutoff;
+    filter_cutoff = index_vector_one_pos(all_mers_vector_tmp, mers_index_tmp); // construct index over flat array
     tmp_index.clear();
-    mers_vector_reduced all_mers_vector;
-    all_mers_vector = remove_kmer_hash_from_flat_vector(all_mers_vector_tmp);
+
+    // filter fraction of repetitive strobes
+    mers_vector flat_vector_reduced;
+    kmer_lookup mers_index;
+    filter_repetitive_strobemers(all_mers_vector_tmp, mers_index_tmp, flat_vector_reduced, mers_index, filter_cutoff);
     all_mers_vector_tmp.clear();
+
+    mers_vector_reduced all_mers_vector;
+    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector_reduced);
+    flat_vector_reduced.clear();
     print_diagnostics_new4(all_mers_vector, mers_index);
 //    std::cout << "Wrote index to disc" << std::endl;
 
@@ -525,8 +559,8 @@ int main (int argc, char *argv[])
                 if ( mode.compare("map") == 0) {
 //                    output_hits(nams, output_file, prev_acc, acc_map);
 //                    output_hits(nams_rc, output_file, prev_acc, acc_map);
-                    output_hits_paf(nams, output_file, prev_acc, acc_map, k, false, seq.length(), ref_lengths);
-                    output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
+                    output_hits_paf(nams, nams_rc, output_file, prev_acc, acc_map, k, false, seq.length(), ref_lengths);
+//                    output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
                 }
 //              output_file << "> " <<  prev_acc << "\n";
 //              output_file << "  " << ref_acc << " " << ref_p << " " << q_pos << " " << "\n";
@@ -571,8 +605,8 @@ int main (int argc, char *argv[])
         if ( mode.compare("map") == 0) {
 //                    output_hits(nams, output_file, prev_acc, acc_map);
 //                    output_hits(nams_rc, output_file, prev_acc, acc_map);
-            output_hits_paf(nams, output_file, prev_acc, acc_map, k, false, seq.length(), ref_lengths);
-            output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
+            output_hits_paf(nams, nams_rc, output_file, prev_acc, acc_map, k, false, seq.length(), ref_lengths);
+//            output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
         }
     }
 

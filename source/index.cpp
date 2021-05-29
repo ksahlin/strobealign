@@ -95,8 +95,10 @@ mers_vector construct_flat_vector_three_pos(one_pos_index &tmp_index){
 }
 
 
-kmer_lookup index_vector_one_pos(mers_vector  &flat_vector){
-    kmer_lookup mers_index;
+unsigned int index_vector_one_pos(mers_vector &flat_vector, kmer_lookup &mers_index){
+
+    std::cout << "Flat vector size: " << flat_vector.size() << std::endl;
+//    kmer_lookup mers_index;
     uint64_t offset = 0;
     uint64_t prev_offset = 0;
     unsigned int count = 0;
@@ -104,6 +106,7 @@ kmer_lookup index_vector_one_pos(mers_vector  &flat_vector){
     unsigned int tot_occur_once = 0;
     unsigned int tot_high_ab = 0;
     unsigned int tot_mid_ab = 0;
+    std::vector<unsigned int> strobemer_counts;
 
     uint64_t prev_k;
     std::tuple<uint64_t, unsigned int, unsigned int> t = flat_vector[0];
@@ -117,7 +120,6 @@ kmer_lookup index_vector_one_pos(mers_vector  &flat_vector){
             count ++;
         }
         else {
-            std::tuple<unsigned int, unsigned int> s(prev_offset, count);
             if (count == 1){
                 tot_occur_once ++;
             }
@@ -128,6 +130,9 @@ kmer_lookup index_vector_one_pos(mers_vector  &flat_vector){
             else{
                 tot_mid_ab ++;
             }
+            strobemer_counts.push_back(count);
+
+            std::tuple<unsigned int, unsigned int> s(prev_offset, count);
             mers_index[prev_k] = s;
             count = 1;
             prev_k = curr_k;
@@ -140,16 +145,102 @@ kmer_lookup index_vector_one_pos(mers_vector  &flat_vector){
     std::tuple<unsigned int, unsigned int> s(prev_offset, count);
     mers_index[curr_k] = s;
 
-    std::cout << "Total count: " << offset << std::endl;
-    std::cout << "Total Occur once: " << tot_occur_once << std::endl;
-    std::cout << "Total highly abundant > 100: " << tot_high_ab << std::endl;
-    std::cout << "Total mid abundance (between 2-100): " << tot_mid_ab << std::endl;
-    std::cout << "Total distinct kmers stored: " << mers_index.size() << std::endl;
-    std::cout << "Ratio distinct to highly abundant: " << mers_index.size()/tot_high_ab << std::endl;
+    std::cout << "Total strobemers count: " << offset << std::endl;
+    std::cout << "Total strobemers occur once: " << tot_occur_once << std::endl;
+    std::cout << "Total strobemers highly abundant > 100: " << tot_high_ab << std::endl;
+    std::cout << "Total strobemers mid abundance (between 2-100): " << tot_mid_ab << std::endl;
+    std::cout << "Total distinct strobemers stored: " << mers_index.size() << std::endl;
+    if (tot_high_ab >= 1) {
+        std::cout << "Ratio distinct to highly abundant: " << mers_index.size() / tot_high_ab << std::endl;
+    }
     std::cout << "Ratio distinct to non distinct: " << mers_index.size()/(tot_high_ab + tot_mid_ab) << std::endl;
 
-    return mers_index;
+    // get count for top -f fraction of strobemer count to filter them out
+    std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
+
+    unsigned int index_cutoff = strobemer_counts.size()*0.0002;
+    std::cout << "Filtered cutoff index: " << index_cutoff << std::endl;
+    unsigned int filter_cutoff =  strobemer_counts[index_cutoff];
+    std::cout << "Filtered cutoff count: " << filter_cutoff << std::endl;
+    std::cout << "" << std::endl;
+    std::cout << "" << std::endl;
+    return filter_cutoff;
 }
+
+void filter_repetitive_strobemers(mers_vector &flat_vector, kmer_lookup &mers_index, mers_vector &flat_vector_reduced, kmer_lookup &mers_index_reduced, unsigned int filter_cutoff) {
+
+    for ( auto &t : flat_vector ) {
+        uint64_t mer_hashv = std::get<0>(t);
+        std::tuple<uint64_t, unsigned int> mer;
+        mer = mers_index[mer_hashv];
+//        uint64_t offset = std::get<0>(mer);
+        unsigned int count = std::get<1>(mer);
+        if (count <= filter_cutoff ) { //  Passed abundance threshold
+            flat_vector_reduced.push_back(t);
+        }
+    }
+    flat_vector.clear();
+    mers_index.clear();
+    std::cout << "Flat vector filtered size: " << flat_vector_reduced.size() << std::endl;
+    kmer_lookup mers_index_final;
+    uint64_t offset = 0;
+    uint64_t prev_offset = 0;
+    unsigned int count = 0;
+
+    unsigned int tot_occur_once = 0;
+    unsigned int tot_high_ab = 0;
+    unsigned int tot_mid_ab = 0;
+    uint64_t prev_k;
+
+//    uint64_t prev_k_final;
+    std::tuple<uint64_t, unsigned int, unsigned int> t2 = flat_vector_reduced[0];
+    prev_k = std::get<0>(t2);
+    uint64_t curr_k;
+
+    for ( auto &t : flat_vector_reduced ) {
+//        std::cout << t << std::endl;
+        curr_k = std::get<0>(t);
+        if (curr_k == prev_k){
+            count ++;
+        }
+        else {
+            if (count == 1){
+                tot_occur_once ++;
+            }
+            else if (count > 100){
+                tot_high_ab ++;
+//                std::cout << count << std::endl;
+            }
+            else{
+                tot_mid_ab ++;
+            }
+
+            std::tuple<unsigned int, unsigned int> s(prev_offset, count);
+            mers_index_reduced[prev_k] = s;
+            count = 1;
+            prev_k = curr_k;
+            prev_offset = offset;
+        }
+        offset ++;
+    }
+
+    // last k-mer
+    std::tuple<unsigned int, unsigned int> s(prev_offset, count);
+    mers_index_reduced[curr_k] = s;
+
+    std::cout << "Total strobemers count: " << offset << std::endl;
+    std::cout << "Total strobemers occur once: " << tot_occur_once << std::endl;
+    std::cout << "Total strobemers highly abundant > 100: " << tot_high_ab << std::endl;
+    std::cout << "Total strobemers mid abundance (between 2-100): " << tot_mid_ab << std::endl;
+    std::cout << "Total distinct strobemers stored: " << mers_index_reduced.size() << std::endl;
+    if (tot_mid_ab > 0) {
+        std::cout << "Ratio distinct to non distinct: " << mers_index_reduced.size() / (tot_high_ab + tot_mid_ab)
+                  << std::endl;
+    }
+}
+
+
+
 
 mers_vector_reduced remove_kmer_hash_from_flat_vector(mers_vector &flat_vector){
     mers_vector_reduced flat_vector_reduced;

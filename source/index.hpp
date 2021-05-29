@@ -37,9 +37,9 @@ mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string 
 
 typedef robin_hood::unordered_map< unsigned int, std::vector< std::tuple<uint64_t, unsigned int, unsigned int>>> one_pos_index;
 mers_vector construct_flat_vector_three_pos(one_pos_index &tmp_index);
-kmer_lookup index_vector_one_pos(mers_vector  &mers_vector);
+unsigned int index_vector_one_pos(mers_vector  &mers_vector, kmer_lookup &mers_index);
 mers_vector_reduced remove_kmer_hash_from_flat_vector(mers_vector &flat_vector);
-
+void filter_repetitive_strobemers(mers_vector &flat_vector, kmer_lookup &mers_index, mers_vector &flat_vector_reduced, kmer_lookup &mers_index_reduced, unsigned int filter_cutoff);
 
 struct hit {
     unsigned int ref_id;
