@@ -60,6 +60,7 @@ struct nam {
     unsigned int n_hits = 0;
     unsigned int previous_query_start;
     unsigned int previous_ref_start;
+    unsigned int is_rc = false;
 };
 
 #endif /* index_hpp */
