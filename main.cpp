@@ -468,9 +468,85 @@ static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std:
 }
 
 
+void print_usage() {
+    std::cerr << "strobealign [options] <ref.fa> <reads.fasta>\n";
+    std::cerr << "options:\n";
+    std::cerr << "\t-n INT number of strobes [2]\n";
+    std::cerr << "\t-k INT strobe length [20]\n";
+    std::cerr << "\t-o name of output SAM-file to print results to [mapped.sam]\n";
+//    std::cerr << "\t-x mapping mode\n";
+    std::cerr << "\t-w INT minimizer thinning parameter to sample strobes [10]. \n";
+    std::cerr << "\t-f FLOAT top fraction of repetitive minimizers to filter out from sampling [0.0002]\n";
+}
 
-int main (int argc, char *argv[])
+
+int main (int argc, char **argv)
 {
+
+    if (argc < 3) {
+        print_usage();
+        return 0;
+    }
+
+    // Default parameters
+    std::string choice = "randstrobes";
+    int n = 2;
+    int k = 20;
+    int w = 10;
+    int w_min = k/(w/2);
+    int w_max = k/(w/2) + 10;
+    float f = 0.0002;
+    int hit_upper_window_lim = (w/2)*w_max;
+    std::string output_file_name;
+//    std::string mode = "map";
+    std::string mode = "align";
+
+    int opn = 1;
+    int kmer_temp = 0;
+    while (opn < argc) {
+        bool flag = false;
+        if (argv[opn][0] == '-') {
+            if (argv[opn][1] == 'n') {
+                n = std::stoi(argv[opn + 1]);
+                opn += 2;
+                flag = true;
+            } else if (argv[opn][1] == 'k') {
+                k = std::stoi(argv[opn + 1]);
+                opn += 2;
+                flag = true;
+            } else if (argv[opn][1] == 'o') {
+                output_file_name = argv[opn + 1];
+                opn += 2;
+                flag = true;
+            } else if (argv[opn][1] == 'w') {
+                w = std::stoi(argv[opn + 1]);
+                opn += 2;
+                flag = true;
+            } else if (argv[opn][1] == 'f') {
+                f = std::stof(argv[opn + 1]);
+                opn += 2;
+                flag = true;
+            }
+            else {
+                print_usage();
+            }
+        }
+        if (!flag)
+            break;
+    }
+
+    std::cout << "Using" << std::endl;
+    std::cout << "n: " << n << std::endl;
+    std::cout << "k: " << k << std::endl;
+    std::cout << "w: " << w << std::endl;
+    std::cout << "w_min: " << w_min << std::endl;
+    std::cout << "w_max: " << w_max << std::endl;
+    std::cout << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (under random minimizer sampling): [" << (w/2)*w_min << ", " << hit_upper_window_lim << "]" << std::endl;
+
+//    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
+    assert(k > 7 && "You should really not use too small strobe size!");
+    assert(k <= 32 && "k have to be smaller than 32!");
+    assert(w > 1 && "w have to be greater than 1!");
 
     ///////////////////// INPUT /////////////////////////
 //    std::string filename  = "test_ploy2.txt";
@@ -523,28 +599,9 @@ int main (int argc, char *argv[])
 //    std::string reads_filename  = "hg21_bug.txt";
 
 //    std::string choice = "kmers";
-    std::string choice = "randstrobes";
-    int n = 2;
-    int k = 18;
-    int w = 10;
-    int w_min = k/(w/2);
-    int w_max = k/(w/2) + 10;
-    float f = 0.0002;
-    int hit_upper_window_lim = (w/2)*w_max;
-//    std::string mode = "map";
-    std::string mode = "align";
 
-    std::cout << "Using" << std::endl;
-    std::cout << "n: " << n << std::endl;
-    std::cout << "k: " << k << std::endl;
-    std::cout << "w: " << w << std::endl;
-    std::cout << "w_min: " << w_min << std::endl;
-    std::cout << "w_max: " << w_max << std::endl;
-    std::cout << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (under random minimizer sampling): [" << (w/2)*w_min << ", " << hit_upper_window_lim << "]" << std::endl;
 
-//    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
-    assert(k <= 32 && "k have to be smaller than 32!");
-    assert(w > 1 && "w have to be greater than 1!");
+
     std::vector<std::string> ref_seqs;
     std::vector<unsigned int> ref_lengths;
     idx_to_acc acc_map;
@@ -649,7 +706,7 @@ int main (int argc, char *argv[])
 
     std::ifstream query_file(reads_filename);
     std::ofstream output_file;
-    output_file.open ("output.paf");
+    output_file.open (output_file_name);
 
     std::string line, seq, seq_rc, prev_acc;
     unsigned int q_id = 0;
@@ -698,7 +755,7 @@ int main (int argc, char *argv[])
 //              output_file << "> " <<  prev_acc << "\n";
 //              output_file << "  " << ref_acc << " " << ref_p << " " << q_pos << " " << "\n";
 //              outfile.write("  {0} {1} {2} {3}\n".format(ref_acc, ref_p, q_pos, k))
-                if (read_cnt % 10000 == 0){
+                if (read_cnt % 50000 == 0){
                     std::cout << "Processed " << read_cnt << "reads. " << std::endl;
                 }
             }
