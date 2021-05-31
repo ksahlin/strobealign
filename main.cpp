@@ -404,22 +404,22 @@ static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std:
             break;
         }
         std::string ref_segm = ref_seqs[n.ref_id].substr(n.ref_s - n.query_s, read_len );
-        std::cout << query_acc << ". Ref len:" << ref_segm.length() << " query length: " << read.length() << std::endl;
+//        std::cout << query_acc << ". Ref len:" << ref_segm.length() << " query length: " << read.length() << std::endl;
         if (n.is_rc){
 //            o = "-";
 
             int hamming_dist;
             hamming_dist = HammingDistance(read_rc, ref_segm);
-            std::cout << query_acc  << " Reverse, " << hamming_dist << " " << n.ref_s << " " << n.n_hits << " " << n.query_s << std::endl;
-            std::cout << read_rc << std::endl;
-            std::cout << ref_segm << std::endl;
+//            std::cout << query_acc  << " Reverse, " << hamming_dist << " " << n.ref_s << " " << n.n_hits << " " << n.query_s << std::endl;
+//            std::cout << read_rc << std::endl;
+//            std::cout << ref_segm << std::endl;
             if ( (hamming_dist) >=0 && (hamming_dist < 5)) { //Substitutions only
                 if (hamming_dist < best_align_dist){
                     best_align_index = cnt;
                     best_align_dist = hamming_dist;
                 }
 
-                std::cout << query_acc << " Reverse: Is exact or subs only: " << hamming_dist << ", ref pos: " << n.ref_s << std::endl;
+//                std::cout << query_acc << " Reverse: Is exact or subs only: " << hamming_dist << ", ref pos: " << n.ref_s << std::endl;
             }
             else{
                 ;
@@ -431,15 +431,15 @@ static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std:
 //            o = "+";
             int hamming_dist;
             hamming_dist = HammingDistance(read, ref_segm);
-            std::cout << query_acc  << " Forward, " << hamming_dist << " " << n.ref_s << " " << n.n_hits << " " << n.query_s << std::endl;
-            std::cout << read << std::endl;
-            std::cout << ref_segm << std::endl;
+//            std::cout << query_acc  << " Forward, " << hamming_dist << " " << n.ref_s << " " << n.n_hits << " " << n.query_s << std::endl;
+//            std::cout << read << std::endl;
+//            std::cout << ref_segm << std::endl;
             if ( (hamming_dist) >=0 && (hamming_dist < 4)) { //Substitutions only
                 if (hamming_dist < best_align_dist){
                     best_align_index = cnt;
                     best_align_dist = hamming_dist;
                 }
-                std::cout << query_acc << " Forward: Is exact or subs only: " << hamming_dist << ", ref pos: " << n.ref_s <<  std::endl;
+//                std::cout << query_acc << " Forward: Is exact or subs only: " << hamming_dist << ", ref pos: " << n.ref_s <<  std::endl;
             }
             else{
                 ;
@@ -506,10 +506,13 @@ int main (int argc, char *argv[])
 
 
     std::string filename  = "/Users/kxs624/Documents/data/genomes/human/hg38_chr21.fa";
+//    std::string filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr21_bug_ref.fa";
 //    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr21_1M_reads.fa";
     std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr21_reads.fa";
 //    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr21_erroneous.fa";
 //    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr21_100k_reads.fa";
+//    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr21_bug_read.fa";
+
 
 //    std::string filename  = "/Users/kxs624/Documents/data/genomes/human/hg38_chr1.fa";
 //    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr1_1M_reads.fa";

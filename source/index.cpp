@@ -153,8 +153,9 @@ unsigned int index_vector_one_pos(mers_vector &flat_vector, kmer_lookup &mers_in
     if (tot_high_ab >= 1) {
         std::cout << "Ratio distinct to highly abundant: " << mers_index.size() / tot_high_ab << std::endl;
     }
-    std::cout << "Ratio distinct to non distinct: " << mers_index.size()/(tot_high_ab + tot_mid_ab) << std::endl;
-
+    if (tot_mid_ab >= 1) {
+        std::cout << "Ratio distinct to non distinct: " << mers_index.size() / (tot_high_ab + tot_mid_ab) << std::endl;
+    }
     // get count for top -f fraction of strobemer count to filter them out
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
@@ -266,25 +267,27 @@ mers_vector_reduced remove_kmer_hash_from_flat_vector(mers_vector &flat_vector){
 //}
 
 // update queue and current minimum and position
-static inline void update_window(std::deque <uint64_t> &q, uint64_t &q_min_val, int &q_min_pos, uint64_t new_strobe_hashval, int w, int i, bool &new_minimizer){
+static inline void update_window(std::deque <uint64_t> &q, std::deque <unsigned int> &q_pos, uint64_t &q_min_val, int &q_min_pos, uint64_t new_strobe_hashval, int w, int i, bool &new_minimizer){
     uint64_t popped_val;
     popped_val = q.front();
     q.pop_front();
+    q_pos.pop_front();
     q.push_back(new_strobe_hashval);
+    q_pos.push_back(i);
     if (popped_val == q_min_val){ // we popped the minimum value, find new brute force
         q_min_val = UINT64_MAX;
         q_min_pos = i;
         for (int j = 0; j <= q.size()-1; j++) {
             if (q[j] < q_min_val) {
                 q_min_val = q[j];
-                q_min_pos = i + j;
+                q_min_pos = q_pos[j];
                 new_minimizer = true;
             }
         }
     }
     else if ( new_strobe_hashval < q_min_val ) { // the new value added to queue is the new minimum
         q_min_val = new_strobe_hashval;
-        q_min_pos = i + w;
+        q_min_pos = i;
         new_minimizer = true;
     }
 }
@@ -294,6 +297,7 @@ static inline void update_window(std::deque <uint64_t> &q, uint64_t &q_min_val, 
 static inline void make_string_to_hashvalues2(std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, int k, uint64_t kmask, int w) {
     // initialize the deque
     std::deque <uint64_t> q;
+    std::deque <unsigned int> q_pos;
     int seq_length = seq.length();
     int q_size = 0;
     uint64_t q_min_val = UINT64_MAX;
@@ -316,17 +320,19 @@ static inline void make_string_to_hashvalues2(std::string &seq, std::vector<uint
                 // que not initialized yet
                 if (q_size < w){
                     q.push_back(hash_k);
+                    q_pos.push_back(i-k+1);
                     q_size ++;
                 }
                 // que just filled up
                 else if (q_size == w - 1){
                     q.push_back(hash_k);
+                    q_pos.push_back(i-k+1);
                     q_min_val = UINT64_MAX;
                     q_min_pos = -1;
                     for (int j = 0; j <= w-1; j++) {
                         if (q[j] < q_min_val) {
                             q_min_val = q[j];
-                            q_min_pos = i - k + 1 + j;
+                            q_min_pos = q_pos[j];
                         }
                     }
                     string_hashes.push_back(q_min_val);
@@ -336,7 +342,7 @@ static inline void make_string_to_hashvalues2(std::string &seq, std::vector<uint
                 // sliding the queue
                 else{
                     bool new_minimizer = false;
-                    update_window(q, q_min_val, q_min_pos, hash_k, w, i - k + 1, new_minimizer );
+                    update_window(q, q_pos, q_min_val, q_min_pos, hash_k, w, i - k + 1, new_minimizer );
                     if (new_minimizer) {
                         string_hashes.push_back(q_min_val);
                         pos_to_seq_choord.push_back(q_min_pos);
@@ -423,6 +429,11 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
     make_string_to_hashvalues2(seq, string_hashes, pos_to_seq_choord, k, kmask, w);
     unsigned int seq_length = string_hashes.size();
 
+//    int tmp_cnt = 0;
+//    for (auto a: pos_to_seq_choord){
+//        std::cout << " OK: " << tmp_cnt << " " << a << std::endl;
+//        tmp_cnt ++;
+//    }
 //    std::cout << seq << std::endl;
 
     // create the randstrobes
@@ -434,14 +445,14 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
 
-        if (i + w_max <= seq_length){
+        if (i + w_max < seq_length){
             unsigned int w_start = i+w_min;
             unsigned int w_end = i+w_max;
             uint64_t strobe_hash;
             strobe_hash = string_hashes[i];
             get_next_strobe(string_hashes, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q);
         }
-        else if ((i + w_min + 1 < seq_length) && (seq_length < i + w_max) ){
+        else if ((i + w_min + 1 < seq_length) && (seq_length <= i + w_max) ){
             unsigned int w_start = i+w_min;
             unsigned int w_end = seq_length -1;
             uint64_t strobe_hash;
@@ -462,8 +473,14 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
         randstrobes2.push_back(s);
 
 
-//        auto strobe1 = seq.substr(i, k);
-//        std::cout << std::string(i, ' ') << strobe1 << std::string(strobe_pos_next - (i+k), ' ') << std::string(k, 'X') << std::endl;
+//        auto strobe1 = seq.substr(seq_pos_strobe1, k);
+//        unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
+//        if (seq_pos_strobe2 > (seq_pos_strobe1+k)) {
+////            std::cout << seq_pos_strobe1 << " LOOOOL " << seq_pos_strobe2 << " " << seq_pos_strobe2 - (seq_pos_strobe1+k) << std::endl;
+//            std::cout << std::string(seq_pos_strobe1, ' ') << strobe1 << std::string(seq_pos_strobe2 - (seq_pos_strobe1+k), ' ') << std::string(k, 'X') << std::endl;
+//        }
+//        std::cout << i << " " << strobe_pos_next << " " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << seq_pos_strobe2 - (seq_pos_strobe1+k) << " " << hash_randstrobe2 << std::endl;
+//        std::cout << i << " " << strobe_pos_next << std::endl;
 
     }
 //    std::cout << randstrobes2.size() << " randstrobes generated" << '\n';
@@ -506,7 +523,7 @@ mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string 
         unsigned int strobe_pos_next2;
         uint64_t strobe_hashval_next2;
 
-        if (i + 2*w_max <= seq_length){
+        if (i + 2*w_max < seq_length){
             unsigned int w1_start = i+w_min;
             unsigned int w1_end = i+w_max;
             get_next_strobe(string_hashes, strobe_hash, strobe_pos_next1, strobe_hashval_next1, w1_start, w1_end, q);
@@ -517,7 +534,7 @@ mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string 
             get_next_strobe(string_hashes, strobe_hashval_next1, strobe_pos_next2, strobe_hashval_next2, w2_start, w2_end, q);
         }
 
-        else if ((i + 2*w_min + 1 < seq_length) && (seq_length < i + 2*w_max) ){
+        else if ((i + 2*w_min + 1 < seq_length) && (seq_length <= i + 2*w_max) ){
 
             int overshot;
             overshot = i + 2*w_max - seq_length;
