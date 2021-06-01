@@ -490,19 +490,18 @@ int main (int argc, char **argv)
 
     // Default parameters
     std::string choice = "randstrobes";
+    //    std::string mode = "map";
+    std::string mode = "align";
+
     int n = 2;
     int k = 20;
     int w = 10;
-    int w_min = k/(w/2);
-    int w_max = k/(w/2) + 10;
     float f = 0.0002;
-    int hit_upper_window_lim = (w/2)*w_max;
     std::string output_file_name;
-//    std::string mode = "map";
-    std::string mode = "align";
+
 
     int opn = 1;
-    int kmer_temp = 0;
+//    int kmer_temp = 0;
     while (opn < argc) {
         bool flag = false;
         if (argv[opn][0] == '-') {
@@ -535,6 +534,10 @@ int main (int argc, char **argv)
             break;
     }
 
+    int w_min = k/(w/2);
+    int w_max = k/(w/2) + 10;
+    int hit_upper_window_lim = (w/2)*w_max;
+
     std::cout << "Using" << std::endl;
     std::cout << "n: " << n << std::endl;
     std::cout << "k: " << k << std::endl;
@@ -547,6 +550,15 @@ int main (int argc, char **argv)
     assert(k > 7 && "You should really not use too small strobe size!");
     assert(k <= 32 && "k have to be smaller than 32!");
     assert(w > 1 && "w have to be greater than 1!");
+
+    // File name to reference
+    std::string filename = argv[opn];
+    opn++;
+
+    std::string reads_filename = argv[opn];
+//    opn++;
+
+
 
     ///////////////////// INPUT /////////////////////////
 //    std::string filename  = "test_ploy2.txt";
@@ -592,8 +604,8 @@ int main (int argc, char **argv)
 //    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr21_bug2_reads.fa";
 
 
-    std::string filename  = "/Users/kxs624/Documents/data/genomes/human/hg38_chr1.fa";
-    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr1_1M_reads.fa";
+//    std::string filename  = "/Users/kxs624/Documents/data/genomes/human/hg38_chr1.fa";
+//    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr1_1M_reads.fa";
 
 //    std::string filename  = "hg21_bug.txt";
 //    std::string reads_filename  = "hg21_bug.txt";
