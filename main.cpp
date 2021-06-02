@@ -14,6 +14,7 @@
 //develop
 #include <chrono>
 #include <thread>
+#include <sstream>
 
 
 //typedef robin_hood::unordered_map< unsigned int , std::string > references;
@@ -21,7 +22,7 @@ typedef robin_hood::unordered_map< unsigned int, std::string > idx_to_acc;
 
 typedef robin_hood::unordered_map< uint64_t, std::tuple<uint64_t, unsigned int >> vector_index;
 
-typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int>> mers_vector;
+//typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>> mers_vector;
 
 
 
@@ -93,7 +94,7 @@ static inline void print_diagnostics_new4(mers_vector_reduced &mers_vector, kmer
 
 
 
-static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_reduced &mers_vector, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, bool is_rc, unsigned int hit_upper_window_lim){
+static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_reduced &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, bool is_rc, unsigned int hit_upper_window_lim){
 //    std::cout << "ENTER FIND NAMS " <<  std::endl;
     robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref; // [ref_id] -> vector( struct hit)
     uint64_t hit_count_reduced = 0;
@@ -105,7 +106,7 @@ static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_re
     {
         hit h;
         h.query_s = std::get<2>(q);
-        h.query_e = h.query_s + read_length/2;
+        h.query_e = std::get<3>(q) + k; // h.query_s + read_length/2;
 //        std::cout << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
         uint64_t mer_hashv = std::get<0>(q);
         if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
@@ -115,10 +116,10 @@ static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_re
             unsigned int count = std::get<1>(mer);
             for(size_t j = offset; j < offset+count; ++j)
             {
-                auto r = mers_vector[j];
-                unsigned int ref_s = std::get<1>(r);
-                unsigned int ref_e = ref_s + read_length/2;
+                auto r = ref_mers[j];
                 unsigned int ref_id = std::get<0>(r);
+                unsigned int ref_s = std::get<1>(r);
+                unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
 
                 h.ref_s = ref_s;
                 h.ref_e = ref_e;
@@ -358,7 +359,7 @@ static inline std::string reverse_complement(std::string &read) {
 }
 
 
-inline void ksw_align(const char *tseq, int tlen, const char *qseq, int qlen,
+inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen,
                int sc_mch, int sc_mis, int gapo, int gape, ksw_extz_t &ez) {
     int8_t a = sc_mch, b = sc_mis < 0 ? sc_mis : -sc_mis; // a>0 and b<0
     int8_t mat[25] = {a, b, b, b, 0, b, a, b, b, 0, b, b, a, b, 0, b, b, b, a, 0, 0, 0, 0, 0, 0};
@@ -366,6 +367,52 @@ inline void ksw_align(const char *tseq, int tlen, const char *qseq, int qlen,
     const uint8_t *qs = reinterpret_cast<const uint8_t *>(qseq);
     memset(&ez, 0, sizeof(ksw_extz_t));
     ksw_extz2_sse(0, qlen, qs, tlen, ts, 5, mat, gapo, gape, -1, -1, 0, 0, &ez);
+
+    aln_info aln;
+//    std::string cigar_mod;
+//    cigar_mod.reserve(5*ez.n_cigar);
+    unsigned int tstart_offset = 0;
+
+    std::stringstream cigar_string;
+    int edit_distance = 0;
+    unsigned ref_pos = 0, read_pos = 0;
+    for (int i = 0; i < ez.n_cigar; i++) {
+        int count = ez.cigar[i] >> 4;
+        char op = "MID"[ez.cigar[i] & 0xf];
+        if ( (i==0) && op == 'D'){
+            ref_pos += count;
+            tstart_offset = ref_pos;
+//            std::cout << "First deletion " << i << " " << count << std::endl;
+            continue;
+        }
+        if ( (i==ez.n_cigar-1) && op == 'D'){
+            ref_pos += count;
+//            std::cout << "Last deletion " << i << " " << count << std::endl;
+            continue;
+        }
+        cigar_string << count << op;
+        switch (op) {
+            case 'M':
+                for (int j = 0; j < count; j++, ref_pos++, read_pos++) {
+                    if (tseq[ref_pos] != qseq[read_pos])
+                        edit_distance++;
+                }
+                break;
+            case 'D':edit_distance += count;
+                ref_pos += count;
+                break;
+            case 'I':edit_distance += count;
+                read_pos += count;
+                break;
+            default:assert(0);
+        }
+//        std::cout << "ED " << edit_distance << std::endl;
+    }
+    aln.ed = edit_distance;
+    aln.ref_offset = tstart_offset;
+    aln.cigar = cigar_string.str();
+    free(ez.cigar); //free(ts); free(qs);
+    return aln;
 }
 
 inline int HammingDistance(std::string One, std::string Two)
@@ -393,13 +440,17 @@ static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std:
     //Sort hits based on start choordinate on query sequence
     std::sort(all_nams.begin(), all_nams.end(), compareByNrHitsAndSimilarSpan);
 
+//    std::cout << "" << std::endl;
+//    std::cout << query_acc << std::endl;
+
     // Output results
     int cnt = 0;
     int best_align_dist = INT_MAX;
     int best_align_index = 0; // assume by default it is the nam with most hits and most similar span length
+    final_alignment sam_aln;
     // Only output single best hit based on: Firstly: number of randstrobe-hits. Secondly the concordance the span of the hits between ref and query (more simmilar ranked higher)
     for (auto &n : all_nams) {
-        if (cnt > 5){ // only consider top 5 hits
+        if ( (cnt >= 5) || best_align_dist == 0){ // only consider top 5 hits and break if exact match to reference
             break;
         }
         std::string ref_segm = ref_seqs[n.ref_id].substr(n.ref_s - n.query_s, read_len );
@@ -416,14 +467,42 @@ static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std:
                 if (hamming_dist < best_align_dist){
                     best_align_index = cnt;
                     best_align_dist = hamming_dist;
+                    sam_aln.cigar = "200M";
+                    sam_aln.ed = hamming_dist;
+                    sam_aln.ref_start = n.ref_s - n.query_s +1; // +1 because SAM is 1-based!
+                    sam_aln.is_rc = true;
+                    sam_aln.ref_id = n.ref_id;
                 }
 
 //                std::cout << query_acc << " Reverse: Is exact or subs only: " << hamming_dist << ", ref pos: " << n.ref_s << std::endl;
             }
             else{
-                ;
-//            ksw_extz_t ez;
-//            ksw_align(ptr_ref, len, ptr_read, len, 1, 4, 6, 1, ez);
+                int a = n.ref_s - n.query_s;
+                int ref_start = std::max(0, a);
+                int b = n.ref_e + (read_len- n.query_e);
+                int ref_len = ref_seqs[n.ref_id].size();
+                int ref_end = std::min(ref_len, b);
+                std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
+                ksw_extz_t ez;
+                const char *ref_ptr = ref_segm.c_str();
+                const char *read_ptr = read_rc.c_str();
+                aln_info info;
+                info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, read_rc.size(), 1, 4, 6, 1, ez);
+                if (info.ed < best_align_dist){
+                    best_align_index = cnt;
+                    best_align_dist = info.ed;
+                    sam_aln.cigar = info.cigar;
+                    sam_aln.ed = info.ed;
+                    sam_aln.ref_start =  a + info.ref_offset +1; // +1 because SAM is 1-based!
+                    sam_aln.is_rc = true;
+                    sam_aln.ref_id = n.ref_id;
+                }
+//                for (int i = 0; i < ez.n_cigar; ++i) // print CIGAR
+//                    printf("%d%c", ez.cigar[i]>>4, "MID"[ez.cigar[i]&0xf]);
+//                putchar('\n');
+//                std::cout << ez.score << std::endl;
+
+//                std::cout << n.ref_s << " " << n.ref_e << ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
             }
         }
         else{
@@ -437,13 +516,40 @@ static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std:
                 if (hamming_dist < best_align_dist){
                     best_align_index = cnt;
                     best_align_dist = hamming_dist;
+                    sam_aln.cigar = "200M";
+                    sam_aln.ed = hamming_dist;
+                    sam_aln.ref_start = n.ref_s - n.query_s +1; // +1 because SAM is 1-based!
+                    sam_aln.is_rc = false;
+                    sam_aln.ref_id = n.ref_id;
                 }
 //                std::cout << query_acc << " Forward: Is exact or subs only: " << hamming_dist << ", ref pos: " << n.ref_s <<  std::endl;
             }
             else{
-                ;
-//            ksw_extz_t ez;
-//            ksw_align(ptr_ref, len, ptr_read, len, 1, 4, 6, 1, ez);
+                int a = n.ref_s - n.query_s;
+                int ref_start = std::max(0, a);
+                int b = n.ref_e + (read_len - n.query_e);
+                int ref_len = ref_seqs[n.ref_id].size();
+                int ref_end = std::min(ref_len, b);
+                std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
+                ksw_extz_t ez;
+                const char *ref_ptr = ref_segm.c_str();
+                const char *read_ptr = read.c_str();
+                aln_info info;
+                info = ksw_align(ref_ptr, ref_segm.length(), read_ptr, read.length(), 1, 4, 6, 1, ez);
+                if (info.ed < best_align_dist){
+                    best_align_index = cnt;
+                    best_align_dist = info.ed;
+                    sam_aln.cigar = info.cigar;
+                    sam_aln.ed = info.ed;
+                    sam_aln.ref_start =  a + info.ref_offset +1; // +1 because SAM is 1-based!
+                    sam_aln.is_rc = false;
+                    sam_aln.ref_id = n.ref_id;
+                }
+//                for (int i = 0; i < ez.n_cigar; ++i) // print CIGAR
+//                    printf("%d%c", ez.cigar[i]>>4, "MID"[ez.cigar[i]&0xf]);
+//                putchar('\n');
+//                std::cout << ez.score << std::endl;
+//                std::cout << n.ref_s << " " << n.ref_e << ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
             }
         }
 
@@ -453,17 +559,34 @@ static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std:
     }
 
     if (all_nams.size() > 0) {
-        nam n_best = all_nams[best_align_index];
-        std::string o;
-        if (n_best.is_rc) {
-            o = "-";
+//        nam n_best = all_nams[best_align_index];
+//        std::string o;
+//        if (n_best.is_rc) {
+//            o = "-";
+//        } else {
+//            o = "+";
+//        }
+//        output_file << query_acc << "\t" << read_len << "\t" << n_best.query_s << "\t" << n_best.query_last_hit_pos + k
+//                    << "\t" << o << "\t" << acc_map[n_best.ref_id] << "\t" << ref_len_map[n_best.ref_id] << "\t"
+//                    << n_best.ref_s << "\t" << n_best.ref_last_hit_pos + k << "\t" << n_best.n_hits << "\t"
+//                    << n_best.ref_last_hit_pos + k - n_best.ref_s << "\t" << "-" << "\n";
+        int o;
+        std::string output_read;
+        if (sam_aln.is_rc) {
+            o = 16;
+            output_read = read_rc;
         } else {
-            o = "+";
+            o = 0;
+            output_read = read;
         }
-        output_file << query_acc << "\t" << read_len << "\t" << n_best.query_s << "\t" << n_best.query_last_hit_pos + k
-                    << "\t" << o << "\t" << acc_map[n_best.ref_id] << "\t" << ref_len_map[n_best.ref_id] << "\t"
-                    << n_best.ref_s << "\t" << n_best.ref_last_hit_pos + k << "\t" << n_best.n_hits << "\t"
-                    << n_best.ref_last_hit_pos + k - n_best.ref_s << "\t" << "-" << "\n";
+        //TODO: Best way to calc Alignment score?
+//        output_file << "LOL\n";
+        output_file << query_acc << "\t" << o << "\t" << acc_map[sam_aln.ref_id] << "\t" << sam_aln.ref_start
+                    << "\t" << 40 << "\t" << sam_aln.cigar << "\t" << "*" << "\t"
+                    << 0 << "\t" << 0 << "\t" << output_read << "\t" << "*" << "\tNM:i:" << sam_aln.ed << "\n";
+
+
+
     }
 }
 
@@ -628,7 +751,7 @@ int main (int argc, char **argv)
     // Record index creation start time
     auto start = std::chrono::high_resolution_clock::now();
 
-    one_pos_index tmp_index; // hash table holding all reference mers
+    pos_index tmp_index; // hash table holding all reference mers
 
     if (choice == "kmers" ){
 
@@ -678,10 +801,10 @@ int main (int argc, char **argv)
 
 
     mers_vector all_mers_vector_tmp;
-    all_mers_vector_tmp = construct_flat_vector_three_pos(tmp_index);
+    all_mers_vector_tmp = construct_flat_vector(tmp_index);
     kmer_lookup mers_index_tmp; // k-mer -> (offset in flat_vector, occurence count )
     unsigned int filter_cutoff;
-    filter_cutoff = index_vector_one_pos(all_mers_vector_tmp, mers_index_tmp, f); // construct index over flat array
+    filter_cutoff = index_vector(all_mers_vector_tmp, mers_index_tmp, f); // construct index over flat array
     tmp_index.clear();
 
     // filter fraction of repetitive strobes
@@ -691,7 +814,7 @@ int main (int argc, char **argv)
     mers_index_tmp.clear();
     all_mers_vector_tmp.clear();
 
-    filter_cutoff = index_vector_one_pos(flat_vector_reduced, mers_index, f); // construct index over flat array
+    filter_cutoff = index_vector(flat_vector_reduced, mers_index, f); // construct index over flat array
 
     mers_vector_reduced all_mers_vector;
     all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector_reduced);
@@ -719,6 +842,12 @@ int main (int argc, char **argv)
     std::ifstream query_file(reads_filename);
     std::ofstream output_file;
     output_file.open (output_file_name);
+
+
+    for (auto &it : acc_map){
+        output_file << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
+    }
+    output_file << "@PG\tID:strobealign\tPN:strobealign\tVN:0.0.1\tCL:strobealign\n";
 
     std::string line, seq, seq_rc, prev_acc;
     unsigned int q_id = 0;

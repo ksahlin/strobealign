@@ -81,7 +81,7 @@ static inline uint64_t kmer_to_uint64(std::string &kmer, uint64_t kmask)
 }
 
 
-mers_vector construct_flat_vector_three_pos(one_pos_index &tmp_index){
+mers_vector construct_flat_vector(pos_index &tmp_index){
     mers_vector flat_vector;
     for (auto &it : tmp_index)  {
         for (auto &t : it.second) // it.second is the vector of k-mers, t is a tuple
@@ -95,7 +95,7 @@ mers_vector construct_flat_vector_three_pos(one_pos_index &tmp_index){
 }
 
 
-unsigned int index_vector_one_pos(mers_vector &flat_vector, kmer_lookup &mers_index, float f){
+unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, float f){
 
     std::cout << "Flat vector size: " << flat_vector.size() << std::endl;
 //    kmer_lookup mers_index;
@@ -109,7 +109,7 @@ unsigned int index_vector_one_pos(mers_vector &flat_vector, kmer_lookup &mers_in
     std::vector<unsigned int> strobemer_counts;
 
     uint64_t prev_k;
-    std::tuple<uint64_t, unsigned int, unsigned int> t = flat_vector[0];
+    std::tuple<uint64_t, unsigned int, unsigned int, unsigned int> t = flat_vector[0];
     prev_k = std::get<0>(t);
     uint64_t curr_k;
 
@@ -247,7 +247,7 @@ void filter_repetitive_strobemers(mers_vector &flat_vector, kmer_lookup &mers_in
 mers_vector_reduced remove_kmer_hash_from_flat_vector(mers_vector &flat_vector){
     mers_vector_reduced flat_vector_reduced;
     for ( auto &t : flat_vector ) {
-        std::tuple<unsigned int, unsigned int> s( std::get<1>(t), std::get<2>(t) );
+        std::tuple<unsigned int, unsigned int,unsigned int> s( std::get<1>(t), std::get<2>(t), std::get<3>(t) );
         flat_vector_reduced.push_back(s);
     }
     return flat_vector_reduced;
@@ -393,7 +393,7 @@ mers_vector seq_to_kmers(int k, std::string &seq, unsigned int ref_index)
             x = (x << 2 | c) & mask;                  // forward strand
             if (++l >= k) { // we find a k-mer
                 uint64_t hash_k = x;
-                std::tuple<uint64_t, unsigned int, unsigned int> s (hash_k, ref_index, i-k+1);
+                std::tuple<uint64_t, unsigned int, unsigned int, unsigned int> s (hash_k, ref_index, i-k+1, i-k+1);
                 kmers.push_back(s);
                 cnt ++;
                 if ((cnt % 1000000) == 0 ){
@@ -468,8 +468,8 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
         uint64_t hash_randstrobe2 = (string_hashes[i]/2) + (strobe_hashval_next/3);
 
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
-//        unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
-        std::tuple<uint64_t, unsigned int, unsigned int> s (hash_randstrobe2, ref_index, seq_pos_strobe1);
+        unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
+        std::tuple<uint64_t, unsigned int, unsigned int, unsigned int> s (hash_randstrobe2, ref_index, seq_pos_strobe1, seq_pos_strobe2);
         randstrobes2.push_back(s);
 
 
@@ -555,7 +555,7 @@ mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string 
 
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
 //        unsigned int seq_pos_strobe2 =  pos_to_seq_choord[strobe_pos_next1]; //seq_pos_strobe1 + (strobe_pos_next1 - i); //
-//        unsigned int seq_pos_strobe3 =  pos_to_seq_choord[strobe_pos_next2]; //seq_pos_strobe1 + (strobe_pos_next2 - i); //
+        unsigned int seq_pos_strobe3 =  pos_to_seq_choord[strobe_pos_next2]; //seq_pos_strobe1 + (strobe_pos_next2 - i); //
 //        std::cout << i << " " << strobe_pos_next1 << " " << strobe_pos_next2 << " " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << seq_pos_strobe3 << " " << pos_to_seq_choord.size() << std::endl;
 
 //         TODO: Take care of corner case (tmep if statement below. Some values in end of string produce a cororidnate of 0 for the last strobe. Probably an off-by-one error in the calculation of the strobe coord in the last strobe window
@@ -563,7 +563,7 @@ mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string 
 ////            std::cout << "OMGGGGGGG " << i << " " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << seq_pos_strobe3 << std::endl;
 //            seq_pos_strobe3 = seq_length-1;
 //        }
-        std::tuple<uint64_t, unsigned int, unsigned int> s (hash_randstrobe3, ref_index, seq_pos_strobe1);
+        std::tuple<uint64_t, unsigned int, unsigned int, unsigned int> s (hash_randstrobe3, ref_index, seq_pos_strobe1, seq_pos_strobe3);
         randstrobes3.push_back(s);
 
 
