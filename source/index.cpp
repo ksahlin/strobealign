@@ -268,16 +268,22 @@ mers_vector_reduced remove_kmer_hash_from_flat_vector(mers_vector &flat_vector){
 
 // update queue and current minimum and position
 static inline void update_window(std::deque <uint64_t> &q, std::deque <unsigned int> &q_pos, uint64_t &q_min_val, int &q_min_pos, uint64_t new_strobe_hashval, int w, int i, bool &new_minimizer){
-    uint64_t popped_val;
-    popped_val = q.front();
+//    uint64_t popped_val;
+//    popped_val = q.front();
     q.pop_front();
+
+    unsigned int popped_index;
+    popped_index=q_pos.front();
     q_pos.pop_front();
+
     q.push_back(new_strobe_hashval);
     q_pos.push_back(i);
-    if (popped_val == q_min_val){ // we popped the minimum value, find new brute force
+    if (q_min_pos == popped_index){ // we popped the previous minimizer, find new brute force
+//    if (popped_val == q_min_val){ // we popped the minimum value, find new brute force
         q_min_val = UINT64_MAX;
         q_min_pos = i;
-        for (int j = 0; j <= q.size()-1; j++) {
+        for (int j = q.size() - 1; j >= 0; j--) { //Iterate in reverse to choose the rightmost minimizer in a window
+//        for (int j = 0; j <= q.size()-1; j++) {
             if (q[j] < q_min_val) {
                 q_min_val = q[j];
                 q_min_pos = q_pos[j];

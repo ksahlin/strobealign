@@ -221,84 +221,87 @@ static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_re
 
 
 
+//static inline std::vector<hit> find_hits(mers_vector &query_mers, mers_vector_reduced &mers_vector, vector_index &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read){
+////    std::cout << "ENTER FIND NAMS " <<  std::endl;
+//    std::vector<hit> query_hits;
+//    int extra = 20;
+//    uint64_t hit_count_reduced = 0;
+//    uint64_t hit_count_all = 0;
+//    int read_length = read.length();
+//    for (auto &q : query_mers)
+////    for (size_t i = 0; i < query_mers.size(); ++i)
+//    {
+//        hit h;
+//        h.query_s = std::get<2>(q);
+////        std::cout << h.query_s << " " << h.query_e <<  std::endl;
+//
+//        uint64_t mer_hashv = std::get<0>(q);
+//        if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
+//            std::tuple<uint64_t, unsigned int> mer;
+//            mer = mers_index[mer_hashv];
+//            uint64_t offset = std::get<0>(mer);
+//            unsigned int count = std::get<1>(mer);
+//            for(size_t j = offset; j < offset+count; ++j)
+//            {
+//
+//                auto r = mers_vector[j];
+//                unsigned int ref_s = std::get<1>(r);
+//                unsigned int ref_id = std::get<0>(r);
+//
+//                h.ref_s = ref_s;
+//                h.ref_id = ref_id;
+//                query_hits.push_back(h);
+//
+//                hit_count_all ++;
+//                std::string ref_segm;
+////                ref_segm = ref_seqs[ref_id].substr(ref_s - h.query_s, read_length);
+//
+////                EdlibAlignResult result = edlibAlign("hello", 5, "world!", 6, edlibDefaultAlignConfig());
+////                if (result.status == EDLIB_STATUS_OK) {
+////                    printf("edit_distance('hello', 'world!') = %d\n", result.editDistance);
+////                    printf("edit_distance('hello', 'world!') = %d\n", result2.editDistance);
+////                }
+//
+////                EdlibAlignResult result2 = edlibAlign(&read[0], read_length, &ref_segm[0], read_length, edlibNewAlignConfig(60, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
+////                char* cigar = edlibAlignmentToCigar(result2.alignment, result2.alignmentLength, EDLIB_CIGAR_STANDARD);
+//////                std::cout <<  cigar << std::endl;
+////                edlibFreeAlignResult(result2);
+////                free(cigar);
+//
+////                std::cout << "Hit! " << h.query_s << ", " << h.query_e << ", " << ref_s << ", " << ref_e << ", " << std::endl;
+//
+//            }
+//
+//        }
+//    }
+//
+//
+//    return query_hits;
+//}
 
-static inline std::vector<hit> find_hits(mers_vector &query_mers, mers_vector_reduced &mers_vector, vector_index &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read){
-//    std::cout << "ENTER FIND NAMS " <<  std::endl;
-    std::vector<hit> query_hits;
-    int extra = 20;
-    uint64_t hit_count_reduced = 0;
-    uint64_t hit_count_all = 0;
-    int read_length = read.length();
-    for (auto &q : query_mers)
-//    for (size_t i = 0; i < query_mers.size(); ++i)
-    {
-        hit h;
-        h.query_s = std::get<2>(q);
-//        std::cout << h.query_s << " " << h.query_e <<  std::endl;
+//static inline bool compareByQueryCoord(const hit &a, const hit &b)
+//{
+//    // first sort on ref ID, then on query, then on reference
+//    return (a.ref_id < b.ref_id) ||
+//           ( (a.ref_id == b.ref_id) && (a.query_s < b.query_s) ) ||
+//           ((a.ref_id == b.ref_id) && (a.query_s == b.query_s ) && (a.ref_s < b.ref_s)) ;
+//}
+//
+//static inline bool compareByQueryLength(const hit &a, const hit &b)
+//{
+//    return (a.query_e - a.query_s) < ( b.query_e - b.query_s);
+//}
 
-        uint64_t mer_hashv = std::get<0>(q);
-        if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
-            std::tuple<uint64_t, unsigned int> mer;
-            mer = mers_index[mer_hashv];
-            uint64_t offset = std::get<0>(mer);
-            unsigned int count = std::get<1>(mer);
-            for(size_t j = offset; j < offset+count; ++j)
-            {
+//static inline bool compareByNrHitsAndSimilarSpan(const nam &a, const nam &b)
+//{
+//    // first sort on nr hits, then on diff in span between query and reference, then on reference
+//    return (a.n_hits > b.n_hits) ||
+//           ( (a.n_hits == b.n_hits) && ( ((a.query_e - a.query_s) - (a.ref_e - a.ref_s)) < ((b.query_e - b.query_s) - (b.ref_e - b.ref_s)) ) );
+//}
 
-                auto r = mers_vector[j];
-                unsigned int ref_s = std::get<1>(r);
-                unsigned int ref_id = std::get<0>(r);
-
-                h.ref_s = ref_s;
-                h.ref_id = ref_id;
-                query_hits.push_back(h);
-
-                hit_count_all ++;
-                std::string ref_segm;
-//                ref_segm = ref_seqs[ref_id].substr(ref_s - h.query_s, read_length);
-
-//                EdlibAlignResult result = edlibAlign("hello", 5, "world!", 6, edlibDefaultAlignConfig());
-//                if (result.status == EDLIB_STATUS_OK) {
-//                    printf("edit_distance('hello', 'world!') = %d\n", result.editDistance);
-//                    printf("edit_distance('hello', 'world!') = %d\n", result2.editDistance);
-//                }
-
-//                EdlibAlignResult result2 = edlibAlign(&read[0], read_length, &ref_segm[0], read_length, edlibNewAlignConfig(60, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
-//                char* cigar = edlibAlignmentToCigar(result2.alignment, result2.alignmentLength, EDLIB_CIGAR_STANDARD);
-////                std::cout <<  cigar << std::endl;
-//                edlibFreeAlignResult(result2);
-//                free(cigar);
-
-//                std::cout << "Hit! " << h.query_s << ", " << h.query_e << ", " << ref_s << ", " << ref_e << ", " << std::endl;
-
-            }
-
-        }
-    }
-
-
-    return query_hits;
-}
-
-
-static inline bool compareByQueryCoord(const hit &a, const hit &b)
+static inline bool score(const nam &a, const nam &b)
 {
-    // first sort on ref ID, then on query, then on reference
-    return (a.ref_id < b.ref_id) ||
-           ( (a.ref_id == b.ref_id) && (a.query_s < b.query_s) ) ||
-           ((a.ref_id == b.ref_id) && (a.query_s == b.query_s ) && (a.ref_s < b.ref_s)) ;
-}
-
-static inline bool compareByQueryLength(const hit &a, const hit &b)
-{
-    return (a.query_e - a.query_s) < ( b.query_e - b.query_s);
-}
-
-static inline bool compareByNrHitsAndSimilarSpan(const nam &a, const nam &b)
-{
-    // first sort on nr hits, then on diff in span between query and reference, then on reference
-    return (a.n_hits > b.n_hits) ||
-           ( (a.n_hits == b.n_hits) && ( ((a.query_e - a.query_s) - (a.ref_e - a.ref_s)) < ((b.query_e - b.query_s) - (b.ref_e - b.ref_s)) ) );
+    return ( (a.n_hits * (a.query_e - a.query_s)) > (b.n_hits * (b.query_e - b.query_s)) );
 }
 
 static inline void output_hits(std::vector<nam> &nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map) {
@@ -320,7 +323,7 @@ static inline void output_hits_paf(std::vector<nam> &nams, std::vector<nam> &nam
     all_nams.insert( all_nams.end(), nams_rc.begin(), nams_rc.end() );
 
     //Sort hits based on start choordinate on query sequence
-    std::sort(all_nams.begin(), all_nams.end(), compareByNrHitsAndSimilarSpan);
+    std::sort(all_nams.begin(), all_nams.end(), score);
 
     // Output results
 //    int cnt = 0;
@@ -438,7 +441,7 @@ static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std:
     all_nams.insert( all_nams.end(), nams_rc.begin(), nams_rc.end() );
 
     //Sort hits based on start choordinate on query sequence
-    std::sort(all_nams.begin(), all_nams.end(), compareByNrHitsAndSimilarSpan);
+    std::sort(all_nams.begin(), all_nams.end(), score);
 
 //    std::cout << "" << std::endl;
 //    std::cout << query_acc << std::endl;
@@ -449,10 +452,15 @@ static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std:
     int best_align_index = 0; // assume by default it is the nam with most hits and most similar span length
     final_alignment sam_aln;
     // Only output single best hit based on: Firstly: number of randstrobe-hits. Secondly the concordance the span of the hits between ref and query (more simmilar ranked higher)
+//    std::cout << "" << std::endl;
     for (auto &n : all_nams) {
-        if ( (cnt >= 5) || best_align_dist == 0){ // only consider top 5 hits and break if exact match to reference
+
+//        std::cout << query_acc << "\t" << n.ref_s << " " << n.ref_e << " " << n.ref_e - n.ref_s << " " << n.query_e - n.query_s << " "  << n.n_hits << " " << best_align_dist << std::endl; //<< ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
+
+        if ( (cnt >= 3) || best_align_dist == 0){ // only consider top 3 hits and break if exact match to reference
             break;
         }
+
         std::string ref_segm = ref_seqs[n.ref_id].substr(n.ref_s - n.query_s, read_len );
 //        std::cout << query_acc << ". Ref len:" << ref_segm.length() << " query length: " << read.length() << std::endl;
         if (n.is_rc){
@@ -624,7 +632,6 @@ int main (int argc, char **argv)
 
 
     int opn = 1;
-//    int kmer_temp = 0;
     while (opn < argc) {
         bool flag = false;
         if (argv[opn][0] == '-') {
@@ -677,9 +684,7 @@ int main (int argc, char **argv)
     // File name to reference
     std::string filename = argv[opn];
     opn++;
-
     std::string reads_filename = argv[opn];
-//    opn++;
 
 
 
