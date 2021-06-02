@@ -267,7 +267,7 @@ mers_vector_reduced remove_kmer_hash_from_flat_vector(mers_vector &flat_vector){
 //}
 
 // update queue and current minimum and position
-static inline void update_window(std::deque <uint64_t> &q, std::deque <unsigned int> &q_pos, uint64_t &q_min_val, int &q_min_pos, uint64_t new_strobe_hashval, int w, int i, bool &new_minimizer){
+static inline void update_window(std::deque <uint64_t> &q, std::deque <unsigned int> &q_pos, uint64_t &q_min_val, int &q_min_pos, uint64_t new_strobe_hashval, int i, bool &new_minimizer){
 //    uint64_t popped_val;
 //    popped_val = q.front();
     q.pop_front();
@@ -299,8 +299,66 @@ static inline void update_window(std::deque <uint64_t> &q, std::deque <unsigned 
 }
 
 
+static inline void make_string_to_hashvalues_open_syncmers(std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, uint64_t kmask, int k, uint64_t smask, int s, int t) {
+    // initialize the deque
+    std::deque <uint64_t> qs;
+    std::deque <unsigned int> qs_pos;
+    int seq_length = seq.length();
+    int qs_size = 0;
+    uint64_t qs_min_val = UINT64_MAX;
+    int qs_min_pos = -1;
 
-static inline void make_string_to_hashvalues2(std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, int k, uint64_t kmask, int w) {
+
+    robin_hood::hash<uint64_t> robin_hash;
+//    std::vector<std::tuple<uint64_t, unsigned int, unsigned int> > kmers;
+    unsigned int hash_count = 0;
+    int l;
+//    int i;
+    uint64_t xk = 0;
+    uint64_t xs = 0;
+    for (int i = l = 0; i < seq_length; i++) {
+        int c = seq_nt4_table[(uint8_t) seq[i]];
+        if (c < 4) { // not an "N" base
+            xk = (xk << 2 | c) & kmask;
+            xs = (xs << 2 | c) & smask;
+            if (++l >= s) { // we find an s-mer
+                uint64_t hash_s = robin_hash(xs);
+                // que not initialized yet
+                if (qs_size < k - s + 1) {
+                    qs.push_back(hash_s);
+                    qs_pos.push_back(i - s + 1);
+                    qs_size++;
+                }
+                else{
+                    bool new_minimizer = false;
+                    update_window(qs, qs_pos, qs_min_val, qs_min_pos, hash_s, i - s + 1, new_minimizer );
+                    if (qs_min_pos == qs_pos[t]) { // occurs at t:th position in k-mer
+                        uint64_t hash_k = robin_hash(xk);
+                        string_hashes.push_back(hash_k);
+                        pos_to_seq_choord.push_back(i - k + 1);
+                        hash_count++;
+                    }
+                }
+            }
+        } else {
+            l = 0, xk = 0, xs = 0; // if there is an "N", restart
+            qs_size = 0;
+            uint64_t q_min_val = UINT64_MAX;
+            int qs_min_pos = -1;
+            qs.clear();
+            qs_pos.clear();
+        }
+    }
+//    std::cout << hash_count << " values produced from string of length " <<   seq_length << std::endl;
+//    for(auto t: pos_to_seq_choord){
+//        std::cout << t << " ";
+//    }
+//    std::cout << " " << std::endl;
+}
+
+
+
+static inline void make_string_to_hashvalues_random_minimizers(std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, int k, uint64_t kmask, int w) {
     // initialize the deque
     std::deque <uint64_t> q;
     std::deque <unsigned int> q_pos;
@@ -348,7 +406,7 @@ static inline void make_string_to_hashvalues2(std::string &seq, std::vector<uint
                 // sliding the queue
                 else{
                     bool new_minimizer = false;
-                    update_window(q, q_pos, q_min_val, q_min_pos, hash_k, w, i - k + 1, new_minimizer );
+                    update_window(q, q_pos, q_min_val, q_min_pos, hash_k, i - k + 1, new_minimizer );
                     if (new_minimizer) {
                         string_hashes.push_back(q_min_val);
                         pos_to_seq_choord.push_back(q_min_pos);
@@ -432,7 +490,12 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
     std::vector<uint64_t> string_hashes;
     std::vector<unsigned int> pos_to_seq_choord;
 //    robin_hood::unordered_map< unsigned int, unsigned int>  pos_to_seq_choord;
-    make_string_to_hashvalues2(seq, string_hashes, pos_to_seq_choord, k, kmask, w);
+//    make_string_to_hashvalues_random_minimizers(seq, string_hashes, pos_to_seq_choord, k, kmask, w);
+
+    int s = k-4;
+    int t = 3;
+    uint64_t smask=(1ULL<<2*s) - 1;
+    make_string_to_hashvalues_open_syncmers(seq, string_hashes, pos_to_seq_choord, kmask, k, smask, s, t);
     unsigned int seq_length = string_hashes.size();
 
 //    int tmp_cnt = 0;
@@ -510,7 +573,7 @@ mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string 
 //    std::vector<uint64_t> pos_to_seq_choord;
     std::vector<unsigned int> pos_to_seq_choord;
 //    robin_hood::unordered_map< unsigned int, unsigned int>  pos_to_seq_choord;
-    make_string_to_hashvalues2(seq, string_hashes, pos_to_seq_choord, k, kmask, w);
+    make_string_to_hashvalues_random_minimizers(seq, string_hashes, pos_to_seq_choord, k, kmask, w);
     unsigned int seq_length = string_hashes.size();
 
 //    std::cout << seq << std::endl;
@@ -518,7 +581,7 @@ mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string 
     // create the randstrobes
     for (unsigned int i = 0; i <= seq_length; i++) {
 
-//        if ((i % 1000000) == 0 ){
+//        if ((i % 10) == 0 ){
 //            std::cout << i << " randstrobes created." << std::endl;
 //        }
         uint64_t strobe_hash;

@@ -212,9 +212,11 @@ static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_re
     }
 
 //    for (auto &n : final_nams){
-//        std::cout << n.ref_id << ": (" << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e << ")" << std::endl;
+////        std::cout << n.ref_id << ": (" << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e << ")" << std::endl;
+//        std::cout << n.ref_id << ": (" << n.n_hits << ", " << n.ref_s << ", " << n.ref_e << ")" << std::endl;
 //    }
 
+//    std::cout << "DONE" << std::endl;
 
     return final_nams;
 }
@@ -664,7 +666,7 @@ int main (int argc, char **argv)
             break;
     }
 
-    int w_min = k/(w/2);
+    int w_min = k/(w/2)+2;
     int w_max = k/(w/2) + 10;
     int hit_upper_window_lim = (w/2)*w_max;
 
@@ -680,7 +682,7 @@ int main (int argc, char **argv)
     assert(k > 7 && "You should really not use too small strobe size!");
     assert(k <= 32 && "k have to be smaller than 32!");
     assert(w > 1 && "w have to be greater than 1!");
-
+    assert(n == 2 && "Currently only n=2 is implemented");
     // File name to reference
     std::string filename = argv[opn];
     opn++;
@@ -724,6 +726,7 @@ int main (int argc, char **argv)
 
 
 //    std::string filename  = "/Users/kxs624/Documents/data/genomes/human/hg38_chr21.fa";
+//    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr21_10k_reads_high_error.fa";
 //    std::string filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr21_bug_ref.fa";
 //    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr21_1M_reads.fa";
 //    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr21_reads.fa";
@@ -882,7 +885,7 @@ int main (int argc, char **argv)
                 }
 //                std::cout << "HERE " << line << std::endl;
                 // Find NAMs
-//                std::cout << "Processing read: " << prev_acc << " kmers generated: " << query_mers.size() << ", read length: " <<  seq.length() << std::endl;
+//                std::cout << "Processing read: " << prev_acc << " mers generated: " << query_mers.size() << " mers_rc generated: " << query_mers_rc.size() << ", read length: " <<  seq.length() << std::endl;
                 std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
                 std::vector<nam> nams_rc; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
                 nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, seq, false, hit_upper_window_lim);
