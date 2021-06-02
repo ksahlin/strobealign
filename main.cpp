@@ -94,7 +94,7 @@ static inline void print_diagnostics_new4(mers_vector_reduced &mers_vector, kmer
 
 
 
-static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_reduced &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, bool is_rc, unsigned int hit_upper_window_lim){
+static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_reduced &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, bool is_rc, unsigned int hit_upper_window_lim, unsigned int filter_cutoff ){
 //    std::cout << "ENTER FIND NAMS " <<  std::endl;
     robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref; // [ref_id] -> vector( struct hit)
     uint64_t hit_count_reduced = 0;
@@ -114,19 +114,22 @@ static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_re
             mer = mers_index[mer_hashv];
             uint64_t offset = std::get<0>(mer);
             unsigned int count = std::get<1>(mer);
-            for(size_t j = offset; j < offset+count; ++j)
-            {
-                auto r = ref_mers[j];
-                unsigned int ref_id = std::get<0>(r);
-                unsigned int ref_s = std::get<1>(r);
-                unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
+            if (count <= filter_cutoff){
+                for(size_t j = offset; j < offset+count; ++j)
+                {
+                    auto r = ref_mers[j];
+                    unsigned int ref_id = std::get<0>(r);
+                    unsigned int ref_s = std::get<1>(r);
+                    unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
 
-                h.ref_s = ref_s;
-                h.ref_e = ref_e;
-                hits_per_ref[ref_id].push_back(h);
-//                std::cout << "Found: " <<  h.query_s << " " << h.query_e << " ref: " <<  h.ref_s << " " << h.ref_e <<  std::endl;
-                hit_count_all ++;
+                    h.ref_s = ref_s;
+                    h.ref_e = ref_e;
+                    hits_per_ref[ref_id].push_back(h);
+                    h.hit_count = count;
+    //                std::cout << "Found: " <<  h.query_s << " " << h.query_e << " ref: " <<  h.ref_s << " " << h.ref_e <<  std::endl;
+                    hit_count_all ++;
 
+                }
             }
 
         }
@@ -160,6 +163,7 @@ static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_re
                     o.query_last_hit_pos = h.query_s; // log the last strobemer hit in case of outputting paf
                     o.ref_last_hit_pos = h.ref_s; // log the last strobemer hit in case of outputting paf
                     o.n_hits ++;
+                    o.score += (float)1/ (float)h.hit_count;
                     is_added = true;
                     break;
                 }
@@ -181,6 +185,7 @@ static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_re
                 n.ref_last_hit_pos = h.ref_s;
                 n.n_hits = 1;
                 n.is_rc = is_rc;
+                n.score += (float)1/ (float)h.hit_count;
                 open_nams.push_back(n);
             }
 
@@ -457,7 +462,7 @@ static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std:
 //    std::cout << "" << std::endl;
     for (auto &n : all_nams) {
 
-//        std::cout << query_acc << "\t" << n.ref_s << " " << n.ref_e << " " << n.ref_e - n.ref_s << " " << n.query_e - n.query_s << " "  << n.n_hits << " " << best_align_dist << std::endl; //<< ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
+//        std::cout << query_acc << "\t" << n.ref_s << " " << n.ref_e << " " << n.ref_e - n.ref_s << " " << n.query_e - n.query_s << " "  << n.n_hits << " " << n.score << " " << n.score*( n.query_e - n.query_s) << " " << best_align_dist << std::endl; //<< ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
 
         if ( (cnt >= 3) || best_align_dist == 0){ // only consider top 3 hits and break if exact match to reference
             break;
@@ -623,7 +628,7 @@ int main (int argc, char **argv)
 
     // Default parameters
     std::string choice = "randstrobes";
-    //    std::string mode = "map";
+//        std::string mode = "map";
     std::string mode = "align";
 
     int n = 2;
@@ -810,24 +815,38 @@ int main (int argc, char **argv)
 
     mers_vector all_mers_vector_tmp;
     all_mers_vector_tmp = construct_flat_vector(tmp_index);
-    kmer_lookup mers_index_tmp; // k-mer -> (offset in flat_vector, occurence count )
+    kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
     unsigned int filter_cutoff;
-    filter_cutoff = index_vector(all_mers_vector_tmp, mers_index_tmp, f); // construct index over flat array
+    filter_cutoff = index_vector(all_mers_vector_tmp, mers_index, f); // construct index over flat array
     tmp_index.clear();
-
-    // filter fraction of repetitive strobes
-    mers_vector flat_vector_reduced;
-    kmer_lookup mers_index;
-    filter_repetitive_strobemers(all_mers_vector_tmp, mers_index_tmp, flat_vector_reduced, mers_index, filter_cutoff);
-    mers_index_tmp.clear();
-    all_mers_vector_tmp.clear();
-
-    filter_cutoff = index_vector(flat_vector_reduced, mers_index, f); // construct index over flat array
-
     mers_vector_reduced all_mers_vector;
-    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector_reduced);
-    flat_vector_reduced.clear();
+    all_mers_vector = remove_kmer_hash_from_flat_vector(all_mers_vector_tmp);
     print_diagnostics_new4(all_mers_vector, mers_index);
+
+    // COMMENTED OUT UNNECCESARY COMUTATION OF REMOVING ABUNDANT STROBEMERS
+//    mers_vector all_mers_vector_tmp;
+//    all_mers_vector_tmp = construct_flat_vector(tmp_index);
+//    kmer_lookup mers_index_tmp; // k-mer -> (offset in flat_vector, occurence count )
+//    unsigned int filter_cutoff;
+//    filter_cutoff = index_vector(all_mers_vector_tmp, mers_index_tmp, f); // construct index over flat array
+//    tmp_index.clear();
+//
+//    // filter fraction of repetitive strobes
+//    mers_vector flat_vector_reduced;
+//    kmer_lookup mers_index;
+//    filter_repetitive_strobemers(all_mers_vector_tmp, mers_index_tmp, flat_vector_reduced, mers_index, filter_cutoff);
+//    mers_index_tmp.clear();
+//    all_mers_vector_tmp.clear();
+//
+//    filter_cutoff = index_vector(flat_vector_reduced, mers_index, f); // construct index over flat array
+//
+//    mers_vector_reduced all_mers_vector;
+//    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector_reduced);
+//    flat_vector_reduced.clear();
+//    print_diagnostics_new4(all_mers_vector, mers_index);
+////////////////////////////////////////////////////////////////////////
+
+
 //    std::cout << "Wrote index to disc" << std::endl;
 
 //    std::chrono::milliseconds timespan(10000); // or whatever
@@ -851,11 +870,12 @@ int main (int argc, char **argv)
     std::ofstream output_file;
     output_file.open (output_file_name);
 
-
-    for (auto &it : acc_map){
-        output_file << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
+    if (mode == "align") {
+        for (auto &it : acc_map) {
+            output_file << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
+        }
+        output_file << "@PG\tID:strobealign\tPN:strobealign\tVN:0.0.1\tCL:strobealign\n";
     }
-    output_file << "@PG\tID:strobealign\tPN:strobealign\tVN:0.0.1\tCL:strobealign\n";
 
     std::string line, seq, seq_rc, prev_acc;
     unsigned int q_id = 0;
@@ -888,8 +908,8 @@ int main (int argc, char **argv)
 //                std::cout << "Processing read: " << prev_acc << " mers generated: " << query_mers.size() << " mers_rc generated: " << query_mers_rc.size() << ", read length: " <<  seq.length() << std::endl;
                 std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
                 std::vector<nam> nams_rc; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-                nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, seq, false, hit_upper_window_lim);
-                nams_rc = find_nams(query_mers_rc, all_mers_vector, mers_index, k, ref_seqs, seq_rc, true, hit_upper_window_lim);
+                nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, seq, false, hit_upper_window_lim, filter_cutoff);
+                nams_rc = find_nams(query_mers_rc, all_mers_vector, mers_index, k, ref_seqs, seq_rc, true, hit_upper_window_lim, filter_cutoff);
 //                std::cout <<  "NAMs generated: " << nams.size() << std::endl;
                 // Output results
                 if ( mode.compare("map") == 0) {
@@ -937,8 +957,8 @@ int main (int argc, char **argv)
 //        std::cout << "Processing read: " << prev_acc << " kmers generated: " << query_mers.size() << ", read length: " <<  seq.length() << std::endl;
         std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
         std::vector<nam> nams_rc; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-        nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, seq, false, hit_upper_window_lim);
-        nams_rc = find_nams(query_mers_rc, all_mers_vector, mers_index, k, ref_seqs, seq_rc, true, hit_upper_window_lim);
+        nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, seq, false, hit_upper_window_lim, filter_cutoff);
+        nams_rc = find_nams(query_mers_rc, all_mers_vector, mers_index, k, ref_seqs, seq_rc, true, hit_upper_window_lim, filter_cutoff);
 //                std::cout <<  "NAMs generated: " << nams.size() << std::endl;
         // Output results
         if ( mode.compare("map") == 0) {

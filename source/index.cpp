@@ -168,78 +168,19 @@ unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, flo
     return filter_cutoff;
 }
 
-void filter_repetitive_strobemers(mers_vector &flat_vector, kmer_lookup &mers_index, mers_vector &flat_vector_reduced, kmer_lookup &mers_index_reduced, unsigned int filter_cutoff) {
-
-    for ( auto &t : flat_vector ) {
-        uint64_t mer_hashv = std::get<0>(t);
-        std::tuple<uint64_t, unsigned int> mer;
-        mer = mers_index[mer_hashv];
-//        uint64_t offset = std::get<0>(mer);
-        unsigned int count = std::get<1>(mer);
-        if (count <= filter_cutoff ) { //  Passed abundance threshold
-            flat_vector_reduced.push_back(t);
-        }
-    }
-
-//    flat_vector.clear();
-//    mers_index.clear();
-//    std::cout << "Flat vector filtered size: " << flat_vector_reduced.size() << std::endl;
-//    kmer_lookup mers_index_final;
-//    uint64_t offset = 0;
-//    uint64_t prev_offset = 0;
-//    unsigned int count = 0;
+//void filter_repetitive_strobemers(mers_vector &flat_vector, kmer_lookup &mers_index, mers_vector &flat_vector_reduced, kmer_lookup &mers_index_reduced, unsigned int filter_cutoff) {
 //
-//    unsigned int tot_occur_once = 0;
-//    unsigned int tot_high_ab = 0;
-//    unsigned int tot_mid_ab = 0;
-//    uint64_t prev_k;
-//
-////    uint64_t prev_k_final;
-//    std::tuple<uint64_t, unsigned int, unsigned int> t2 = flat_vector_reduced[0];
-//    prev_k = std::get<0>(t2);
-//    uint64_t curr_k;
-//
-//    for ( auto &t : flat_vector_reduced ) {
-////        std::cout << t << std::endl;
-//        curr_k = std::get<0>(t);
-//        if (curr_k == prev_k){
-//            count ++;
+//    for ( auto &t : flat_vector ) {
+//        uint64_t mer_hashv = std::get<0>(t);
+//        std::tuple<uint64_t, unsigned int> mer;
+//        mer = mers_index[mer_hashv];
+////        uint64_t offset = std::get<0>(mer);
+//        unsigned int count = std::get<1>(mer);
+//        if (count <= filter_cutoff ) { //  Passed abundance threshold
+//            flat_vector_reduced.push_back(t);
 //        }
-//        else {
-//            if (count == 1){
-//                tot_occur_once ++;
-//            }
-//            else if (count > 100){
-//                tot_high_ab ++;
-////                std::cout << count << std::endl;
-//            }
-//            else{
-//                tot_mid_ab ++;
-//            }
-//
-//            std::tuple<unsigned int, unsigned int> s(prev_offset, count);
-//            mers_index_reduced[prev_k] = s;
-//            count = 1;
-//            prev_k = curr_k;
-//            prev_offset = offset;
-//        }
-//        offset ++;
 //    }
-//
-//    // last k-mer
-//    std::tuple<unsigned int, unsigned int> s(prev_offset, count);
-//    mers_index_reduced[curr_k] = s;
-//
-//    std::cout << "Total strobemers count: " << offset << std::endl;
-//    std::cout << "Total strobemers occur once: " << tot_occur_once << std::endl;
-//    std::cout << "Total strobemers highly abundant > 100: " << tot_high_ab << std::endl;
-//    std::cout << "Total strobemers mid abundance (between 2-100): " << tot_mid_ab << std::endl;
-//    std::cout << "Total distinct strobemers stored: " << mers_index_reduced.size() << std::endl;
-//    if (tot_mid_ab > 0) {
-//        std::cout << "Ratio distinct to non distinct: " << mers_index_reduced.size() / (tot_high_ab + tot_mid_ab)
-//                  << std::endl;
-//    }
-}
+//}
 
 
 

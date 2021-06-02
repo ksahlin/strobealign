@@ -47,6 +47,7 @@ struct hit {
     unsigned int query_e;
     unsigned int ref_s;
     unsigned int ref_e;
+    unsigned int hit_count;
 };
 
 struct nam {
@@ -61,6 +62,7 @@ struct nam {
     unsigned int previous_query_start;
     unsigned int previous_ref_start;
     unsigned int is_rc = false;
+    float score;
 };
 
 struct aln_info {
