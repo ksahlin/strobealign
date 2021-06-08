@@ -440,7 +440,7 @@ inline int HammingDistance(std::string One, std::string Two)
     return counter;
 }
 
-static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc ) {
+static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff ) {
     // Merge fwd and reverse complement hits
     std::vector<nam> all_nams;
     all_nams.reserve( nams.size() + nams_rc.size() ); // preallocate memory
@@ -453,20 +453,33 @@ static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std:
 //    std::cout << "" << std::endl;
 //    std::cout << query_acc << std::endl;
 
+    if (all_nams.size() == 0) {
+        output_file << query_acc << "\t" << 4 << "\t" << "*" << "\t" << 0
+                    << "\t" << 255 << "\t" << "*" << "\t" << "*" << "\t"
+                    << 0 << "\t" << 0 << "\t" << read << "\t" << "*" << "\n";
+        return;
+    }
+
     // Output results
+
     int cnt = 0;
+    float hits_dropoff;
+    float hits_max = (float) all_nams[0].n_hits;
     int best_align_dist = INT_MAX;
     int best_align_index = 0; // assume by default it is the nam with most hits and most similar span length
     final_alignment sam_aln;
     // Only output single best hit based on: Firstly: number of randstrobe-hits. Secondly the concordance the span of the hits between ref and query (more simmilar ranked higher)
 //    std::cout << "" << std::endl;
     for (auto &n : all_nams) {
-
 //        std::cout << query_acc << "\t" << n.ref_s << " " << n.ref_e << " " << n.ref_e - n.ref_s << " " << n.query_e - n.query_s << " "  << n.n_hits << " " << n.score << " " << n.score*( n.query_e - n.query_s) << " " << best_align_dist << std::endl; //<< ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
+        hits_dropoff = (float)n.n_hits/hits_max;
 
-        if ( (cnt >= 3) || best_align_dist == 0){ // only consider top 3 hits and break if exact match to reference
+        if ( (cnt >= 20) || best_align_dist == 0 || hits_dropoff < dropoff){ // only consider top 3 hits and break if exact match to reference
             break;
         }
+
+        tot_all_tried ++;
+//        std::cout << query_acc << "\t" << "\t"  << n.n_hits << "\t" << n.n_hits * (n.query_e - n.query_s) << "\t"  << n.ref_e - n.ref_s << "\t" << n.query_e - n.query_s <<  " " << n.ref_s << " " << n.ref_e << " " << best_align_dist << std::endl; //<< ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
 
         std::string ref_segm = ref_seqs[n.ref_id].substr(n.ref_s - n.query_s, read_len );
 //        std::cout << query_acc << ". Ref len:" << ref_segm.length() << " query length: " << read.length() << std::endl;
@@ -503,6 +516,7 @@ static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std:
                 const char *read_ptr = read_rc.c_str();
                 aln_info info;
                 info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, read_rc.size(), 1, 4, 6, 1, ez);
+                tot_ksw_aligned ++;
                 if (info.ed < best_align_dist){
                     best_align_index = cnt;
                     best_align_dist = info.ed;
@@ -551,6 +565,7 @@ static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std:
                 const char *read_ptr = read.c_str();
                 aln_info info;
                 info = ksw_align(ref_ptr, ref_segm.length(), read_ptr, read.length(), 1, 4, 6, 1, ez);
+                tot_ksw_aligned ++;
                 if (info.ed < best_align_dist){
                     best_align_index = cnt;
                     best_align_dist = info.ed;
@@ -674,6 +689,7 @@ int main (int argc, char **argv)
     int w_min = k/(w/2)+2;
     int w_max = k/(w/2) + 10;
     int hit_upper_window_lim = (w/2)*w_max;
+    float dropoff = 0.5;
 
     std::cout << "Using" << std::endl;
     std::cout << "n: " << n << std::endl;
@@ -742,6 +758,7 @@ int main (int argc, char **argv)
 
 //    std::string filename  = "/Users/kxs624/Documents/data/genomes/human/hg38_chr1.fa";
 //    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr1_1M_reads.fa";
+//    std::string output_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/tmp_out.sam";
 
 //    std::string filename  = "hg21_bug.txt";
 //    std::string reads_filename  = "hg21_bug.txt";
@@ -866,6 +883,8 @@ int main (int argc, char **argv)
     // Record matching time
     auto start_map = std::chrono::high_resolution_clock::now();
 
+    unsigned int tot_ksw_aligned = 0;
+    unsigned int tot_all_tried = 0;
     std::ifstream query_file(reads_filename);
     std::ofstream output_file;
     output_file.open (output_file_name);
@@ -919,7 +938,7 @@ int main (int argc, char **argv)
 //                    output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
                 }
                 else{
-                    align(nams, nams_rc, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths,ref_seqs, seq, seq_rc);
+                    align(nams, nams_rc, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths,ref_seqs, seq, seq_rc, tot_ksw_aligned, tot_all_tried, dropoff);
                 }
 //              output_file << "> " <<  prev_acc << "\n";
 //              output_file << "  " << ref_acc << " " << ref_p << " " << q_pos << " " << "\n";
@@ -968,13 +987,15 @@ int main (int argc, char **argv)
 //            output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
         }
         else{
-            align(nams, nams_rc, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths,ref_seqs, seq, seq_rc);
+            align(nams, nams_rc, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths,ref_seqs, seq, seq_rc, tot_ksw_aligned, tot_all_tried, dropoff);
         }
     }
 
     query_file.close();
     output_file.close();
 
+    std::cout << "Total mapping sites tried: " << tot_all_tried << "\n" <<  std::endl;
+    std::cout << "Total calls to ksw: " << tot_ksw_aligned << "\n" <<  std::endl;
 
     // Record mapping end time
     auto finish_map = std::chrono::high_resolution_clock::now();
