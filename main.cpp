@@ -94,7 +94,7 @@ static inline void print_diagnostics_new4(mers_vector_reduced &mers_vector, kmer
 
 
 
-static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_reduced &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, bool is_rc, unsigned int hit_upper_window_lim, unsigned int filter_cutoff ){
+static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vector_reduced &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int hit_upper_window_lim, unsigned int filter_cutoff ){
 //    std::cout << "ENTER FIND NAMS " <<  std::endl;
     robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref; // [ref_id] -> vector( struct hit)
     uint64_t hit_count_reduced = 0;
@@ -107,6 +107,7 @@ static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_re
         hit h;
         h.query_s = std::get<2>(q);
         h.query_e = std::get<3>(q) + k; // h.query_s + read_length/2;
+        h.is_rc = std::get<4>(q);
 //        std::cout << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
         uint64_t mer_hashv = std::get<0>(q);
         if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
@@ -147,11 +148,11 @@ static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_re
         uint64_t prev_q_start = 0;
         for (auto &h : hits){
             bool is_added = false;
-//            std::cout << "HIT " << h.query_s <<  ", " << h.query_e << ", " << h.ref_s <<  ", " << h.ref_e << std::endl;
+//            std::cout << "HIT " << h.is_rc << " " << h.query_s <<  ", " << h.query_e << ", " << h.ref_s <<  ", " << h.ref_e << std::endl;
             for (auto & o : open_nams) {
 
                 // Extend NAM
-                if ( ( o.previous_query_start <= h.query_s) && (h.query_s <= o.query_e ) && ( o.previous_ref_start <= h.ref_s) && (h.ref_s <= o.ref_e) ){
+                if ( ( o.is_rc == h.is_rc) && ( o.previous_query_start <= h.query_s) && (h.query_s <= o.query_e ) && ( o.previous_ref_start <= h.ref_s) && (h.ref_s <= o.ref_e) ){
                     if (h.query_e > o.query_e) {
                         o.query_e = h.query_e;
                     }
@@ -184,7 +185,7 @@ static inline std::vector<nam> find_nams(mers_vector &query_mers, mers_vector_re
                 n.query_last_hit_pos = h.query_s;
                 n.ref_last_hit_pos = h.ref_s;
                 n.n_hits = 1;
-                n.is_rc = is_rc;
+                n.is_rc = h.is_rc;
                 n.score += (float)1/ (float)h.hit_count;
                 open_nams.push_back(n);
             }
@@ -440,12 +441,12 @@ inline int HammingDistance(std::string One, std::string Two)
     return counter;
 }
 
-static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff ) {
+static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff ) {
     // Merge fwd and reverse complement hits
-    std::vector<nam> all_nams;
-    all_nams.reserve( nams.size() + nams_rc.size() ); // preallocate memory
-    all_nams.insert( all_nams.end(), nams.begin(), nams.end() );
-    all_nams.insert( all_nams.end(), nams_rc.begin(), nams_rc.end() );
+//    std::vector<nam> all_nams;
+//    all_nams.reserve( nams.size() + nams_rc.size() ); // preallocate memory
+//    all_nams.insert( all_nams.end(), nams.begin(), nams.end() );
+//    all_nams.insert( all_nams.end(), nams_rc.begin(), nams_rc.end() );
 
     //Sort hits based on start choordinate on query sequence
     std::sort(all_nams.begin(), all_nams.end(), score);
@@ -481,11 +482,42 @@ static inline void align(std::vector<nam> &nams, std::vector<nam> &nams_rc, std:
         tot_all_tried ++;
 //        std::cout << query_acc << "\t" << "\t"  << n.n_hits << "\t" << n.n_hits * (n.query_e - n.query_s) << "\t"  << n.ref_e - n.ref_s << "\t" << n.query_e - n.query_s <<  " " << n.ref_s << " " << n.ref_e << " " << best_align_dist << std::endl; //<< ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
 
-        std::string ref_segm = ref_seqs[n.ref_id].substr(n.ref_s - n.query_s, read_len );
-//        std::cout << query_acc << ". Ref len:" << ref_segm.length() << " query length: " << read.length() << std::endl;
-        if (n.is_rc){
-//            o = "-";
+        unsigned int ref_diff = n.ref_e - n.ref_s;
+        unsigned int read_diff = n.query_e - n.query_s;
+        unsigned int min_diff =  read_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
+        unsigned int max_diff = ref_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
+        unsigned int diff = max_diff - min_diff;
+//        std::cout << ref_diff << " " << read_diff << " " << diff << std::endl;
 
+        std::string ref_segm = ref_seqs[n.ref_id].substr(n.ref_s - n.query_s, read_len + diff );
+//        std::cout << query_acc << ". Ref len:" << ref_segm.length() << " query length: " << read.length() << std::endl;
+
+        // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
+
+        if ( (ref_segm.substr(n.query_s, k) == read.substr(n.query_s, k) ) ) { //&& (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read.substr(n.query_e - k, k)) ){
+            n.is_rc = false;
+//            std::cout << "HERE FW: "  <<  ref_segm.substr(n.query_s, k)  << " " << read.substr(n.query_s, k) << " " << ref_segm.substr(n.query_e - k, k) << " " << read.substr(n.query_e - k, k) << std::endl;
+//            std::cout << "HERE FW: "  << ref_diff << " " << read_diff << " " << diff << std::endl;
+
+        }
+        else if ( (ref_segm.substr(n.query_s, k) == read_rc.substr(n.query_s, k) ) ){ // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
+            n.is_rc = true;
+//            std::cout << "HERE RC: "  <<  ref_segm.substr(n.query_s, k)  << " " << read.substr(n.query_s, k) << " " << ref_segm.substr(n.query_e - k, k) << " " << read.substr(n.query_e - k, k) << std::endl;
+//            std::cout << "HERE RC: "  << ref_diff << " " << read_diff << " " << diff << std::endl;
+        }
+        else{
+            n.is_rc = true;
+//            std::cout << "DID NOT FIT: "  <<  ref_segm.substr(n.query_s, k)  << " " << ref_segm.substr(n.query_e - k, k) << " " << read.substr(n.query_s, k) << " "  << read.substr(n.query_e - k, k) << " " << read_rc.substr(n.query_s, k) << " "  << read_rc.substr(n.query_e - k, k) << std::endl;
+//            std::cout << "ref:     " << ref_segm << " " << n.query_s << std::endl;
+//            std::cout << "read:    "  << read << " " << n.query_s << std::endl;
+//            std::cout << "read_rc: " << read_rc << " " << n.query_s << std::endl;
+//            std::cout << "read_ start: " << n.query_s << " ref_ start: " << n.ref_s << std::endl;
+//            std::string ref_segm_2 = ref_seqs[n.ref_id].substr(n.ref_s - n.query_s - 100, read_len + 200 );
+//            std::cout << ref_segm_2 << " " << n.query_s << std::endl;
+//            std::cout << query_acc <<" DID NOT FIT: " << ref_diff << " " << read_diff << " " << diff << std::endl;
+//            continue;
+        }
+        if (n.is_rc){
             int hamming_dist;
             hamming_dist = HammingDistance(read_rc, ref_segm);
 //            std::cout << query_acc  << " Reverse, " << hamming_dist << " " << n.ref_s << " " << n.n_hits << " " << n.query_s << std::endl;
@@ -647,7 +679,7 @@ int main (int argc, char **argv)
     std::string mode = "align";
 
     int n = 2;
-    int k = 20;
+    int k = 22;
     int w = 10;
     float f = 0.0002;
     std::string output_file_name;
@@ -763,6 +795,8 @@ int main (int argc, char **argv)
 //    std::string filename  = "hg21_bug.txt";
 //    std::string reads_filename  = "hg21_bug.txt";
 
+//    std::string filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr21_10k_unaligned_ref.fa";
+//    std::string reads_filename  = "/Users/kxs624/Documents/workspace/StrobeAlign/data/hg38_chr21_10k_unaligned_reads.fa";
 //    std::string choice = "kmers";
 
 
@@ -788,14 +822,9 @@ int main (int argc, char **argv)
         for(size_t i = 0; i < ref_seqs.size(); ++i)
         {
             mers_vector kmers; //  kmer hash value, pos, chr_id
-            kmers = seq_to_kmers(k, ref_seqs[i], i);
+//            kmers = seq_to_kmers(k, ref_seqs[i], i);
             tmp_index[i] = kmers;
         }
-//        for (auto x : ref_seqs){
-//            mers_vector kmers; //  kmer hash value, pos, chr_id
-//            kmers = seq_to_kmers(k, x.second, x.first);
-//            tmp_index[x.first] = kmers;
-//        }
     }
     else if (choice == "randstrobes" ){
         if (n == 2 ){
@@ -805,24 +834,15 @@ int main (int argc, char **argv)
                 randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, w);
                 tmp_index[i] = randstrobes2;
             }
-//            for (auto x : ref_seqs){
-//                mers_vector randstrobes2; // pos, chr_id, kmer hash value
-//                randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, x.second, x.first, w);
-//                tmp_index[x.first] = randstrobes2;
-//            }
+
         }
         else if (n == 3){
             for(size_t i = 0; i < ref_seqs.size(); ++i)
             {
                 mers_vector randstrobes3; // pos, chr_id, kmer hash value
-                randstrobes3 = seq_to_randstrobes3(n, k, w_min, w_max, ref_seqs[i], i, w);
+//                randstrobes3 = seq_to_randstrobes3(n, k, w_min, w_max, ref_seqs[i], i, w);
                 tmp_index[i] = randstrobes3;
             }
-//            for (auto x : ref_seqs){
-//                mers_vector randstrobes3; // pos, chr_id, kmer hash value
-//                randstrobes3 = seq_to_randstrobes3(n, k, w_min, w_max, x.second, x.first, w);
-//                tmp_index[x.first] = randstrobes3;
-//            }
         }
     }
     else {
@@ -899,27 +919,29 @@ int main (int argc, char **argv)
     std::string line, seq, seq_rc, prev_acc;
     unsigned int q_id = 0;
     unsigned int read_cnt = 0;
-    mers_vector query_mers; // pos, chr_id, kmer hash value
-    mers_vector query_mers_rc; // pos, chr_id, kmer hash value
+    mers_vector_read query_mers; // pos, chr_id, kmer hash value
+//    mers_vector_read query_mers_rc; // pos, chr_id, kmer hash value
     while (getline(query_file, line)) {
         if (line[0] == '>') {
             read_cnt ++;
             if (seq.length() > 0){
                 // generate mers here
                 if (choice == "kmers" ){
-                    query_mers = seq_to_kmers(k, seq, q_id);
+                    ;
+//                    query_mers = seq_to_kmers(k, seq, q_id);
                 }
                 else if (choice == "randstrobes" ){
                     if (n == 2 ){
-                        query_mers = seq_to_randstrobes2(n, k, w_min, w_max, seq, q_id, w);
+                        query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, seq, q_id, w);
                         seq_rc = reverse_complement(seq);
-                        query_mers_rc = seq_to_randstrobes2(n, k, w_min, w_max, seq_rc, q_id, w);
+//                        query_mers_rc = seq_to_randstrobes2(n, k, w_min, w_max, seq_rc, q_id, w);
                     }
 
                     else if (n == 3){
-                        query_mers = seq_to_randstrobes3(n, k, w_min, w_max, seq, q_id, w);
-                        seq_rc = reverse_complement(seq);
-                        query_mers_rc = seq_to_randstrobes3(n, k, w_min, w_max, seq_rc, q_id, w);
+                        ;
+//                        query_mers = seq_to_randstrobes3(n, k, w_min, w_max, seq, q_id, w);
+//                        seq_rc = reverse_complement(seq);
+//                        query_mers_rc = seq_to_randstrobes3(n, k, w_min, w_max, seq_rc, q_id, w);
                     }
                 }
 //                std::cout << "HERE " << line << std::endl;
@@ -927,8 +949,8 @@ int main (int argc, char **argv)
 //                std::cout << "Processing read: " << prev_acc << " mers generated: " << query_mers.size() << " mers_rc generated: " << query_mers_rc.size() << ", read length: " <<  seq.length() << std::endl;
                 std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
                 std::vector<nam> nams_rc; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-                nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, seq, false, hit_upper_window_lim, filter_cutoff);
-                nams_rc = find_nams(query_mers_rc, all_mers_vector, mers_index, k, ref_seqs, seq_rc, true, hit_upper_window_lim, filter_cutoff);
+                nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, seq, hit_upper_window_lim, filter_cutoff);
+//                nams_rc = find_nams(query_mers_rc, all_mers_vector, mers_index, k, ref_seqs, seq_rc, true, hit_upper_window_lim, filter_cutoff);
 //                std::cout <<  "NAMs generated: " << nams.size() << std::endl;
                 // Output results
                 if ( mode.compare("map") == 0) {
@@ -938,7 +960,7 @@ int main (int argc, char **argv)
 //                    output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
                 }
                 else{
-                    align(nams, nams_rc, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths,ref_seqs, seq, seq_rc, tot_ksw_aligned, tot_all_tried, dropoff);
+                    align(nams, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths,ref_seqs, seq, seq_rc, tot_ksw_aligned, tot_all_tried, dropoff);
                 }
 //              output_file << "> " <<  prev_acc << "\n";
 //              output_file << "  " << ref_acc << " " << ref_p << " " << q_pos << " " << "\n";
@@ -957,27 +979,29 @@ int main (int argc, char **argv)
     }
     if (seq.length() > 0){
         if (choice == "kmers" ){
-            query_mers = seq_to_kmers(k, seq, q_id);
+            ;
+//            query_mers = seq_to_kmers(k, seq, q_id);
         }
         else if (choice == "randstrobes" ){
             if (n == 2 ){
-                query_mers = seq_to_randstrobes2(n, k, w_min, w_max, seq, q_id, w);
+                query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, seq, q_id, w);
                 seq_rc = reverse_complement(seq);
-                query_mers_rc = seq_to_randstrobes2(n, k, w_min, w_max, seq_rc, q_id, w);
+//                query_mers_rc = seq_to_randstrobes2(n, k, w_min, w_max, seq_rc, q_id, w);
             }
 
             else if (n == 3){
-                query_mers = seq_to_randstrobes3(n, k, w_min, w_max, seq, q_id, w);
-                seq_rc = reverse_complement(seq);
-                query_mers_rc = seq_to_randstrobes3(n, k, w_min, w_max, seq_rc, q_id, w);
+                ;
+//                query_mers = seq_to_randstrobes3(n, k, w_min, w_max, seq, q_id, w);
+//                seq_rc = reverse_complement(seq);
+//                query_mers_rc = seq_to_randstrobes3(n, k, w_min, w_max, seq_rc, q_id, w);
             }
         }
         // Find NAMs
 //        std::cout << "Processing read: " << prev_acc << " kmers generated: " << query_mers.size() << ", read length: " <<  seq.length() << std::endl;
         std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
         std::vector<nam> nams_rc; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-        nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, seq, false, hit_upper_window_lim, filter_cutoff);
-        nams_rc = find_nams(query_mers_rc, all_mers_vector, mers_index, k, ref_seqs, seq_rc, true, hit_upper_window_lim, filter_cutoff);
+        nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, seq, hit_upper_window_lim, filter_cutoff);
+//        nams_rc = find_nams(query_mers_rc, all_mers_vector, mers_index, k, ref_seqs, seq_rc, true, hit_upper_window_lim, filter_cutoff);
 //                std::cout <<  "NAMs generated: " << nams.size() << std::endl;
         // Output results
         if ( mode.compare("map") == 0) {
@@ -987,7 +1011,7 @@ int main (int argc, char **argv)
 //            output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
         }
         else{
-            align(nams, nams_rc, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths,ref_seqs, seq, seq_rc, tot_ksw_aligned, tot_all_tried, dropoff);
+            align(nams, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths,ref_seqs, seq, seq_rc, tot_ksw_aligned, tot_all_tried, dropoff);
         }
     }
 
