@@ -127,7 +127,7 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
                     h.ref_e = ref_e;
                     hits_per_ref[ref_id].push_back(h);
                     h.hit_count = count;
-    //                std::cout << "Found: " <<  h.query_s << " " << h.query_e << " ref: " <<  h.ref_s << " " << h.ref_e <<  std::endl;
+//                    std::cout << "Found: " <<  h.query_s << " " << h.query_e << " ref: " <<  h.ref_s << " " << h.ref_e <<  std::endl;
                     hit_count_all ++;
 
                 }

@@ -273,7 +273,7 @@ static inline void make_string_to_hashvalues_open_syncmers(std::string &seq, std
                 else{
                     bool new_minimizer = false;
                     update_window(qs, qs_pos, qs_min_val, qs_min_pos, hash_s, i - s + 1, new_minimizer );
-                    if (qs_min_pos == qs_pos[t]) { // occurs at t:th position in k-mer
+                    if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
                         uint64_t hash_k = robin_hash(xk);
                         string_hashes.push_back(hash_k);
                         pos_to_seq_choord.push_back(i - k + 1);
@@ -284,8 +284,8 @@ static inline void make_string_to_hashvalues_open_syncmers(std::string &seq, std
         } else {
             l = 0, xk = 0, xs = 0; // if there is an "N", restart
             qs_size = 0;
-            uint64_t q_min_val = UINT64_MAX;
-            int qs_min_pos = -1;
+            qs_min_val = UINT64_MAX;
+            qs_min_pos = -1;
             qs.clear();
             qs_pos.clear();
         }
@@ -368,10 +368,10 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
                 }
             }
         } else {
+            qs_min_val = UINT64_MAX;
+            qs_min_pos = -1;
             l = 0, xs[0] = xs[1] = 0,  xk[0] = xk[1] = 0; // if there is an "N", restart
             qs_size = 0;
-            uint64_t q_min_val = UINT64_MAX;
-            int qs_min_pos = -1;
             qs.clear();
             qs_pos.clear();
         }
@@ -522,11 +522,13 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
     int t = 3;
     uint64_t smask=(1ULL<<2*s) - 1;
     make_string_to_hashvalues_open_syncmers_canonical(seq, string_hashes, pos_to_seq_choord, kmask, k, smask, s, t);
+//    make_string_to_hashvalues_open_syncmers(seq, string_hashes, pos_to_seq_choord, kmask, k, smask, s, t);
+
     unsigned int seq_length = string_hashes.size();
 
-        for (unsigned int i = 0; i < seq_length; i++) {
+//        for (unsigned int i = 0; i < seq_length; i++) {
 //        std::cout << "REF POS INDEXED: " << pos_to_seq_choord[i] << " OTHER DIRECTION: " << seq.length() - pos_to_seq_choord[i] - k <<std::endl;
-    }
+//    }
 //    int tmp_cnt = 0;
 //    for (auto a: pos_to_seq_choord){
 //        std::cout << " OK: " << tmp_cnt << " " << a << std::endl;
@@ -613,6 +615,8 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
     int t = 3;
     uint64_t smask=(1ULL<<2*s) - 1;
     make_string_to_hashvalues_open_syncmers_canonical(seq, string_hashes, pos_to_seq_choord, kmask, k, smask, s, t);
+//    make_string_to_hashvalues_open_syncmers(seq, string_hashes, pos_to_seq_choord, kmask, k, smask, s, t);
+
     unsigned int nr_hashes = string_hashes.size();
 
 
