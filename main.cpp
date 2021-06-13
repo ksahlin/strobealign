@@ -127,7 +127,7 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
                     h.ref_e = ref_e;
                     hits_per_ref[ref_id].push_back(h);
                     h.hit_count = count;
-//                    std::cout << "Found: " <<  h.query_s << " " << h.query_e << " ref: " <<  h.ref_s << " " << h.ref_e <<  std::endl;
+//                    std::cout << "Found: " <<  h.query_s << " " << h.query_e << " ref: " <<  h.ref_s << " " << h.ref_e << " " << h.is_rc << std::endl;
                     hit_count_all ++;
 
                 }
@@ -149,24 +149,48 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
         for (auto &h : hits){
             bool is_added = false;
 //            std::cout << "HIT " << h.is_rc << " " << h.query_s <<  ", " << h.query_e << ", " << h.ref_s <<  ", " << h.ref_e << std::endl;
+
             for (auto & o : open_nams) {
 
                 // Extend NAM
-                if ( ( o.is_rc == h.is_rc) && ( o.previous_query_start <= h.query_s) && (h.query_s <= o.query_e ) && ( o.previous_ref_start <= h.ref_s) && (h.ref_s <= o.ref_e) ){
-                    if (h.query_e > o.query_e) {
+                if ( ( o.is_rc == h.is_rc) && ( o.previous_query_start < h.query_s) && (h.query_s <= o.query_e ) && ( o.previous_ref_start < h.ref_s) && (h.ref_s <= o.ref_e) ){
+//                    if (h.query_e > o.query_e) {
+//                        o.query_e = h.query_e;
+//                    }
+//                    if (h.ref_e > o.ref_e) {
+//                        o.ref_e = h.ref_e;
+//                    }
+//                    o.previous_query_start = h.query_s;
+//                    o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
+//                    o.query_last_hit_pos = h.query_s; // log the last strobemer hit in case of outputting paf
+//                    o.ref_last_hit_pos = h.ref_s; // log the last strobemer hit in case of outputting paf
+//                    o.n_hits ++;
+//                    o.score += (float)1/ (float)h.hit_count;
+//                    is_added = true;
+//                    break;
+                    if ( (h.query_e > o.query_e) && (h.ref_e > o.ref_e) ) {
                         o.query_e = h.query_e;
-                    }
-                    if (h.ref_e > o.ref_e) {
                         o.ref_e = h.ref_e;
+                        o.previous_query_start = h.query_s;
+                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
+                        o.query_last_hit_pos = h.query_s; // log the last strobemer hit in case of outputting paf
+                        o.ref_last_hit_pos = h.ref_s; // log the last strobemer hit in case of outputting paf
+                        o.n_hits ++;
+                        o.score += (float)1/ (float)h.hit_count;
+                        is_added = true;
+                        break;
                     }
-                    o.previous_query_start = h.query_s;
-                    o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
-                    o.query_last_hit_pos = h.query_s; // log the last strobemer hit in case of outputting paf
-                    o.ref_last_hit_pos = h.ref_s; // log the last strobemer hit in case of outputting paf
-                    o.n_hits ++;
-                    o.score += (float)1/ (float)h.hit_count;
-                    is_added = true;
-                    break;
+                    else if ((h.query_e <= o.query_e) && (h.ref_e <= o.ref_e)) {
+                        o.previous_query_start = h.query_s;
+                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
+                        o.query_last_hit_pos = h.query_s; // log the last strobemer hit in case of outputting paf
+                        o.ref_last_hit_pos = h.ref_s; // log the last strobemer hit in case of outputting paf
+                        o.n_hits ++;
+                        o.score += (float)1/ (float)h.hit_count;
+                        is_added = true;
+                        break;
+                    }
+
                 }
 
 
@@ -219,7 +243,9 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
 
 //    for (auto &n : final_nams){
 ////        std::cout << n.ref_id << ": (" << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e << ")" << std::endl;
-//        std::cout << n.ref_id << ": (" << n.n_hits << ", " << n.ref_s << ", " << n.ref_e << ")" << std::endl;
+//        std::cout << n.ref_id << ": (" << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
+//        std::cout << n.ref_id << ": (" << n.n_hits << ", " << n.ref_e - n.ref_s  <<  ", " << n.query_e - n.query_s << ")" << std::endl;
+//        std::cout << " " << std::endl;
 //    }
 
 //    std::cout << "DONE" << std::endl;
@@ -441,7 +467,7 @@ inline int HammingDistance(std::string One, std::string Two)
     return counter;
 }
 
-static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff ) {
+static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit ) {
     // Merge fwd and reverse complement hits
 //    std::vector<nam> all_nams;
 //    all_nams.reserve( nams.size() + nams_rc.size() ); // preallocate memory
@@ -468,18 +494,21 @@ static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file,
     float hits_max = (float) all_nams[0].n_hits;
     int best_align_dist = INT_MAX;
     int best_align_index = 0; // assume by default it is the nam with most hits and most similar span length
+    bool aln_did_not_fit;
     final_alignment sam_aln;
     // Only output single best hit based on: Firstly: number of randstrobe-hits. Secondly the concordance the span of the hits between ref and query (more simmilar ranked higher)
 //    std::cout << "" << std::endl;
     for (auto &n : all_nams) {
+        aln_did_not_fit = false;
 //        std::cout << query_acc << "\t" << n.ref_s << " " << n.ref_e << " " << n.ref_e - n.ref_s << " " << n.query_e - n.query_s << " "  << n.n_hits << " " << n.score << " " << n.score*( n.query_e - n.query_s) << " " << best_align_dist << std::endl; //<< ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
         hits_dropoff = (float)n.n_hits/hits_max;
 
-        if ( (cnt >= 20) || best_align_dist == 0 || hits_dropoff < dropoff){ // only consider top 3 hits and break if exact match to reference
+        if ( (cnt >= 20) || best_align_dist == 0 || hits_dropoff < dropoff){ // only consider top 20 hits and break if exact match to reference
             break;
         }
 
         tot_all_tried ++;
+//        std::cout << " " << std::endl;
 //        std::cout << query_acc << "\t" << "\t"  << n.n_hits << "\t" << n.n_hits * (n.query_e - n.query_s) << "\t"  << n.ref_e - n.ref_s << "\t" << n.query_e - n.query_s <<  " " << n.ref_s << " " << n.ref_e << " " << best_align_dist << std::endl; //<< ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
 
         unsigned int ref_diff = n.ref_e - n.ref_s;
@@ -492,38 +521,59 @@ static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file,
         std::string ref_segm = ref_seqs[n.ref_id].substr(n.ref_s - n.query_s, read_len + diff );
 //        std::cout << query_acc << ". Ref len:" << ref_segm.length() << " query length: " << read.length() << std::endl;
 
+//        if ( (ref_seqs[n.ref_id].substr(n.ref_s, k) == read.substr(n.query_s, k) ) || (ref_seqs[n.ref_id].substr(n.ref_s, k) == read_rc.substr(n.query_s, k) ) ) {
+//
+//            std::cout << "BUT PERFECT HERE!! " << n.ref_s << std::endl;
+//            std::cout << ref_seqs[n.ref_id].substr(n.ref_s - 400, 750) << std::endl;
+//
+//        }
+
         // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
 
         if ( (ref_segm.substr(n.query_s, k) == read.substr(n.query_s, k) ) ) { //&& (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read.substr(n.query_e - k, k)) ){
+//            std::cout << "IN FW " << std::endl;
+//            std::cout << n.is_rc <<  " " << diff << std::endl;
             n.is_rc = false;
 //            std::cout << "HERE FW: "  <<  ref_segm.substr(n.query_s, k)  << " " << read.substr(n.query_s, k) << " " << ref_segm.substr(n.query_e - k, k) << " " << read.substr(n.query_e - k, k) << std::endl;
 //            std::cout << "HERE FW: "  << ref_diff << " " << read_diff << " " << diff << std::endl;
 
         }
         else if ( (ref_segm.substr(n.query_s, k) == read_rc.substr(n.query_s, k) ) ){ // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
+//            std::cout << "IN RC " <<  " " << diff << std::endl;
+//            std::cout << n.is_rc << std::endl;
             n.is_rc = true;
 //            std::cout << "HERE RC: "  <<  ref_segm.substr(n.query_s, k)  << " " << read.substr(n.query_s, k) << " " << ref_segm.substr(n.query_e - k, k) << " " << read.substr(n.query_e - k, k) << std::endl;
 //            std::cout << "HERE RC: "  << ref_diff << " " << read_diff << " " << diff << std::endl;
         }
         else{
-            n.is_rc = true;
-//            std::cout << "DID NOT FIT: "  <<  ref_segm.substr(n.query_s, k)  << " " << ref_segm.substr(n.query_e - k, k) << " " << read.substr(n.query_s, k) << " "  << read.substr(n.query_e - k, k) << " " << read_rc.substr(n.query_s, k) << " "  << read_rc.substr(n.query_e - k, k) << std::endl;
+////            n.is_rc = true;
+            did_not_fit ++;
+            aln_did_not_fit = true;
+//            std::cout << " " << std::endl;
+//            std::cout << n.is_rc << " " << diff << std::endl;
+//            std::cout << "DID NOT FIT: "  <<  ref_segm.substr(n.query_s, k)  << " " << read.substr(n.query_s, k) << " " << read_rc.substr(n.query_s, k) << std::endl;
+////            std::cout << "DID NOT FIT: "  <<  ref_segm.substr(n.query_s, k)  << " " << ref_segm.substr(n.query_e - k, k) << " " << read.substr(n.query_s, k) << " "  << read.substr(n.query_e - k, k) << " " << read_rc.substr(n.query_s, k) << " "  << read_rc.substr(n.query_e - k, k) << std::endl;
 //            std::cout << "ref:     " << ref_segm << " " << n.query_s << std::endl;
 //            std::cout << "read:    "  << read << " " << n.query_s << std::endl;
 //            std::cout << "read_rc: " << read_rc << " " << n.query_s << std::endl;
 //            std::cout << "read_ start: " << n.query_s << " ref_ start: " << n.ref_s << std::endl;
-//            std::string ref_segm_2 = ref_seqs[n.ref_id].substr(n.ref_s - n.query_s - 100, read_len + 200 );
-//            std::cout << ref_segm_2 << " " << n.query_s << std::endl;
+////            std::string ref_segm_2 = ref_seqs[n.ref_id].substr(n.ref_s - n.query_s - 100, read_len + 200 );
+////            std::cout << ref_segm_2 << " " << n.query_s << std::endl;
 //            std::cout << query_acc <<" DID NOT FIT: " << ref_diff << " " << read_diff << " " << diff << std::endl;
-//            continue;
+//            std::cout << " " << std::endl;
+////            continue;
         }
+
         if (n.is_rc){
-            int hamming_dist;
-            hamming_dist = HammingDistance(read_rc, ref_segm);
-//            std::cout << query_acc  << " Reverse, " << hamming_dist << " " << n.ref_s << " " << n.n_hits << " " << n.query_s << std::endl;
+            int hamming_dist = -1;
+            if (ref_segm.length() >= read_len){
+                hamming_dist = HammingDistance(read_rc, ref_segm.substr(0,read_len));
+//                std::cout << query_acc  << " Reverse, " << hamming_dist << " " << n.ref_s << " " << n.n_hits << " " << n.query_s << std::endl;
+            }
+
 //            std::cout << read_rc << std::endl;
 //            std::cout << ref_segm << std::endl;
-            if ( (hamming_dist) >=0 && (hamming_dist < 5)) { //Substitutions only
+            if ( (hamming_dist) >=0 && (diff == 0)) { //Substitutions only
                 if (hamming_dist < best_align_dist){
                     best_align_index = cnt;
                     best_align_dist = hamming_dist;
@@ -536,7 +586,7 @@ static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file,
 
 //                std::cout << query_acc << " Reverse: Is exact or subs only: " << hamming_dist << ", ref pos: " << n.ref_s << std::endl;
             }
-            else{
+            else if ( (best_align_dist > 1) || did_not_fit ){
                 int a = n.ref_s - n.query_s;
                 int ref_start = std::max(0, a);
                 int b = n.ref_e + (read_len- n.query_e);
@@ -563,17 +613,18 @@ static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file,
 //                putchar('\n');
 //                std::cout << ez.score << std::endl;
 
-//                std::cout << n.ref_s << " " << n.ref_e << ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
+//                std::cout << query_acc << " Forward: " << n.ref_s << " " << n.ref_e << ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
             }
         }
         else{
-//            o = "+";
-            int hamming_dist;
-            hamming_dist = HammingDistance(read, ref_segm);
-//            std::cout << query_acc  << " Forward, " << hamming_dist << " " << n.ref_s << " " << n.n_hits << " " << n.query_s << std::endl;
+            int hamming_dist = -1;
+            if (ref_segm.length() >= read_len){
+                hamming_dist = HammingDistance(read, ref_segm.substr(0, read_len));
+//                std::cout << query_acc  << " Forward, " << hamming_dist << " " << n.ref_s << " " << n.n_hits << " " << n.query_s << std::endl;
+            }
 //            std::cout << read << std::endl;
 //            std::cout << ref_segm << std::endl;
-            if ( (hamming_dist) >=0 && (hamming_dist < 4)) { //Substitutions only
+            if ( (hamming_dist) >=0 && (diff == 0)) { //Substitutions only
                 if (hamming_dist < best_align_dist){
                     best_align_index = cnt;
                     best_align_dist = hamming_dist;
@@ -585,7 +636,7 @@ static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file,
                 }
 //                std::cout << query_acc << " Forward: Is exact or subs only: " << hamming_dist << ", ref pos: " << n.ref_s <<  std::endl;
             }
-            else{
+            else if( (best_align_dist > 1) || did_not_fit ) {
                 int a = n.ref_s - n.query_s;
                 int ref_start = std::max(0, a);
                 int b = n.ref_e + (read_len - n.query_e);
@@ -611,7 +662,7 @@ static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file,
 //                    printf("%d%c", ez.cigar[i]>>4, "MID"[ez.cigar[i]&0xf]);
 //                putchar('\n');
 //                std::cout << ez.score << std::endl;
-//                std::cout << n.ref_s << " " << n.ref_e << ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
+//                std::cout << query_acc << " Reverse: " << n.ref_s << " " << n.ref_e << ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
             }
         }
 
@@ -657,10 +708,10 @@ void print_usage() {
     std::cerr << "strobealign [options] <ref.fa> <reads.fasta>\n";
     std::cerr << "options:\n";
     std::cerr << "\t-n INT number of strobes [2]\n";
-    std::cerr << "\t-k INT strobe length [20]\n";
+    std::cerr << "\t-k INT strobe length [22]\n";
     std::cerr << "\t-o name of output SAM-file to print results to [mapped.sam]\n";
 //    std::cerr << "\t-x mapping mode\n";
-    std::cerr << "\t-w INT minimizer thinning parameter to sample strobes [10]. \n";
+    std::cerr << "\t-s INT syncmer thinning parameter to sample strobes. A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. \n";
     std::cerr << "\t-f FLOAT top fraction of repetitive minimizers to filter out from sampling [0.0002]\n";
 }
 
@@ -680,9 +731,9 @@ int main (int argc, char **argv)
 
     int n = 2;
     int k = 22;
-    int w = 10;
+    int s = k - 4;
     float f = 0.0002;
-    std::string output_file_name;
+    std::string output_file_name = "mapped.sam";
 
 
     int opn = 1;
@@ -701,15 +752,20 @@ int main (int argc, char **argv)
                 output_file_name = argv[opn + 1];
                 opn += 2;
                 flag = true;
-            } else if (argv[opn][1] == 'w') {
-                w = std::stoi(argv[opn + 1]);
+            } else if (argv[opn][1] == 's') {
+                s = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
             } else if (argv[opn][1] == 'f') {
                 f = std::stof(argv[opn + 1]);
                 opn += 2;
                 flag = true;
+            } else if (argv[opn][1] == 'x') {
+                mode = "map";
+                opn += 1;
+                flag = true;
             }
+
             else {
                 print_usage();
             }
@@ -718,23 +774,24 @@ int main (int argc, char **argv)
             break;
     }
 
-    int w_min = k/(w/2)+2;
-    int w_max = k/(w/2) + 10;
-    int hit_upper_window_lim = (w/2)*w_max;
+    int w_min = k/(k-s+1)+2;
+    int w_max = k/(k-s+1) + 10;
+    int hit_upper_window_lim = (k-s+1)*w_max;
     float dropoff = 0.5;
 
     std::cout << "Using" << std::endl;
     std::cout << "n: " << n << std::endl;
     std::cout << "k: " << k << std::endl;
-    std::cout << "w: " << w << std::endl;
+    std::cout << "s: " << s << std::endl;
     std::cout << "w_min: " << w_min << std::endl;
     std::cout << "w_max: " << w_max << std::endl;
-    std::cout << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (under random minimizer sampling): [" << (w/2)*w_min << ", " << hit_upper_window_lim << "]" << std::endl;
+    std::cout << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (under random minimizer sampling): [" << (k-s+1)*w_min << ", " << hit_upper_window_lim << "]" << std::endl;
 
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
     assert(k > 7 && "You should really not use too small strobe size!");
     assert(k <= 32 && "k have to be smaller than 32!");
-    assert(w > 1 && "w have to be greater than 1!");
+    assert( ( s <= k ) && " s have to be smaller or equal to k!");
+    assert( ( (k-s) % 2 == 0) && " k - s have to be an even number to create canonical syncmers. Set s to e.g., k-2, k-4, k-6, k-8.");
     assert(n == 2 && "Currently only n=2 is implemented");
     // File name to reference
     std::string filename = argv[opn];
@@ -831,7 +888,7 @@ int main (int argc, char **argv)
             for(size_t i = 0; i < ref_seqs.size(); ++i)
             {
                 mers_vector randstrobes2; // pos, chr_id, kmer hash value
-                randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, w);
+                randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s);
                 tmp_index[i] = randstrobes2;
             }
 
@@ -905,6 +962,8 @@ int main (int argc, char **argv)
 
     unsigned int tot_ksw_aligned = 0;
     unsigned int tot_all_tried = 0;
+    unsigned int did_not_fit = 0;
+
     std::ifstream query_file(reads_filename);
     std::ofstream output_file;
     output_file.open (output_file_name);
@@ -932,7 +991,7 @@ int main (int argc, char **argv)
                 }
                 else if (choice == "randstrobes" ){
                     if (n == 2 ){
-                        query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, seq, q_id, w);
+                        query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, seq, q_id, s);
                         seq_rc = reverse_complement(seq);
 //                        query_mers_rc = seq_to_randstrobes2(n, k, w_min, w_max, seq_rc, q_id, w);
                     }
@@ -946,7 +1005,7 @@ int main (int argc, char **argv)
                 }
 //                std::cout << "HERE " << line << std::endl;
                 // Find NAMs
-//                std::cout << "Processing read: " << prev_acc << " mers generated: " << query_mers.size() << " mers_rc generated: " << query_mers_rc.size() << ", read length: " <<  seq.length() << std::endl;
+//                std::cout << "Processing read: " << prev_acc << " mers generated: " << query_mers.size()  << ", read length: " <<  seq.length() << std::endl;
                 std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
                 std::vector<nam> nams_rc; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
                 nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, seq, hit_upper_window_lim, filter_cutoff);
@@ -960,7 +1019,7 @@ int main (int argc, char **argv)
 //                    output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
                 }
                 else{
-                    align(nams, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths,ref_seqs, seq, seq_rc, tot_ksw_aligned, tot_all_tried, dropoff);
+                    align(nams, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths,ref_seqs, seq, seq_rc, tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
                 }
 //              output_file << "> " <<  prev_acc << "\n";
 //              output_file << "  " << ref_acc << " " << ref_p << " " << q_pos << " " << "\n";
@@ -984,7 +1043,7 @@ int main (int argc, char **argv)
         }
         else if (choice == "randstrobes" ){
             if (n == 2 ){
-                query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, seq, q_id, w);
+                query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, seq, q_id, s);
                 seq_rc = reverse_complement(seq);
 //                query_mers_rc = seq_to_randstrobes2(n, k, w_min, w_max, seq_rc, q_id, w);
             }
@@ -1011,7 +1070,7 @@ int main (int argc, char **argv)
 //            output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
         }
         else{
-            align(nams, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths,ref_seqs, seq, seq_rc, tot_ksw_aligned, tot_all_tried, dropoff);
+            align(nams, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths,ref_seqs, seq, seq_rc, tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
         }
     }
 
@@ -1020,7 +1079,7 @@ int main (int argc, char **argv)
 
     std::cout << "Total mapping sites tried: " << tot_all_tried << "\n" <<  std::endl;
     std::cout << "Total calls to ksw: " << tot_ksw_aligned << "\n" <<  std::endl;
-
+    std::cout << "Did not fit strobe start site: " << did_not_fit << "\n" <<  std::endl;
     // Record mapping end time
     auto finish_map = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_map = finish_map - start_map;
