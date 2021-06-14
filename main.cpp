@@ -1,11 +1,12 @@
 #include <iostream>
 #include <fstream>
 #include <unordered_map>
-#include "source/robin_hood.h"
 #include <vector>
 #include <string>
+#include <stdint.h>
 #include <chrono>  // for high_resolution_clock
 
+#include "source/robin_hood.h"
 #include "source/edlib.h"
 #include "source/index.hpp"
 //#include "gap_affine/affine_wavefront_align.h"
