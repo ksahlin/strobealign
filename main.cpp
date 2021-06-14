@@ -3,7 +3,6 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
-#include <stdint.h>
 #include <chrono>  // for high_resolution_clock
 
 #include "source/robin_hood.h"
@@ -493,9 +492,10 @@ static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file,
     int cnt = 0;
     float hits_dropoff;
     float hits_max = (float) all_nams[0].n_hits;
-    int best_align_dist = INT_MAX;
+    int best_align_dist = ~0U >> 1;
     int best_align_index = 0; // assume by default it is the nam with most hits and most similar span length
     bool aln_did_not_fit;
+//    std::cout << "best_align_dist: " << best_align_dist << std::endl;
     final_alignment sam_aln;
     // Only output single best hit based on: Firstly: number of randstrobe-hits. Secondly the concordance the span of the hits between ref and query (more simmilar ranked higher)
 //    std::cout << "" << std::endl;
