@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <assert.h>
 #include <chrono>  // for high_resolution_clock
 
 #include "source/robin_hood.h"
