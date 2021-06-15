@@ -586,7 +586,7 @@ static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file,
                 if (hamming_dist < best_align_dist){
                     best_align_index = cnt;
                     best_align_dist = hamming_dist;
-                    sam_aln.cigar = "200M";
+                    sam_aln.cigar = std::to_string(read_len) + "M";
                     sam_aln.ed = hamming_dist;
                     sam_aln.ref_start = n.ref_s - n.query_s +1; // +1 because SAM is 1-based!
                     sam_aln.is_rc = true;
@@ -637,7 +637,7 @@ static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file,
                 if (hamming_dist < best_align_dist){
                     best_align_index = cnt;
                     best_align_dist = hamming_dist;
-                    sam_aln.cigar = "200M";
+                    sam_aln.cigar = std::to_string(read_len) + "M";
                     sam_aln.ed = hamming_dist;
                     sam_aln.ref_start = n.ref_s - n.query_s +1; // +1 because SAM is 1-based!
                     sam_aln.is_rc = false;
