@@ -520,7 +520,14 @@ static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file,
         unsigned int diff = max_diff - min_diff;
 //        std::cout << ref_diff << " " << read_diff << " " << diff << std::endl;
 
-        std::string ref_segm = ref_seqs[n.ref_id].substr(n.ref_s - n.query_s, read_len + diff );
+        // deal with any read hanging of ends of reference not to get 'std::out_of_range' what(): basic_string::substr
+        int ref_tmp_start = n.ref_s - n.query_s;
+        int ref_tmp_segm_size = read_len + diff;
+        int ref_len = ref_len_map[n.ref_id];
+        int ref_start = ref_tmp_start > 0 ? ref_tmp_start : 0;
+        int ref_segm_size = ref_tmp_segm_size < ref_len - ref_start ? ref_tmp_segm_size : ref_len - 1 - ref_start;
+
+        std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
 //        std::cout << query_acc << ". Ref len:" << ref_segm.length() << " query length: " << read.length() << std::endl;
 
 //        if ( (ref_seqs[n.ref_id].substr(n.ref_s, k) == read.substr(n.query_s, k) ) || (ref_seqs[n.ref_id].substr(n.ref_s, k) == read_rc.substr(n.query_s, k) ) ) {
