@@ -27,8 +27,9 @@ typedef robin_hood::unordered_map< uint64_t, std::tuple<uint64_t, unsigned int >
 
 
 
-static void read_references(std::vector<std::string> &seqs, std::vector<unsigned int> &lengths, idx_to_acc &acc_map, std::string fn)
+static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsigned int> &lengths, idx_to_acc &acc_map, std::string fn)
 {
+    uint64_t total_ref_seq_size = 0;
     std::ifstream file(fn);
     std::string line, seq;
     int ref_index = 0;
@@ -39,6 +40,7 @@ static void read_references(std::vector<std::string> &seqs, std::vector<unsigned
 //                seqs[ref_index -1] = seq;
                 seqs.push_back(seq);
                 lengths.push_back(seq.length());
+                total_ref_seq_size += seq.length();
 //                std::cout << ref_index - 1 << " here " << seq << " " << seq.length() << " " << seq.size() << std::endl;
 //                generate_kmers(h, k, seq, ref_index);
             }
@@ -54,10 +56,12 @@ static void read_references(std::vector<std::string> &seqs, std::vector<unsigned
 //        seqs[ref_index -1] = seq;
         seqs.push_back(seq);
         lengths.push_back(seq.length());
+        total_ref_seq_size += seq.length();
 //        std::cout << ref_index -1 << " here2 " << seq << std::endl;
 //        generate_kmers(h, k, seq, ref_index);
     }
     file.close();
+    return total_ref_seq_size;
 }
 
 
@@ -866,21 +870,25 @@ int main (int argc, char **argv)
 //    std::string choice = "kmers";
 
 
-
-    std::vector<std::string> ref_seqs;
-    std::vector<unsigned int> ref_lengths;
-    idx_to_acc acc_map;
-    read_references(ref_seqs, ref_lengths, acc_map, filename);
-
-
     //////////////////////////////////////////////////////
 
 
     //////////// CREATE INDEX OF REF SEQUENCES /////////////////
 
     // Record index creation start time
-    auto start = std::chrono::high_resolution_clock::now();
 
+    auto start = std::chrono::high_resolution_clock::now();
+    auto start_read_refs = std::chrono::high_resolution_clock::now();
+    std::vector<std::string> ref_seqs;
+    std::vector<unsigned int> ref_lengths;
+    uint64_t total_ref_seq_size;
+    idx_to_acc acc_map;
+    total_ref_seq_size = read_references(ref_seqs, ref_lengths, acc_map, filename);
+    auto finish_read_refs = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_read_refs = finish_read_refs - start_read_refs;
+    std::cout << "Time reading references: " << elapsed_read_refs.count() << " s\n" <<  std::endl;
+
+    auto start_flat_vector = std::chrono::high_resolution_clock::now();
     pos_index tmp_index; // hash table holding all reference mers
 
     if (choice == "kmers" ){
@@ -917,12 +925,30 @@ int main (int argc, char **argv)
 
 
     mers_vector all_mers_vector_tmp;
-    all_mers_vector_tmp = construct_flat_vector(tmp_index);
+    uint64_t unique_mers = 0;
+//    uint64_t approx_vec_size = total_ref_seq_size / (k-s+1);
+//    std::cout << "Reserving flat vector size: " << approx_vec_size << std::endl;
+//    all_mers_vector_tmp.reserve(approx_vec_size); // reserve size corresponding to sum of lengths of all sequences divided by expected sampling
+    all_mers_vector_tmp = construct_flat_vector(tmp_index, unique_mers);
+    std::cout << "Unique strobemers: " << unique_mers  <<  std::endl;
+
+
+    auto finish_flat_vector = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_flat_vector = finish_flat_vector - start_flat_vector;
+    std::cout << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s\n" <<  std::endl;
+
+    auto start_hash_index = std::chrono::high_resolution_clock::now();
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
+    mers_index.reserve(unique_mers);
     unsigned int filter_cutoff;
     filter_cutoff = index_vector(all_mers_vector_tmp, mers_index, f); // construct index over flat array
     tmp_index.clear();
     mers_vector_reduced all_mers_vector;
+
+    auto finish_hash_index = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_hash_index = finish_hash_index - start_hash_index;
+    std::cout << "Total time generating hash table index: " << elapsed_hash_index.count() << " s\n" <<  std::endl;
+
     all_mers_vector = remove_kmer_hash_from_flat_vector(all_mers_vector_tmp);
     print_diagnostics_new4(all_mers_vector, mers_index);
 
@@ -959,7 +985,7 @@ int main (int argc, char **argv)
     // Record index creation end time
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = finish - start;
-    std::cout << "Total time generating index: " << elapsed.count() << " s\n" <<  std::endl;
+    std::cout << "Total time indexing: " << elapsed.count() << " s\n" <<  std::endl;
 
 //    std::chrono::milliseconds timespan2(1000000); // or whatever
 //    std::this_thread::sleep_for(timespan2);
