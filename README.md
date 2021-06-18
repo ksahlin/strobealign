@@ -1,5 +1,6 @@
 # StrobeAlign
-Aligns short reads using strobemers
+
+Aligns short reads using syncmer-thinned strobemers
 
 # INSTALLATION
 
