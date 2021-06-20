@@ -7,7 +7,6 @@
 #include <chrono>  // for high_resolution_clock
 
 #include "source/robin_hood.h"
-#include "source/edlib.h"
 #include "source/index.hpp"
 //#include "gap_affine/affine_wavefront_align.h"
 #include "source/ksw2.h"
@@ -260,63 +259,6 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
 
 
 
-//static inline std::vector<hit> find_hits(mers_vector &query_mers, mers_vector_reduced &mers_vector, vector_index &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read){
-////    std::cout << "ENTER FIND NAMS " <<  std::endl;
-//    std::vector<hit> query_hits;
-//    int extra = 20;
-//    uint64_t hit_count_reduced = 0;
-//    uint64_t hit_count_all = 0;
-//    int read_length = read.length();
-//    for (auto &q : query_mers)
-////    for (size_t i = 0; i < query_mers.size(); ++i)
-//    {
-//        hit h;
-//        h.query_s = std::get<2>(q);
-////        std::cout << h.query_s << " " << h.query_e <<  std::endl;
-//
-//        uint64_t mer_hashv = std::get<0>(q);
-//        if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
-//            std::tuple<uint64_t, unsigned int> mer;
-//            mer = mers_index[mer_hashv];
-//            uint64_t offset = std::get<0>(mer);
-//            unsigned int count = std::get<1>(mer);
-//            for(size_t j = offset; j < offset+count; ++j)
-//            {
-//
-//                auto r = mers_vector[j];
-//                unsigned int ref_s = std::get<1>(r);
-//                unsigned int ref_id = std::get<0>(r);
-//
-//                h.ref_s = ref_s;
-//                h.ref_id = ref_id;
-//                query_hits.push_back(h);
-//
-//                hit_count_all ++;
-//                std::string ref_segm;
-////                ref_segm = ref_seqs[ref_id].substr(ref_s - h.query_s, read_length);
-//
-////                EdlibAlignResult result = edlibAlign("hello", 5, "world!", 6, edlibDefaultAlignConfig());
-////                if (result.status == EDLIB_STATUS_OK) {
-////                    printf("edit_distance('hello', 'world!') = %d\n", result.editDistance);
-////                    printf("edit_distance('hello', 'world!') = %d\n", result2.editDistance);
-////                }
-//
-////                EdlibAlignResult result2 = edlibAlign(&read[0], read_length, &ref_segm[0], read_length, edlibNewAlignConfig(60, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
-////                char* cigar = edlibAlignmentToCigar(result2.alignment, result2.alignmentLength, EDLIB_CIGAR_STANDARD);
-//////                std::cout <<  cigar << std::endl;
-////                edlibFreeAlignResult(result2);
-////                free(cigar);
-//
-////                std::cout << "Hit! " << h.query_s << ", " << h.query_e << ", " << ref_s << ", " << ref_e << ", " << std::endl;
-//
-//            }
-//
-//        }
-//    }
-//
-//
-//    return query_hits;
-//}
 
 //static inline bool compareByQueryCoord(const hit &a, const hit &b)
 //{
@@ -343,16 +285,16 @@ static inline bool score(const nam &a, const nam &b)
     return ( (a.n_hits * (a.query_e - a.query_s)) > (b.n_hits * (b.query_e - b.query_s)) );
 }
 
-static inline void output_hits(std::vector<nam> &nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map) {
-    //Sort hits based on start choordinate on query sequence
-//    std::sort(nams.begin(), nams.end(), compareByQueryCoord);
-    // Output results
-    output_file << "> " << query_acc << "\n";
-    for (auto &n : nams) {
-        output_file << "  " << acc_map[n.ref_id]  << " " << n.ref_s << " " << n.query_s << " -" << "\n";
-//      python: outfile.write("  {0} {1} {2} {3}\n".format(ref_acc, ref_p, q_pos, k))
-    }
-}
+//static inline void output_hits(std::vector<nam> &nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map) {
+//    //Sort hits based on start choordinate on query sequence
+////    std::sort(nams.begin(), nams.end(), compareByQueryCoord);
+//    // Output results
+//    output_file << "> " << query_acc << "\n";
+//    for (auto &n : nams) {
+//        output_file << "  " << acc_map[n.ref_id]  << " " << n.ref_s << " " << n.query_s << " -" << "\n";
+////      python: outfile.write("  {0} {1} {2} {3}\n".format(ref_acc, ref_p, q_pos, k))
+//    }
+//}
 
 static inline void output_hits_paf(std::vector<nam> &nams, std::vector<nam> &nams_rc, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map) {
     // Merge fwd and reverse complement hits
@@ -739,7 +681,7 @@ int main (int argc, char **argv)
 
     // Default parameters
     std::string choice = "randstrobes";
-//        std::string mode = "map";
+//        std::string mode = "map"; //TODO: finish the implementation of outputting PAF.
     std::string mode = "align";
 
     int n = 2;
@@ -1048,8 +990,6 @@ int main (int argc, char **argv)
 //                std::cout <<  "NAMs generated: " << nams.size() << std::endl;
                 // Output results
                 if ( mode.compare("map") == 0) {
-//                    output_hits(nams, output_file, prev_acc, acc_map);
-//                    output_hits(nams_rc, output_file, prev_acc, acc_map);
                     output_hits_paf(nams, nams_rc, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths);
 //                    output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
                 }
@@ -1099,8 +1039,6 @@ int main (int argc, char **argv)
 //                std::cout <<  "NAMs generated: " << nams.size() << std::endl;
         // Output results
         if ( mode.compare("map") == 0) {
-//                    output_hits(nams, output_file, prev_acc, acc_map);
-//                    output_hits(nams_rc, output_file, prev_acc, acc_map);
             output_hits_paf(nams, nams_rc, output_file, prev_acc, acc_map, k, seq.length(), ref_lengths);
 //            output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
         }
