@@ -180,7 +180,7 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
                         o.query_last_hit_pos = h.query_s; // log the last strobemer hit in case of outputting paf
                         o.ref_last_hit_pos = h.ref_s; // log the last strobemer hit in case of outputting paf
                         o.n_hits ++;
-                        o.score += (float)1/ (float)h.hit_count;
+//                        o.score += (float)1/ (float)h.hit_count;
                         is_added = true;
                         break;
                     }
@@ -190,7 +190,7 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
                         o.query_last_hit_pos = h.query_s; // log the last strobemer hit in case of outputting paf
                         o.ref_last_hit_pos = h.ref_s; // log the last strobemer hit in case of outputting paf
                         o.n_hits ++;
-                        o.score += (float)1/ (float)h.hit_count;
+//                        o.score += (float)1/ (float)h.hit_count;
                         is_added = true;
                         break;
                     }
@@ -214,7 +214,7 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
                 n.ref_last_hit_pos = h.ref_s;
                 n.n_hits = 1;
                 n.is_rc = h.is_rc;
-                n.score += (float)1/ (float)h.hit_count;
+//                n.score += (float)1/ (float)h.hit_count;
                 open_nams.push_back(n);
             }
 
@@ -284,17 +284,6 @@ static inline bool score(const nam &a, const nam &b)
 {
     return ( (a.n_hits * (a.query_e - a.query_s)) > (b.n_hits * (b.query_e - b.query_s)) );
 }
-
-//static inline void output_hits(std::vector<nam> &nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map) {
-//    //Sort hits based on start choordinate on query sequence
-////    std::sort(nams.begin(), nams.end(), compareByQueryCoord);
-//    // Output results
-//    output_file << "> " << query_acc << "\n";
-//    for (auto &n : nams) {
-//        output_file << "  " << acc_map[n.ref_id]  << " " << n.ref_s << " " << n.query_s << " -" << "\n";
-////      python: outfile.write("  {0} {1} {2} {3}\n".format(ref_acc, ref_p, q_pos, k))
-//    }
-//}
 
 static inline void output_hits_paf(std::vector<nam> &nams, std::vector<nam> &nams_rc, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map) {
     // Merge fwd and reverse complement hits
@@ -414,6 +403,7 @@ inline int HammingDistance(std::string One, std::string Two)
     return counter;
 }
 
+
 static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit ) {
     // Merge fwd and reverse complement hits
 //    std::vector<nam> all_nams;
@@ -437,8 +427,20 @@ static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file,
     // Output results
 
     int cnt = 0;
-    float hits_dropoff;
-    float hits_max = (float) all_nams[0].n_hits;
+    float score_dropoff;
+//    float hits_max = (float) all_nams[0].n_hits;
+    nam n_max = all_nams[0];
+    float s1 = (float) (n_max.n_hits * (n_max.query_e - n_max.query_s));
+    int mapq = 60; // MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
+    if (all_nams.size() > 1) {
+        nam n_second = all_nams[1];
+        float s2 = (float) (n_second.n_hits * (n_second.query_e - n_second.query_s));
+//        ref_start = ref_tmp_start > 0 ? ref_tmp_start : 0;
+        float min_matches;
+        min_matches  = (float)n_max.n_hits/10 > 1 ? (float)n_max.n_hits/10 : 1;
+        mapq = 40*(1 - s2/s1)*min_matches*std::log(s1) < 60 ? 40*(1 - s2/s1)*min_matches*std::log(s1) : 60 ;
+    }
+
     int best_align_dist = ~0U >> 1;
     int best_align_index = 0; // assume by default it is the nam with most hits and most similar span length
     bool aln_did_not_fit;
@@ -449,9 +451,10 @@ static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file,
     for (auto &n : all_nams) {
         aln_did_not_fit = false;
 //        std::cout << query_acc << "\t" << n.ref_s << " " << n.ref_e << " " << n.ref_e - n.ref_s << " " << n.query_e - n.query_s << " "  << n.n_hits << " " << n.score << " " << n.score*( n.query_e - n.query_s) << " " << best_align_dist << std::endl; //<< ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
-        hits_dropoff = (float)n.n_hits/hits_max;
+//        score_dropoff = (float) (n.n_hits * (n.query_e - n.query_s))/s1;
+        score_dropoff = (float) n.n_hits / n_max.n_hits;
 
-        if ( (cnt >= 20) || best_align_dist == 0 || hits_dropoff < dropoff){ // only consider top 20 hits and break if exact match to reference
+        if ( (cnt >= 20) || best_align_dist == 0 || score_dropoff < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
             break;
         }
 
@@ -650,7 +653,7 @@ static inline void align(std::vector<nam> &all_nams, std::ofstream &output_file,
         //TODO: Best way to calc Alignment score?
 //        output_file << "LOL\n";
         output_file << query_acc << "\t" << o << "\t" << acc_map[sam_aln.ref_id] << "\t" << sam_aln.ref_start
-                    << "\t" << 40 << "\t" << sam_aln.cigar << "\t" << "*" << "\t"
+                    << "\t" << mapq << "\t" << sam_aln.cigar << "\t" << "*" << "\t"
                     << 0 << "\t" << 0 << "\t" << output_read << "\t" << "*" << "\tNM:i:" << sam_aln.ed << "\n";
 
 

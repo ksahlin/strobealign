@@ -66,7 +66,7 @@ struct nam {
     unsigned int previous_query_start;
     unsigned int previous_ref_start;
     unsigned int is_rc = false;
-    float score;
+//    float score;
 };
 
 struct aln_info {
