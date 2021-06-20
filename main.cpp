@@ -17,12 +17,10 @@
 #include <sstream>
 
 
-//typedef robin_hood::unordered_map< unsigned int , std::string > references;
 typedef robin_hood::unordered_map< unsigned int, std::string > idx_to_acc;
 
-typedef robin_hood::unordered_map< uint64_t, std::tuple<uint64_t, unsigned int >> vector_index;
+//typedef robin_hood::unordered_map< uint64_t, std::tuple<uint64_t, unsigned int >> vector_index;
 
-//typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>> mers_vector;
 
 
 
@@ -158,20 +156,6 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
 
                 // Extend NAM
                 if ( ( o.is_rc == h.is_rc) && ( o.previous_query_start < h.query_s) && (h.query_s <= o.query_e ) && ( o.previous_ref_start < h.ref_s) && (h.ref_s <= o.ref_e) ){
-//                    if (h.query_e > o.query_e) {
-//                        o.query_e = h.query_e;
-//                    }
-//                    if (h.ref_e > o.ref_e) {
-//                        o.ref_e = h.ref_e;
-//                    }
-//                    o.previous_query_start = h.query_s;
-//                    o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
-//                    o.query_last_hit_pos = h.query_s; // log the last strobemer hit in case of outputting paf
-//                    o.ref_last_hit_pos = h.ref_s; // log the last strobemer hit in case of outputting paf
-//                    o.n_hits ++;
-//                    o.score += (float)1/ (float)h.hit_count;
-//                    is_added = true;
-//                    break;
                     if ( (h.query_e > o.query_e) && (h.ref_e > o.ref_e) ) {
                         o.query_e = h.query_e;
                         o.ref_e = h.ref_e;
@@ -897,27 +881,7 @@ int main (int argc, char **argv)
     all_mers_vector = remove_kmer_hash_from_flat_vector(all_mers_vector_tmp);
     print_diagnostics_new4(all_mers_vector, mers_index);
 
-    // COMMENTED OUT UNNECCESARY COMUTATION OF REMOVING ABUNDANT STROBEMERS
-//    mers_vector all_mers_vector_tmp;
-//    all_mers_vector_tmp = construct_flat_vector(tmp_index);
-//    kmer_lookup mers_index_tmp; // k-mer -> (offset in flat_vector, occurence count )
-//    unsigned int filter_cutoff;
-//    filter_cutoff = index_vector(all_mers_vector_tmp, mers_index_tmp, f); // construct index over flat array
-//    tmp_index.clear();
-//
-//    // filter fraction of repetitive strobes
-//    mers_vector flat_vector_reduced;
-//    kmer_lookup mers_index;
-//    filter_repetitive_strobemers(all_mers_vector_tmp, mers_index_tmp, flat_vector_reduced, mers_index, filter_cutoff);
-//    mers_index_tmp.clear();
-//    all_mers_vector_tmp.clear();
-//
-//    filter_cutoff = index_vector(flat_vector_reduced, mers_index, f); // construct index over flat array
-//
-//    mers_vector_reduced all_mers_vector;
-//    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector_reduced);
-//    flat_vector_reduced.clear();
-//    print_diagnostics_new4(all_mers_vector, mers_index);
+
 ////////////////////////////////////////////////////////////////////////
 
 

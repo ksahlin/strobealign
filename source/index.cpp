@@ -183,19 +183,7 @@ unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, flo
     return filter_cutoff;
 }
 
-//void filter_repetitive_strobemers(mers_vector &flat_vector, kmer_lookup &mers_index, mers_vector &flat_vector_reduced, kmer_lookup &mers_index_reduced, unsigned int filter_cutoff) {
-//
-//    for ( auto &t : flat_vector ) {
-//        uint64_t mer_hashv = std::get<0>(t);
-//        std::tuple<uint64_t, unsigned int> mer;
-//        mer = mers_index[mer_hashv];
-////        uint64_t offset = std::get<0>(mer);
-//        unsigned int count = std::get<1>(mer);
-//        if (count <= filter_cutoff ) { //  Passed abundance threshold
-//            flat_vector_reduced.push_back(t);
-//        }
-//    }
-//}
+
 
 
 
@@ -255,62 +243,62 @@ static inline void update_window(std::deque <uint64_t> &q, std::deque <unsigned 
 }
 
 
-static inline void make_string_to_hashvalues_open_syncmers(std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, uint64_t kmask, int k, uint64_t smask, int s, int t) {
-    // initialize the deque
-    std::deque <uint64_t> qs;
-    std::deque <unsigned int> qs_pos;
-    int seq_length = seq.length();
-    int qs_size = 0;
-    uint64_t qs_min_val = UINT64_MAX;
-    int qs_min_pos = -1;
-
-
-    robin_hood::hash<uint64_t> robin_hash;
-//    std::vector<std::tuple<uint64_t, unsigned int, unsigned int> > kmers;
-    unsigned int hash_count = 0;
-    int l;
-//    int i;
-    uint64_t xk = 0;
-    uint64_t xs = 0;
-    for (int i = l = 0; i < seq_length; i++) {
-        int c = seq_nt4_table[(uint8_t) seq[i]];
-        if (c < 4) { // not an "N" base
-            xk = (xk << 2 | c) & kmask;
-            xs = (xs << 2 | c) & smask;
-            if (++l >= s) { // we find an s-mer
-                uint64_t hash_s = robin_hash(xs);
-                // que not initialized yet
-                if (qs_size < k - s + 1) {
-                    qs.push_back(hash_s);
-                    qs_pos.push_back(i - s + 1);
-                    qs_size++;
-                }
-                else{
-                    bool new_minimizer = false;
-                    update_window(qs, qs_pos, qs_min_val, qs_min_pos, hash_s, i - s + 1, new_minimizer );
-                    if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
-                        uint64_t hash_k = robin_hash(xk);
-                        string_hashes.push_back(hash_k);
-                        pos_to_seq_choord.push_back(i - k + 1);
-                        hash_count++;
-                    }
-                }
-            }
-        } else {
-            l = 0, xk = 0, xs = 0; // if there is an "N", restart
-            qs_size = 0;
-            qs_min_val = UINT64_MAX;
-            qs_min_pos = -1;
-            qs.clear();
-            qs_pos.clear();
-        }
-    }
-//    std::cout << hash_count << " values produced from string of length " <<   seq_length << std::endl;
-//    for(auto t: pos_to_seq_choord){
-//        std::cout << t << " ";
+//static inline void make_string_to_hashvalues_open_syncmers(std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, uint64_t kmask, int k, uint64_t smask, int s, int t) {
+//    // initialize the deque
+//    std::deque <uint64_t> qs;
+//    std::deque <unsigned int> qs_pos;
+//    int seq_length = seq.length();
+//    int qs_size = 0;
+//    uint64_t qs_min_val = UINT64_MAX;
+//    int qs_min_pos = -1;
+//
+//
+//    robin_hood::hash<uint64_t> robin_hash;
+////    std::vector<std::tuple<uint64_t, unsigned int, unsigned int> > kmers;
+//    unsigned int hash_count = 0;
+//    int l;
+////    int i;
+//    uint64_t xk = 0;
+//    uint64_t xs = 0;
+//    for (int i = l = 0; i < seq_length; i++) {
+//        int c = seq_nt4_table[(uint8_t) seq[i]];
+//        if (c < 4) { // not an "N" base
+//            xk = (xk << 2 | c) & kmask;
+//            xs = (xs << 2 | c) & smask;
+//            if (++l >= s) { // we find an s-mer
+//                uint64_t hash_s = robin_hash(xs);
+//                // que not initialized yet
+//                if (qs_size < k - s + 1) {
+//                    qs.push_back(hash_s);
+//                    qs_pos.push_back(i - s + 1);
+//                    qs_size++;
+//                }
+//                else{
+//                    bool new_minimizer = false;
+//                    update_window(qs, qs_pos, qs_min_val, qs_min_pos, hash_s, i - s + 1, new_minimizer );
+//                    if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
+//                        uint64_t hash_k = robin_hash(xk);
+//                        string_hashes.push_back(hash_k);
+//                        pos_to_seq_choord.push_back(i - k + 1);
+//                        hash_count++;
+//                    }
+//                }
+//            }
+//        } else {
+//            l = 0, xk = 0, xs = 0; // if there is an "N", restart
+//            qs_size = 0;
+//            qs_min_val = UINT64_MAX;
+//            qs_min_pos = -1;
+//            qs.clear();
+//            qs_pos.clear();
+//        }
 //    }
-//    std::cout << " " << std::endl;
-}
+////    std::cout << hash_count << " values produced from string of length " <<   seq_length << std::endl;
+////    for(auto t: pos_to_seq_choord){
+////        std::cout << t << " ";
+////    }
+////    std::cout << " " << std::endl;
+//}
 
 
 static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, uint64_t kmask, int k, uint64_t smask, int s, int t) {
@@ -401,74 +389,74 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 //    std::cout << " " << std::endl;
 }
 
-
-static inline void make_string_to_hashvalues_random_minimizers(std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, int k, uint64_t kmask, int w) {
-    // initialize the deque
-    std::deque <uint64_t> q;
-    std::deque <unsigned int> q_pos;
-    int seq_length = seq.length();
-    int q_size = 0;
-    uint64_t q_min_val = UINT64_MAX;
-    int q_min_pos = -1;
-
-
-    robin_hood::hash<uint64_t> robin_hash;
-//    std::vector<std::tuple<uint64_t, unsigned int, unsigned int> > kmers;
-    unsigned int hash_count = 0;
-    int l;
-    int i;
-    uint64_t x = 0;
-    for (int i = l = 0; i < seq_length; i++) {
-        int c = seq_nt4_table[(uint8_t) seq[i]];
-        if (c < 4) { // not an "N" base
-            x = (x << 2 | c) & kmask;                  // forward strand
-            if (++l >= k) { // we find a k-mer
-                uint64_t hash_k = robin_hash(x);
-
-                // que not initialized yet
-                if (q_size < w){
-                    q.push_back(hash_k);
-                    q_pos.push_back(i-k+1);
-                    q_size ++;
-                }
-                // que just filled up
-                else if (q_size == w - 1){
-                    q.push_back(hash_k);
-                    q_pos.push_back(i-k+1);
-                    q_min_val = UINT64_MAX;
-                    q_min_pos = -1;
-                    for (int j = 0; j <= w-1; j++) {
-                        if (q[j] < q_min_val) {
-                            q_min_val = q[j];
-                            q_min_pos = q_pos[j];
-                        }
-                    }
-                    string_hashes.push_back(q_min_val);
-                    pos_to_seq_choord.push_back(q_min_pos);
-                    hash_count ++;
-                }
-                // sliding the queue
-                else{
-                    bool new_minimizer = false;
-                    update_window(q, q_pos, q_min_val, q_min_pos, hash_k, i - k + 1, new_minimizer );
-                    if (new_minimizer) {
-                        string_hashes.push_back(q_min_val);
-                        pos_to_seq_choord.push_back(q_min_pos);
-                        hash_count++;
-                    }
-                }
-
-            }
-        } else {
-            l = 0, x = 0; // if there is an "N", restart
-        }
-    }
-//    std::cout << hash_count << " values produced from string of length " <<   seq_length << std::endl;
-//    for(auto t: pos_to_seq_choord){
-//        std::cout << t << " ";
+//
+//static inline void make_string_to_hashvalues_random_minimizers(std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, int k, uint64_t kmask, int w) {
+//    // initialize the deque
+//    std::deque <uint64_t> q;
+//    std::deque <unsigned int> q_pos;
+//    int seq_length = seq.length();
+//    int q_size = 0;
+//    uint64_t q_min_val = UINT64_MAX;
+//    int q_min_pos = -1;
+//
+//
+//    robin_hood::hash<uint64_t> robin_hash;
+////    std::vector<std::tuple<uint64_t, unsigned int, unsigned int> > kmers;
+//    unsigned int hash_count = 0;
+//    int l;
+//    int i;
+//    uint64_t x = 0;
+//    for (int i = l = 0; i < seq_length; i++) {
+//        int c = seq_nt4_table[(uint8_t) seq[i]];
+//        if (c < 4) { // not an "N" base
+//            x = (x << 2 | c) & kmask;                  // forward strand
+//            if (++l >= k) { // we find a k-mer
+//                uint64_t hash_k = robin_hash(x);
+//
+//                // que not initialized yet
+//                if (q_size < w){
+//                    q.push_back(hash_k);
+//                    q_pos.push_back(i-k+1);
+//                    q_size ++;
+//                }
+//                // que just filled up
+//                else if (q_size == w - 1){
+//                    q.push_back(hash_k);
+//                    q_pos.push_back(i-k+1);
+//                    q_min_val = UINT64_MAX;
+//                    q_min_pos = -1;
+//                    for (int j = 0; j <= w-1; j++) {
+//                        if (q[j] < q_min_val) {
+//                            q_min_val = q[j];
+//                            q_min_pos = q_pos[j];
+//                        }
+//                    }
+//                    string_hashes.push_back(q_min_val);
+//                    pos_to_seq_choord.push_back(q_min_pos);
+//                    hash_count ++;
+//                }
+//                // sliding the queue
+//                else{
+//                    bool new_minimizer = false;
+//                    update_window(q, q_pos, q_min_val, q_min_pos, hash_k, i - k + 1, new_minimizer );
+//                    if (new_minimizer) {
+//                        string_hashes.push_back(q_min_val);
+//                        pos_to_seq_choord.push_back(q_min_pos);
+//                        hash_count++;
+//                    }
+//                }
+//
+//            }
+//        } else {
+//            l = 0, x = 0; // if there is an "N", restart
+//        }
 //    }
-//    std::cout << " " << std::endl;
-}
+////    std::cout << hash_count << " values produced from string of length " <<   seq_length << std::endl;
+////    for(auto t: pos_to_seq_choord){
+////        std::cout << t << " ";
+////    }
+////    std::cout << " " << std::endl;
+//}
 
 
 
