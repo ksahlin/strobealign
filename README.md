@@ -17,10 +17,17 @@ g++ -std=c++11 main.cpp source/index.cpp source/ksw2_extz2_sse.c -o StrobeMap -O
 USAGE
 -------
 
+For alignment to SAM file:
+
 ```
 StrobeAlign [-k 22 -s 18 -f 0.0002] -o <output.sam> ref.fa reads.fa 
 ```
 
+For mapping to PAF file (option -x):
+
+```
+StrobeAlign [-k 22 -s 18 -f 0.0002] -x -o <output.sam> ref.fa reads.fa 
+```
 
 TODO
 -------
@@ -31,12 +38,11 @@ TODO
 4. (Eventually) Consider mate inference for Illumina Paired-End mapping.
 
 
-<!-- CREDITS
+CREDITS
 ----------------
 
-
-1. Kristoffer Sahlin 2021. "" [preprint available here]().
- -->
+1. Kristoffer Sahlin. Faster short-read mapping with strobemer seeds in syncmer space. bioRxiv,
+2021. doi:10.1101/2021.06.18.449070. Preprint available [here](https://doi.org/10.1101/2021.06.18.449070).
 
 
 LICENCE
