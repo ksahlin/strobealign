@@ -18,7 +18,7 @@ USAGE
 -------
 
 ```
-StrobeAlign -o <output.sam> ref.fa reads.fa [-k 22 -s 18 -f 0.0002]
+StrobeAlign [-k 22 -s 18 -f 0.0002] -o <output.sam> ref.fa reads.fa 
 ```
 
 

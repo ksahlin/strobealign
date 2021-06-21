@@ -269,37 +269,44 @@ static inline bool score(const nam &a, const nam &b)
     return ( (a.n_hits * (a.query_e - a.query_s)) > (b.n_hits * (b.query_e - b.query_s)) );
 }
 
-static inline void output_hits_paf(std::vector<nam> &nams, std::vector<nam> &nams_rc, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map) {
-    // Merge fwd and reverse complement hits
-    std::vector<nam> all_nams;
-    all_nams.reserve( nams.size() + nams_rc.size() ); // preallocate memory
-    all_nams.insert( all_nams.end(), nams.begin(), nams.end() );
-    all_nams.insert( all_nams.end(), nams_rc.begin(), nams_rc.end() );
+static inline void output_hits_paf(std::vector<nam> &all_nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map) {
 
     //Sort hits based on start choordinate on query sequence
     std::sort(all_nams.begin(), all_nams.end(), score);
 
     // Output results
-//    int cnt = 0;
-    // Only output single best hit based on: Firstly: number of randstrobe-hits. Secondly the concordance the span of the hits between ref and query (more simmilar ranked higher)
-    for (auto &n : all_nams) {
-//        if (cnt > 1){ // only output top 2 hits
-//            break;
-//        }
-        std::string o;
-        if (n.is_rc){
-            o = "-";
-        }
-        else{
-            o = "+";
-        }
-        output_file << query_acc << "\t" << read_len <<  "\t" << n.query_s << "\t" << n.query_last_hit_pos + k << "\t" << o  <<  "\t" << acc_map[n.ref_id] << "\t" << ref_len_map[n.ref_id] << "\t" << n.ref_s << "\t" << n.ref_last_hit_pos + k << "\t" << n.n_hits << "\t" << n.ref_last_hit_pos + k - n.ref_s << "\t" << "-" << "\n";
-//        break;
-//        cnt ++;
-
-        //        output_file << "  " << acc_map[n.ref_id]  << " " << n.ref_s << " " << n.query_s << " -" << "\n";
-//      python: outfile.write("  {0} {1} {2} {3}\n".format(ref_acc, ref_p, q_pos, k))
+    if (all_nams.size() == 0) {
+        return;
     }
+    // Only output single best hit based on: number of randstrobe-matches times span of the merged match.
+    std::string o;
+    nam n = all_nams[0];
+    if (n.is_rc){
+        o = "-";
+    }
+    else{
+        o = "+";
+    }
+    output_file << query_acc << "\t" << read_len <<  "\t" << n.query_s << "\t" << n.query_last_hit_pos + k << "\t" << o  <<  "\t" << acc_map[n.ref_id] << "\t" << ref_len_map[n.ref_id] << "\t" << n.ref_s << "\t" << n.ref_last_hit_pos + k << "\t" << n.n_hits << "\t" << n.ref_last_hit_pos + k - n.ref_s << "\t" << "-" << "\n";
+
+//    for (auto &n : all_nams) {
+////        if (cnt > 1){ // only output top 2 hits
+////            break;
+////        }
+//        std::string o;
+//        if (n.is_rc){
+//            o = "-";
+//        }
+//        else{
+//            o = "+";
+//        }
+//        output_file << query_acc << "\t" << read_len <<  "\t" << n.query_s << "\t" << n.query_last_hit_pos + k << "\t" << o  <<  "\t" << acc_map[n.ref_id] << "\t" << ref_len_map[n.ref_id] << "\t" << n.ref_s << "\t" << n.ref_last_hit_pos + k << "\t" << n.n_hits << "\t" << n.ref_last_hit_pos + k - n.ref_s << "\t" << "-" << "\n";
+//        break;
+////        cnt ++;
+//
+//        //        output_file << "  " << acc_map[n.ref_id]  << " " << n.ref_s << " " << n.query_s << " -" << "\n";
+////      python: outfile.write("  {0} {1} {2} {3}\n".format(ref_acc, ref_p, q_pos, k))
+//    }
 }
 
 static inline std::string reverse_complement(std::string &read) {
@@ -652,7 +659,7 @@ void print_usage() {
     std::cerr << "\t-n INT number of strobes [2]\n";
     std::cerr << "\t-k INT strobe length [22]\n";
     std::cerr << "\t-o name of output SAM-file to print results to [mapped.sam]\n";
-//    std::cerr << "\t-x mapping mode\n";
+    std::cerr << "\t-x mapping mode\n";
     std::cerr << "\t-s INT syncmer thinning parameter to sample strobes. A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. \n";
     std::cerr << "\t-f FLOAT top fraction of repetitive minimizers to filter out from sampling [0.0002]\n";
 }
@@ -668,8 +675,7 @@ int main (int argc, char **argv)
 
     // Default parameters
     std::string choice = "randstrobes";
-//        std::string mode = "map"; //TODO: finish the implementation of outputting PAF.
-    std::string mode = "align";
+    std::string mode = "align"; // Default mode is align
 
     int n = 2;
     int k = 22;
@@ -951,14 +957,13 @@ int main (int argc, char **argv)
                 // Find NAMs
 //                std::cout << "Processing read: " << prev_acc << " mers generated: " << query_mers.size()  << ", read length: " <<  seq.length() << std::endl;
                 std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-                std::vector<nam> nams_rc; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
+//                std::vector<nam> nams_rc; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
                 nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, seq, hit_upper_window_lim, filter_cutoff);
 //                nams_rc = find_nams(query_mers_rc, all_mers_vector, mers_index, k, ref_seqs, seq_rc, true, hit_upper_window_lim, filter_cutoff);
 //                std::cout <<  "NAMs generated: " << nams.size() << std::endl;
                 // Output results
                 if ( mode.compare("map") == 0) {
-                    output_hits_paf(nams, nams_rc, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths);
-//                    output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
+                    output_hits_paf(nams,  output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths);
                 }
                 else{
                     align(nams, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths,ref_seqs, seq, seq_rc, tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
@@ -1006,8 +1011,7 @@ int main (int argc, char **argv)
 //                std::cout <<  "NAMs generated: " << nams.size() << std::endl;
         // Output results
         if ( mode.compare("map") == 0) {
-            output_hits_paf(nams, nams_rc, output_file, prev_acc, acc_map, k, seq.length(), ref_lengths);
-//            output_hits_paf(nams_rc, output_file, prev_acc, acc_map, k, true, seq_rc.length(), ref_lengths);
+            output_hits_paf(nams,output_file, prev_acc, acc_map, k, seq.length(), ref_lengths);
         }
         else{
             align(nams, output_file, prev_acc, acc_map, k,  seq.length(), ref_lengths,ref_seqs, seq, seq_rc, tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
