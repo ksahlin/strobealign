@@ -1,7 +1,7 @@
 StrobeAlign
 ==============
 
-Short-read aligner using syncmer-thinned strobemers. This implementation is currently proof-of-concept. The default parameter setting is tailored for Illumina reads of length 150-500. For longer reads, we need chaining of seeds instead of the current merging of overlapping seeds as described in the [preprint]().
+Short-read aligner using syncmer-thinned strobemers. The implementation is currently proof-of-concept. The default parameter setting is tailored for Illumina reads of length 150-500. For longer reads, we need chaining of seeds instead of the current approach, which is merging of overlapping seeds as described in the [preprint](https://doi.org/10.1101/2021.06.18.449070).
 
 
 INSTALLATION
@@ -41,8 +41,7 @@ TODO
 CREDITS
 ----------------
 
-1. Kristoffer Sahlin. Faster short-read mapping with strobemer seeds in syncmer space. bioRxiv,
-2021. doi:10.1101/2021.06.18.449070. Preprint available [here](https://doi.org/10.1101/2021.06.18.449070).
+Kristoffer Sahlin. Faster short-read mapping with strobemer seeds in syncmer space. bioRxiv, 2021. doi:10.1101/2021.06.18.449070. Preprint available [here](https://doi.org/10.1101/2021.06.18.449070).
 
 
 LICENCE
