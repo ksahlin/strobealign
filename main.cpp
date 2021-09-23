@@ -123,7 +123,18 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
             mer = mers_index[mer_hashv];
             uint64_t offset = std::get<0>(mer);
             unsigned int count = std::get<1>(mer);
-            if (count <= filter_cutoff){
+            if (count == 1){
+                auto r = ref_mers[offset];
+                unsigned int ref_id = std::get<0>(r);
+                unsigned int ref_s = std::get<1>(r);
+                unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
+
+                h.ref_s = ref_s;
+                h.ref_e = ref_e;
+                hits_per_ref[ref_id].push_back(h);
+                h.hit_count = count;
+                hit_count_all ++;
+            } else if (count <= filter_cutoff){
                 for(size_t j = offset; j < offset+count; ++j)
                 {
                     auto r = ref_mers[j];
@@ -419,10 +430,10 @@ static inline std::stringstream align(std::vector<nam> &all_nams, std::string qu
 //    std::cout << "" << std::endl;
 
 
-    int n_it =  all_nams.size();
-    for(int i = 0; i < n_it; ++i){
-        auto n = all_nams[i];
-//    for (auto &n : all_nams) {
+//    int n_it =  all_nams.size();
+//    for(int i = 0; i < n_it; ++i){
+//        auto n = all_nams[i];
+    for (auto &n : all_nams) {
         aln_did_not_fit = false;
         score_dropoff = (float) n.n_hits / n_max.n_hits;
 
@@ -460,106 +471,55 @@ static inline std::stringstream align(std::vector<nam> &all_nams, std::string qu
             aln_did_not_fit = true;
         }
 
+        int hamming_dist = -1;
+        std::string r_tmp;
+        bool is_rc;
         if (n.is_rc){
-            int hamming_dist = -1;
-            if (ref_segm.length() >= read_len){
-                hamming_dist = HammingDistance(read_rc, ref_segm.substr(0,read_len));
-            }
-
-            if ( (hamming_dist) >=0 && (diff == 0)) { //Substitutions only
-                if (hamming_dist < best_align_dist){
-                    best_align_index = cnt;
-                    best_align_dist = hamming_dist;
-                    sam_aln.cigar = std::to_string(read_len) + "M";
-                    sam_aln.ed = hamming_dist;
-                    sam_aln.ref_start = n.ref_s - n.query_s +1; // +1 because SAM is 1-based!
-                    sam_aln.is_rc = true;
-                    sam_aln.ref_id = n.ref_id;
-                }
-
-//                std::cout << query_acc << " Reverse: Is exact or subs only: " << hamming_dist << ", ref pos: " << n.ref_s << std::endl;
-            }
-            else if ( (best_align_dist > 1) || did_not_fit ){
-                int a = n.ref_s - n.query_s;
-                int ref_start = std::max(0, a);
-                int b = n.ref_e + (read_len - n.query_e);
-                int ref_len = ref_seqs[n.ref_id].size();
-                int ref_end = std::min(ref_len, b);
-                std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
-                ksw_extz_t ez;
-                const char *ref_ptr = ref_segm.c_str();
-                const char *read_ptr = read_rc.c_str();
-                aln_info info;
-                info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, read_rc.size(), 1, 4, 6, 1, ez);
-
-//                info.ed = 2;
-//                info.ref_offset = 100;
-//                info.cigar = "LOL";
-
-                tot_ksw_aligned ++;
-                if (info.ed < best_align_dist){
-                    best_align_index = cnt;
-                    best_align_dist = info.ed;
-                    sam_aln.cigar = info.cigar;
-                    sam_aln.ed = info.ed;
-                    sam_aln.ref_start =  a + info.ref_offset +1; // +1 because SAM is 1-based!
-                    sam_aln.is_rc = true;
-                    sam_aln.ref_id = n.ref_id;
-                }
-
-//                std::cout << query_acc << " Forward: " << n.ref_s << " " << n.ref_e << ", hamming: " << hamming_dist << " edit distance: " << info.ed << "ref start: " << a + info.ref_offset << " " << info.cigar << std::endl;
-            }
+            r_tmp = read_rc;
+            is_rc = true;
+        }else{
+            r_tmp = read;
+            is_rc = false;
         }
-        else{
-            int hamming_dist = -1;
-            if (ref_segm.length() >= read_len){
-                hamming_dist = HammingDistance(read, ref_segm.substr(0, read_len));
-//                std::cout << query_acc  << " Forward, " << hamming_dist << " " << n.ref_s << " " << n.n_hits << " " << n.query_s << std::endl;
+
+        if (ref_segm.length() >= read_len){
+            hamming_dist = HammingDistance(r_tmp, ref_segm.substr(0,read_len));
+        }
+
+        if ( (hamming_dist) >=0 && (diff == 0)) { //Substitutions only
+            if (hamming_dist < best_align_dist){
+                best_align_index = cnt;
+                best_align_dist = hamming_dist;
+                sam_aln.cigar = std::to_string(read_len) + "M";
+                sam_aln.ed = hamming_dist;
+                sam_aln.ref_start = n.ref_s - n.query_s +1; // +1 because SAM is 1-based!
+                sam_aln.is_rc = is_rc;
+                sam_aln.ref_id = n.ref_id;
             }
-//            std::cout << read << std::endl;
-//            std::cout << ref_segm << std::endl;
-            if ( (hamming_dist) >=0 && (diff == 0)) { //Substitutions only
-                if (hamming_dist < best_align_dist){
-                    best_align_index = cnt;
-                    best_align_dist = hamming_dist;
-                    sam_aln.cigar = std::to_string(read_len) + "M";
-                    sam_aln.ed = hamming_dist;
-                    sam_aln.ref_start = n.ref_s - n.query_s +1; // +1 because SAM is 1-based!
-                    sam_aln.is_rc = false;
-                    sam_aln.ref_id = n.ref_id;
-                }
-//                std::cout << query_acc << " Forward: Is exact or subs only: " << hamming_dist << ", ref pos: " << n.ref_s <<  std::endl;
+        } else if ( (best_align_dist > 1) || did_not_fit ){
+            int a = n.ref_s - n.query_s;
+            int ref_start = std::max(0, a);
+            int b = n.ref_e + (read_len - n.query_e);
+            int ref_len = ref_seqs[n.ref_id].size();
+            int ref_end = std::min(ref_len, b);
+            std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
+            ksw_extz_t ez;
+            const char *ref_ptr = ref_segm.c_str();
+            const char *read_ptr = r_tmp.c_str();
+            aln_info info;
+            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
+
+            tot_ksw_aligned ++;
+            if (info.ed < best_align_dist){
+                best_align_index = cnt;
+                best_align_dist = info.ed;
+                sam_aln.cigar = info.cigar;
+                sam_aln.ed = info.ed;
+                sam_aln.ref_start =  a + info.ref_offset +1; // +1 because SAM is 1-based!
+                sam_aln.is_rc = is_rc;
+                sam_aln.ref_id = n.ref_id;
             }
-            else if( (best_align_dist > 1) || did_not_fit ) {
-                int a = n.ref_s - n.query_s;
-                int ref_start = std::max(0, a);
-                int b = n.ref_e + (read_len - n.query_e);
-                int ref_len = ref_seqs[n.ref_id].size();
-                int ref_end = std::min(ref_len, b);
-                std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
-                ksw_extz_t ez;
-                const char *ref_ptr = ref_segm.c_str();
-                const char *read_ptr = read.c_str();
-                aln_info info;
-                info = ksw_align(ref_ptr, ref_segm.length(), read_ptr, read.length(), 1, 4, 6, 1, ez);
 
-//                info.ed = 2;
-//                info.ref_offset = 100;
-//                info.cigar = "LOL";
-
-
-                tot_ksw_aligned ++;
-                if (info.ed < best_align_dist){
-                    best_align_index = cnt;
-                    best_align_dist = info.ed;
-                    sam_aln.cigar = info.cigar;
-                    sam_aln.ed = info.ed;
-                    sam_aln.ref_start =  a + info.ref_offset +1; // +1 because SAM is 1-based!
-                    sam_aln.is_rc = false;
-                    sam_aln.ref_id = n.ref_id;
-                }
-
-            }
         }
 
         cnt ++;
