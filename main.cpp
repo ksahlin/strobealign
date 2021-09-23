@@ -436,7 +436,11 @@ static inline std::stringstream align(std::vector<nam> &all_nams, std::string qu
     // Only output single best hit based on: Firstly: number of randstrobe-hits. Secondly the concordance the span of the hits between ref and query (more simmilar ranked higher)
 //    std::cout << "" << std::endl;
 
-    for (auto &n : all_nams) {
+
+    int n_it =  all_nams.size();
+    for(int i = 0; i < n_it; ++i){
+        auto n = all_nams[i];
+//    for (auto &n : all_nams) {
         aln_did_not_fit = false;
         score_dropoff = (float) n.n_hits / n_max.n_hits;
 
@@ -885,7 +889,7 @@ int main (int argc, char **argv)
     int n_q_chunk_size = 500000;
     KSeq record;
     std::ofstream output_file;
-    std::stringstream sam_record;
+    std::stringstream sam_output;
     output_file.open (output_file_name);
 
     if (mode == "align") {
@@ -899,6 +903,7 @@ int main (int argc, char **argv)
     unsigned int q_id = 0;
     mers_vector_read query_mers; // pos, chr_id, kmer hash value
 //    mers_vector_read query_mers_rc; // pos, chr_id, kmer hash value
+    std::vector<std::stringstream> output_streams(n_threads);
     while (ks ) {
 
         auto read_start = std::chrono::high_resolution_clock::now();
@@ -909,7 +914,7 @@ int main (int argc, char **argv)
 
         int n_it = records.size();
         std::cout << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
-        #pragma omp parallel for num_threads(n_threads) shared(output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned) private(record, seq_rc, query_mers)
+        #pragma omp parallel for num_threads(n_threads) shared(output_streams,output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned) private(sam_output, record, seq_rc, query_mers)
         for (int i = 0; i < n_it; ++i) {
             auto record = records[i];
             // generate mers here
@@ -924,12 +929,13 @@ int main (int argc, char **argv)
             std::sort(nams.begin(), nams.end(), score);
 
             seq_rc = reverse_complement(record.seq);
-            sam_record = align(nams, record.name, acc_map, k, record.seq.length(), ref_lengths, ref_seqs, record.seq, seq_rc,
-                  tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
-            #pragma omp critical (datawrite)
-            {
-                output_file << sam_record.rdbuf();
-            }
+            sam_output = align(nams, record.name, acc_map, k, record.seq.length(), ref_lengths, ref_seqs, record.seq, seq_rc,
+                               tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
+            output_streams[omp_get_thread_num()] << sam_output.str();
+//            #pragma omp critical (datawrite)
+//            {
+//                output_file << sam_output.rdbuf();
+//            }
 
             // Output results
 //            if (mode.compare("map") == 0) {
@@ -939,16 +945,19 @@ int main (int argc, char **argv)
 //                }
 //            } else {
 //            seq_rc = reverse_complement(record.seq);
-//            sam_record = align(nams, record.name, acc_map, k, record.seq.length(), ref_lengths, ref_seqs, record.seq, seq_rc,
+//            sam_output = align(nams, record.name, acc_map, k, record.seq.length(), ref_lengths, ref_seqs, record.seq, seq_rc,
 //                  tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
 //            #pragma omp critical (datawrite)
 //            {
-//                output_file << sam_record.rdbuf();
+//                output_file << sam_output.rdbuf();
 //            }
 //            }
 
             q_id++;
 
+        }
+        for (int i = 0; i < n_threads; ++i) {
+            output_file << output_streams[i].rdbuf();
         }
     }
 
