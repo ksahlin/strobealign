@@ -7,11 +7,39 @@ Short-read aligner using syncmer-thinned strobemers. The implementation is curre
 INSTALLATION
 ----------------
 
+You can acquire precompiled binaries for Linux and Mac OSx from [here](https://github.com/ksahlin/StrobeAlign/tree/main/bin). For example, for linux, simply do
+
+```
+wget https://github.com/ksahlin/StrobeAlign/tree/main/bin/Linux/StrobeAlign-v0.0.2
+chmod +x StrobeAlign-v0.0.2
+./StrobeAlign-v0.0.2  # test program
+```
+
+If you want to compile from the source, you need to have a newer `g++` and [zlib]](https://zlib.net/) installed. Then do the following:
+
 ```
 git clone https://github.com/ksahlin/StrobeAlign
 cd StrobeAlign
+# Needs a newer g++ version. Tested with version 8 and upwards.
 g++ -std=c++14 main.cpp source/index.cpp source/ksw2_extz2_sse.c -lz -fopenmp -o StrobeAlign -O3 -mavx2
 ```
+
+## Common installation from source errors
+
+If you have `zlib` installed, and the `zlib.h` file is in folder `/path/to/zlib/include` and the `libz.so` file in `/path/to/zlib/lib` but you get 
+
+```
+main.cpp:12:10: fatal error: zlib.h: No such file or directory
+ #include <zlib.h>
+          ^~~~~~~~
+compilation terminated.
+```
+
+add `-I/path/to/zlib/include -L/path/to/zlib/lib` to the compilation, that is
+
+```
+g++ -std=c++14 -I/path/to/zlib/include -L/path/to/zlib/lib main.cpp index.cpp -lz -fopenmp -o StrobeAlign -O3 -mavx2
+``` 
 
 
 USAGE
@@ -33,9 +61,7 @@ TODO
 -------
 
 1. Add option to separate build index and perform alignment in separate steps.
-2. Implement multi-threading.
-3. Allow reads in fastq format
-4. (Eventually) Consider mate inference for Illumina Paired-End mapping.
+2. Consider some smart PE-alignment mode (rescue mates etc).
 
 
 CREDITS
@@ -43,6 +69,18 @@ CREDITS
 
 Kristoffer Sahlin. Faster short-read mapping with strobemer seeds in syncmer space. bioRxiv, 2021. doi:10.1101/2021.06.18.449070. Preprint available [here](https://doi.org/10.1101/2021.06.18.449070).
 
+VERSION INFO
+---------------
+
+
+### Version 0.0.2
+
+1. Is multi-threaded.
+2. Allow reads in fast[a/q] format and gzipped files through [kseqpp library](https://github.com/cartoonist/kseqpp).
+
+### Version 0.0.1
+
+The aligner used for the experiments presented in the first version of the preprint on bioRxiv. Only single threaded alignment and aligns reads as single reads (no PE mapping).
 
 LICENCE
 ----------------
