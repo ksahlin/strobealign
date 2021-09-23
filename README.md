@@ -10,7 +10,7 @@ INSTALLATION
 ```
 git clone https://github.com/ksahlin/StrobeAlign
 cd StrobeAlign
-g++ -std=c++11 main.cpp source/index.cpp source/ksw2_extz2_sse.c -o StrobeMap -O3 -mavx2
+g++ -std=c++14 main.cpp source/index.cpp source/ksw2_extz2_sse.c -lz -fopenmp -o StrobeAlign -O3 -mavx2
 ```
 
 
