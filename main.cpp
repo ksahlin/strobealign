@@ -275,11 +275,11 @@ static inline bool score(const nam &a, const nam &b)
     return ( (a.n_hits * (a.query_e - a.query_s)) > (b.n_hits * (b.query_e - b.query_s)) );
 }
 
-static inline void output_hits_paf(std::vector<nam> &all_nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map) {
-
+static inline std::stringstream output_hits_paf(std::vector<nam> &all_nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map) {
+    std::stringstream paf_output;
     // Output results
     if (all_nams.size() == 0) {
-        return;
+        return paf_output;
     }
     // Only output single best hit based on: number of randstrobe-matches times span of the merged match.
     std::string o;
@@ -290,26 +290,8 @@ static inline void output_hits_paf(std::vector<nam> &all_nams, std::ofstream &ou
     else{
         o = "+";
     }
-    output_file << query_acc << "\t" << read_len <<  "\t" << n.query_s << "\t" << n.query_last_hit_pos + k << "\t" << o  <<  "\t" << acc_map[n.ref_id] << "\t" << ref_len_map[n.ref_id] << "\t" << n.ref_s << "\t" << n.ref_last_hit_pos + k << "\t" << n.n_hits << "\t" << n.ref_last_hit_pos + k - n.ref_s << "\t" << "-" << "\n";
-
-//    for (auto &n : all_nams) {
-////        if (cnt > 1){ // only output top 2 hits
-////            break;
-////        }
-//        std::string o;
-//        if (n.is_rc){
-//            o = "-";
-//        }
-//        else{
-//            o = "+";
-//        }
-//        output_file << query_acc << "\t" << read_len <<  "\t" << n.query_s << "\t" << n.query_last_hit_pos + k << "\t" << o  <<  "\t" << acc_map[n.ref_id] << "\t" << ref_len_map[n.ref_id] << "\t" << n.ref_s << "\t" << n.ref_last_hit_pos + k << "\t" << n.n_hits << "\t" << n.ref_last_hit_pos + k - n.ref_s << "\t" << "-" << "\n";
-//        break;
-////        cnt ++;
-//
-//        //        output_file << "  " << acc_map[n.ref_id]  << " " << n.ref_s << " " << n.query_s << " -" << "\n";
-////      python: outfile.write("  {0} {1} {2} {3}\n".format(ref_acc, ref_p, q_pos, k))
-//    }
+    paf_output << query_acc << "\t" << read_len <<  "\t" << n.query_s << "\t" << n.query_last_hit_pos + k << "\t" << o  <<  "\t" << acc_map[n.ref_id] << "\t" << ref_len_map[n.ref_id] << "\t" << n.ref_s << "\t" << n.ref_last_hit_pos + k << "\t" << n.n_hits << "\t" << n.ref_last_hit_pos + k - n.ref_s << "\t" << "-" << "\n";
+    return paf_output;
 }
 
 static inline std::string reverse_complement(std::string &read) {
@@ -890,7 +872,8 @@ int main (int argc, char **argv)
     KSeq record;
     std::ofstream output_file;
     std::stringstream sam_output;
-    output_file.open (output_file_name);
+    std::stringstream paf_output;
+    output_file.open(output_file_name);
 
     if (mode == "align") {
         for (auto &it : acc_map) {
@@ -914,7 +897,7 @@ int main (int argc, char **argv)
 
         int n_it = records.size();
         std::cout << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
-        #pragma omp parallel for num_threads(n_threads) shared(output_streams,output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned) private(sam_output, record, seq_rc, query_mers)
+        #pragma omp parallel for num_threads(n_threads) shared(output_streams, output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned) private(sam_output, paf_output, record, seq_rc, query_mers)
         for (int i = 0; i < n_it; ++i) {
             auto record = records[i];
             // generate mers here
@@ -928,34 +911,19 @@ int main (int argc, char **argv)
             //Sort hits based on start choordinate on query sequence
             std::sort(nams.begin(), nams.end(), score);
 
-            seq_rc = reverse_complement(record.seq);
-            sam_output = align(nams, record.name, acc_map, k, record.seq.length(), ref_lengths, ref_seqs, record.seq, seq_rc,
-                               tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
-            output_streams[omp_get_thread_num()] << sam_output.str();
-//            #pragma omp critical (datawrite)
-//            {
-//                output_file << sam_output.rdbuf();
-//            }
-
-            // Output results
-//            if (mode.compare("map") == 0) {
-//                #pragma omp critical (datawrite)
-//                {
-//                    output_hits_paf(nams, output_file, record.name, acc_map, k, record.seq.length(), ref_lengths);
-//                }
-//            } else {
-//            seq_rc = reverse_complement(record.seq);
-//            sam_output = align(nams, record.name, acc_map, k, record.seq.length(), ref_lengths, ref_seqs, record.seq, seq_rc,
-//                  tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
-//            #pragma omp critical (datawrite)
-//            {
-//                output_file << sam_output.rdbuf();
-//            }
-//            }
+            if (mode.compare("map") == 0) {
+                paf_output = output_hits_paf(nams, output_file, record.name, acc_map, k, record.seq.length(), ref_lengths);
+                output_streams[omp_get_thread_num()] << paf_output.str();
+            } else {
+                seq_rc = reverse_complement(record.seq);
+                sam_output = align(nams, record.name, acc_map, k, record.seq.length(), ref_lengths, ref_seqs, record.seq, seq_rc,
+                                   tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
+                output_streams[omp_get_thread_num()] << sam_output.str();
+            }
 
             q_id++;
-
         }
+        // Output results
         for (int i = 0; i < n_threads; ++i) {
             output_file << output_streams[i].rdbuf();
         }
