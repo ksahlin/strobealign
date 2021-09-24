@@ -635,11 +635,12 @@ int main (int argc, char **argv)
     int w_max = k/(k-s+1) + 10;
     int hit_upper_window_lim = (k-s+1)*w_max;
     float dropoff = 0.5;
-
+    int t = (k-s)/2 + 1;
     std::cout << "Using" << std::endl;
     std::cout << "n: " << n << std::endl;
     std::cout << "k: " << k << std::endl;
     std::cout << "s: " << s << std::endl;
+    std::cout << "t: " << t << std::endl;
     std::cout << "w_min: " << w_min << std::endl;
     std::cout << "w_max: " << w_max << std::endl;
     std::cout << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (under random minimizer sampling): [" << (k-s+1)*w_min << ", " << hit_upper_window_lim << "]" << std::endl;
@@ -749,7 +750,7 @@ int main (int argc, char **argv)
             for(size_t i = 0; i < ref_seqs.size(); ++i)
             {
                 mers_vector randstrobes2; // pos, chr_id, kmer hash value
-                randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s);
+                randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t);
                 tmp_index[i] = randstrobes2;
             }
 
@@ -817,7 +818,14 @@ int main (int argc, char **argv)
     ///////////////////////////// MAP ///////////////////////////////////////
 
     // Record matching time
-    auto start_map = std::chrono::high_resolution_clock::now();
+    auto start_aln_part = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> tot_read_file;
+    std::chrono::duration<double> tot_construct_strobemers;
+    std::chrono::duration<double> tot_find_nams;
+    std::chrono::duration<double> tot_sort_nams;
+    std::chrono::duration<double> tot_extend;
+    std::chrono::duration<double> tot_write_file;
 
     unsigned int tot_ksw_aligned = 0;
     unsigned int tot_all_tried = 0;
@@ -852,8 +860,9 @@ int main (int argc, char **argv)
         auto read_start = std::chrono::high_resolution_clock::now();
         auto records = ks.read(n_q_chunk_size);  // read a chunk of 500000 records
         auto read_finish = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed_read = read_finish - read_start;
-        std::cout << "Total time reading from file: " << elapsed_read.count() << " s\n" <<  std::endl;
+        tot_read_file += read_finish - read_start;
+//        std::chrono::duration<double> elapsed_read = read_finish - read_start;
+//        std::cout << "Total time reading from file: " << elapsed_read.count() << " s\n" <<  std::endl;
 
         int n_it = records.size();
         std::cout << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
@@ -861,16 +870,26 @@ int main (int argc, char **argv)
         for (int i = 0; i < n_it; ++i) {
             auto record = records[i];
             // generate mers here
-            query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, record.seq, q_id, s);
+            auto strobe_start = std::chrono::high_resolution_clock::now();
+            query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, record.seq, q_id, s, t);
+            auto strobe_finish = std::chrono::high_resolution_clock::now();
+            tot_construct_strobemers += strobe_finish - strobe_start;
 
             // Find NAMs
+            auto nam_start = std::chrono::high_resolution_clock::now();
             std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
             nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim,
                              filter_cutoff);
+            auto nam_finish = std::chrono::high_resolution_clock::now();
+            tot_find_nams += nam_finish - nam_start;
 
             //Sort hits based on start choordinate on query sequence
+            auto nam_sort_start = std::chrono::high_resolution_clock::now();
             std::sort(nams.begin(), nams.end(), score);
+            auto nam_sort_finish = std::chrono::high_resolution_clock::now();
+            tot_sort_nams += nam_sort_finish - nam_sort_start;
 
+            auto extend_start = std::chrono::high_resolution_clock::now();
             if (mode.compare("map") == 0) {
                 paf_output = output_hits_paf(nams, output_file, record.name, acc_map, k, record.seq.length(), ref_lengths);
                 output_streams[omp_get_thread_num()] << paf_output.str();
@@ -880,27 +899,36 @@ int main (int argc, char **argv)
                                    tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
                 output_streams[omp_get_thread_num()] << sam_output.str();
             }
-
+            auto extend_finish = std::chrono::high_resolution_clock::now();
+            tot_extend += extend_finish - extend_start;
             q_id++;
         }
         // Output results
+        auto write_start = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < n_threads; ++i) {
             output_file << output_streams[i].rdbuf();
         }
+        auto write_finish = std::chrono::high_resolution_clock::now();
+        tot_write_file += write_finish - write_start;
     }
 
 
 //    query_file.close();
     output_file.close();
     gzclose(fp);
-    std::cout << "Total mapping sites tried: " << tot_all_tried << "\n" <<  std::endl;
-    std::cout << "Total calls to ksw: " << tot_ksw_aligned << "\n" <<  std::endl;
-    std::cout << "Did not fit strobe start site: " << did_not_fit << "\n" <<  std::endl;
+    std::cout << "Total mapping sites tried: " << tot_all_tried << std::endl;
+    std::cout << "Total calls to ksw: " << tot_ksw_aligned << std::endl;
+    std::cout << "Did not fit strobe start site: " << did_not_fit  << std::endl;
     // Record mapping end time
-    auto finish_map = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed_map = finish_map - start_map;
-    std::cout << "Total time mapping: " << elapsed_map.count() << " s\n" <<  std::endl;
-
+    auto finish_aln_part = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> tot_aln_part = finish_aln_part - start_aln_part;
+    std::cout << "Total time mapping: " << tot_aln_part.count() << " s." <<  std::endl;
+    std::cout << "Total time reading read-file(s): " << tot_read_file.count() << " s." <<  std::endl;
+    std::cout << "Total time creating strobemers: " << tot_construct_strobemers.count()/n_threads << " s." <<  std::endl;
+    std::cout << "Total time finding NAMs (candidate sites): " << tot_find_nams.count()/n_threads  << " s." <<  std::endl;
+    std::cout << "Total time sorting NAMs (candidate sites): " << tot_sort_nams.count()/n_threads  << " s." <<  std::endl;
+    std::cout << "Total time extending alignment: " << tot_extend.count()/n_threads  << " s." <<  std::endl;
+    std::cout << "Total time writing alignment to files: " << tot_write_file.count() << " s." <<  std::endl;
 
     //////////////////////////////////////////////////////////////////////////
 
