@@ -9,6 +9,7 @@
 #include <omp.h>
 #include <zlib.h>
 #include <sstream>
+#include <algorithm>
 
 #include "source/kseq++.hpp"
 using namespace klibpp;
@@ -448,6 +449,30 @@ static inline std::string reverse_complement(std::string &read) {
 }
 
 
+//static inline std::string reverse_complement(std::string &read)
+//{
+//    auto read_rev = read;
+//    reverse(read_rev.begin(), read_rev.end()); // reverse
+//    for (std::size_t i = 0; i < read_rev.length(); ++i){
+//        switch (read_rev[i]){
+//            case 'A':
+//                read_rev[i] = 'T';
+//                break;
+//            case 'C':
+//                read_rev[i] = 'G';
+//                break;
+//            case 'G':
+//                read_rev[i] = 'C';
+//                break;
+//            case 'T':
+//                read_rev[i] = 'A';
+//                break;
+//        }
+//    }
+//    return read_rev;
+//}
+
+
 inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen,
                int sc_mch, int sc_mis, int gapo, int gape, ksw_extz_t &ez) {
     int8_t a = sc_mch, b = sc_mis < 0 ? sc_mis : -sc_mis; // a>0 and b<0
@@ -520,11 +545,13 @@ inline int HammingDistance(std::string One, std::string Two)
 }
 
 
-static inline void align(std::string &sam_string, std::vector<nam> &all_nams, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit ) {
+static inline void align(std::string &sam_string, std::vector<nam> &all_nams, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit ) {
 
 //    std::stringstream sam_string;
 //    std::cout << "" << std::endl;
 //    std::cout << query_acc << std::endl;
+    std::string read_rc;
+    bool rc_already_comp = false;
 
     if (all_nams.size() == 0) {
 //        std::cout << "LEWL!!! "  << std::endl;
@@ -599,12 +626,18 @@ static inline void align(std::string &sam_string, std::vector<nam> &all_nams, st
         if ( (ref_segm.substr(n.query_s, k) == read.substr(n.query_s, k) ) ) { //&& (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read.substr(n.query_e - k, k)) ){
             n.is_rc = false;
         }
-        else if ( (ref_segm.substr(n.query_s, k) == read_rc.substr(n.query_s, k) ) ){ // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
-            n.is_rc = true;
-        }
-        else{
-            did_not_fit ++;
-            aln_did_not_fit = true;
+        else {
+            if (!rc_already_comp){
+                read_rc = reverse_complement(read);
+                rc_already_comp = true;
+            }
+
+            if ((ref_segm.substr(n.query_s, k) == read_rc.substr(n.query_s, k))) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
+                n.is_rc = true;
+            } else {
+                did_not_fit++;
+                aln_did_not_fit = true;
+            }
         }
 
         int hamming_dist = -1;
@@ -1061,11 +1094,10 @@ int main (int argc, char **argv)
                 output_hits_paf(output_streams[omp_get_thread_num()], nams, record.name, acc_map, k, record.seq.length(), ref_lengths);
 //                output_streams[omp_get_thread_num()].append(paf_output.str()); // << paf_output.str();
             } else {
-                auto rc_start = std::chrono::high_resolution_clock::now();
-                seq_rc = reverse_complement(record.seq);
-                auto rc_finish = std::chrono::high_resolution_clock::now();
-                tot_rc += rc_finish - rc_start;
-                align(output_streams[omp_get_thread_num()], nams, record.name, acc_map, k, record.seq.length(), ref_lengths, ref_seqs, record.seq, seq_rc,
+//                auto rc_start = std::chrono::high_resolution_clock::now();
+//                auto rc_finish = std::chrono::high_resolution_clock::now();
+//                tot_rc += rc_finish - rc_start;
+                align(output_streams[omp_get_thread_num()], nams, record.name, acc_map, k, record.seq.length(), ref_lengths, ref_seqs, record.seq,
                                    tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
 //                output_streams[omp_get_thread_num()] << sam_output.str();
             }
