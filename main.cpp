@@ -500,17 +500,23 @@ inline int HammingDistance(std::string One, std::string Two)
 }
 
 
-static inline std::stringstream align(std::vector<nam> &all_nams, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit ) {
+static inline void align(std::string &sam_string, std::vector<nam> &all_nams, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit ) {
 
-    std::stringstream sam_string;
+//    std::stringstream sam_string;
 //    std::cout << "" << std::endl;
 //    std::cout << query_acc << std::endl;
 
     if (all_nams.size() == 0) {
-        sam_string << query_acc << "\t" << 4 << "\t" << "*" << "\t" << 0
-                    << "\t" << 255 << "\t" << "*" << "\t" << "*" << "\t"
-                    << 0 << "\t" << 0 << "\t" << read << "\t" << "*" << "\n";
-        return sam_string;
+//        std::cout << "LEWL!!! "  << std::endl;
+        sam_string.append(query_acc);
+        sam_string.append("\t4\t*\t0\t255\t*\t*\t0\t0\t");
+        sam_string.append(read);
+        sam_string.append("\t*\n");
+        return;
+//        sam_string << query_acc << "\t" << 4 << "\t" << "*" << "\t" << 0
+//                    << "\t" << 255 << "\t" << "*" << "\t" << "*" << "\t"
+//                    << 0 << "\t" << 0 << "\t" << read << "\t" << "*" << "\n";
+//        return sam_string;
     }
 
 //        std::cout << "HERE!!! " << all_nams.size()  << std::endl;
@@ -646,15 +652,30 @@ static inline std::stringstream align(std::vector<nam> &all_nams, std::string qu
             output_read = read;
         }
         //TODO: Best way to calc Alignment score?
-//        output_file << "LOL\n";
-        sam_string << query_acc << "\t" << o << "\t" << acc_map[sam_aln.ref_id] << "\t" << sam_aln.ref_start
-                    << "\t" << mapq << "\t" << sam_aln.cigar << "\t" << "*" << "\t"
-                    << 0 << "\t" << 0 << "\t" << output_read << "\t" << "*" << "\tNM:i:" << sam_aln.ed << "\n";
-
-        return sam_string;
+//        std::stringstream ss;
+//        ss << query_acc << "\t" << o << "\t" << acc_map[sam_aln.ref_id] << "\t" << sam_aln.ref_start
+//                    << "\t" << mapq << "\t" << sam_aln.cigar << "\t" << "*" << "\t"
+//                    << 0 << "\t" << 0 << "\t" << output_read << "\t" << "*" << "\tNM:i:" << sam_aln.ed << "\n";
+        sam_string.append(query_acc);
+        sam_string.append("\t");
+        sam_string.append(std::to_string(o));
+        sam_string.append("\t");
+        sam_string.append(acc_map[sam_aln.ref_id]);
+        sam_string.append("\t");
+        sam_string.append(std::to_string(sam_aln.ref_start));
+        sam_string.append("\t");
+        sam_string.append(std::to_string(mapq));
+        sam_string.append("\t");
+        sam_string.append(sam_aln.cigar);
+        sam_string.append("\t*\t0\t0\t");
+        sam_string.append(output_read);
+        sam_string.append("\t*\tNM:i:");
+        sam_string.append(std::to_string(sam_aln.ed));
+        sam_string.append("\n");
+//        return sam_string;
 
     }
-    return sam_string;
+//    return sam_string;
 }
 
 
@@ -936,6 +957,7 @@ int main (int argc, char **argv)
     std::chrono::duration<double> tot_find_nams_alt;
     std::chrono::duration<double> tot_sort_nams;
     std::chrono::duration<double> tot_extend;
+    std::chrono::duration<double> tot_rc;
     std::chrono::duration<double> tot_write_file;
 
     unsigned int tot_ksw_aligned = 0;
@@ -965,7 +987,13 @@ int main (int argc, char **argv)
     unsigned int q_id = 0;
     mers_vector_read query_mers; // pos, chr_id, kmer hash value
 //    mers_vector_read query_mers_rc; // pos, chr_id, kmer hash value
-    std::vector<std::stringstream> output_streams(n_threads);
+
+//    std::vector<std::stringstream> output_streams(n_threads);
+    std::vector<std::string> output_streams(n_threads);
+    for (int i = 0; i < n_threads; ++i){
+        output_streams[i].reserve((n_q_chunk_size/n_threads + 1)*450); // Reserve sufficient space for appending multiple SAM records (400 is an upper setimate on the number of characters for each sam record of a 200-300bp read)
+    }
+
     while (ks ) {
 
         auto read_start = std::chrono::high_resolution_clock::now();
@@ -988,8 +1016,8 @@ int main (int argc, char **argv)
 
 //            // Find NAMs alternative function
 //            auto nam_alt_start = std::chrono::high_resolution_clock::now();
-//            std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-//            nams = find_nams_alt(query_mers, all_mers_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim,
+//            std::vector<nam> nams_alt; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
+//            nams_alt = find_nams_alt(query_mers, all_mers_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim,
 //                                       filter_cutoff);
 //            auto nam_alt_finish = std::chrono::high_resolution_clock::now();
 //            tot_find_nams_alt += nam_alt_finish - nam_alt_start;
@@ -1011,12 +1039,15 @@ int main (int argc, char **argv)
             auto extend_start = std::chrono::high_resolution_clock::now();
             if (mode.compare("map") == 0) {
                 paf_output = output_hits_paf(nams, output_file, record.name, acc_map, k, record.seq.length(), ref_lengths);
-                output_streams[omp_get_thread_num()] << paf_output.str();
+                output_streams[omp_get_thread_num()].append(paf_output.str()); // << paf_output.str();
             } else {
+                auto rc_start = std::chrono::high_resolution_clock::now();
                 seq_rc = reverse_complement(record.seq);
-                sam_output = align(nams, record.name, acc_map, k, record.seq.length(), ref_lengths, ref_seqs, record.seq, seq_rc,
+                auto rc_finish = std::chrono::high_resolution_clock::now();
+                tot_rc += rc_finish - rc_start;
+                align(output_streams[omp_get_thread_num()], nams, record.name, acc_map, k, record.seq.length(), ref_lengths, ref_seqs, record.seq, seq_rc,
                                    tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
-                output_streams[omp_get_thread_num()] << sam_output.str();
+//                output_streams[omp_get_thread_num()] << sam_output.str();
             }
             auto extend_finish = std::chrono::high_resolution_clock::now();
             tot_extend += extend_finish - extend_start;
@@ -1025,7 +1056,7 @@ int main (int argc, char **argv)
         // Output results
         auto write_start = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < n_threads; ++i) {
-            output_file << output_streams[i].rdbuf();
+            output_file << output_streams[i];
         }
         auto write_finish = std::chrono::high_resolution_clock::now();
         tot_write_file += write_finish - write_start;
@@ -1047,6 +1078,7 @@ int main (int argc, char **argv)
     std::cout << "Total time finding NAMs (candidate sites): " << tot_find_nams.count()/n_threads  << " s." <<  std::endl;
 //    std::cout << "Total time finding NAMs ALTERNATIVE (candidate sites): " << tot_find_nams_alt.count()/n_threads  << " s." <<  std::endl;
     std::cout << "Total time sorting NAMs (candidate sites): " << tot_sort_nams.count()/n_threads  << " s." <<  std::endl;
+    std::cout << "Total time reverse compl seq: " << tot_rc.count()/n_threads  << " s." <<  std::endl;
     std::cout << "Total time extending alignment: " << tot_extend.count()/n_threads  << " s." <<  std::endl;
     std::cout << "Total time writing alignment to files: " << tot_write_file.count() << " s." <<  std::endl;
 
