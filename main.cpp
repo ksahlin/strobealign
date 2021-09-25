@@ -99,42 +99,151 @@ static inline void print_diagnostics_new4(mers_vector_reduced &mers_vector, kmer
 }
 
 
-
+//static inline bool sort_hits(const hit &a, const hit &b)
+//{
+//    // first sort on ref ID, then on reference starts, then on query starts
+//    return (a.ref_id < b.ref_id) ||
+//           ( (a.ref_id == b.ref_id) && (a.ref_s < b.ref_s) ) ||
+//           ((a.ref_id == b.ref_id) && (a.ref_s < b.ref_s) && (a.query_s == b.query_s )) ;
+//}
+//static inline std::vector<nam> find_nams_alt(mers_vector_read &query_mers, mers_vector_reduced &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int hit_upper_window_lim, unsigned int filter_cutoff ) {
+////    std::cout << "ENTER FIND NAMS " <<  std::endl;
+//    std::vector<hit> all_hits;
+//    for (auto &q : query_mers)
+////    for (size_t i = 0; i < query_mers.size(); ++i)
+//    {
+////        std::cout << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
+//        uint64_t mer_hashv = std::get<0>(q);
+//        if (mers_index.find(mer_hashv) != mers_index.end()) { //  In  index
+//            hit h;
+//            h.query_s = std::get<2>(q);
+//            h.query_e = std::get<3>(q) + k; // h.query_s + read_length/2;
+//            h.is_rc = std::get<4>(q);
+//            std::tuple<uint64_t, unsigned int> mer;
+//            mer = mers_index[mer_hashv];
+//            uint64_t offset = std::get<0>(mer);
+//            unsigned int count = std::get<1>(mer);
+//
+//            for (size_t j = offset; j < offset + count; ++j) {
+//                auto r = ref_mers[j];
+//                unsigned int ref_id = std::get<0>(r);
+//                unsigned int ref_s = std::get<1>(r);
+//                unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
+//
+//                h.ref_id = ref_id;
+//                h.ref_s = ref_s;
+//                h.ref_e = ref_e;
+//                all_hits.push_back(h);
+//            }
+//
+//        }
+//    }
+//
+//    std::sort(all_hits.begin(), all_hits.end(), sort_hits);
+//
+//    std::vector<nam> final_nams; // [ref_id] -> vector(struct nam)
+//    nam o;
+//    if (all_hits.size() == 0){
+//        return final_nams;
+//    }
+//    else{
+//        hit h = all_hits[0];
+//        o.ref_id = h.ref_id;
+//        o.query_s = h.query_s;
+//        o.query_e = h.query_e;
+//        o.ref_s = h.ref_s;
+//        o.ref_e = h.ref_e;
+////        o.previous_query_start = h.query_s;
+////        o.previous_ref_start = h.ref_s;
+//        o.query_last_hit_pos = h.query_s;
+//        o.ref_last_hit_pos = h.ref_s;
+//        o.n_hits = 1;
+//        o.is_rc = h.is_rc;
+//    }
+//
+//    hit h;
+//    for(size_t i = 1; i < all_hits.size(); ++i) // all but first element
+//    {
+//        h = all_hits[i];
+//        if ( (o.ref_id == h.ref_id) && ( o.is_rc == h.is_rc) && ( o.query_last_hit_pos < h.query_s) && (h.query_s <= o.query_e ) && ( o.ref_last_hit_pos < h.ref_s) && (h.ref_s <= o.ref_e)){
+//            if ( (h.query_e > o.query_e) && (h.ref_e > o.ref_e) ) {
+//                o.query_e = h.query_e;
+//                o.ref_e = h.ref_e;
+////                o.previous_query_start = h.query_s;
+////                o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
+//                o.query_last_hit_pos = h.query_s; // log the last strobemer hit in case of outputting paf
+//                o.ref_last_hit_pos = h.ref_s; // log the last strobemer hit in case of outputting paf
+//                o.n_hits ++;
+//            }
+//            else if ((h.query_e <= o.query_e) && (h.ref_e <= o.ref_e)) {
+////                o.previous_query_start = h.query_s;
+////                o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
+//                o.query_last_hit_pos = h.query_s; // log the last strobemer hit in case of outputting paf
+//                o.ref_last_hit_pos = h.ref_s; // log the last strobemer hit in case of outputting paf
+//                o.n_hits ++;
+//            }
+//        } else {
+//            final_nams.push_back(o);
+//            o.ref_id = h.ref_id;
+//            o.query_s = h.query_s;
+//            o.query_e = h.query_e;
+//            o.ref_s = h.ref_s;
+//            o.ref_e = h.ref_e;
+////            o.previous_query_start = h.query_s;
+////            o.previous_ref_start = h.ref_s;
+//            o.query_last_hit_pos = h.query_s;
+//            o.ref_last_hit_pos = h.ref_s;
+//            o.n_hits = 1;
+//            o.is_rc = h.is_rc;
+//        }
+//    }
+//
+//
+//    final_nams.push_back(o);
+//
+//
+////        for (auto &n : final_nams){
+////        std::cout << "NAM ALT: " << n.ref_id << ": (" << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
+////    }
+////    std::cout << " " << std::endl;
+//
+//    return final_nams;
+//}
 
 
 static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vector_reduced &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int hit_upper_window_lim, unsigned int filter_cutoff ){
 //    std::cout << "ENTER FIND NAMS " <<  std::endl;
     robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref; // [ref_id] -> vector( struct hit)
-    uint64_t hit_count_reduced = 0;
-    uint64_t hit_count_all = 0;
-    int read_length = read.length();
+//    int read_length = read.length();
 //    std::cout << " "  <<  std::endl;
     for (auto &q : query_mers)
 //    for (size_t i = 0; i < query_mers.size(); ++i)
     {
-        hit h;
-        h.query_s = std::get<2>(q);
-        h.query_e = std::get<3>(q) + k; // h.query_s + read_length/2;
-        h.is_rc = std::get<4>(q);
 //        std::cout << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
         uint64_t mer_hashv = std::get<0>(q);
         if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
+            hit h;
+            h.query_s = std::get<2>(q);
+            h.query_e = std::get<3>(q) + k; // h.query_s + read_length/2;
+            h.is_rc = std::get<4>(q);
+
             std::tuple<uint64_t, unsigned int> mer;
             mer = mers_index[mer_hashv];
             uint64_t offset = std::get<0>(mer);
             unsigned int count = std::get<1>(mer);
-            if (count == 1){
-                auto r = ref_mers[offset];
-                unsigned int ref_id = std::get<0>(r);
-                unsigned int ref_s = std::get<1>(r);
-                unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
-
-                h.ref_s = ref_s;
-                h.ref_e = ref_e;
-                hits_per_ref[ref_id].push_back(h);
-                h.hit_count = count;
-                hit_count_all ++;
-            } else if (count <= filter_cutoff){
+//            if (count == 1){
+//                auto r = ref_mers[offset];
+//                unsigned int ref_id = std::get<0>(r);
+//                unsigned int ref_s = std::get<1>(r);
+//                unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
+//
+//                h.ref_s = ref_s;
+//                h.ref_e = ref_e;
+//                hits_per_ref[ref_id].push_back(h);
+//                h.hit_count = count;
+//                hit_count_all ++;
+//            } else
+            if (count <= filter_cutoff){
                 for(size_t j = offset; j < offset+count; ++j)
                 {
                     auto r = ref_mers[j];
@@ -145,9 +254,9 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
                     h.ref_s = ref_s;
                     h.ref_e = ref_e;
                     hits_per_ref[ref_id].push_back(h);
-                    h.hit_count = count;
+//                    h.hit_count = count;
 //                    std::cout << "Found: " <<  h.query_s << " " << h.query_e << " ref: " <<  h.ref_s << " " << h.ref_e << " " << h.is_rc << std::endl;
-                    hit_count_all ++;
+//                    hit_count_all ++;
 
                 }
             }
@@ -172,12 +281,12 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
             for (auto & o : open_nams) {
 
                 // Extend NAM
-                if ( ( o.is_rc == h.is_rc) && ( o.previous_query_start < h.query_s) && (h.query_s <= o.query_e ) && ( o.previous_ref_start < h.ref_s) && (h.ref_s <= o.ref_e) ){
+                if ( ( o.is_rc == h.is_rc) && ( o.query_last_hit_pos < h.query_s) && (h.query_s <= o.query_e ) && ( o.ref_last_hit_pos < h.ref_s) && (h.ref_s <= o.ref_e) ){
                     if ( (h.query_e > o.query_e) && (h.ref_e > o.ref_e) ) {
                         o.query_e = h.query_e;
                         o.ref_e = h.ref_e;
-                        o.previous_query_start = h.query_s;
-                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
+//                        o.previous_query_start = h.query_s;
+//                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
                         o.query_last_hit_pos = h.query_s; // log the last strobemer hit in case of outputting paf
                         o.ref_last_hit_pos = h.ref_s; // log the last strobemer hit in case of outputting paf
                         o.n_hits ++;
@@ -186,8 +295,8 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
                         break;
                     }
                     else if ((h.query_e <= o.query_e) && (h.ref_e <= o.ref_e)) {
-                        o.previous_query_start = h.query_s;
-                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
+//                        o.previous_query_start = h.query_s;
+//                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
                         o.query_last_hit_pos = h.query_s; // log the last strobemer hit in case of outputting paf
                         o.ref_last_hit_pos = h.ref_s; // log the last strobemer hit in case of outputting paf
                         o.n_hits ++;
@@ -209,8 +318,8 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
                 n.ref_s = h.ref_s;
                 n.ref_e = h.ref_e;
                 n.ref_id = ref_id;
-                n.previous_query_start = h.query_s;
-                n.previous_ref_start = h.ref_s;
+//                n.previous_query_start = h.query_s;
+//                n.previous_ref_start = h.ref_s;
                 n.query_last_hit_pos = h.query_s;
                 n.ref_last_hit_pos = h.ref_s;
                 n.n_hits = 1;
@@ -248,9 +357,9 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
 
 //    for (auto &n : final_nams){
 ////        std::cout << n.ref_id << ": (" << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e << ")" << std::endl;
-//        std::cout << n.ref_id << ": (" << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
-//        std::cout << n.ref_id << ": (" << n.n_hits << ", " << n.ref_e - n.ref_s  <<  ", " << n.query_e - n.query_s << ")" << std::endl;
-//        std::cout << " " << std::endl;
+//        std::cout << "NAM ORG: " << n.ref_id << ": (" << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
+////        std::cout << n.ref_id << ": (" << n.n_hits << ", " << n.ref_e - n.ref_s  <<  ", " << n.query_e - n.query_s << ")" << std::endl;
+////        std::cout << " " << std::endl;
 //    }
 
 //    std::cout << "DONE" << std::endl;
@@ -404,6 +513,7 @@ static inline std::stringstream align(std::vector<nam> &all_nams, std::string qu
         return sam_string;
     }
 
+//        std::cout << "HERE!!! " << all_nams.size()  << std::endl;
     // Output results
 
     int cnt = 0;
@@ -823,6 +933,7 @@ int main (int argc, char **argv)
     std::chrono::duration<double> tot_read_file;
     std::chrono::duration<double> tot_construct_strobemers;
     std::chrono::duration<double> tot_find_nams;
+    std::chrono::duration<double> tot_find_nams_alt;
     std::chrono::duration<double> tot_sort_nams;
     std::chrono::duration<double> tot_extend;
     std::chrono::duration<double> tot_write_file;
@@ -875,6 +986,14 @@ int main (int argc, char **argv)
             auto strobe_finish = std::chrono::high_resolution_clock::now();
             tot_construct_strobemers += strobe_finish - strobe_start;
 
+//            // Find NAMs alternative function
+//            auto nam_alt_start = std::chrono::high_resolution_clock::now();
+//            std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
+//            nams = find_nams_alt(query_mers, all_mers_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim,
+//                                       filter_cutoff);
+//            auto nam_alt_finish = std::chrono::high_resolution_clock::now();
+//            tot_find_nams_alt += nam_alt_finish - nam_alt_start;
+
             // Find NAMs
             auto nam_start = std::chrono::high_resolution_clock::now();
             std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
@@ -926,6 +1045,7 @@ int main (int argc, char **argv)
     std::cout << "Total time reading read-file(s): " << tot_read_file.count() << " s." <<  std::endl;
     std::cout << "Total time creating strobemers: " << tot_construct_strobemers.count()/n_threads << " s." <<  std::endl;
     std::cout << "Total time finding NAMs (candidate sites): " << tot_find_nams.count()/n_threads  << " s." <<  std::endl;
+//    std::cout << "Total time finding NAMs ALTERNATIVE (candidate sites): " << tot_find_nams_alt.count()/n_threads  << " s." <<  std::endl;
     std::cout << "Total time sorting NAMs (candidate sites): " << tot_sort_nams.count()/n_threads  << " s." <<  std::endl;
     std::cout << "Total time extending alignment: " << tot_extend.count()/n_threads  << " s." <<  std::endl;
     std::cout << "Total time writing alignment to files: " << tot_write_file.count() << " s." <<  std::endl;
