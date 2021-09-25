@@ -395,11 +395,10 @@ static inline bool score(const nam &a, const nam &b)
     return ( (a.n_hits * (a.query_e - a.query_s)) > (b.n_hits * (b.query_e - b.query_s)) );
 }
 
-static inline std::stringstream output_hits_paf(std::vector<nam> &all_nams, std::ofstream &output_file, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map) {
-    std::stringstream paf_output;
+static inline void output_hits_paf(std::string &paf_output, std::vector<nam> &all_nams, std::string query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map) {
     // Output results
     if (all_nams.size() == 0) {
-        return paf_output;
+        return;
     }
     // Only output single best hit based on: number of randstrobe-matches times span of the merged match.
     std::string o;
@@ -410,8 +409,29 @@ static inline std::stringstream output_hits_paf(std::vector<nam> &all_nams, std:
     else{
         o = "+";
     }
-    paf_output << query_acc << "\t" << read_len <<  "\t" << n.query_s << "\t" << n.query_last_hit_pos + k << "\t" << o  <<  "\t" << acc_map[n.ref_id] << "\t" << ref_len_map[n.ref_id] << "\t" << n.ref_s << "\t" << n.ref_last_hit_pos + k << "\t" << n.n_hits << "\t" << n.ref_last_hit_pos + k - n.ref_s << "\t" << "-" << "\n";
-    return paf_output;
+//    paf_output << query_acc << "\t" << read_len <<  "\t" << n.query_s << "\t" << n.query_last_hit_pos + k << "\t" << o  <<  "\t" << acc_map[n.ref_id] << "\t" << ref_len_map[n.ref_id] << "\t" << n.ref_s << "\t" << n.ref_last_hit_pos + k << "\t" << n.n_hits << "\t" << n.ref_last_hit_pos + k - n.ref_s << "\t" << "-" << "\n";
+    paf_output.append(query_acc);
+    paf_output.append("\t");
+    paf_output.append(std::to_string(read_len));
+    paf_output.append("\t");
+    paf_output.append(std::to_string(n.query_s));
+    paf_output.append("\t");
+    paf_output.append(std::to_string(n.query_last_hit_pos + k));
+    paf_output.append("\t");
+    paf_output.append(o);
+    paf_output.append("\t");
+    paf_output.append(acc_map[n.ref_id]);
+    paf_output.append("\t");
+    paf_output.append(std::to_string( ref_len_map[n.ref_id]));
+    paf_output.append("\t");
+    paf_output.append(std::to_string(n.ref_s));
+    paf_output.append("\t");
+    paf_output.append(std::to_string( n.ref_last_hit_pos + k));
+    paf_output.append("\t");
+    paf_output.append(std::to_string( n.n_hits));
+    paf_output.append("\t");
+    paf_output.append(std::to_string( n.ref_last_hit_pos + k - n.ref_s));
+    paf_output.append("\t-\n");
 }
 
 static inline std::string reverse_complement(std::string &read) {
@@ -705,7 +725,7 @@ int main (int argc, char **argv)
 
     // Default parameters
     std::string choice = "randstrobes";
-    std::string mode = "align"; // Default mode is align
+    bool mode = true; // true = align, false=map, default mode is align
 
     int n_threads = 3;
     int n = 2;
@@ -745,7 +765,7 @@ int main (int argc, char **argv)
                 opn += 2;
                 flag = true;
             } else if (argv[opn][1] == 'x') {
-                mode = "map";
+                mode = false;
                 opn += 1;
                 flag = true;
             }
@@ -976,7 +996,7 @@ int main (int argc, char **argv)
     std::stringstream paf_output;
     output_file.open(output_file_name);
 
-    if (mode == "align") {
+    if (mode) {
         for (auto &it : acc_map) {
             output_file << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
         }
@@ -1037,9 +1057,9 @@ int main (int argc, char **argv)
             tot_sort_nams += nam_sort_finish - nam_sort_start;
 
             auto extend_start = std::chrono::high_resolution_clock::now();
-            if (mode.compare("map") == 0) {
-                paf_output = output_hits_paf(nams, output_file, record.name, acc_map, k, record.seq.length(), ref_lengths);
-                output_streams[omp_get_thread_num()].append(paf_output.str()); // << paf_output.str();
+            if (!mode) {
+                output_hits_paf(output_streams[omp_get_thread_num()], nams, record.name, acc_map, k, record.seq.length(), ref_lengths);
+//                output_streams[omp_get_thread_num()].append(paf_output.str()); // << paf_output.str();
             } else {
                 auto rc_start = std::chrono::high_resolution_clock::now();
                 seq_rc = reverse_complement(record.seq);
@@ -1057,6 +1077,7 @@ int main (int argc, char **argv)
         auto write_start = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < n_threads; ++i) {
             output_file << output_streams[i];
+            output_streams[i].clear();
         }
         auto write_finish = std::chrono::high_resolution_clock::now();
         tot_write_file += write_finish - write_start;
