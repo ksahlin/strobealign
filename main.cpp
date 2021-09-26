@@ -736,13 +736,13 @@ void print_usage() {
     std::cerr << "\n";
     std::cerr << "StrobeAlign VERSION 0.0.2\n";
     std::cerr << "\n";
-    std::cerr << "StrobeAlign [options] <ref.fa> <reads.fasta>\n";
+    std::cerr << "StrobeAlign [options] <ref.fa> <reads.fast[a/q.gz]>\n";
     std::cerr << "options:\n";
     std::cerr << "\t-t INT number of threads [3]\n";
     std::cerr << "\t-n INT number of strobes [2]\n";
     std::cerr << "\t-k INT strobe length [22]\n";
     std::cerr << "\t-o name of output SAM-file to print results to [mapped.sam]\n";
-    std::cerr << "\t-x mapping mode\n";
+    std::cerr << "\t-x Only map reads, no base level alignment (produces paf file)\n";
     std::cerr << "\t-s INT syncmer thinning parameter to sample strobes. A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. \n";
     std::cerr << "\t-f FLOAT top fraction of repetitive syncmers to filter out from sampling [0.0002]\n";
 }

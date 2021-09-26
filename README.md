@@ -38,7 +38,7 @@ compilation terminated.
 add `-I/path/to/zlib/include -L/path/to/zlib/lib` to the compilation, that is
 
 ```
-g++ -std=c++14 -I/path/to/zlib/include -L/path/to/zlib/lib main.cpp index.cpp -lz -fopenmp -o StrobeAlign -O3 -mavx2
+g++ -std=c++14 -I/path/to/zlib/include -L/path/to/zlib/lib main.cpp source/index.cpp source/ksw2_extz2_sse.c -lz -fopenmp -o StrobeAlign -O3 -mavx2
 ``` 
 
 
