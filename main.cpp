@@ -732,6 +732,196 @@ static inline void align_SE(std::string &sam_string, std::vector<nam> &all_nams,
 }
 
 
+static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, std::string &query_acc1, std::string &query_acc2, idx_to_acc &acc_map, int k, int read_len1, int read_len2, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read1, std::string &read2, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit ) {
+
+//    std::stringstream sam_string;
+//    std::cout << "" << std::endl;
+//    std::cout << query_acc << std::endl;
+    std::string read_rc;
+    bool rc_already_comp = false;
+
+    if (all_nams1.size() == 0) {
+        sam_string.append(query_acc1);
+        sam_string.append("\t4\t*\t0\t255\t*\t*\t0\t0\t");
+        sam_string.append(read1);
+        sam_string.append("\t*\n");
+        return;
+    }
+
+
+//        std::cout << "HERE!!! " << all_nams.size()  << std::endl;
+    // Output results
+
+    int cnt = 0;
+    float score_dropoff;
+//    float hits_max = (float) all_nams[0].n_hits;
+    nam n_max = all_nams1[0];
+    float s1 = (float) (n_max.n_hits * (n_max.query_e - n_max.query_s));
+    int mapq = 60; // MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
+    if (all_nams1.size() > 1) {
+        nam n_second = all_nams1[1];
+        float s2 = (float) (n_second.n_hits * (n_second.query_e - n_second.query_s));
+//        ref_start = ref_tmp_start > 0 ? ref_tmp_start : 0;
+        float min_matches;
+        min_matches  = (float)n_max.n_hits/10 > 1 ? (float)n_max.n_hits/10 : 1;
+        mapq = 40*(1 - s2/s1)*min_matches*log(s1) < 60 ? 40*(1 - s2/s1)*min_matches*log(s1) : 60 ;
+    }
+
+    int best_align_dist = ~0U >> 1;
+    int best_align_index = 0; // assume by default it is the nam with most hits and most similar span length
+    bool aln_did_not_fit;
+//    std::cout << "best_align_dist: " << best_align_dist << std::endl;
+    final_alignment sam_aln;
+    // Only output single best hit based on: Firstly: number of randstrobe-hits. Secondly the concordance the span of the hits between ref and query (more simmilar ranked higher)
+//    std::cout << "" << std::endl;
+
+
+//    int n_it =  all_nams.size();
+//    for(int i = 0; i < n_it; ++i){
+//        auto n = all_nams[i];
+    for (auto &n : all_nams1) {
+        aln_did_not_fit = false;
+        score_dropoff = (float) n.n_hits / n_max.n_hits;
+
+        if ( (cnt >= 20) || best_align_dist == 0 || score_dropoff < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
+            break;
+        }
+
+        tot_all_tried ++;
+
+        unsigned int ref_diff = n.ref_e - n.ref_s;
+        unsigned int read_diff = n.query_e - n.query_s;
+        unsigned int min_diff =  read_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
+        unsigned int max_diff = ref_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
+        unsigned int diff = max_diff - min_diff;
+
+        // deal with any read hanging of ends of reference not to get 'std::out_of_range' what(): basic_string::substr
+        int ref_tmp_start = n.ref_s - n.query_s;
+        int ref_tmp_segm_size = read_len1 + diff;
+        int ref_len = ref_len_map[n.ref_id];
+        int ref_start = ref_tmp_start > 0 ? ref_tmp_start : 0;
+        int ref_segm_size = ref_tmp_segm_size < ref_len - ref_start ? ref_tmp_segm_size : ref_len - 1 - ref_start;
+
+        std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
+
+        // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
+
+        if ( (ref_segm.substr(n.query_s, k) == read.substr(n.query_s, k) ) ) { //&& (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read.substr(n.query_e - k, k)) ){
+            n.is_rc = false;
+        }
+        else {
+            if (!rc_already_comp){
+                read_rc = reverse_complement(read);
+                rc_already_comp = true;
+            }
+
+            if ((ref_segm.substr(n.query_s, k) == read_rc.substr(n.query_s, k))) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
+                n.is_rc = true;
+            } else {
+                did_not_fit++;
+                aln_did_not_fit = true;
+            }
+        }
+
+        int hamming_dist = -1;
+        std::string r_tmp;
+        bool is_rc;
+        if (n.is_rc){
+            r_tmp = read_rc;
+            is_rc = true;
+        }else{
+            r_tmp = read;
+            is_rc = false;
+        }
+
+        if (ref_segm.length() >= read_len1){
+            hamming_dist = HammingDistance(r_tmp, ref_segm.substr(0,read_len1));
+        }
+
+        if ( (hamming_dist) >=0 && (diff == 0)) { //Substitutions only
+            if (hamming_dist < best_align_dist){
+                best_align_index = cnt;
+                best_align_dist = hamming_dist;
+                sam_aln.cigar = std::to_string(read_len1) + "M";
+                sam_aln.ed = hamming_dist;
+                sam_aln.ref_start = n.ref_s - n.query_s +1; // +1 because SAM is 1-based!
+                sam_aln.is_rc = is_rc;
+                sam_aln.ref_id = n.ref_id;
+            }
+        } else if ( (best_align_dist > 1) || did_not_fit ){
+            int a = n.ref_s - n.query_s;
+            int ref_start = std::max(0, a);
+            int b = n.ref_e + (read_len1 - n.query_e);
+            int ref_len = ref_seqs[n.ref_id].size();
+            int ref_end = std::min(ref_len, b);
+            std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
+            ksw_extz_t ez;
+            const char *ref_ptr = ref_segm.c_str();
+            const char *read_ptr = r_tmp.c_str();
+            aln_info info;
+            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
+
+            tot_ksw_aligned ++;
+            if (info.ed < best_align_dist){
+                best_align_index = cnt;
+                best_align_dist = info.ed;
+                sam_aln.cigar = info.cigar;
+                sam_aln.ed = info.ed;
+                sam_aln.ref_start =  a + info.ref_offset +1; // +1 because SAM is 1-based!
+                sam_aln.is_rc = is_rc;
+                sam_aln.ref_id = n.ref_id;
+            }
+
+        }
+
+        cnt ++;
+    }
+
+    if (all_nams1.size() > 0) {
+        int o;
+        std::string output_read;
+        if (sam_aln.is_rc) {
+            o = 16;
+            output_read = read_rc;
+        } else {
+            o = 0;
+            output_read = read;
+        }
+        //TODO: Best way to calc Alignment score?
+//        std::stringstream ss;
+//        ss << query_acc << "\t" << o << "\t" << acc_map[sam_aln.ref_id] << "\t" << sam_aln.ref_start
+//                    << "\t" << mapq << "\t" << sam_aln.cigar << "\t" << "*" << "\t"
+//                    << 0 << "\t" << 0 << "\t" << output_read << "\t" << "*" << "\tNM:i:" << sam_aln.ed << "\n";
+        sam_string.append(query_acc1);
+        sam_string.append("\t");
+        sam_string.append(std::to_string(o));
+        sam_string.append("\t");
+        sam_string.append(acc_map[sam_aln.ref_id]);
+        sam_string.append("\t");
+        sam_string.append(std::to_string(sam_aln.ref_start));
+        sam_string.append("\t");
+        sam_string.append(std::to_string(mapq));
+        sam_string.append("\t");
+        sam_string.append(sam_aln.cigar);
+        sam_string.append("\t*\t0\t0\t");
+        sam_string.append(output_read);
+        sam_string.append("\t*\tNM:i:");
+        sam_string.append(std::to_string(sam_aln.ed));
+        sam_string.append("\n");
+
+    }
+
+    if (all_nams2.size() == 0) {
+        sam_string.append(query_acc2);
+        sam_string.append("\t4\t*\t0\t255\t*\t*\t0\t0\t");
+        sam_string.append(read1);
+        sam_string.append("\t*\n");
+        return;
+    }
+
+}
+
+
 void print_usage() {
     std::cerr << "\n";
     std::cerr << "StrobeAlign VERSION 0.0.3\n";
@@ -842,16 +1032,16 @@ int main (int argc, char **argv)
 //    opn++;
 //    const char *reads_filename_PE2 = argv[opn];
     opn++;
-    const char *reads_filename;
-    const char *reads_filename_PE2;
+    const char *reads_filename1;
+    const char *reads_filename2;
     bool is_SE = false;
     if (opn == argc - 1) {
-        reads_filename = argv[opn];
+        reads_filename1 = argv[opn];
         is_SE = true;
     } else if (opn == argc - 2) {
-        reads_filename = argv[opn];
+        reads_filename1 = argv[opn];
         opn++;
-        reads_filename_PE2 = argv[opn];
+        reads_filename2 = argv[opn];
     } else {
         print_usage();
         return 0;
@@ -1034,11 +1224,7 @@ int main (int argc, char **argv)
 
 //    std::ifstream query_file(reads_filename);
 
-    //    KSeq record;
-    gzFile fp = gzopen(reads_filename, "r");
-    auto ks = make_ikstream(fp, gzread);
-    int n_q_chunk_size = 1000000;
-    KSeq record;
+
     std::ofstream output_file;
     std::stringstream sam_output;
     std::stringstream paf_output;
@@ -1053,7 +1239,12 @@ int main (int argc, char **argv)
 
     if(is_SE) {
         std::cout << "Woho SE mode! Let's go!" <<  std::endl;
-        std::string line, seq, seq_rc, prev_acc;
+        //    KSeq record;
+        gzFile fp = gzopen(reads_filename1, "r");
+        auto ks = make_ikstream(fp, gzread);
+        int n_q_chunk_size = 1000000;
+        KSeq record;
+        std::string seq, seq_rc;
         unsigned int q_id = 0;
         mers_vector_read query_mers; // pos, chr_id, kmer hash value
 //    mers_vector_read query_mers_rc; // pos, chr_id, kmer hash value
@@ -1076,7 +1267,7 @@ int main (int argc, char **argv)
 
             int n_it = records.size();
             std::cout << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
-#pragma omp parallel for num_threads(n_threads) shared(output_streams, output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned) private(sam_output, paf_output, record, seq_rc, query_mers)
+            #pragma omp parallel for num_threads(n_threads) shared(output_streams, output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned) private(sam_output, paf_output, record, seq_rc, query_mers)
             for (int i = 0; i < n_it; ++i) {
                 auto record = records[i];
                 // generate mers here
@@ -1137,6 +1328,89 @@ int main (int argc, char **argv)
     }
     else{
         std::cout << "Woho PE mode! Let's go!" <<  std::endl;
+        //    KSeq record;
+        gzFile fp1 = gzopen(reads_filename1, "r");
+        auto ks1 = make_ikstream(fp1, gzread);
+        gzFile fp2 = gzopen(reads_filename2, "r");
+        auto ks2 = make_ikstream(fp2, gzread);
+        int n_q_chunk_size = 1000000;
+        KSeq record1;
+        KSeq record2;
+        std::string seq1, seq2, seq_rc1, seq_rc2;
+        unsigned int q_id = 0;
+        mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
+        std::vector<std::string> output_streams(n_threads);
+        for (int i = 0; i < n_threads; ++i) {
+            output_streams[i].reserve((n_q_chunk_size / n_threads + 1) *
+                                      450); // Reserve sufficient space for appending multiple SAM records (400 is an upper setimate on the number of characters for each sam record of a 200-300bp read)
+        }
+
+        while (ks1) {
+
+            auto read_start = std::chrono::high_resolution_clock::now();
+            auto records1 = ks1.read(n_q_chunk_size);  // read a chunk of 1000000 records
+            auto records2 = ks2.read(n_q_chunk_size);  // read a chunk of 1000000 records
+            auto read_finish = std::chrono::high_resolution_clock::now();
+            tot_read_file += read_finish - read_start;
+//        std::chrono::duration<double> elapsed_read = read_finish - read_start;
+//        std::cout << "Total time reading from file: " << elapsed_read.count() << " s\n" <<  std::endl;
+
+            int n_it = records1.size();
+            std::cout << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
+            #pragma omp parallel for num_threads(n_threads) shared(output_streams, output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2)
+            for (int i = 0; i < n_it; ++i) {
+                auto record1 = records1[i];
+                auto record2 = records2[i];
+                // generate mers here
+                auto strobe_start = std::chrono::high_resolution_clock::now();
+                query_mers1 = seq_to_randstrobes2_read(n, k, w_min, w_max, record1.seq, q_id, s, t);
+                query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t);
+                auto strobe_finish = std::chrono::high_resolution_clock::now();
+                tot_construct_strobemers += strobe_finish - strobe_start;
+
+
+                // Find NAMs
+                auto nam_start = std::chrono::high_resolution_clock::now();
+                std::vector<nam> nams1; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
+                std::vector<nam> nams2; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
+                nams1 = find_nams(query_mers1, all_mers_vector, mers_index, k, ref_seqs, record1.seq, hit_upper_window_lim, filter_cutoff);
+                nams2 = find_nams(query_mers2, all_mers_vector, mers_index, k, ref_seqs, record2.seq, hit_upper_window_lim, filter_cutoff);
+                auto nam_finish = std::chrono::high_resolution_clock::now();
+                tot_find_nams += nam_finish - nam_start;
+
+                //Sort hits based on start choordinate on query sequence
+                auto nam_sort_start = std::chrono::high_resolution_clock::now();
+                std::sort(nams1.begin(), nams1.end(), score);
+                std::sort(nams2.begin(), nams2.end(), score);
+                auto nam_sort_finish = std::chrono::high_resolution_clock::now();
+                tot_sort_nams += nam_sort_finish - nam_sort_start;
+
+                auto extend_start = std::chrono::high_resolution_clock::now();
+                if (!mode) {
+                    output_hits_paf(output_streams[omp_get_thread_num()], nams1, record1.name, acc_map, k,
+                                    record1.seq.length(), ref_lengths);
+//                output_streams[omp_get_thread_num()].append(paf_output.str()); // << paf_output.str();
+                } else {
+//                auto rc_start = std::chrono::high_resolution_clock::now();
+//                auto rc_finish = std::chrono::high_resolution_clock::now();
+//                tot_rc += rc_finish - rc_start;
+                    align_PE(output_streams[omp_get_thread_num()], nams1, nams2, record1.name, record2.name, acc_map, k, record1.seq.length(), record2.seq.length(),
+                             ref_lengths, ref_seqs, record1.seq, record2.seq, tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
+//                output_streams[omp_get_thread_num()] << sam_output.str();
+                }
+                auto extend_finish = std::chrono::high_resolution_clock::now();
+                tot_extend += extend_finish - extend_start;
+                q_id++;
+            }
+            // Output results
+            auto write_start = std::chrono::high_resolution_clock::now();
+            for (int i = 0; i < n_threads; ++i) {
+                output_file << output_streams[i];
+                output_streams[i].clear();
+            }
+            auto write_finish = std::chrono::high_resolution_clock::now();
+            tot_write_file += write_finish - write_start;
+        }
     }
 
 
