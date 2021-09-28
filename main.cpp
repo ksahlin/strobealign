@@ -737,7 +737,8 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 //    std::stringstream sam_string;
 //    std::cout << "" << std::endl;
 //    std::cout << query_acc << std::endl;
-    std::string read_rc;
+    std::string read1_rc;
+    std::string read2_rc;
     bool rc_already_comp = false;
 
     if (all_nams1.size() == 0) {
@@ -806,16 +807,16 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 
         // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
 
-        if ( (ref_segm.substr(n.query_s, k) == read.substr(n.query_s, k) ) ) { //&& (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read.substr(n.query_e - k, k)) ){
+        if ( (ref_segm.substr(n.query_s, k) == read1.substr(n.query_s, k) ) ) { //&& (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read.substr(n.query_e - k, k)) ){
             n.is_rc = false;
         }
         else {
             if (!rc_already_comp){
-                read_rc = reverse_complement(read);
+                read1_rc = reverse_complement(read1);
                 rc_already_comp = true;
             }
 
-            if ((ref_segm.substr(n.query_s, k) == read_rc.substr(n.query_s, k))) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
+            if ((ref_segm.substr(n.query_s, k) == read1_rc.substr(n.query_s, k))) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
                 n.is_rc = true;
             } else {
                 did_not_fit++;
@@ -827,10 +828,10 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         std::string r_tmp;
         bool is_rc;
         if (n.is_rc){
-            r_tmp = read_rc;
+            r_tmp = read1_rc;
             is_rc = true;
         }else{
-            r_tmp = read;
+            r_tmp = read1;
             is_rc = false;
         }
 
@@ -882,10 +883,10 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         std::string output_read;
         if (sam_aln.is_rc) {
             o = 16;
-            output_read = read_rc;
+            output_read = read1_rc;
         } else {
             o = 0;
-            output_read = read;
+            output_read = read1;
         }
         //TODO: Best way to calc Alignment score?
 //        std::stringstream ss;
@@ -1325,6 +1326,7 @@ int main (int argc, char **argv)
             auto write_finish = std::chrono::high_resolution_clock::now();
             tot_write_file += write_finish - write_start;
         }
+        gzclose(fp);
     }
     else{
         std::cout << "Woho PE mode! Let's go!" <<  std::endl;
@@ -1394,8 +1396,12 @@ int main (int argc, char **argv)
 //                auto rc_start = std::chrono::high_resolution_clock::now();
 //                auto rc_finish = std::chrono::high_resolution_clock::now();
 //                tot_rc += rc_finish - rc_start;
-                    align_PE(output_streams[omp_get_thread_num()], nams1, nams2, record1.name, record2.name, acc_map, k, record1.seq.length(), record2.seq.length(),
-                             ref_lengths, ref_seqs, record1.seq, record2.seq, tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
+//                    align_PE(output_streams[omp_get_thread_num()], nams1, nams2, record1.name, record2.name, acc_map, k, record1.seq.length(), record2.seq.length(),
+//                             ref_lengths, ref_seqs, record1.seq, record2.seq, tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
+                    align_SE(output_streams[omp_get_thread_num()], nams1, record1.name, acc_map, k, record1.seq.length(),
+                             ref_lengths, ref_seqs, record1.seq, tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
+                    align_SE(output_streams[omp_get_thread_num()], nams2, record2.name, acc_map, k, record2.seq.length(),
+                             ref_lengths, ref_seqs, record2.seq, tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
 //                output_streams[omp_get_thread_num()] << sam_output.str();
                 }
                 auto extend_finish = std::chrono::high_resolution_clock::now();
@@ -1411,12 +1417,14 @@ int main (int argc, char **argv)
             auto write_finish = std::chrono::high_resolution_clock::now();
             tot_write_file += write_finish - write_start;
         }
+        gzclose(fp1);
+        gzclose(fp2);
+
     }
 
 
-//    query_file.close();
     output_file.close();
-    gzclose(fp);
+
     std::cout << "Total mapping sites tried: " << tot_all_tried << std::endl;
     std::cout << "Total calls to ksw: " << tot_ksw_aligned << std::endl;
     std::cout << "Did not fit strobe start site: " << did_not_fit  << std::endl;
