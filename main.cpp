@@ -545,7 +545,7 @@ inline int HammingDistance(std::string One, std::string Two)
 }
 
 
-static inline void align(std::string &sam_string, std::vector<nam> &all_nams, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit ) {
+static inline void align_SE(std::string &sam_string, std::vector<nam> &all_nams, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit ) {
 
 //    std::stringstream sam_string;
 //    std::cout << "" << std::endl;
@@ -734,9 +734,9 @@ static inline void align(std::string &sam_string, std::vector<nam> &all_nams, st
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.0.2\n";
+    std::cerr << "StrobeAlign VERSION 0.0.3\n";
     std::cerr << "\n";
-    std::cerr << "StrobeAlign [options] <ref.fa> <reads.fast[a/q.gz]>\n";
+    std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
     std::cerr << "\t-t INT number of threads [3]\n";
     std::cerr << "\t-n INT number of strobes [2]\n";
@@ -836,11 +836,26 @@ int main (int argc, char **argv)
     assert( ( (k-s) % 2 == 0) && " k - s have to be an even number to create canonical syncmers. Set s to e.g., k-2, k-4, k-6, k-8.");
     assert(n == 2 && "Currently only n=2 is implemented");
     // File name to reference
-    std::string filename = argv[opn];
+    std::string ref_filename = argv[opn];
+//    opn++;
+//    const char *reads_filename = argv[opn];
+//    opn++;
+//    const char *reads_filename_PE2 = argv[opn];
     opn++;
-    const char *reads_filename = argv[opn];
-
-
+    const char *reads_filename;
+    const char *reads_filename_PE2;
+    bool is_SE = false;
+    if (opn == argc - 1) {
+        reads_filename = argv[opn];
+        is_SE = true;
+    } else if (opn == argc - 2) {
+        reads_filename = argv[opn];
+        opn++;
+        reads_filename_PE2 = argv[opn];
+    } else {
+        print_usage();
+        return 0;
+    }
 
     ///////////////////// INPUT /////////////////////////
 //    std::string filename  = "test_ploy2.txt";
@@ -912,7 +927,7 @@ int main (int argc, char **argv)
     std::vector<unsigned int> ref_lengths;
     uint64_t total_ref_seq_size;
     idx_to_acc acc_map;
-    total_ref_seq_size = read_references(ref_seqs, ref_lengths, acc_map, filename);
+    total_ref_seq_size = read_references(ref_seqs, ref_lengths, acc_map, ref_filename);
     auto finish_read_refs = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_read_refs = finish_read_refs - start_read_refs;
     std::cout << "Time reading references: " << elapsed_read_refs.count() << " s\n" <<  std::endl;
@@ -1022,7 +1037,7 @@ int main (int argc, char **argv)
     //    KSeq record;
     gzFile fp = gzopen(reads_filename, "r");
     auto ks = make_ikstream(fp, gzread);
-    int n_q_chunk_size = 500000;
+    int n_q_chunk_size = 1000000;
     KSeq record;
     std::ofstream output_file;
     std::stringstream sam_output;
@@ -1036,36 +1051,39 @@ int main (int argc, char **argv)
         output_file << "@PG\tID:strobealign\tPN:strobealign\tVN:0.0.1\tCL:strobealign\n";
     }
 
-    std::string line, seq, seq_rc, prev_acc;
-    unsigned int q_id = 0;
-    mers_vector_read query_mers; // pos, chr_id, kmer hash value
+    if(is_SE) {
+        std::cout << "Woho SE mode! Let's go!" <<  std::endl;
+        std::string line, seq, seq_rc, prev_acc;
+        unsigned int q_id = 0;
+        mers_vector_read query_mers; // pos, chr_id, kmer hash value
 //    mers_vector_read query_mers_rc; // pos, chr_id, kmer hash value
 
 //    std::vector<std::stringstream> output_streams(n_threads);
-    std::vector<std::string> output_streams(n_threads);
-    for (int i = 0; i < n_threads; ++i){
-        output_streams[i].reserve((n_q_chunk_size/n_threads + 1)*450); // Reserve sufficient space for appending multiple SAM records (400 is an upper setimate on the number of characters for each sam record of a 200-300bp read)
-    }
+        std::vector<std::string> output_streams(n_threads);
+        for (int i = 0; i < n_threads; ++i) {
+            output_streams[i].reserve((n_q_chunk_size / n_threads + 1) *
+                                      450); // Reserve sufficient space for appending multiple SAM records (400 is an upper setimate on the number of characters for each sam record of a 200-300bp read)
+        }
 
-    while (ks ) {
+        while (ks) {
 
-        auto read_start = std::chrono::high_resolution_clock::now();
-        auto records = ks.read(n_q_chunk_size);  // read a chunk of 500000 records
-        auto read_finish = std::chrono::high_resolution_clock::now();
-        tot_read_file += read_finish - read_start;
+            auto read_start = std::chrono::high_resolution_clock::now();
+            auto records = ks.read(n_q_chunk_size);  // read a chunk of 500000 records
+            auto read_finish = std::chrono::high_resolution_clock::now();
+            tot_read_file += read_finish - read_start;
 //        std::chrono::duration<double> elapsed_read = read_finish - read_start;
 //        std::cout << "Total time reading from file: " << elapsed_read.count() << " s\n" <<  std::endl;
 
-        int n_it = records.size();
-        std::cout << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
-        #pragma omp parallel for num_threads(n_threads) shared(output_streams, output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned) private(sam_output, paf_output, record, seq_rc, query_mers)
-        for (int i = 0; i < n_it; ++i) {
-            auto record = records[i];
-            // generate mers here
-            auto strobe_start = std::chrono::high_resolution_clock::now();
-            query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, record.seq, q_id, s, t);
-            auto strobe_finish = std::chrono::high_resolution_clock::now();
-            tot_construct_strobemers += strobe_finish - strobe_start;
+            int n_it = records.size();
+            std::cout << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
+#pragma omp parallel for num_threads(n_threads) shared(output_streams, output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned) private(sam_output, paf_output, record, seq_rc, query_mers)
+            for (int i = 0; i < n_it; ++i) {
+                auto record = records[i];
+                // generate mers here
+                auto strobe_start = std::chrono::high_resolution_clock::now();
+                query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, record.seq, q_id, s, t);
+                auto strobe_finish = std::chrono::high_resolution_clock::now();
+                tot_construct_strobemers += strobe_finish - strobe_start;
 
 //            // Find NAMs alternative function
 //            auto nam_alt_start = std::chrono::high_resolution_clock::now();
@@ -1075,44 +1093,50 @@ int main (int argc, char **argv)
 //            auto nam_alt_finish = std::chrono::high_resolution_clock::now();
 //            tot_find_nams_alt += nam_alt_finish - nam_alt_start;
 
-            // Find NAMs
-            auto nam_start = std::chrono::high_resolution_clock::now();
-            std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-            nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim,
-                             filter_cutoff);
-            auto nam_finish = std::chrono::high_resolution_clock::now();
-            tot_find_nams += nam_finish - nam_start;
+                // Find NAMs
+                auto nam_start = std::chrono::high_resolution_clock::now();
+                std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
+                nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim,
+                                 filter_cutoff);
+                auto nam_finish = std::chrono::high_resolution_clock::now();
+                tot_find_nams += nam_finish - nam_start;
 
-            //Sort hits based on start choordinate on query sequence
-            auto nam_sort_start = std::chrono::high_resolution_clock::now();
-            std::sort(nams.begin(), nams.end(), score);
-            auto nam_sort_finish = std::chrono::high_resolution_clock::now();
-            tot_sort_nams += nam_sort_finish - nam_sort_start;
+                //Sort hits based on start choordinate on query sequence
+                auto nam_sort_start = std::chrono::high_resolution_clock::now();
+                std::sort(nams.begin(), nams.end(), score);
+                auto nam_sort_finish = std::chrono::high_resolution_clock::now();
+                tot_sort_nams += nam_sort_finish - nam_sort_start;
 
-            auto extend_start = std::chrono::high_resolution_clock::now();
-            if (!mode) {
-                output_hits_paf(output_streams[omp_get_thread_num()], nams, record.name, acc_map, k, record.seq.length(), ref_lengths);
+                auto extend_start = std::chrono::high_resolution_clock::now();
+                if (!mode) {
+                    output_hits_paf(output_streams[omp_get_thread_num()], nams, record.name, acc_map, k,
+                                    record.seq.length(), ref_lengths);
 //                output_streams[omp_get_thread_num()].append(paf_output.str()); // << paf_output.str();
-            } else {
+                } else {
 //                auto rc_start = std::chrono::high_resolution_clock::now();
 //                auto rc_finish = std::chrono::high_resolution_clock::now();
 //                tot_rc += rc_finish - rc_start;
-                align(output_streams[omp_get_thread_num()], nams, record.name, acc_map, k, record.seq.length(), ref_lengths, ref_seqs, record.seq,
-                                   tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
+                    align_SE(output_streams[omp_get_thread_num()], nams, record.name, acc_map, k, record.seq.length(),
+                             ref_lengths, ref_seqs, record.seq,
+                             tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
 //                output_streams[omp_get_thread_num()] << sam_output.str();
+                }
+                auto extend_finish = std::chrono::high_resolution_clock::now();
+                tot_extend += extend_finish - extend_start;
+                q_id++;
             }
-            auto extend_finish = std::chrono::high_resolution_clock::now();
-            tot_extend += extend_finish - extend_start;
-            q_id++;
+            // Output results
+            auto write_start = std::chrono::high_resolution_clock::now();
+            for (int i = 0; i < n_threads; ++i) {
+                output_file << output_streams[i];
+                output_streams[i].clear();
+            }
+            auto write_finish = std::chrono::high_resolution_clock::now();
+            tot_write_file += write_finish - write_start;
         }
-        // Output results
-        auto write_start = std::chrono::high_resolution_clock::now();
-        for (int i = 0; i < n_threads; ++i) {
-            output_file << output_streams[i];
-            output_streams[i].clear();
-        }
-        auto write_finish = std::chrono::high_resolution_clock::now();
-        tot_write_file += write_finish - write_start;
+    }
+    else{
+        std::cout << "Woho PE mode! Let's go!" <<  std::endl;
     }
 
 
