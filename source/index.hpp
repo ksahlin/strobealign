@@ -58,15 +58,15 @@ struct nam {
     unsigned int ref_id;
     unsigned int query_s;
     unsigned int query_e;
-    unsigned int query_last_hit_pos;
+    unsigned int query_prev_hit_startpos;
     unsigned int ref_s;
     unsigned int ref_e;
-    unsigned int ref_last_hit_pos;
+    unsigned int ref_prev_hit_startpos;
     unsigned int n_hits = 0;
 //    unsigned int previous_query_start;
 //    unsigned int previous_ref_start;
     unsigned int is_rc = false;
-//    float score;
+    float score;
 };
 
 struct aln_info {
