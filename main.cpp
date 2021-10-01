@@ -213,9 +213,10 @@ static inline void print_diagnostics_new4(mers_vector_reduced &mers_vector, kmer
 //}
 
 
-static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vector_reduced &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int hit_upper_window_lim, unsigned int filter_cutoff ){
+static inline std::vector<nam> find_nams(std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector_reduced &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int hit_upper_window_lim, unsigned int filter_cutoff ){
 //    std::cout << "ENTER FIND NAMS " <<  std::endl;
-    robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref; // [ref_id] -> vector( struct hit)
+//    robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref; // [ref_id] -> vector( struct hit)
+//    std::vector<std::vector<hit>> hits_per_ref(10);
 //    int read_length = read.length();
 //    std::cout << " "  <<  std::endl;
     for (auto &q : query_mers)
@@ -247,15 +248,23 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
 //            } else
             if (count <= filter_cutoff){
                 for(size_t j = offset; j < offset+count; ++j)
+//                for(auto r = begin(ref_mers) + offset; r != begin(ref_mers) + offset + count; ++r)
                 {
                     auto r = ref_mers[j];
-                    unsigned int ref_id = std::get<0>(r);
-                    unsigned int ref_s = std::get<1>(r);
-                    unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
+//                    unsigned int  ref_id,ref_s,ref_e; std::tie(ref_id,ref_s,ref_e) = r;
+//                    unsigned int ref_id = std::get<0>(r);
+//                    unsigned int ref_s = std::get<1>(r);
+//                    unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
+                    h.ref_s = std::get<1>(r);
+                    h.ref_e = std::get<2>(r) + k;
+                    hits_per_ref[std::get<0>(r)].push_back(h);
+//                    hits_per_ref[std::get<0>(r)].push_back(h);
 
-                    h.ref_s = ref_s;
-                    h.ref_e = ref_e;
-                    hits_per_ref[ref_id].push_back(h);
+
+//                    h.ref_s = ref_s;
+//                    h.ref_e = ref_e;
+//                    hits_per_ref[ref_id].push_back(h);
+
 //                    h.hit_count = count;
 //                    std::cout << "Found: " <<  h.query_s << " " << h.query_e << " ref: " <<  h.ref_s << " " << h.ref_e << " " << h.is_rc << std::endl;
 //                    hit_count_all ++;
@@ -268,12 +277,16 @@ static inline std::vector<nam> find_nams(mers_vector_read &query_mers, mers_vect
 
 //    std::cout << "NUMBER OF HITS GENERATED: " << hit_count_all << std::endl;
     std::vector<nam> open_nams;
-    std::vector<nam> final_nams; // [ref_id] -> vector(struct nam)
+//    std::vector<nam> final_nams; // [ref_id] -> vector(struct nam)
 
     for (auto &it : hits_per_ref)
     {
         unsigned int ref_id = it.first;
         std::vector<hit> hits = it.second;
+
+//    for(size_t i = 0; i < hits_per_ref.size(); ++i){
+//        unsigned int ref_id = i;
+//        auto hits = hits_per_ref[i];
         open_nams = std::vector<nam> (); // Initialize vector
         uint64_t prev_q_start = 0;
         for (auto &h : hits){
@@ -1297,6 +1310,8 @@ int main (int argc, char **argv)
         std::string seq, seq_rc;
         unsigned int q_id = 0;
         mers_vector_read query_mers; // pos, chr_id, kmer hash value
+        std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
+        robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
 //    mers_vector_read query_mers_rc; // pos, chr_id, kmer hash value
 
 //    std::vector<std::stringstream> output_streams(n_threads);
@@ -1317,7 +1332,7 @@ int main (int argc, char **argv)
 
             int n_it = records.size();
             std::cout << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
-            #pragma omp parallel for num_threads(n_threads) shared(output_streams, output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue) private(sam_output, paf_output, record, seq_rc, query_mers)
+            #pragma omp parallel for num_threads(n_threads) shared(output_streams, output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue) private(sam_output, paf_output, record, seq_rc, query_mers, nams, hits_per_ref)
             for (int i = 0; i < n_it; ++i) {
                 auto record = records[i];
                 // generate mers here
@@ -1337,12 +1352,13 @@ int main (int argc, char **argv)
                 // Find NAMs
 //                std::cout << "mapping " << record.name << std::endl;
                 auto nam_start = std::chrono::high_resolution_clock::now();
-                std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-                nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim, filter_cutoff);
+                find_nams(nams, hits_per_ref, query_mers, all_mers_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim, filter_cutoff);
+                hits_per_ref.clear();
                 if (nams.size() == 0){
                     tried_rescue +=1;
 //                    std::cout << "Rescue mode: " << record.name <<  std::endl;
-                    nams = find_nams(query_mers, all_mers_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim, 500);
+                    find_nams(nams, hits_per_ref, query_mers, all_mers_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim, 500);
+                    hits_per_ref.clear();
 //                    std::cout << "Found: " << nams.size() <<  std::endl;
                 }
                 auto nam_finish = std::chrono::high_resolution_clock::now();
@@ -1371,6 +1387,7 @@ int main (int argc, char **argv)
                 auto extend_finish = std::chrono::high_resolution_clock::now();
                 tot_extend += extend_finish - extend_start;
                 q_id++;
+                nams.clear();
             }
             // Output results
             auto write_start = std::chrono::high_resolution_clock::now();
@@ -1396,6 +1413,9 @@ int main (int argc, char **argv)
         std::string seq1, seq2, seq_rc1, seq_rc2;
         unsigned int q_id = 0;
         mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
+        std::vector<nam> nams1;
+        std::vector<nam> nams2;
+        robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
         std::vector<std::string> output_streams(n_threads);
         for (int i = 0; i < n_threads; ++i) {
             output_streams[i].reserve((n_q_chunk_size / n_threads + 1) *
@@ -1414,7 +1434,7 @@ int main (int argc, char **argv)
 
             int n_it = records1.size();
             std::cout << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
-            #pragma omp parallel for num_threads(n_threads) shared(output_streams, output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2)
+            #pragma omp parallel for num_threads(n_threads) shared(output_streams, output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref)
             for (int i = 0; i < n_it; ++i) {
                 auto record1 = records1[i];
                 auto record2 = records2[i];
@@ -1428,20 +1448,22 @@ int main (int argc, char **argv)
 
                 // Find NAMs
                 auto nam_start = std::chrono::high_resolution_clock::now();
-                std::vector<nam> nams1; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-                std::vector<nam> nams2; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-                nams1 = find_nams(query_mers1, all_mers_vector, mers_index, k, ref_seqs, record1.seq, hit_upper_window_lim, filter_cutoff);
+                find_nams(nams1, hits_per_ref, query_mers1, all_mers_vector, mers_index, k, ref_seqs, record1.seq, hit_upper_window_lim, filter_cutoff);
+                hits_per_ref.clear();
                 if (nams1.size() == 0){
                     tried_rescue +=1;
 //                    std::cout << "Rescue mode: " << record.name <<  std::endl;
-                    nams1 = find_nams(query_mers1, all_mers_vector, mers_index, k, ref_seqs, record1.seq, hit_upper_window_lim, 500);
+                    nams1 = find_nams(nams1, hits_per_ref, query_mers1, all_mers_vector, mers_index, k, ref_seqs, record1.seq, hit_upper_window_lim, 500);
+                    hits_per_ref.clear();
 //                    std::cout << "Found: " << nams.size() <<  std::endl;
                 }
-                nams2 = find_nams(query_mers2, all_mers_vector, mers_index, k, ref_seqs, record2.seq, hit_upper_window_lim, filter_cutoff);
+                find_nams(nams2, hits_per_ref, query_mers2, all_mers_vector, mers_index, k, ref_seqs, record2.seq, hit_upper_window_lim, filter_cutoff);
+                hits_per_ref.clear();
                 if (nams2.size() == 0){
                     tried_rescue +=1;
 //                    std::cout << "Rescue mode: " << record.name <<  std::endl;
-                    nams2 = find_nams(query_mers2, all_mers_vector, mers_index, k, ref_seqs, record2.seq, hit_upper_window_lim, 500);
+                    find_nams(nams2, hits_per_ref, query_mers2, all_mers_vector, mers_index, k, ref_seqs, record2.seq, hit_upper_window_lim, 500);
+                    hits_per_ref.clear();
 //                    std::cout << "Found: " << nams.size() <<  std::endl;
                 }
                 auto nam_finish = std::chrono::high_resolution_clock::now();
@@ -1474,6 +1496,8 @@ int main (int argc, char **argv)
                 auto extend_finish = std::chrono::high_resolution_clock::now();
                 tot_extend += extend_finish - extend_start;
                 q_id++;
+                nams1.clear();
+                nams2.clear();
             }
             // Output results
             auto write_start = std::chrono::high_resolution_clock::now();
