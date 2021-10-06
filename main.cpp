@@ -213,7 +213,7 @@ static inline void print_diagnostics_new4(mers_vector_reduced &mers_vector, kmer
 //}
 
 
-static inline std::vector<nam> find_nams(std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector_reduced &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int hit_upper_window_lim, unsigned int filter_cutoff ){
+static inline std::vector<nam> find_nams(std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int hit_upper_window_lim, unsigned int filter_cutoff ){
 //    std::cout << "ENTER FIND NAMS " <<  std::endl;
 //    robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref; // [ref_id] -> vector( struct hit)
 //    std::vector<std::vector<hit>> hits_per_ref(10);
@@ -255,9 +255,9 @@ static inline std::vector<nam> find_nams(std::vector<nam> &final_nams, robin_hoo
 //                    unsigned int ref_id = std::get<0>(r);
 //                    unsigned int ref_s = std::get<1>(r);
 //                    unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
-                    h.ref_s = std::get<1>(r);
-                    h.ref_e = std::get<2>(r) + k;
-                    hits_per_ref[std::get<0>(r)].push_back(h);
+                    h.ref_s = std::get<2>(r);
+                    h.ref_e = std::get<3>(r) + k;
+                    hits_per_ref[std::get<1>(r)].push_back(h);
 //                    hits_per_ref[std::get<0>(r)].push_back(h);
 
 
@@ -1227,24 +1227,21 @@ int main (int argc, char **argv)
     auto finish_flat_vector = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_flat_vector = finish_flat_vector - start_flat_vector;
     std::cout << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s\n" <<  std::endl;
-//    return 0;
 
     auto start_hash_index = std::chrono::high_resolution_clock::now();
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
     mers_index.reserve(unique_mers);
     unsigned int filter_cutoff;
     filter_cutoff = index_vector(flat_vector, mers_index, f); // construct index over flat array
-//    tmp_index.clear();
-    mers_vector_reduced all_mers_vector;
-
     auto finish_hash_index = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_hash_index = finish_hash_index - start_hash_index;
     std::cout << "Total time generating hash table index: " << elapsed_hash_index.count() << " s\n" <<  std::endl;
 
-    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector);
+//    mers_vector_reduced all_mers_vector;
+//    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector);
     /* destroy vector */
-    flat_vector.clear();
-    print_diagnostics_new4(all_mers_vector, mers_index);
+//    flat_vector.clear();
+//    print_diagnostics_new4(all_mers_vector, mers_index);
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -1349,12 +1346,12 @@ int main (int argc, char **argv)
                 // Find NAMs
 //                std::cout << "mapping " << record.name << std::endl;
                 auto nam_start = std::chrono::high_resolution_clock::now();
-                find_nams(nams, hits_per_ref, query_mers, all_mers_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim, filter_cutoff);
+                find_nams(nams, hits_per_ref, query_mers, flat_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim, filter_cutoff);
                 hits_per_ref.clear();
                 if (nams.size() == 0){
                     tried_rescue +=1;
 //                    std::cout << "Rescue mode: " << record.name <<  std::endl;
-                    find_nams(nams, hits_per_ref, query_mers, all_mers_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim, 500);
+                    find_nams(nams, hits_per_ref, query_mers, flat_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim, 500);
                     hits_per_ref.clear();
 //                    std::cout << "Found: " << nams.size() <<  std::endl;
                 }
@@ -1445,21 +1442,21 @@ int main (int argc, char **argv)
 
                 // Find NAMs
                 auto nam_start = std::chrono::high_resolution_clock::now();
-                find_nams(nams1, hits_per_ref, query_mers1, all_mers_vector, mers_index, k, ref_seqs, record1.seq, hit_upper_window_lim, filter_cutoff);
+                find_nams(nams1, hits_per_ref, query_mers1, flat_vector, mers_index, k, ref_seqs, record1.seq, hit_upper_window_lim, filter_cutoff);
                 hits_per_ref.clear();
                 if (nams1.size() == 0){
                     tried_rescue +=1;
 //                    std::cout << "Rescue mode: " << record.name <<  std::endl;
-                    nams1 = find_nams(nams1, hits_per_ref, query_mers1, all_mers_vector, mers_index, k, ref_seqs, record1.seq, hit_upper_window_lim, 500);
+                    nams1 = find_nams(nams1, hits_per_ref, query_mers1, flat_vector, mers_index, k, ref_seqs, record1.seq, hit_upper_window_lim, 500);
                     hits_per_ref.clear();
 //                    std::cout << "Found: " << nams.size() <<  std::endl;
                 }
-                find_nams(nams2, hits_per_ref, query_mers2, all_mers_vector, mers_index, k, ref_seqs, record2.seq, hit_upper_window_lim, filter_cutoff);
+                find_nams(nams2, hits_per_ref, query_mers2, flat_vector, mers_index, k, ref_seqs, record2.seq, hit_upper_window_lim, filter_cutoff);
                 hits_per_ref.clear();
                 if (nams2.size() == 0){
                     tried_rescue +=1;
 //                    std::cout << "Rescue mode: " << record.name <<  std::endl;
-                    find_nams(nams2, hits_per_ref, query_mers2, all_mers_vector, mers_index, k, ref_seqs, record2.seq, hit_upper_window_lim, 500);
+                    find_nams(nams2, hits_per_ref, query_mers2, flat_vector, mers_index, k, ref_seqs, record2.seq, hit_upper_window_lim, 500);
                     hits_per_ref.clear();
 //                    std::cout << "Found: " << nams.size() <<  std::endl;
                 }
