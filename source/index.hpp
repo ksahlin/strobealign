@@ -39,7 +39,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 //mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int w);
 
 typedef robin_hood::unordered_map< unsigned int, std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>>> pos_index;
-mers_vector construct_flat_vector(pos_index &tmp_index, uint64_t &unique_elements);
+void process_flat_vector(mers_vector &flat_vector, uint64_t &unique_elements);
 unsigned int index_vector(mers_vector  &mers_vector, kmer_lookup &mers_index, float f);
 mers_vector_reduced remove_kmer_hash_from_flat_vector(mers_vector &flat_vector);
 void filter_repetitive_strobemers(mers_vector &flat_vector, kmer_lookup &mers_index, mers_vector &flat_vector_reduced, kmer_lookup &mers_index_reduced, unsigned int filter_cutoff);

@@ -1186,67 +1186,64 @@ int main (int argc, char **argv)
     std::cout << "Time reading references: " << elapsed_read_refs.count() << " s\n" <<  std::endl;
 
     auto start_flat_vector = std::chrono::high_resolution_clock::now();
-    pos_index tmp_index; // hash table holding all reference mers
 
-    if (choice == "kmers" ){
-
-        for(size_t i = 0; i < ref_seqs.size(); ++i)
+    mers_vector flat_vector;
+    int approx_vec_size = total_ref_seq_size / (k-s+1);
+    std::cout << "ref vector approximate size: " << approx_vec_size << std::endl;
+    flat_vector.reserve(approx_vec_size);
+    unsigned int mer_cnt = 0;
+    for(size_t i = 0; i < ref_seqs.size(); ++i)
+    {
+        mers_vector randstrobes2; // pos, chr_id, kmer hash value
+        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t);
+        for (auto &t : randstrobes2)
         {
-            mers_vector kmers; //  kmer hash value, pos, chr_id
-//            kmers = seq_to_kmers(k, ref_seqs[i], i);
-            tmp_index[i] = kmers;
+            flat_vector.push_back(t);
         }
     }
-    else if (choice == "randstrobes" ){
-        if (n == 2 ){
-            for(size_t i = 0; i < ref_seqs.size(); ++i)
-            {
-                mers_vector randstrobes2; // pos, chr_id, kmer hash value
-                randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t);
-                tmp_index[i] = randstrobes2;
-            }
+    std::cout << "Ref vector actual size: " << flat_vector.size() << std::endl;
+    flat_vector.shrink_to_fit();
 
-        }
-        else if (n == 3){
-            for(size_t i = 0; i < ref_seqs.size(); ++i)
-            {
-                mers_vector randstrobes3; // pos, chr_id, kmer hash value
-//                randstrobes3 = seq_to_randstrobes3(n, k, w_min, w_max, ref_seqs[i], i, w);
-                tmp_index[i] = randstrobes3;
-            }
-        }
-    }
-    else {
-        std::cout << choice << "not implemented : " << std::endl;
-    }
+//    create vector of vectors here nr_threads
+//    std::vector<std::vector<std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>>> vector_per_ref_chr(n_threads);
+//    for(size_t i = 0; i < ref_seqs.size(); ++i)
+//    {
+//        mers_vector randstrobes2; // pos, chr_id, kmer hash value
+//        std::cout << "Started thread: " << omp_get_thread_num() << " chr size: " << ref_lengths[i] << " acc map:" << acc_map[i] << std::endl;
+//        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t);
+//        for (auto &t : randstrobes2)
+//        {
+//            vector_per_ref_chr[omp_get_thread_num()].push_back(t);
+//        }
+//        std::cout << "Completed thread: " << omp_get_thread_num() << " chr size: " << ref_lengths[i] << " acc map:" << acc_map[i] << std::endl;
+//    }
 
-
-    mers_vector all_mers_vector_tmp;
     uint64_t unique_mers = 0;
 //    uint64_t approx_vec_size = total_ref_seq_size / (k-s+1);
 //    std::cout << "Reserving flat vector size: " << approx_vec_size << std::endl;
 //    all_mers_vector_tmp.reserve(approx_vec_size); // reserve size corresponding to sum of lengths of all sequences divided by expected sampling
-    all_mers_vector_tmp = construct_flat_vector(tmp_index, unique_mers);
+    process_flat_vector(flat_vector, unique_mers);
     std::cout << "Unique strobemers: " << unique_mers  <<  std::endl;
-
-
     auto finish_flat_vector = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_flat_vector = finish_flat_vector - start_flat_vector;
     std::cout << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s\n" <<  std::endl;
+//    return 0;
 
     auto start_hash_index = std::chrono::high_resolution_clock::now();
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
     mers_index.reserve(unique_mers);
     unsigned int filter_cutoff;
-    filter_cutoff = index_vector(all_mers_vector_tmp, mers_index, f); // construct index over flat array
-    tmp_index.clear();
+    filter_cutoff = index_vector(flat_vector, mers_index, f); // construct index over flat array
+//    tmp_index.clear();
     mers_vector_reduced all_mers_vector;
 
     auto finish_hash_index = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_hash_index = finish_hash_index - start_hash_index;
     std::cout << "Total time generating hash table index: " << elapsed_hash_index.count() << " s\n" <<  std::endl;
 
-    all_mers_vector = remove_kmer_hash_from_flat_vector(all_mers_vector_tmp);
+    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector);
+    /* destroy vector */
+    flat_vector.clear();
     print_diagnostics_new4(all_mers_vector, mers_index);
 
 

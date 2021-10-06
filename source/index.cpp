@@ -81,14 +81,8 @@ static inline uint64_t kmer_to_uint64(std::string &kmer, uint64_t kmask)
 }
 
 
-mers_vector construct_flat_vector(pos_index &tmp_index, uint64_t &unique_elements){
-    mers_vector flat_vector;
-    for (auto &it : tmp_index)  {
-        for (auto &t : it.second) // it.second is the vector of k-mers, t is a tuple
-        {
-            flat_vector.push_back(t);
-        }
-    }
+void process_flat_vector(mers_vector &flat_vector, uint64_t &unique_elements){
+
     //    flat_array sort
     std::sort(flat_vector.begin(), flat_vector.end());
 
@@ -106,7 +100,7 @@ mers_vector construct_flat_vector(pos_index &tmp_index, uint64_t &unique_element
         prev_k = curr_k;
     }
 
-    return flat_vector;
+//    return flat_vector;
 }
 
 
