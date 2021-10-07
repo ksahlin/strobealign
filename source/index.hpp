@@ -75,12 +75,13 @@ struct aln_info {
     std::string cigar;
 };
 
-struct final_alignment {
+struct alignment {
     unsigned int ref_start;
     unsigned int ed;
     std::string cigar;
     bool is_rc;
     unsigned int ref_id;
+    int sw_score;
 };
 
 #endif /* index_hpp */
