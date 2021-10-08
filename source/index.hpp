@@ -73,6 +73,7 @@ struct aln_info {
     unsigned int ed;
     unsigned int ref_offset;
     std::string cigar;
+    int sw_score;
 };
 
 struct alignment {
@@ -82,6 +83,7 @@ struct alignment {
     bool is_rc;
     unsigned int ref_id;
     int sw_score;
+    bool not_proper;
 };
 
 #endif /* index_hpp */
