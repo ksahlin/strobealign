@@ -1009,63 +1009,65 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
             append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2);
             return;
         }
-//        else{ // do full search of highest scoring pair
-//            // Score top (20 / or until drop-off) locations for the mates individually and look which get the best joint score according to
-//            // score similar to that of BWA-MEM. The score we use is: r1.sw_score + r2.sw_score - log P(d(r1,r2)) if -log P(d(r1,r2)) < 3, else use the single end mode best alignments separately (lowest ed?)
-//            std::vector<alignment> aln_scores1;
-//            std::vector<alignment> aln_scores2;
-//            for (auto &n : all_nams1) {
-//                score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
-//                if ( (cnt1 >= 20) || score_dropoff1 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
-//                    break;
-//                }
-//                //////// the actual testing of base pair alignment part start /////////
-//                alignment a;
-//                get_alignment(n, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a, k, cnt1, rc_already_comp1, did_not_fit, tot_ksw_aligned);
-//                aln_scores1.push_back(a);
-//                //////////////////////////////////////////////////////////////////
-//                cnt1 ++;
-//                tot_all_tried ++;
-//            }
-//            aln_scores1.sort()
-//
-//            for (auto &n : all_nams2) {
-//                score_dropoff2 = (float) n.n_hits / n_max2.n_hits;
-//                if ( (cnt2 >= 20) || score_dropoff2 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
-//                    break;
-//                }
-//                //////// the actual testing of base pair alignment part start /////////
-//                alignment b;
-//                get_alignment(n, ref_len_map, ref_seqs, read2, read2_rc, read_len2, b, k, cnt2, rc_already_comp2, did_not_fit, tot_ksw_aligned);
-//                aln_scores2.push_back(b);
-//                //////////////////////////////////////////////////////////////////
-//                cnt2 ++;
-//                tot_all_tried ++;
-//            }
-//            aln_scores2.sort() //sort w.r.t. score
-//
-//            // Calculate best combined score here
-//            std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
-//            double S;
-//            for (auto &a1 : aln_scores1) {
-//                for (auto &a2 : aln_scores2) {
-//                    if ( (a1.is_rc ^ a2.is_rc) && ( (a1.ref_start - a2.ref_start < mu+4*sigma) ||  (a2.ref_start - a1.ref_start < mu+4*sigma) ) ){
-//                        // r1.sw_score + r2.sw_score - log P(d(r1,r2)) if -log P(d(r1,r2)) < 3,
-//                        S = 40 * (1 - s2 / s1) * min_matches * log(s1);
-//                        high_scores.push_back(S, a1, a2)
-//                    }
-//                }
-//            }
-//            high_scores.sort()
-//            // append both alignments to string here
-//
-//        }
-//    } else if (all_nams1.size() > 0 ) { // rescue read 2
-//        ;
-//        // append both alignments to string here
-//    } else if (all_nams2.size() > 0 ) { // rescue read 1
-//        ;
-//        // append both alignments to string here
+        else{ // do full search of highest scoring pair
+            // Score top (20 / or until drop-off) locations for the mates individually and look which get the best joint score according to
+            // score similar to that of BWA-MEM. The score we use is: r1.sw_score + r2.sw_score - log P(d(r1,r2)) if -log P(d(r1,r2)) < 3, else use the single end mode best alignments separately (lowest ed)
+            std::cout << "Full search!" << std::endl;
+            std::vector<alignment> aln_scores1;
+            for (auto &n : all_nams1) {
+                score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
+                if ( (cnt1 >= 20) || score_dropoff1 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
+                    break;
+                }
+                //////// the actual testing of base pair alignment part start /////////
+                alignment a;
+                get_alignment(n, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a, k, cnt1, rc_already_comp1, did_not_fit, tot_ksw_aligned);
+                aln_scores1.push_back(a);
+                //////////////////////////////////////////////////////////////////
+                cnt1 ++;
+                tot_all_tried ++;
+            }
+            std::sort(aln_scores1.begin(), aln_scores1.end(), score);
+
+            std::vector<alignment> aln_scores2;
+            for (auto &n : all_nams2) {
+                score_dropoff2 = (float) n.n_hits / n_max2.n_hits;
+                if ( (cnt2 >= 20) || score_dropoff2 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
+                    break;
+                }
+                //////// the actual testing of base pair alignment part start /////////
+                alignment b;
+                get_alignment(n, ref_len_map, ref_seqs, read2, read2_rc, read_len2, b, k, cnt2, rc_already_comp2, did_not_fit, tot_ksw_aligned);
+                aln_scores2.push_back(b);
+                //////////////////////////////////////////////////////////////////
+                cnt2 ++;
+                tot_all_tried ++;
+            }
+            std::sort(aln_scores2.begin(), aln_scores2.end(), score);
+
+            // Calculate best combined score here
+            std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
+            double S;
+            for (auto &a1 : aln_scores1) {
+                for (auto &a2 : aln_scores2) {
+                    if ( (a1.is_rc ^ a2.is_rc) && ( (a1.ref_start - a2.ref_start < mu+4*sigma) ||  (a2.ref_start - a1.ref_start < mu+4*sigma) ) ){
+                        // r1.sw_score + r2.sw_score - log P(d(r1,r2)) if -log P(d(r1,r2)) < 3,
+                        S = a1.sw_score + a2.sw_score - log(s1)  //* (1 - s2 / s1) * min_matches * log(s1);
+                        std::tuple<double, alignment,alignment> t (S, a1, a2);
+                        high_scores.push_back(t)
+                    }
+                }
+            }
+            std::sort(high_scores.begin(), high_scores.end()); // Sorting automatically by first element in tuple
+            // append both alignments to string here
+
+        }
+    } else if (all_nams1.size() > 0 ) { // rescue read 2
+        std::cout << "Rescue read 2 mode" << std::endl;
+        // append both alignments to string here
+    } else if (all_nams2.size() > 0 ) { // rescue read 1
+        std::cout << "Rescue read 1 mode" << std::endl;
+        // append both alignments to string here
     }
 
 }
