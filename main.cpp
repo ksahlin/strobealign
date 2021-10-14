@@ -959,7 +959,26 @@ static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, a
     sam_string.append("\n");
 }
 
-static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, std::string &query_acc1, std::string &query_acc2, idx_to_acc &acc_map, int k, int read_len1, int read_len2, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read1, std::string &read2, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit, double mu, double sigma, std::vector<int> &isizes ) {
+static inline float normal_pdf(float x, float m, float s)
+{
+    static const float inv_sqrt_2pi = 0.3989422804014327;
+    float a = (x - m) / s;
+
+    return inv_sqrt_2pi / s * std::exp(-0.5f * a * a);
+}
+
+static inline bool score_sw(const alignment &a, const alignment &b)
+{
+    return ( a.sw_score > b.sw_score );
+}
+
+static inline bool sort_scores(const std::tuple<double, alignment, alignment> &a,
+              const std::tuple<double, alignment, alignment> &b)
+{
+    return (std::get<0>(a) > std::get<0>(b));
+}
+
+static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, std::string &query_acc1, std::string &query_acc2, idx_to_acc &acc_map, int k, int read_len1, int read_len2, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read1, std::string &read2, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit, float mu, float sigma, std::vector<int> &isizes ) {
 
     std::string read1_rc;
     std::string read2_rc;
@@ -1012,7 +1031,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         else{ // do full search of highest scoring pair
             // Score top (20 / or until drop-off) locations for the mates individually and look which get the best joint score according to
             // score similar to that of BWA-MEM. The score we use is: r1.sw_score + r2.sw_score - log P(d(r1,r2)) if -log P(d(r1,r2)) < 3, else use the single end mode best alignments separately (lowest ed)
-            std::cout << "Full search!" << std::endl;
+//            std::cout << "Full search!" << std::endl;
             std::vector<alignment> aln_scores1;
             for (auto &n : all_nams1) {
                 score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
@@ -1027,7 +1046,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                 cnt1 ++;
                 tot_all_tried ++;
             }
-            std::sort(aln_scores1.begin(), aln_scores1.end(), score);
+            std::sort(aln_scores1.begin(), aln_scores1.end(), score_sw);
 
             std::vector<alignment> aln_scores2;
             for (auto &n : all_nams2) {
@@ -1043,24 +1062,45 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                 cnt2 ++;
                 tot_all_tried ++;
             }
-            std::sort(aln_scores2.begin(), aln_scores2.end(), score);
+            std::sort(aln_scores2.begin(), aln_scores2.end(), score_sw);
 
             // Calculate best combined score here
             std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
             double S;
+            float x;
+//            std::cout << "Scoring" << std::endl;
             for (auto &a1 : aln_scores1) {
                 for (auto &a2 : aln_scores2) {
-                    if ( (a1.is_rc ^ a2.is_rc) && ( (a1.ref_start - a2.ref_start < mu+4*sigma) ||  (a2.ref_start - a1.ref_start < mu+4*sigma) ) ){
+                     x = a1.ref_start > a2.ref_start ? (float) (a1.ref_start - a2.ref_start) : (float)(a2.ref_start - a1.ref_start);
+//                    std::cout << x << " " << (a1.ref_start - a2.ref_start) << " " << (a2.ref_start - a1.ref_start) << std::endl;
+                    if ( (a1.is_rc ^ a2.is_rc) && (x < mu+4*sigma)  ){
                         // r1.sw_score + r2.sw_score - log P(d(r1,r2)) if -log P(d(r1,r2)) < 3,
-                        S = a1.sw_score + a2.sw_score - log(s1)  //* (1 - s2 / s1) * min_matches * log(s1);
-                        std::tuple<double, alignment,alignment> t (S, a1, a2);
-                        high_scores.push_back(t)
+
+                        S = (double)a1.sw_score + (double)a2.sw_score - log( normal_pdf(x, mu, sigma ) );  //* (1 - s2 / s1) * min_matches * log(s1);
+//                        std::cout << S << " " << x << " " << log(normal_pdf(x, mu, sigma )) << " " << normal_pdf(x, mu, sigma ) << std::endl;
+                        std::tuple<double, alignment, alignment> t (S, a1, a2);
+                        high_scores.push_back(t);
+                    }
+                    else{ // individual score
+                        S = (double)a1.sw_score + (double)a2.sw_score;  //* (1 - s2 / s1) * min_matches * log(s1);
+//                        std::cout << S << " individual score " << x << " " << std::endl;
+                        std::tuple<double, alignment, alignment> t (S, a1, a2);
+                        high_scores.push_back(t);
                     }
                 }
             }
-            std::sort(high_scores.begin(), high_scores.end()); // Sorting automatically by first element in tuple
+            std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
             // append both alignments to string here
+            auto best_aln_pair = high_scores[0];
+            sam_aln1 = std::get<1>(best_aln_pair);
+            sam_aln2 = std::get<2>(best_aln_pair);
 
+            //TODO: get proper MAPQ
+            mapq1 = 60;
+            mapq2 = 60;
+//            get_MAPQ(all_nams1, n_max1, mapq1);
+//            get_MAPQ(all_nams2, n_max2, mapq2);
+            append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2);
         }
     } else if (all_nams1.size() > 0 ) { // rescue read 2
         std::cout << "Rescue read 2 mode" << std::endl;
@@ -1485,8 +1525,8 @@ int main (int argc, char **argv)
     else{
         std::cout << "Woho PE mode! Let's go!" <<  std::endl;
         //    KSeq record;
-        double mu = 300;
-        double sigma = 200;
+        float mu = 300;
+        float sigma = 200;
         std::vector<int> isizes(100);
         gzFile fp1 = gzopen(reads_filename1, "r");
         auto ks1 = make_ikstream(fp1, gzread);
