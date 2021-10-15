@@ -515,13 +515,12 @@ inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen
     const uint8_t *ts = reinterpret_cast<const uint8_t *>(tseq);
     const uint8_t *qs = reinterpret_cast<const uint8_t *>(qseq);
     memset(&ez, 0, sizeof(ksw_extz_t));
-    ksw_extz2_sse(0, qlen, qs, tlen, ts, 5, mat, gapo, gape, -1, -1, 0, 0, &ez);
+    ksw_extz2_sse(0, qlen, qs, tlen, ts, 5, mat, gapo, gape, -1, -1, 1000, KSW_EZ_EXTZ_ONLY, &ez);
 
     aln_info aln;
 //    std::string cigar_mod;
 //    cigar_mod.reserve(5*ez.n_cigar);
     unsigned int tstart_offset = 0;
-
     std::stringstream cigar_string;
     int edit_distance = 0;
     int sw_score = 0;
@@ -978,6 +977,34 @@ static inline bool sort_scores(const std::tuple<double, alignment, alignment> &a
     return (std::get<0>(a) > std::get<0>(b));
 }
 
+static inline void get_best_socoring_pair(std::vector<alignment> &aln_scores1, std::vector<alignment> &aln_scores2, std::vector<std::tuple<double,alignment,alignment>> &high_scores, float mu, float sigma)
+{
+    double S;
+    float x;
+//            std::cout << "Scoring" << std::endl;
+    for (auto &a1 : aln_scores1) {
+        for (auto &a2 : aln_scores2) {
+            x = a1.ref_start > a2.ref_start ? (float) (a1.ref_start - a2.ref_start) : (float)(a2.ref_start - a1.ref_start);
+//                    std::cout << x << " " << (a1.ref_start - a2.ref_start) << " " << (a2.ref_start - a1.ref_start) << std::endl;
+            if ( (a1.is_rc ^ a2.is_rc) && (x < mu+4*sigma)  ){
+                // r1.sw_score + r2.sw_score - log P(d(r1,r2)) if -log P(d(r1,r2)) < 3,
+
+                S = (double)a1.sw_score + (double)a2.sw_score - log( normal_pdf(x, mu, sigma ) );  //* (1 - s2 / s1) * min_matches * log(s1);
+//                        std::cout << S << " " << x << " " << log(normal_pdf(x, mu, sigma )) << " " << normal_pdf(x, mu, sigma ) << std::endl;
+                std::tuple<double, alignment, alignment> t (S, a1, a2);
+                high_scores.push_back(t);
+            }
+            else{ // individual score
+                S = (double)a1.sw_score + (double)a2.sw_score;  //* (1 - s2 / s1) * min_matches * log(s1);
+//                        std::cout << S << " individual score " << x << " " << std::endl;
+                std::tuple<double, alignment, alignment> t (S, a1, a2);
+                high_scores.push_back(t);
+            }
+        }
+    }
+    std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
+}
+
 static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, std::string &query_acc1, std::string &query_acc2, idx_to_acc &acc_map, int k, int read_len1, int read_len2, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read1, std::string &read2, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit, float mu, float sigma, std::vector<int> &isizes ) {
 
     std::string read1_rc;
@@ -1066,36 +1093,14 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 
             // Calculate best combined score here
             std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
-            double S;
-            float x;
-//            std::cout << "Scoring" << std::endl;
-            for (auto &a1 : aln_scores1) {
-                for (auto &a2 : aln_scores2) {
-                     x = a1.ref_start > a2.ref_start ? (float) (a1.ref_start - a2.ref_start) : (float)(a2.ref_start - a1.ref_start);
-//                    std::cout << x << " " << (a1.ref_start - a2.ref_start) << " " << (a2.ref_start - a1.ref_start) << std::endl;
-                    if ( (a1.is_rc ^ a2.is_rc) && (x < mu+4*sigma)  ){
-                        // r1.sw_score + r2.sw_score - log P(d(r1,r2)) if -log P(d(r1,r2)) < 3,
+            get_best_socoring_pair(aln_scores1, aln_scores2, high_scores, mu, sigma );
 
-                        S = (double)a1.sw_score + (double)a2.sw_score - log( normal_pdf(x, mu, sigma ) );  //* (1 - s2 / s1) * min_matches * log(s1);
-//                        std::cout << S << " " << x << " " << log(normal_pdf(x, mu, sigma )) << " " << normal_pdf(x, mu, sigma ) << std::endl;
-                        std::tuple<double, alignment, alignment> t (S, a1, a2);
-                        high_scores.push_back(t);
-                    }
-                    else{ // individual score
-                        S = (double)a1.sw_score + (double)a2.sw_score;  //* (1 - s2 / s1) * min_matches * log(s1);
-//                        std::cout << S << " individual score " << x << " " << std::endl;
-                        std::tuple<double, alignment, alignment> t (S, a1, a2);
-                        high_scores.push_back(t);
-                    }
-                }
-            }
-            std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
             // append both alignments to string here
             auto best_aln_pair = high_scores[0];
             sam_aln1 = std::get<1>(best_aln_pair);
             sam_aln2 = std::get<2>(best_aln_pair);
 
-            //TODO: get proper MAPQ
+            //TODO: get proper MAPQ for PE mapping
             mapq1 = 60;
             mapq2 = 60;
 //            get_MAPQ(all_nams1, n_max1, mapq1);
@@ -1104,10 +1109,157 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         }
     } else if (all_nams1.size() > 0 ) { // rescue read 2
         std::cout << "Rescue read 2 mode" << std::endl;
+        n_max1 = all_nams1[0];
+        std::vector<alignment> aln_scores1;
+        std::vector<alignment> aln_scores2;
+        std::string read2_rc = reverse_complement(read2);
+        for (auto &n : all_nams1) {
+            score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
+            if ( (cnt1 >= 20) || score_dropoff1 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
+                break;
+            }
+            //////// the actual testing of base pair alignment part start /////////
+            alignment a1;
+            get_alignment(n, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, k, cnt1, rc_already_comp1, did_not_fit, tot_ksw_aligned);
+            aln_scores1.push_back(a1);
+            //////////////////////////////////////////////////////////////////
+
+            //////// Force SW alignment to rescue mate /////////
+            alignment a2;
+            int a, b;
+            std::string r_tmp;
+            bool a2_is_rc;
+            if (n.is_rc){
+                r_tmp = read2;
+                a = n.ref_s - n.query_s - (mu+4+sigma);
+                b = n.ref_s + read_len1;
+                a2_is_rc = false;
+                std::cout << a << " " << b << " " << b-a << std::endl;
+            }else{
+                r_tmp = read2_rc; // mate is rc since fr orientation
+                a = (n.ref_s - n.query_s);
+                b = n.ref_e + (read_len1 - n.query_e) + (mu+4+sigma);
+                a2_is_rc = true;
+                std::cout << a << " " << b << " " << b-a << std::endl;
+            }
+            int ref_start = std::max(0, a);
+            int ref_len = ref_seqs[n.ref_id].size();
+            int ref_end = std::min(ref_len, b);
+            std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
+            ksw_extz_t ez;
+            const char *ref_ptr = ref_segm.c_str();
+            const char *read_ptr = r_tmp.c_str();
+            aln_info info;
+            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
+            a2.cigar = info.cigar;
+            a2.ed = info.ed;
+            a2.sw_score = info.sw_score;
+            a2.ref_start =  a + info.ref_offset +1; // +1 because SAM is 1-based!
+            a2.is_rc = a2_is_rc;
+            a2.ref_id = n.ref_id;
+            tot_ksw_aligned ++;
+            aln_scores2.push_back(a2);
+            //////////////////////////////////////////////////////////////////
+
+            cnt1 ++;
+            tot_all_tried ++;
+        }
+        std::sort(aln_scores1.begin(), aln_scores1.end(), score_sw);
+        std::sort(aln_scores2.begin(), aln_scores2.end(), score_sw);
+
+        // Calculate best combined score here
+        std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
+        get_best_socoring_pair(aln_scores1, aln_scores2, high_scores, mu, sigma );
+
         // append both alignments to string here
+        auto best_aln_pair = high_scores[0];
+        sam_aln1 = std::get<1>(best_aln_pair);
+        sam_aln2 = std::get<2>(best_aln_pair);
+
+        //TODO: get proper MAPQ for PE mapping
+        std::cout <<  " HERE rescue read 2: " << sam_aln1.ref_start << " " << sam_aln2.ref_start << " " << sam_aln1.sw_score << " " << sam_aln2.sw_score << " " << query_acc2 << " " << sam_aln1.cigar << " " << sam_aln2.cigar << std::endl;
+        mapq1 = 60;
+        mapq2 = 60;
+//            get_MAPQ(all_nams1, n_max1, mapq1);
+//            get_MAPQ(all_nams2, n_max2, mapq2);
+        append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2);
+
     } else if (all_nams2.size() > 0 ) { // rescue read 1
         std::cout << "Rescue read 1 mode" << std::endl;
+        n_max2 = all_nams2[0];
+        std::vector<alignment> aln_scores1;
+        std::vector<alignment> aln_scores2;
+        std::string read1_rc = reverse_complement(read1);
+        for (auto &n : all_nams2) {
+            score_dropoff2 = (float) n.n_hits / n_max2.n_hits;
+            if ( (cnt2 >= 20) || score_dropoff2 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
+                break;
+            }
+            //////// the actual testing of base pair alignment part start /////////
+            alignment a2;
+            get_alignment(n, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, k, cnt2, rc_already_comp2, did_not_fit, tot_ksw_aligned);
+            aln_scores2.push_back(a2);
+            //////////////////////////////////////////////////////////////////
+
+            //////// Force SW alignment to rescue mate /////////
+            alignment a1;
+            int a, b;
+            std::string r_tmp;
+            bool a1_is_rc;
+            if (n.is_rc){
+                r_tmp = read1;
+                a = n.ref_s - n.query_s - (mu+4+sigma);
+                b = n.ref_s + read_len2;
+                a1_is_rc = false;
+                std::cout << a << " " << b << " " << b-a << std::endl;
+            }else{
+                r_tmp = read1_rc; // mate is rc since fr orientation
+                a = (n.ref_s - n.query_s);
+                b = n.ref_e + (read_len2 - n.query_e) + (mu+4+sigma);
+                a1_is_rc = true;
+                std::cout << a << " " << b << " " << b-a << std::endl;
+            }
+            int ref_start = std::max(0, a);
+            int ref_len = ref_seqs[n.ref_id].size();
+            int ref_end = std::min(ref_len, b);
+            std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
+            ksw_extz_t ez;
+            const char *ref_ptr = ref_segm.c_str();
+            const char *read_ptr = r_tmp.c_str();
+            aln_info info;
+            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
+            a1.cigar = info.cigar;
+            a1.ed = info.ed;
+            a1.sw_score = info.sw_score;
+            a1.ref_start =  a + info.ref_offset +1; // +1 because SAM is 1-based!
+            a1.is_rc = a1_is_rc;
+            a1.ref_id = n.ref_id;
+            tot_ksw_aligned ++;
+            aln_scores1.push_back(a1);
+            //////////////////////////////////////////////////////////////////
+
+            cnt2 ++;
+            tot_all_tried ++;
+        }
+        std::sort(aln_scores1.begin(), aln_scores1.end(), score_sw);
+        std::sort(aln_scores2.begin(), aln_scores2.end(), score_sw);
+
+        // Calculate best combined score here
+        std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
+        get_best_socoring_pair(aln_scores1, aln_scores2, high_scores, mu, sigma );
+
         // append both alignments to string here
+        auto best_aln_pair = high_scores[0];
+        sam_aln1 = std::get<1>(best_aln_pair);
+        sam_aln2 = std::get<2>(best_aln_pair);
+
+        //TODO: get proper MAPQ for PE mapping
+        std::cout <<  " HERE rescue read 1: " << sam_aln1.ref_start << " " << sam_aln2.ref_start << " " << sam_aln1.sw_score << " " << sam_aln2.sw_score << " " << query_acc2 << " " << sam_aln1.cigar << " " << sam_aln2.cigar << std::endl;
+        mapq1 = 60;
+        mapq2 = 60;
+//            get_MAPQ(all_nams1, n_max1, mapq1);
+//            get_MAPQ(all_nams2, n_max2, mapq2);
+        append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2);
     }
 
 }
