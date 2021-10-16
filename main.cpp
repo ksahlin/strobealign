@@ -1122,7 +1122,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
             append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2);
         }
     } else if (all_nams1.size() > 0 ) { // rescue read 2
-        std::cout << "Rescue read 2 mode" << std::endl;
+//        std::cout << "Rescue read 2 mode" << std::endl;
         n_max1 = all_nams1[0];
         std::vector<alignment> aln_scores1;
         std::vector<alignment> aln_scores2;
@@ -1148,13 +1148,13 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                 a = n.ref_s - n.query_s - (mu+4+sigma);
                 b = n.ref_s + read_len1;
                 a2_is_rc = false;
-                std::cout << a << " " << b << " " << b-a << std::endl;
+//                std::cout << a << " " << b << " " << b-a << std::endl;
             }else{
                 r_tmp = read2_rc; // mate is rc since fr orientation
                 a = (n.ref_s - n.query_s);
                 b = n.ref_e + (read_len1 - n.query_e) + (mu+4+sigma);
                 a2_is_rc = true;
-                std::cout << a << " " << b << " " << b-a << std::endl;
+//                std::cout << a << " " << b << " " << b-a << std::endl;
             }
             int ref_start = std::max(0, a);
             int ref_len = ref_seqs[n.ref_id].size();
@@ -1191,7 +1191,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         sam_aln2 = std::get<2>(best_aln_pair);
 
         //TODO: get proper MAPQ for PE mapping
-        std::cout <<  " HERE rescue read 2: " << sam_aln1.ref_start << " " << sam_aln2.ref_start << " " << sam_aln1.sw_score << " " << sam_aln2.sw_score << " " << query_acc2 << " " << sam_aln1.cigar << " " << sam_aln2.cigar << std::endl;
+//        std::cout <<  " HERE rescue read 2: " << sam_aln1.ref_start << " " << sam_aln2.ref_start << " " << sam_aln1.sw_score << " " << sam_aln2.sw_score << " " << query_acc2 << " " << sam_aln1.cigar << " " << sam_aln2.cigar << std::endl;
         mapq1 = 60;
         mapq2 = 60;
 //            get_MAPQ(all_nams1, n_max1, mapq1);
@@ -1199,7 +1199,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2);
 
     } else if (all_nams2.size() > 0 ) { // rescue read 1
-        std::cout << "Rescue read 1 mode" << std::endl;
+//        std::cout << "Rescue read 1 mode" << std::endl;
         n_max2 = all_nams2[0];
         std::vector<alignment> aln_scores1;
         std::vector<alignment> aln_scores2;
@@ -1225,13 +1225,13 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                 a = n.ref_s - n.query_s - (mu+4+sigma);
                 b = n.ref_s + read_len2;
                 a1_is_rc = false;
-                std::cout << a << " " << b << " " << b-a << std::endl;
+//                std::cout << a << " " << b << " " << b-a << std::endl;
             }else{
                 r_tmp = read1_rc; // mate is rc since fr orientation
                 a = (n.ref_s - n.query_s);
                 b = n.ref_e + (read_len2 - n.query_e) + (mu+4+sigma);
                 a1_is_rc = true;
-                std::cout << a << " " << b << " " << b-a << std::endl;
+//                std::cout << a << " " << b << " " << b-a << std::endl;
             }
             int ref_start = std::max(0, a);
             int ref_len = ref_seqs[n.ref_id].size();
@@ -1268,7 +1268,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         sam_aln2 = std::get<2>(best_aln_pair);
 
         //TODO: get proper MAPQ for PE mapping
-        std::cout <<  " HERE rescue read 1: " << sam_aln1.ref_start << " " << sam_aln2.ref_start << " " << sam_aln1.sw_score << " " << sam_aln2.sw_score << " " << query_acc2 << " " << sam_aln1.cigar << " " << sam_aln2.cigar << std::endl;
+//        std::cout <<  " HERE rescue read 1: " << sam_aln1.ref_start << " " << sam_aln2.ref_start << " " << sam_aln1.sw_score << " " << sam_aln2.sw_score << " " << query_acc2 << " " << sam_aln1.cigar << " " << sam_aln2.cigar << std::endl;
         mapq1 = 60;
         mapq2 = 60;
 //            get_MAPQ(all_nams1, n_max1, mapq1);
