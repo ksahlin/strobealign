@@ -77,8 +77,8 @@ struct aln_info {
 };
 
 struct alignment {
-    unsigned int ref_start;
-    unsigned int ed;
+    int ref_start;
+    int ed;
     std::string cigar;
     bool is_rc;
     unsigned int ref_id;

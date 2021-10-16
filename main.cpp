@@ -923,6 +923,16 @@ static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, a
         f2 |= (1u << 4);
         output_read2 = read2_rc;
     }
+
+    std::string m1_chr;
+    std::string m2_chr;
+    if (sam_aln1.ref_id == sam_aln2.ref_id){
+        m1_chr = "=";
+        m2_chr = "=";
+    } else{
+        m1_chr = acc_map[sam_aln1.ref_id];
+        m2_chr = acc_map[sam_aln2.ref_id];
+    }
     sam_string.append(query_acc1);
     sam_string.append("\t");
     sam_string.append(std::to_string(f1));
@@ -934,7 +944,14 @@ static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, a
     sam_string.append(std::to_string(mapq1));
     sam_string.append("\t");
     sam_string.append(sam_aln1.cigar);
-    sam_string.append("\t*\t0\t0\t");
+    sam_string.append("\t");
+    sam_string.append(m2_chr);
+    sam_string.append("\t");
+    sam_string.append(std::to_string(sam_aln2.ref_start));
+    sam_string.append("\t");
+    sam_string.append(std::to_string(sam_aln1.ref_start - sam_aln2.ref_start));
+    sam_string.append("\t");
+//    sam_string.append("\t*\t0\t0\t");
     sam_string.append(output_read1);
     sam_string.append("\t*\tNM:i:");
     sam_string.append(std::to_string(sam_aln1.ed));
@@ -951,7 +968,14 @@ static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, a
     sam_string.append(std::to_string(mapq2));
     sam_string.append("\t");
     sam_string.append(sam_aln2.cigar);
-    sam_string.append("\t*\t0\t0\t");
+    sam_string.append("\t");
+    sam_string.append(m1_chr);
+    sam_string.append("\t");
+    sam_string.append(std::to_string(sam_aln1.ref_start));
+    sam_string.append("\t");
+    sam_string.append(std::to_string(sam_aln2.ref_start - sam_aln1.ref_start));
+    sam_string.append("\t");
+//    sam_string.append("\t*\t0\t0\t");
     sam_string.append(output_read2);
     sam_string.append("\t*\tNM:i:");
     sam_string.append(std::to_string(sam_aln2.ed));
@@ -977,7 +1001,7 @@ static inline bool sort_scores(const std::tuple<double, alignment, alignment> &a
     return (std::get<0>(a) > std::get<0>(b));
 }
 
-static inline void get_best_socoring_pair(std::vector<alignment> &aln_scores1, std::vector<alignment> &aln_scores2, std::vector<std::tuple<double,alignment,alignment>> &high_scores, float mu, float sigma)
+static inline void get_best_scoring_pair(std::vector<alignment> &aln_scores1, std::vector<alignment> &aln_scores2, std::vector<std::tuple<double,alignment,alignment>> &high_scores, float mu, float sigma)
 {
     double S;
     float x;
@@ -989,13 +1013,13 @@ static inline void get_best_socoring_pair(std::vector<alignment> &aln_scores1, s
             if ( (a1.is_rc ^ a2.is_rc) && (x < mu+4*sigma)  ){
                 // r1.sw_score + r2.sw_score - log P(d(r1,r2)) if -log P(d(r1,r2)) < 3,
 
-                S = (double)a1.sw_score + (double)a2.sw_score - log( normal_pdf(x, mu, sigma ) );  //* (1 - s2 / s1) * min_matches * log(s1);
+                S = (double)a1.sw_score + (double)a2.sw_score + log( normal_pdf(x, mu, sigma ) );  //* (1 - s2 / s1) * min_matches * log(s1);
 //                        std::cout << S << " " << x << " " << log(normal_pdf(x, mu, sigma )) << " " << normal_pdf(x, mu, sigma ) << std::endl;
                 std::tuple<double, alignment, alignment> t (S, a1, a2);
                 high_scores.push_back(t);
             }
             else{ // individual score
-                S = (double)a1.sw_score + (double)a2.sw_score;  //* (1 - s2 / s1) * min_matches * log(s1);
+                S = (double)a1.sw_score + (double)a2.sw_score - 10; // 10 corresponds to  a value of log( normal_pdf(x, mu, sigma ) ) of more than 4 stddevs away
 //                        std::cout << S << " individual score " << x << " " << std::endl;
                 std::tuple<double, alignment, alignment> t (S, a1, a2);
                 high_scores.push_back(t);
@@ -1038,11 +1062,16 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         n_max2 = all_nams2[0];
         // if highest scoring NAM for both read 1 and read 2 has matching genomic location and correct orientation and no good second hits - align immediately
         score_dropoff1 = all_nams1.size() > 1 ? (float) all_nams1[1].n_hits / n_max1.n_hits : 0.0;
-        score_dropoff2 = all_nams1.size() > 1 ? (float) all_nams1[1].n_hits / n_max1.n_hits : 0.0;
+        score_dropoff2 = all_nams1.size() > 1 ? (float) all_nams2[1].n_hits / n_max2.n_hits : 0.0;
 //        bool lol_tmp1 = (n_max1.is_rc ^ n_max2.is_rc);
 //        bool lol_tmp2 = ( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) );
 //        bool lol_tmp3 =(score_dropoff1 < dropoff);
 //        bool lol_tmp4 =(score_dropoff2 < dropoff);
+            std::cout << all_nams1.size() << " " << all_nams1.size() << std::endl;
+//        std::cout << all_nams1[0].ref_s << " " << all_nams1[0].n_hits  << std::endl;
+//        std::cout << all_nams1[1].ref_s << " " << all_nams1[1].n_hits  << std::endl;
+//        std::cout << all_nams2[0].ref_s << " " << all_nams2[0].n_hits  << std::endl;
+//        std::cout << all_nams2[1].ref_s << " " << all_nams2[1].n_hits  << std::endl;
 //        std::cout << n_max1.ref_s << " " << n_max2.ref_s << " " << mu + 4*sigma << " " << n_max1.ref_s - n_max2.ref_s << " " << (n_max2.ref_s - n_max1.ref_s ) << " " << score_dropoff1 << " " << score_dropoff2 << " " << n_max1.is_rc << " " << n_max2.is_rc << " " << lol_tmp1 << " " << lol_tmp2 << " " << lol_tmp3 << " " << lol_tmp4 << std::endl;
         if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
 //            std::cout << "I'm here" << std::endl;
@@ -1107,8 +1136,14 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 
             // Calculate best combined score here
             std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
-            get_best_socoring_pair(aln_scores1, aln_scores2, high_scores, mu, sigma );
+            get_best_scoring_pair(aln_scores1, aln_scores2, high_scores, mu, sigma );
 
+//            for (auto hsp: high_scores){
+//                auto score_ = std::get<0>(hsp);
+//                auto s1_tmp = std::get<1>(hsp);
+//                auto s2_tmp = std::get<2>(hsp);
+//                std::cout << score_ << " " << s1_tmp.ref_start << " " << s2_tmp.ref_start << " " << s1_tmp.sw_score <<  " " << s2_tmp.sw_score << std::endl;
+//            }
             // append both alignments to string here
             auto best_aln_pair = high_scores[0];
             sam_aln1 = std::get<1>(best_aln_pair);
@@ -1183,7 +1218,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 
         // Calculate best combined score here
         std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
-        get_best_socoring_pair(aln_scores1, aln_scores2, high_scores, mu, sigma );
+        get_best_scoring_pair(aln_scores1, aln_scores2, high_scores, mu, sigma );
 
         // append both alignments to string here
         auto best_aln_pair = high_scores[0];
@@ -1260,7 +1295,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 
         // Calculate best combined score here
         std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
-        get_best_socoring_pair(aln_scores1, aln_scores2, high_scores, mu, sigma );
+        get_best_scoring_pair(aln_scores1, aln_scores2, high_scores, mu, sigma );
 
         // append both alignments to string here
         auto best_aln_pair = high_scores[0];
@@ -1772,6 +1807,9 @@ int main (int argc, char **argv)
                 if (!mode) {
                     output_hits_paf(output_streams[omp_get_thread_num()], nams1, record1.name, acc_map, k,
                                     record1.seq.length(), ref_lengths);
+//                    output_hits_paf_PE(output_streams[omp_get_thread_num()], nams2, record2.name, acc_map, k,
+//                                    record2.seq.length(), ref_lengths);
+//                    DO joint PE map location analysis here just as for alignment!
                 } else {
                     align_PE(output_streams[omp_get_thread_num()], nams1, nams2, record1.name, record2.name, acc_map, k, record1.seq.length(), record2.seq.length(),
                              ref_lengths, ref_seqs, record1.seq, record2.seq, tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit, mu, sigma, sample_size, V, SSE);
