@@ -1057,7 +1057,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
             if ((sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && !sam_aln1.not_proper && !sam_aln2.not_proper ){
                 sample_size = sample_size + 1.0;
                 int d = sam_aln1.ref_start > sam_aln2.ref_start ? sam_aln1.ref_start - sam_aln2.ref_start : sam_aln2.ref_start - sam_aln1.ref_start;
-                if ( d < 1000){
+                if ( d < 2000){
                     float e;
                     e = d - mu;
                     mu = mu + e/sample_size; // (1.0/(sample_size +1.0)) * (sample_size*mu + d);
