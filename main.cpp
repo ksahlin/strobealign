@@ -1005,7 +1005,7 @@ static inline void get_best_socoring_pair(std::vector<alignment> &aln_scores1, s
     std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
 }
 
-static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, std::string &query_acc1, std::string &query_acc2, idx_to_acc &acc_map, int k, int read_len1, int read_len2, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read1, std::string &read2, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit, float mu, float sigma, std::vector<int> &isizes ) {
+static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, std::string &query_acc1, std::string &query_acc2, idx_to_acc &acc_map, int k, int read_len1, int read_len2, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read1, std::string &read2, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit, float &mu, float &sigma, float &sample_size, float &V, float &SSE  ) {
 
     std::string read1_rc;
     std::string read2_rc;
@@ -1044,7 +1044,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 //        bool lol_tmp3 =(score_dropoff1 < dropoff);
 //        bool lol_tmp4 =(score_dropoff2 < dropoff);
 //        std::cout << n_max1.ref_s << " " << n_max2.ref_s << " " << mu + 4*sigma << " " << n_max1.ref_s - n_max2.ref_s << " " << (n_max2.ref_s - n_max1.ref_s ) << " " << score_dropoff1 << " " << score_dropoff2 << " " << n_max1.is_rc << " " << n_max2.is_rc << " " << lol_tmp1 << " " << lol_tmp2 << " " << lol_tmp3 << " " << lol_tmp4 << std::endl;
-        if ( ( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) && (n_max1.is_rc ^ n_max2.is_rc) && (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) ){
+        if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
 //            std::cout << "I'm here" << std::endl;
             get_alignment(n_max1, ref_len_map, ref_seqs, read1, read1_rc, read_len1, sam_aln1, k, cnt1, rc_already_comp1, did_not_fit, tot_ksw_aligned);
             tot_all_tried ++;
@@ -1053,6 +1053,20 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
             get_MAPQ(all_nams1, n_max1, mapq1);
             get_MAPQ(all_nams2, n_max2, mapq2);
             append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2);
+
+            if ((sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && !sam_aln1.not_proper && !sam_aln2.not_proper ){
+                sample_size = sample_size + 1.0;
+                int d = sam_aln1.ref_start > sam_aln2.ref_start ? sam_aln1.ref_start - sam_aln2.ref_start : sam_aln2.ref_start - sam_aln1.ref_start;
+                if ( d < 1000){
+                    float e;
+                    e = d - mu;
+                    mu = mu + e/sample_size; // (1.0/(sample_size +1.0)) * (sample_size*mu + d);
+                    SSE = SSE + e*(d-mu);
+                    V = sample_size > 1 ? SSE/(sample_size -1.0) : SSE; //d < 1000 ? ((sample_size +1.0)/sample_size) * ( (V*sample_size/(sample_size +1)) + ((mu-d)*(mu-d))/sample_size ) : V;
+                    sigma = std::sqrt( V );
+                }
+            }
+
             return;
         }
         else{ // do full search of highest scoring pair
@@ -1678,8 +1692,11 @@ int main (int argc, char **argv)
         std::cout << "Woho PE mode! Let's go!" <<  std::endl;
         //    KSeq record;
         float mu = 300;
-        float sigma = 200;
-        std::vector<int> isizes(100);
+        float sigma = 100;
+        float V = 10000;
+        float SSE = 10000;
+
+//        std::vector<int> isizes;
         gzFile fp1 = gzopen(reads_filename1, "r");
         auto ks1 = make_ikstream(fp1, gzread);
         gzFile fp2 = gzopen(reads_filename2, "r");
@@ -1706,11 +1723,10 @@ int main (int argc, char **argv)
             auto records2 = ks2.read(n_q_chunk_size);  // read a chunk of 1000000 records
             auto read_finish = std::chrono::high_resolution_clock::now();
             tot_read_file += read_finish - read_start;
-            std::cout << "Using (mu: " << mu << ", sigma: " << sigma << ") " << std::endl;
-
+            float sample_size = 0;
             int n_it = records1.size();
             std::cout << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
-            #pragma omp parallel for num_threads(n_threads) shared(output_streams, output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref)
+            #pragma omp parallel for num_threads(n_threads) shared(output_streams, output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref)
             for (int i = 0; i < n_it; ++i) {
                 auto record1 = records1[i];
                 auto record2 = records2[i];
@@ -1758,7 +1774,7 @@ int main (int argc, char **argv)
                                     record1.seq.length(), ref_lengths);
                 } else {
                     align_PE(output_streams[omp_get_thread_num()], nams1, nams2, record1.name, record2.name, acc_map, k, record1.seq.length(), record2.seq.length(),
-                             ref_lengths, ref_seqs, record1.seq, record2.seq, tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit, mu, sigma, isizes);
+                             ref_lengths, ref_seqs, record1.seq, record2.seq, tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit, mu, sigma, sample_size, V, SSE);
 //                    align_SE(output_streams[omp_get_thread_num()], nams1, record1.name, acc_map, k, record1.seq.length(),
 //                             ref_lengths, ref_seqs, record1.seq, tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
 //                    align_SE(output_streams[omp_get_thread_num()], nams2, record2.name, acc_map, k, record2.seq.length(),
@@ -1770,16 +1786,9 @@ int main (int argc, char **argv)
                 nams1.clear();
                 nams2.clear();
             }
-            // estimate insert size distribution next batch
-            double sum = std::accumulate(isizes.begin(), isizes.end(), 0.0);
-            mu = sum / isizes.size();
 
-            double accum = 0.0;
-            std::for_each (std::begin(isizes), std::end(isizes), [&](const double d) {
-                accum += (d - mu) * (d - mu);
-            });
-
-            sigma = std::sqrt(accum / (isizes.size()-1));
+            std::cout << "Estimated diff in start coordiantes b/t mates, (mean: " << mu << ", stddev: " << sigma << ") " << std::endl;
+//            std::cout << "Len: " << isizes.size() << std::endl;
 
             // Output results
             auto write_start = std::chrono::high_resolution_clock::now();
