@@ -1212,18 +1212,21 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 
             std::vector<std::tuple<int,nam,nam>> joint_NAM_scores; // (score, aln1, aln2)
             get_best_scoring_NAM_locations(all_nams1, all_nams2, joint_NAM_scores, mu, sigma, added_n1, added_n2 );
+            auto nam_max = joint_NAM_scores[0];
+            auto max_score = std::get<0>(nam_max);
             int a, b;
             std::string r_tmp;
             bool a1_is_rc, a2_is_rc;
             int ref_start, ref_len, ref_end;
             std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
             for (auto &t : joint_NAM_scores) {
-                if ( (cnt >= 20)){ // only consider top 20 if there are more.
-                    break;
-                }
                 auto score_ = std::get<0>(t);
                 auto n1 = std::get<1>(t);
                 auto n2 = std::get<2>(t);
+                score_dropoff1 = (float) score_ / max_score;
+                if ( (cnt >= 20) || score_dropoff1 < dropoff ){ // only consider top 20 if there are more.
+                    break;
+                }
                 //////// the actual testing of base pair alignment part start /////////
                 alignment a1;
                 if (n1.ref_s >= 0) {
