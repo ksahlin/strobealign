@@ -1062,18 +1062,18 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         n_max2 = all_nams2[0];
         // if highest scoring NAM for both read 1 and read 2 has matching genomic location and correct orientation and no good second hits - align immediately
         score_dropoff1 = all_nams1.size() > 1 ? (float) all_nams1[1].n_hits / n_max1.n_hits : 0.0;
-        score_dropoff2 = all_nams1.size() > 1 ? (float) all_nams2[1].n_hits / n_max2.n_hits : 0.0;
+        score_dropoff2 = all_nams2.size() > 1 ? (float) all_nams2[1].n_hits / n_max2.n_hits : 0.0;
 //        bool lol_tmp1 = (n_max1.is_rc ^ n_max2.is_rc);
 //        bool lol_tmp2 = ( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) );
 //        bool lol_tmp3 =(score_dropoff1 < dropoff);
 //        bool lol_tmp4 =(score_dropoff2 < dropoff);
-            std::cout << all_nams1.size() << " " << all_nams1.size() << std::endl;
+//        std::cout << all_nams1.size() << " " << all_nams1.size() << std::endl;
 //        std::cout << all_nams1[0].ref_s << " " << all_nams1[0].n_hits  << std::endl;
 //        std::cout << all_nams1[1].ref_s << " " << all_nams1[1].n_hits  << std::endl;
 //        std::cout << all_nams2[0].ref_s << " " << all_nams2[0].n_hits  << std::endl;
 //        std::cout << all_nams2[1].ref_s << " " << all_nams2[1].n_hits  << std::endl;
 //        std::cout << n_max1.ref_s << " " << n_max2.ref_s << " " << mu + 4*sigma << " " << n_max1.ref_s - n_max2.ref_s << " " << (n_max2.ref_s - n_max1.ref_s ) << " " << score_dropoff1 << " " << score_dropoff2 << " " << n_max1.is_rc << " " << n_max2.is_rc << " " << lol_tmp1 << " " << lol_tmp2 << " " << lol_tmp3 << " " << lol_tmp4 << std::endl;
-        if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
+        if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) && ( ((n_max1.ref_s - n_max2.ref_s) < 2000) || ((n_max2.ref_s - n_max1.ref_s) < 2000)) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
 //            std::cout << "I'm here" << std::endl;
             get_alignment(n_max1, ref_len_map, ref_seqs, read1, read1_rc, read_len1, sam_aln1, k, cnt1, rc_already_comp1, did_not_fit, tot_ksw_aligned);
             tot_all_tried ++;
