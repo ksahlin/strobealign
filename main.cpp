@@ -1238,6 +1238,10 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                         b = n2.ref_s + read_len2;
                         a1_is_rc = false;
                     }else{
+                        if (!rc_already_comp1){
+                            read1_rc = reverse_complement(read1);
+                            rc_already_comp1 = true;
+                        }
                         r_tmp = read1_rc; // mate is rc since fr orientation
                         a = (n2.ref_s - n2.query_s);
                         b = n2.ref_e + (read_len2 - n2.query_e) + (mu+4+sigma);
@@ -1273,21 +1277,30 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                         a = n1.ref_s - n1.query_s - (mu+4+sigma);
                         b = n1.ref_s + read_len1;
                         a2_is_rc = false;
+//                        std::cout << "FW: " << a << " " << b << " " << b-a << std::endl;
                     }else{
+                        if (!rc_already_comp2){
+                            read2_rc = reverse_complement(read2);
+                            rc_already_comp2 = true;
+                        }
                         r_tmp = read2_rc; // mate is rc since fr orientation
                         a = (n1.ref_s - n1.query_s);
                         b = n1.ref_e + (read_len1 - n1.query_e) + (mu+4+sigma);
                         a2_is_rc = true;
+//                        std::cout << "RC: " << a << " " << b << " " << b-a << std::endl;
+//                        std::cout << "read: " << r_tmp << std::endl;
                     }
                     ref_start = std::max(0, a);
                     ref_len = ref_seqs[n1.ref_id].size();
                     ref_end = std::min(ref_len, b);
                     std::string ref_segm = ref_seqs[n1.ref_id].substr(ref_start, ref_end - ref_start);
+//                    std::cout << "ref: " << ref_segm << std::endl;
                     ksw_extz_t ez;
                     const char *ref_ptr = ref_segm.c_str();
                     const char *read_ptr = r_tmp.c_str();
                     aln_info info;
                     info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
+//                    std::cout << ref_start << " " << ref_end << " " << info.ed << " " <<  info.sw_score << " " <<  a2_is_rc  << std::endl;
                     a2.cigar = info.cigar;
                     a2.ed = info.ed;
                     a2.sw_score = info.sw_score;
@@ -1313,6 +1326,14 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                 tot_all_tried ++;
             }
             std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
+
+//            for (auto hsp: high_scores){
+//                auto score_ = std::get<0>(hsp);
+//                auto s1_tmp = std::get<1>(hsp);
+//                auto s2_tmp = std::get<2>(hsp);
+//                std::cout << score_ << " " << s1_tmp.ref_start << " " << s2_tmp.ref_start << " " << s1_tmp.sw_score <<  " " << s2_tmp.sw_score << std::endl;
+//            }
+
             auto best_aln_pair = high_scores[0];
             sam_aln1 = std::get<1>(best_aln_pair);
             sam_aln2 = std::get<2>(best_aln_pair);
@@ -1396,7 +1417,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         n_max1 = all_nams1[0];
         std::vector<alignment> aln_scores1;
         std::vector<alignment> aln_scores2;
-        std::string read2_rc = reverse_complement(read2);
+        read2_rc = reverse_complement(read2);
         for (auto &n : all_nams1) {
             score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
             if ( (cnt1 >= 20) || score_dropoff1 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
@@ -1473,7 +1494,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         n_max2 = all_nams2[0];
         std::vector<alignment> aln_scores1;
         std::vector<alignment> aln_scores2;
-        std::string read1_rc = reverse_complement(read1);
+        read1_rc = reverse_complement(read1);
         for (auto &n : all_nams2) {
             score_dropoff2 = (float) n.n_hits / n_max2.n_hits;
             if ( (cnt2 >= 20) || score_dropoff2 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
