@@ -470,6 +470,36 @@ static inline void output_hits_paf(std::string &paf_output, std::vector<nam> &al
     paf_output.append("\t-\n");
 }
 
+static inline void output_hits_paf_PE(std::string &paf_output, nam &n, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map) {
+    // Output results
+    std::string o;
+    if (n.ref_s >= 0) {
+        o = n.is_rc ? "-" : "+";
+        paf_output.append(query_acc);
+        paf_output.append("\t");
+        paf_output.append(std::to_string(read_len));
+        paf_output.append("\t");
+        paf_output.append(std::to_string(n.query_s));
+        paf_output.append("\t");
+        paf_output.append(std::to_string(n.query_prev_hit_startpos + k));
+        paf_output.append("\t");
+        paf_output.append(o);
+        paf_output.append("\t");
+        paf_output.append(acc_map[n.ref_id]);
+        paf_output.append("\t");
+        paf_output.append(std::to_string( ref_len_map[n.ref_id]));
+        paf_output.append("\t");
+        paf_output.append(std::to_string(n.ref_s));
+        paf_output.append("\t");
+        paf_output.append(std::to_string(n.ref_prev_hit_startpos + k));
+        paf_output.append("\t");
+        paf_output.append(std::to_string(n.n_hits));
+        paf_output.append("\t");
+        paf_output.append(std::to_string(n.ref_prev_hit_startpos + k - n.ref_s));
+        paf_output.append("\t-\n");
+    }
+}
+
 static inline std::string reverse_complement(std::string &read) {
     auto read_rev = read;
     std::reverse(read_rev.begin(), read_rev.end()); // reverse
@@ -1239,7 +1269,6 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
             append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2, mu, sigma, read_len1);
 
             if ((sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && !sam_aln1.not_proper && !sam_aln2.not_proper ){
-                sample_size = sample_size + 1.0;
                 int d = sam_aln1.ref_start > sam_aln2.ref_start ? sam_aln1.ref_start - sam_aln2.ref_start : sam_aln2.ref_start - sam_aln1.ref_start;
                 if ( d < 2000){
                     float e;
@@ -1248,6 +1277,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                     SSE = SSE + e*(d-mu);
                     V = sample_size > 1 ? SSE/(sample_size -1.0) : SSE; //d < 1000 ? ((sample_size +1.0)/sample_size) * ( (V*sample_size/(sample_size +1)) + ((mu-d)*(mu-d))/sample_size ) : V;
                     sigma = std::sqrt( V );
+                    sample_size = sample_size + 1.0;
                 }
             }
 
@@ -1458,6 +1488,65 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
     }
 
 }
+
+
+static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM_scores, std::vector<nam> &nams1, std::vector<nam> &nams2, float &mu, float &sigma, float &sample_size, float &V, float &SSE, nam &best_nam1,  nam &best_nam2 ) {
+    robin_hood::unordered_set<int> added_n1;
+    robin_hood::unordered_set<int> added_n2;
+    get_best_scoring_NAM_locations(nams1, nams2, joint_NAM_scores, mu, sigma, added_n1, added_n2 );
+    nam n1_joint_max, n2_joint_max, n1_indiv_max, n2_indiv_max;
+    float score_joint = 0;
+    float score_indiv = 0;
+    best_nam1.ref_s = -1; //Unmapped until proven mapped
+    best_nam2.ref_s = -1; //Unmapped until proven mapped
+    if (joint_NAM_scores.size() > 0) {
+        // get best joint score
+        for (auto &t : joint_NAM_scores) { // already sorted by descending score
+            auto score_ = std::get<0>(t);
+            auto n1 = std::get<1>(t);
+            auto n2 = std::get<2>(t);
+            if ((n1.ref_s >=0) && (n2.ref_s >=0) ){ // Valid pair
+                score_joint =  n1.score + n2.score;
+                n1_joint_max = n1;
+                n2_joint_max = n2;
+                break;
+            }
+        }
+
+        // get individual best scores
+        if (nams1.size() > 0) {
+            auto n1_indiv_max = nams1[0];
+            score_indiv += n1_indiv_max.score - (n1_indiv_max.score/2.0); //Penalty for being mapped individually
+            best_nam1 = n1_indiv_max;
+        }
+        if (nams2.size() > 0) {
+            auto n2_indiv_max = nams2[0];
+            score_indiv += n2_indiv_max.score - (n2_indiv_max.score/2.0); //Penalty for being mapped individually
+            best_nam2 = n2_indiv_max;
+        }
+        if ( score_joint > score_indiv ){ // joint score is better than individual
+//            std::cout << "HERE " << score_joint << " " << score_indiv << std::endl;
+            best_nam1 = n1_joint_max;
+            best_nam2 = n2_joint_max;
+        }
+
+        if ((sample_size < 400) && (score_joint > score_indiv) ){
+            int d = n1_joint_max.ref_s > n2_joint_max.ref_s ? n1_joint_max.ref_s - n2_joint_max.ref_s : n2_joint_max.ref_s - n1_joint_max.ref_s;
+//            std::cout << "HERE " << d << " " << mu <<  " " << sigma << " "<< n1_joint_max.ref_s << " " <<  n2_joint_max.ref_s << " "<< n1_joint_max.score << " " <<  n2_joint_max.score << std::endl;
+            if ( d < 2000){
+                float e;
+                e = d - mu;
+                mu = mu + e/sample_size; // (1.0/(sample_size +1.0)) * (sample_size*mu + d);
+                SSE = SSE + e*(d-mu);
+                V = sample_size > 1 ? SSE/(sample_size -1.0) : SSE; //d < 1000 ? ((sample_size +1.0)/sample_size) * ( (V*sample_size/(sample_size +1)) + ((mu-d)*(mu-d))/sample_size ) : V;
+                sigma = std::sqrt( V );
+                sample_size = sample_size + 1.0;
+            }
+        }
+    }
+
+}
+
 
 
 void print_usage() {
@@ -1771,7 +1860,7 @@ int main (int argc, char **argv)
     }
 
     if(is_SE) {
-        std::cout << "Woho SE mode! Let's go!" <<  std::endl;
+        std::cout << "Running SE mode" <<  std::endl;
         //    KSeq record;
         gzFile fp = gzopen(reads_filename1, "r");
         auto ks = make_ikstream(fp, gzread);
@@ -1871,7 +1960,7 @@ int main (int argc, char **argv)
         gzclose(fp);
     }
     else{
-        std::cout << "Woho PE mode! Let's go!" <<  std::endl;
+        std::cout << "Running PE mode" <<  std::endl;
         //    KSeq record;
         float mu = 300;
         float sigma = 100;
@@ -1892,6 +1981,7 @@ int main (int argc, char **argv)
         std::vector<nam> nams1;
         std::vector<nam> nams2;
         robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
+        std::vector<std::tuple<int,nam,nam>> joint_NAM_scores; // (score, aln1, aln2)
         std::vector<std::string> output_streams(n_threads);
         for (int i = 0; i < n_threads; ++i) {
             output_streams[i].reserve((n_q_chunk_size / n_threads + 1) *
@@ -1905,10 +1995,10 @@ int main (int argc, char **argv)
             auto records2 = ks2.read(n_q_chunk_size);  // read a chunk of 1000000 records
             auto read_finish = std::chrono::high_resolution_clock::now();
             tot_read_file += read_finish - read_start;
-            float sample_size = 0;
+            float sample_size = 1;
             int n_it = records1.size();
             std::cout << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
-            #pragma omp parallel for num_threads(n_threads) shared(output_streams, output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref)
+            #pragma omp parallel for num_threads(n_threads) shared(output_streams, output_file, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores)
             for (int i = 0; i < n_it; ++i) {
                 auto record1 = records1[i];
                 auto record2 = records2[i];
@@ -1952,11 +2042,15 @@ int main (int argc, char **argv)
 
                 auto extend_start = std::chrono::high_resolution_clock::now();
                 if (!mode) {
-                    output_hits_paf(output_streams[omp_get_thread_num()], nams1, record1.name, acc_map, k,
-                                    record1.seq.length(), ref_lengths);
-//                    output_hits_paf_PE(output_streams[omp_get_thread_num()], nams2, record2.name, acc_map, k,
-//                                    record2.seq.length(), ref_lengths);
-//                    DO joint PE map location analysis here just as for alignment!
+//                    output_hits_paf(output_streams[omp_get_thread_num()], nams1, record1.name, acc_map, k,
+//                                    record1.seq.length(), ref_lengths);
+                    nam nam_read1;
+                    nam nam_read2;
+                    std::vector<std::tuple<int,nam,nam>> joint_NAM_scores;
+                    get_best_map_location(joint_NAM_scores, nams1, nams2, mu, sigma, sample_size, V, SSE, nam_read1, nam_read2);
+                    output_hits_paf_PE(output_streams[omp_get_thread_num()], nam_read1,  record1.name, acc_map, k, record1.seq.length(), ref_lengths);
+                    output_hits_paf_PE(output_streams[omp_get_thread_num()], nam_read2,  record2.name, acc_map, k, record2.seq.length(), ref_lengths);
+                    joint_NAM_scores.clear();
                 } else {
                     align_PE(output_streams[omp_get_thread_num()], nams1, nams2, record1.name, record2.name, acc_map, k, record1.seq.length(), record2.seq.length(),
                              ref_lengths, ref_seqs, record1.seq, record2.seq, tot_ksw_aligned, tot_all_tried, tot_rescued, dropoff, did_not_fit, mu, sigma, sample_size, V, SSE);
