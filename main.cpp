@@ -1067,7 +1067,7 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
             }
             x = n1.ref_s > n2.ref_s ? (float) (n1.ref_s - n2.ref_s) : (float)(n2.ref_s - n1.ref_s);
 //                    std::cout << x << " " << (n1.ref_s - n2.ref_s) << " " << (n2.ref_s - n1.ref_s) << std::endl;
-            if ( (n1.is_rc ^ n2.is_rc) && (x < mu+10*sigma)  ){
+            if ( (n1.is_rc ^ n2.is_rc) && (x < mu+10*sigma) && (n1.ref_id == n2.ref_id) ){
                 joint_hits = n1.n_hits + n2.n_hits;
 
 //                        std::cout << S << " " << x << " " << log(normal_pdf(x, mu, sigma )) << " " << normal_pdf(x, mu, sigma ) << std::endl;
@@ -1214,6 +1214,10 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
             get_best_scoring_NAM_locations(all_nams1, all_nams2, joint_NAM_scores, mu, sigma, added_n1, added_n2 );
             auto nam_max = joint_NAM_scores[0];
             auto max_score = std::get<0>(nam_max);
+            alignment a1_indv_max;
+            a1_indv_max.sw_score = -10000;
+            alignment a2_indv_max;
+            a2_indv_max.sw_score = -10000;
             int a, b;
             std::string r_tmp;
             bool a1_is_rc, a2_is_rc;
@@ -1227,7 +1231,10 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                 if ( (cnt >= 20) || score_dropoff1 < dropoff ){ // only consider top 20 if there are more.
                     break;
                 }
-                //////// the actual testing of base pair alignment part start /////////
+
+                //////// the actual testing of base pair alignment part start ////////
+                //////////////////////////////////////////////////////////////////////
+                //////////////////////////////////////////////////////////////////////
                 alignment a1;
                 if (n1.ref_s >= 0) {
                     get_alignment(n1, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, k, cnt1, rc_already_comp1,
@@ -1268,6 +1275,11 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                     tot_ksw_aligned ++;
                     //////////////////////////////////////////////////////////////////
                 }
+
+                if (a1.sw_score >  a1_indv_max.sw_score){
+                    a1_indv_max = a1;
+                }
+
                 alignment a2;
                 if(n2.ref_s >= 0) {
                     get_alignment(n2, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, k, cnt2, rc_already_comp2,
@@ -1313,14 +1325,18 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                     tot_ksw_aligned ++;
                     //////////////////////////////////////////////////////////////////
                 }
+
+                if (a2.sw_score >  a2_indv_max.sw_score){
+                    a2_indv_max = a2;
+                }
                 //////////////////////////////////////////////////////////////////
 
                 x = a1.ref_start > a2.ref_start ? (float) (a1.ref_start - a2.ref_start) : (float)(a2.ref_start - a1.ref_start);
-                if ( (a1.is_rc ^ a2.is_rc) && (x < mu+4*sigma)  ){
+                if ( (a1.is_rc ^ a2.is_rc) && (x < mu+5*sigma)  ){
                     S = (double)a1.sw_score + (double)a2.sw_score + log( normal_pdf(x, mu, sigma ) );  //* (1 - s2 / s1) * min_matches * log(s1);
                 }
                 else{ // individual score
-                    S = (double)a1.sw_score + (double)a2.sw_score - 10; // 10 corresponds to  a value of log( normal_pdf(x, mu, sigma ) ) of more than 4 stddevs away
+                    S = (double)a1.sw_score + (double)a2.sw_score - 20; // 20 corresponds to a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
                 }
                 std::tuple<double, alignment, alignment> aln_tuple (S, a1, a2);
                 high_scores.push_back(aln_tuple);
@@ -1328,7 +1344,19 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                 cnt ++;
                 tot_all_tried ++;
             }
+
+            // Finally, add highest scores of both mates as individually mapped
+            S = (double)a1_indv_max.sw_score + (double)a2_indv_max.sw_score - 20; // 20 corresponds to  a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
+            std::tuple<double, alignment, alignment> aln_tuple (S, a1_indv_max, a2_indv_max);
+            high_scores.push_back(aln_tuple);
+
             std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
+
+//            std::cout << x << " " << mu << " " << sigma << " " << log( normal_pdf(x, mu, sigma ) ) << std::endl;
+//            std::cout << 200 << " " << 200 << " " << 30 << " " << log( normal_pdf(200, 200, 30 ) ) << std::endl;
+//            std::cout << 200 << " " << 200 << " " << 200 << " " << log( normal_pdf(200, 200, 200 ) ) << std::endl;
+//            std::cout << 350 << " " << 200 << " " << 30 << " " << log( normal_pdf(350, 200, 30 ) ) << std::endl;
+//            std::cout << 1000 << " " << 200 << " " << 200 << " " << log( normal_pdf(400, 200, 200 ) ) << std::endl;
 
 //            for (auto hsp: high_scores){
 //                auto score_ = std::get<0>(hsp);
