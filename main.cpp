@@ -776,7 +776,7 @@ static inline void align_SE(std::string &sam_string, std::vector<nam> &all_nams,
                 best_align_dist = info.ed;
                 sam_aln.cigar = info.cigar;
                 sam_aln.ed = info.ed;
-                sam_aln.ref_start =  a + info.ref_offset +1; // +1 because SAM is 1-based!
+                sam_aln.ref_start =  ref_start + info.ref_offset +1; // +1 because SAM is 1-based!
                 sam_aln.is_rc = is_rc;
                 sam_aln.ref_id = n.ref_id;
             }
@@ -907,7 +907,7 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
     sam_aln.cigar = info.cigar;
     sam_aln.ed = info.ed;
     sam_aln.sw_score = info.sw_score;
-    sam_aln.ref_start =  a + info.ref_offset +1; // +1 because SAM is 1-based!
+    sam_aln.ref_start =  ref_start + info.ref_offset +1; // +1 because SAM is 1-based!
     sam_aln.is_rc = is_rc;
     sam_aln.ref_id = n.ref_id;
     tot_ksw_aligned ++;
