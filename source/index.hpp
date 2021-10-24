@@ -45,11 +45,11 @@ mers_vector_reduced remove_kmer_hash_from_flat_vector(mers_vector &flat_vector);
 void filter_repetitive_strobemers(mers_vector &flat_vector, kmer_lookup &mers_index, mers_vector &flat_vector_reduced, kmer_lookup &mers_index_reduced, unsigned int filter_cutoff);
 
 struct hit {
-    unsigned int ref_id;
-    unsigned int query_s;
-    unsigned int query_e;
-    unsigned int ref_s;
-    unsigned int ref_e;
+//    unsigned int ref_id;
+    int query_s;
+    int query_e;
+    int ref_s;
+    int ref_e;
 //    unsigned int hit_count;
     bool is_rc = false;
 };
@@ -62,11 +62,11 @@ struct nam {
     int ref_s;
     int ref_e;
     int ref_prev_hit_startpos;
-    unsigned int n_hits = 0;
+    int n_hits = 0;
+    float score;
 //    unsigned int previous_query_start;
 //    unsigned int previous_ref_start;
     bool is_rc = false;
-    float score;
 };
 
 struct aln_info {
@@ -80,10 +80,10 @@ struct alignment {
     int ref_start;
     int ed;
     std::string cigar;
-    bool is_rc;
     unsigned int ref_id;
     int sw_score;
     bool not_proper;
+    bool is_rc;
 };
 
 #endif /* index_hpp */

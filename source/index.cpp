@@ -305,7 +305,8 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
     int qs_min_pos = -1;
 
 
-    robin_hood::hash<uint64_t> robin_hash;
+//    robin_hood::hash<uint64_t> robin_hash;
+//    uint64_t mask = (1ULL<<2*k) - 1;
 //    std::vector<std::tuple<uint64_t, unsigned int, unsigned int> > kmers;
     unsigned int hash_count = 0;
     int l;
@@ -324,7 +325,8 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
             xs[1] = xs[1] >> 2 | (uint64_t)(3 - c) << sshift;  // reverse strand
             if (++l >= s) { // we find an s-mer
                 uint64_t ys = xs[0] < xs[1]? xs[0] : xs[1];
-                uint64_t hash_s = robin_hash(ys);
+//                uint64_t hash_s = robin_hash(ys);
+                uint64_t hash_s = ys; // hash64(ys, mask);
                 // que not initialized yet
                 if (qs_size < k - s ) {
                     qs.push_back(hash_s);
@@ -345,7 +347,8 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
                     }
                     if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
                         uint64_t yk = xk[0] < xk[1]? xk[0] : xk[1];
-                        uint64_t hash_k = robin_hash(yk);
+//                        uint64_t hash_k = robin_hash(yk);
+                        uint64_t hash_k = yk; // hash64(yk, mask);
                         string_hashes.push_back(hash_k);
                         pos_to_seq_choord.push_back(i - k + 1);
                         hash_count++;
@@ -358,7 +361,8 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
                     update_window(qs, qs_pos, qs_min_val, qs_min_pos, hash_s, i - s + 1, new_minimizer );
                     if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
                         uint64_t yk = xk[0] < xk[1]? xk[0] : xk[1];
-                        uint64_t hash_k = robin_hash(yk);
+//                        uint64_t hash_k = robin_hash(yk);
+                        uint64_t hash_k = yk; // hash64(yk, mask);
                         string_hashes.push_back(hash_k);
                         pos_to_seq_choord.push_back(i - k + 1);
 //                        std::cout << i - k + 1 << std::endl;
@@ -565,7 +569,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
         }
 
 //        uint64_t hash_randstrobe2 = (string_hashes[i] << k) ^ strobe_hashval_next;
-        uint64_t hash_randstrobe2 = (string_hashes[i]/2) + (strobe_hashval_next/3);
+        uint64_t hash_randstrobe2 = (string_hashes[i]/2) + (strobe_hashval_next/2);
 
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
@@ -655,7 +659,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
         }
 
 //        uint64_t hash_randstrobe2 = (string_hashes[i] << k) ^ strobe_hashval_next;
-        uint64_t hash_randstrobe2 = (string_hashes[i]/2) + (strobe_hashval_next/3);
+        uint64_t hash_randstrobe2 = (string_hashes[i]/2) + (strobe_hashval_next/2);
 
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
@@ -713,7 +717,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
         }
 
 //        uint64_t hash_randstrobe2 = (string_hashes[i] << k) ^ strobe_hashval_next;
-        uint64_t hash_randstrobe2 = (string_hashes[i]/2) + (strobe_hashval_next/3);
+        uint64_t hash_randstrobe2 = (string_hashes[i]/2) + (strobe_hashval_next/2);
 
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
