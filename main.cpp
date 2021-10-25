@@ -313,7 +313,7 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<nam> &final_nams
         h.is_rc = std::get<4>(q);
 
 
-        if ((count <= filter_cutoff) || (cnt < 5) ){
+        if ( ((count <= filter_cutoff) || (cnt < 5)) && (count <= 1000) ){
 //            std::cout << "Found FORWARD: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
             for(size_t j = offset; j < offset+count; ++j)
             {
@@ -344,7 +344,7 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<nam> &final_nams
         h.is_rc = std::get<4>(q);
 
 
-        if ((count <= filter_cutoff) || (cnt < 5) ){
+        if ( ((count <= filter_cutoff) || (cnt < 5)) && (count <= 1000) ){
 //            std::cout << "Found REVERSE: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
             for(size_t j = offset; j < offset+count; ++j)
             {
