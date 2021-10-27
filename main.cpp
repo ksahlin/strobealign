@@ -1519,11 +1519,11 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 
     if ((all_nams1.size() == 0) && (all_nams2.size() == 0)) { // None of the read pairs has any NAMs
         sam_string.append(query_acc1);
-        sam_string.append("\t4\t*\t0\t255\t*\t*\t0\t0\t");
+        sam_string.append("\t77\t*\t0\t255\t*\t*\t0\t0\t");
         sam_string.append(read1);
         sam_string.append("\t*\n");
         sam_string.append(query_acc2);
-        sam_string.append("\t4\t*\t0\t255\t*\t*\t0\t0\t");
+        sam_string.append("\t141\t*\t0\t255\t*\t*\t0\t0\t");
         sam_string.append(read2);
         sam_string.append("\t*\n");
         return;
