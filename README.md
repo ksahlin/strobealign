@@ -72,21 +72,21 @@ Kristoffer Sahlin. Faster short-read mapping with strobemer seeds in syncmer spa
 VERSION INFO
 ---------------
 
+### Version 0.0.3
+
+1. Implements a paired-end alignment mode.
+2. Implements a rescue mode both in SE and PE alignment modes (described in preprint v2).
+3. Changed to symmetrical strobemer hashvalues due to inversions (described in preprint v2).
+
+
 ### Version 0.0.2
 
-1. Has paired-end alignment mode
-2. Implements a rescue mode both in SE and PE alignment modes (described in preprint).
-3. Changed to symmetrical strobemer hashvalues due to inversions (described in preprint).
-
-
-### Version 0.0.2
-
-1. Is multi-threaded.
+1. Implements multi-threading.
 2. Allow reads in fast[a/q] format and gzipped files through [kseqpp library](https://github.com/cartoonist/kseqpp).
 
 ### Version 0.0.1
 
-The aligner used for the experiments presented in the first version of the preprint on bioRxiv. Only single threaded alignment and aligns reads as single reads (no PE mapping).
+The aligner used for the experiments presented in the preprint (v1) on bioRxiv. Only single threaded alignment and aligns reads as single reads (no PE mapping).
 
 LICENCE
 ----------------
