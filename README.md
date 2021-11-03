@@ -10,9 +10,9 @@ INSTALLATION
 You can acquire precompiled binaries for Linux and Mac OSx from [here](https://github.com/ksahlin/StrobeAlign/tree/main/bin). For example, for linux, simply do
 
 ```
-wget https://github.com/ksahlin/StrobeAlign/tree/main/bin/Linux/StrobeAlign-v0.0.2
-chmod +x StrobeAlign-v0.0.2
-./StrobeAlign-v0.0.2  # test program
+wget https://github.com/ksahlin/StrobeAlign/tree/main/bin/Linux/StrobeAlign-v0.0.3
+chmod +x StrobeAlign-v0.0.3
+./StrobeAlign-v0.0.3  # test program
 ```
 
 If you want to compile from the source, you need to have a newer `g++` and [zlib]](https://zlib.net/) installed. Then do the following:
@@ -71,6 +71,12 @@ Kristoffer Sahlin. Faster short-read mapping with strobemer seeds in syncmer spa
 
 VERSION INFO
 ---------------
+
+### Version 0.0.2
+
+1. Has paired-end alignment mode
+2. Implements a rescue mode both in SE and PE alignment modes (described in preprint).
+3. Changed to symmetrical strobemer hashvalues due to inversions (described in preprint).
 
 
 ### Version 0.0.2
