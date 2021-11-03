@@ -39,48 +39,51 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 //mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int w);
 
 typedef robin_hood::unordered_map< unsigned int, std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>>> pos_index;
-mers_vector construct_flat_vector(pos_index &tmp_index, uint64_t &unique_elements);
+void process_flat_vector(mers_vector &flat_vector, uint64_t &unique_elements);
 unsigned int index_vector(mers_vector  &mers_vector, kmer_lookup &mers_index, float f);
 mers_vector_reduced remove_kmer_hash_from_flat_vector(mers_vector &flat_vector);
 void filter_repetitive_strobemers(mers_vector &flat_vector, kmer_lookup &mers_index, mers_vector &flat_vector_reduced, kmer_lookup &mers_index_reduced, unsigned int filter_cutoff);
 
 struct hit {
-    unsigned int ref_id;
-    unsigned int query_s;
-    unsigned int query_e;
-    unsigned int ref_s;
-    unsigned int ref_e;
+//    unsigned int ref_id;
+    int query_s;
+    int query_e;
+    int ref_s;
+    int ref_e;
 //    unsigned int hit_count;
-    unsigned int is_rc = false;
+    bool is_rc = false;
 };
 
 struct nam {
     unsigned int ref_id;
-    unsigned int query_s;
-    unsigned int query_e;
-    unsigned int query_last_hit_pos;
-    unsigned int ref_s;
-    unsigned int ref_e;
-    unsigned int ref_last_hit_pos;
-    unsigned int n_hits = 0;
+    int query_s;
+    int query_e;
+    int query_prev_hit_startpos;
+    int ref_s;
+    int ref_e;
+    int ref_prev_hit_startpos;
+    int n_hits = 0;
+    float score;
 //    unsigned int previous_query_start;
 //    unsigned int previous_ref_start;
-    unsigned int is_rc = false;
-//    float score;
+    bool is_rc = false;
 };
 
 struct aln_info {
     unsigned int ed;
     unsigned int ref_offset;
     std::string cigar;
+    int sw_score;
 };
 
-struct final_alignment {
-    unsigned int ref_start;
-    unsigned int ed;
+struct alignment {
+    int ref_start;
+    int ed;
     std::string cigar;
-    bool is_rc;
     unsigned int ref_id;
+    int sw_score;
+    bool not_proper;
+    bool is_rc;
 };
 
 #endif /* index_hpp */
