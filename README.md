@@ -15,11 +15,12 @@ You can acquire precompiled binaries for Linux and Mac OSx from [here](https://g
 
 ```
 wget https://github.com/ksahlin/StrobeAlign/tree/main/bin/Linux/StrobeAlign-v0.0.3.1
-chmod +x StrobeAlign-v0.0.3.1
-./StrobeAlign-v0.0.3.1  # test program
+mv StrobeAlign-v0.0.3.1 strobealign  # rename to strobealign
+chmod +x strobealign # make executable
+./strobealign  # test program
 ```
 
-If you want to compile from the source, you need to have a newer `g++` and [zlib]](https://zlib.net/) installed. Then do the following:
+If you want to compile from the source, you need to have a newer `g++` and [zlib](https://zlib.net/) installed. Then do the following:
 
 ```
 git clone https://github.com/ksahlin/StrobeAlign
@@ -65,7 +66,6 @@ TODO
 -------
 
 1. Add option to separate build index and perform alignment in separate steps.
-2. Consider some smart PE-alignment mode (rescue mates etc).
 
 
 CREDITS
