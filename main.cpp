@@ -1381,6 +1381,9 @@ static inline void get_best_scoring_pair(std::vector<alignment> &aln_scores1, st
 
 static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, std::vector<std::tuple<int,nam,nam>> &joint_NAM_scores, float mu, float sigma, robin_hood::unordered_set<int> &added_n1, robin_hood::unordered_set<int> &added_n2)
 {
+    if ( all_nams1.empty() && all_nams2.empty() ){
+        return;
+    }
     int joint_hits;
     float x;
     nam n;  //dummy nam
@@ -1413,35 +1416,40 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
 //        std::cout << z  << std::endl;
 //    }
 
-    int hjss1 = hjss > 0 ? hjss : all_nams1[0].n_hits;
-//    int hjss1 = all_nams1[0].n_hits;
-    for (auto &n1 : all_nams1) {
-        if (n1.n_hits  < hjss1/2){
-            break;
+    if ( !all_nams1.empty() ){
+        int hjss1 = hjss > 0 ? hjss : all_nams1[0].n_hits;
+    //    int hjss1 = all_nams1[0].n_hits;
+        for (auto &n1 : all_nams1) {
+            if (n1.n_hits  < hjss1/2){
+                break;
+            }
+            if (added_n1.find(n1.ref_s) != added_n1.end()){
+                continue;
+            }
+            joint_hits = n1.n_hits;
+    //                        std::cout << S << " individual score " << x << " " << std::endl;
+            std::tuple<int, nam, nam> t (joint_hits, n1, n);
+            joint_NAM_scores.push_back(t);
         }
-        if (added_n1.find(n1.ref_s) != added_n1.end()){
-            continue;
-        }
-        joint_hits = n1.n_hits;
-//                        std::cout << S << " individual score " << x << " " << std::endl;
-        std::tuple<int, nam, nam> t (joint_hits, n1, n);
-        joint_NAM_scores.push_back(t);
     }
 
-    int hjss2 = hjss  > 0 ? hjss : all_nams2[0].n_hits;
-//    int hjss2 = all_nams2[0].n_hits;
-    for (auto &n2 : all_nams2) {
-        if (n2.n_hits  < hjss2/2){
-            break;
+    if ( !all_nams2.empty() ){
+        int hjss2 = hjss  > 0 ? hjss : all_nams2[0].n_hits;
+    //    int hjss2 = all_nams2[0].n_hits;
+        for (auto &n2 : all_nams2) {
+            if (n2.n_hits  < hjss2/2){
+                break;
+            }
+            if (added_n2.find(n2.ref_s) != added_n2.end()){
+                continue;
+            }
+            joint_hits = n2.n_hits;
+    //                        std::cout << S << " individual score " << x << " " << std::endl;
+            std::tuple<int, nam, nam> t (joint_hits, n, n2);
+            joint_NAM_scores.push_back(t);
         }
-        if (added_n2.find(n2.ref_s) != added_n2.end()){
-            continue;
-        }
-        joint_hits = n2.n_hits;
-//                        std::cout << S << " individual score " << x << " " << std::endl;
-        std::tuple<int, nam, nam> t (joint_hits, n, n2);
-        joint_NAM_scores.push_back(t);
     }
+
 //    std::cout << " All scores " << joint_NAM_scores.size() << std::endl;
     added_n1.clear();
     added_n2.clear();
@@ -2434,7 +2442,7 @@ int main (int argc, char **argv)
                 nams2.clear();
             }
 
-            std::cout << "Estimated diff in start coordiantes b/t mates, (mean: " << mu << ", stddev: " << sigma << ") " << std::endl;
+            std::cout << "Estimated diff in start coordinates b/t mates, (mean: " << mu << ", stddev: " << sigma << ") " << std::endl;
 //            std::cout << "Len: " << isizes.size() << std::endl;
 
             // Output results

@@ -1,7 +1,11 @@
 StrobeAlign
 ==============
 
-Short-read aligner using syncmer-thinned strobemers. The implementation is currently proof-of-concept. The default parameter setting is tailored for Illumina reads of length 150-500. For longer reads, we need chaining of seeds instead of the current approach, which is merging of overlapping seeds as described in the [preprint](https://doi.org/10.1101/2021.06.18.449070).
+Short-read aligner using syncmer-thinned strobemers. Strobealign implements PE and SE Illumina read alignment/mapping and is multithreaded. The default parameter setting is tailored for Illumina reads of lengths about 150-500nt. 
+
+For reads shorter than 150nt, a lower value of parameter `-k` is recommentded (e.g. 15-17). 
+
+StrobeAlign is currently not recommentded for long reads (>500nt) as significant implementation changes is needed. For long reads we need a different extention algorithm (chaining of seeds instead of the current approach described in the [preprint](https://doi.org/10.1101/2021.06.18.449070)) and split-mapping funcitionality.
 
 
 INSTALLATION
@@ -10,9 +14,9 @@ INSTALLATION
 You can acquire precompiled binaries for Linux and Mac OSx from [here](https://github.com/ksahlin/StrobeAlign/tree/main/bin). For example, for linux, simply do
 
 ```
-wget https://github.com/ksahlin/StrobeAlign/tree/main/bin/Linux/StrobeAlign-v0.0.3
-chmod +x StrobeAlign-v0.0.3
-./StrobeAlign-v0.0.3  # test program
+wget https://github.com/ksahlin/StrobeAlign/tree/main/bin/Linux/StrobeAlign-v0.0.3.1
+chmod +x StrobeAlign-v0.0.3.1
+./StrobeAlign-v0.0.3.1  # test program
 ```
 
 If you want to compile from the source, you need to have a newer `g++` and [zlib]](https://zlib.net/) installed. Then do the following:
@@ -71,6 +75,10 @@ Kristoffer Sahlin. Faster short-read mapping with strobemer seeds in syncmer spa
 
 VERSION INFO
 ---------------
+
+### Version 0.0.3.1
+
+1. Bugfix. Takes care of segmentation fault bug in paired-end mapping mode (-x) when none of the reads have NAMs.
 
 ### Version 0.0.3
 
