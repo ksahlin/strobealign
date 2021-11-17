@@ -1,11 +1,13 @@
 StrobeAlign
 ==============
 
-Short-read aligner using syncmer-thinned strobemers. Strobealign implements PE and SE Illumina read alignment/mapping and is multithreaded. The default parameter setting is tailored for Illumina reads of lengths about 150-500nt. 
+Strobealign is a single or paired-end short-read aligner using syncmer-thinned strobemers. Strobealign is multithreaded and implements both alignment (SAM) and mapping (PAF). It is 12-15 times faster than BWA and Bowtie2 with similar accuracy for single end reads, and about 10 times faster with a loss of 0.1-0.2% accuracy on paired-end reads. See experimentins in [preprint](https://doi.org/10.1101/2021.06.18.449070).
 
-For reads shorter than 150nt, a lower value of parameter `-k` is recommentded (e.g. 15-17). 
+The default parameter setting is tailored for Illumina single or paired-end reads of lengths about 150-500nt. 
 
-StrobeAlign is currently not recommentded for long reads (>500nt) as significant implementation changes is needed. For long reads we need a different extention algorithm (chaining of seeds instead of the current approach described in the [preprint](https://doi.org/10.1101/2021.06.18.449070)) and split-mapping funcitionality.
+Strobealign is currently not recommended for reads shorter than 150nt as a lower value for parameter `-k` is needed (e.g. 15-17) and extensive testing in this setting remains to be done. 
+
+Strobealign is also currently not recommended for long reads (>500nt) as significant implementation changes is needed to keep its relative speed. For long reads we need a different extention algorithm (chaining of seeds instead of the current approach described in the [preprint](https://doi.org/10.1101/2021.06.18.449070)) and split-mapping funcitionality.
 
 
 INSTALLATION
