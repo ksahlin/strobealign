@@ -1,7 +1,7 @@
 StrobeAlign
 ==============
 
-Strobealign is a single or paired-end short-read aligner using syncmer-thinned strobemers. Strobealign is multithreaded and implements both alignment (SAM) and mapping (PAF). It is 12-15 times faster than BWA and Bowtie2 with similar accuracy for single end reads, and about 10 times faster with a loss of 0.1-0.2% accuracy on paired-end reads. See experimentins in [preprint](https://doi.org/10.1101/2021.06.18.449070).
+Strobealign is a single or paired-end short-read aligner using syncmer-thinned strobemers. Strobealign is multithreaded and implements both alignment (SAM) and mapping (PAF). It is 12-15 times faster than BWA and Bowtie2 with similar accuracy for single-end reads, and about 10 times faster with a loss of 0.1-0.2% accuracy for paired-end reads. See experimentins in [preprint](https://doi.org/10.1101/2021.06.18.449070).
 
 The default parameter setting is tailored for Illumina single or paired-end reads of lengths about 150-500nt. 
 
