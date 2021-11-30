@@ -78,6 +78,11 @@ Kristoffer Sahlin. Faster short-read mapping with strobemer seeds in syncmer spa
 VERSION INFO
 ---------------
 
+### Version 0.0.3.2
+
+1. Takes care of negative alignment coordinate bug.
+2. Minimal value for repetitive seed filtering implemented. Previoulsy, the top fraction of `-f (0.0002)` seeds were filtered regardless of how repetitive they were. Assume `-f` filtered everything above `X` occurences. The new version filters seeds with occurences over `max(X, 30)`. This threshold is usually not active for human as `X>40` for human. 
+
 ### Version 0.0.3.1
 
 1. Bugfix. Takes care of segmentation fault bug in paired-end mapping mode (-x) when none of the reads have NAMs.
