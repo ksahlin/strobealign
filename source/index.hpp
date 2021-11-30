@@ -84,6 +84,7 @@ struct alignment {
     int sw_score;
     bool not_proper;
     bool is_rc;
+    bool is_unaligned;
 };
 
 #endif /* index_hpp */
