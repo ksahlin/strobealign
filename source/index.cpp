@@ -171,6 +171,7 @@ unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, flo
     unsigned int index_cutoff = strobemer_counts.size()*f;
     std::cout << "Filtered cutoff index: " << index_cutoff << std::endl;
     unsigned int filter_cutoff =  strobemer_counts[index_cutoff];
+    filter_cutoff = filter_cutoff > 30 ? filter_cutoff : 30; // cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
     std::cout << "Filtered cutoff count: " << filter_cutoff << std::endl;
     std::cout << "" << std::endl;
     std::cout << "" << std::endl;
@@ -464,9 +465,11 @@ static inline void get_next_strobe(std::vector<uint64_t> &string_hashes, uint64_
 //    min_pos = -1;
     for (auto i = w_start; i <= w_end; i++) {
         uint64_t res = (strobe_hashval + string_hashes[i]) & q ;
+//        uint64_t res = (strobe_hashval ^ string_hashes[i]) & q ;
         if (res < min_val){
             min_val = res;
             strobe_pos_next = i;
+//            std::cout << strobe_pos_next << " " << min_val << std::endl;
             strobe_hashval_next = string_hashes[i];
         }
     }
@@ -575,6 +578,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
         std::tuple<uint64_t, unsigned int, unsigned int, unsigned int> s (hash_randstrobe2, ref_index, seq_pos_strobe1, seq_pos_strobe2);
         randstrobes2.push_back(s);
+//        std::cout << "FORWARD REF: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
 //        std::cout << "REFERENCE: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
 
 

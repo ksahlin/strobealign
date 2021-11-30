@@ -673,10 +673,11 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
         }
     }
     info.second = max_nam_n_hits;
-    return info;
 //    for (auto &n : final_nams){
 //        std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
 //    }
+    return info;
+
 //
 //    std::cout << "DONE" << std::endl;
 
@@ -1022,7 +1023,7 @@ static inline void align_SE(std::string &sam_string, std::vector<nam> &all_nams,
                 best_align_dist = hamming_dist;
                 sam_aln.cigar = std::to_string(read_len) + "M";
                 sam_aln.ed = hamming_dist;
-                sam_aln.ref_start = n.ref_s - n.query_s +1; // +1 because SAM is 1-based!
+                sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
                 sam_aln.is_rc = is_rc;
                 sam_aln.ref_id = n.ref_id;
             }
@@ -1034,7 +1035,7 @@ static inline void align_SE(std::string &sam_string, std::vector<nam> &all_nams,
                 best_align_dist = hamming_dist;
                 sam_aln.cigar = std::to_string(read_len) + "M";
                 sam_aln.ed = hamming_dist;
-                sam_aln.ref_start = n.ref_s - n.query_s +1; // +1 because SAM is 1-based!
+                sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
                 sam_aln.is_rc = is_rc;
                 sam_aln.ref_id = n.ref_id;
             }
@@ -1140,6 +1141,9 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
             did_not_fit++;
             aln_did_not_fit = true;
             sam_aln.not_proper = true;
+//            sam_aln.sw_score = 0;
+//            sam_aln.is_unaligned = true;
+//            return;
         }
     }
 
@@ -1159,9 +1163,10 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
         sam_aln.cigar = std::to_string(read_len) + "M";
         sam_aln.ed = hamming_dist;
         sam_aln.sw_score = (read_len-hamming_dist) - 4*hamming_dist;
-        sam_aln.ref_start = n.ref_s - n.query_s +1; // +1 because SAM is 1-based!
+        sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
         sam_aln.is_rc = is_rc;
         sam_aln.ref_id = n.ref_id;
+        sam_aln.is_unaligned = false;
         if ( (((float)sam_aln.ed / read_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
             return;
         }
@@ -1193,6 +1198,7 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
     sam_aln.ref_start =  ref_start + info.ref_offset +1; // +1 because SAM is 1-based!
     sam_aln.is_rc = is_rc;
     sam_aln.ref_id = n.ref_id;
+    sam_aln.is_unaligned = false;
     tot_ksw_aligned ++;
 //    }
 }
@@ -1240,12 +1246,12 @@ static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, a
         template_len1 = d + read_len;
         template_len2 = - d - read_len;
     }
-//    int d = sam_aln1.ref_start < sam_aln2.ref_start ? sam_aln2.ref_start - sam_aln1.ref_start : sam_aln1.ref_start - sam_aln2.ref_start;
+    //    int d = sam_aln1.ref_start < sam_aln2.ref_start ? sam_aln2.ref_start - sam_aln1.ref_start : sam_aln1.ref_start - sam_aln2.ref_start;
 
-if ( d > (mu + 6*sigma) ){ // Flag alignments as 'not proper' because of too large deviation in insert size
-        sam_aln1.not_proper = true;
-        sam_aln2.not_proper = true;
-    }
+    if ( d > (mu + 6*sigma) ){ // Flag alignments as 'not proper' because of too large deviation in insert size
+            sam_aln1.not_proper = true;
+            sam_aln2.not_proper = true;
+        }
     if ( (!sam_aln1.not_proper) && (!sam_aln2.not_proper)){ // if both segements in pair are properly aligned
         f1 |= (1u << 1);
         f2 |= (1u << 1);
@@ -1277,6 +1283,28 @@ if ( d > (mu + 6*sigma) ){ // Flag alignments as 'not proper' because of too lar
         m1_chr = acc_map[sam_aln1.ref_id];
         m2_chr = acc_map[sam_aln2.ref_id];
     }
+
+//    if ( (sam_aln1.is_unaligned) && (sam_aln2.is_unaligned) ){
+//        f1 = 13;
+//        f2 = 13;
+//        m1_chr = "*";
+//        m2_chr = "*";
+//        sam_aln1.cigar = "*";
+//        sam_aln2.cigar = "*";
+//    } else if (sam_aln1.is_unaligned){
+//        f1 = 5;
+//        m1_chr = "*";
+//        sam_aln1.cigar = "*";
+//        f2 |= (1u << 3);
+//        f2 -= 32;
+//    } else if (sam_aln2.is_unaligned){
+//        f2 = 5;
+//        m2_chr = "*";
+//        sam_aln2.cigar = "*";
+//        f1 |= (1u << 3);
+//        f1 -= 32;
+//    }
+
     sam_string.append(query_acc1);
     sam_string.append("\t");
     sam_string.append(std::to_string(f1));
@@ -1720,7 +1748,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 //                auto score_ = std::get<0>(hsp);
 //                auto s1_tmp = std::get<1>(hsp);
 //                auto s2_tmp = std::get<2>(hsp);
-//                std::cout << score_ << " " << s1_tmp.ref_start << " " << s2_tmp.ref_start << " " << s1_tmp.sw_score <<  " " << s2_tmp.sw_score << std::endl;
+//                std::cout << "HSP SCORE: " << score_ << " " << s1_tmp.ref_start << " " << s2_tmp.ref_start << " " << s1_tmp.sw_score <<  " " << s2_tmp.sw_score << std::endl;
 //            }
 
             auto best_aln_pair = high_scores[0];
@@ -1882,7 +1910,7 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.0.3.1\n";
+    std::cerr << "StrobeAlign VERSION 0.0.3.2\n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
