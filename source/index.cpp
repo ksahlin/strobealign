@@ -461,11 +461,23 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 
 static inline void get_next_strobe(std::vector<uint64_t> &string_hashes, uint64_t strobe_hashval, unsigned int &strobe_pos_next, uint64_t &strobe_hashval_next,  unsigned int w_start, unsigned int w_end, uint64_t q){
     uint64_t min_val = UINT64_MAX;
+    std::bitset<64> b;
 //    unsigned int min_pos;
 //    min_pos = -1;
     for (auto i = w_start; i <= w_end; i++) {
-        uint64_t res = (strobe_hashval + string_hashes[i]) & q ;
-//        uint64_t res = (strobe_hashval ^ string_hashes[i]) & q ;
+//         Method 1
+        uint64_t res = (strobe_hashval + string_hashes[i]) & q;
+
+//         Method 2
+//        uint64_t res = (strobe_hashval + string_hashes[i]) % q;
+
+        // Method 3 - seems to give the best tradeoff in speed and accuracy at this point
+//        b = (strobe_hashval ^ string_hashes[i]);
+//        uint64_t res = b.count();
+
+        // Method X - other method that needs to be evaluated
+//        uint64_t res = (strobe_hashval ^ string_hashes[i]) & q;
+
         if (res < min_val){
             min_val = res;
             strobe_pos_next = i;
