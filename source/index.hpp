@@ -14,7 +14,7 @@
 #include <deque>
 #include <tuple>
 #include "robin_hood.h"
-
+#include "xxhash.h"
 
 uint64_t hash(std::string kmer);
 static inline uint64_t hash64(uint64_t key, uint64_t mask);

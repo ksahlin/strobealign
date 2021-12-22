@@ -307,7 +307,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 
 
 //    robin_hood::hash<uint64_t> robin_hash;
-//    uint64_t mask = (1ULL<<2*k) - 1;
+    uint64_t mask = (1ULL<<2*k) - 1;
 //    std::vector<std::tuple<uint64_t, unsigned int, unsigned int> > kmers;
     unsigned int hash_count = 0;
     int l;
@@ -327,7 +327,9 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
             if (++l >= s) { // we find an s-mer
                 uint64_t ys = xs[0] < xs[1]? xs[0] : xs[1];
 //                uint64_t hash_s = robin_hash(ys);
-                uint64_t hash_s = ys; // hash64(ys, mask);
+                uint64_t hash_s = ys;
+//                uint64_t hash_s = hash64(ys, mask);
+//                uint64_t hash_s = XXH64(&ys, 8,0);
                 // que not initialized yet
                 if (qs_size < k - s ) {
                     qs.push_back(hash_s);
@@ -349,7 +351,9 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
                     if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
                         uint64_t yk = xk[0] < xk[1]? xk[0] : xk[1];
 //                        uint64_t hash_k = robin_hash(yk);
-                        uint64_t hash_k = yk; // hash64(yk, mask);
+//                        uint64_t hash_k = yk;
+//                        uint64_t hash_k =  hash64(yk, mask);
+                        uint64_t hash_k = XXH64(&yk, 8,0);
                         string_hashes.push_back(hash_k);
                         pos_to_seq_choord.push_back(i - k + 1);
                         hash_count++;
@@ -363,7 +367,9 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
                     if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
                         uint64_t yk = xk[0] < xk[1]? xk[0] : xk[1];
 //                        uint64_t hash_k = robin_hash(yk);
-                        uint64_t hash_k = yk; // hash64(yk, mask);
+//                        uint64_t hash_k = yk;
+//                        uint64_t hash_k = hash64(yk, mask);
+                        uint64_t hash_k = XXH64(&yk, 8, 0);
                         string_hashes.push_back(hash_k);
                         pos_to_seq_choord.push_back(i - k + 1);
 //                        std::cout << i - k + 1 << std::endl;
@@ -465,18 +471,18 @@ static inline void get_next_strobe(std::vector<uint64_t> &string_hashes, uint64_
 //    unsigned int min_pos;
 //    min_pos = -1;
     for (auto i = w_start; i <= w_end; i++) {
-//         Method 1
-        uint64_t res = (strobe_hashval + string_hashes[i]) & q;
-
 //         Method 2
+//        uint64_t res = (strobe_hashval + string_hashes[i]) & q;
+
+//         Method 1
 //        uint64_t res = (strobe_hashval + string_hashes[i]) % q;
 
         // Method 3 - seems to give the best tradeoff in speed and accuracy at this point
-//        b = (strobe_hashval ^ string_hashes[i]);
-//        uint64_t res = b.count();
+        b = (strobe_hashval ^ string_hashes[i]);
+        uint64_t res = b.count();
 
-        // Method X - other method that needs to be evaluated
-//        uint64_t res = (strobe_hashval ^ string_hashes[i]) & q;
+        // Method by Lidon Gao (other strobemers library) and Giulio Ermanno Pibiri @giulio_pibiri
+//        uint64_t res = (strobe_hashval ^ string_hashes[i]) ;
 
         if (res < min_val){
             min_val = res;
@@ -590,6 +596,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
         std::tuple<uint64_t, unsigned int, unsigned int, unsigned int> s (hash_randstrobe2, ref_index, seq_pos_strobe1, seq_pos_strobe2);
         randstrobes2.push_back(s);
+//        std::cout << seq_pos_strobe1 << " " << seq_pos_strobe2 << std::endl;
 //        std::cout << "FORWARD REF: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
 //        std::cout << "REFERENCE: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
 
