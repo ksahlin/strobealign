@@ -50,7 +50,8 @@ static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsi
 //                std::cout << ref_index - 1 << " here " << seq << " " << seq.length() << " " << seq.size() << std::endl;
 //                generate_kmers(h, k, seq, ref_index);
             }
-            acc_map[ref_index] = line.substr(1, line.length() -1); //line;
+//            acc_map[ref_index] = line.substr(1, line.length() -1); //line;
+            acc_map[ref_index] = line.substr(1, line.find(' ') -1); // cutting at first space;
             ref_index++;
             seq = "";
         }
@@ -220,7 +221,7 @@ static inline bool sort_hits(const hit &a, const hit &b)
     return (a.query_s < b.query_s) || ( (a.query_s == b.query_s) && (a.ref_s < b.ref_s) );
 }
 
-static inline std::pair<float,int> find_nams_rescue(std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int hit_upper_window_lim, unsigned int filter_cutoff ){
+static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_fw, std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_rc, std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int hit_upper_window_lim, unsigned int filter_cutoff ){
     std::pair<float,int> info (0,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
     std::tuple<uint64_t, unsigned int> ref_hit;
@@ -228,7 +229,6 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<nam> &final_nams
     unsigned int count = 0;
     uint64_t offset;
     bool is_rc = true, no_rep_fw = true, no_rep_rc = true;
-    std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_fw,  hits_rc;
     std::pair<int, int> repeat_fw(0,0), repeat_rc(0,0);
     std::vector<std::pair<int, int>> repetitive_fw, repetitive_rc;
     for (auto &q : query_mers)
@@ -2240,6 +2240,11 @@ int main (int argc, char **argv)
         mers_vector_read query_mers; // pos, chr_id, kmer hash value
         std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
         robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
+        std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_fw;
+        std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_rc;
+        hits_per_ref.reserve(100);
+        hits_fw.reserve(5000);
+        hits_rc.reserve(5000);
 //    mers_vector_read query_mers_rc; // pos, chr_id, kmer hash value
 
 //    std::vector<std::stringstream> output_streams(n_threads);
@@ -2291,9 +2296,11 @@ int main (int argc, char **argv)
                         tried_rescue += 1;
                         nams.clear();
 //                    std::cout << "Rescue mode: " << record.name <<  std::endl;
-                        info = find_nams_rescue(nams, hits_per_ref, query_mers, flat_vector, mers_index, k, ref_seqs,
+                        info = find_nams_rescue(hits_fw, hits_rc, nams, hits_per_ref, query_mers, flat_vector, mers_index, k, ref_seqs,
                                                 record.seq, hit_upper_window_lim, rescue_cutoff);
                         hits_per_ref.clear();
+                        hits_fw.clear();
+                        hits_rc.clear();
 //                    std::cout << "Found: " << nams.size() <<  std::endl;
                     }
                     auto rescue_finish = std::chrono::high_resolution_clock::now();
@@ -2360,6 +2367,11 @@ int main (int argc, char **argv)
         std::vector<nam> nams1;
         std::vector<nam> nams2;
         robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
+        std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_fw;
+        std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_rc;
+        hits_per_ref.reserve(100);
+        hits_fw.reserve(5000);
+        hits_rc.reserve(5000);
         std::vector<std::tuple<int,nam,nam>> joint_NAM_scores; // (score, aln1, aln2)
         std::vector<std::string> output_streams(n_threads);
         for (int i = 0; i < n_threads; ++i) {
@@ -2416,9 +2428,11 @@ int main (int argc, char **argv)
                         tried_rescue += 1;
                         nams1.clear();
 //                        std::cout << "Rescue mode read 1: " << record1.name << info1.first <<  std::endl;
-                        info1 = find_nams_rescue(nams1, hits_per_ref, query_mers1, flat_vector, mers_index, k, ref_seqs,
+                        info1 = find_nams_rescue(hits_fw, hits_rc, nams1, hits_per_ref, query_mers1, flat_vector, mers_index, k, ref_seqs,
                                                  record1.seq, hit_upper_window_lim, rescue_cutoff);
                         hits_per_ref.clear();
+                        hits_fw.clear();
+                        hits_rc.clear();
 //                    std::cout << "Found: " << nams.size() <<  std::endl;
                     }
 
@@ -2426,9 +2440,11 @@ int main (int argc, char **argv)
                         tried_rescue += 1;
                         nams2.clear();
 //                        std::cout << "Rescue mode read 2: " << record2.name << info2.first <<  std::endl;
-                        info2 = find_nams_rescue(nams2, hits_per_ref, query_mers2, flat_vector, mers_index, k, ref_seqs,
+                        info2 = find_nams_rescue(hits_fw, hits_rc, nams2, hits_per_ref, query_mers2, flat_vector, mers_index, k, ref_seqs,
                                                  record2.seq, hit_upper_window_lim, rescue_cutoff);
                         hits_per_ref.clear();
+                        hits_fw.clear();
+                        hits_rc.clear();
 //                    std::cout << "Found: " << nams.size() <<  std::endl;
                     }
                     auto rescue_finish = std::chrono::high_resolution_clock::now();
