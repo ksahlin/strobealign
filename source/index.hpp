@@ -55,6 +55,7 @@ struct hit {
 };
 
 struct nam {
+    int nam_id;
     unsigned int ref_id;
     int query_s;
     int query_e;

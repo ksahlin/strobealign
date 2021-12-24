@@ -368,6 +368,7 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
     info.first = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     int max_nam_n_hits = 0;
     std::vector<nam> open_nams;
+    int nam_id_cnt = 0;
 //    std::vector<nam> final_nams; // [ref_id] -> vector(struct nam)
 
     for (auto &it : hits_per_ref)
@@ -421,6 +422,8 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
             // Add the hit to open matches
             if (not is_added){
                 nam n;
+                n.nam_id = nam_id_cnt;
+                nam_id_cnt ++;
                 n.query_s = h.query_s;
                 n.query_e = h.query_e;
                 n.ref_s = h.ref_s;
@@ -560,6 +563,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //    std::cout << "NUMBER OF HITS GENERATED: " << hit_count_all << std::endl;
     info.first = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     int max_nam_n_hits = 0;
+    int nam_id_cnt = 0;
     std::vector<nam> open_nams;
 //    std::vector<nam> final_nams; // [ref_id] -> vector(struct nam)
 
@@ -617,6 +621,8 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
             // Add the hit to open matches
             if (not is_added){
                 nam n;
+                n.nam_id = nam_id_cnt;
+                nam_id_cnt ++;
                 n.query_s = h.query_s;
                 n.query_e = h.query_e;
                 n.ref_s = h.ref_s;
@@ -1194,6 +1200,7 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
     info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
     sam_aln.cigar = info.cigar;
     sam_aln.ed = info.ed;
+//    std::cout << r_tmp << " " << n.n_hits << " " << n.score << " " <<  diff << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << hamming_dist << " " << sam_aln.cigar << std::endl;
     sam_aln.sw_score = info.sw_score;
     sam_aln.ref_start =  ref_start + info.ref_offset +1; // +1 because SAM is 1-based!
     sam_aln.is_rc = is_rc;
@@ -1604,8 +1611,10 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         // if highest scoring NAM for both read 1 and read 2 has matching genomic location and correct orientation and no good second hits - align immediately
         if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) && ( ((n_max1.ref_s - n_max2.ref_s) < 2000) || ((n_max2.ref_s - n_max1.ref_s) < 2000)) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
 //            std::cout << "I'm here" << std::endl;
+//            std::cout << query_acc1 << std::endl;
             get_alignment(n_max1, ref_len_map, ref_seqs, read1, read1_rc, read_len1, sam_aln1, k, cnt1, rc_already_comp1, did_not_fit, tot_ksw_aligned);
             tot_all_tried ++;
+//            std::cout << query_acc2 << std::endl;
             get_alignment(n_max2, ref_len_map, ref_seqs, read2, read2_rc, read_len2, sam_aln2, k, cnt2, rc_already_comp2, did_not_fit, tot_ksw_aligned);
             tot_all_tried ++;
             get_MAPQ(all_nams1, n_max1, mapq1);
@@ -1657,6 +1666,8 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
             std::string r_tmp;
             int min_ed1, min_ed2 = 1000;
             bool new_opt1, new_opt2 = false;
+            robin_hood::unordered_map<int,alignment> is_aligned1;
+            robin_hood::unordered_map<int,alignment> is_aligned2;
 //            bool a1_is_rc, a2_is_rc;
 //            int ref_start, ref_len, ref_end;
 //            std::cout << "LOOOOOOOOOOOOOOOOOOOL " << min_ed << std::endl;
@@ -1675,14 +1686,21 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                 //////////////////////////////////////////////////////////////////////
                 //////////////////////////////////////////////////////////////////////
                 alignment a1;
-                if (n1.ref_s >= 0) {
+                if (is_aligned1.find(n1.nam_id) != is_aligned1.end() ){
+//                    std::cout << "Already aligned a1! " << std::endl;
+                    a1 = is_aligned1[n1.nam_id];
+                } else if (n1.ref_s >= 0) {
+//                    std::cout << query_acc1 << std::endl;
                     get_alignment(n1, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, k, cnt1, rc_already_comp1,
                                   did_not_fit, tot_ksw_aligned);
+                    is_aligned1[n1.nam_id] = a1;
                     tot_all_tried ++;
                 } else { //rescue
 //                    std::cout << "RESCUE HERE1" << std::endl;
                     //////// Force SW alignment to rescue mate /////////
+//                    std::cout << query_acc2 << " RESCUE MATE" << std::endl;
                     rescue_mate(n2, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, rc_already_comp1, tot_ksw_aligned, mu, sigma, tot_rescued);
+//                    is_aligned1[n1.nam_id] = a1;
                     tot_all_tried ++;
                 }
 
@@ -1696,14 +1714,21 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                 }
 
                 alignment a2;
-                if(n2.ref_s >= 0) {
+                if (is_aligned2.find(n2.nam_id) != is_aligned2.end() ){
+//                    std::cout << "Already aligned a2! " << std::endl;
+                    a2 = is_aligned2[n2.nam_id];
+                } else if(n2.ref_s >= 0) {
+//                    std::cout << query_acc2 << std::endl;
                     get_alignment(n2, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, k, cnt2, rc_already_comp2,
                                   did_not_fit, tot_ksw_aligned);
+                    is_aligned2[n2.nam_id] = a2;
                     tot_all_tried ++;
                 } else{
 //                    std::cout << "RESCUE HERE2" << std::endl;
                     //////// Force SW alignment to rescue mate /////////
+//                    std::cout << query_acc1 << " RESCUE MATE" << std::endl;
                     rescue_mate(n1, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma, tot_rescued);
+//                    is_aligned2[n2.nam_id] = a2;
                     tot_all_tried ++;
                 }
 //                a2_indv_max = a2.sw_score >  a2_indv_max.sw_score ? a2 : a2_indv_max;
@@ -1775,12 +1800,14 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
             }
             //////// the actual testing of base pair alignment part start /////////
             alignment a1;
+//            std::cout << query_acc1 << " force rescue"  << std::endl;
             get_alignment(n, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, k, cnt1, rc_already_comp1, did_not_fit, tot_ksw_aligned);
             aln_scores1.push_back(a1);
             //////////////////////////////////////////////////////////////////
 
             //////// Force SW alignment to rescue mate /////////
             alignment a2;
+//            std::cout << query_acc2 << " force rescue" << std::endl;
             rescue_mate(n, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma,tot_rescued);
             aln_scores2.push_back(a2);
             //////////////////////////////////////////////////////////////////
@@ -1910,7 +1937,7 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.0.4\n";
+    std::cerr << "StrobeAlign VERSION 0.0.4 (test bit cnt)\n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
@@ -1919,7 +1946,7 @@ void print_usage() {
     std::cerr << "\t-k INT strobe length [22]\n";
     std::cerr << "\t-o name of output SAM-file to print results to [mapped.sam]\n";
     std::cerr << "\t-x Only map reads, no base level alignment (produces paf file)\n";
-    std::cerr << "\t-R Rescue level [INT]. Perform additional search for reads with many repetitive seeds filtered out. This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign significantly slower but more accurate. R <= deactivates rescue and is the fastest. \n";
+    std::cerr << "\t-R Rescue level [INT]. Perform additional search for reads with many repetitive seeds filtered out. This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest. \n";
     std::cerr << "\t-s INT syncmer thinning parameter to sample strobes. A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. \n";
     std::cerr << "\t-f FLOAT top fraction of repetitive syncmers to filter out from sampling [0.0002]\n";
 }
@@ -2459,6 +2486,15 @@ int main (int argc, char **argv)
                 std::sort(nams2.begin(), nams2.end(), score);
                 auto nam_sort_finish = std::chrono::high_resolution_clock::now();
                 tot_sort_nams += nam_sort_finish - nam_sort_start;
+
+//                std::cout << record1.name << std::endl;
+//                for (auto &n : nams1){
+//                    std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
+//                }
+//                std::cout << record2.name << std::endl;
+//                for (auto &n : nams2){
+//                    std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
+//                }
 
                 auto extend_start = std::chrono::high_resolution_clock::now();
                 if (!mode) {

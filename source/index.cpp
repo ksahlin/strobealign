@@ -478,7 +478,11 @@ static inline void get_next_strobe(std::vector<uint64_t> &string_hashes, uint64_
 //        uint64_t res = (strobe_hashval + string_hashes[i]) % q;
 
         // Method 3 - seems to give the best tradeoff in speed and accuracy at this point
-        b = (strobe_hashval ^ string_hashes[i]);
+//        b = (strobe_hashval ^ string_hashes[i]);
+//        uint64_t res = b.count();
+
+        // Method 3' skew sample more for prob exact matching
+        b = (strobe_hashval ^ string_hashes[i])  & q;
         uint64_t res = b.count();
 
         // Method by Lidon Gao (other strobemers library) and Giulio Ermanno Pibiri @giulio_pibiri
@@ -534,7 +538,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 
     std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
     uint64_t kmask=(1ULL<<2*k) - 1;
-    uint64_t q = pow (2, 16) - 1;
+    uint64_t q = pow (2, 8) - 1;
 //    std::bitset<64> x(q);
 //    std::cout << x << '\n';
     // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
@@ -629,7 +633,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 
     std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
     uint64_t kmask=(1ULL<<2*k) - 1;
-    uint64_t q = pow (2, 16) - 1;
+    uint64_t q = pow (2, 8) - 1;
 //    std::bitset<64> x(q);
 //    std::cout << x << '\n';
     // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
