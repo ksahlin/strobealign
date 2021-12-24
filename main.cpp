@@ -2024,7 +2024,7 @@ int main (int argc, char **argv)
         s = k - 4; // Update default s to k - 4 if user has not set s parameter
     }
     omp_set_num_threads(n_threads); // set number of threads in "parallel" blocks
-    int w_min = k/(k-s+1)+2;
+    int w_min = k/(k-s+1);
     int w_max = k/(k-s+1) + 10;
     int hit_upper_window_lim = (k-s+1)*w_max;
     float dropoff = 0.5;
