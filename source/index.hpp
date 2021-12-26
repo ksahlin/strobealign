@@ -50,7 +50,7 @@ struct hit {
     int query_e;
     int ref_s;
     int ref_e;
-//    unsigned int hit_count;
+//    int count;
     bool is_rc = false;
 };
 
