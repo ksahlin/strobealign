@@ -221,7 +221,7 @@ static inline bool sort_hits(const hit &a, const hit &b)
     return (a.query_s < b.query_s) || ( (a.query_s == b.query_s) && (a.ref_s < b.ref_s) );
 }
 
-static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_fw, std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_rc, std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int hit_upper_window_lim, unsigned int filter_cutoff ){
+static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_fw, std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_rc, std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int filter_cutoff ){
     std::pair<float,int> info (0,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
     std::tuple<uint64_t, unsigned int> ref_hit;
@@ -490,7 +490,7 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
 
 
 
-static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int hit_upper_window_lim, unsigned int filter_cutoff ){
+static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int filter_cutoff ){
 //    std::cout << "ENTER FIND NAMS " <<  std::endl;
 //    robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref; // [ref_id] -> vector( struct hit)
 //    std::vector<std::vector<hit>> hits_per_ref(10);
@@ -1944,10 +1944,14 @@ void print_usage() {
     std::cerr << "\t-t INT number of threads [3]\n";
     std::cerr << "\t-n INT number of strobes [2]\n";
     std::cerr << "\t-k INT strobe length [22]\n";
-    std::cerr << "\t-o name of output SAM-file to print results to [mapped.sam]\n";
-    std::cerr << "\t-x Only map reads, no base level alignment (produces paf file)\n";
-    std::cerr << "\t-R Rescue level [INT]. Perform additional search for reads with many repetitive seeds filtered out. This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest. \n";
+    std::cerr << "\t-l INT Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]\n";
+    std::cerr << "\t-u INT Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [10]\n";
+    std::cerr << "\t-c INT [8-64] Bitcount length [8]\n";
+    std::cerr << "\t-r INT in 100,150,200,250,300. Rough read length. Alias for setting suitable parameters for -k, -l, -u and -q. [150] \n";
+    std::cerr << "\t-R INT Rescue level  Perform additional search for reads with many repetitive seeds filtered out. This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest. \n";
     std::cerr << "\t-s INT syncmer thinning parameter to sample strobes. A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. \n";
+    std::cerr << "\t-o STR name of output SAM-file to print results to [mapped.sam]\n";
+    std::cerr << "\t-x Only map reads, no base level alignment (produces paf file)\n";
     std::cerr << "\t-f FLOAT top fraction of repetitive syncmers to filter out from sampling [0.0002]\n";
 }
 
@@ -1970,6 +1974,10 @@ int main (int argc, char **argv)
     int s = k - 4;
     float f = 0.0002;
     int R = 2;
+    int l = 0;
+    int u = 10;
+    int c = 16;
+    int r = 150;
     std::string output_file_name = "mapped.sam";
     bool s_set = false;
 
@@ -2010,6 +2018,22 @@ int main (int argc, char **argv)
                 R = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
+            } else if (argv[opn][1] == 'l') {
+                l = std::stoi(argv[opn + 1]);
+                opn += 2;
+                flag = true;
+            } else if (argv[opn][1] == 'u') {
+                u = std::stoi(argv[opn + 1]);
+                opn += 2;
+                flag = true;
+            } else if (argv[opn][1] == 'c') {
+                c = std::stoi(argv[opn + 1]);
+                opn += 2;
+                flag = true;
+            } else if (argv[opn][1] == 'r') {
+                r = std::stoi(argv[opn + 1]);
+                opn += 2;
+                flag = true;
             }
 
             else {
@@ -2020,24 +2044,52 @@ int main (int argc, char **argv)
             break;
     }
 
+
+
+    if (r == 100){
+        k = 20;
+        l = -3;
+        u = 3;
+    } else if (r == 150) {
+        k = 20;
+        l = 0;
+        u = 7;
+    } else if ( (r == 200) || (r == 250) ){
+        k = 22;
+        l = 2;
+        u = 10;
+    } else if (r == 300) {
+        k = 23;
+        l = 2;
+        u = 10;
+    } else {
+        std::cout << "Warning wrong value for parameter r (only 100, 150, 200, 250, and 300 allowed), setting r=150" << std::endl;
+    }
+
     if ( (!s_set ) ){
         s = k - 4; // Update default s to k - 4 if user has not set s parameter
     }
+    uint64_t q;
+    if ( (c <= 64) && (c > 0)){
+        q = pow (2, c) - 1;
+    } else{
+        std::cout << "Warning wrong value for parameter c, setting c=8" << std::endl;
+        q = pow (2, c) - 1;
+    }
     omp_set_num_threads(n_threads); // set number of threads in "parallel" blocks
-    int w_min = k/(k-s+1);
-    int w_max = k/(k-s+1) + 10;
-    int hit_upper_window_lim = (k-s+1)*w_max;
+    int w_min = k/(k-s+1) + l;
+    int w_max = k/(k-s+1) + u;
     float dropoff = 0.5;
     int t_syncmer = (k-s)/2 + 1;
     std::cout << "Using" << std::endl;
     std::cout << "n: " << n << std::endl;
     std::cout << "k: " << k << std::endl;
     std::cout << "s: " << s << std::endl;
-    std::cout << "t: " << n_threads << std::endl;
-    std::cout << "R: " << R << std::endl;
     std::cout << "w_min: " << w_min << std::endl;
     std::cout << "w_max: " << w_max << std::endl;
-    std::cout << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (under random minimizer sampling): [" << (k-s+1)*w_min << ", " << hit_upper_window_lim << "]" << std::endl;
+    std::cout << "t: " << n_threads << std::endl;
+    std::cout << "R: " << R << std::endl;
+    std::cout << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (under random minimizer sampling): [" << (k-s+1)*w_min << ", " << (k-s+1)*w_max << "]" << std::endl;
 
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
     assert(k > 7 && "You should really not use too small strobe size!");
@@ -2152,7 +2204,7 @@ int main (int argc, char **argv)
     for(size_t i = 0; i < ref_seqs.size(); ++i)
     {
         mers_vector randstrobes2; // pos, chr_id, kmer hash value
-        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t_syncmer);
+        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t_syncmer, q);
         for (auto &t : randstrobes2)
         {
             flat_vector.push_back(t);
@@ -2297,7 +2349,7 @@ int main (int argc, char **argv)
                 auto record = records[i];
                 // generate mers here
                 auto strobe_start = std::chrono::high_resolution_clock::now();
-                query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, record.seq, q_id, s, t_syncmer);
+                query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, record.seq, q_id, s, t_syncmer, q);
                 auto strobe_finish = std::chrono::high_resolution_clock::now();
                 tot_construct_strobemers += strobe_finish - strobe_start;
 
@@ -2312,7 +2364,7 @@ int main (int argc, char **argv)
                 // Find NAMs
 //                std::cout << "mapping " << record.name << std::endl;
                 auto nam_start = std::chrono::high_resolution_clock::now();
-                info = find_nams(nams, hits_per_ref, query_mers, flat_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim, filter_cutoff);
+                info = find_nams(nams, hits_per_ref, query_mers, flat_vector, mers_index, k, ref_seqs, record.seq, filter_cutoff);
                 hits_per_ref.clear();
                 auto nam_finish = std::chrono::high_resolution_clock::now();
                 tot_find_nams += nam_finish - nam_start;
@@ -2324,7 +2376,7 @@ int main (int argc, char **argv)
                         nams.clear();
 //                    std::cout << "Rescue mode: " << record.name <<  std::endl;
                         info = find_nams_rescue(hits_fw, hits_rc, nams, hits_per_ref, query_mers, flat_vector, mers_index, k, ref_seqs,
-                                                record.seq, hit_upper_window_lim, rescue_cutoff);
+                                                record.seq, rescue_cutoff);
                         hits_per_ref.clear();
                         hits_fw.clear();
                         hits_rc.clear();
@@ -2422,8 +2474,8 @@ int main (int argc, char **argv)
                 auto record2 = records2[i];
                 // generate mers here
                 auto strobe_start = std::chrono::high_resolution_clock::now();
-                query_mers1 = seq_to_randstrobes2_read(n, k, w_min, w_max, record1.seq, q_id, s, t_syncmer);
-                query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer);
+                query_mers1 = seq_to_randstrobes2_read(n, k, w_min, w_max, record1.seq, q_id, s, t_syncmer, q);
+                query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer, q);
                 auto strobe_finish = std::chrono::high_resolution_clock::now();
                 tot_construct_strobemers += strobe_finish - strobe_start;
 //                std::cout << record1.name << " " << query_mers1.size() << std::endl;
@@ -2431,9 +2483,9 @@ int main (int argc, char **argv)
 
                 // Find NAMs
                 auto nam_start = std::chrono::high_resolution_clock::now();
-                info1 = find_nams(nams1, hits_per_ref, query_mers1, flat_vector, mers_index, k, ref_seqs, record1.seq, hit_upper_window_lim, filter_cutoff);
+                info1 = find_nams(nams1, hits_per_ref, query_mers1, flat_vector, mers_index, k, ref_seqs, record1.seq, filter_cutoff);
                 hits_per_ref.clear();
-                info2 = find_nams(nams2, hits_per_ref, query_mers2, flat_vector, mers_index, k, ref_seqs, record2.seq, hit_upper_window_lim, filter_cutoff);
+                info2 = find_nams(nams2, hits_per_ref, query_mers2, flat_vector, mers_index, k, ref_seqs, record2.seq, filter_cutoff);
                 hits_per_ref.clear();
                 auto nam_finish = std::chrono::high_resolution_clock::now();
                 tot_find_nams += nam_finish - nam_start;
@@ -2456,7 +2508,7 @@ int main (int argc, char **argv)
                         nams1.clear();
 //                        std::cout << "Rescue mode read 1: " << record1.name << info1.first <<  std::endl;
                         info1 = find_nams_rescue(hits_fw, hits_rc, nams1, hits_per_ref, query_mers1, flat_vector, mers_index, k, ref_seqs,
-                                                 record1.seq, hit_upper_window_lim, rescue_cutoff);
+                                                 record1.seq, rescue_cutoff);
                         hits_per_ref.clear();
                         hits_fw.clear();
                         hits_rc.clear();
@@ -2468,7 +2520,7 @@ int main (int argc, char **argv)
                         nams2.clear();
 //                        std::cout << "Rescue mode read 2: " << record2.name << info2.first <<  std::endl;
                         info2 = find_nams_rescue(hits_fw, hits_rc, nams2, hits_per_ref, query_mers2, flat_vector, mers_index, k, ref_seqs,
-                                                 record2.seq, hit_upper_window_lim, rescue_cutoff);
+                                                 record2.seq, rescue_cutoff);
                         hits_per_ref.clear();
                         hits_fw.clear();
                         hits_rc.clear();

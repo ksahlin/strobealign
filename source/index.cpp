@@ -495,6 +495,8 @@ static inline void get_next_strobe(std::vector<uint64_t> &string_hashes, uint64_
             strobe_hashval_next = string_hashes[i];
         }
     }
+//    std::cout << "Offset: " <<  strobe_pos_next - w_start << " val: " << min_val <<  ", P exact:" <<  1.0 - pow ( (float) (8-min_val)/9, strobe_pos_next - w_start) << std::endl;
+
 }
 
 //mers_vector seq_to_kmers(int k, std::string &seq, unsigned int ref_index)
@@ -528,7 +530,7 @@ static inline void get_next_strobe(std::vector<uint64_t> &string_hashes, uint64_
 //    return  kmers;
 //}
 
-mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int s, int t)
+mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int s, int t, uint64_t q)
 {
     mers_vector randstrobes2;
 
@@ -538,7 +540,6 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 
     std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
     uint64_t kmask=(1ULL<<2*k) - 1;
-    uint64_t q = pow (2, 8) - 1;
 //    std::bitset<64> x(q);
 //    std::cout << x << '\n';
     // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
@@ -598,6 +599,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
+//        std::cout <<  "Seed length: " << seq_pos_strobe2 + k - seq_pos_strobe1 << std::endl;
         std::tuple<uint64_t, unsigned int, unsigned int, unsigned int> s (hash_randstrobe2, ref_index, seq_pos_strobe1, seq_pos_strobe2);
         randstrobes2.push_back(s);
 //        std::cout << seq_pos_strobe1 << " " << seq_pos_strobe2 << std::endl;
@@ -619,7 +621,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
     return randstrobes2;
 }
 
-mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int s, int t)
+mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int s, int t, uint64_t q)
 {
     // this function differs from  the function seq_to_randstrobes2 which creating randstrobes for the reference.
     // The seq_to_randstrobes2 stores randstobes only in one direction from canonical syncmers.
@@ -633,7 +635,6 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 
     std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
     uint64_t kmask=(1ULL<<2*k) - 1;
-    uint64_t q = pow (2, 8) - 1;
 //    std::bitset<64> x(q);
 //    std::cout << x << '\n';
     // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
