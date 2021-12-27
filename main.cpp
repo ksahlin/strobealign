@@ -1430,13 +1430,13 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
 //            std::cout << "Scoring" << std::endl;
     for (auto &n1 : all_nams1) {
         for (auto &n2 : all_nams2) {
-            if ((n1.score + n2.score) < hjss/2){
+            if ((n1.n_hits + n2.n_hits) < hjss/2){
                 break;
             }
             x = n1.ref_s > n2.ref_s ? (float) (n1.ref_s - n2.ref_s) : (float)(n2.ref_s - n1.ref_s);
 //                    std::cout << x << " " << (n1.ref_s - n2.ref_s) << " " << (n2.ref_s - n1.ref_s) << std::endl;
             if ( (n1.is_rc ^ n2.is_rc) && (x < mu+10*sigma) && (n1.ref_id == n2.ref_id) ){
-                joint_hits = n1.score + n2.score; // n1.n_hits + n2.n_hits;
+                joint_hits = n1.n_hits + n2.n_hits;
 
 //                        std::cout << S << " " << x << " " << log(normal_pdf(x, mu, sigma )) << " " << normal_pdf(x, mu, sigma ) << std::endl;
                 std::tuple<int, nam, nam> t (joint_hits, n1, n2);
@@ -1455,16 +1455,16 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
 //    }
 
     if ( !all_nams1.empty() ){
-        int hjss1 = hjss > 0 ? hjss : all_nams1[0].score;
+        int hjss1 = hjss > 0 ? hjss : all_nams1[0].n_hits;
     //    int hjss1 = all_nams1[0].n_hits;
         for (auto &n1 : all_nams1) {
-            if (n1.score  < hjss1/2){
+            if (n1.n_hits  < hjss1/2){
                 break;
             }
             if (added_n1.find(n1.ref_s) != added_n1.end()){
                 continue;
             }
-            joint_hits = n1.score;
+            joint_hits = n1.n_hits;
     //                        std::cout << S << " individual score " << x << " " << std::endl;
             std::tuple<int, nam, nam> t (joint_hits, n1, n);
             joint_NAM_scores.push_back(t);
@@ -1472,16 +1472,16 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
     }
 
     if ( !all_nams2.empty() ){
-        int hjss2 = hjss  > 0 ? hjss : all_nams2[0].score;
+        int hjss2 = hjss  > 0 ? hjss : all_nams2[0].n_hits;
     //    int hjss2 = all_nams2[0].n_hits;
         for (auto &n2 : all_nams2) {
-            if (n2.score  < hjss2/2){
+            if (n2.n_hits  < hjss2/2){
                 break;
             }
             if (added_n2.find(n2.ref_s) != added_n2.end()){
                 continue;
             }
-            joint_hits = n2.score;
+            joint_hits = n2.n_hits;
     //                        std::cout << S << " individual score " << x << " " << std::endl;
             std::tuple<int, nam, nam> t (joint_hits, n, n2);
             joint_NAM_scores.push_back(t);
@@ -1940,7 +1940,7 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.1 (hjss fix)\n";
+    std::cerr << "StrobeAlign VERSION 0.1 (major update in params)\n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
