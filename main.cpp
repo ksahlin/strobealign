@@ -483,7 +483,7 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
     }
 
 //    for (auto &n : final_nams){
-//        std::cout << "NAM: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
+//        std::cout << "RESCUE NAM: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << " " <<  n.is_rc << std::endl;
 //    }
     info.second = max_nam_n_hits;
     return info;
@@ -550,7 +550,10 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //                    hits_per_ref[ref_id].push_back(h);
 
 //                    h.hit_count = count;
-//                    std::cout << "Found: " <<  h.query_s << " " << h.query_e << " ref: " <<  h.ref_s << " " << h.ref_e << " " << h.is_rc << std::endl;
+//                    if (count > 1){
+//                        int diff = (h.query_e - h.query_s) - (h.ref_e - h.ref_s);
+//                        std::cout << "Found: " <<  h.query_s << " " << h.query_e << " ref: " <<  h.ref_s << " " << h.ref_e << " " << h.is_rc << " diff " << diff << std::endl;
+//                    }
 //                    hit_count_all ++;
 
                 }
@@ -683,7 +686,8 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
     }
     info.second = max_nam_n_hits;
 //    for (auto &n : final_nams){
-//        std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
+//        int diff = (n.query_e - n.query_s) - (n.ref_e - n.ref_s);
+//        std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << " diff: " << diff << std::endl;
 //    }
     return info;
 
@@ -854,6 +858,7 @@ inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen
     for (int i = 0; i < ez.n_cigar; i++) {
         int count = ez.cigar[i] >> 4;
         char op = "MID"[ez.cigar[i] & 0xf];
+//        std::cout << "count: " << count << " op:" << op << std::endl;
         if ( (i==0) && op == 'D'){
             ref_pos += count;
             tstart_offset = ref_pos;
@@ -871,19 +876,19 @@ inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen
                 for (int j = 0; j < count; j++, ref_pos++, read_pos++) {
                     if (tseq[ref_pos] != qseq[read_pos]) {
                         edit_distance++;
-                        sw_score -= 4;
+                        sw_score -= -b;
                     } else{
-                        sw_score ++;
+                        sw_score += sc_mch;
                     }
                 }
                 break;
             case 'D':edit_distance += count;
                 ref_pos += count;
-                sw_score -= (6 + (count-1));
+                sw_score -= (gapo + (count-1));
                 break;
             case 'I':edit_distance += count;
                 read_pos += count;
-                sw_score -= (6 + (count-1));
+                sw_score -= (gapo + (count-1));
                 break;
             default:assert(0);
         }
@@ -1428,25 +1433,44 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
     n.ref_s = -1;
     int hjss = 0; // highest joint score seen
 //            std::cout << "Scoring" << std::endl;
+    int a,b;
     for (auto &n1 : all_nams1) {
         for (auto &n2 : all_nams2) {
             if ((n1.n_hits + n2.n_hits) < hjss/2){
                 break;
             }
-            x = n1.ref_s > n2.ref_s ? (float) (n1.ref_s - n2.ref_s) : (float)(n2.ref_s - n1.ref_s);
-//                    std::cout << x << " " << (n1.ref_s - n2.ref_s) << " " << (n2.ref_s - n1.ref_s) << std::endl;
-            if ( (n1.is_rc ^ n2.is_rc) && (x < mu+10*sigma) && (n1.ref_id == n2.ref_id) ){
-                joint_hits = n1.n_hits + n2.n_hits;
 
-//                        std::cout << S << " " << x << " " << log(normal_pdf(x, mu, sigma )) << " " << normal_pdf(x, mu, sigma ) << std::endl;
-                std::tuple<int, nam, nam> t (joint_hits, n1, n2);
-                joint_NAM_scores.push_back(t);
-                added_n1.insert(n1.ref_s);
-                added_n2.insert(n2.ref_s);
-                if (joint_hits > hjss) {
-                    hjss = joint_hits;
+            if ( (n1.is_rc ^ n2.is_rc) && (n1.ref_id == n2.ref_id) ){
+                a = n1.ref_s - n1.query_s  > 0 ? n1.ref_s - n1.query_s : 0;
+                b = n2.ref_s - n2.query_s  > 0 ? n2.ref_s - n2.query_s : 0;
+                bool r1_r2 = n2.is_rc && (a < b) && ((b-a) < mu+10*sigma); // r1 ---> <---- r2
+                bool r2_r1 = n1.is_rc && (b < a) && ((a-b) < mu+10*sigma); // r2 ---> <---- r1
+                if ( r1_r2 || r2_r1 ){
+                    joint_hits = n1.n_hits + n2.n_hits;
+                    std::tuple<int, nam, nam> t (joint_hits, n1, n2);
+                    joint_NAM_scores.push_back(t);
+                    added_n1.insert(n1.ref_s);
+                    added_n2.insert(n2.ref_s);
+                    if (joint_hits > hjss) {
+                        hjss = joint_hits;
+                    }
                 }
             }
+
+//            x = n1.ref_s > n2.ref_s ? (float) (n1.ref_s - n2.ref_s) : (float)(n2.ref_s - n1.ref_s);
+////                    std::cout << x << " " << (n1.ref_s - n2.ref_s) << " " << (n2.ref_s - n1.ref_s) << std::endl;
+//            if ( (n1.is_rc ^ n2.is_rc) && (x < mu+10*sigma) && (n1.ref_id == n2.ref_id) ){
+//                joint_hits = n1.n_hits + n2.n_hits;
+//
+////                        std::cout << S << " " << x << " " << log(normal_pdf(x, mu, sigma )) << " " << normal_pdf(x, mu, sigma ) << std::endl;
+//                std::tuple<int, nam, nam> t (joint_hits, n1, n2);
+//                joint_NAM_scores.push_back(t);
+//                added_n1.insert(n1.ref_s);
+//                added_n2.insert(n2.ref_s);
+//                if (joint_hits > hjss) {
+//                    hjss = joint_hits;
+//                }
+//            }
         }
     }
 //    std::cout << "ADDED " << added_n1.size() << " " <<  added_n2.size() << std::endl;
@@ -1509,7 +1533,7 @@ static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, s
     if (n.is_rc){
         r_tmp = read;
         a = n.ref_s - n.query_s - (mu+5*sigma);
-        b = n.ref_s + read_len;
+        b = n.ref_s - n.query_s + read_len/2; // at most half read overlap
         a_is_rc = false;
     }else{
         if (!rc_already_comp){
@@ -1517,12 +1541,13 @@ static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, s
             rc_already_comp = true;
         }
         r_tmp = read_rc; // mate is rc since fr orientation
-        a = (n.ref_s - n.query_s);
+        a = n.ref_e + (read_len - n.query_e) - read_len/2; // at most half read overlap
         b = n.ref_e + (read_len - n.query_e) + (mu+5*sigma);
         a_is_rc = true;
     }
-    ref_start = std::max(0, a);
+//    std::cout << "Aligning at: " << a << " to " << b << std::endl;
     ref_len = ref_len_map[n.ref_id];
+    ref_start = std::max(0, std::min(a,ref_len));
     ref_end = std::min(ref_len, b);
     std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
     ksw_extz_t ez;
