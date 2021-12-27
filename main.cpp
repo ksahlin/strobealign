@@ -18,6 +18,7 @@ using namespace klibpp;
 #include "source/index.hpp"
 //#include "gap_affine/affine_wavefront_align.h"
 #include "source/ksw2.h"
+#include "source/ssw_cpp.h"
 
 //develop
 #include <chrono>
@@ -838,6 +839,43 @@ static inline std::string reverse_complement(std::string &read) {
 //}
 
 
+inline aln_info ssw_align(std::string &ref, std::string &query, int read_len) {
+
+    aln_info aln;
+//    const std::string ref   = "AGTATCTGGAACTGGACTTTTGGAGCGCTTTCAGGGATAAGGTGAAAAAGGAAATATCTTCCCATAAAAACTGGACAGAAGCATTCTCAGAAACTTATTTGAGATGTGTGTACTCAACTAAGAGAATTGAACCACCGTTTTGAAGGAGCAGTTTTGAAACTCTCTTTTTCTGGAATCTGCAAGTGGATATTTGGCTAGCTTTGGGGATTTCGCTGGAAGCGGGAATACATATAAAAAGCACACAGCAGCGTTCTGAGAAACTGCTTTCTGATGTTTGCATTCAAGTCAAAAGTTGAACACTCCCTTTCATAGAGCAGTCTTGAAACACCCCTTTTGTAGTATCTGGAACTGGACTTTTGGAGCGATTTCAGGGCTAAGGTGAAAAAGGAAATATCTTCCCATAAAAACTGGACAGAAGCATTCTCAGAAACTTGGTTATGCTGTATCTACTCAACTAACAAAGTTGAACCTTTCTTTTGATAGAGCAGTTTTGAAATGGTCTTTTTGTGGAATCTGCAAGTGGATATTTGGCTAGTTTTGAGGATTTCGTTGGAAGCGGGAATTCATACAAATTGCAGACTGCAGCGTTCTGAGAAACATCTTTGTGATGTTTGTATTCAGGACAGAGAGTTGAACATTCCCTATCATAGAGCAGGTTGGAATCACTCCTTTTGTAGTATCTGGAAGTGGACATTTGGAGCGCTTTCAGGCCTATTTTGGAAAGGGAAATATCTTCCCGTAACAACTATGCAGAAGCATTCTCAGAAACTTGTTTGTGATGTGTGCCCTCTACTGACAGAGTTGAACCTTTCTTTTCATAGAGCAGTTTTGAAACACTCTTTTTGTAGAA";
+//    const std::string query = "CGGGAATACATATAAAAAGCACACAGCAGCGTTCTGAGAAACTGCTTTCTGATGTTTGCATTAAAGTCAAAAGTTGAACACTCCCTTTCATAGAGCAGTC";
+    int32_t maskLen = strlen(query.c_str())/2;
+    maskLen = maskLen < 15 ? 15 : maskLen;
+
+    // Declares a default Aligner
+    StripedSmithWaterman::Aligner aligner;
+    // Declares a default filter
+    StripedSmithWaterman::Filter filter;
+    // Declares an alignment that stores the result
+    StripedSmithWaterman::Alignment alignment;
+    // Aligns the query to the ref
+    aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment, maskLen);
+
+//    cout << "===== SSW result =====" << endl;
+//    cout << "Best Smith-Waterman score:\t" << alignment.sw_score << endl
+//         << "Next-best Smith-Waterman score:\t" << alignment.sw_score_next_best << endl
+//         << "Reference start:\t" << alignment.ref_begin << endl
+//         << "Reference end:\t" << alignment.ref_end << endl
+//         << "Query start:\t" << alignment.query_begin << endl
+//         << "Query end:\t" << alignment.query_end << endl
+//         << "Next-best reference end:\t" << alignment.ref_end_next_best << endl
+//         << "Number of mismatches:\t" << alignment.mismatches << endl
+//         << "Cigar: " << alignment.cigar_string << endl;
+
+    // TODO: Fix cigarstring to use M instead of =/X
+    aln.ed = alignment.mismatches;
+    aln.ref_offset = alignment.ref_begin;
+    aln.cigar = alignment.cigar_string;
+    aln.sw_score = read_len - 4*alignment.mismatches; //approximate for ssw until i implement a cigar parser
+    return aln;
+}
+
+
 inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen,
                int sc_mch, int sc_mis, int gapo, int gape, ksw_extz_t &ez) {
     int8_t a = sc_mch, b = sc_mis < 0 ? sc_mis : -sc_mis; // a>0 and b<0
@@ -845,7 +883,7 @@ inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen
     const uint8_t *ts = reinterpret_cast<const uint8_t *>(tseq);
     const uint8_t *qs = reinterpret_cast<const uint8_t *>(qseq);
     memset(&ez, 0, sizeof(ksw_extz_t));
-    ksw_extz2_sse(0, qlen, qs, tlen, ts, 5, mat, gapo, gape, -1, -1, 1000, KSW_EZ_EXTZ_ONLY, &ez);
+    ksw_extz2_sse(0, qlen, qs, tlen, ts, 5, mat, gapo, gape, -1, -1, 10000, KSW_EZ_EXTZ_ONLY, &ez);
 
     aln_info aln;
 //    std::string cigar_mod;
@@ -1545,7 +1583,7 @@ static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, s
         b = n.ref_e + (read_len - n.query_e) + (mu+5*sigma);
         a_is_rc = true;
     }
-//    std::cout << "Aligning at: " << a << " to " << b << std::endl;
+
     ref_len = ref_len_map[n.ref_id];
     ref_start = std::max(0, std::min(a,ref_len));
     ref_end = std::min(ref_len, b);
@@ -1554,7 +1592,14 @@ static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, s
     const char *ref_ptr = ref_segm.c_str();
     const char *read_ptr = r_tmp.c_str();
     aln_info info;
-    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
+    info = ssw_align(ref_segm, r_tmp, read_len);
+//    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
+
+//    std::cout << "Aligning at: " << ref_start << " to " << ref_end << std::endl;
+//    std::cout << "read: " << r_tmp << std::endl;
+//    std::cout << "ref: " << ref_segm << std::endl;
+//    std::cout << "Cigar: " << info.cigar << std::endl;
+
     sam_aln.cigar = info.cigar;
     sam_aln.ed = info.ed;
     sam_aln.sw_score = info.sw_score;
