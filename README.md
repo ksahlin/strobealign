@@ -1,26 +1,13 @@
 StrobeAlign
 ==============
 
-Strobealign is a single or paired-end short-read aligner using syncmer-thinned strobemers. Strobealign is multithreaded and implements both alignment (SAM) and mapping (PAF). It is 12-15 times faster than BWA and Bowtie2 with similar accuracy for single-end reads, and about 10 times faster with a loss of 0.1-0.2% accuracy for paired-end reads. See experimentins in [preprint](https://doi.org/10.1101/2021.06.18.449070).
-
-The default parameter setting is tailored for Illumina single or paired-end reads of lengths about 150-500nt. 
-
-Strobealign is currently not recommended for reads shorter than 150nt as a lower value for parameter `-k` is needed (e.g. 15-17) and extensive testing in this setting remains to be done. 
-
-Strobealign is also currently not recommended for long reads (>500nt) as significant implementation changes is needed to keep its relative speed. For long reads we need a different extention algorithm (chaining of seeds instead of the current approach described in the [preprint](https://doi.org/10.1101/2021.06.18.449070)) and split-mapping funcitionality.
+Strobealign is a single or paired-end short-read aligner using syncmer-thinned strobemers. Strobealign is multithreaded and implements both alignment (SAM) and mapping (PAF). It is very fast, see experiments for single-end and paired-end alignment in the [preprint](https://doi.org/10.1101/2021.06.18.449070). Strobealign is not recommended for very short reads (roughly <=80nt).
 
 
 INSTALLATION
 ----------------
 
-You can acquire precompiled binaries for Linux and Mac OSx from [here](https://github.com/ksahlin/StrobeAlign/tree/main/bin). For example, for linux, simply do
-
-```
-wget https://github.com/ksahlin/StrobeAlign/tree/main/bin/Linux/StrobeAlign-v0.0.3.1
-mv StrobeAlign-v0.0.3.1 strobealign  # rename to strobealign
-chmod +x strobealign # make executable
-./strobealign  # test program
-```
+You can acquire precompiled binaries for Linux and Mac OSx from the [release page](https://github.com/ksahlin/StrobeAlign/releases).
 
 If you want to compile from the source, you need to have a newer `g++` and [zlib](https://zlib.net/) installed. Then do the following:
 
@@ -52,16 +39,18 @@ g++ -std=c++14 -I/path/to/zlib/include -L/path/to/zlib/lib main.cpp source/index
 USAGE
 -------
 
+Strobealign v0.1 and up comes with a parameter `-r read_length [100, 150, 200, 250, 300]` that sets suitable parameters for the given rough read length estimate. Specifically, it sets parameters `-k`, `-l` and `-u`. Valid values of `-r` currently are 100, 150, 200, 250, and 300. If not specified, it defaults to 150. The value of `r` does not have to match the exact read length.
+
 For alignment to SAM file:
 
 ```
-StrobeAlign [-k 22 -s 18 -f 0.0002] -o <output.sam> ref.fa reads.fa 
+StrobeAlign -r <read_length> -o <output.sam> ref.fa reads.fa 
 ```
 
 For mapping to PAF file (option -x):
 
 ```
-StrobeAlign [-k 22 -s 18 -f 0.0002] -x -o <output.sam> ref.fa reads.fa 
+StrobeAlign -r <read_length> -x -o <output.sam> ref.fa reads.fa 
 ```
 
 TODO
@@ -77,6 +66,10 @@ Kristoffer Sahlin. Faster short-read mapping with strobemer seeds in syncmer spa
 
 VERSION INFO
 ---------------
+
+### Version 0.1
+
+Major update to algorithm. See release page.
 
 ### Version 0.0.3.2
 
