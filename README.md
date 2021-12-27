@@ -28,7 +28,7 @@ If you want to compile from the source, you need to have a newer `g++` and [zlib
 git clone https://github.com/ksahlin/StrobeAlign
 cd StrobeAlign
 # Needs a newer g++ version. Tested with version 8 and upwards.
-g++ -std=c++14 main.cpp source/index.cpp source/ksw2_extz2_sse.c -lz -fopenmp -o StrobeAlign -O3 -mavx2
+g++ -std=c++14 main.cpp source/index.cpp source/xxhash.c source/ksw2_extz2_sse.c -lz -fopenmp -o StrobeAlign -O3 -mavx2
 ```
 
 ## Common installation from source errors
@@ -45,7 +45,7 @@ compilation terminated.
 add `-I/path/to/zlib/include -L/path/to/zlib/lib` to the compilation, that is
 
 ```
-g++ -std=c++14 -I/path/to/zlib/include -L/path/to/zlib/lib main.cpp source/index.cpp source/ksw2_extz2_sse.c -lz -fopenmp -o StrobeAlign -O3 -mavx2
+g++ -std=c++14 -I/path/to/zlib/include -L/path/to/zlib/lib main.cpp source/index.cpp source/xxhash.c source/ksw2_extz2_sse.c -lz -fopenmp -o StrobeAlign -O3 -mavx2
 ``` 
 
 
