@@ -39,7 +39,7 @@ g++ -std=c++14 -I/path/to/zlib/include -L/path/to/zlib/lib main.cpp source/index
 USAGE
 -------
 
-Strobealign v0.1 and up comes with a parameter `-r read_length [100, 150, 200, 250, 300]` that sets suitable parameters for the given rough read length estimate. Specifically, it sets parameters `-k`, `-l` and `-u`. Valid values of `-r` currently are 100, 150, 200, 250, and 300. If not specified, it defaults to 150. The value of `r` does not have to match the exact read length.
+Strobealign v0.1 and up comes with a parameter `-r read_length [100, 150, 200, 250, 300]` that sets suitable seed parameters for the rough read length. Specifically, it sets parameters `-k`, `-l` and `-u`. Valid values of `-r` currently are 100, 150, 200, 250, and 300. If not specified, it defaults to 150. The value of `r` does not have to match the exact read length.
 
 For alignment to SAM file:
 
