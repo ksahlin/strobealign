@@ -1,7 +1,7 @@
 StrobeAlign
 ==============
 
-Strobealign is a single or paired-end short-read aligner using syncmer-thinned strobemers. Strobealign is multithreaded and implements both alignment (SAM) and mapping (PAF). It is very fast, see experiments for single-end and paired-end alignment in the [preprint](https://doi.org/10.1101/2021.06.18.449070). Strobealign is not recommended for very short reads (roughly <=80nt).
+Strobealign is a single or paired-end short-read aligner using syncmer-thinned strobemers. Strobealign is multithreaded and implements both alignment (SAM) and mapping (PAF). Strobealign's main feature is its speed, see experiments for single-end and paired-end alignment in the [preprint](https://doi.org/10.1101/2021.06.18.449070). Strobealign is not recommended for very short reads (roughly <=80nt).
 
 
 INSTALLATION
