@@ -854,7 +854,15 @@ inline aln_info ssw_align(std::string &ref, std::string &query, int read_len) {
     // Declares an alignment that stores the result
     StripedSmithWaterman::Alignment alignment;
     // Aligns the query to the ref
-    aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment, maskLen);
+    bool passed;
+    passed = aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment, maskLen);
+//    std::cout << passed << std::endl;
+    if(!passed){
+        std::cout << "Failed" << std::endl;
+        std::cout << "read: " << query << std::endl;
+        std::cout << "ref: "  << ref << std::endl;
+    }
+
 
 //    cout << "===== SSW result =====" << endl;
 //    cout << "Best Smith-Waterman score:\t" << alignment.sw_score << endl
@@ -2551,8 +2559,8 @@ int main (int argc, char **argv)
                 query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer, q);
                 auto strobe_finish = std::chrono::high_resolution_clock::now();
                 tot_construct_strobemers += strobe_finish - strobe_start;
-//                std::cout << record1.name << " " << query_mers1.size() << std::endl;
-//                std::cout << record2.name << " " << query_mers2.size() << std::endl;
+                std::cout << record1.name << " " << query_mers1.size() << std::endl;
+                std::cout << record2.name << " " << query_mers2.size() << std::endl;
 
                 // Find NAMs
                 auto nam_start = std::chrono::high_resolution_clock::now();
