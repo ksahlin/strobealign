@@ -839,29 +839,37 @@ static inline std::string reverse_complement(std::string &read) {
 //}
 
 
-inline aln_info ssw_align(std::string &ref, std::string &query, int read_len) {
+inline aln_info ssw_align(std::string &ref, std::string &query, int read_len, int match_score, int mismatch_penalty, int gap_opening_penalty, int gap_extending_penalty) {
 
     aln_info aln;
 //    const std::string ref   = "AGTATCTGGAACTGGACTTTTGGAGCGCTTTCAGGGATAAGGTGAAAAAGGAAATATCTTCCCATAAAAACTGGACAGAAGCATTCTCAGAAACTTATTTGAGATGTGTGTACTCAACTAAGAGAATTGAACCACCGTTTTGAAGGAGCAGTTTTGAAACTCTCTTTTTCTGGAATCTGCAAGTGGATATTTGGCTAGCTTTGGGGATTTCGCTGGAAGCGGGAATACATATAAAAAGCACACAGCAGCGTTCTGAGAAACTGCTTTCTGATGTTTGCATTCAAGTCAAAAGTTGAACACTCCCTTTCATAGAGCAGTCTTGAAACACCCCTTTTGTAGTATCTGGAACTGGACTTTTGGAGCGATTTCAGGGCTAAGGTGAAAAAGGAAATATCTTCCCATAAAAACTGGACAGAAGCATTCTCAGAAACTTGGTTATGCTGTATCTACTCAACTAACAAAGTTGAACCTTTCTTTTGATAGAGCAGTTTTGAAATGGTCTTTTTGTGGAATCTGCAAGTGGATATTTGGCTAGTTTTGAGGATTTCGTTGGAAGCGGGAATTCATACAAATTGCAGACTGCAGCGTTCTGAGAAACATCTTTGTGATGTTTGTATTCAGGACAGAGAGTTGAACATTCCCTATCATAGAGCAGGTTGGAATCACTCCTTTTGTAGTATCTGGAAGTGGACATTTGGAGCGCTTTCAGGCCTATTTTGGAAAGGGAAATATCTTCCCGTAACAACTATGCAGAAGCATTCTCAGAAACTTGTTTGTGATGTGTGCCCTCTACTGACAGAGTTGAACCTTTCTTTTCATAGAGCAGTTTTGAAACACTCTTTTTGTAGAA";
 //    const std::string query = "CGGGAATACATATAAAAAGCACACAGCAGCGTTCTGAGAAACTGCTTTCTGATGTTTGCATTAAAGTCAAAAGTTGAACACTCCCTTTCATAGAGCAGTC";
     int32_t maskLen = strlen(query.c_str())/2;
     maskLen = maskLen < 15 ? 15 : maskLen;
-
-    // Declares a default Aligner
-    StripedSmithWaterman::Aligner aligner;
+//    int match_score = 1;
+//    int mismatch_penalty = 4;
+//    int gap_opening_penalty = 6;
+//    int gap_extending_penalty = 1;
+    // Declares Aligner
+    StripedSmithWaterman::Aligner aligner(match_score, mismatch_penalty, gap_opening_penalty, gap_extending_penalty);
+//    StripedSmithWaterman::Aligner aligner;
     // Declares a default filter
     StripedSmithWaterman::Filter filter;
     // Declares an alignment that stores the result
     StripedSmithWaterman::Alignment alignment;
     // Aligns the query to the ref
-    bool passed;
-    passed = aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment, maskLen);
+//    bool passed;
+//    std::cout << "I'm here!" << std::endl;
+//    std::cout << "read: " << query << std::endl;
+//    std::cout << "ref: "  << ref << std::endl;
+//    passed =
+      aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment, maskLen);
 //    std::cout << passed << std::endl;
-    if(!passed){
-        std::cout << "Failed" << std::endl;
-        std::cout << "read: " << query << std::endl;
-        std::cout << "ref: "  << ref << std::endl;
-    }
+//    if(!passed){
+//        std::cout << "Failed" << std::endl;
+//        std::cout << "read: " << query << std::endl;
+//        std::cout << "ref: "  << ref << std::endl;
+//    }
 
 
 //    cout << "===== SSW result =====" << endl;
@@ -879,7 +887,7 @@ inline aln_info ssw_align(std::string &ref, std::string &query, int read_len) {
     aln.ed = alignment.mismatches;
     aln.ref_offset = alignment.ref_begin;
     aln.cigar = alignment.cigar_string;
-    aln.sw_score = read_len - 4*alignment.mismatches; //approximate for ssw until i implement a cigar parser
+    aln.sw_score = alignment.sw_score; //(alignment.query_end - alignment.query_begin) - 4*alignment.mismatches; //approximate for ssw until I implement a cigar parser
     return aln;
 }
 
@@ -1600,12 +1608,11 @@ static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, s
     const char *ref_ptr = ref_segm.c_str();
     const char *read_ptr = r_tmp.c_str();
     aln_info info;
-    info = ssw_align(ref_segm, r_tmp, read_len);
-//    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
-
 //    std::cout << "Aligning at: " << ref_start << " to " << ref_end << std::endl;
 //    std::cout << "read: " << r_tmp << std::endl;
 //    std::cout << "ref: " << ref_segm << std::endl;
+    info = ssw_align(ref_segm, r_tmp, read_len, 1, 4, 6, 1);
+//    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
 //    std::cout << "Cigar: " << info.cigar << std::endl;
 
     sam_aln.cigar = info.cigar;
@@ -1821,13 +1828,25 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                 }
                 //////////////////////////////////////////////////////////////////
 
-                x = a1.ref_start > a2.ref_start ? (float) (a1.ref_start - a2.ref_start) : (float)(a2.ref_start - a1.ref_start);
-                if ( (a1.is_rc ^ a2.is_rc) && (x < mu+5*sigma)  ){
-                    S = (double)a1.sw_score + (double)a2.sw_score + log( normal_pdf(x, mu, sigma ) );  //* (1 - s2 / s1) * min_matches * log(s1);
-                }
-                else{ // individual score
+                if ( a1.is_rc ^ a2.is_rc){
+                    bool r1_r2 = a2.is_rc && (a1.ref_start < a2.ref_start) && ((a2.ref_start - a1.ref_start) < mu+5*sigma); // r1 ---> <---- r2
+                    bool r2_r1 = a1.is_rc && (a2.ref_start < a1.ref_start) && ((a1.ref_start - a2.ref_start) < mu+5*sigma); // r2 ---> <---- r1
+                    if ( r1_r2 || r2_r1 ){
+                        x = a1.ref_start > a2.ref_start ? (float) (a1.ref_start - a2.ref_start) : (float)(a2.ref_start - a1.ref_start);
+                        S = (double)a1.sw_score + (double)a2.sw_score + log( normal_pdf(x, mu, sigma ) );  //* (1 - s2 / s1) * min_matches * log(s1);
+                    }
+                } else{ // individual score
                     S = (double)a1.sw_score + (double)a2.sw_score - 20; // 20 corresponds to a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
                 }
+
+//                x = a1.ref_start > a2.ref_start ? (float) (a1.ref_start - a2.ref_start) : (float)(a2.ref_start - a1.ref_start);
+//                if ( (a1.is_rc ^ a2.is_rc) && (x < mu+5*sigma)  ){
+//                    S = (double)a1.sw_score + (double)a2.sw_score + log( normal_pdf(x, mu, sigma ) );  //* (1 - s2 / s1) * min_matches * log(s1);
+//                }
+//                else{ // individual score
+//                    S = (double)a1.sw_score + (double)a2.sw_score - 20; // 20 corresponds to a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
+//                }
+
                 std::tuple<double, alignment, alignment> aln_tuple (S, a1, a2);
                 high_scores.push_back(aln_tuple);
 
@@ -2559,8 +2578,8 @@ int main (int argc, char **argv)
                 query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer, q);
                 auto strobe_finish = std::chrono::high_resolution_clock::now();
                 tot_construct_strobemers += strobe_finish - strobe_start;
-                std::cout << record1.name << " " << query_mers1.size() << std::endl;
-                std::cout << record2.name << " " << query_mers2.size() << std::endl;
+//                std::cout << record1.name << " " << query_mers1.size() << std::endl;
+//                std::cout << record2.name << " " << query_mers2.size() << std::endl;
 
                 // Find NAMs
                 auto nam_start = std::chrono::high_resolution_clock::now();

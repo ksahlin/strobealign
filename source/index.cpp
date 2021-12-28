@@ -49,6 +49,15 @@ static inline uint64_t hash64(uint64_t key, uint64_t mask)
 }//hash64
 
 
+
+//static inline uint64_t sahlin_dna_hash(uint64_t key, uint64_t mask)
+//{
+//    key = (key << 3)|(key >> (64 - 3)); // rotate left with 11
+//    key = ~key; //flip
+//    key = (key << 13)|(key >> (64 - 13)); // rotate left with 13
+//    return key;
+//}
+
 static unsigned char seq_nt4_table[256] = {
         0, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
@@ -308,6 +317,8 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 
 //    robin_hood::hash<uint64_t> robin_hash;
     uint64_t mask = (1ULL<<2*k) - 1;
+//    std::cout << mask << std::endl;
+
 //    std::vector<std::tuple<uint64_t, unsigned int, unsigned int> > kmers;
     unsigned int hash_count = 0;
     int l;
@@ -354,6 +365,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 //                        uint64_t hash_k = yk;
 //                        uint64_t hash_k =  hash64(yk, mask);
                         uint64_t hash_k = XXH64(&yk, 8,0);
+//                        uint64_t hash_k =  sahlin_dna_hash(yk, mask);
                         string_hashes.push_back(hash_k);
                         pos_to_seq_choord.push_back(i - k + 1);
                         hash_count++;
@@ -370,6 +382,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 //                        uint64_t hash_k = yk;
 //                        uint64_t hash_k = hash64(yk, mask);
                         uint64_t hash_k = XXH64(&yk, 8, 0);
+//                        uint64_t hash_k =  sahlin_dna_hash(yk, mask);
                         string_hashes.push_back(hash_k);
                         pos_to_seq_choord.push_back(i - k + 1);
 //                        std::cout << i - k + 1 << std::endl;
@@ -595,7 +608,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
         }
 
 //        uint64_t hash_randstrobe2 = (string_hashes[i] << k) ^ strobe_hashval_next;
-        uint64_t hash_randstrobe2 = (string_hashes[i]/2) + (strobe_hashval_next/2);
+        uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
 
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
@@ -687,7 +700,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
         }
 
 //        uint64_t hash_randstrobe2 = (string_hashes[i] << k) ^ strobe_hashval_next;
-        uint64_t hash_randstrobe2 = (string_hashes[i]/2) + (strobe_hashval_next/2);
+        uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
 
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
@@ -745,7 +758,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
         }
 
 //        uint64_t hash_randstrobe2 = (string_hashes[i] << k) ^ strobe_hashval_next;
-        uint64_t hash_randstrobe2 = (string_hashes[i]/2) + (strobe_hashval_next/2);
+        uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
 
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
