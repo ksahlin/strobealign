@@ -1426,12 +1426,60 @@ static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, a
 //        f1 |= (1u << 3);
 //        f1 -= 32;
 //    }
+    std::string ref1 = acc_map[sam_aln1.ref_id];
+    std::string ref2 = acc_map[sam_aln2.ref_id];
+    int ed1 = sam_aln1.ed;
+    int ed2 = sam_aln2.ed;
+
+    if (sam_aln1.is_unaligned && sam_aln2.is_unaligned){
+        f1 |= (1u << 2);
+        f1 |= (1u << 3);
+        f2 |= (1u << 2);
+        f2 |= (1u << 3);
+        sam_aln1.ref_start = 0;
+        sam_aln2.ref_start = 0;
+        template_len1 = 0;
+        template_len2 = 0;
+        ref1 = "*";
+        ref2 = "*";
+        f1 |= (0u << 4);
+        f1 |= (0u << 5);
+        f2 |= (0u << 4);
+        f2 |= (0u << 5);
+        ed1 = 0;
+        ed2 = 0;
+    } else if (sam_aln1.is_unaligned){
+        f1 |= (1u << 2);
+        f1 |= (0u << 4);
+        f2 |= (1u << 3);
+        sam_aln1.ref_start = sam_aln2.ref_start;
+        template_len1 = 0;
+        template_len2 = 0;
+        ed1 = 0;
+    } else if (sam_aln2.is_unaligned){
+        f2 |= (1u << 2);
+        f2 |= (0u << 4);
+        f1 |= (1u << 3);
+        sam_aln2.ref_start = sam_aln1.ref_start;
+        template_len1 = 0;
+        template_len2 = 0;
+        ed2 = 0;
+    }
+
+//    if ( (sam_aln1.ref_start == 0)){ // && !sam_aln1.is_unaligned  ){
+//        std::cout << "OMG1" << std::endl;
+//        std::cout << query_acc1 << std::endl;
+//    }
+//    if ( (sam_aln2.ref_start == 0)){ // && !sam_aln2.is_unaligned  ){
+//        std::cout << "OMG2" << std::endl;
+//        std::cout << query_acc2 << std::endl;
+//    }
 
     sam_string.append(query_acc1);
     sam_string.append("\t");
     sam_string.append(std::to_string(f1));
     sam_string.append("\t");
-    sam_string.append(acc_map[sam_aln1.ref_id]);
+    sam_string.append(ref1);
     sam_string.append("\t");
     sam_string.append(std::to_string(sam_aln1.ref_start));
     sam_string.append("\t");
@@ -1448,14 +1496,14 @@ static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, a
 //    sam_string.append("\t*\t0\t0\t");
     sam_string.append(output_read1);
     sam_string.append("\t*\tNM:i:");
-    sam_string.append(std::to_string(sam_aln1.ed));
+    sam_string.append(std::to_string(ed1));
     sam_string.append("\n");
 
     sam_string.append(query_acc2);
     sam_string.append("\t");
     sam_string.append(std::to_string(f2));
     sam_string.append("\t");
-    sam_string.append(acc_map[sam_aln2.ref_id]);
+    sam_string.append(ref2);
     sam_string.append("\t");
     sam_string.append(std::to_string(sam_aln2.ref_start));
     sam_string.append("\t");
@@ -1472,7 +1520,7 @@ static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, a
 //    sam_string.append("\t*\t0\t0\t");
     sam_string.append(output_read2);
     sam_string.append("\t*\tNM:i:");
-    sam_string.append(std::to_string(sam_aln2.ed));
+    sam_string.append(std::to_string(ed2));
     sam_string.append("\n");
 }
 
@@ -1633,7 +1681,7 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
 }
 
 
-static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, int read_len, alignment &sam_aln, bool &rc_already_comp, unsigned int &tot_ksw_aligned, float &mu, float &sigma, unsigned int &tot_rescued) {
+static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, int read_len, alignment &sam_aln, bool &rc_already_comp, unsigned int &tot_ksw_aligned, float &mu, float &sigma, unsigned int &tot_rescued, int k) {
     int a, b, ref_start,ref_len,ref_end;
     std::string r_tmp;
     bool a_is_rc;
@@ -1658,9 +1706,38 @@ static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, s
     ref_end = std::min(ref_len, b);
     std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
     aln_info info;
-    std::cout << "Aligning at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
-    std::cout << "read: " << r_tmp << std::endl;
-    std::cout << "ref: " << ref_segm << std::endl;
+
+    // check that read shares at least some segment with ref otherwise abort
+    int sub_size = 2*k/3;
+    int step_size = k/3;
+    std::string submer;
+    bool found = false;
+    for (int i = 0; i<=r_tmp.size()-k; i+=step_size) {
+        submer = r_tmp.substr(i, sub_size);
+        if (ref_segm.find( submer ) != std::string::npos) {
+            found = true;
+            break;
+        }
+    }
+    if (!found){
+        sam_aln.cigar = "*";
+        sam_aln.ed = read_len;
+        sam_aln.sw_score = 0;
+        sam_aln.ref_start =  0;
+        sam_aln.is_rc = n.is_rc;
+        sam_aln.ref_id = n.ref_id;
+        sam_aln.is_unaligned = true;
+        sam_aln.not_proper = true;
+        return;
+//        std::cout << "LOOOOOOL!" << std::endl;
+//        std::cout << "Aligning anyway at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
+//        std::cout << "read: " << r_tmp << std::endl;
+//        std::cout << "ref: " << ref_segm << std::endl;
+    }
+
+//    std::cout << "Aligning at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
+//    std::cout << "read: " << r_tmp << std::endl;
+//    std::cout << "ref: " << ref_segm << std::endl;
     info = ssw_align(ref_segm, r_tmp, read_len, 1, 4, 6, 1);
 //    info = parasail_align(ref_segm, ref_segm.size(), r_tmp, read_len, 1, 4, 6, 1);
 
@@ -1842,7 +1919,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 //                    std::cout << "RESCUE HERE1" << std::endl;
                     //////// Force SW alignment to rescue mate /////////
 //                    std::cout << query_acc2 << " RESCUE MATE" << std::endl;
-                    rescue_mate(n2, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, rc_already_comp1, tot_ksw_aligned, mu, sigma, tot_rescued);
+                    rescue_mate(n2, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, rc_already_comp1, tot_ksw_aligned, mu, sigma, tot_rescued, k);
 //                    is_aligned1[n1.nam_id] = a1;
                     tot_all_tried ++;
                 }
@@ -1870,7 +1947,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 //                    std::cout << "RESCUE HERE2" << std::endl;
                     //////// Force SW alignment to rescue mate /////////
 //                    std::cout << query_acc1 << " RESCUE MATE" << std::endl;
-                    rescue_mate(n1, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma, tot_rescued);
+                    rescue_mate(n1, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma, tot_rescued, k);
 //                    is_aligned2[n2.nam_id] = a2;
                     tot_all_tried ++;
                 }
@@ -1934,6 +2011,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
             auto best_aln_pair = high_scores[0];
             sam_aln1 = std::get<1>(best_aln_pair);
             sam_aln2 = std::get<2>(best_aln_pair);
+//            get_MAPQ_aln(sam_aln1, sam_aln2);
             append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2, mu, sigma, read_len1);
 
             //////////////////////////////////////////////////////////////////
@@ -1963,7 +2041,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
             //////// Force SW alignment to rescue mate /////////
             alignment a2;
 //            std::cout << query_acc2 << " force rescue" << std::endl;
-            rescue_mate(n, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma,tot_rescued);
+            rescue_mate(n, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma,tot_rescued, k);
             aln_scores2.push_back(a2);
             //////////////////////////////////////////////////////////////////
 
@@ -1982,7 +2060,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         sam_aln1 = std::get<1>(best_aln_pair);
         sam_aln2 = std::get<2>(best_aln_pair);
         get_MAPQ(all_nams1, n_max1, mapq1);
-        mapq2 = mapq1;
+        mapq2 = 0;
         append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2, mu, sigma, read_len1);
 
     } else if (all_nams2.size() > 0 ) { // rescue read 1
@@ -2004,7 +2082,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 
             //////// Force SW alignment to rescue mate /////////
             alignment a1;
-            rescue_mate(n, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, rc_already_comp1, tot_ksw_aligned, mu, sigma, tot_rescued);
+            rescue_mate(n, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, rc_already_comp1, tot_ksw_aligned, mu, sigma, tot_rescued, k);
             aln_scores1.push_back(a1);
             //////////////////////////////////////////////////////////////////
 
@@ -2024,7 +2102,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         sam_aln2 = std::get<2>(best_aln_pair);
 
         get_MAPQ(all_nams2, n_max2, mapq2);
-        mapq1 = mapq2;
+        mapq1 = 0;
         append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2, mu, sigma,read_len1);
     }
 
@@ -2633,8 +2711,8 @@ int main (int argc, char **argv)
                 query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer, q);
                 auto strobe_finish = std::chrono::high_resolution_clock::now();
                 tot_construct_strobemers += strobe_finish - strobe_start;
-                std::cout << record1.name << " " << query_mers1.size() << std::endl;
-                std::cout << record2.name << " " << query_mers2.size() << std::endl;
+//                std::cout << record1.name << " " << query_mers1.size() << std::endl;
+//                std::cout << record2.name << " " << query_mers2.size() << std::endl;
 
                 // Find NAMs
                 auto nam_start = std::chrono::high_resolution_clock::now();
