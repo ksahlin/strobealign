@@ -337,7 +337,7 @@ bool Aligner::Align(const char* query, const Filter& filter,
   int8_t* translated_query = new int8_t[query_len];
   TranslateBase(query, query_len, translated_query);
 
-  const int8_t score_size = 2;
+  const int8_t score_size = 1;
   s_profile* profile = ssw_init(translated_query, query_len, score_matrix_,
                                 score_matrix_size_, score_size);
 
@@ -378,7 +378,7 @@ bool Aligner::Align(const char* query, const char* ref, const int& ref_len,
   TranslateBase(ref, valid_ref_len, translated_ref);
 
 
-  const int8_t score_size = 2;
+  const int8_t score_size = 1;
   s_profile* profile = ssw_init(translated_query, query_len, score_matrix_,
                                 score_matrix_size_, score_size);
 
