@@ -1728,6 +1728,7 @@ static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, s
         sam_aln.ref_id = n.ref_id;
         sam_aln.is_unaligned = true;
         sam_aln.not_proper = true;
+        std::cout << "Avoided!" << std::endl;
         return;
 //        std::cout << "LOOOOOOL!" << std::endl;
 //        std::cout << "Aligning anyway at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
@@ -1735,9 +1736,9 @@ static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, s
 //        std::cout << "ref: " << ref_segm << std::endl;
     }
 
-//    std::cout << "Aligning at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
-//    std::cout << "read: " << r_tmp << std::endl;
-//    std::cout << "ref: " << ref_segm << std::endl;
+    std::cout << "Aligning at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
+    std::cout << "read: " << r_tmp << std::endl;
+    std::cout << "ref: " << ref_segm << std::endl;
     info = ssw_align(ref_segm, r_tmp, read_len, 1, 4, 6, 1);
 //    info = parasail_align(ref_segm, ref_segm.size(), r_tmp, read_len, 1, 4, 6, 1);
 
@@ -1745,7 +1746,7 @@ static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, s
 //    const char *ref_ptr = ref_segm.c_str();
 //    const char *read_ptr = r_tmp.c_str();
 //    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
-//    std::cout << "Cigar: " << info.cigar << std::endl;
+    std::cout << "Cigar: " << info.cigar << std::endl;
 
     sam_aln.cigar = info.cigar;
     sam_aln.ed = info.ed;
@@ -2711,8 +2712,8 @@ int main (int argc, char **argv)
                 query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer, q);
                 auto strobe_finish = std::chrono::high_resolution_clock::now();
                 tot_construct_strobemers += strobe_finish - strobe_start;
-//                std::cout << record1.name << " " << query_mers1.size() << std::endl;
-//                std::cout << record2.name << " " << query_mers2.size() << std::endl;
+                std::cout << record1.name << " " << query_mers1.size() << std::endl;
+                std::cout << record2.name << " " << query_mers2.size() << std::endl;
 
                 // Find NAMs
                 auto nam_start = std::chrono::high_resolution_clock::now();
