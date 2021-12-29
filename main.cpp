@@ -19,6 +19,8 @@ using namespace klibpp;
 //#include "gap_affine/affine_wavefront_align.h"
 #include "source/ksw2.h"
 #include "source/ssw_cpp.h"
+//#include "source/parasail/parasail.h"
+
 
 //develop
 #include <chrono>
@@ -815,27 +817,78 @@ static inline std::string reverse_complement(std::string &read) {
 }
 
 
-//static inline std::string reverse_complement(std::string &read)
-//{
-//    auto read_rev = read;
-//    reverse(read_rev.begin(), read_rev.end()); // reverse
-//    for (std::size_t i = 0; i < read_rev.length(); ++i){
-//        switch (read_rev[i]){
-//            case 'A':
-//                read_rev[i] = 'T';
-//                break;
-//            case 'C':
-//                read_rev[i] = 'G';
-//                break;
-//            case 'G':
-//                read_rev[i] = 'C';
-//                break;
-//            case 'T':
-//                read_rev[i] = 'A';
-//                break;
+//aln_info parasail_align(std::string &ref, int tlen, std::string &query, int qlen, int sc_mch, int sc_mis, int gapo, int gape) {
+//    const char *ref_ptr = ref.c_str();
+//    const char *read_ptr = query.c_str();
+//    parasail_matrix_t *user_matrix = NULL;
+//    user_matrix = parasail_matrix_create("ACGT", sc_mch, -sc_mis);
+//    aln_info aln;
+////    const std::string ref   = "AGTATCTGGAACTGGACTTTTGGAGCGCTTTCAGGGATAAGGTGAAAAAGGAAATATCTTCCCATAAAAACTGGACAGAAGCATTCTCAGAAACTTATTTGAGATGTGTGTACTCAACTAAGAGAATTGAACCACCGTTTTGAAGGAGCAGTTTTGAAACTCTCTTTTTCTGGAATCTGCAAGTGGATATTTGGCTAGCTTTGGGGATTTCGCTGGAAGCGGGAATACATATAAAAAGCACACAGCAGCGTTCTGAGAAACTGCTTTCTGATGTTTGCATTCAAGTCAAAAGTTGAACACTCCCTTTCATAGAGCAGTCTTGAAACACCCCTTTTGTAGTATCTGGAACTGGACTTTTGGAGCGATTTCAGGGCTAAGGTGAAAAAGGAAATATCTTCCCATAAAAACTGGACAGAAGCATTCTCAGAAACTTGGTTATGCTGTATCTACTCAACTAACAAAGTTGAACCTTTCTTTTGATAGAGCAGTTTTGAAATGGTCTTTTTGTGGAATCTGCAAGTGGATATTTGGCTAGTTTTGAGGATTTCGTTGGAAGCGGGAATTCATACAAATTGCAGACTGCAGCGTTCTGAGAAACATCTTTGTGATGTTTGTATTCAGGACAGAGAGTTGAACATTCCCTATCATAGAGCAGGTTGGAATCACTCCTTTTGTAGTATCTGGAAGTGGACATTTGGAGCGCTTTCAGGCCTATTTTGGAAAGGGAAATATCTTCCCGTAACAACTATGCAGAAGCATTCTCAGAAACTTGTTTGTGATGTGTGCCCTCTACTGACAGAGTTGAACCTTTCTTTTCATAGAGCAGTTTTGAAACACTCTTTTTGTAGAA";
+////    const std::string query = "CGGGAATACATATAAAAAGCACACAGCAGCGTTCTGAGAAACTGCTTTCTGATGTTTGCATTAAAGTCAAAAGTTGAACACTCCCTTTCATAGAGCAGTC";
+//
+//
+////    parasail_result_t *result = NULL;
+////    result = parasail_sw_trace_striped_sat(read_ptr, qlen, ref_ptr, tlen,  gapo, gape, user_matrix);
+////    parasail_result_free(result);
+//
+//        parasail_result_ssw *result = NULL;
+//        result = parasail_ssw(read_ptr, qlen, ref_ptr, tlen, gapo, gape, user_matrix );
+//
+//    // TODO: Fix cigarstring to use M instead of =/X
+////    aln.ed = result->;
+//    aln.ref_offset = result->ref_begin1;
+//    aln.sw_score = result->score1; //(alignment.query_end - alignment.query_begin) - 4*alignment.mismatches; //approximate for ssw until I implement a cigar parser
+//
+//    std::stringstream cigar_string;
+//    int edit_distance = 0;
+//    int sw_score = 0;
+//    unsigned ref_pos = 0, read_pos = 0;
+//
+//    for (int i = 0; i < result->cigarLen; i++) {
+//        int count = result->cigar[i] >> 4;
+//        char op = "MID"[result->cigar[i] & 0xf];
+////        std::cout << "count: " << count << " op:" << op << std::endl;
+//        if ( (i==0) && op == 'D'){
+//            ref_pos += count;
+////            std::cout << "First deletion " << i << " " << count << std::endl;
+//            continue;
 //        }
+//        if ( (i==result->cigarLen-1) && op == 'D'){
+//            ref_pos += count;
+////            std::cout << "Last deletion " << i << " " << count << std::endl;
+//            continue;
+//        }
+//        cigar_string << count << op;
+//        switch (op) {
+//            case 'M':
+//                for (int j = 0; j < count; j++, ref_pos++, read_pos++) {
+//                    if (ref_ptr[ref_pos] != read_ptr[read_pos]) {
+//                        edit_distance++;
+//                        sw_score -= sc_mis;
+//                    } else{
+//                        sw_score += sc_mch;
+//                    }
+//                }
+//                break;
+//            case 'D':edit_distance += count;
+//                ref_pos += count;
+//                sw_score -= (gapo + (count-1));
+//                break;
+//            case 'I':edit_distance += count;
+//                read_pos += count;
+//                sw_score -= (gapo + (count-1));
+//                break;
+//            default:assert(0);
+//        }
+////        std::cout << "ED " << edit_distance << std::endl;
 //    }
-//    return read_rev;
+//
+//    aln.cigar =  cigar_string.str();
+//    aln.ed =  edit_distance;
+//
+//    parasail_result_ssw_free(result);
+//
+//    return aln;
 //}
 
 
@@ -1604,14 +1657,16 @@ static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, s
     ref_start = std::max(0, std::min(a,ref_len));
     ref_end = std::min(ref_len, b);
     std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
-    ksw_extz_t ez;
-    const char *ref_ptr = ref_segm.c_str();
-    const char *read_ptr = r_tmp.c_str();
     aln_info info;
-//    std::cout << "Aligning at: " << ref_start << " to " << ref_end << std::endl;
-//    std::cout << "read: " << r_tmp << std::endl;
-//    std::cout << "ref: " << ref_segm << std::endl;
+    std::cout << "Aligning at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
+    std::cout << "read: " << r_tmp << std::endl;
+    std::cout << "ref: " << ref_segm << std::endl;
     info = ssw_align(ref_segm, r_tmp, read_len, 1, 4, 6, 1);
+//    info = parasail_align(ref_segm, ref_segm.size(), r_tmp, read_len, 1, 4, 6, 1);
+
+//    ksw_extz_t ez;
+//    const char *ref_ptr = ref_segm.c_str();
+//    const char *read_ptr = r_tmp.c_str();
 //    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
 //    std::cout << "Cigar: " << info.cigar << std::endl;
 
@@ -2037,7 +2092,7 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.2 (ssw bugfix)\n";
+    std::cerr << "StrobeAlign VERSION 0.2 (ssw bugfix2)\n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
@@ -2578,8 +2633,8 @@ int main (int argc, char **argv)
                 query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer, q);
                 auto strobe_finish = std::chrono::high_resolution_clock::now();
                 tot_construct_strobemers += strobe_finish - strobe_start;
-//                std::cout << record1.name << " " << query_mers1.size() << std::endl;
-//                std::cout << record2.name << " " << query_mers2.size() << std::endl;
+                std::cout << record1.name << " " << query_mers1.size() << std::endl;
+                std::cout << record2.name << " " << query_mers2.size() << std::endl;
 
                 // Find NAMs
                 auto nam_start = std::chrono::high_resolution_clock::now();
