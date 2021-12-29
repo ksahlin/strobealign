@@ -1,7 +1,7 @@
 StrobeAlign
 ==============
 
-Strobealign is a single or paired-end short-read aligner using syncmer-thinned strobemers. Strobealign is multithreaded and implements both alignment (SAM) and mapping (PAF). Strobealign's main feature is its speed, see experiments for single-end and paired-end alignment in the [preprint](https://doi.org/10.1101/2021.06.18.449070). Strobealign is not recommended for very short reads (roughly <=80nt).
+Strobealign is a fast single or paired-end short-read aligner. It achieves the speedup to other aligners while keeping high accuracy by using a dynamic seed size obtained from syncmer-thinned strobemers. Strobealign is multithreaded, implements alignment (SAM) and mapping (PAF), and is tested for reads of lengths between 100-300bp and insert sized up to roughly 1000bp; see experiments for single-end and paired-end alignment in the [preprint](https://doi.org/10.1101/2021.06.18.449070). Strobealign is not recommended for very short reads (roughly <=80nt).
 
 
 INSTALLATION
@@ -74,7 +74,7 @@ Major update to algorithm. See release page.
 ### Version 0.0.3.2
 
 1. Takes care of negative alignment coordinate bug.
-2. Minimal value for repetitive seed filtering implemented. Previoulsy, the top fraction of `-f (0.0002)` seeds were filtered regardless of how repetitive they were. Assume `-f` filtered everything above `X` occurences. The new version filters seeds with occurences over `max(X, 30)`. This threshold is usually not active for human as `X>40` for human. 
+2. Minimal value for repetitive seed filtering implemented. Previously, the top fraction of `-f (0.0002)` seeds was filtered regardless of how repetitive they were. Assume `-f` filtered everything above `X` occurrences. The new version filters seeds with occurrences over `max(X, 30)`. This threshold is usually not active for hg38 as `X>40` for hg38. 
 
 ### Version 0.0.3.1
 
@@ -84,7 +84,7 @@ Major update to algorithm. See release page.
 
 1. Implements a paired-end alignment mode.
 2. Implements a rescue mode both in SE and PE alignment modes (described in preprint v2).
-3. Changed to symmetrical strobemer hashvalues due to inversions (described in preprint v2).
+3. Changed to symmetrical strobemer hash values due to inversions (described in preprint v2).
 
 
 ### Version 0.0.2
@@ -94,7 +94,7 @@ Major update to algorithm. See release page.
 
 ### Version 0.0.1
 
-The aligner used for the experiments presented in the preprint (v1) on bioRxiv. Only single threaded alignment and aligns reads as single reads (no PE mapping).
+The aligner used for the experiments presented in the first preprint (v1) on bioRxiv. Only single-threaded alignment and aligns reads as single reads (no PE mapping).
 
 LICENCE
 ----------------
