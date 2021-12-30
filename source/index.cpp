@@ -9,6 +9,7 @@
 #include <iostream>
 #include <math.h>       /* pow */
 #include <bitset>
+#include <climits>
 
 
 
@@ -68,17 +69,28 @@ static unsigned char seq_nt4_table[256] = {
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
 }; //seq_nt4_table
 
-static inline uint64_t kmer_to_uint64(std::string &kmer, uint64_t kmask)
-{
-    uint64_t bkmer = 0;
 
-    for (char i : kmer) {
-        int c = seq_nt4_table[(uint8_t)i];
-        bkmer = (bkmer << 2 | c) & kmask;
 
-    }
-    return bkmer;
-}
+
+//static inline uint64_t sahlin_dna_hash(uint64_t key, uint64_t mask)
+//{
+//    key = (key << 3)|(key >> (64 - 3)); // rotate left with 11
+//    key = ~key; //flip
+//    key = (key << 13)|(key >> (64 - 13)); // rotate left with 13
+//    return key;
+//}
+
+//static inline uint64_t kmer_to_uint64(std::string &kmer, uint64_t kmask)
+//{
+//    uint64_t bkmer = 0;
+//
+//    for (char i : kmer) {
+//        int c = seq_nt4_table[(uint8_t)i];
+//        bkmer = (bkmer << 2 | c) & kmask;
+//
+//    }
+//    return bkmer;
+//}
 
 
 void process_flat_vector(mers_vector &flat_vector, uint64_t &unique_elements){
@@ -308,6 +320,8 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 
 //    robin_hood::hash<uint64_t> robin_hash;
     uint64_t mask = (1ULL<<2*k) - 1;
+//    std::cout << mask << std::endl;
+
 //    std::vector<std::tuple<uint64_t, unsigned int, unsigned int> > kmers;
     unsigned int hash_count = 0;
     int l;
@@ -354,6 +368,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 //                        uint64_t hash_k = yk;
 //                        uint64_t hash_k =  hash64(yk, mask);
                         uint64_t hash_k = XXH64(&yk, 8,0);
+//                        uint64_t hash_k =  sahlin_dna_hash(yk, mask);
                         string_hashes.push_back(hash_k);
                         pos_to_seq_choord.push_back(i - k + 1);
                         hash_count++;
@@ -370,6 +385,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 //                        uint64_t hash_k = yk;
 //                        uint64_t hash_k = hash64(yk, mask);
                         uint64_t hash_k = XXH64(&yk, 8, 0);
+//                        uint64_t hash_k =  sahlin_dna_hash(yk, mask);
                         string_hashes.push_back(hash_k);
                         pos_to_seq_choord.push_back(i - k + 1);
 //                        std::cout << i - k + 1 << std::endl;
@@ -467,7 +483,19 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 
 static inline void get_next_strobe(std::vector<uint64_t> &string_hashes, uint64_t strobe_hashval, unsigned int &strobe_pos_next, uint64_t &strobe_hashval_next,  unsigned int w_start, unsigned int w_end, uint64_t q){
     uint64_t min_val = UINT64_MAX;
+//    int max_val = INT_MIN;
+//    int min_val = INT_MAX;
+//    int res;
+//    std::bitset<64> b1,b2;
+//        uint64_t rot_strobe_hashval = (strobe_hashval << q)|(strobe_hashval >> (64 - q));
+//    uint64_t shift_strobe_hashval = strobe_hashval >> 5;
     std::bitset<64> b;
+//    int a,b;
+//    int p = pow (2, 4) - 1;
+//    a = strobe_hashval & p;
+//    int c = b1.count();
+//    int d;
+
 //    unsigned int min_pos;
 //    min_pos = -1;
     for (auto i = w_start; i <= w_end; i++) {
@@ -487,6 +515,15 @@ static inline void get_next_strobe(std::vector<uint64_t> &string_hashes, uint64_
 
         // Method by Lidon Gao (other strobemers library) and Giulio Ermanno Pibiri @giulio_pibiri
 //        uint64_t res = (strobe_hashval ^ string_hashes[i]) ;
+
+        // Method 6 Sahlin introduce skew (Method 3 and 3' are symmetrical for comp value of (s1,s2) and (s2,s1)
+        // Methods 6 introduce asymmetry to reduce prob that we pick (s1,s2) and (s2,s1) as strobes to minimize fw and rc collisions
+//        b = (shift_strobe_hashval ^ string_hashes[i])  & q;
+//        uint64_t res = b.count();
+
+        // Method 7 minimize collisions while still keeping small values space:
+//        b = string_hashes[i] & p;
+//        int res = a - b;
 
         if (res < min_val){
             min_val = res;
@@ -595,7 +632,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
         }
 
 //        uint64_t hash_randstrobe2 = (string_hashes[i] << k) ^ strobe_hashval_next;
-        uint64_t hash_randstrobe2 = (string_hashes[i]/2) + (strobe_hashval_next/2);
+        uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
 
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
@@ -687,7 +724,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
         }
 
 //        uint64_t hash_randstrobe2 = (string_hashes[i] << k) ^ strobe_hashval_next;
-        uint64_t hash_randstrobe2 = (string_hashes[i]/2) + (strobe_hashval_next/2);
+        uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
 
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
@@ -745,7 +782,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
         }
 
 //        uint64_t hash_randstrobe2 = (string_hashes[i] << k) ^ strobe_hashval_next;
-        uint64_t hash_randstrobe2 = (string_hashes[i]/2) + (strobe_hashval_next/2);
+        uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
 
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];

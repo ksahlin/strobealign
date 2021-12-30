@@ -18,6 +18,9 @@ using namespace klibpp;
 #include "source/index.hpp"
 //#include "gap_affine/affine_wavefront_align.h"
 #include "source/ksw2.h"
+#include "source/ssw_cpp.h"
+//#include "source/parasail/parasail.h"
+
 
 //develop
 #include <chrono>
@@ -483,7 +486,7 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
     }
 
 //    for (auto &n : final_nams){
-//        std::cout << "NAM: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
+//        std::cout << "RESCUE NAM: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << " " <<  n.is_rc << std::endl;
 //    }
     info.second = max_nam_n_hits;
     return info;
@@ -550,7 +553,10 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //                    hits_per_ref[ref_id].push_back(h);
 
 //                    h.hit_count = count;
-//                    std::cout << "Found: " <<  h.query_s << " " << h.query_e << " ref: " <<  h.ref_s << " " << h.ref_e << " " << h.is_rc << std::endl;
+//                    if (count > 1){
+//                        int diff = (h.query_e - h.query_s) - (h.ref_e - h.ref_s);
+//                        std::cout << "Found: " <<  h.query_s << " " << h.query_e << " ref: " <<  h.ref_s << " " << h.ref_e << " " << h.is_rc << " diff " << diff << std::endl;
+//                    }
 //                    hit_count_all ++;
 
                 }
@@ -683,7 +689,8 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
     }
     info.second = max_nam_n_hits;
 //    for (auto &n : final_nams){
-//        std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
+//        int diff = (n.query_e - n.query_s) - (n.ref_e - n.ref_s);
+//        std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << " diff: " << diff << std::endl;
 //    }
     return info;
 
@@ -810,28 +817,132 @@ static inline std::string reverse_complement(std::string &read) {
 }
 
 
-//static inline std::string reverse_complement(std::string &read)
-//{
-//    auto read_rev = read;
-//    reverse(read_rev.begin(), read_rev.end()); // reverse
-//    for (std::size_t i = 0; i < read_rev.length(); ++i){
-//        switch (read_rev[i]){
-//            case 'A':
-//                read_rev[i] = 'T';
-//                break;
-//            case 'C':
-//                read_rev[i] = 'G';
-//                break;
-//            case 'G':
-//                read_rev[i] = 'C';
-//                break;
-//            case 'T':
-//                read_rev[i] = 'A';
-//                break;
+//aln_info parasail_align(std::string &ref, int tlen, std::string &query, int qlen, int sc_mch, int sc_mis, int gapo, int gape) {
+//    const char *ref_ptr = ref.c_str();
+//    const char *read_ptr = query.c_str();
+//    parasail_matrix_t *user_matrix = NULL;
+//    user_matrix = parasail_matrix_create("ACGT", sc_mch, -sc_mis);
+//    aln_info aln;
+////    const std::string ref   = "AGTATCTGGAACTGGACTTTTGGAGCGCTTTCAGGGATAAGGTGAAAAAGGAAATATCTTCCCATAAAAACTGGACAGAAGCATTCTCAGAAACTTATTTGAGATGTGTGTACTCAACTAAGAGAATTGAACCACCGTTTTGAAGGAGCAGTTTTGAAACTCTCTTTTTCTGGAATCTGCAAGTGGATATTTGGCTAGCTTTGGGGATTTCGCTGGAAGCGGGAATACATATAAAAAGCACACAGCAGCGTTCTGAGAAACTGCTTTCTGATGTTTGCATTCAAGTCAAAAGTTGAACACTCCCTTTCATAGAGCAGTCTTGAAACACCCCTTTTGTAGTATCTGGAACTGGACTTTTGGAGCGATTTCAGGGCTAAGGTGAAAAAGGAAATATCTTCCCATAAAAACTGGACAGAAGCATTCTCAGAAACTTGGTTATGCTGTATCTACTCAACTAACAAAGTTGAACCTTTCTTTTGATAGAGCAGTTTTGAAATGGTCTTTTTGTGGAATCTGCAAGTGGATATTTGGCTAGTTTTGAGGATTTCGTTGGAAGCGGGAATTCATACAAATTGCAGACTGCAGCGTTCTGAGAAACATCTTTGTGATGTTTGTATTCAGGACAGAGAGTTGAACATTCCCTATCATAGAGCAGGTTGGAATCACTCCTTTTGTAGTATCTGGAAGTGGACATTTGGAGCGCTTTCAGGCCTATTTTGGAAAGGGAAATATCTTCCCGTAACAACTATGCAGAAGCATTCTCAGAAACTTGTTTGTGATGTGTGCCCTCTACTGACAGAGTTGAACCTTTCTTTTCATAGAGCAGTTTTGAAACACTCTTTTTGTAGAA";
+////    const std::string query = "CGGGAATACATATAAAAAGCACACAGCAGCGTTCTGAGAAACTGCTTTCTGATGTTTGCATTAAAGTCAAAAGTTGAACACTCCCTTTCATAGAGCAGTC";
+//
+//
+////    parasail_result_t *result = NULL;
+////    result = parasail_sw_trace_striped_sat(read_ptr, qlen, ref_ptr, tlen,  gapo, gape, user_matrix);
+////    parasail_result_free(result);
+//
+//        parasail_result_ssw *result = NULL;
+//        result = parasail_ssw(read_ptr, qlen, ref_ptr, tlen, gapo, gape, user_matrix );
+//
+//    // TODO: Fix cigarstring to use M instead of =/X
+////    aln.ed = result->;
+//    aln.ref_offset = result->ref_begin1;
+//    aln.sw_score = result->score1; //(alignment.query_end - alignment.query_begin) - 4*alignment.mismatches; //approximate for ssw until I implement a cigar parser
+//
+//    std::stringstream cigar_string;
+//    int edit_distance = 0;
+//    int sw_score = 0;
+//    unsigned ref_pos = 0, read_pos = 0;
+//
+//    for (int i = 0; i < result->cigarLen; i++) {
+//        int count = result->cigar[i] >> 4;
+//        char op = "MID"[result->cigar[i] & 0xf];
+////        std::cout << "count: " << count << " op:" << op << std::endl;
+//        if ( (i==0) && op == 'D'){
+//            ref_pos += count;
+////            std::cout << "First deletion " << i << " " << count << std::endl;
+//            continue;
 //        }
+//        if ( (i==result->cigarLen-1) && op == 'D'){
+//            ref_pos += count;
+////            std::cout << "Last deletion " << i << " " << count << std::endl;
+//            continue;
+//        }
+//        cigar_string << count << op;
+//        switch (op) {
+//            case 'M':
+//                for (int j = 0; j < count; j++, ref_pos++, read_pos++) {
+//                    if (ref_ptr[ref_pos] != read_ptr[read_pos]) {
+//                        edit_distance++;
+//                        sw_score -= sc_mis;
+//                    } else{
+//                        sw_score += sc_mch;
+//                    }
+//                }
+//                break;
+//            case 'D':edit_distance += count;
+//                ref_pos += count;
+//                sw_score -= (gapo + (count-1));
+//                break;
+//            case 'I':edit_distance += count;
+//                read_pos += count;
+//                sw_score -= (gapo + (count-1));
+//                break;
+//            default:assert(0);
+//        }
+////        std::cout << "ED " << edit_distance << std::endl;
 //    }
-//    return read_rev;
+//
+//    aln.cigar =  cigar_string.str();
+//    aln.ed =  edit_distance;
+//
+//    parasail_result_ssw_free(result);
+//
+//    return aln;
 //}
+
+
+inline aln_info ssw_align(std::string &ref, std::string &query, int read_len, int match_score, int mismatch_penalty, int gap_opening_penalty, int gap_extending_penalty) {
+
+    aln_info aln;
+//    const std::string ref   = "AGTATCTGGAACTGGACTTTTGGAGCGCTTTCAGGGATAAGGTGAAAAAGGAAATATCTTCCCATAAAAACTGGACAGAAGCATTCTCAGAAACTTATTTGAGATGTGTGTACTCAACTAAGAGAATTGAACCACCGTTTTGAAGGAGCAGTTTTGAAACTCTCTTTTTCTGGAATCTGCAAGTGGATATTTGGCTAGCTTTGGGGATTTCGCTGGAAGCGGGAATACATATAAAAAGCACACAGCAGCGTTCTGAGAAACTGCTTTCTGATGTTTGCATTCAAGTCAAAAGTTGAACACTCCCTTTCATAGAGCAGTCTTGAAACACCCCTTTTGTAGTATCTGGAACTGGACTTTTGGAGCGATTTCAGGGCTAAGGTGAAAAAGGAAATATCTTCCCATAAAAACTGGACAGAAGCATTCTCAGAAACTTGGTTATGCTGTATCTACTCAACTAACAAAGTTGAACCTTTCTTTTGATAGAGCAGTTTTGAAATGGTCTTTTTGTGGAATCTGCAAGTGGATATTTGGCTAGTTTTGAGGATTTCGTTGGAAGCGGGAATTCATACAAATTGCAGACTGCAGCGTTCTGAGAAACATCTTTGTGATGTTTGTATTCAGGACAGAGAGTTGAACATTCCCTATCATAGAGCAGGTTGGAATCACTCCTTTTGTAGTATCTGGAAGTGGACATTTGGAGCGCTTTCAGGCCTATTTTGGAAAGGGAAATATCTTCCCGTAACAACTATGCAGAAGCATTCTCAGAAACTTGTTTGTGATGTGTGCCCTCTACTGACAGAGTTGAACCTTTCTTTTCATAGAGCAGTTTTGAAACACTCTTTTTGTAGAA";
+//    const std::string query = "CGGGAATACATATAAAAAGCACACAGCAGCGTTCTGAGAAACTGCTTTCTGATGTTTGCATTAAAGTCAAAAGTTGAACACTCCCTTTCATAGAGCAGTC";
+    int32_t maskLen = strlen(query.c_str())/2;
+    maskLen = maskLen < 15 ? 15 : maskLen;
+//    int match_score = 1;
+//    int mismatch_penalty = 4;
+//    int gap_opening_penalty = 6;
+//    int gap_extending_penalty = 1;
+    // Declares Aligner
+    StripedSmithWaterman::Aligner aligner(match_score, mismatch_penalty, gap_opening_penalty, gap_extending_penalty);
+//    StripedSmithWaterman::Aligner aligner;
+    // Declares a default filter
+    StripedSmithWaterman::Filter filter;
+    // Declares an alignment that stores the result
+    StripedSmithWaterman::Alignment alignment;
+    // Aligns the query to the ref
+//    bool passed;
+//    std::cout << "I'm here!" << std::endl;
+//    std::cout << "read: " << query << std::endl;
+//    std::cout << "ref: "  << ref << std::endl;
+//    passed =
+      aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment, maskLen);
+//    std::cout << passed << std::endl;
+//    if(!passed){
+//        std::cout << "Failed" << std::endl;
+//        std::cout << "read: " << query << std::endl;
+//        std::cout << "ref: "  << ref << std::endl;
+//    }
+
+
+//    cout << "===== SSW result =====" << endl;
+//    cout << "Best Smith-Waterman score:\t" << alignment.sw_score << endl
+//         << "Next-best Smith-Waterman score:\t" << alignment.sw_score_next_best << endl
+//         << "Reference start:\t" << alignment.ref_begin << endl
+//         << "Reference end:\t" << alignment.ref_end << endl
+//         << "Query start:\t" << alignment.query_begin << endl
+//         << "Query end:\t" << alignment.query_end << endl
+//         << "Next-best reference end:\t" << alignment.ref_end_next_best << endl
+//         << "Number of mismatches:\t" << alignment.mismatches << endl
+//         << "Cigar: " << alignment.cigar_string << endl;
+
+    // TODO: Fix cigarstring to use M instead of =/X
+    aln.ed = alignment.mismatches;
+    aln.ref_offset = alignment.ref_begin;
+    aln.cigar = alignment.cigar_string;
+    aln.sw_score = alignment.sw_score; //(alignment.query_end - alignment.query_begin) - 4*alignment.mismatches; //approximate for ssw until I implement a cigar parser
+    return aln;
+}
 
 
 inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen,
@@ -841,12 +952,13 @@ inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen
     const uint8_t *ts = reinterpret_cast<const uint8_t *>(tseq);
     const uint8_t *qs = reinterpret_cast<const uint8_t *>(qseq);
     memset(&ez, 0, sizeof(ksw_extz_t));
-    ksw_extz2_sse(0, qlen, qs, tlen, ts, 5, mat, gapo, gape, -1, -1, 1000, KSW_EZ_EXTZ_ONLY, &ez);
+    ksw_extz2_sse(0, qlen, qs, tlen, ts, 5, mat, gapo, gape, -1, -1, 10000, KSW_EZ_EXTZ_ONLY, &ez);
 
     aln_info aln;
 //    std::string cigar_mod;
 //    cigar_mod.reserve(5*ez.n_cigar);
     unsigned int tstart_offset = 0;
+    int eqx_len, switch_ind;
     std::stringstream cigar_string;
     int edit_distance = 0;
     int sw_score = 0;
@@ -854,6 +966,7 @@ inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen
     for (int i = 0; i < ez.n_cigar; i++) {
         int count = ez.cigar[i] >> 4;
         char op = "MID"[ez.cigar[i] & 0xf];
+//        std::cout << "count: " << count << " op:" << op << std::endl;
         if ( (i==0) && op == 'D'){
             ref_pos += count;
             tstart_offset = ref_pos;
@@ -867,24 +980,49 @@ inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen
         }
         cigar_string << count << op;
         switch (op) {
-            case 'M':
+            case 'M': {
+//                eqx_len = 0;
+//                switch_ind = 0; // switch_ind 0 if prev was match, 1 if mismatch
+//                char o = '=';
                 for (int j = 0; j < count; j++, ref_pos++, read_pos++) {
                     if (tseq[ref_pos] != qseq[read_pos]) {
                         edit_distance++;
-                        sw_score -= 4;
+                        sw_score -= -b;
+//                        if ((switch_ind == 0) && (j > 0)) { // prev was match
+//                            cigar_string << eqx_len << '=';
+//                            eqx_len = 0;
+//                        }
+//                        switch_ind = 1;
+//                        o = 'X';
+//                        eqx_len++;
                     } else{
-                        sw_score ++;
+                        sw_score += sc_mch;
+//                        if (switch_ind == 1) { // prev was mismatch
+//                            cigar_string << eqx_len << 'X';
+//                            eqx_len = 0;
+//                            o = '=';
+//                            switch_ind = 0;
+//                        }
+//                        eqx_len++;
                     }
                 }
+//                cigar_string << eqx_len << o;
                 break;
-            case 'D':edit_distance += count;
+            }
+            case 'D': {
+                edit_distance += count;
                 ref_pos += count;
-                sw_score -= (6 + (count-1));
+                sw_score -= (gapo + (count - 1));
+//                cigar_string << count << op;
                 break;
-            case 'I':edit_distance += count;
+            }
+            case 'I': {
+                edit_distance += count;
                 read_pos += count;
-                sw_score -= (6 + (count-1));
+                sw_score -= (gapo + (count - 1));
+//                cigar_string << count << op;
                 break;
+            }
             default:assert(0);
         }
 //        std::cout << "ED " << edit_distance << std::endl;
@@ -1314,12 +1452,60 @@ static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, a
 //        f1 |= (1u << 3);
 //        f1 -= 32;
 //    }
+    std::string ref1 = acc_map[sam_aln1.ref_id];
+    std::string ref2 = acc_map[sam_aln2.ref_id];
+    int ed1 = sam_aln1.ed;
+    int ed2 = sam_aln2.ed;
+
+    if (sam_aln1.is_unaligned && sam_aln2.is_unaligned){
+        f1 |= (1u << 2);
+        f1 |= (1u << 3);
+        f2 |= (1u << 2);
+        f2 |= (1u << 3);
+        sam_aln1.ref_start = 0;
+        sam_aln2.ref_start = 0;
+        template_len1 = 0;
+        template_len2 = 0;
+        ref1 = "*";
+        ref2 = "*";
+        f1 |= (0u << 4);
+        f1 |= (0u << 5);
+        f2 |= (0u << 4);
+        f2 |= (0u << 5);
+        ed1 = 0;
+        ed2 = 0;
+    } else if (sam_aln1.is_unaligned){
+        f1 |= (1u << 2);
+        f1 |= (0u << 4);
+        f2 |= (1u << 3);
+        sam_aln1.ref_start = sam_aln2.ref_start;
+        template_len1 = 0;
+        template_len2 = 0;
+        ed1 = 0;
+    } else if (sam_aln2.is_unaligned){
+        f2 |= (1u << 2);
+        f2 |= (0u << 4);
+        f1 |= (1u << 3);
+        sam_aln2.ref_start = sam_aln1.ref_start;
+        template_len1 = 0;
+        template_len2 = 0;
+        ed2 = 0;
+    }
+
+//    if ( (sam_aln1.ref_start == 0)){ // && !sam_aln1.is_unaligned  ){
+//        std::cout << "OMG1" << std::endl;
+//        std::cout << query_acc1 << std::endl;
+//    }
+//    if ( (sam_aln2.ref_start == 0)){ // && !sam_aln2.is_unaligned  ){
+//        std::cout << "OMG2" << std::endl;
+//        std::cout << query_acc2 << std::endl;
+//    }
 
     sam_string.append(query_acc1);
     sam_string.append("\t");
     sam_string.append(std::to_string(f1));
     sam_string.append("\t");
-    sam_string.append(acc_map[sam_aln1.ref_id]);
+    sam_string.append(ref1);
     sam_string.append("\t");
     sam_string.append(std::to_string(sam_aln1.ref_start));
     sam_string.append("\t");
@@ -1336,14 +1522,14 @@ static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, a
 //    sam_string.append("\t*\t0\t0\t");
     sam_string.append(output_read1);
     sam_string.append("\t*\tNM:i:");
-    sam_string.append(std::to_string(sam_aln1.ed));
+    sam_string.append(std::to_string(ed1));
     sam_string.append("\n");
 
     sam_string.append(query_acc2);
     sam_string.append("\t");
     sam_string.append(std::to_string(f2));
     sam_string.append("\t");
-    sam_string.append(acc_map[sam_aln2.ref_id]);
+    sam_string.append(ref2);
     sam_string.append("\t");
     sam_string.append(std::to_string(sam_aln2.ref_start));
     sam_string.append("\t");
@@ -1360,7 +1546,7 @@ static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, a
 //    sam_string.append("\t*\t0\t0\t");
     sam_string.append(output_read2);
     sam_string.append("\t*\tNM:i:");
-    sam_string.append(std::to_string(sam_aln2.ed));
+    sam_string.append(std::to_string(ed2));
     sam_string.append("\n");
 }
 
@@ -1428,25 +1614,44 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
     n.ref_s = -1;
     int hjss = 0; // highest joint score seen
 //            std::cout << "Scoring" << std::endl;
+    int a,b;
     for (auto &n1 : all_nams1) {
         for (auto &n2 : all_nams2) {
             if ((n1.n_hits + n2.n_hits) < hjss/2){
                 break;
             }
-            x = n1.ref_s > n2.ref_s ? (float) (n1.ref_s - n2.ref_s) : (float)(n2.ref_s - n1.ref_s);
-//                    std::cout << x << " " << (n1.ref_s - n2.ref_s) << " " << (n2.ref_s - n1.ref_s) << std::endl;
-            if ( (n1.is_rc ^ n2.is_rc) && (x < mu+10*sigma) && (n1.ref_id == n2.ref_id) ){
-                joint_hits = n1.n_hits + n2.n_hits;
 
-//                        std::cout << S << " " << x << " " << log(normal_pdf(x, mu, sigma )) << " " << normal_pdf(x, mu, sigma ) << std::endl;
-                std::tuple<int, nam, nam> t (joint_hits, n1, n2);
-                joint_NAM_scores.push_back(t);
-                added_n1.insert(n1.ref_s);
-                added_n2.insert(n2.ref_s);
-                if (joint_hits > hjss) {
-                    hjss = joint_hits;
+            if ( (n1.is_rc ^ n2.is_rc) && (n1.ref_id == n2.ref_id) ){
+                a = n1.ref_s - n1.query_s  > 0 ? n1.ref_s - n1.query_s : 0;
+                b = n2.ref_s - n2.query_s  > 0 ? n2.ref_s - n2.query_s : 0;
+                bool r1_r2 = n2.is_rc && (a < b) && ((b-a) < mu+10*sigma); // r1 ---> <---- r2
+                bool r2_r1 = n1.is_rc && (b < a) && ((a-b) < mu+10*sigma); // r2 ---> <---- r1
+                if ( r1_r2 || r2_r1 ){
+                    joint_hits = n1.n_hits + n2.n_hits;
+                    std::tuple<int, nam, nam> t (joint_hits, n1, n2);
+                    joint_NAM_scores.push_back(t);
+                    added_n1.insert(n1.ref_s);
+                    added_n2.insert(n2.ref_s);
+                    if (joint_hits > hjss) {
+                        hjss = joint_hits;
+                    }
                 }
             }
+
+//            x = n1.ref_s > n2.ref_s ? (float) (n1.ref_s - n2.ref_s) : (float)(n2.ref_s - n1.ref_s);
+////                    std::cout << x << " " << (n1.ref_s - n2.ref_s) << " " << (n2.ref_s - n1.ref_s) << std::endl;
+//            if ( (n1.is_rc ^ n2.is_rc) && (x < mu+10*sigma) && (n1.ref_id == n2.ref_id) ){
+//                joint_hits = n1.n_hits + n2.n_hits;
+//
+////                        std::cout << S << " " << x << " " << log(normal_pdf(x, mu, sigma )) << " " << normal_pdf(x, mu, sigma ) << std::endl;
+//                std::tuple<int, nam, nam> t (joint_hits, n1, n2);
+//                joint_NAM_scores.push_back(t);
+//                added_n1.insert(n1.ref_s);
+//                added_n2.insert(n2.ref_s);
+//                if (joint_hits > hjss) {
+//                    hjss = joint_hits;
+//                }
+//            }
         }
     }
 //    std::cout << "ADDED " << added_n1.size() << " " <<  added_n2.size() << std::endl;
@@ -1502,14 +1707,14 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
 }
 
 
-static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, int read_len, alignment &sam_aln, bool &rc_already_comp, unsigned int &tot_ksw_aligned, float &mu, float &sigma, unsigned int &tot_rescued) {
+static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, int read_len, alignment &sam_aln, bool &rc_already_comp, unsigned int &tot_ksw_aligned, float &mu, float &sigma, unsigned int &tot_rescued, int k) {
     int a, b, ref_start,ref_len,ref_end;
     std::string r_tmp;
     bool a_is_rc;
     if (n.is_rc){
         r_tmp = read;
         a = n.ref_s - n.query_s - (mu+5*sigma);
-        b = n.ref_s + read_len;
+        b = n.ref_s - n.query_s + read_len/2; // at most half read overlap
         a_is_rc = false;
     }else{
         if (!rc_already_comp){
@@ -1517,19 +1722,58 @@ static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, s
             rc_already_comp = true;
         }
         r_tmp = read_rc; // mate is rc since fr orientation
-        a = (n.ref_s - n.query_s);
+        a = n.ref_e + (read_len - n.query_e) - read_len/2; // at most half read overlap
         b = n.ref_e + (read_len - n.query_e) + (mu+5*sigma);
         a_is_rc = true;
     }
-    ref_start = std::max(0, a);
+
     ref_len = ref_len_map[n.ref_id];
+    ref_start = std::max(0, std::min(a,ref_len));
     ref_end = std::min(ref_len, b);
     std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
-    ksw_extz_t ez;
-    const char *ref_ptr = ref_segm.c_str();
-    const char *read_ptr = r_tmp.c_str();
     aln_info info;
-    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
+
+    // check that read shares at least some segment with ref otherwise abort
+    int sub_size = 2*k/3;
+    int step_size = k/3;
+    std::string submer;
+    bool found = false;
+    for (int i = 0; i<=r_tmp.size()-k; i+=step_size) {
+        submer = r_tmp.substr(i, sub_size);
+        if (ref_segm.find( submer ) != std::string::npos) {
+            found = true;
+            break;
+        }
+    }
+    if (!found){
+        sam_aln.cigar = "*";
+        sam_aln.ed = read_len;
+        sam_aln.sw_score = 0;
+        sam_aln.ref_start =  0;
+        sam_aln.is_rc = n.is_rc;
+        sam_aln.ref_id = n.ref_id;
+        sam_aln.is_unaligned = true;
+        sam_aln.not_proper = true;
+//        std::cout << "Avoided!" << std::endl;
+        return;
+//        std::cout << "LOOOOOOL!" << std::endl;
+//        std::cout << "Aligning anyway at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
+//        std::cout << "read: " << r_tmp << std::endl;
+//        std::cout << "ref: " << ref_segm << std::endl;
+    }
+
+//    std::cout << "Aligning at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
+//    std::cout << "read: " << r_tmp << std::endl;
+//    std::cout << "ref: " << ref_segm << std::endl;
+    info = ssw_align(ref_segm, r_tmp, read_len, 1, 4, 6, 1);
+//    info = parasail_align(ref_segm, ref_segm.size(), r_tmp, read_len, 1, 4, 6, 1);
+
+//    ksw_extz_t ez;
+//    const char *ref_ptr = ref_segm.c_str();
+//    const char *read_ptr = r_tmp.c_str();
+//    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
+//    std::cout << "Cigar: " << info.cigar << std::endl;
+
     sam_aln.cigar = info.cigar;
     sam_aln.ed = info.ed;
     sam_aln.sw_score = info.sw_score;
@@ -1702,7 +1946,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 //                    std::cout << "RESCUE HERE1" << std::endl;
                     //////// Force SW alignment to rescue mate /////////
 //                    std::cout << query_acc2 << " RESCUE MATE" << std::endl;
-                    rescue_mate(n2, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, rc_already_comp1, tot_ksw_aligned, mu, sigma, tot_rescued);
+                    rescue_mate(n2, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, rc_already_comp1, tot_ksw_aligned, mu, sigma, tot_rescued, k);
 //                    is_aligned1[n1.nam_id] = a1;
                     tot_all_tried ++;
                 }
@@ -1730,7 +1974,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 //                    std::cout << "RESCUE HERE2" << std::endl;
                     //////// Force SW alignment to rescue mate /////////
 //                    std::cout << query_acc1 << " RESCUE MATE" << std::endl;
-                    rescue_mate(n1, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma, tot_rescued);
+                    rescue_mate(n1, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma, tot_rescued, k);
 //                    is_aligned2[n2.nam_id] = a2;
                     tot_all_tried ++;
                 }
@@ -1743,13 +1987,25 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                 }
                 //////////////////////////////////////////////////////////////////
 
-                x = a1.ref_start > a2.ref_start ? (float) (a1.ref_start - a2.ref_start) : (float)(a2.ref_start - a1.ref_start);
-                if ( (a1.is_rc ^ a2.is_rc) && (x < mu+5*sigma)  ){
-                    S = (double)a1.sw_score + (double)a2.sw_score + log( normal_pdf(x, mu, sigma ) );  //* (1 - s2 / s1) * min_matches * log(s1);
-                }
-                else{ // individual score
+                if ( a1.is_rc ^ a2.is_rc){
+                    bool r1_r2 = a2.is_rc && (a1.ref_start < a2.ref_start) && ((a2.ref_start - a1.ref_start) < mu+5*sigma); // r1 ---> <---- r2
+                    bool r2_r1 = a1.is_rc && (a2.ref_start < a1.ref_start) && ((a1.ref_start - a2.ref_start) < mu+5*sigma); // r2 ---> <---- r1
+                    if ( r1_r2 || r2_r1 ){
+                        x = a1.ref_start > a2.ref_start ? (float) (a1.ref_start - a2.ref_start) : (float)(a2.ref_start - a1.ref_start);
+                        S = (double)a1.sw_score + (double)a2.sw_score + log( normal_pdf(x, mu, sigma ) );  //* (1 - s2 / s1) * min_matches * log(s1);
+                    }
+                } else{ // individual score
                     S = (double)a1.sw_score + (double)a2.sw_score - 20; // 20 corresponds to a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
                 }
+
+//                x = a1.ref_start > a2.ref_start ? (float) (a1.ref_start - a2.ref_start) : (float)(a2.ref_start - a1.ref_start);
+//                if ( (a1.is_rc ^ a2.is_rc) && (x < mu+5*sigma)  ){
+//                    S = (double)a1.sw_score + (double)a2.sw_score + log( normal_pdf(x, mu, sigma ) );  //* (1 - s2 / s1) * min_matches * log(s1);
+//                }
+//                else{ // individual score
+//                    S = (double)a1.sw_score + (double)a2.sw_score - 20; // 20 corresponds to a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
+//                }
+
                 std::tuple<double, alignment, alignment> aln_tuple (S, a1, a2);
                 high_scores.push_back(aln_tuple);
 
@@ -1782,6 +2038,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
             auto best_aln_pair = high_scores[0];
             sam_aln1 = std::get<1>(best_aln_pair);
             sam_aln2 = std::get<2>(best_aln_pair);
+//            get_MAPQ_aln(sam_aln1, sam_aln2);
             append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2, mu, sigma, read_len1);
 
             //////////////////////////////////////////////////////////////////
@@ -1811,7 +2068,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
             //////// Force SW alignment to rescue mate /////////
             alignment a2;
 //            std::cout << query_acc2 << " force rescue" << std::endl;
-            rescue_mate(n, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma,tot_rescued);
+            rescue_mate(n, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma,tot_rescued, k);
             aln_scores2.push_back(a2);
             //////////////////////////////////////////////////////////////////
 
@@ -1830,7 +2087,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         sam_aln1 = std::get<1>(best_aln_pair);
         sam_aln2 = std::get<2>(best_aln_pair);
         get_MAPQ(all_nams1, n_max1, mapq1);
-        mapq2 = mapq1;
+        mapq2 = 0;
         append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2, mu, sigma, read_len1);
 
     } else if (all_nams2.size() > 0 ) { // rescue read 1
@@ -1852,7 +2109,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 
             //////// Force SW alignment to rescue mate /////////
             alignment a1;
-            rescue_mate(n, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, rc_already_comp1, tot_ksw_aligned, mu, sigma, tot_rescued);
+            rescue_mate(n, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, rc_already_comp1, tot_ksw_aligned, mu, sigma, tot_rescued, k);
             aln_scores1.push_back(a1);
             //////////////////////////////////////////////////////////////////
 
@@ -1872,7 +2129,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         sam_aln2 = std::get<2>(best_aln_pair);
 
         get_MAPQ(all_nams2, n_max2, mapq2);
-        mapq1 = mapq2;
+        mapq1 = 0;
         append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2, mu, sigma,read_len1);
     }
 
@@ -1940,7 +2197,7 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.1\n";
+    std::cerr << "StrobeAlign VERSION 0.2 (ssw bugfix trialrun)\n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
