@@ -71,7 +71,7 @@ VERSION INFO
 
 ### Version 0.2
 
-Improtant buxfix [1](https://github.com/ksahlin/StrobeAlign/commit/39c8c45afd6d9b35ea55da5744ae12b810fc8086) and added ssw for rescue alignment [2](https://github.com/ksahlin/StrobeAlign/commit/8282043129f2f8fcdab9106c6e5f3c5777e4220c) since ksw is only for extension. Thiese fixes improve both accuracy and speed in paired-end aligmemnt mode further.
+Important bugfix [1](https://github.com/ksahlin/StrobeAlign/commit/39c8c45afd6d9b35ea55da5744ae12b810fc8086) and added ssw for rescue alignment [2](https://github.com/ksahlin/StrobeAlign/commit/8282043129f2f8fcdab9106c6e5f3c5777e4220c) since ksw is only for extension. These fixes improve both accuracy and speed in paired-end alignment mode further.
 
 ### Version 0.1
 
