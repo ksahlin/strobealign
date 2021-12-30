@@ -1,13 +1,13 @@
 StrobeAlign
 ==============
 
-Strobealign is a fast single or paired-end short-read aligner. It achieves the speedup to other aligners while keeping high accuracy by using a dynamic seed size obtained from syncmer-thinned strobemers. Strobealign is multithreaded, implements alignment (SAM) and mapping (PAF), and is tested for reads of lengths between 100-300bp and insert sized up to roughly 1000bp; see experiments for single-end and paired-end alignment in the [preprint](https://doi.org/10.1101/2021.06.18.449070). Strobealign is not recommended for very short reads (roughly <=80nt).
+Strobealign is a fast short-read aligner. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers. Strobealign is multithreaded, implements alignment (SAM) and mapping (PAF), and has high accuracy for reads of lengths between 100-300bp and insert sizes up to roughly 1000bp; see experiments for single-end and paired-end alignment in the [preprint](https://doi.org/10.1101/2021.06.18.449070).
 
 
 INSTALLATION
 ----------------
 
-You can acquire precompiled binaries for Linux and Mac OSx from the [release page](https://github.com/ksahlin/StrobeAlign/releases).
+You can acquire precompiled binaries for Linux and Mac OSx from the [release page](https://github.com/ksahlin/StrobeAlign/releases). It has been [reported](https://github.com/ksahlin/StrobeAlign/issues/6) that `strobealign` is even faster if compliled with flag `-march=skylake-avx512` for avx512 supported processors.
 
 If you want to compile from the source, you need to have a newer `g++` and [zlib](https://zlib.net/) installed. Then do the following:
 
