@@ -958,6 +958,7 @@ inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen
 //    std::string cigar_mod;
 //    cigar_mod.reserve(5*ez.n_cigar);
     unsigned int tstart_offset = 0;
+    int eqx_len, switch_ind;
     std::stringstream cigar_string;
     int edit_distance = 0;
     int sw_score = 0;
@@ -979,24 +980,49 @@ inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen
         }
         cigar_string << count << op;
         switch (op) {
-            case 'M':
+            case 'M': {
+//                eqx_len = 0;
+//                switch_ind = 0; // switch_ind 0 if prev was match, 1 if mismatch
+//                char o = '=';
                 for (int j = 0; j < count; j++, ref_pos++, read_pos++) {
                     if (tseq[ref_pos] != qseq[read_pos]) {
                         edit_distance++;
                         sw_score -= -b;
+//                        if ((switch_ind == 0) && (j > 0)) { // prev was match
+//                            cigar_string << eqx_len << '=';
+//                            eqx_len = 0;
+//                        }
+//                        switch_ind = 1;
+//                        o = 'X';
+//                        eqx_len++;
                     } else{
                         sw_score += sc_mch;
+//                        if (switch_ind == 1) { // prev was mismatch
+//                            cigar_string << eqx_len << 'X';
+//                            eqx_len = 0;
+//                            o = '=';
+//                            switch_ind = 0;
+//                        }
+//                        eqx_len++;
                     }
                 }
+//                cigar_string << eqx_len << o;
                 break;
-            case 'D':edit_distance += count;
+            }
+            case 'D': {
+                edit_distance += count;
                 ref_pos += count;
-                sw_score -= (gapo + (count-1));
+                sw_score -= (gapo + (count - 1));
+//                cigar_string << count << op;
                 break;
-            case 'I':edit_distance += count;
+            }
+            case 'I': {
+                edit_distance += count;
                 read_pos += count;
-                sw_score -= (gapo + (count-1));
+                sw_score -= (gapo + (count - 1));
+//                cigar_string << count << op;
                 break;
+            }
             default:assert(0);
         }
 //        std::cout << "ED " << edit_distance << std::endl;
