@@ -76,34 +76,53 @@ static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsi
 
 
 
-static inline void print_diagnostics_new4(mers_vector_reduced &mers_vector, kmer_lookup mers_index ) {
-    uint64_t tot_flat_vector_size = 0;
-    for (size_t i = 0; i < mers_vector.size(); ++i)
-    {
-        // access using []
-        auto t = mers_vector[i];
-//        std::cout << "(" << std::get<0>(t) << ", " << std::get<1>(t) << ", " << std::get<2>(t) << ", " << std::get<3>(t) << ", " << std::get<4>(t) << "), ";
-        tot_flat_vector_size += sizeof(t);
+static inline void print_diagnostics(mers_vector &ref_mers, robin_hood::unordered_map< uint64_t, std::tuple<unsigned int, unsigned int >> &mers_index, std::string logfile_name, int k) {
+    // Prins to csv file the statistics on the number of seeds of a particular length and what fraction of them them are unique in the index:
+    // format:
+    // seed_length, count, percentage_unique
+    //
+
+    std::vector<int> log_count(100000000,0);  // stores count and each index represents the length
+    std::vector<int> log_unique(100000000,0); // stores count unique and each index represents the length
+
+    std::tuple<uint64_t, unsigned int> mer;
+    std::tuple<unsigned int, unsigned int > ref_mer; // (cout offset)
+    int seed_length;
+    for (auto &it : mers_index) {
+        uint64_t hash_refmer = it.first;
+        ref_mer = it.second;
+
+        uint64_t offset = std::get<0>(ref_mer);
+        unsigned int count = std::get<1>(ref_mer);
+
+
+        for (size_t j = offset; j < offset + count; ++j) {
+            auto r = ref_mers[j];
+            seed_length =  std::get<3>(r) + k - std::get<2>(r);
+            if (seed_length < k){
+//                std::cout << "BUG! " << seed_length << std::endl;
+            }
+            log_count[seed_length] ++;
+        }
+
+        if (count == 1) {
+            log_unique[seed_length] ++;
+        }
     }
-    std::cout << "Total size of flat mers-vector : " << tot_flat_vector_size/1000000  << " Mb." << std::endl;
-    std::cout << "Total entries in flat mers-vector : " << mers_vector.size()  << std::endl;
-//    uint64_t tot_hashtable_index_size = 0;
-//    for (auto &it : mers_index)
-//    {
-////        std::cout << it.first << ": (" << std::get<0>(it.second) << ", " << std::get<1>(it.second) << "), " ;
-//        tot_hashtable_index_size += sizeof(it.first);
-//        tot_hashtable_index_size += sizeof(it.second);
-//    }
-//    std::cout << "Total size of hash table index : " << tot_hashtable_index_size/1000000  << " Mb." << std::endl;
 
-    std::cout << "Total entries in hash table : " << mers_index.size()  << std::endl;
-    std::cout << "Total size of hash table entries (ignoring internal nodes) : " << (mers_index.size() * sizeof(kmer_lookup::value_type))/1000000 << " Mb." << "\n";
-    // https://stackoverflow.com/questions/720507/how-can-i-estimate-memory-usage-of-stdmap/720520
-    std::cout << "Total size of hash table (applying approximation that about 2/3 of the memory is from internal nodes and 1/3 from the leafs, i.e., hash entries) : " << 3*(mers_index.size() * sizeof(kmer_lookup::value_type))/1000000 << " Mb." << "\n";
-    std::cout << "" << std::endl;
-    std::cout << "Total index size: " <<  tot_flat_vector_size/1000000 +  3*(mers_index.size() * sizeof(kmer_lookup::value_type))/1000000 << " Mb." << std::endl;
+//    std::cout << "Here" << std::endl;
 
-}
+    // printing
+    std::ofstream log_file;
+    log_file.open(logfile_name);
+    for (int i=0 ; i < log_count.size(); ++i) {
+        if (log_count[i] > 0) {
+            log_file << i << ',' << log_count[i] << ',' << log_unique[i] << std::endl;
+        }
+    }
+    log_file.close();
+
+    }
 
 
 //static inline bool sort_hits(const hit &a, const hit &b)
@@ -2201,18 +2220,31 @@ void print_usage() {
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
+    std::cerr << "\n";
+    std::cerr << "Resources:\n";
     std::cerr << "\t-t INT number of threads [3]\n";
-    std::cerr << "\t-n INT number of strobes [2]\n";
+
+    std::cerr << "\n";
+    std::cerr << "Input/output:\n";
+    std::cerr << "\t-o STR name of output SAM-file to print results to [mapped.sam]\n";
+    std::cerr << "\t-x Only map reads, no base level alignment (produces paf file)\n";
+    std::cerr << "\t-L STR Print statistics of indexing to logfie [log.csv] \n";
+
+
+    std::cerr << "\n";
+    std::cerr << "Seeding:\n";
+//    std::cerr << "\t-n INT number of strobes [2]\n";
+    std::cerr << "\t-r INT Approximate read length. Sets suitable parameters for -k, -l, -u and -q. [150] \n";
     std::cerr << "\t-k INT strobe length [20]\n";
     std::cerr << "\t-l INT Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]\n";
     std::cerr << "\t-u INT Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [7]\n";
     std::cerr << "\t-c INT [8-64] Bitcount length [8]\n";
-    std::cerr << "\t-r INT Approximate read length. Sets suitable parameters for -k, -l, -u and -q. [150] \n";
-    std::cerr << "\t-R INT Rescue level  Perform additional search for reads with many repetitive seeds filtered out. This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest. \n";
-    std::cerr << "\t-s INT syncmer thinning parameter to sample strobes. A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. \n";
-    std::cerr << "\t-o STR name of output SAM-file to print results to [mapped.sam]\n";
-    std::cerr << "\t-x Only map reads, no base level alignment (produces paf file)\n";
+    std::cerr << "\t-s INT Submer size used for creating syncmers [k-4]. Only even numbers on k-s allowed.\n\t   A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. It is recommended not to change this parameter\n\t   unless you have a good understanding of syncmenrs as it will drastically change the memory usage and results with non default values. \n";
+
+    std::cerr << "\n";
+    std::cerr << "Search parameters:\n";
     std::cerr << "\t-f FLOAT top fraction of repetitive syncmers to filter out from sampling [0.0002]\n";
+    std::cerr << "\t-R INT Rescue level. Perform additional search for reads with many repetitive seeds filtered out.\n\t   This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign\n\t   significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest. \n";
 }
 
 
@@ -2241,17 +2273,19 @@ int main (int argc, char **argv)
     bool r_set = false;
 
     std::string output_file_name = "mapped.sam";
+    std::string logfile_name = "log.csv";
     bool s_set = false;
-
+    bool index_log = false;
     int opn = 1;
     while (opn < argc) {
         bool flag = false;
         if (argv[opn][0] == '-') {
-            if (argv[opn][1] == 'n') {
-                n = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 't') {
+//            if (argv[opn][1] == 'n') {
+//                n = std::stoi(argv[opn + 1]);
+//                opn += 2;
+//                flag = true;
+//            } else
+            if (argv[opn][1] == 't') {
                 n_threads = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
@@ -2261,6 +2295,11 @@ int main (int argc, char **argv)
                 flag = true;
             } else if (argv[opn][1] == 'o') {
                 output_file_name = argv[opn + 1];
+                opn += 2;
+                flag = true;
+            } else if (argv[opn][1] == 'L') {
+                logfile_name = argv[opn + 1];
+                index_log = true;
                 opn += 2;
                 flag = true;
             } else if (argv[opn][1] == 's') {
@@ -2343,7 +2382,6 @@ int main (int argc, char **argv)
     float dropoff = 0.5;
     int t_syncmer = (k-s)/2 + 1;
     std::cout << "Using" << std::endl;
-    std::cout << "n: " << n << std::endl;
     std::cout << "k: " << k << std::endl;
     std::cout << "s: " << s << std::endl;
     std::cout << "w_min: " << w_min << std::endl;
@@ -2357,7 +2395,7 @@ int main (int argc, char **argv)
     assert(k <= 32 && "k have to be smaller than 32!");
     assert( ( s <= k ) && " s have to be smaller or equal to k!");
     assert( ( (k-s) % 2 == 0) && " k - s have to be an even number to create canonical syncmers. Set s to e.g., k-2, k-4, k-6, k-8.");
-    assert(n == 2 && "Currently only n=2 is implemented");
+//    assert(n == 2 && "Currently only n=2 is implemented");
     // File name to reference
     std::string ref_filename = argv[opn];
 //    opn++;
@@ -2511,7 +2549,10 @@ int main (int argc, char **argv)
 //    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector);
     /* destroy vector */
 //    flat_vector.clear();
-//    print_diagnostics_new4(all_mers_vector, mers_index);
+    if (index_log){
+//        std::cout << "Printing log stats" << std::endl;
+        print_diagnostics(flat_vector, mers_index, logfile_name, k);
+    }
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -2564,7 +2605,7 @@ int main (int argc, char **argv)
         for (auto &it : acc_map) {
             output_file << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
         }
-        output_file << "@PG\tID:strobealign\tPN:strobealign\tVN:0.0.3\tCL:strobealign\n";
+        output_file << "@PG\tID:strobealign\tPN:strobealign\tVN:0.2.1\tCL:strobealign\n";
     }
 
     if(is_SE) {
