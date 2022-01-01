@@ -2207,7 +2207,7 @@ void print_usage() {
     std::cerr << "\t-l INT Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]\n";
     std::cerr << "\t-u INT Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [7]\n";
     std::cerr << "\t-c INT [8-64] Bitcount length [8]\n";
-    std::cerr << "\t-r INT in 100,150,200,250,300. Rough read length. Alias for setting suitable parameters for -k, -l, -u and -q. [150] \n";
+    std::cerr << "\t-r INT Approximate read length. Sets suitable parameters for -k, -l, -u and -q. [150] \n";
     std::cerr << "\t-R INT Rescue level  Perform additional search for reads with many repetitive seeds filtered out. This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest. \n";
     std::cerr << "\t-s INT syncmer thinning parameter to sample strobes. A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. \n";
     std::cerr << "\t-o STR name of output SAM-file to print results to [mapped.sam]\n";
@@ -2230,34 +2230,15 @@ int main (int argc, char **argv)
 
     int n_threads = 3;
     int n = 2;
-    int k = 22;
+    int k = 20;
     int s = k - 4;
     float f = 0.0002;
     int R = 2;
     int l = 0;
-    int u = 10;
-    int c = 16;
+    int u = 7;
+    int c = 8;
     int r = 150;
-
-    if (r == 100){
-        k = 20;
-        l = -3;
-        u = 3;
-    } else if (r == 150) {
-        k = 20;
-        l = 0;
-        u = 7;
-    } else if ( (r == 200) || (r == 250) ){
-        k = 22;
-        l = 2;
-        u = 10;
-    } else if (r == 300) {
-        k = 23;
-        l = 2;
-        u = 10;
-    } else {
-        std::cout << "Warning wrong value for parameter r (only 100, 150, 200, 250, and 300 allowed), setting r=150" << std::endl;
-    }
+    bool r_set = false;
 
     std::string output_file_name = "mapped.sam";
     bool s_set = false;
@@ -2315,6 +2296,7 @@ int main (int argc, char **argv)
                 r = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
+                r_set = true;
             }
 
             else {
@@ -2325,6 +2307,25 @@ int main (int argc, char **argv)
             break;
     }
 
+    if (r_set) {
+        if (r <= 125) { // based on params for 100
+            k = 20;
+            l = -3;
+            u = 3;
+        } else if ((r > 125) || (r <= 175)) { // based on params for 150
+            k = 20;
+            l = 0;
+            u = 7;
+        } else if ((r > 175) || (r <= 275)) { // based on params for 200 and 250
+            k = 22;
+            l = 2;
+            u = 10;
+        } else { // based on params for 300
+            k = 23;
+            l = 2;
+            u = 10;
+        }
+    }
 
     if ( (!s_set ) ){
         s = k - 4; // Update default s to k - 4 if user has not set s parameter
@@ -2334,7 +2335,7 @@ int main (int argc, char **argv)
         q = pow (2, c) - 1;
     } else{
         std::cout << "Warning wrong value for parameter c, setting c=8" << std::endl;
-        q = pow (2, c) - 1;
+        q = pow (2, 8) - 1;
     }
     omp_set_num_threads(n_threads); // set number of threads in "parallel" blocks
     int w_min = k/(k-s+1) + l;
