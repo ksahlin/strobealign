@@ -2197,15 +2197,15 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.2\n";
+    std::cerr << "StrobeAlign VERSION 0.2.1 (param fix) \n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
     std::cerr << "\t-t INT number of threads [3]\n";
     std::cerr << "\t-n INT number of strobes [2]\n";
-    std::cerr << "\t-k INT strobe length [22]\n";
+    std::cerr << "\t-k INT strobe length [20]\n";
     std::cerr << "\t-l INT Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]\n";
-    std::cerr << "\t-u INT Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [10]\n";
+    std::cerr << "\t-u INT Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [7]\n";
     std::cerr << "\t-c INT [8-64] Bitcount length [8]\n";
     std::cerr << "\t-r INT in 100,150,200,250,300. Rough read length. Alias for setting suitable parameters for -k, -l, -u and -q. [150] \n";
     std::cerr << "\t-R INT Rescue level  Perform additional search for reads with many repetitive seeds filtered out. This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest. \n";
@@ -2238,6 +2238,27 @@ int main (int argc, char **argv)
     int u = 10;
     int c = 16;
     int r = 150;
+
+    if (r == 100){
+        k = 20;
+        l = -3;
+        u = 3;
+    } else if (r == 150) {
+        k = 20;
+        l = 0;
+        u = 7;
+    } else if ( (r == 200) || (r == 250) ){
+        k = 22;
+        l = 2;
+        u = 10;
+    } else if (r == 300) {
+        k = 23;
+        l = 2;
+        u = 10;
+    } else {
+        std::cout << "Warning wrong value for parameter r (only 100, 150, 200, 250, and 300 allowed), setting r=150" << std::endl;
+    }
+
     std::string output_file_name = "mapped.sam";
     bool s_set = false;
 
@@ -2304,27 +2325,6 @@ int main (int argc, char **argv)
             break;
     }
 
-
-
-    if (r == 100){
-        k = 20;
-        l = -3;
-        u = 3;
-    } else if (r == 150) {
-        k = 20;
-        l = 0;
-        u = 7;
-    } else if ( (r == 200) || (r == 250) ){
-        k = 22;
-        l = 2;
-        u = 10;
-    } else if (r == 300) {
-        k = 23;
-        l = 2;
-        u = 10;
-    } else {
-        std::cout << "Warning wrong value for parameter r (only 100, 150, 200, 250, and 300 allowed), setting r=150" << std::endl;
-    }
 
     if ( (!s_set ) ){
         s = k - 4; // Update default s to k - 4 if user has not set s parameter
