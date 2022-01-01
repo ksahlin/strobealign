@@ -82,9 +82,9 @@ static inline void print_diagnostics(mers_vector &ref_mers, robin_hood::unordere
     // seed_length, count, percentage_unique
     //
 
-    std::vector<int> log_count(100000000,0);  // stores count and each index represents the length
-    std::vector<int> log_unique(100000000,0); // stores count unique and each index represents the length
-
+    std::vector<int> log_count(1000000,0);  // stores count and each index represents the length
+    std::vector<int> log_unique(1000000,0); // stores count unique and each index represents the length
+    int max_size = 1000000;
     std::tuple<uint64_t, unsigned int> mer;
     std::tuple<unsigned int, unsigned int > ref_mer; // (cout offset)
     int seed_length;
@@ -99,13 +99,16 @@ static inline void print_diagnostics(mers_vector &ref_mers, robin_hood::unordere
         for (size_t j = offset; j < offset + count; ++j) {
             auto r = ref_mers[j];
             seed_length =  std::get<3>(r) + k - std::get<2>(r);
-            if (seed_length < k){
-//                std::cout << "BUG! " << seed_length << std::endl;
+            if (seed_length < max_size){
+
+                log_count[seed_length] ++;
+            } else {
+               std::cout << "Detected seed size over " << max_size << " bp (can happen, e.g., over centromere): " << seed_length << std::endl;
             }
-            log_count[seed_length] ++;
+
         }
 
-        if (count == 1) {
+        if ( (count == 1) & (seed_length < max_size) ) {
             log_unique[seed_length] ++;
         }
     }
