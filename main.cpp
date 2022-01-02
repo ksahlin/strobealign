@@ -2354,11 +2354,11 @@ int main (int argc, char **argv)
             k = 20;
             l = -3;
             u = 3;
-        } else if ((r > 125) || (r <= 175)) { // based on params for 150
+        } else if ((r > 125) && (r <= 175)) { // based on params for 150
             k = 20;
             l = 0;
             u = 7;
-        } else if ((r > 175) || (r <= 275)) { // based on params for 200 and 250
+        } else if ((r > 175) && (r <= 275)) { // based on params for 200 and 250
             k = 22;
             l = 2;
             u = 10;
@@ -2380,7 +2380,7 @@ int main (int argc, char **argv)
         q = pow (2, 8) - 1;
     }
     omp_set_num_threads(n_threads); // set number of threads in "parallel" blocks
-    int w_min = k/(k-s+1) + l;
+    int w_min = k/(k-s+1) + l > 1 ? k/(k-s+1) + l : 1;
     int w_max = k/(k-s+1) + u;
     float dropoff = 0.5;
     int t_syncmer = (k-s)/2 + 1;

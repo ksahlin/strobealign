@@ -323,6 +323,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 //    std::cout << mask << std::endl;
 
 //    std::vector<std::tuple<uint64_t, unsigned int, unsigned int> > kmers;
+    int gap = 0;
     unsigned int hash_count = 0;
     int l;
     uint64_t xk[2];
@@ -362,7 +363,8 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
                             qs_min_pos = qs_pos[j];
                         }
                     }
-                    if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
+//                    if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
+                    if ( (qs_min_pos == qs_pos[t-1]) || ((gap > 10) && ((qs_min_pos == qs_pos[k - s]) || (qs_min_pos == qs_pos[0]))) ) { // occurs at first or last position in k-mer
                         uint64_t yk = xk[0] < xk[1]? xk[0] : xk[1];
 //                        uint64_t hash_k = robin_hash(yk);
 //                        uint64_t hash_k = yk;
@@ -373,13 +375,15 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
                         pos_to_seq_choord.push_back(i - k + 1);
                         hash_count++;
 //                        std::cout << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
-
+//                        std::cout <<  "Sampled gap: " << gap << std::endl;
+                        gap = 0;
                     }
                 }
                 else{
                     bool new_minimizer = false;
                     update_window(qs, qs_pos, qs_min_val, qs_min_pos, hash_s, i - s + 1, new_minimizer );
-                    if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
+//                    if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
+                    if ( (qs_min_pos == qs_pos[t-1]) || ((gap > 10) && ((qs_min_pos == qs_pos[k - s]) || (qs_min_pos == qs_pos[0]))) ) { // occurs at first or last position in k-mer
                         uint64_t yk = xk[0] < xk[1]? xk[0] : xk[1];
 //                        uint64_t hash_k = robin_hash(yk);
 //                        uint64_t hash_k = yk;
@@ -391,8 +395,14 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 //                        std::cout << i - k + 1 << std::endl;
                         hash_count++;
 //                        std::cout << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
+//                        std::cout <<  "Sampled gap: " << gap << std::endl;
+                        gap = 0;
                     }
                 }
+                if (gap > 25){
+                    std::cout <<  "Gap: " << gap << " position:" << i - k + 1 << std::endl;
+                }
+                gap ++;
             }
         } else {
             qs_min_val = UINT64_MAX;
