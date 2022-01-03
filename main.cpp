@@ -82,9 +82,11 @@ static inline void print_diagnostics(mers_vector &ref_mers, robin_hood::unordere
     // seed_length, count, percentage_unique
     //
 
-    std::vector<int> log_count(1000000,0);  // stores count and each index represents the length
-    std::vector<int> log_unique(1000000,0); // stores count unique and each index represents the length
-    int max_size = 1000000;
+    int max_size = 100000;
+    std::vector<int> log_count(max_size,0);  // stores count and each index represents the length
+    std::vector<int> log_unique(max_size,0); // stores count unique and each index represents the length
+    std::vector<int> log_repetitive(max_size,0); // stores count unique and each index represents the length
+
     std::tuple<uint64_t, unsigned int> mer;
     std::tuple<unsigned int, unsigned int > ref_mer; // (cout offset)
     int seed_length;
@@ -111,6 +113,9 @@ static inline void print_diagnostics(mers_vector &ref_mers, robin_hood::unordere
         if ( (count == 1) & (seed_length < max_size) ) {
             log_unique[seed_length] ++;
         }
+        if ( (count >= 10) & (seed_length < max_size) ) {
+            log_repetitive[seed_length] ++;
+        }
     }
 
 //    std::cout << "Here" << std::endl;
@@ -120,7 +125,7 @@ static inline void print_diagnostics(mers_vector &ref_mers, robin_hood::unordere
     log_file.open(logfile_name);
     for (int i=0 ; i < log_count.size(); ++i) {
         if (log_count[i] > 0) {
-            log_file << i << ',' << log_count[i] << ',' << log_unique[i] << std::endl;
+            log_file << i << ',' << log_count[i] << ',' << (float) log_unique[i] / (float) log_count[i] << ',' << (float) log_repetitive[i] / (float) log_count[i] << std::endl;
         }
     }
     log_file.close();
@@ -2238,10 +2243,10 @@ void print_usage() {
     std::cerr << "Seeding:\n";
 //    std::cerr << "\t-n INT number of strobes [2]\n";
     std::cerr << "\t-r INT Approximate read length. Sets suitable parameters for -k, -l, -u and -q. [150] \n";
-    std::cerr << "\t-k INT strobe length [20]\n";
+    std::cerr << "\t-k INT strobe length, has to be below 32. [20]\n";
     std::cerr << "\t-l INT Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]\n";
     std::cerr << "\t-u INT Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [7]\n";
-    std::cerr << "\t-c INT [8-64] Bitcount length [8]\n";
+    std::cerr << "\t-c INT Bitcount length between 2 and 63. [8]\n";
     std::cerr << "\t-s INT Submer size used for creating syncmers [k-4]. Only even numbers on k-s allowed.\n\t   A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. It is recommended not to change this parameter\n\t   unless you have a good understanding of syncmenrs as it will drastically change the memory usage and results with non default values. \n";
 
     std::cerr << "\n";
@@ -2373,7 +2378,7 @@ int main (int argc, char **argv)
         s = k - 4; // Update default s to k - 4 if user has not set s parameter
     }
     uint64_t q;
-    if ( (c <= 64) && (c > 0)){
+    if ( (c < 64) && (c > 0)){
         q = pow (2, c) - 1;
     } else{
         std::cout << "Warning wrong value for parameter c, setting c=8" << std::endl;
@@ -2389,7 +2394,7 @@ int main (int argc, char **argv)
     std::cout << "s: " << s << std::endl;
     std::cout << "w_min: " << w_min << std::endl;
     std::cout << "w_max: " << w_max << std::endl;
-    std::cout << "t: " << n_threads << std::endl;
+    std::cout << "threads: " << n_threads << std::endl;
     std::cout << "R: " << R << std::endl;
     std::cout << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (under random minimizer sampling): [" << (k-s+1)*w_min << ", " << (k-s+1)*w_max << "]" << std::endl;
 
