@@ -493,7 +493,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
                     update_window(qs, qs_pos, qs_min_val, qs_min_pos, hash_s, i - s + 1, new_minimizer );
                     if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
 //                    if ( (qs_min_pos == qs_pos[t-1]) || ((gap > 10) && ((qs_min_pos == qs_pos[k - s]) || (qs_min_pos == qs_pos[0]))) ) { // occurs at first or last position in k-mer
-                        if ( (gap > 25) && (gap < 200) ) { // open syncmers no window guarantee, fill in subsequence with closed syncmers
+                        if ( (gap > k) && (gap < 200) ) { // open syncmers no window guarantee, fill in subsequence with closed syncmers
                             subseq = seq.substr(i - k + 1 - gap + 1, gap +k);
                             make_string_to_hashvalues_closed_syncmers_canonical(subseq, string_hashes, pos_to_seq_choord, kmask, k, smask, s, t, i - k + 1 - gap + 1);
                         }
