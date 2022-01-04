@@ -308,6 +308,114 @@ static inline void update_window(std::deque <uint64_t> &q, std::deque <unsigned 
 //}
 
 
+static inline void make_string_to_hashvalues_closed_syncmers_canonical(std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, uint64_t kmask, int k, uint64_t smask, int s, int t, int startpos) {
+    // initialize the deque
+    std::deque <uint64_t> qs;
+    std::deque <unsigned int> qs_pos;
+    int seq_length = seq.length();
+    int qs_size = 0;
+    uint64_t qs_min_val = UINT64_MAX;
+    int qs_min_pos = -1;
+
+
+//    robin_hood::hash<uint64_t> robin_hash;
+    uint64_t mask = (1ULL<<2*k) - 1;
+//    std::cout << mask << std::endl;
+
+//    std::vector<std::tuple<uint64_t, unsigned int, unsigned int> > kmers;
+    unsigned int hash_count = 0;
+    int l;
+    uint64_t xk[2];
+    xk[0] = xk[1] = 0;
+    uint64_t xs[2];
+    xs[0] = xs[1] = 0;
+    uint64_t kshift = (k - 1) * 2;
+    uint64_t sshift = (s - 1) * 2;
+    for (int i = l = 0; i < seq_length; i++) {
+        int c = seq_nt4_table[(uint8_t) seq[i]];
+        if (c < 4) { // not an "N" base
+            xk[0] = (xk[0] << 2 | c) & kmask;                  // forward strand
+            xk[1] = xk[1] >> 2 | (uint64_t)(3 - c) << kshift;  // reverse strand
+            xs[0] = (xs[0] << 2 | c) & smask;                  // forward strand
+            xs[1] = xs[1] >> 2 | (uint64_t)(3 - c) << sshift;  // reverse strand
+            if (++l >= s) { // we find an s-mer
+                uint64_t ys = xs[0] < xs[1]? xs[0] : xs[1];
+//                uint64_t hash_s = robin_hash(ys);
+                uint64_t hash_s = ys;
+//                uint64_t hash_s = hash64(ys, mask);
+//                uint64_t hash_s = XXH64(&ys, 8,0);
+                // que not initialized yet
+                if (qs_size < k - s ) {
+                    qs.push_back(hash_s);
+                    qs_pos.push_back(i - s + 1);
+                    qs_size++;
+                }
+                else if (qs_size == k - s ) { // We are here adding the last s-mer and have filled queue up, need to decide for this k-mer (the first encountered) if we are adding it/
+                    qs.push_back(hash_s);
+                    qs_pos.push_back(i - s + 1);
+                    qs_size++;
+//                    std::cout << qs_size << " "<< i - k + 1 << std::endl;
+                    for (int j = 0; j < qs_size; j++) {
+//                        std::cout << qs_pos[j] << " " << qs[j] << " " << qs_min_val << std::endl;
+                        if (qs[j] < qs_min_val) {
+                            qs_min_val = qs[j];
+                            qs_min_pos = qs_pos[j];
+                        }
+                    }
+//                    if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
+                    if ( (qs_min_pos == qs_pos[k - s]) || (qs_min_pos == qs_pos[0]) ) { // occurs at first or last position in k-mer
+                        uint64_t yk = xk[0] < xk[1]? xk[0] : xk[1];
+//                        uint64_t hash_k = robin_hash(yk);
+//                        uint64_t hash_k = yk;
+//                        uint64_t hash_k =  hash64(yk, mask);
+                        uint64_t hash_k = XXH64(&yk, 8,0);
+//                        uint64_t hash_k =  sahlin_dna_hash(yk, mask);
+                        string_hashes.push_back(hash_k);
+                        pos_to_seq_choord.push_back(startpos + i - k + 1);
+                        hash_count++;
+//                        std::cout << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
+//                        std::cout <<  "Sampled gap " << std::endl;
+                    }
+                }
+                else{
+                    bool new_minimizer = false;
+                    update_window(qs, qs_pos, qs_min_val, qs_min_pos, hash_s, i - s + 1, new_minimizer );
+//                    if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
+                    if ( (qs_min_pos == qs_pos[k - s]) || (qs_min_pos == qs_pos[0]) ) { // occurs at first or last position in k-mer
+
+
+                        uint64_t yk = xk[0] < xk[1]? xk[0] : xk[1];
+//                        uint64_t hash_k = robin_hash(yk);
+//                        uint64_t hash_k = yk;
+//                        uint64_t hash_k = hash64(yk, mask);
+                        uint64_t hash_k = XXH64(&yk, 8, 0);
+//                        uint64_t hash_k =  sahlin_dna_hash(yk, mask);
+                        string_hashes.push_back(hash_k);
+                        pos_to_seq_choord.push_back(startpos + i - k + 1);
+//                        std::cout << i - k + 1 << std::endl;
+                        hash_count++;
+//                        std::cout << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
+//                        std::cout <<  "Sampled gap " << std::endl;
+                    }
+                }
+            }
+        } else {
+            qs_min_val = UINT64_MAX;
+            qs_min_pos = -1;
+            l = 0, xs[0] = xs[1] = 0,  xk[0] = xk[1] = 0; // if there is an "N", restart
+            qs_size = 0;
+            qs.clear();
+            qs_pos.clear();
+        }
+    }
+//    std::cout << hash_count << " values produced from string of length " <<   seq_length << std::endl;
+//    for(auto t: pos_to_seq_choord){
+//        std::cout << t << " ";
+//    }
+//    std::cout << " " << std::endl;
+}
+
+
 static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, uint64_t kmask, int k, uint64_t smask, int s, int t) {
     // initialize the deque
     std::deque <uint64_t> qs;
@@ -323,7 +431,8 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 //    std::cout << mask << std::endl;
 
 //    std::vector<std::tuple<uint64_t, unsigned int, unsigned int> > kmers;
-//    int gap = 0;
+    int gap = 0;
+    std::string subseq;
     unsigned int hash_count = 0;
     int l;
     uint64_t xk[2];
@@ -376,7 +485,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
                         hash_count++;
 //                        std::cout << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
 //                        std::cout <<  "Sampled gap: " << gap << std::endl;
-//                        gap = 0;
+                        gap = 0;
                     }
                 }
                 else{
@@ -384,6 +493,11 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
                     update_window(qs, qs_pos, qs_min_val, qs_min_pos, hash_s, i - s + 1, new_minimizer );
                     if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
 //                    if ( (qs_min_pos == qs_pos[t-1]) || ((gap > 10) && ((qs_min_pos == qs_pos[k - s]) || (qs_min_pos == qs_pos[0]))) ) { // occurs at first or last position in k-mer
+                        if ( (gap > 25) && (gap < 200) ) { // open syncmers no window guarantee, fill in subsequence with closed syncmers
+                            subseq = seq.substr(i - k + 1 - gap + 1, gap +k);
+                            make_string_to_hashvalues_closed_syncmers_canonical(subseq, string_hashes, pos_to_seq_choord, kmask, k, smask, s, t, i - k + 1 - gap + 1);
+                        }
+
                         uint64_t yk = xk[0] < xk[1]? xk[0] : xk[1];
 //                        uint64_t hash_k = robin_hash(yk);
 //                        uint64_t hash_k = yk;
@@ -396,12 +510,15 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
                         hash_count++;
 //                        std::cout << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
 //                        std::cout <<  "Sampled gap: " << gap << std::endl;
-//                        gap = 0;
+                        gap = 0;
                     }
-//                    gap ++;
+                    gap ++;
                 }
 //                if (gap > 25){
 //                    std::cout <<  "Gap: " << gap << " position:" << i - k + 1 << std::endl;
+//                    if (gap < 500 ) {
+//                        std::cout << seq.substr(i - k + 1 - gap + 1, gap +k) << std::endl;
+//                    }
 //                }
             }
         } else {

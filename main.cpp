@@ -2224,7 +2224,7 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.2.1 (revert window constraint impl) \n";
+    std::cerr << "StrobeAlign VERSION 0.2.1 (new window constraint test) \n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
@@ -2520,6 +2520,11 @@ int main (int argc, char **argv)
     std::cout << "Ref vector actual size: " << flat_vector.size() << std::endl;
     flat_vector.shrink_to_fit();
 
+    auto finish_generating_seeds = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_generating_seeds = finish_generating_seeds - start_flat_vector;
+    std::cout << "Time generating seeds: " << elapsed_generating_seeds.count() << " s\n" <<  std::endl;
+
+
 //    create vector of vectors here nr_threads
 //    std::vector<std::vector<std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>>> vector_per_ref_chr(n_threads);
 //    for(size_t i = 0; i < ref_seqs.size(); ++i)
@@ -2535,11 +2540,16 @@ int main (int argc, char **argv)
 //    }
 
     uint64_t unique_mers = 0;
+    auto start_sorting = std::chrono::high_resolution_clock::now();
 //    uint64_t approx_vec_size = total_ref_seq_size / (k-s+1);
 //    std::cout << "Reserving flat vector size: " << approx_vec_size << std::endl;
 //    all_mers_vector_tmp.reserve(approx_vec_size); // reserve size corresponding to sum of lengths of all sequences divided by expected sampling
     process_flat_vector(flat_vector, unique_mers);
+    auto finish_sorting = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_sorting_seeds = finish_sorting - start_sorting;
+    std::cout << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s\n" <<  std::endl;
     std::cout << "Unique strobemers: " << unique_mers  <<  std::endl;
+
     auto finish_flat_vector = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_flat_vector = finish_flat_vector - start_flat_vector;
     std::cout << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s\n" <<  std::endl;
