@@ -2384,7 +2384,7 @@ int main (int argc, char **argv)
     }
 
     if (!max_seed_len_set){
-        max_dist = r - 70 > 0 ? r - 70 : k;
+        max_dist = r - 70 > k ? r - 70 : k;
     } else {
         max_dist = max_seed_len - k; //convert to distance in start positions
     }
