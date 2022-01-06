@@ -493,10 +493,10 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
                     update_window(qs, qs_pos, qs_min_val, qs_min_pos, hash_s, i - s + 1, new_minimizer );
                     if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
 //                    if ( (qs_min_pos == qs_pos[t-1]) || ((gap > 10) && ((qs_min_pos == qs_pos[k - s]) || (qs_min_pos == qs_pos[0]))) ) { // occurs at first or last position in k-mer
-                        if ( (gap > k) && (gap < 200) ) { // open syncmers no window guarantee, fill in subsequence with closed syncmers
-                            subseq = seq.substr(i - k + 1 - gap + 1, gap +k);
-                            make_string_to_hashvalues_closed_syncmers_canonical(subseq, string_hashes, pos_to_seq_choord, kmask, k, smask, s, t, i - k + 1 - gap + 1);
-                        }
+//                        if ( (gap > k) && (gap < 200) ) { // open syncmers no window guarantee, fill in subsequence with closed syncmers
+//                            subseq = seq.substr(i - k + 1 - gap + 1, gap +k);
+//                            make_string_to_hashvalues_closed_syncmers_canonical(subseq, string_hashes, pos_to_seq_choord, kmask, k, smask, s, t, i - k + 1 - gap + 1);
+//                        }
 
                         uint64_t yk = xk[0] < xk[1]? xk[0] : xk[1];
 //                        uint64_t hash_k = robin_hash(yk);
@@ -663,6 +663,34 @@ static inline void get_next_strobe(std::vector<uint64_t> &string_hashes, uint64_
 
 }
 
+
+static inline void get_next_strobe_dist_constraint(std::vector<uint64_t> &string_hashes,  std::vector<unsigned int> &pos_to_seq_choord, uint64_t strobe_hashval, unsigned int &strobe_pos_next, uint64_t &strobe_hashval_next,  unsigned int w_start, unsigned int w_end, uint64_t q, unsigned int seq_start, unsigned int seq_end_constraint, unsigned int strobe1_start){
+    uint64_t min_val = UINT64_MAX;
+    strobe_pos_next = strobe1_start; // Defaults if no nearby syncmer
+    strobe_hashval_next = string_hashes[strobe1_start];
+    std::bitset<64> b;
+
+    for (auto i = w_start; i <= w_end; i++) {
+
+        // Method 3' skew sample more for prob exact matching
+        b = (strobe_hashval ^ string_hashes[i])  & q;
+        uint64_t res = b.count();
+
+        if (pos_to_seq_choord[i] > seq_end_constraint){
+            return;
+        }
+
+        if (res < min_val){
+            min_val = res;
+            strobe_pos_next = i;
+//            std::cout << strobe_pos_next << " " << min_val << std::endl;
+            strobe_hashval_next = string_hashes[i];
+        }
+    }
+//    std::cout << "Offset: " <<  strobe_pos_next - w_start << " val: " << min_val <<  ", P exact:" <<  1.0 - pow ( (float) (8-min_val)/9, strobe_pos_next - w_start) << std::endl;
+
+}
+
 //mers_vector seq_to_kmers(int k, std::string &seq, unsigned int ref_index)
 //{
 //    mers_vector kmers;
@@ -694,7 +722,7 @@ static inline void get_next_strobe(std::vector<uint64_t> &string_hashes, uint64_
 //    return  kmers;
 //}
 
-mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int s, int t, uint64_t q)
+mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int s, int t, uint64_t q, int max_dist)
 {
     mers_vector randstrobes2;
 
@@ -738,20 +766,26 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 //        }
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
+        unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
+        unsigned int seq_end = seq_pos_strobe1 + max_dist;
 
         if (i + w_max < seq_length){
             unsigned int w_start = i+w_min;
             unsigned int w_end = i+w_max;
             uint64_t strobe_hash;
             strobe_hash = string_hashes[i];
-            get_next_strobe(string_hashes, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q);
+//            get_next_strobe(string_hashes, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q);
+            get_next_strobe_dist_constraint(string_hashes, pos_to_seq_choord, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_pos_strobe1, seq_end,i);
+
         }
         else if ((i + w_min + 1 < seq_length) && (seq_length <= i + w_max) ){
             unsigned int w_start = i+w_min;
             unsigned int w_end = seq_length -1;
             uint64_t strobe_hash;
             strobe_hash = string_hashes[i];
-            get_next_strobe(string_hashes, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q);
+//            get_next_strobe(string_hashes, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q);
+            get_next_strobe_dist_constraint(string_hashes, pos_to_seq_choord, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_pos_strobe1, seq_end, i);
+
         }
         else{
 //            std::cout << randstrobes2.size() << " randstrobes generated" << '\n';
@@ -761,7 +795,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 //        uint64_t hash_randstrobe2 = (string_hashes[i] << k) ^ strobe_hashval_next;
         uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
 
-        unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
+
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
 //        std::cout <<  "Seed length: " << seq_pos_strobe2 + k - seq_pos_strobe1 << std::endl;
         std::tuple<uint64_t, unsigned int, unsigned int, unsigned int> s (hash_randstrobe2, ref_index, seq_pos_strobe1, seq_pos_strobe2);
@@ -786,7 +820,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
     return randstrobes2;
 }
 
-mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int s, int t, uint64_t q)
+mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int s, int t, uint64_t q, int max_dist)
 {
     // this function differs from  the function seq_to_randstrobes2 which creating randstrobes for the reference.
     // The seq_to_randstrobes2 stores randstobes only in one direction from canonical syncmers.
@@ -831,20 +865,25 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 //        }
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
-
+        unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
+        unsigned int seq_end = seq_pos_strobe1 + max_dist;
         if (i + w_max < nr_hashes){
             unsigned int w_start = i+w_min;
             unsigned int w_end = i+w_max;
             uint64_t strobe_hash;
             strobe_hash = string_hashes[i];
-            get_next_strobe(string_hashes, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q);
+//            get_next_strobe(string_hashes, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q);
+            get_next_strobe_dist_constraint(string_hashes, pos_to_seq_choord, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_pos_strobe1, seq_end, i);
+
         }
         else if ((i + w_min + 1 < nr_hashes) && (nr_hashes <= i + w_max) ){
             unsigned int w_start = i+w_min;
             unsigned int w_end = nr_hashes -1;
             uint64_t strobe_hash;
             strobe_hash = string_hashes[i];
-            get_next_strobe(string_hashes, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q);
+//            get_next_strobe(string_hashes, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q);
+            get_next_strobe_dist_constraint(string_hashes, pos_to_seq_choord, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_pos_strobe1, seq_end, i);
+
         }
         else{
 //            std::cout << randstrobes2.size() << " randstrobes generated" << '\n';
@@ -854,7 +893,6 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 //        uint64_t hash_randstrobe2 = (string_hashes[i] << k) ^ strobe_hashval_next;
         uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
 
-        unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
         std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool> s (hash_randstrobe2, ref_index, seq_pos_strobe1, seq_pos_strobe2, false);
         randstrobes2.push_back(s);
@@ -889,20 +927,26 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 //        }
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
+        unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
+        unsigned int seq_end = seq_pos_strobe1 + max_dist;
 
         if (i + w_max < nr_hashes){
             unsigned int w_start = i+w_min;
             unsigned int w_end = i+w_max;
             uint64_t strobe_hash;
             strobe_hash = string_hashes[i];
-            get_next_strobe(string_hashes, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q);
+//            get_next_strobe(string_hashes, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q);
+            get_next_strobe_dist_constraint(string_hashes, pos_to_seq_choord, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_pos_strobe1, seq_end, i);
+
         }
         else if ((i + w_min + 1 < nr_hashes) && (nr_hashes <= i + w_max) ){
             unsigned int w_start = i+w_min;
             unsigned int w_end = nr_hashes -1;
             uint64_t strobe_hash;
             strobe_hash = string_hashes[i];
-            get_next_strobe(string_hashes, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q);
+//            get_next_strobe(string_hashes, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q);
+            get_next_strobe_dist_constraint(string_hashes, pos_to_seq_choord, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_pos_strobe1, seq_end, i);
+
         }
         else{
 //            std::cout << randstrobes2.size() << " randstrobes generated" << '\n';
@@ -912,7 +956,6 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 //        uint64_t hash_randstrobe2 = (string_hashes[i] << k) ^ strobe_hashval_next;
         uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
 
-        unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
         std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool> s (hash_randstrobe2, ref_index, seq_pos_strobe1, seq_pos_strobe2, true);
         randstrobes2.push_back(s);

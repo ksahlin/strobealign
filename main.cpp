@@ -2278,8 +2278,10 @@ int main (int argc, char **argv)
     int u = 7;
     int c = 8;
     int r = 150;
+    int max_seed_len;
+    int max_dist = r - 50;
     bool r_set = false;
-
+    bool max_seed_len_set = false;
     std::string output_file_name = "mapped.sam";
     std::string logfile_name = "log.csv";
     bool s_set = false;
@@ -2344,6 +2346,12 @@ int main (int argc, char **argv)
                 opn += 2;
                 flag = true;
                 r_set = true;
+            } else if (argv[opn][1] == 'm') {
+                max_seed_len = std::stoi(argv[opn + 1]);
+                opn += 2;
+                flag = true;
+                max_seed_len_set = true;
+
             }
 
             else {
@@ -2374,6 +2382,12 @@ int main (int argc, char **argv)
         }
     }
 
+    if (!max_seed_len_set){
+        max_dist = r - 70 > 0 ? r - 70 : k;
+    } else {
+        max_dist = max_seed_len - k; //convert to distance in start positions
+    }
+
     if ( (!s_set ) ){
         s = k - 4; // Update default s to k - 4 if user has not set s parameter
     }
@@ -2394,9 +2408,10 @@ int main (int argc, char **argv)
     std::cout << "s: " << s << std::endl;
     std::cout << "w_min: " << w_min << std::endl;
     std::cout << "w_max: " << w_max << std::endl;
+    std::cout << "maximum seed length: " << max_dist +k << std::endl;
     std::cout << "threads: " << n_threads << std::endl;
     std::cout << "R: " << R << std::endl;
-    std::cout << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (under random minimizer sampling): [" << (k-s+1)*w_min << ", " << (k-s+1)*w_max << "]" << std::endl;
+    std::cout << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (expected values): [" << (k-s+1)*w_min << ", " << (k-s+1)*w_max << "]" << std::endl;
 
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
     assert(k > 7 && "You should really not use too small strobe size!");
@@ -2511,7 +2526,7 @@ int main (int argc, char **argv)
     for(size_t i = 0; i < ref_seqs.size(); ++i)
     {
         mers_vector randstrobes2; // pos, chr_id, kmer hash value
-        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t_syncmer, q);
+        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t_syncmer, q, max_dist);
         for (auto &t : randstrobes2)
         {
             flat_vector.push_back(t);
@@ -2567,10 +2582,6 @@ int main (int argc, char **argv)
 //    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector);
     /* destroy vector */
 //    flat_vector.clear();
-    if (index_log){
-//        std::cout << "Printing log stats" << std::endl;
-        print_diagnostics(flat_vector, mers_index, logfile_name, k);
-    }
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -2586,6 +2597,13 @@ int main (int argc, char **argv)
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = finish - start;
     std::cout << "Total time indexing: " << elapsed.count() << " s\n" <<  std::endl;
+
+    if (index_log){
+        std::cout << "Printing log stats" << std::endl;
+        print_diagnostics(flat_vector, mers_index, logfile_name, k);
+        std::cout << "Finished printing log stats" << std::endl;
+
+    }
 
 //    std::chrono::milliseconds timespan2(1000000); // or whatever
 //    std::this_thread::sleep_for(timespan2);
@@ -2669,7 +2687,7 @@ int main (int argc, char **argv)
                 auto record = records[i];
                 // generate mers here
                 auto strobe_start = std::chrono::high_resolution_clock::now();
-                query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, record.seq, q_id, s, t_syncmer, q);
+                query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, record.seq, q_id, s, t_syncmer, q, max_dist);
                 auto strobe_finish = std::chrono::high_resolution_clock::now();
                 tot_construct_strobemers += strobe_finish - strobe_start;
 
@@ -2794,8 +2812,8 @@ int main (int argc, char **argv)
                 auto record2 = records2[i];
                 // generate mers here
                 auto strobe_start = std::chrono::high_resolution_clock::now();
-                query_mers1 = seq_to_randstrobes2_read(n, k, w_min, w_max, record1.seq, q_id, s, t_syncmer, q);
-                query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer, q);
+                query_mers1 = seq_to_randstrobes2_read(n, k, w_min, w_max, record1.seq, q_id, s, t_syncmer, q, max_dist);
+                query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer, q, max_dist);
                 auto strobe_finish = std::chrono::high_resolution_clock::now();
                 tot_construct_strobemers += strobe_finish - strobe_start;
 //                std::cout << record1.name << " " << query_mers1.size() << std::endl;
