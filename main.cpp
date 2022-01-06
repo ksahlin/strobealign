@@ -2365,7 +2365,6 @@ int main (int argc, char **argv)
 
     if (r_set) {
         if (r <= 125) { // based on params for 100
-            20,-2,2,8
             k = 20;
             l = -2;
             u = 2;
