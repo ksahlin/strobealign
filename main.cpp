@@ -2377,8 +2377,8 @@ int main (int argc, char **argv)
             l = 4;
             u = 13;
         } else { // based on params for 300
-            k = 21;
-            l = 3;
+            k = 22;
+            l = 2;
             u = 12;
         }
     }
