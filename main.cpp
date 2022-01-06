@@ -2373,13 +2373,13 @@ int main (int argc, char **argv)
             l = 0;
             u = 7;
         } else if ((r > 175) && (r <= 275)) { // based on params for 200 and 250
-            k = 22;
-            l = 2;
-            u = 10;
+            k = 20;
+            l = 4;
+            u = 13;
         } else { // based on params for 300
-            k = 23;
-            l = 2;
-            u = 10;
+            k = 21;
+            l = 3;
+            u = 12;
         }
     }
 
