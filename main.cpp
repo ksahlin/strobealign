@@ -2224,7 +2224,7 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.2.1 (max seed length) \n";
+    std::cerr << "StrobeAlign VERSION 0.2.1 (max seed length and params fix) \n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
@@ -2365,12 +2365,13 @@ int main (int argc, char **argv)
 
     if (r_set) {
         if (r <= 125) { // based on params for 100
+            20,-2,2,8
             k = 20;
-            l = -3;
-            u = 3;
+            l = -2;
+            u = 2;
         } else if ((r > 125) && (r <= 175)) { // based on params for 150
             k = 20;
-            l = 0;
+            l = 1;
             u = 7;
         } else if ((r > 175) && (r <= 275)) { // based on params for 200 and 250
             k = 20;
