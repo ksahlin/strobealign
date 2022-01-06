@@ -2243,6 +2243,7 @@ void print_usage() {
     std::cerr << "Seeding:\n";
 //    std::cerr << "\t-n INT number of strobes [2]\n";
     std::cerr << "\t-r INT Approximate read length. Sets suitable parameters for -k, -l, -u and -q. [150] \n";
+    std::cerr << "\t-m INT Maximum seed length. Defaults to r - 50. For reasonable values on -l and -u, the seed length distribution is usually determined by\n\t   parameters l and u. Then, this parameter is only active in regions where syncmers are very sparse.\n";
     std::cerr << "\t-k INT strobe length, has to be below 32. [20]\n";
     std::cerr << "\t-l INT Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]\n";
     std::cerr << "\t-u INT Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [7]\n";
