@@ -1384,7 +1384,7 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
     std::cout<< r_tmp << std::endl;
     std::cout<< ref_segm << std::endl;
     std::cout<< diff << std::endl;
-    
+
     if ( (diff == 0) && (!aln_did_not_fit) ){
         hamming_dist = HammingDistance(r_tmp, ref_segm.substr(0,read_len));
         sam_aln.cigar = std::to_string(read_len) + "M";
@@ -1394,7 +1394,9 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
         sam_aln.is_rc = is_rc;
         sam_aln.ref_id = n.ref_id;
         sam_aln.is_unaligned = false;
+        std::cout<< "1" << std::endl;
         if ( (((float)sam_aln.ed / read_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
+            std::cout<< "2" << std::endl;
             return;
         }
         //TODO: Only do ksw of the ends outside the NAM to increase speed here
@@ -1408,6 +1410,7 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
 
     // We didn't get away with hamming distance, do full ksw alignment
 //    else {
+    std::cout<< "3" << std::endl;
     int a = n.ref_s - n.query_s;
     ref_start = std::max(0, a);
     int b = n.ref_e + (read_len - n.query_e);
@@ -1418,7 +1421,9 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
     const char *ref_ptr = ref_segm.c_str();
     const char *read_ptr = r_tmp.c_str();
     aln_info info;
+    std::cout<< "4" << std::endl;
     info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
+    std::cout<< "5" << std::endl;
     sam_aln.cigar = info.cigar;
     sam_aln.ed = info.ed;
 //    std::cout << r_tmp << " " << n.n_hits << " " << n.score << " " <<  diff << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << hamming_dist << " " << sam_aln.cigar << std::endl;
@@ -1944,13 +1949,16 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
             std::cout << query_acc2 << std::endl;
             get_alignment(n_max2, ref_len_map, ref_seqs, read2, read2_rc, read_len2, sam_aln2, k, cnt2, rc_already_comp2, did_not_fit, tot_ksw_aligned);
             tot_all_tried ++;
+            std::cout<< "6" << std::endl;
             get_MAPQ(all_nams1, n_max1, mapq1);
             get_MAPQ(all_nams2, n_max2, mapq2);
+            std::cout<< "7" << std::endl;
             append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2, mu, sigma, read_len1);
 
             if ((sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && !sam_aln1.not_proper && !sam_aln2.not_proper ){
                 int d = sam_aln1.ref_start > sam_aln2.ref_start ? sam_aln1.ref_start - sam_aln2.ref_start : sam_aln2.ref_start - sam_aln1.ref_start;
                 if ( d < 2000){
+                    std::cout<< "8 " << sample_size << std::endl;
                     float e;
                     e = d - mu;
                     mu = mu + e/sample_size; // (1.0/(sample_size +1.0)) * (sample_size*mu + d);
