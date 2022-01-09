@@ -484,7 +484,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
                         pos_to_seq_choord.push_back(i - k + 1);
                         hash_count++;
 //                        std::cout << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
-//                        std::cout <<  "Sampled gap: " << gap << std::endl;
+//                        std::cout <<  "Sampled gap: " << gap (k-s+1) << std::endl;
                         gap = 0;
                     }
                 }
@@ -509,7 +509,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 //                        std::cout << i - k + 1 << std::endl;
                         hash_count++;
 //                        std::cout << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
-//                        std::cout <<  "Sampled gap: " << gap << std::endl;
+//                        std::cout <<  "Gap: " << gap << " position:" << i - k + 1 << std::endl;
                         gap = 0;
                     }
                     gap ++;
