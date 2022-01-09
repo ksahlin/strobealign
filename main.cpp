@@ -764,10 +764,10 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
         }
     }
     info.second = max_nam_n_hits;
-//    for (auto &n : final_nams){
-//        int diff = (n.query_e - n.query_s) - (n.ref_e - n.ref_s);
-//        std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << " diff: " << diff << std::endl;
-//    }
+    for (auto &n : final_nams){
+        int diff = (n.query_e - n.query_s) - (n.ref_e - n.ref_s);
+        std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << " diff: " << diff << std::endl;
+    }
     return info;
 
 //
@@ -1774,12 +1774,12 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
     added_n2.clear();
     std::sort(joint_NAM_scores.begin(), joint_NAM_scores.end(), sort_joint_hits); // Sorting by highest score first
 
-//    for (auto zz : joint_NAM_scores){
-//        auto score_ = std::get<0>(zz);
-//        auto n1_tmp = std::get<1>(zz);
-//        auto n2_tmp = std::get<2>(zz);
-//        std::cout << "joint_NAM_score: " << score_ << " " << n1_tmp.n_hits  << " " << n2_tmp.n_hits  << " " << n1_tmp.score  << " " << n2_tmp.score  << " " << n1_tmp.ref_s  << " " << n2_tmp.ref_s  << std::endl;
-//    }
+    for (auto zz : joint_NAM_scores){
+        auto score_ = std::get<0>(zz);
+        auto n1_tmp = std::get<1>(zz);
+        auto n2_tmp = std::get<2>(zz);
+        std::cout << "joint_NAM_score: " << score_ << " " << n1_tmp.n_hits  << " " << n2_tmp.n_hits  << " " << n1_tmp.score  << " " << n2_tmp.score  << " " << n1_tmp.ref_s  << " " << n2_tmp.ref_s  << std::endl;
+    }
 }
 
 
@@ -2928,13 +2928,13 @@ int main (int argc, char **argv)
                 tot_sort_nams += nam_sort_finish - nam_sort_start;
 
 //                std::cout << record1.name << std::endl;
-//                for (auto &n : nams1){
-//                    std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
-//                }
-//                std::cout << record2.name << std::endl;
-//                for (auto &n : nams2){
-//                    std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
-//                }
+                for (auto &n : nams1){
+                    std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
+                }
+                std::cout << record2.name << std::endl;
+                for (auto &n : nams2){
+                    std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
+                }
 
                 auto extend_start = std::chrono::high_resolution_clock::now();
                 if (!mode) {
