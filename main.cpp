@@ -345,14 +345,30 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
 
         if ( ((count <= filter_cutoff) || (cnt < 5)) && (count <= 1000) ){
 //            std::cout << "Found FORWARD: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
+            int min_diff = 1000;
+//            int ref_d;
+//            for(size_t j = offset; j < offset+count; ++j) {
+//                auto r = ref_mers[j];
+//                ref_d = std::get<3>(r) + k - std::get<2>(r);
+//                int diff = (h.query_e - h.query_s) - ref_d > 0 ? (h.query_e - h.query_s) -  ref_d : ref_d - (h.query_e - h.query_s);
+//                if (diff <= min_diff ){
+//                    min_diff = diff;
+//                }
+//            }
+
             for(size_t j = offset; j < offset+count; ++j)
             {
                 auto r = ref_mers[j];
                 h.ref_s = std::get<2>(r);
                 h.ref_e = std::get<3>(r) + k;
 //                h.count = count;
-                hits_per_ref[std::get<1>(r)].push_back(h);
+//                hits_per_ref[std::get<1>(r)].push_back(h);
 
+                int diff = (h.query_e - h.query_s) - (h.ref_e - h.ref_s) > 0 ? (h.query_e - h.query_s) - (h.ref_e - h.ref_s) : (h.ref_e - h.ref_s) - (h.query_e - h.query_s);
+                if (diff <= min_diff ){
+                    hits_per_ref[std::get<1>(r)].push_back(h);
+                    min_diff = diff;
+                }
             }
             cnt ++;
         }
@@ -374,17 +390,31 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
         h.query_e = std::get<3>(q); // h.query_s + read_length/2;
         h.is_rc = std::get<4>(q);
 
-
         if ( ((count <= filter_cutoff) || (cnt < 5)) && (count <= 1000) ){
 //            std::cout << "Found REVERSE: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
+            int min_diff = 1000;
+//            int ref_d;
+//            for(size_t j = offset; j < offset+count; ++j) {
+//                auto r = ref_mers[j];
+//                ref_d = std::get<3>(r) + k - std::get<2>(r);
+//                int diff = (h.query_e - h.query_s) - ref_d > 0 ? (h.query_e - h.query_s) -  ref_d : ref_d - (h.query_e - h.query_s);
+//                if (diff <= min_diff ){
+//                    min_diff = diff;
+//                }
+//            }
+
             for(size_t j = offset; j < offset+count; ++j)
             {
                 auto r = ref_mers[j];
                 h.ref_s = std::get<2>(r);
                 h.ref_e = std::get<3>(r) + k;
 //                h.count = count;
-                hits_per_ref[std::get<1>(r)].push_back(h);
-
+//                hits_per_ref[std::get<1>(r)].push_back(h);
+                int diff = (h.query_e - h.query_s) - (h.ref_e - h.ref_s) > 0 ? (h.query_e - h.query_s) - (h.ref_e - h.ref_s) : (h.ref_e - h.ref_s) - (h.query_e - h.query_s);
+                if (diff <= min_diff ){
+                    hits_per_ref[std::get<1>(r)].push_back(h);
+                    min_diff = diff;
+                }
             }
             cnt ++;
         }
@@ -559,6 +589,17 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //            } else
             if (count <= filter_cutoff){
                 nr_good_hits ++;
+//                bool start_log = false;
+                int min_diff = 100000;
+//                int ref_d;
+//                for(size_t j = offset; j < offset+count; ++j) {
+//                    auto r = ref_mers[j];
+//                    ref_d = std::get<3>(r) + k - std::get<2>(r);
+//                    int diff = (h.query_e - h.query_s) - ref_d > 0 ? (h.query_e - h.query_s) -  ref_d : ref_d - (h.query_e - h.query_s);
+//                    if (diff <= min_diff ){
+//                        min_diff = diff;
+//                    }
+//                }
 //                std::cout << "Found good count: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
                 for(size_t j = offset; j < offset+count; ++j)
 //                for(auto r = begin(ref_mers) + offset; r != begin(ref_mers) + offset + count; ++r)
@@ -571,14 +612,22 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
                     h.ref_s = std::get<2>(r);
                     h.ref_e = std::get<3>(r) + k;
 //                    h.count = count;
-                    hits_per_ref[std::get<1>(r)].push_back(h);
+//                    hits_per_ref[std::get<1>(r)].push_back(h);
 //                    hits_per_ref[std::get<0>(r)].push_back(h);
 
 
 //                    h.ref_s = ref_s;
 //                    h.ref_e = ref_e;
 //                    hits_per_ref[ref_id].push_back(h);
-
+                    int diff = (h.query_e - h.query_s) - (h.ref_e - h.ref_s) > 0 ? (h.query_e - h.query_s) - (h.ref_e - h.ref_s) : (h.ref_e - h.ref_s) - (h.query_e - h.query_s);
+//                    if ((diff > 0) || start_log ){
+//                        std::cout << "Found: " <<  count << " " << diff << " " << h.query_e - h.query_s << " " <<  (h.ref_e - h.ref_s) << std::endl;
+//                        start_log = true;
+//                    }
+                    if (diff <= min_diff ){
+                        hits_per_ref[std::get<1>(r)].push_back(h);
+                        min_diff = diff;
+                    }
 //                    h.hit_count = count;
 //                    if (count > 1){
 //                        int diff = (h.query_e - h.query_s) - (h.ref_e - h.ref_s);
