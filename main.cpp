@@ -1381,6 +1381,10 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
         is_rc = false;
     }
 
+    std::cout<< r_tmp << std::endl;
+    std::cout<< ref_segm << std::endl;
+    std::cout<< diff << std::endl;
+    
     if ( (diff == 0) && (!aln_did_not_fit) ){
         hamming_dist = HammingDistance(r_tmp, ref_segm.substr(0,read_len));
         sam_aln.cigar = std::to_string(read_len) + "M";
@@ -1933,11 +1937,11 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 
         // if highest scoring NAM for both read 1 and read 2 has matching genomic location and correct orientation and no good second hits - align immediately
         if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) && ( ((n_max1.ref_s - n_max2.ref_s) < 2000) || ((n_max2.ref_s - n_max1.ref_s) < 2000)) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
-//            std::cout << "I'm here" << std::endl;
-//            std::cout << query_acc1 << std::endl;
+            std::cout << "I'm here" << std::endl;
+            std::cout << query_acc1 << std::endl;
             get_alignment(n_max1, ref_len_map, ref_seqs, read1, read1_rc, read_len1, sam_aln1, k, cnt1, rc_already_comp1, did_not_fit, tot_ksw_aligned);
             tot_all_tried ++;
-//            std::cout << query_acc2 << std::endl;
+            std::cout << query_acc2 << std::endl;
             get_alignment(n_max2, ref_len_map, ref_seqs, read2, read2_rc, read_len2, sam_aln2, k, cnt2, rc_already_comp2, did_not_fit, tot_ksw_aligned);
             tot_all_tried ++;
             get_MAPQ(all_nams1, n_max1, mapq1);
@@ -2927,7 +2931,7 @@ int main (int argc, char **argv)
                 auto nam_sort_finish = std::chrono::high_resolution_clock::now();
                 tot_sort_nams += nam_sort_finish - nam_sort_start;
 
-//                std::cout << record1.name << std::endl;
+                std::cout << record1.name << std::endl;
                 for (auto &n : nams1){
                     std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
                 }
