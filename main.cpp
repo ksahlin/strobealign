@@ -76,34 +76,61 @@ static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsi
 
 
 
-static inline void print_diagnostics_new4(mers_vector_reduced &mers_vector, kmer_lookup mers_index ) {
-    uint64_t tot_flat_vector_size = 0;
-    for (size_t i = 0; i < mers_vector.size(); ++i)
-    {
-        // access using []
-        auto t = mers_vector[i];
-//        std::cout << "(" << std::get<0>(t) << ", " << std::get<1>(t) << ", " << std::get<2>(t) << ", " << std::get<3>(t) << ", " << std::get<4>(t) << "), ";
-        tot_flat_vector_size += sizeof(t);
+static inline void print_diagnostics(mers_vector &ref_mers, robin_hood::unordered_map< uint64_t, std::tuple<unsigned int, unsigned int >> &mers_index, std::string logfile_name, int k) {
+    // Prins to csv file the statistics on the number of seeds of a particular length and what fraction of them them are unique in the index:
+    // format:
+    // seed_length, count, percentage_unique
+    //
+
+    int max_size = 100000;
+    std::vector<int> log_count(max_size,0);  // stores count and each index represents the length
+    std::vector<int> log_unique(max_size,0); // stores count unique and each index represents the length
+    std::vector<int> log_repetitive(max_size,0); // stores count unique and each index represents the length
+
+    std::tuple<uint64_t, unsigned int> mer;
+    std::tuple<unsigned int, unsigned int > ref_mer; // (cout offset)
+    int seed_length;
+    for (auto &it : mers_index) {
+        uint64_t hash_refmer = it.first;
+        ref_mer = it.second;
+
+        uint64_t offset = std::get<0>(ref_mer);
+        unsigned int count = std::get<1>(ref_mer);
+
+
+        for (size_t j = offset; j < offset + count; ++j) {
+            auto r = ref_mers[j];
+            seed_length =  std::get<3>(r) + k - std::get<2>(r);
+            if (seed_length < max_size){
+
+                log_count[seed_length] ++;
+            } else {
+               std::cout << "Detected seed size over " << max_size << " bp (can happen, e.g., over centromere): " << seed_length << std::endl;
+            }
+
+        }
+
+        if ( (count == 1) & (seed_length < max_size) ) {
+            log_unique[seed_length] ++;
+        }
+        if ( (count >= 10) & (seed_length < max_size) ) {
+            log_repetitive[seed_length] ++;
+        }
     }
-    std::cout << "Total size of flat mers-vector : " << tot_flat_vector_size/1000000  << " Mb." << std::endl;
-    std::cout << "Total entries in flat mers-vector : " << mers_vector.size()  << std::endl;
-//    uint64_t tot_hashtable_index_size = 0;
-//    for (auto &it : mers_index)
-//    {
-////        std::cout << it.first << ": (" << std::get<0>(it.second) << ", " << std::get<1>(it.second) << "), " ;
-//        tot_hashtable_index_size += sizeof(it.first);
-//        tot_hashtable_index_size += sizeof(it.second);
-//    }
-//    std::cout << "Total size of hash table index : " << tot_hashtable_index_size/1000000  << " Mb." << std::endl;
 
-    std::cout << "Total entries in hash table : " << mers_index.size()  << std::endl;
-    std::cout << "Total size of hash table entries (ignoring internal nodes) : " << (mers_index.size() * sizeof(kmer_lookup::value_type))/1000000 << " Mb." << "\n";
-    // https://stackoverflow.com/questions/720507/how-can-i-estimate-memory-usage-of-stdmap/720520
-    std::cout << "Total size of hash table (applying approximation that about 2/3 of the memory is from internal nodes and 1/3 from the leafs, i.e., hash entries) : " << 3*(mers_index.size() * sizeof(kmer_lookup::value_type))/1000000 << " Mb." << "\n";
-    std::cout << "" << std::endl;
-    std::cout << "Total index size: " <<  tot_flat_vector_size/1000000 +  3*(mers_index.size() * sizeof(kmer_lookup::value_type))/1000000 << " Mb." << std::endl;
+//    std::cout << "Here" << std::endl;
 
-}
+    // printing
+    std::ofstream log_file;
+    log_file.open(logfile_name);
+    for (int i=0 ; i < log_count.size(); ++i) {
+        if (log_count[i] > 0) {
+            log_file << i << ',' << log_count[i] << ',' << (float) log_unique[i] / (float) log_count[i] << ',' << (float) log_repetitive[i] / (float) log_count[i] << std::endl;
+        }
+    }
+    log_file.close();
+
+    }
 
 
 //static inline bool sort_hits(const hit &a, const hit &b)
@@ -2197,22 +2224,36 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.2\n";
+    std::cerr << "StrobeAlign VERSION 0.2.1 \n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
+    std::cerr << "\n";
+    std::cerr << "Resources:\n";
     std::cerr << "\t-t INT number of threads [3]\n";
-    std::cerr << "\t-n INT number of strobes [2]\n";
-    std::cerr << "\t-k INT strobe length [22]\n";
-    std::cerr << "\t-l INT Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]\n";
-    std::cerr << "\t-u INT Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [10]\n";
-    std::cerr << "\t-c INT [8-64] Bitcount length [8]\n";
-    std::cerr << "\t-r INT in 100,150,200,250,300. Rough read length. Alias for setting suitable parameters for -k, -l, -u and -q. [150] \n";
-    std::cerr << "\t-R INT Rescue level  Perform additional search for reads with many repetitive seeds filtered out. This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest. \n";
-    std::cerr << "\t-s INT syncmer thinning parameter to sample strobes. A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. \n";
+
+    std::cerr << "\n";
+    std::cerr << "Input/output:\n";
     std::cerr << "\t-o STR name of output SAM-file to print results to [mapped.sam]\n";
     std::cerr << "\t-x Only map reads, no base level alignment (produces paf file)\n";
+    std::cerr << "\t-L STR Print statistics of indexing to logfie [log.csv] \n";
+
+
+    std::cerr << "\n";
+    std::cerr << "Seeding:\n";
+//    std::cerr << "\t-n INT number of strobes [2]\n";
+    std::cerr << "\t-r INT Approximate read length. Sets suitable parameters for -k, -l, -u and -q. [150] \n";
+    std::cerr << "\t-m INT Maximum seed length. Defaults to r - 50. For reasonable values on -l and -u, the seed length distribution is usually determined by\n\t   parameters l and u. Then, this parameter is only active in regions where syncmers are very sparse.\n";
+    std::cerr << "\t-k INT strobe length, has to be below 32. [20]\n";
+    std::cerr << "\t-l INT Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]\n";
+    std::cerr << "\t-u INT Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [7]\n";
+    std::cerr << "\t-c INT Bitcount length between 2 and 63. [8]\n";
+    std::cerr << "\t-s INT Submer size used for creating syncmers [k-4]. Only even numbers on k-s allowed.\n\t   A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. It is recommended not to change this parameter\n\t   unless you have a good understanding of syncmenrs as it will drastically change the memory usage and results with non default values. \n";
+
+    std::cerr << "\n";
+    std::cerr << "Search parameters:\n";
     std::cerr << "\t-f FLOAT top fraction of repetitive syncmers to filter out from sampling [0.0002]\n";
+    std::cerr << "\t-R INT Rescue level. Perform additional search for reads with many repetitive seeds filtered out.\n\t   This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign\n\t   significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest. \n";
 }
 
 
@@ -2230,26 +2271,32 @@ int main (int argc, char **argv)
 
     int n_threads = 3;
     int n = 2;
-    int k = 22;
+    int k = 20;
     int s = k - 4;
     float f = 0.0002;
     int R = 2;
     int l = 0;
-    int u = 10;
-    int c = 16;
+    int u = 7;
+    int c = 8;
     int r = 150;
+    int max_seed_len;
+    int max_dist = r - 50;
+    bool r_set = false;
+    bool max_seed_len_set = false;
     std::string output_file_name = "mapped.sam";
+    std::string logfile_name = "log.csv";
     bool s_set = false;
-
+    bool index_log = false;
     int opn = 1;
     while (opn < argc) {
         bool flag = false;
         if (argv[opn][0] == '-') {
-            if (argv[opn][1] == 'n') {
-                n = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 't') {
+//            if (argv[opn][1] == 'n') {
+//                n = std::stoi(argv[opn + 1]);
+//                opn += 2;
+//                flag = true;
+//            } else
+            if (argv[opn][1] == 't') {
                 n_threads = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
@@ -2259,6 +2306,11 @@ int main (int argc, char **argv)
                 flag = true;
             } else if (argv[opn][1] == 'o') {
                 output_file_name = argv[opn + 1];
+                opn += 2;
+                flag = true;
+            } else if (argv[opn][1] == 'L') {
+                logfile_name = argv[opn + 1];
+                index_log = true;
                 opn += 2;
                 flag = true;
             } else if (argv[opn][1] == 's') {
@@ -2294,6 +2346,13 @@ int main (int argc, char **argv)
                 r = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
+                r_set = true;
+            } else if (argv[opn][1] == 'm') {
+                max_seed_len = std::stoi(argv[opn + 1]);
+                opn += 2;
+                flag = true;
+                max_seed_len_set = true;
+
             }
 
             else {
@@ -2304,59 +2363,63 @@ int main (int argc, char **argv)
             break;
     }
 
+    if (r_set) {
+        if (r <= 125) { // based on params for 100
+            k = 20;
+            l = -2;
+            u = 2;
+        } else if ((r > 125) && (r <= 175)) { // based on params for 150
+            k = 20;
+            l = 1;
+            u = 7;
+        } else if ((r > 175) && (r <= 275)) { // based on params for 200 and 250
+            k = 20;
+            l = 4;
+            u = 13;
+        } else { // based on params for 300
+            k = 22;
+            l = 2;
+            u = 12;
+        }
+    }
 
-
-    if (r == 100){
-        k = 20;
-        l = -3;
-        u = 3;
-    } else if (r == 150) {
-        k = 20;
-        l = 0;
-        u = 7;
-    } else if ( (r == 200) || (r == 250) ){
-        k = 22;
-        l = 2;
-        u = 10;
-    } else if (r == 300) {
-        k = 23;
-        l = 2;
-        u = 10;
+    if (!max_seed_len_set){
+        max_dist = r - 70 > k ? r - 70 : k;
     } else {
-        std::cout << "Warning wrong value for parameter r (only 100, 150, 200, 250, and 300 allowed), setting r=150" << std::endl;
+        max_dist = max_seed_len - k; //convert to distance in start positions
     }
 
     if ( (!s_set ) ){
         s = k - 4; // Update default s to k - 4 if user has not set s parameter
     }
     uint64_t q;
-    if ( (c <= 64) && (c > 0)){
+    if ( (c < 64) && (c > 0)){
         q = pow (2, c) - 1;
     } else{
         std::cout << "Warning wrong value for parameter c, setting c=8" << std::endl;
-        q = pow (2, c) - 1;
+        q = pow (2, 8) - 1;
     }
     omp_set_num_threads(n_threads); // set number of threads in "parallel" blocks
-    int w_min = k/(k-s+1) + l;
+    int w_min = k/(k-s+1) + l > 1 ? k/(k-s+1) + l : 1;
     int w_max = k/(k-s+1) + u;
     float dropoff = 0.5;
     int t_syncmer = (k-s)/2 + 1;
     std::cout << "Using" << std::endl;
-    std::cout << "n: " << n << std::endl;
     std::cout << "k: " << k << std::endl;
     std::cout << "s: " << s << std::endl;
     std::cout << "w_min: " << w_min << std::endl;
     std::cout << "w_max: " << w_max << std::endl;
-    std::cout << "t: " << n_threads << std::endl;
+    std::cout << "maximum seed length: " << max_dist +k << std::endl;
+    std::cout << "threads: " << n_threads << std::endl;
     std::cout << "R: " << R << std::endl;
-    std::cout << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (under random minimizer sampling): [" << (k-s+1)*w_min << ", " << (k-s+1)*w_max << "]" << std::endl;
+    std::cout << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (expected values): [" << (k-s+1)*w_min << ", " << (k-s+1)*w_max << "]" << std::endl;
 
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
     assert(k > 7 && "You should really not use too small strobe size!");
     assert(k <= 32 && "k have to be smaller than 32!");
     assert( ( s <= k ) && " s have to be smaller or equal to k!");
     assert( ( (k-s) % 2 == 0) && " k - s have to be an even number to create canonical syncmers. Set s to e.g., k-2, k-4, k-6, k-8.");
-    assert(n == 2 && "Currently only n=2 is implemented");
+//    assert(n == 2 && "Currently only n=2 is implemented");
     // File name to reference
     std::string ref_filename = argv[opn];
 //    opn++;
@@ -2464,7 +2527,7 @@ int main (int argc, char **argv)
     for(size_t i = 0; i < ref_seqs.size(); ++i)
     {
         mers_vector randstrobes2; // pos, chr_id, kmer hash value
-        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t_syncmer, q);
+        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t_syncmer, q, max_dist);
         for (auto &t : randstrobes2)
         {
             flat_vector.push_back(t);
@@ -2472,6 +2535,11 @@ int main (int argc, char **argv)
     }
     std::cout << "Ref vector actual size: " << flat_vector.size() << std::endl;
     flat_vector.shrink_to_fit();
+
+    auto finish_generating_seeds = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_generating_seeds = finish_generating_seeds - start_flat_vector;
+    std::cout << "Time generating seeds: " << elapsed_generating_seeds.count() << " s\n" <<  std::endl;
+
 
 //    create vector of vectors here nr_threads
 //    std::vector<std::vector<std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>>> vector_per_ref_chr(n_threads);
@@ -2488,11 +2556,16 @@ int main (int argc, char **argv)
 //    }
 
     uint64_t unique_mers = 0;
+    auto start_sorting = std::chrono::high_resolution_clock::now();
 //    uint64_t approx_vec_size = total_ref_seq_size / (k-s+1);
 //    std::cout << "Reserving flat vector size: " << approx_vec_size << std::endl;
 //    all_mers_vector_tmp.reserve(approx_vec_size); // reserve size corresponding to sum of lengths of all sequences divided by expected sampling
     process_flat_vector(flat_vector, unique_mers);
+    auto finish_sorting = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_sorting_seeds = finish_sorting - start_sorting;
+    std::cout << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s\n" <<  std::endl;
     std::cout << "Unique strobemers: " << unique_mers  <<  std::endl;
+
     auto finish_flat_vector = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_flat_vector = finish_flat_vector - start_flat_vector;
     std::cout << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s\n" <<  std::endl;
@@ -2510,7 +2583,6 @@ int main (int argc, char **argv)
 //    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector);
     /* destroy vector */
 //    flat_vector.clear();
-//    print_diagnostics_new4(all_mers_vector, mers_index);
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -2526,6 +2598,13 @@ int main (int argc, char **argv)
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = finish - start;
     std::cout << "Total time indexing: " << elapsed.count() << " s\n" <<  std::endl;
+
+    if (index_log){
+        std::cout << "Printing log stats" << std::endl;
+        print_diagnostics(flat_vector, mers_index, logfile_name, k);
+        std::cout << "Finished printing log stats" << std::endl;
+
+    }
 
 //    std::chrono::milliseconds timespan2(1000000); // or whatever
 //    std::this_thread::sleep_for(timespan2);
@@ -2563,7 +2642,7 @@ int main (int argc, char **argv)
         for (auto &it : acc_map) {
             output_file << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
         }
-        output_file << "@PG\tID:strobealign\tPN:strobealign\tVN:0.0.3\tCL:strobealign\n";
+        output_file << "@PG\tID:strobealign\tPN:strobealign\tVN:0.2.1\tCL:strobealign\n";
     }
 
     if(is_SE) {
@@ -2609,7 +2688,7 @@ int main (int argc, char **argv)
                 auto record = records[i];
                 // generate mers here
                 auto strobe_start = std::chrono::high_resolution_clock::now();
-                query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, record.seq, q_id, s, t_syncmer, q);
+                query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, record.seq, q_id, s, t_syncmer, q, max_dist);
                 auto strobe_finish = std::chrono::high_resolution_clock::now();
                 tot_construct_strobemers += strobe_finish - strobe_start;
 
@@ -2734,8 +2813,8 @@ int main (int argc, char **argv)
                 auto record2 = records2[i];
                 // generate mers here
                 auto strobe_start = std::chrono::high_resolution_clock::now();
-                query_mers1 = seq_to_randstrobes2_read(n, k, w_min, w_max, record1.seq, q_id, s, t_syncmer, q);
-                query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer, q);
+                query_mers1 = seq_to_randstrobes2_read(n, k, w_min, w_max, record1.seq, q_id, s, t_syncmer, q, max_dist);
+                query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer, q, max_dist);
                 auto strobe_finish = std::chrono::high_resolution_clock::now();
                 tot_construct_strobemers += strobe_finish - strobe_start;
 //                std::cout << record1.name << " " << query_mers1.size() << std::endl;

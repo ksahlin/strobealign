@@ -3,7 +3,7 @@ StrobeAlign
 
 Strobealign is a fast short-read aligner. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers. Strobealign is multithreaded, implements alignment (SAM) and mapping (PAF), and has high accuracy for reads of lengths between 100-300bp and insert sizes up to roughly 1000bp. A somewhat outdated preprint describing v0.0.3 is available [here](https://doi.org/10.1101/2021.06.18.449070).
 
-Results for newest version (v0.2) below when alinging PE reads simulated at various variation rates (SIM1-3) to hg38. Solid lines (alignment) are what matters in practice, mapping mode included for completion.
+Results for version 0.2 below when alinging PE reads simulated at various variation rates (SIM1-3) to hg38. Solid lines (alignment) are what matters in practice, mapping mode included for completion.
 
 <img width="2374" alt="accuracy" src="https://user-images.githubusercontent.com/1714667/147755184-f92fdf90-250f-4768-88f9-9ff6c180de2f.png">
 
@@ -46,7 +46,7 @@ g++ -std=c++14 -I/path/to/zlib/include -L/path/to/zlib/lib main.cpp source/index
 USAGE
 -------
 
-Strobealign v0.1 and up comes with a parameter `-r read_length [100, 150, 200, 250, 300]` that sets suitable seed parameters for the rough read length. Specifically, it sets parameters `-k`, `-l` and `-u`. Valid values of `-r` currently are 100, 150, 200, 250, and 300. If not specified, it defaults to 150. The value of `r` does not have to match the exact read length.
+Strobealign v0.1 and up comes with a parameter `-r read_length` that sets suitable seed parameters for the rough read length. Specifically, it sets parameters `-k`, `-l` and `-u`. If not specified, it defaults to 150. The value of `r` does not have to match the exact read length.
 
 For alignment to SAM file:
 
@@ -73,6 +73,10 @@ Kristoffer Sahlin. Faster short-read mapping with strobemer seeds in syncmer spa
 
 VERSION INFO
 ---------------
+
+### Version 0.2.1
+1. Inroduced a max seed size contraint when sampling seeds, only active in few regions where syncmers are sparsely sampled.
+2. Parameter `-r` can now take any integer value. 
 
 ### Version 0.2
 
