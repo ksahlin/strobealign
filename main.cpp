@@ -2273,7 +2273,7 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.2.2 \n";
+    std::cerr << "StrobeAlign VERSION 0.2.2 (bugfix) \n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
@@ -2866,8 +2866,8 @@ int main (int argc, char **argv)
                 query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer, q, max_dist);
                 auto strobe_finish = std::chrono::high_resolution_clock::now();
                 tot_construct_strobemers += strobe_finish - strobe_start;
-//                std::cout << record1.name << " " << query_mers1.size() << std::endl;
-//                std::cout << record2.name << " " << query_mers2.size() << std::endl;
+                std::cout << record1.name << " " << query_mers1.size() << std::endl;
+                std::cout << record2.name << " " << query_mers2.size() << std::endl;
 
                 // Find NAMs
                 auto nam_start = std::chrono::high_resolution_clock::now();
