@@ -1018,7 +1018,7 @@ inline aln_info ssw_align(std::string &ref, std::string &query, int read_len, in
 //         << "Number of mismatches:\t" << alignment.mismatches << endl
 //         << "Cigar: " << alignment.cigar_string << endl;
 
-    // TODO: Fix cigarstring to use M instead of =/X
+
     aln.ed = alignment.mismatches;
     aln.ref_offset = alignment.ref_begin;
     aln.cigar = alignment.cigar_string;
@@ -1244,10 +1244,10 @@ static inline void align_SE(std::string &sam_string, std::vector<nam> &all_nams,
         }
 //        std::cout << "DIFF: "  <<  diff << ", " << n.score << ", " << ref_segm.length() << std::endl;
 
-        if (ref_segm.length() >= read_len){
+        if (ref_segm.length() == read_len){
             hamming_dist = HammingDistance(r_tmp, ref_segm.substr(0,read_len));
 //            std::cout << "Hammingdist: " << n.score << ", "  <<  n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ") hd:" << hamming_dist << ", best ed so far: " << best_align_dist  << std::endl;
-            if (hamming_dist < best_align_dist){
+            if ( (hamming_dist >=0) && (hamming_dist < best_align_dist)){
                 best_align_index = cnt;
                 best_align_dist = hamming_dist;
                 sam_aln.cigar = std::to_string(read_len) + "M";
@@ -1281,8 +1281,8 @@ static inline void align_SE(std::string &sam_string, std::vector<nam> &all_nams,
             const char *read_ptr = r_tmp.c_str();
             aln_info info;
 //            std::cout << "Extra ref: " << extra_ref << " " << read_diff << " " << ref_diff << " " << ref_start << " " << ref_end << std::endl;
-            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
-
+//            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
+            info = ssw_align(ref_segm, r_tmp, read_len, 1, 4, 6, 1);
             tot_ksw_aligned ++;
             if (info.ed < best_align_dist){
                 best_align_index = cnt;
@@ -1391,9 +1391,10 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
 //    std::cout<< ref_segm << std::endl;
 //    std::cout<< diff << std::endl;
 
-    if ( (diff == 0) && (!aln_did_not_fit) ){
+    if ( (ref_segm_size == read_len) && (!aln_did_not_fit) ){
         hamming_dist = HammingDistance(r_tmp, ref_segm.substr(0,read_len));
         sam_aln.cigar = std::to_string(read_len) + "M";
+//        std::cout<< "Here " << hamming_dist << " " << r_tmp.size() << " " << ref_segm.size() << std::endl;
         sam_aln.ed = hamming_dist;
         sam_aln.sw_score = (read_len-hamming_dist) - 4*hamming_dist;
         sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
@@ -1428,7 +1429,9 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
     const char *read_ptr = r_tmp.c_str();
     aln_info info;
 //    std::cout<< "4" << std::endl;
-    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
+//    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
+    info = ssw_align(ref_segm, r_tmp, read_len, 1, 4, 6, 1);
+
 //    std::cout<< "5" << std::endl;
     sam_aln.cigar = info.cigar;
     sam_aln.ed = info.ed;
