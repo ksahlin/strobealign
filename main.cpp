@@ -591,6 +591,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
                 nr_good_hits ++;
 //                bool start_log = false;
                 int min_diff = 100000;
+//                int tries = 0;
 //                int ref_d;
 //                for(size_t j = offset; j < offset+count; ++j) {
 //                    auto r = ref_mers[j];
@@ -627,7 +628,11 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
                     if (diff <= min_diff ){
                         hits_per_ref[std::get<1>(r)].push_back(h);
                         min_diff = diff;
+//                        tries ++;
                     }
+//                    if (tries > filter_cutoff){
+//                        break;
+//                    }
 //                    h.hit_count = count;
 //                    if (count > 1){
 //                        int diff = (h.query_e - h.query_s) - (h.ref_e - h.ref_s);
@@ -637,6 +642,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 
                 }
             }
+
 //            else{
 //                std::cout << "Found repetitive count: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
 //
@@ -764,10 +770,10 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
         }
     }
     info.second = max_nam_n_hits;
-    for (auto &n : final_nams){
-        int diff = (n.query_e - n.query_s) - (n.ref_e - n.ref_s);
-        std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << " diff: " << diff << std::endl;
-    }
+//    for (auto &n : final_nams){
+//        int diff = (n.query_e - n.query_s) - (n.ref_e - n.ref_s);
+//        std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << " diff: " << diff << std::endl;
+//    }
     return info;
 
 //
@@ -1381,9 +1387,9 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
         is_rc = false;
     }
 
-    std::cout<< r_tmp << std::endl;
-    std::cout<< ref_segm << std::endl;
-    std::cout<< diff << std::endl;
+//    std::cout<< r_tmp << std::endl;
+//    std::cout<< ref_segm << std::endl;
+//    std::cout<< diff << std::endl;
 
     if ( (diff == 0) && (!aln_did_not_fit) ){
         hamming_dist = HammingDistance(r_tmp, ref_segm.substr(0,read_len));
@@ -1394,9 +1400,9 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
         sam_aln.is_rc = is_rc;
         sam_aln.ref_id = n.ref_id;
         sam_aln.is_unaligned = false;
-        std::cout<< "1" << std::endl;
+//        std::cout<< "1" << std::endl;
         if ( (((float)sam_aln.ed / read_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-            std::cout<< "2" << std::endl;
+//            std::cout<< "2" << std::endl;
             return;
         }
         //TODO: Only do ksw of the ends outside the NAM to increase speed here
@@ -1410,7 +1416,7 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
 
     // We didn't get away with hamming distance, do full ksw alignment
 //    else {
-    std::cout<< "3" << std::endl;
+//    std::cout<< "3" << std::endl;
     int a = n.ref_s - n.query_s;
     ref_start = std::max(0, a);
     int b = n.ref_e + (read_len - n.query_e);
@@ -1421,9 +1427,9 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
     const char *ref_ptr = ref_segm.c_str();
     const char *read_ptr = r_tmp.c_str();
     aln_info info;
-    std::cout<< "4" << std::endl;
+//    std::cout<< "4" << std::endl;
     info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
-    std::cout<< "5" << std::endl;
+//    std::cout<< "5" << std::endl;
     sam_aln.cigar = info.cigar;
     sam_aln.ed = info.ed;
 //    std::cout << r_tmp << " " << n.n_hits << " " << n.score << " " <<  diff << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << hamming_dist << " " << sam_aln.cigar << std::endl;
@@ -1783,12 +1789,12 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
     added_n2.clear();
     std::sort(joint_NAM_scores.begin(), joint_NAM_scores.end(), sort_joint_hits); // Sorting by highest score first
 
-    for (auto zz : joint_NAM_scores){
-        auto score_ = std::get<0>(zz);
-        auto n1_tmp = std::get<1>(zz);
-        auto n2_tmp = std::get<2>(zz);
-        std::cout << "joint_NAM_score: " << score_ << " " << n1_tmp.n_hits  << " " << n2_tmp.n_hits  << " " << n1_tmp.score  << " " << n2_tmp.score  << " " << n1_tmp.ref_s  << " " << n2_tmp.ref_s  << std::endl;
-    }
+//    for (auto zz : joint_NAM_scores){
+//        auto score_ = std::get<0>(zz);
+//        auto n1_tmp = std::get<1>(zz);
+//        auto n2_tmp = std::get<2>(zz);
+//        std::cout << "joint_NAM_score: " << score_ << " " << n1_tmp.n_hits  << " " << n2_tmp.n_hits  << " " << n1_tmp.score  << " " << n2_tmp.score  << " " << n1_tmp.ref_s  << " " << n2_tmp.ref_s  << std::endl;
+//    }
 }
 
 
@@ -1942,23 +1948,23 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
 
         // if highest scoring NAM for both read 1 and read 2 has matching genomic location and correct orientation and no good second hits - align immediately
         if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) && ( ((n_max1.ref_s - n_max2.ref_s) < 2000) || ((n_max2.ref_s - n_max1.ref_s) < 2000)) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
-            std::cout << "I'm here" << std::endl;
-            std::cout << query_acc1 << std::endl;
+//            std::cout << "I'm here" << std::endl;
+//            std::cout << query_acc1 << std::endl;
             get_alignment(n_max1, ref_len_map, ref_seqs, read1, read1_rc, read_len1, sam_aln1, k, cnt1, rc_already_comp1, did_not_fit, tot_ksw_aligned);
             tot_all_tried ++;
-            std::cout << query_acc2 << std::endl;
+//            std::cout << query_acc2 << std::endl;
             get_alignment(n_max2, ref_len_map, ref_seqs, read2, read2_rc, read_len2, sam_aln2, k, cnt2, rc_already_comp2, did_not_fit, tot_ksw_aligned);
             tot_all_tried ++;
-            std::cout<< "6" << std::endl;
+//            std::cout<< "6" << std::endl;
             get_MAPQ(all_nams1, n_max1, mapq1);
             get_MAPQ(all_nams2, n_max2, mapq2);
-            std::cout<< "7" << std::endl;
+//            std::cout<< "7" << std::endl;
             append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2, mu, sigma, read_len1);
 
             if ((sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && !sam_aln1.not_proper && !sam_aln2.not_proper ){
                 int d = sam_aln1.ref_start > sam_aln2.ref_start ? sam_aln1.ref_start - sam_aln2.ref_start : sam_aln2.ref_start - sam_aln1.ref_start;
                 if ( d < 2000){
-                    std::cout<< "8 " << sample_size << std::endl;
+//                    std::cout<< "8 " << sample_size << std::endl;
                     float e;
                     e = d - mu;
                     mu = mu + e/sample_size; // (1.0/(sample_size +1.0)) * (sample_size*mu + d);
@@ -2285,7 +2291,7 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.2.2 (bugfix) \n";
+    std::cerr << "StrobeAlign VERSION 0.2.2 (segfault bugfix, with max_diff on seeds) \n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
@@ -2874,12 +2880,15 @@ int main (int argc, char **argv)
                 auto record2 = records2[i];
                 // generate mers here
                 auto strobe_start = std::chrono::high_resolution_clock::now();
+//                std::cout << "Going in! " << std::endl;
                 query_mers1 = seq_to_randstrobes2_read(n, k, w_min, w_max, record1.seq, q_id, s, t_syncmer, q, max_dist);
+//                std::cout << "Lolz1 " << std::endl;
                 query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer, q, max_dist);
+//                std::cout << "Lolz2 " << std::endl;
                 auto strobe_finish = std::chrono::high_resolution_clock::now();
                 tot_construct_strobemers += strobe_finish - strobe_start;
-                std::cout << record1.name << " " << query_mers1.size() << std::endl;
-                std::cout << record2.name << " " << query_mers2.size() << std::endl;
+//                std::cout << record1.name << " " << query_mers1.size() << std::endl;
+//                std::cout << record2.name << " " << query_mers2.size() << std::endl;
 
                 // Find NAMs
                 auto nam_start = std::chrono::high_resolution_clock::now();
@@ -2939,14 +2948,14 @@ int main (int argc, char **argv)
                 auto nam_sort_finish = std::chrono::high_resolution_clock::now();
                 tot_sort_nams += nam_sort_finish - nam_sort_start;
 
-                std::cout << record1.name << std::endl;
-                for (auto &n : nams1){
-                    std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
-                }
-                std::cout << record2.name << std::endl;
-                for (auto &n : nams2){
-                    std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
-                }
+//                std::cout << record1.name << std::endl;
+//                for (auto &n : nams1){
+//                    std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
+//                }
+//                std::cout << record2.name << std::endl;
+//                for (auto &n : nams2){
+//                    std::cout << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
+//                }
 
                 auto extend_start = std::chrono::high_resolution_clock::now();
                 if (!mode) {
