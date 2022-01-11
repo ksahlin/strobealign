@@ -1319,6 +1319,7 @@ static inline void align_SE(std::string &sam_string, std::vector<nam> &all_nams,
 //            std::cout << "Extra ref: " << extra_ref << " " << read_diff << " " << ref_diff << " " << ref_start << " " << ref_end << std::endl;
 //            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
             info = ssw_align(ref_segm, r_tmp, read_len, 1, 4, 6, 1);
+            info.ed = read_len - info.sw_score;
             tot_ksw_aligned ++;
             if (info.ed < best_align_dist){
                 best_align_index = cnt;
