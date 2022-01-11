@@ -1354,9 +1354,10 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
     std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
 
     // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
-
+    bool fits = false;
     if ( (ref_segm.substr(n.query_s, k) == read.substr(n.query_s, k) ) ) { //&& (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read.substr(n.query_e - k, k)) ){
         n.is_rc = false;
+        fits = true;
     }
     else {
         if (!rc_already_comp){
@@ -1366,14 +1367,17 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
 
         if ((ref_segm.substr(n.query_s, k) == read_rc.substr(n.query_s, k))) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
             n.is_rc = true;
-        } else {
-            did_not_fit++;
-            aln_did_not_fit = true;
-            sam_aln.not_proper = true;
+            fits = true;
+        }
+    }
+
+    if (!fits) {
+        did_not_fit++;
+        aln_did_not_fit = true;
+        sam_aln.not_proper = true;
 //            sam_aln.sw_score = 0;
 //            sam_aln.is_unaligned = true;
 //            return;
-        }
     }
 
     int hamming_dist = -1;
@@ -1392,18 +1396,16 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
 //    std::cout<< diff << std::endl;
 
     if ( (ref_segm_size == read_len) && (!aln_did_not_fit) ){
-        hamming_dist = HammingDistance(r_tmp, ref_segm.substr(0,read_len));
-        sam_aln.cigar = std::to_string(read_len) + "M";
-//        std::cout<< "Here " << hamming_dist << " " << r_tmp.size() << " " << ref_segm.size() << std::endl;
-        sam_aln.ed = hamming_dist;
-        sam_aln.sw_score = (read_len-hamming_dist) - 4*hamming_dist;
-        sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
-        sam_aln.is_rc = is_rc;
-        sam_aln.ref_id = n.ref_id;
-        sam_aln.is_unaligned = false;
-//        std::cout<< "1" << std::endl;
-        if ( (((float)sam_aln.ed / read_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-//            std::cout<< "2" << std::endl;
+        hamming_dist = HammingDistance(r_tmp, ref_segm);
+        if ( (hamming_dist >= 0) && (((float) hamming_dist / read_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
+            sam_aln.cigar = std::to_string(read_len) + "M";
+            std::cout<< "Here " << hamming_dist << " " << r_tmp.size() << " " << ref_segm.size() << std::endl;
+            sam_aln.ed = hamming_dist;
+            sam_aln.sw_score = (read_len-hamming_dist) - 4*hamming_dist;
+            sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
+            sam_aln.is_rc = is_rc;
+            sam_aln.ref_id = n.ref_id;
+            sam_aln.is_unaligned = false;
             return;
         }
         //TODO: Only do ksw of the ends outside the NAM to increase speed here
@@ -1435,7 +1437,7 @@ static inline void get_alignment(nam &n, std::vector<unsigned int> &ref_len_map,
 //    std::cout<< "5" << std::endl;
     sam_aln.cigar = info.cigar;
     sam_aln.ed = info.ed;
-//    std::cout << r_tmp << " " << n.n_hits << " " << n.score << " " <<  diff << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << hamming_dist << " " << sam_aln.cigar << std::endl;
+//    std::cout << r_tmp << " " << n.n_hits << " " << n.score << " " <<  diff << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << hamming_dist << " " << sam_aln.cigar << " " << info.sw_score << std::endl;
     sam_aln.sw_score = info.sw_score;
     sam_aln.ref_start =  ref_start + info.ref_offset +1; // +1 because SAM is 1-based!
     sam_aln.is_rc = is_rc;
@@ -2002,16 +2004,28 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                 mapq1 = 60;
                 mapq2 = 60;
             }
-            alignment a1_indv_max;
-            a1_indv_max.sw_score = -10000;
-            alignment a2_indv_max;
-            a2_indv_max.sw_score = -10000;
-//            int a, b;
-            std::string r_tmp;
-            int min_ed1, min_ed2 = 1000;
-            bool new_opt1, new_opt2 = false;
+
             robin_hood::unordered_map<int,alignment> is_aligned1;
             robin_hood::unordered_map<int,alignment> is_aligned2;
+            alignment a1_indv_max;
+//            a1_indv_max.sw_score = -10000;
+            auto n1_max = all_nams1[0];
+            get_alignment(n1_max, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1_indv_max, k, cnt1, rc_already_comp1,
+                          did_not_fit, tot_ksw_aligned);
+            is_aligned1[n1_max.nam_id] = a1_indv_max;
+            tot_all_tried ++;
+            alignment a2_indv_max;
+//            a2_indv_max.sw_score = -10000;
+            auto n2_max = all_nams2[0];
+            get_alignment(n2_max, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2_indv_max, k, cnt2, rc_already_comp2,
+                          did_not_fit, tot_ksw_aligned);
+            is_aligned2[n2_max.nam_id] = a2_indv_max;
+            tot_all_tried ++;
+
+//            int a, b;
+            std::string r_tmp;
+//            int min_ed1, min_ed2 = 1000;
+//            bool new_opt1, new_opt2 = false;
 //            bool a1_is_rc, a2_is_rc;
 //            int ref_start, ref_len, ref_end;
 //            std::cout << "LOOOOOOOOOOOOOOOOOOOL " << min_ed << std::endl;
@@ -2030,15 +2044,18 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                 //////////////////////////////////////////////////////////////////////
                 //////////////////////////////////////////////////////////////////////
                 alignment a1;
-                if (is_aligned1.find(n1.nam_id) != is_aligned1.end() ){
+                if (n1.ref_s >= 0) {
+                    if (is_aligned1.find(n1.nam_id) != is_aligned1.end() ){
 //                    std::cout << "Already aligned a1! " << std::endl;
-                    a1 = is_aligned1[n1.nam_id];
-                } else if (n1.ref_s >= 0) {
+                        a1 = is_aligned1[n1.nam_id];
+                    } else {
 //                    std::cout << query_acc1 << std::endl;
-                    get_alignment(n1, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, k, cnt1, rc_already_comp1,
-                                  did_not_fit, tot_ksw_aligned);
-                    is_aligned1[n1.nam_id] = a1;
-                    tot_all_tried ++;
+                        get_alignment(n1, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, k, cnt1,
+                                      rc_already_comp1,
+                                      did_not_fit, tot_ksw_aligned);
+                        is_aligned1[n1.nam_id] = a1;
+                        tot_all_tried++;
+                    }
                 } else { //rescue
 //                    std::cout << "RESCUE HERE1" << std::endl;
                     //////// Force SW alignment to rescue mate /////////
@@ -2058,15 +2075,18 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                 }
 
                 alignment a2;
-                if (is_aligned2.find(n2.nam_id) != is_aligned2.end() ){
+                if(n2.ref_s >= 0) {
+                    if (is_aligned2.find(n2.nam_id) != is_aligned2.end() ){
 //                    std::cout << "Already aligned a2! " << std::endl;
-                    a2 = is_aligned2[n2.nam_id];
-                } else if(n2.ref_s >= 0) {
+                        a2 = is_aligned2[n2.nam_id];
+                    } else {
 //                    std::cout << query_acc2 << std::endl;
-                    get_alignment(n2, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, k, cnt2, rc_already_comp2,
-                                  did_not_fit, tot_ksw_aligned);
-                    is_aligned2[n2.nam_id] = a2;
-                    tot_all_tried ++;
+                        get_alignment(n2, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, k, cnt2,
+                                      rc_already_comp2,
+                                      did_not_fit, tot_ksw_aligned);
+                        is_aligned2[n2.nam_id] = a2;
+                        tot_all_tried++;
+                    }
                 } else{
 //                    std::cout << "RESCUE HERE2" << std::endl;
                     //////// Force SW alignment to rescue mate /////////
