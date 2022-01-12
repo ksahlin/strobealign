@@ -31,7 +31,7 @@ using namespace klibpp;
 typedef robin_hood::unordered_map< unsigned int, std::string > idx_to_acc;
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
-//typedef robin_hood::unordered_map< uint64_t, std::tuple<uint64_t, unsigned int >> vector_index;
+
 
 
 
@@ -94,7 +94,7 @@ static inline void print_diagnostics(mers_vector &ref_mers, robin_hood::unordere
         uint64_t hash_refmer = it.first;
         ref_mer = it.second;
 
-        uint64_t offset = std::get<0>(ref_mer);
+        unsigned int offset = std::get<0>(ref_mer);
         unsigned int count = std::get<1>(ref_mer);
 
 
@@ -155,7 +155,7 @@ static inline void print_diagnostics(mers_vector &ref_mers, robin_hood::unordere
 //            h.is_rc = std::get<4>(q);
 //            std::tuple<uint64_t, unsigned int> mer;
 //            mer = mers_index[mer_hashv];
-//            uint64_t offset = std::get<0>(mer);
+//            unsigned int offset = std::get<0>(mer);
 //            unsigned int count = std::get<1>(mer);
 //
 //            for (size_t j = offset; j < offset + count; ++j) {
@@ -251,13 +251,13 @@ static inline bool sort_hits(const hit &a, const hit &b)
     return (a.query_s < b.query_s) || ( (a.query_s == b.query_s) && (a.ref_s < b.ref_s) );
 }
 
-static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_fw, std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_rc, std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int filter_cutoff ){
+static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw, std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc, std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int filter_cutoff ){
     std::pair<float,int> info (0,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
     std::tuple<uint64_t, unsigned int> ref_hit;
     uint64_t mer_hashv;
     unsigned int count = 0;
-    uint64_t offset;
+    unsigned int offset;
     bool is_rc = true, no_rep_fw = true, no_rep_rc = true;
     std::pair<int, int> repeat_fw(0,0), repeat_rc(0,0);
     std::vector<std::pair<int, int>> repetitive_fw, repetitive_rc;
@@ -273,7 +273,7 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
             unsigned int query_e = std::get<3>(q) + k;
             is_rc = std::get<4>(q);
             if (is_rc){
-                std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool> s(count, offset, query_s, query_e, is_rc);
+                std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool> s(count, offset, query_s, query_e, is_rc);
                 hits_rc.push_back(s);
                 if (count > filter_cutoff){
                     if (no_rep_rc){ //initialize
@@ -292,7 +292,7 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
                     nr_good_hits ++;
                 }
             } else{
-                std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool> s(count, offset, query_s, query_e, is_rc);
+                std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool> s(count, offset, query_s, query_e, is_rc);
                 hits_fw.push_back(s);
                 if (count > filter_cutoff){
                     if (no_rep_fw){ //initialize
@@ -336,8 +336,8 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
     for (auto &q : hits_fw)
     {
 //        std::cout << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
-        uint64_t count = std::get<0>(q);
-        uint64_t offset = std::get<1>(q);
+        unsigned int count = std::get<0>(q);
+        unsigned int offset = std::get<1>(q);
         h.query_s = std::get<2>(q);
         h.query_e = std::get<3>(q); // h.query_s + read_length/2;
         h.is_rc = std::get<4>(q);
@@ -384,8 +384,8 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
     for (auto &q : hits_rc)
     {
 //        std::cout << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
-        uint64_t count = std::get<0>(q);
-        uint64_t offset = std::get<1>(q);
+        unsigned int count = std::get<0>(q);
+        unsigned int offset = std::get<1>(q);
         h.query_s = std::get<2>(q);
         h.query_e = std::get<3>(q); // h.query_s + read_length/2;
         h.is_rc = std::get<4>(q);
@@ -439,7 +439,7 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
         std::vector<hit> hits = it.second;
         std::sort(hits.begin(), hits.end(), sort_hits);
         open_nams = std::vector<nam> (); // Initialize vector
-        uint64_t prev_q_start = 0;
+        unsigned int prev_q_start = 0;
         for (auto &h : hits){
             bool is_added = false;
 //            std::cout << "HIT " << h.is_rc << " " << h.query_s <<  ", " << h.query_e << ", " << h.ref_s <<  ", " << h.ref_e << std::endl;
@@ -573,7 +573,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
             h.query_e = std::get<3>(q) + k; // h.query_s + read_length/2;
             h.is_rc = std::get<4>(q);
             mer = mers_index[mer_hashv];
-            uint64_t offset = std::get<0>(mer);
+            unsigned int offset = std::get<0>(mer);
             unsigned int count = std::get<1>(mer);
 //            if (count == 1){
 //                auto r = ref_mers[offset];
@@ -667,7 +667,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //        unsigned int ref_id = i;
 //        auto hits = hits_per_ref[i];
         open_nams = std::vector<nam> (); // Initialize vector
-        uint64_t prev_q_start = 0;
+        unsigned int prev_q_start = 0;
         for (auto &h : hits){
             bool is_added = false;
 //            std::cout << "HIT " << h.is_rc << " " << h.query_s <<  ", " << h.query_e << ", " << h.ref_s <<  ", " << h.ref_e << std::endl;
@@ -2788,8 +2788,8 @@ int main (int argc, char **argv)
         mers_vector_read query_mers; // pos, chr_id, kmer hash value
         std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
         robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
-        std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_fw;
-        std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_rc;
+        std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw;
+        std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc;
         hits_per_ref.reserve(100);
         hits_fw.reserve(5000);
         hits_rc.reserve(5000);
@@ -2915,8 +2915,8 @@ int main (int argc, char **argv)
         std::vector<nam> nams1;
         std::vector<nam> nams2;
         robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
-        std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_fw;
-        std::vector<std::tuple<unsigned int, uint64_t, unsigned int, unsigned int, bool>> hits_rc;
+        std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw;
+        std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc;
         hits_per_ref.reserve(100);
         hits_fw.reserve(5000);
         hits_rc.reserve(5000);

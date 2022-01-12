@@ -18,13 +18,10 @@
 
 uint64_t hash(std::string kmer);
 static inline uint64_t hash64(uint64_t key, uint64_t mask);
-//typedef robin_hood::unordered_map< uint64_t , std::vector< std::tuple<unsigned int, unsigned int>> > seq_index1;
-//typedef robin_hood::unordered_map< uint64_t , std::vector< std::tuple<unsigned int, unsigned int, unsigned int>> > seq_index2;
-//typedef robin_hood::unordered_map< uint64_t , std::vector<unsigned int> > seq_index;
-//typedef robin_hood::unordered_map< uint64_t , std::vector< std::tuple<unsigned int, unsigned int, unsigned int, unsigned int>> > seq_index3;
+
 
 typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>> mers_vector;
-typedef std::vector< std::tuple<unsigned int, unsigned int, unsigned int>> mers_vector_reduced;
+typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int>> mers_vector_reduced;
 typedef robin_hood::unordered_map< uint64_t, std::tuple<unsigned int, unsigned int >> kmer_lookup;
 
 typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool>> mers_vector_read;
@@ -38,11 +35,8 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int s, int t, uint64_t q, int max_dist);
 //mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int w);
 
-typedef robin_hood::unordered_map< unsigned int, std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>>> pos_index;
 void process_flat_vector(mers_vector &flat_vector, uint64_t &unique_elements);
 unsigned int index_vector(mers_vector  &mers_vector, kmer_lookup &mers_index, float f);
-mers_vector_reduced remove_kmer_hash_from_flat_vector(mers_vector &flat_vector);
-void filter_repetitive_strobemers(mers_vector &flat_vector, kmer_lookup &mers_index, mers_vector &flat_vector_reduced, kmer_lookup &mers_index_reduced, unsigned int filter_cutoff);
 
 struct hit {
 //    unsigned int ref_id;
