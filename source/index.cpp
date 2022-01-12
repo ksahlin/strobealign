@@ -146,12 +146,13 @@ unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, flo
             }
             else if (count > 100){
                 tot_high_ab ++;
+                strobemer_counts.push_back(count);
 //                std::cout << count << std::endl;
             }
             else{
                 tot_mid_ab ++;
+                strobemer_counts.push_back(count);
             }
-            strobemer_counts.push_back(count);
 
             std::tuple<unsigned int, unsigned int> s(prev_offset, count);
             mers_index[prev_k] = s;
@@ -180,9 +181,10 @@ unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, flo
     // get count for top -f fraction of strobemer count to filter them out
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
-    unsigned int index_cutoff = strobemer_counts.size()*f;
+    unsigned int index_cutoff = mers_index.size()*f;
     std::cout << "Filtered cutoff index: " << index_cutoff << std::endl;
-    unsigned int filter_cutoff =  strobemer_counts[index_cutoff];
+    unsigned int filter_cutoff;
+    filter_cutoff =  index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back() ;
     filter_cutoff = filter_cutoff > 30 ? filter_cutoff : 30; // cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
     std::cout << "Filtered cutoff count: " << filter_cutoff << std::endl;
     std::cout << "" << std::endl;
