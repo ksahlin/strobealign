@@ -76,7 +76,7 @@ static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsi
 
 
 
-static inline void print_diagnostics(mers_vector &ref_mers, robin_hood::unordered_map< uint64_t, std::tuple<unsigned int, unsigned int >> &mers_index, std::string logfile_name, int k) {
+static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, std::string logfile_name, int k) {
     // Prins to csv file the statistics on the number of seeds of a particular length and what fraction of them them are unique in the index:
     // format:
     // seed_length, count, percentage_unique
@@ -87,11 +87,10 @@ static inline void print_diagnostics(mers_vector &ref_mers, robin_hood::unordere
     std::vector<int> log_unique(max_size,0); // stores count unique and each index represents the length
     std::vector<int> log_repetitive(max_size,0); // stores count unique and each index represents the length
 
-    std::tuple<uint64_t, unsigned int> mer;
     std::tuple<unsigned int, unsigned int > ref_mer; // (cout offset)
     int seed_length;
     for (auto &it : mers_index) {
-        uint64_t hash_refmer = it.first;
+        auto hash_refmer = it.first;
         ref_mer = it.second;
 
         unsigned int offset = std::get<0>(ref_mer);
@@ -254,8 +253,6 @@ static inline bool sort_hits(const hit &a, const hit &b)
 static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw, std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc, std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int filter_cutoff ){
     std::pair<float,int> info (0,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
-    std::tuple<uint64_t, unsigned int> ref_hit;
-    uint64_t mer_hashv;
     unsigned int count = 0;
     unsigned int offset;
     bool is_rc = true, no_rep_fw = true, no_rep_rc = true;
@@ -263,10 +260,10 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
     std::vector<std::pair<int, int>> repetitive_fw, repetitive_rc;
     for (auto &q : query_mers)
     {
-        mer_hashv = std::get<0>(q);
+        auto mer_hashv = std::get<0>(q);
         if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
             total_hits ++;
-            ref_hit = mers_index[mer_hashv];
+            auto ref_hit = mers_index[mer_hashv];
             offset = std::get<0>(ref_hit);
             count = std::get<1>(ref_hit);
             unsigned int query_s = std::get<2>(q);
@@ -561,18 +558,17 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
     std::pair<float,int> info (0,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
     hit h;
-    std::tuple<uint64_t, unsigned int> mer;
     for (auto &q : query_mers)
 //    for (size_t i = 0; i < query_mers.size(); ++i)
     {
 //        std::cout << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
-        uint64_t mer_hashv = std::get<0>(q);
+        auto mer_hashv = std::get<0>(q);
         if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
             total_hits ++;
             h.query_s = std::get<2>(q);
             h.query_e = std::get<3>(q) + k; // h.query_s + read_length/2;
             h.is_rc = std::get<4>(q);
-            mer = mers_index[mer_hashv];
+            auto mer = mers_index[mer_hashv];
             unsigned int offset = std::get<0>(mer);
             unsigned int count = std::get<1>(mer);
 //            if (count == 1){
@@ -2687,7 +2683,6 @@ int main (int argc, char **argv)
 
     uint64_t unique_mers = 0;
     auto start_sorting = std::chrono::high_resolution_clock::now();
-//    uint64_t approx_vec_size = total_ref_seq_size / (k-s+1);
 //    std::cout << "Reserving flat vector size: " << approx_vec_size << std::endl;
 //    all_mers_vector_tmp.reserve(approx_vec_size); // reserve size corresponding to sum of lengths of all sequences divided by expected sampling
     process_flat_vector(flat_vector, unique_mers);
