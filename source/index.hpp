@@ -15,13 +15,14 @@
 #include <tuple>
 #include "robin_hood.h"
 #include "xxhash.h"
+#include <inttypes.h>
 
 uint64_t hash(std::string kmer);
 static inline uint64_t hash64(uint64_t key, uint64_t mask);
 
 
 typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>> mers_vector;
-typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int>> mers_vector_reduced;
+//typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int>> mers_vector_reduced;
 typedef robin_hood::unordered_map< uint64_t, std::tuple<unsigned int, unsigned int >> kmer_lookup;
 
 typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool>> mers_vector_read;
@@ -39,12 +40,10 @@ void process_flat_vector(mers_vector &flat_vector, uint64_t &unique_elements);
 unsigned int index_vector(mers_vector  &mers_vector, kmer_lookup &mers_index, float f);
 
 struct hit {
-//    unsigned int ref_id;
     int query_s;
     int query_e;
     int ref_s;
     int ref_e;
-//    int count;
     bool is_rc = false;
 };
 

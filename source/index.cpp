@@ -10,7 +10,7 @@
 #include <math.h>       /* pow */
 #include <bitset>
 #include <climits>
-
+#include <inttypes.h>
 
 
 /**********************************************************
@@ -197,14 +197,14 @@ unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, flo
 
 
 
-mers_vector_reduced remove_kmer_hash_from_flat_vector(mers_vector &flat_vector){
-    mers_vector_reduced flat_vector_reduced;
-    for ( auto &t : flat_vector ) {
-        std::tuple<unsigned int, unsigned int,unsigned int> s( std::get<1>(t), std::get<2>(t), std::get<3>(t) );
-        flat_vector_reduced.push_back(s);
-    }
-    return flat_vector_reduced;
-}
+//mers_vector_reduced remove_kmer_hash_from_flat_vector(mers_vector &flat_vector){
+//    mers_vector_reduced flat_vector_reduced;
+//    for ( auto &t : flat_vector ) {
+//        std::tuple<unsigned int, unsigned int,unsigned int> s( std::get<1>(t), std::get<2>(t), std::get<3>(t) );
+//        flat_vector_reduced.push_back(s);
+//    }
+//    return flat_vector_reduced;
+//}
 
 //// initialize queue and current minimum and position
 //static inline void initialize_window(std::vector<uint64_t> &string_hashes, std::deque <uint64_t> &q, uint64_t &q_min_val, int &q_min_pos, int w_min, int w_max, int k){
@@ -803,7 +803,8 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
 //        std::cout <<  "Seed length: " << seq_pos_strobe2 + k - seq_pos_strobe1 << std::endl;
-        std::tuple<uint64_t, unsigned int, unsigned int, unsigned int> s (hash_randstrobe2, ref_index, seq_pos_strobe1, seq_pos_strobe2);
+        unsigned int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
+        std::tuple<uint64_t, unsigned int, unsigned int, unsigned int> s (hash_randstrobe2, ref_index, seq_pos_strobe1, offset_strobe);
         randstrobes2.push_back(s);
 //        std::cout << seq_pos_strobe1 << " " << seq_pos_strobe2 << std::endl;
 //        std::cout << "FORWARD REF: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
@@ -825,7 +826,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
     return randstrobes2;
 }
 
-mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int s, int t, uint64_t q, int max_dist)
+mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, std::string &seq, unsigned int  ref_index, int s, int t, uint64_t q, int max_dist)
 {
     // this function differs from  the function seq_to_randstrobes2 which creating randstrobes for the reference.
     // The seq_to_randstrobes2 stores randstobes only in one direction from canonical syncmers.
@@ -902,7 +903,8 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
         uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
 
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
-        std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool> s (hash_randstrobe2, ref_index, seq_pos_strobe1, seq_pos_strobe2, false);
+        unsigned int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
+        std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool> s (hash_randstrobe2, ref_index, seq_pos_strobe1, offset_strobe, false);
         randstrobes2.push_back(s);
 //        std::cout << "FORWARD: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
 
@@ -965,7 +967,8 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
         uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
 
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
-        std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool> s (hash_randstrobe2, ref_index, seq_pos_strobe1, seq_pos_strobe2, true);
+        unsigned int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
+        std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool> s (hash_randstrobe2, ref_index, seq_pos_strobe1, offset_strobe, true);
         randstrobes2.push_back(s);
 //        std::cout << "REVERSE: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
 
