@@ -724,7 +724,7 @@ static inline void get_next_strobe_dist_constraint(std::vector<uint64_t> &string
 //    return  kmers;
 //}
 
-mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int s, int t, uint64_t q, int max_dist)
+mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string &seq, uint16_t ref_index, int s, int t, uint64_t q, int max_dist)
 {
     mers_vector randstrobes2;
 
@@ -803,8 +803,8 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
 //        std::cout <<  "Seed length: " << seq_pos_strobe2 + k - seq_pos_strobe1 << std::endl;
-        unsigned int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
-        std::tuple<uint64_t, unsigned int, unsigned int, unsigned int> s (hash_randstrobe2, ref_index, seq_pos_strobe1, offset_strobe);
+        uint16_t offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
+        std::tuple<uint64_t, unsigned int, uint16_t, uint16_t> s (hash_randstrobe2, seq_pos_strobe1, ref_index, offset_strobe);
         randstrobes2.push_back(s);
 //        std::cout << seq_pos_strobe1 << " " << seq_pos_strobe2 << std::endl;
 //        std::cout << "FORWARD REF: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;

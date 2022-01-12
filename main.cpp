@@ -28,7 +28,7 @@ using namespace klibpp;
 #include <sstream>
 
 
-typedef robin_hood::unordered_map< unsigned int, std::string > idx_to_acc;
+typedef robin_hood::unordered_map<uint16_t, std::string > idx_to_acc;
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
@@ -41,7 +41,7 @@ static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsi
     uint64_t total_ref_seq_size = 0;
     std::ifstream file(fn);
     std::string line, seq;
-    unsigned int ref_index = 0;
+    uint16_t ref_index = 0;
     while (getline(file, line)) {
         if (line[0] == '>') {
 //            std::cout << ref_index << " " << line << std::endl;
@@ -354,14 +354,14 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
             for(size_t j = offset; j < offset+count; ++j)
             {
                 auto r = ref_mers[j];
-                h.ref_s = std::get<2>(r);
+                h.ref_s = std::get<1>(r);
                 h.ref_e = h.ref_s + std::get<3>(r) + k;
 //                h.count = count;
 //                hits_per_ref[std::get<1>(r)].push_back(h);
 
                 int diff = (h.query_e - h.query_s) - (h.ref_e - h.ref_s) > 0 ? (h.query_e - h.query_s) - (h.ref_e - h.ref_s) : (h.ref_e - h.ref_s) - (h.query_e - h.query_s);
                 if (diff <= min_diff ){
-                    hits_per_ref[std::get<1>(r)].push_back(h);
+                    hits_per_ref[std::get<2>(r)].push_back(h);
                     min_diff = diff;
                 }
             }
@@ -401,13 +401,13 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
             for(size_t j = offset; j < offset+count; ++j)
             {
                 auto r = ref_mers[j];
-                h.ref_s = std::get<2>(r);
+                h.ref_s = std::get<1>(r);
                 h.ref_e = h.ref_s + std::get<3>(r) + k;
 //                h.count = count;
 //                hits_per_ref[std::get<1>(r)].push_back(h);
                 int diff = (h.query_e - h.query_s) - (h.ref_e - h.ref_s) > 0 ? (h.query_e - h.query_s) - (h.ref_e - h.ref_s) : (h.ref_e - h.ref_s) - (h.query_e - h.query_s);
                 if (diff <= min_diff ){
-                    hits_per_ref[std::get<1>(r)].push_back(h);
+                    hits_per_ref[std::get<2>(r)].push_back(h);
                     min_diff = diff;
                 }
             }
@@ -604,7 +604,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //                    unsigned int ref_id = std::get<0>(r);
 //                    unsigned int ref_s = std::get<1>(r);
 //                    unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
-                    h.ref_s = std::get<2>(r);
+                    h.ref_s = std::get<1>(r);
                     h.ref_e = h.ref_s + std::get<3>(r) + k;
 //                    h.count = count;
 //                    hits_per_ref[std::get<1>(r)].push_back(h);
@@ -620,7 +620,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //                        start_log = true;
 //                    }
                     if (diff <= min_diff ){
-                        hits_per_ref[std::get<1>(r)].push_back(h);
+                        hits_per_ref[std::get<2>(r)].push_back(h);
                         min_diff = diff;
 //                        tries ++;
                     }
@@ -2656,7 +2656,9 @@ int main (int argc, char **argv)
     for(size_t i = 0; i < ref_seqs.size(); ++i)
     {
         mers_vector randstrobes2; // pos, chr_id, kmer hash value
-        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t_syncmer, q, max_dist);
+        uint16_t i_mod = (uint16_t) i;
+//        std::cout << i << " " << i_mod << std::endl;
+        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i_mod, s, t_syncmer, q, max_dist);
         for (auto &t : randstrobes2)
         {
             flat_vector.push_back(t);
