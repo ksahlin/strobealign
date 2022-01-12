@@ -11,7 +11,7 @@
 #include <sstream>
 #include <algorithm>
 #include <numeric>
-
+#include <inttypes.h>
 #include "source/kseq++.hpp"
 using namespace klibpp;
 #include "source/robin_hood.h"
@@ -41,7 +41,7 @@ static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsi
     uint64_t total_ref_seq_size = 0;
     std::ifstream file(fn);
     std::string line, seq;
-    int ref_index = 0;
+    unsigned int ref_index = 0;
     while (getline(file, line)) {
         if (line[0] == '>') {
 //            std::cout << ref_index << " " << line << std::endl;
@@ -87,19 +87,19 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
     std::vector<int> log_unique(max_size,0); // stores count unique and each index represents the length
     std::vector<int> log_repetitive(max_size,0); // stores count unique and each index represents the length
 
-    std::tuple<unsigned int, unsigned int > ref_mer; // (cout offset)
+
     int seed_length;
     for (auto &it : mers_index) {
         auto hash_refmer = it.first;
-        ref_mer = it.second;
+        auto ref_mer = it.second;
 
-        unsigned int offset = std::get<0>(ref_mer);
-        unsigned int count = std::get<1>(ref_mer);
+        auto offset = std::get<0>(ref_mer);
+        auto count = std::get<1>(ref_mer);
 
 
         for (size_t j = offset; j < offset + count; ++j) {
             auto r = ref_mers[j];
-            seed_length =  std::get<3>(r) + k - std::get<2>(r);
+            seed_length =  std::get<3>(r) + k;
             if (seed_length < max_size){
 
                 log_count[seed_length] ++;
@@ -253,8 +253,6 @@ static inline bool sort_hits(const hit &a, const hit &b)
 static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw, std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc, std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int filter_cutoff ){
     std::pair<float,int> info (0,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
-    unsigned int count = 0;
-    unsigned int offset;
     bool is_rc = true, no_rep_fw = true, no_rep_rc = true;
     std::pair<int, int> repeat_fw(0,0), repeat_rc(0,0);
     std::vector<std::pair<int, int>> repetitive_fw, repetitive_rc;
@@ -264,10 +262,10 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
         if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
             total_hits ++;
             auto ref_hit = mers_index[mer_hashv];
-            offset = std::get<0>(ref_hit);
-            count = std::get<1>(ref_hit);
-            unsigned int query_s = std::get<2>(q);
-            unsigned int query_e = std::get<3>(q) + k;
+            auto offset = std::get<0>(ref_hit);
+            auto count = std::get<1>(ref_hit);
+            auto query_s = std::get<2>(q);
+            auto query_e = query_s + std::get<3>(q) + k;
             is_rc = std::get<4>(q);
             if (is_rc){
                 std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool> s(count, offset, query_s, query_e, is_rc);
@@ -333,8 +331,8 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
     for (auto &q : hits_fw)
     {
 //        std::cout << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
-        unsigned int count = std::get<0>(q);
-        unsigned int offset = std::get<1>(q);
+        auto count = std::get<0>(q);
+        auto offset = std::get<1>(q);
         h.query_s = std::get<2>(q);
         h.query_e = std::get<3>(q); // h.query_s + read_length/2;
         h.is_rc = std::get<4>(q);
@@ -357,7 +355,7 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
             {
                 auto r = ref_mers[j];
                 h.ref_s = std::get<2>(r);
-                h.ref_e = std::get<3>(r) + k;
+                h.ref_e = h.ref_s + std::get<3>(r) + k;
 //                h.count = count;
 //                hits_per_ref[std::get<1>(r)].push_back(h);
 
@@ -381,8 +379,8 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
     for (auto &q : hits_rc)
     {
 //        std::cout << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
-        unsigned int count = std::get<0>(q);
-        unsigned int offset = std::get<1>(q);
+        auto count = std::get<0>(q);
+        auto offset = std::get<1>(q);
         h.query_s = std::get<2>(q);
         h.query_e = std::get<3>(q); // h.query_s + read_length/2;
         h.is_rc = std::get<4>(q);
@@ -404,7 +402,7 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
             {
                 auto r = ref_mers[j];
                 h.ref_s = std::get<2>(r);
-                h.ref_e = std::get<3>(r) + k;
+                h.ref_e = h.ref_s + std::get<3>(r) + k;
 //                h.count = count;
 //                hits_per_ref[std::get<1>(r)].push_back(h);
                 int diff = (h.query_e - h.query_s) - (h.ref_e - h.ref_s) > 0 ? (h.query_e - h.query_s) - (h.ref_e - h.ref_s) : (h.ref_e - h.ref_s) - (h.query_e - h.query_s);
@@ -432,7 +430,7 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
 
     for (auto &it : hits_per_ref)
     {
-        unsigned int ref_id = it.first;
+        auto ref_id = it.first;
         std::vector<hit> hits = it.second;
         std::sort(hits.begin(), hits.end(), sort_hits);
         open_nams = std::vector<nam> (); // Initialize vector
@@ -566,11 +564,11 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
         if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
             total_hits ++;
             h.query_s = std::get<2>(q);
-            h.query_e = std::get<3>(q) + k; // h.query_s + read_length/2;
+            h.query_e = h.query_s + std::get<3>(q) + k; // h.query_s + read_length/2;
             h.is_rc = std::get<4>(q);
             auto mer = mers_index[mer_hashv];
-            unsigned int offset = std::get<0>(mer);
-            unsigned int count = std::get<1>(mer);
+            auto offset = std::get<0>(mer);
+            auto count = std::get<1>(mer);
 //            if (count == 1){
 //                auto r = ref_mers[offset];
 //                unsigned int ref_id = std::get<0>(r);
@@ -607,7 +605,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //                    unsigned int ref_s = std::get<1>(r);
 //                    unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
                     h.ref_s = std::get<2>(r);
-                    h.ref_e = std::get<3>(r) + k;
+                    h.ref_e = h.ref_s + std::get<3>(r) + k;
 //                    h.count = count;
 //                    hits_per_ref[std::get<1>(r)].push_back(h);
 //                    hits_per_ref[std::get<0>(r)].push_back(h);
@@ -656,7 +654,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 
     for (auto &it : hits_per_ref)
     {
-        unsigned int ref_id = it.first;
+        auto ref_id = it.first;
         std::vector<hit> hits = it.second;
 
 //    for(size_t i = 0; i < hits_per_ref.size(); ++i){
@@ -2394,7 +2392,12 @@ int main (int argc, char **argv)
     // Default parameters
     std::string choice = "randstrobes";
     bool mode = true; // true = align, false=map, default mode is align
-
+//    uint16_t TEST = 11;
+//    int lol = 9999999;
+//    std::tuple<uint16_t, int> sas (TEST, lol);
+//    uint16_t t1 = lol + TEST;
+//    int t2 = lol + TEST;
+//    std::cout << TEST << " " << lol  << " " << t1 << " " << t2 << std::endl;
     int n_threads = 3;
     int n = 2;
     int k = 20;
