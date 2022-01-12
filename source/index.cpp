@@ -120,8 +120,8 @@ unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, flo
 
     std::cout << "Flat vector size: " << flat_vector.size() << std::endl;
 //    kmer_lookup mers_index;
-    uint64_t offset = 0;
-    uint64_t prev_offset = 0;
+    unsigned int offset = 0;
+    unsigned int prev_offset = 0;
     unsigned int count = 0;
 
     unsigned int tot_occur_once = 0;
