@@ -28,7 +28,7 @@ using namespace klibpp;
 #include <sstream>
 
 
-typedef robin_hood::unordered_map<uint16_t, std::string > idx_to_acc;
+typedef robin_hood::unordered_map<int, std::string > idx_to_acc;
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
@@ -41,7 +41,7 @@ static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsi
     uint64_t total_ref_seq_size = 0;
     std::ifstream file(fn);
     std::string line, seq;
-    uint16_t ref_index = 0;
+    int ref_index = 0;
     while (getline(file, line)) {
         if (line[0] == '>') {
 //            std::cout << ref_index << " " << line << std::endl;
@@ -99,7 +99,12 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
 
         for (size_t j = offset; j < offset + count; ++j) {
             auto r = ref_mers[j];
-            seed_length =  std::get<3>(r) + k;
+            auto p = std::get<2>(r);
+            int bit_alloc = 8;
+            int r_id = (p >> bit_alloc);
+            int mask=(1<<bit_alloc) - 1;
+            int offset = (p & mask);
+            seed_length =  offset + k;
             if (seed_length < max_size){
 
                 log_count[seed_length] ++;
@@ -355,13 +360,18 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
             {
                 auto r = ref_mers[j];
                 h.ref_s = std::get<1>(r);
-                h.ref_e = h.ref_s + std::get<3>(r) + k;
+                auto p = std::get<2>(r);
+                int bit_alloc = 8;
+                int r_id = (p >> bit_alloc);
+                int mask=(1<<bit_alloc) - 1;
+                int offset = (p & mask);
+                h.ref_e = h.ref_s + offset + k;
 //                h.count = count;
 //                hits_per_ref[std::get<1>(r)].push_back(h);
 
                 int diff = (h.query_e - h.query_s) - (h.ref_e - h.ref_s) > 0 ? (h.query_e - h.query_s) - (h.ref_e - h.ref_s) : (h.ref_e - h.ref_s) - (h.query_e - h.query_s);
                 if (diff <= min_diff ){
-                    hits_per_ref[std::get<2>(r)].push_back(h);
+                    hits_per_ref[r_id].push_back(h);
                     min_diff = diff;
                 }
             }
@@ -402,12 +412,17 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
             {
                 auto r = ref_mers[j];
                 h.ref_s = std::get<1>(r);
-                h.ref_e = h.ref_s + std::get<3>(r) + k;
+                auto p = std::get<2>(r);
+                int bit_alloc = 8;
+                int r_id = (p >> bit_alloc);
+                int mask=(1<<bit_alloc) - 1;
+                int offset = (p & mask);
+                h.ref_e = h.ref_s + offset + k;
 //                h.count = count;
 //                hits_per_ref[std::get<1>(r)].push_back(h);
                 int diff = (h.query_e - h.query_s) - (h.ref_e - h.ref_s) > 0 ? (h.query_e - h.query_s) - (h.ref_e - h.ref_s) : (h.ref_e - h.ref_s) - (h.query_e - h.query_s);
                 if (diff <= min_diff ){
-                    hits_per_ref[std::get<2>(r)].push_back(h);
+                    hits_per_ref[r_id].push_back(h);
                     min_diff = diff;
                 }
             }
@@ -605,7 +620,12 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //                    unsigned int ref_s = std::get<1>(r);
 //                    unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
                     h.ref_s = std::get<1>(r);
-                    h.ref_e = h.ref_s + std::get<3>(r) + k;
+                    auto p = std::get<2>(r);
+                    int bit_alloc = 8;
+                    int r_id = (p >> bit_alloc);
+                    int mask=(1<<bit_alloc) - 1;
+                    int offset = (p & mask);
+                    h.ref_e = h.ref_s + offset + k;
 //                    h.count = count;
 //                    hits_per_ref[std::get<1>(r)].push_back(h);
 //                    hits_per_ref[std::get<0>(r)].push_back(h);
@@ -620,7 +640,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //                        start_log = true;
 //                    }
                     if (diff <= min_diff ){
-                        hits_per_ref[std::get<2>(r)].push_back(h);
+                        hits_per_ref[r_id].push_back(h);
                         min_diff = diff;
 //                        tries ++;
                     }
@@ -2348,7 +2368,7 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.3 (2bit ints) \n";
+    std::cerr << "StrobeAlign VERSION 0.4 \n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
@@ -2392,12 +2412,6 @@ int main (int argc, char **argv)
     // Default parameters
     std::string choice = "randstrobes";
     bool mode = true; // true = align, false=map, default mode is align
-//    uint16_t TEST = 11;
-//    int lol = 9999999;
-//    std::tuple<uint16_t, int> sas (TEST, lol);
-//    uint16_t t1 = lol + TEST;
-//    int t2 = lol + TEST;
-//    std::cout << TEST << " " << lol  << " " << t1 << " " << t2 << std::endl;
     int n_threads = 3;
     int n = 2;
     int k = 20;
@@ -2409,7 +2423,7 @@ int main (int argc, char **argv)
     int c = 8;
     int r = 150;
     int max_seed_len;
-    int max_dist = r - 50;
+    int max_dist = r - 50 < 255 ? r-50 : 255;
     bool r_set = false;
     bool max_seed_len_set = false;
     std::string output_file_name = "mapped.sam";
@@ -2548,6 +2562,8 @@ int main (int argc, char **argv)
     assert(k <= 32 && "k have to be smaller than 32!");
     assert( ( s <= k ) && " s have to be smaller or equal to k!");
     assert( ( (k-s) % 2 == 0) && " k - s have to be an even number to create canonical syncmers. Set s to e.g., k-2, k-4, k-6, k-8.");
+    assert(max_dist <= 255 && " -m (maximum seed length have to be smaller than 255 + k in v0.4 and up. If you need longer seeds, use v0.3");
+
 //    assert(n == 2 && "Currently only n=2 is implemented");
     // File name to reference
     std::string ref_filename = argv[opn];
@@ -2656,9 +2672,8 @@ int main (int argc, char **argv)
     for(size_t i = 0; i < ref_seqs.size(); ++i)
     {
         mers_vector randstrobes2; // pos, chr_id, kmer hash value
-        uint16_t i_mod = (uint16_t) i;
 //        std::cout << i << " " << i_mod << std::endl;
-        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i_mod, s, t_syncmer, q, max_dist);
+        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t_syncmer, q, max_dist);
         for (auto &t : randstrobes2)
         {
             flat_vector.push_back(t);
@@ -2772,7 +2787,7 @@ int main (int argc, char **argv)
         for (auto &it : acc_map) {
             output_file << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
         }
-        output_file << "@PG\tID:strobealign\tPN:strobealign\tVN:0.2.1\tCL:strobealign\n";
+        output_file << "@PG\tID:strobealign\tPN:strobealign\tVN:0.4\tCL:strobealign\n";
     }
 
     if(is_SE) {

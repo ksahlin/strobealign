@@ -21,7 +21,7 @@ uint64_t hash(std::string kmer);
 static inline uint64_t hash64(uint64_t key, uint64_t mask);
 
 
-typedef std::vector< std::tuple<uint64_t, unsigned int, uint16_t, uint16_t>> mers_vector;
+typedef std::vector< std::tuple<uint64_t, unsigned int, int >> mers_vector;
 //typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int>> mers_vector_reduced;
 typedef robin_hood::unordered_map< uint64_t, std::tuple<unsigned int, unsigned int >> kmer_lookup;
 
@@ -32,7 +32,7 @@ static inline void get_next_strobe(std::vector<uint64_t> &string_hashes, uint64_
 
 
 //mers_vector seq_to_kmers(int k, std::string &seq, unsigned int ref_index);
-mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string &seq, uint16_t ref_index, int s, int t, uint64_t q, int max_dist);
+mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string &seq, int ref_index, int s, int t, uint64_t q, int max_dist);
 mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int s, int t, uint64_t q, int max_dist);
 //mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int w);
 
@@ -56,8 +56,8 @@ struct nam {
     int ref_e;
     int ref_prev_hit_startpos;
     int n_hits = 0;
+    int ref_id;
     float score;
-    uint16_t ref_id;
 //    unsigned int previous_query_start;
 //    unsigned int previous_ref_start;
     bool is_rc = false;
@@ -71,11 +71,11 @@ struct aln_info {
 };
 
 struct alignment {
+    std::string cigar;
     int ref_start;
     int ed;
-    std::string cigar;
     int sw_score;
-    uint16_t ref_id;
+    int ref_id;
     bool not_proper;
     bool is_rc;
     bool is_unaligned = false;

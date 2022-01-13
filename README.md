@@ -74,42 +74,7 @@ Kristoffer Sahlin. Faster short-read mapping with strobemer seeds in syncmer spa
 VERSION INFO
 ---------------
 
-### Version 0.2.1
-1. Inroduced a max seed size contraint when sampling seeds, only active in few regions where syncmers are sparsely sampled.
-2. Parameter `-r` can now take any integer value. 
-
-### Version 0.2
-
-Important bugfix [1](https://github.com/ksahlin/StrobeAlign/commit/39c8c45afd6d9b35ea55da5744ae12b810fc8086) and added ssw for rescue alignment [2](https://github.com/ksahlin/StrobeAlign/commit/8282043129f2f8fcdab9106c6e5f3c5777e4220c) since ksw is only for extension. These fixes improve both accuracy and speed in paired-end alignment mode further.
-
-### Version 0.1
-
-Major update to algorithm. See release page.
-
-### Version 0.0.3.2
-
-1. Takes care of negative alignment coordinate bug.
-2. Minimal value for repetitive seed filtering implemented. Previously, the top fraction of `-f (0.0002)` seeds was filtered regardless of how repetitive they were. Assume `-f` filtered everything above `X` occurrences. The new version filters seeds with occurrences over `max(X, 30)`. This threshold is usually not active for hg38 as `X>40` for hg38. 
-
-### Version 0.0.3.1
-
-1. Bugfix. Takes care of segmentation fault bug in paired-end mapping mode (-x) when none of the reads have NAMs.
-
-### Version 0.0.3
-
-1. Implements a paired-end alignment mode.
-2. Implements a rescue mode both in SE and PE alignment modes (described in preprint v2).
-3. Changed to symmetrical strobemer hash values due to inversions (described in preprint v2).
-
-
-### Version 0.0.2
-
-1. Implements multi-threading.
-2. Allow reads in fast[a/q] format and gzipped files through [kseqpp library](https://github.com/cartoonist/kseqpp).
-
-### Version 0.0.1
-
-The aligner used for the experiments presented in the first preprint (v1) on bioRxiv. Only single-threaded alignment and aligns reads as single reads (no PE mapping).
+See [release page](https://github.com/ksahlin/StrobeAlign/releases)
 
 LICENCE
 ----------------
