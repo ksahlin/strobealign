@@ -1180,7 +1180,7 @@ inline void HammingToCigarEQX(std::string &One, std::string &Two, std::stringstr
 }
 
 
-static inline void align_SE(std::string &sam_string, std::vector<nam> &all_nams, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit ) {
+static inline void align_SE(std::string &sam_string, std::vector<nam> &all_nams, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit, int max_tries ) {
 
 //    std::stringstream sam_string;
 //    std::cout << "" << std::endl;
@@ -1239,7 +1239,7 @@ static inline void align_SE(std::string &sam_string, std::vector<nam> &all_nams,
         score_dropoff = (float) n.n_hits / n_max.n_hits;
 //        score_dropoff = (float) n.score / n_max.score;
 
-        if ( (cnt >= 20) || best_align_dist == 0 || score_dropoff < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
+        if ( (cnt >= max_tries) || best_align_dist == 0 || score_dropoff < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
             break;
         }
 
@@ -1934,7 +1934,7 @@ static inline void rescue_mate(nam &n, std::vector<unsigned int> &ref_len_map, s
     tot_rescued ++;
 }
 
-static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, std::string &query_acc1, std::string &query_acc2, idx_to_acc &acc_map, int k, int read_len1, int read_len2, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read1, std::string &read2, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, unsigned int &tot_rescued, float dropoff, unsigned int &did_not_fit, float &mu, float &sigma, float &sample_size, float &V, float &SSE  ) {
+static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, std::string &query_acc1, std::string &query_acc2, idx_to_acc &acc_map, int k, int read_len1, int read_len2, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read1, std::string &read2, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, unsigned int &tot_rescued, float dropoff, unsigned int &did_not_fit, float &mu, float &sigma, float &sample_size, float &V, float &SSE, int max_tries) {
 
     std::string read1_rc;
     std::string read2_rc;
@@ -2090,7 +2090,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
                 auto n2 = std::get<2>(t);
                 score_dropoff1 = (float) score_ / max_score;
 //                std::cout << "Min ed: " << min_ed << std::endl;
-                if ( (cnt >= 20) || (score_dropoff1 < dropoff) ){ // only consider top 20 if there are more.
+                if ( (cnt >= max_tries) || (score_dropoff1 < dropoff) ){ // only consider top 20 if there are more.
                     break;
                 }
 
@@ -2226,7 +2226,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         read2_rc = reverse_complement(read2);
         for (auto &n : all_nams1) {
             score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
-            if ( (cnt1 >= 20) || score_dropoff1 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
+            if ( (cnt1 >= max_tries) || score_dropoff1 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
                 break;
             }
             //////// the actual testing of base pair alignment part start /////////
@@ -2269,7 +2269,7 @@ static inline void align_PE(std::string &sam_string, std::vector<nam> &all_nams1
         read1_rc = reverse_complement(read1);
         for (auto &n : all_nams2) {
             score_dropoff2 = (float) n.n_hits / n_max2.n_hits;
-            if ( (cnt2 >= 20) || score_dropoff2 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
+            if ( (cnt2 >= max_tries) || score_dropoff2 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
                 break;
             }
             //////// the actual testing of base pair alignment part start /////////
@@ -2396,7 +2396,9 @@ void print_usage() {
 
     std::cerr << "\n";
     std::cerr << "Search parameters:\n";
-    std::cerr << "\t-f FLOAT top fraction of repetitive syncmers to filter out from sampling [0.0002]\n";
+    std::cerr << "\t-f FLOAT top fraction of repetitive strobemers to filter out from sampling [0.0002]\n";
+    std::cerr << "\t-S FLOAT Try candidae sites with mapping score at least S of maximum mapping score [0.5]\n";
+    std::cerr << "\t-M INT Maximum number of mapping sites to try [20]\n";
     std::cerr << "\t-R INT Rescue level. Perform additional search for reads with many repetitive seeds filtered out.\n\t   This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign\n\t   significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest. \n";
 }
 
@@ -2418,6 +2420,8 @@ int main (int argc, char **argv)
     int s = k - 4;
     float f = 0.0002;
     int R = 2;
+    float dropoff_threshold = 0.5;
+    int maxTries = 20;
     int l = 0;
     int u = 7;
     int c = 8;
@@ -2495,7 +2499,14 @@ int main (int argc, char **argv)
                 opn += 2;
                 flag = true;
                 max_seed_len_set = true;
-
+            } else if (argv[opn][1] == 'S') {
+                dropoff_threshold = std::stof(argv[opn + 1]);
+                opn += 2;
+                flag = true;
+            } else if (argv[opn][1] == 'M') {
+                maxTries = std::stoi(argv[opn + 1]);
+                opn += 2;
+                flag = true;
             }
 
             else {
@@ -2545,7 +2556,6 @@ int main (int argc, char **argv)
     omp_set_num_threads(n_threads); // set number of threads in "parallel" blocks
     int w_min = k/(k-s+1) + l > 1 ? k/(k-s+1) + l : 1;
     int w_max = k/(k-s+1) + u;
-    float dropoff = 0.5;
     int t_syncmer = (k-s)/2 + 1;
     std::cout << "Using" << std::endl;
     std::cout << "k: " << k << std::endl;
@@ -2888,7 +2898,7 @@ int main (int argc, char **argv)
 //                tot_rc += rc_finish - rc_start;
                     align_SE(output_streams[omp_get_thread_num()], nams, record.name, acc_map, k, record.seq.length(),
                              ref_lengths, ref_seqs, record.seq,
-                             tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
+                             tot_ksw_aligned, tot_all_tried, dropoff_threshold, did_not_fit, maxTries);
 //                output_streams[omp_get_thread_num()] << sam_output.str();
                 }
                 auto extend_finish = std::chrono::high_resolution_clock::now();
@@ -3048,11 +3058,7 @@ int main (int argc, char **argv)
                     joint_NAM_scores.clear();
                 } else {
                     align_PE(output_streams[omp_get_thread_num()], nams1, nams2, record1.name, record2.name, acc_map, k, record1.seq.length(), record2.seq.length(),
-                             ref_lengths, ref_seqs, record1.seq, record2.seq, tot_ksw_aligned, tot_all_tried, tot_rescued, dropoff, did_not_fit, mu, sigma, sample_size, V, SSE);
-//                    align_SE(output_streams[omp_get_thread_num()], nams1, record1.name, acc_map, k, record1.seq.length(),
-//                             ref_lengths, ref_seqs, record1.seq, tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
-//                    align_SE(output_streams[omp_get_thread_num()], nams2, record2.name, acc_map, k, record2.seq.length(),
-//                             ref_lengths, ref_seqs, record2.seq, tot_ksw_aligned, tot_all_tried, dropoff, did_not_fit);
+                             ref_lengths, ref_seqs, record1.seq, record2.seq, tot_ksw_aligned, tot_all_tried, tot_rescued, dropoff_threshold, did_not_fit, mu, sigma, sample_size, V, SSE, maxTries);
                 }
                 auto extend_finish = std::chrono::high_resolution_clock::now();
                 tot_extend += extend_finish - extend_start;

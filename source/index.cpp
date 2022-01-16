@@ -166,9 +166,10 @@ unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, flo
     // last k-mer
     std::tuple<unsigned int, unsigned int> s(prev_offset, count);
     mers_index[curr_k] = s;
-
+    float frac_unique = ((float) tot_occur_once )/ mers_index.size();
     std::cout << "Total strobemers count: " << offset << std::endl;
     std::cout << "Total strobemers occur once: " << tot_occur_once << std::endl;
+    std::cout << "Fraction Unique: " << frac_unique << std::endl;
     std::cout << "Total strobemers highly abundant > 100: " << tot_high_ab << std::endl;
     std::cout << "Total strobemers mid abundance (between 2-100): " << tot_mid_ab << std::endl;
     std::cout << "Total distinct strobemers stored: " << mers_index.size() << std::endl;
