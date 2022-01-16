@@ -46,7 +46,7 @@ g++ -std=c++14 -I/path/to/zlib/include -L/path/to/zlib/lib main.cpp source/index
 USAGE
 -------
 
-Strobealign v0.1 and up comes with a parameter `-r read_length` that sets suitable seed parameters for the rough read length. Specifically, it sets parameters `-k`, `-l` and `-u`. If not specified, it defaults to 150. The value of `r` does not have to match the exact read length.
+Strobealign comes with a parameter `-r read_length` that sets suitable seed parameters for the rough read length. Specifically, it sets parameters `-k`, `-l` and `-u`. If not specified, it defaults to 150. The value of `r` does not have to match the exact read length.
 
 For alignment to SAM file:
 
@@ -60,21 +60,18 @@ For mapping to PAF file (option -x):
 StrobeAlign -r <read_length> -x -o <output.sam> ref.fa reads.fa 
 ```
 
-TODO
--------
-
-1. Add option to separate build index and perform alignment in separate steps.
-
 
 CREDITS
 ----------------
 
 Kristoffer Sahlin. Faster short-read mapping with strobemer seeds in syncmer space. bioRxiv, 2021. doi:10.1101/2021.06.18.449070. Preprint available [here](https://doi.org/10.1101/2021.06.18.449070).
 
+
 VERSION INFO
 ---------------
 
 See [release page](https://github.com/ksahlin/StrobeAlign/releases)
+
 
 LICENCE
 ----------------
