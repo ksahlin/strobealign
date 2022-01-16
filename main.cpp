@@ -1777,7 +1777,11 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
                 bool r1_r2 = n2.is_rc && (a < b) && ((b-a) < mu+10*sigma); // r1 ---> <---- r2
                 bool r2_r1 = n1.is_rc && (b < a) && ((a-b) < mu+10*sigma); // r2 ---> <---- r1
                 if ( r1_r2 || r2_r1 ){
-                    joint_hits = n1.n_hits + n2.n_hits;
+//                    int diff1 = (n1.query_e - n1.query_s) - (n1.ref_e - n1.ref_s);
+//                    int  n1_penalty = diff1 > 0 ? diff1 : - diff1;
+//                    int diff2 = (n2.query_e - n2.query_s) - (n2.ref_e - n2.ref_s);
+//                    int  n2_penalty = diff2 > 0 ? diff2 : - diff2;
+                    joint_hits = n1.n_hits + n2.n_hits; // - n1_penalty - n2_penalty; // trying out idea about penalty but it needs to be on the individual seed level - to late on merged match level.
                     std::tuple<int, nam, nam> t (joint_hits, n1, n2);
                     joint_NAM_scores.push_back(t);
                     added_n1.insert(n1.ref_s);
@@ -1819,6 +1823,8 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
             if (added_n1.find(n1.ref_s) != added_n1.end()){
                 continue;
             }
+//            int diff1 = (n1.query_e - n1.query_s) - (n1.ref_e - n1.ref_s);
+//            int  n1_penalty = diff1 > 0 ? diff1 : - diff1;
             joint_hits = n1.n_hits;
     //                        std::cout << S << " individual score " << x << " " << std::endl;
             std::tuple<int, nam, nam> t (joint_hits, n1, n);
@@ -1836,6 +1842,8 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
             if (added_n2.find(n2.ref_s) != added_n2.end()){
                 continue;
             }
+//            int diff2 = (n2.query_e - n2.query_s) - (n2.ref_e - n2.ref_s);
+//            int  n2_penalty = diff2 > 0 ? diff2 : - diff2;
             joint_hits = n2.n_hits;
     //                        std::cout << S << " individual score " << x << " " << std::endl;
             std::tuple<int, nam, nam> t (joint_hits, n, n2);
