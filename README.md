@@ -1,13 +1,8 @@
 StrobeAlign
 ==============
 
-Strobealign is a fast short-read aligner. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers. Strobealign is multithreaded, implements alignment (SAM) and mapping (PAF), and has high accuracy for reads of lengths between 100-300bp and insert sizes up to roughly 1000bp. A somewhat outdated preprint describing v0.0.3 is available [here](https://doi.org/10.1101/2021.06.18.449070).
+Strobealign is a fast short-read aligner. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers. Strobealign is multithreaded, implements alignment (SAM) and mapping (PAF), and benchmarked for SE and PE reads of lengths between 100-300bp. A preprint describing v0.4 is available [here](https://doi.org/10.1101/2021.06.18.449070).
 
-Results for version 0.2 below when alinging PE reads simulated at various variation rates (SIM1-3) to hg38. Solid lines (alignment) are what matters in practice, mapping mode included for completion.
-
-<img width="2374" alt="accuracy" src="https://user-images.githubusercontent.com/1714667/147755184-f92fdf90-250f-4768-88f9-9ff6c180de2f.png">
-
-<img width="2318" alt="runtime" src="https://user-images.githubusercontent.com/1714667/147755453-5b230acf-fb1a-4b2e-b487-53ebb084e273.png">
 
 INSTALLATION
 ----------------
