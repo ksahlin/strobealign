@@ -1,4 +1,4 @@
-StrobeAlign
+strobealign
 ==============
 
 Strobealign is a fast short-read aligner. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers. Strobealign is multithreaded, implements alignment (SAM) and mapping (PAF), and benchmarked for SE and PE reads of lengths between 100-300bp. A preprint describing v0.4 is available [here](https://doi.org/10.1101/2021.06.18.449070).
@@ -17,7 +17,7 @@ If you want to compile from the source, you need to have a newer `g++` and [zlib
 git clone https://github.com/ksahlin/StrobeAlign
 cd StrobeAlign
 # Needs a newer g++ version. Tested with version 8 and upwards.
-g++ -std=c++14 main.cpp source/index.cpp source/xxhash.c source/ksw2_extz2_sse.c source/ssw_cpp.cpp source/ssw.c -lz -fopenmp -o StrobeAlign -O3 -mavx2
+g++ -std=c++14 main.cpp source/index.cpp source/xxhash.c source/ksw2_extz2_sse.c source/ssw_cpp.cpp source/ssw.c -lz -fopenmp -o strobealign -O3 -mavx2
 ```
 
 ## Common installation from source errors
@@ -34,7 +34,7 @@ compilation terminated.
 add `-I/path/to/zlib/include -L/path/to/zlib/lib` to the compilation, that is
 
 ```
-g++ -std=c++14 -I/path/to/zlib/include -L/path/to/zlib/lib main.cpp source/index.cpp source/xxhash.c source/ksw2_extz2_sse.c source/ssw_cpp.cpp source/ssw.c -lz -fopenmp -o StrobeAlign -O3 -mavx2
+g++ -std=c++14 -I/path/to/zlib/include -L/path/to/zlib/lib main.cpp source/index.cpp source/xxhash.c source/ksw2_extz2_sse.c source/ssw_cpp.cpp source/ssw.c -lz -fopenmp -o strobealign -O3 -mavx2
 ``` 
 
 
@@ -46,20 +46,20 @@ Strobealign comes with a parameter `-r read_length` that sets suitable seed para
 For alignment to SAM file:
 
 ```
-StrobeAlign -r <read_length> -o <output.sam> ref.fa reads.fa 
+strobealign -r <read_length> -o <output.sam> ref.fa reads.fa 
 ```
 
 For mapping to PAF file (option -x):
 
 ```
-StrobeAlign -r <read_length> -x -o <output.sam> ref.fa reads.fa 
+strobealign -r <read_length> -x -o <output.sam> ref.fa reads.fa 
 ```
 
 
 CREDITS
 ----------------
 
-Kristoffer Sahlin. Faster short-read mapping with strobemer seeds in syncmer space. bioRxiv, 2021. doi:10.1101/2021.06.18.449070. Preprint available [here](https://doi.org/10.1101/2021.06.18.449070).
+Kristoffer Sahlin. Flexible seed size enables ultra-fast and accurate read alignment. bioRxiv, 2021. doi:10.1101/2021.06.18.449070. Preprint available [here](https://doi.org/10.1101/2021.06.18.449070).
 
 
 VERSION INFO
