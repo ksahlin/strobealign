@@ -7,9 +7,17 @@ Strobealign is a fast short-read aligner. It achieves the speedup by using a dyn
 INSTALLATION
 ----------------
 
+### Binaries
+
 You can acquire precompiled binaries for Linux and Mac OSx from the [release page](https://github.com/ksahlin/StrobeAlign/releases) compiled with `-O3 -mavx2`. 
 
-It has been [reported](https://github.com/ksahlin/StrobeAlign/issues/6) that `strobealign` is even faster if compliled with flag `-march=skylake-avx512` for avx512 supported processors.
+It has been [reported](https://github.com/ksahlin/StrobeAlign/issues/6) that `strobealign` is even faster if compliled with flag `-march=skylake-avx512` for avx512 supported processors (see compiling from source below).
+
+### Conda
+
+### Source
+
+
 
 If you want to compile from the source, you need to have a newer `g++` and [zlib](https://zlib.net/) installed. Then do the following:
 
@@ -46,15 +54,16 @@ Strobealign comes with a parameter `-r read_length` that sets suitable seed para
 For alignment to SAM file:
 
 ```
-strobealign -r <read_length> -o <output.sam> ref.fa reads.fa 
+strobealign -r <read_length> ref.fa reads.fa  > output.sam
 ```
 
 For mapping to PAF file (option -x):
 
 ```
-strobealign -r <read_length> -x -o <output.sam> ref.fa reads.fa 
+strobealign -r <read_length> -x ref.fa reads.fa > output.paf
 ```
 
+You can also write alingments to a file with `-o <filename.sam>`.
 
 CREDITS
 ----------------
