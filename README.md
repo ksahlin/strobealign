@@ -65,6 +65,11 @@ strobealign -r <read_length> -x ref.fa reads.fa > output.paf
 
 You can also write alingments to a file with `-o <filename.sam>`.
 
+### Multimapping
+
+Strobealing will by default output only primary alimgnents. If you want secondary alignments you can specify `-N [INT]`. For example `-N 5` will report (at most) 5 secondary alignments in addition to the primary alignment.
+
+
 CREDITS
 ----------------
 
