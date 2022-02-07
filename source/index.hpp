@@ -64,10 +64,11 @@ struct nam {
 };
 
 struct aln_info {
+    std::string cigar;
     unsigned int ed;
     unsigned int ref_offset;
-    std::string cigar;
     int sw_score;
+    int global_ed;
 };
 
 struct alignment {
