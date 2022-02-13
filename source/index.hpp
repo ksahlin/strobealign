@@ -75,8 +75,10 @@ struct alignment {
     std::string cigar;
     int ref_start;
     int ed;
+    int global_ed;
     int sw_score;
     int ref_id;
+    int mapq;
     bool not_proper;
     bool is_rc;
     bool is_unaligned = false;
