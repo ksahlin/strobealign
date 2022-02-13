@@ -1303,12 +1303,13 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
             hamming_dist = HammingDistance(r_tmp, ref_segm);
 //            std::cout << "Hammingdist: " << n.score << ", "  <<  n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ") hd:" << hamming_dist << ", best ed so far: " << best_align_dist  << std::endl;
             if ( (hamming_dist >=0)){
-                int diff_to_best = hamming_dist < best_align_dist ? best_align_dist - hamming_dist : hamming_dist - best_align_dist;
-                min_mapq_diff = min_mapq_diff < diff_to_best ? min_mapq_diff : diff_to_best;
                 int sw_score = aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
+                int diff_to_best = sw_score < best_align_sw_score ? best_align_sw_score - sw_score : sw_score - best_align_sw_score;
+                min_mapq_diff = min_mapq_diff < diff_to_best ? min_mapq_diff : diff_to_best;
 //                if (hamming_dist < best_align_dist){
                 if (sw_score > best_align_sw_score){
-                    min_mapq_diff = (best_align_dist - hamming_dist) > 0 ? (best_align_dist - hamming_dist) : 0 ; // new distance to next best match
+                    min_mapq_diff = (sw_score - best_align_sw_score) > 0 ? (sw_score - best_align_sw_score)  : 0 ; // new distance to next best match
+
 //                    min_mapq_diff = best_align_dist - hamming_dist; // new distance to next best match
                     std::stringstream cigar_string;
                     needs_aln = HammingToCigarEQX(r_tmp, ref_segm, cigar_string);
@@ -1358,12 +1359,12 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
 //            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
             info = ssw_align(ref_segm, r_tmp, read_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
 //            info.ed = info.global_ed; // read_len - info.sw_score;
-            int diff_to_best = hamming_dist < best_align_dist ? best_align_dist - hamming_dist : hamming_dist - best_align_dist;
+            int diff_to_best = info.sw_score < best_align_sw_score ? best_align_sw_score - info.sw_score : info.sw_score - best_align_sw_score;
             min_mapq_diff = min_mapq_diff < diff_to_best ? min_mapq_diff : diff_to_best;
             tot_ksw_aligned ++;
 //            if (info.global_ed <= best_align_dist){
             if (info.sw_score >= best_align_sw_score){
-                min_mapq_diff = (best_align_dist - info.global_ed) > 0 ? (best_align_dist - info.global_ed) : 0 ; // new distance to next best match
+                min_mapq_diff = (info.sw_score - best_align_sw_score) > 0 ? (info.sw_score - best_align_sw_score)  : 0 ; // new distance to next best match
                 best_align_dist = info.global_ed;
                 sam_aln.cigar = info.cigar;
                 sam_aln.ed = info.ed;
@@ -1487,6 +1488,7 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
         }
         bool needs_aln = false;
         int hamming_dist = -1;
+        int sw_score = -999;
         std::string r_tmp;
         bool is_rc;
         if (n.is_rc){
@@ -1502,14 +1504,14 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
             hamming_dist = HammingDistance(r_tmp, ref_segm);
 //            std::cout << "Hammingdist: " << n.score << ", "  <<  n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ") hd:" << hamming_dist << ", best ed so far: " << best_align_dist  << std::endl;
             if ( (hamming_dist >=0)){
-                int diff_to_best = hamming_dist < best_align_dist ? best_align_dist - hamming_dist : hamming_dist - best_align_dist;
+                sw_score =  aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
+                int diff_to_best = sw_score < best_align_sw_score ? best_align_sw_score - sw_score : sw_score - best_align_sw_score;
                 min_mapq_diff = min_mapq_diff < diff_to_best ? min_mapq_diff : diff_to_best;
-                int sw_score =  aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
-                if (hamming_dist < best_align_dist) {
-                    min_mapq_diff = best_align_dist - hamming_dist; // new distance to next best match
-                }
+//                if (hamming_dist < best_align_dist) {
+//                    min_mapq_diff = best_align_dist - hamming_dist; // new distance to next best match
+//                }
                 if (sw_score > best_align_sw_score){
-                    best_align_sw_score = sw_score;
+                    min_mapq_diff = (sw_score - best_align_sw_score) > 0 ? (sw_score - best_align_sw_score)  : 0 ; // new distance to next best match
                 }
                 std::stringstream cigar_string;
                 needs_aln = HammingToCigarEQX(r_tmp, ref_segm, cigar_string);
@@ -1555,14 +1557,15 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
 //            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
             info = ssw_align(ref_segm, r_tmp, read_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
 //            info.ed = info.global_ed; // read_len - info.sw_score;
+            sw_score = info.sw_score;
             tot_ksw_aligned ++;
-             int diff_to_best = hamming_dist < best_align_dist ? best_align_dist - hamming_dist : hamming_dist - best_align_dist;
+            int diff_to_best = sw_score < best_align_sw_score ? best_align_sw_score - sw_score : sw_score - best_align_sw_score;
              min_mapq_diff = min_mapq_diff < diff_to_best ? min_mapq_diff : diff_to_best;
-            if (info.global_ed <= best_align_dist) {
-                min_mapq_diff = best_align_dist - info.global_ed; // new distance to next best match
-            }
-            if (info.sw_score > best_align_sw_score){
-                best_align_sw_score = info.sw_score;
+//            if (info.global_ed <= best_align_dist) {
+//                min_mapq_diff = best_align_dist - info.global_ed; // new distance to next best match
+//            }
+            if (sw_score >= best_align_sw_score){
+                min_mapq_diff = (sw_score - best_align_sw_score) > 0 ? (sw_score - best_align_sw_score)  : 0 ; // new distance to next best match
             }
             best_align_dist = info.global_ed;
             sam_aln.global_ed = info.global_ed;
@@ -1575,6 +1578,9 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
 
 //            std::cout << "Aligned: " << n.score << ", "  << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ") ed:" << info.ed << ", best ed so far: " << best_align_dist  << std::endl;
 
+        }
+        if (sw_score > best_align_sw_score){
+            best_align_sw_score = sw_score;
         }
 
         std::tuple<double, alignment> t (sam_aln.sw_score, sam_aln);
