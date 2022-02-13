@@ -1233,7 +1233,7 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
 //        min_matches  = (float)n_max.n_hits/10 > 1 ? (float)n_max.n_hits/10 : 1;
 //        mapq = 40*(1 - s2/s1)*min_matches*log(s1) < 60 ? 40*(1 - s2/s1)*min_matches*log(s1) : 60 ;
 //    }
-    int extra_ref = 0;
+    int extra_ref = 50;
     int best_align_dist = ~0U >> 1;
     int best_align_sw_score = -1000;
 
@@ -1344,7 +1344,7 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
 
 //        } else if ( (best_align_dist > 1) || aln_did_not_fit ){
 //        } else if ( (best_align_dist > 1) || ( aln_did_not_fit || needs_aln || (((float) hamming_dist / (float) read_len) >= 0.05) ) ){
-            extra_ref = 5; //(read_diff - ref_diff) > 0 ?  (read_diff - ref_diff) : 0;
+            extra_ref = 50; //(read_diff - ref_diff) > 0 ?  (read_diff - ref_diff) : 0;
             int a = n.ref_s - n.query_s - extra_ref;
             int ref_start = std::max(0, a);
             int b = n.ref_e + (read_len - n.query_e)+ extra_ref;
@@ -1433,7 +1433,7 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
     nam n_max = all_nams[0];
     float s1 = n_max.score;
 
-    int extra_ref = 0;
+    int extra_ref = 50;
     int best_align_dist = ~0U >> 1;
     int best_align_sw_score = -1000;
 
@@ -1542,7 +1542,7 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
 //        } else if ( (best_align_dist > 1) || aln_did_not_fit ){
         } else {
 //         if ( (hamming_dist < 0 ) || (ref_segm.length() != read_len) || aln_did_not_fit || needs_aln ){
-            extra_ref = 5; //(read_diff - ref_diff) > 0 ?  (read_diff - ref_diff) : 0;
+            extra_ref = 50; //(read_diff - ref_diff) > 0 ?  (read_diff - ref_diff) : 0;
             int a = n.ref_s - n.query_s - extra_ref;
             int ref_start = std::max(0, a);
             int b = n.ref_e + (read_len - n.query_e)+ extra_ref;
@@ -1728,7 +1728,7 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, std::vect
 //    else {
 //    std::cerr<< "3" << std::endl;
 
-    int extra_ref = 5; //diff > 5 ?  diff : 5;
+    int extra_ref = 50; //diff > 5 ?  diff : 5;
     int a = n.ref_s - n.query_s - extra_ref;
     ref_start = std::max(0, a);
     int b = n.ref_e + (read_len - n.query_e)+ extra_ref;
@@ -2837,7 +2837,7 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.4.1 \n";
+    std::cerr << "StrobeAlign VERSION 0.5 \n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
@@ -3269,7 +3269,7 @@ int main (int argc, char **argv)
         for (auto &it : acc_map) {
             out << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
         }
-        out << "@PG\tID:strobealign\tPN:strobealign\tVN:0.4.1\tCL:strobealign\n";
+        out << "@PG\tID:strobealign\tPN:strobealign\tVN:0.5\tCL:strobealign\n";
     }
 
     if(is_SE) {
