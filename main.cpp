@@ -1508,16 +1508,16 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
         sam_string.append("\t");
         sam_string.append(sam_aln.cigar);
         sam_string.append("\t*\t0\t0\t");
-        sam_string.append(output_read);
-        sam_string.append("\t");
-        if (sam_aln.is_rc){
-            auto qual_rev = qual;
-            std::reverse(qual_rev.begin(), qual_rev.end()); // reverse
-            sam_string.append(qual_rev);
-        } else {
-            sam_string.append(qual);
-        }
         if (!sam_aln.is_unaligned) {
+            sam_string.append(output_read);
+            sam_string.append("\t");
+            if (sam_aln.is_rc){
+                auto qual_rev = qual;
+                std::reverse(qual_rev.begin(), qual_rev.end()); // reverse
+                sam_string.append(qual_rev);
+            } else {
+                sam_string.append(qual);
+            }
             sam_string.append("\t");
             sam_string.append("NM:i:");
             sam_string.append(std::to_string(sam_aln.ed));
@@ -1753,16 +1753,16 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
             sam_string.append("\t");
             sam_string.append(sam_aln.cigar);
             sam_string.append("\t*\t0\t0\t");
-            sam_string.append(output_read);
-            sam_string.append("\t");
-            if (sam_aln.is_rc){
-                auto qual_rev = qual;
-                std::reverse(qual_rev.begin(), qual_rev.end()); // reverse
-                sam_string.append(qual_rev);
-            } else {
-                sam_string.append(qual);
-            }
             if (!sam_aln.is_unaligned) {
+                sam_string.append(output_read);
+                sam_string.append("\t");
+                if (sam_aln.is_rc){
+                    auto qual_rev = qual;
+                    std::reverse(qual_rev.begin(), qual_rev.end()); // reverse
+                    sam_string.append(qual_rev);
+                } else {
+                    sam_string.append(qual);
+                }
                 sam_string.append("\t");
                 sam_string.append("NM:i:");
                 sam_string.append(std::to_string(sam_aln.ed));
@@ -2126,16 +2126,16 @@ static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, a
     sam_string.append(std::to_string(template_len1));
     sam_string.append("\t");
 //    sam_string.append("\t*\t0\t0\t");
-    sam_string.append(output_read1);
-    sam_string.append("\t");
-    if (sam_aln1.is_rc){
-        auto qual_rev = qual1;
-        std::reverse(qual_rev.begin(), qual_rev.end()); // reverse
-        sam_string.append(qual_rev);
-    } else {
-        sam_string.append(qual1);
-    }
     if (!sam_aln1.is_unaligned) {
+        sam_string.append(output_read1);
+        sam_string.append("\t");
+        if (sam_aln1.is_rc){
+            auto qual_rev = qual1;
+            std::reverse(qual_rev.begin(), qual_rev.end()); // reverse
+            sam_string.append(qual_rev);
+        } else {
+            sam_string.append(qual1);
+        }
         sam_string.append("\t");
         sam_string.append("NM:i:");
         sam_string.append(std::to_string(ed1));
@@ -2164,16 +2164,16 @@ static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, a
     sam_string.append(std::to_string(template_len2));
     sam_string.append("\t");
 //    sam_string.append("\t*\t0\t0\t");
-    sam_string.append(output_read2);
-    sam_string.append("\t");
-    if (sam_aln2.is_rc){
-        auto qual2_rev = qual2;
-        std::reverse(qual2_rev.begin(), qual2_rev.end()); // reverse
-        sam_string.append(qual2_rev);
-    } else {
-        sam_string.append(qual2);
-    }
     if (!sam_aln2.is_unaligned) {
+        sam_string.append(output_read2);
+        sam_string.append("\t");
+        if (sam_aln2.is_rc){
+            auto qual2_rev = qual2;
+            std::reverse(qual2_rev.begin(), qual2_rev.end()); // reverse
+            sam_string.append(qual2_rev);
+        } else {
+            sam_string.append(qual2);
+        }
         sam_string.append("\t");
         sam_string.append("NM:i:");
         sam_string.append(std::to_string(ed2));
