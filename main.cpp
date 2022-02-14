@@ -1524,6 +1524,10 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
             sam_string.append("\t");
             sam_string.append("AS:i:");
             sam_string.append(std::to_string((int) sam_aln.aln_score));
+        } else {
+            sam_string.append(read);
+            sam_string.append("\t");
+            sam_string.append(qual);
         }
         sam_string.append("\n");
 
@@ -1769,6 +1773,10 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
                 sam_string.append("\t");
                 sam_string.append("AS:i:");
                 sam_string.append(std::to_string((int) sam_aln.aln_score));
+            } else {
+                sam_string.append(read);
+                sam_string.append("\t");
+                sam_string.append(qual);
             }
             sam_string.append("\n");
 //            sam_string.append("\t*\tNM:i:");
@@ -2142,6 +2150,10 @@ static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, a
         sam_string.append("\t");
         sam_string.append("AS:i:");
         sam_string.append(std::to_string((int) sam_aln1.aln_score));
+    } else {
+        sam_string.append(read1);
+        sam_string.append("\t");
+        sam_string.append(qual1);
     }
     sam_string.append("\n");
 
@@ -2180,6 +2192,10 @@ static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, a
         sam_string.append("\t");
         sam_string.append("AS:i:");
         sam_string.append(std::to_string((int) sam_aln2.aln_score));
+    } else {
+        sam_string.append(read2);
+        sam_string.append("\t");
+        sam_string.append(qual2);
     }
     sam_string.append("\n");
 }
