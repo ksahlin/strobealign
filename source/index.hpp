@@ -77,6 +77,7 @@ struct alignment {
     int ed;
     int global_ed;
     int sw_score;
+    int aln_score;
     int ref_id;
     int mapq;
     bool not_proper;
