@@ -1197,6 +1197,11 @@ inline bool HammingToCigarEQX2(std::string &One, std::string &Two, std::stringst
             start_softclipp = i;
         }
     }
+
+    if (start_softclipp >= end_softclipp){
+        aln_score = 0;
+        return -1;
+    }
 //    std::cout << "Start softclipp: " << start_softclipp << std::endl;
 
     if (start_softclipp > 0){
@@ -1213,17 +1218,17 @@ inline bool HammingToCigarEQX2(std::string &One, std::string &Two, std::stringst
 
         if ( !curr_match && prev_is_match ){
             cigar << counter << '=';
-            counter = 0;
             aln_score += counter * match;
+            counter = 0;
         }
         else if ( curr_match && !prev_is_match ){
             cigar << counter << 'X';
+            aln_score -= counter * mismatch;
             hamming_mod += counter;
 //            if (beginning){
 //                needs_aln = counter > 2 ? true: false;
 //            }
             counter = 0;
-            aln_score -= counter * mismatch;
         }
         prev_is_match = curr_match;
         counter++;
@@ -1241,9 +1246,11 @@ inline bool HammingToCigarEQX2(std::string &One, std::string &Two, std::stringst
 
     if (One.length() - end_softclipp - 1 > 0){
         cigar << One.length() - end_softclipp - 1 << 'S';
-        aln_score -= counter * mismatch;
-
     }
+
+//    if (aln_score < 0){
+//            std::cout << "NEGATIVE SCORE: " << aln_score << std::endl;
+//    }
 
     return hamming_mod;
 }
@@ -1403,15 +1410,16 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
                 int sw_score = aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
                 int diff_to_best = sw_score < best_align_sw_score ? best_align_sw_score - sw_score : sw_score - best_align_sw_score;
                 min_mapq_diff = min_mapq_diff < diff_to_best ? min_mapq_diff : diff_to_best;
+                std::stringstream cigar_string;
+                int aln_score = 0;
+                hamming_mod = HammingToCigarEQX2(r_tmp, ref_segm, cigar_string, aln_params.match, aln_params.mismatch, aln_score);
 //                if (hamming_dist < best_align_dist){
-                if (sw_score > best_align_sw_score){
+                if (aln_score > best_align_sw_score){
                     min_mapq_diff = (sw_score - best_align_sw_score) > 0 ? (sw_score - best_align_sw_score)  : 0 ; // new distance to next best match
 
 //                    min_mapq_diff = best_align_dist - hamming_dist; // new distance to next best match
-                    std::stringstream cigar_string;
 //                    needs_aln = HammingToCigarEQX(r_tmp, ref_segm, cigar_string);
-                    int aln_score = 0;
-                    hamming_mod = HammingToCigarEQX2(r_tmp, ref_segm, cigar_string, aln_params.match, aln_params.mismatch, aln_score);
+
 //                    sw_score = aln_params.match*(read_len-hamming_mod) - aln_params.mismatch*hamming_mod;
 
                     sam_aln.cigar = cigar_string.str();
@@ -1422,7 +1430,7 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
                     sam_aln.is_rc = is_rc;
                     sam_aln.ref_id = n.ref_id;
                     sam_aln.sw_score = aln_score;
-                    best_align_sw_score = sw_score;
+                    best_align_sw_score = aln_score;
                     sam_aln.aln_score = aln_score;
                 }
             }
@@ -1432,14 +1440,16 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
 
         // ((float) sam_aln.ed / read_len) < 0.05  //Hamming distance worked fine, no need to ksw align
         if ( (hamming_dist >=0) && (diff == 0) && (((float) hamming_dist / (float) read_len) < 0.05) ) { // Likely substitutions only (within NAM region) no need to call ksw alingment
-            if (hamming_dist < best_align_dist){
-                best_align_dist = hamming_dist;
-//                sam_aln.cigar = std::to_string(read_len) + "M";
-                sam_aln.ed = hamming_mod;
-                sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
-                sam_aln.is_rc = is_rc;
-                sam_aln.ref_id = n.ref_id;
-            }
+            ;
+//            if (hamming_dist < best_align_dist){
+//                ;
+////                best_align_dist = hamming_dist;
+//////                sam_aln.cigar = std::to_string(read_len) + "M";
+////                sam_aln.ed = hamming_mod;
+////                sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
+////                sam_aln.is_rc = is_rc;
+////                sam_aln.ref_id = n.ref_id;
+//            }
 //            std::cout << "HERE 1 " << sam_aln.ref_start << " " << hamming_dist  << ", " << read_len << ", " << (float) hamming_dist / (float) read_len << std::endl;
 
         } else {
@@ -1661,16 +1671,18 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
             }
         }
         if ( (hamming_dist >=0) && (diff == 0) && (((float) hamming_dist / (float) read_len) < 0.05) ) { // Likely substitutions only (within NAM region) no need to call ksw alingment
-            if (hamming_dist < best_align_dist){
-                best_align_dist = hamming_dist;
-//                sam_aln.cigar = std::to_string(read_len) + "M";
-                sam_aln.ed = hamming_mod;
-                sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
-                sam_aln.is_rc = is_rc;
-                sam_aln.ref_id = n.ref_id;
-                sam_aln.sw_score = aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
-            }
-//        } else if ( (best_align_dist > 1) || aln_did_not_fit ){
+            ;
+//            if (hamming_dist < best_align_dist){
+//                ;
+////                best_align_dist = hamming_dist;
+//////                sam_aln.cigar = std::to_string(read_len) + "M";
+////                sam_aln.ed = hamming_mod;
+////                sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
+////                sam_aln.is_rc = is_rc;
+////                sam_aln.ref_id = n.ref_id;
+////                sam_aln.sw_score = aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
+//            }
+////        } else if ( (best_align_dist > 1) || aln_did_not_fit ){
         } else {
 //         if ( (hamming_dist < 0 ) || (ref_segm.length() != read_len) || aln_did_not_fit || needs_aln ){
             extra_ref = 50; //(read_diff - ref_diff) > 0 ?  (read_diff - ref_diff) : 0;
@@ -1864,7 +1876,7 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, std::vect
 //            std::cerr<< "Here " << hamming_dist << " " << r_tmp.size() << " " << ref_segm.size() << std::endl;
             sam_aln.ed = hamming_mod;
 //            sam_aln.sw_score = aln_score;
-            sam_aln.sw_score = aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
+            sam_aln.sw_score = aln_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
             sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
             sam_aln.is_rc = is_rc;
             sam_aln.ref_id = n.ref_id;
