@@ -1433,7 +1433,7 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
                     best_align_dist = hamming_dist;
     //                sam_aln.cigar = std::to_string(read_len) + "M";
                     sam_aln.ed = hamming_mod;
-                    sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
+                    sam_aln.ref_start = ref_start + soft_left +1; // +1 because SAM is 1-based!
                     sam_aln.is_rc = is_rc;
                     sam_aln.ref_id = n.ref_id;
                     sam_aln.sw_score = aln_score;
@@ -1446,7 +1446,7 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
 //        std::cout << hamming_dist  << ", " << read_len << ", " << (float) hamming_dist / (float) read_len << std::endl;
 
         // ((float) sam_aln.ed / read_len) < 0.05  //Hamming distance worked fine, no need to ksw align
-        if ( (hamming_dist >=0) && (diff == 0) && (((float) hamming_dist / (float) read_len) < 0.05) && (hamming_mod == hamming_dist) ) { // Likely substitutions only (within NAM region) no need to call ksw alingment
+        if ( (hamming_dist >=0) && (diff == 0) && (((float) hamming_dist / (float) read_len) < 0.05) ) { // Likely substitutions only (within NAM region) no need to call ksw alingment
             ;
 //            if (hamming_dist < best_align_dist){
 //                ;
@@ -1671,7 +1671,7 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
                 //                sam_aln.cigar = std::to_string(read_len) + "M";
                 sam_aln.global_ed = hamming_dist;
                 sam_aln.ed = hamming_mod;
-                sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
+                sam_aln.ref_start = ref_start + soft_left +1; // +1 because SAM is 1-based!
                 sam_aln.is_rc = is_rc;
                 sam_aln.ref_id = n.ref_id;
                 sam_aln.sw_score = sw_score;
@@ -1681,7 +1681,7 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
 
             }
         }
-        if ( (hamming_dist >=0) && (diff == 0) && (((float) hamming_dist / (float) read_len) < 0.05) && (hamming_mod == hamming_dist) ) { // Likely substitutions only (within NAM region) no need to call ksw alingment
+        if ( (hamming_dist >=0) && (diff == 0) && (((float) hamming_dist / (float) read_len) < 0.05) ) { // Likely substitutions only (within NAM region) no need to call ksw alingment
             ;
 //            if (hamming_dist < best_align_dist){
 //                ;
@@ -1894,14 +1894,15 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, std::vect
             sam_aln.ed = hamming_mod;
 //            sam_aln.sw_score = aln_score;
             sam_aln.sw_score = aln_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
-            sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
+            sam_aln.ref_start = ref_start + soft_left+1; // +1 because SAM is 1-based!
             sam_aln.is_rc = is_rc;
             sam_aln.ref_id = n.ref_id;
             sam_aln.is_unaligned = false;
             sam_aln.aln_score = aln_score;
-            if (hamming_mod == hamming_dist ){ // masked only what is justified by alingment parameters max_allowed_mask
-                return;
-            }
+            return;
+//            if (hamming_mod == hamming_dist ){ // masked only what is justified by alingment parameters max_allowed_mask
+//                return;
+//            }
         }
         //TODO: Only do ksw of the ends outside the NAM to increase speed here
 //        else{ // Segment(s) of read outside the NAM span is not fitting to reference, align the segments
@@ -2520,42 +2521,12 @@ static inline void align_PE(alignment_params &aln_params, std::string &sam_strin
         score_dropoff2 = all_nams2.size() > 1 ? (float) all_nams2[1].n_hits / n_max2.n_hits : 0.0;
         score_dropoff1 = n_max1.n_hits > 2 ? score_dropoff1 : 1.0;
         score_dropoff2 = n_max2.n_hits > 2 ? score_dropoff2 : 1.0;
-//        bool lol_tmp1 = (n_max1.is_rc ^ n_max2.is_rc);
-//        bool lol_tmp2 = ( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) );
-//        bool lol_tmp3 =(score_dropoff1 < dropoff);
-//        bool lol_tmp4 =(score_dropoff2 < dropoff);
-//        std::cerr << "Tot nams 1: " << all_nams1.size() << " Tot nams 2: " << all_nams2.size() << std::endl;
-//        std::cerr << "score_dropoff1: " << score_dropoff1 << " score_dropoff2: " << score_dropoff2 << std::endl;
-//        std::cerr << "READ1: " << query_acc1 << std::endl;
-//        for (auto zz : all_nams1){
-//            std::string ref_segm, oo;
-//            if (zz.is_rc){
-//                ref_segm = ref_seqs[zz.ref_id].substr(zz.ref_s - zz.query_s, 300);
-//                ref_segm = reverse_complement(ref_segm);
-//                oo = "RC";
-//            } else {
-//                ref_segm = ref_seqs[zz.ref_id].substr(zz.ref_s - zz.query_s, 300);
-//                oo = "FW";
-//            }
-//            std::cerr << zz.ref_s << " " << oo << " " << zz.n_hits  << " " << zz.query_s << " " << zz.query_e << " " << ref_segm << std::endl;
-//        }
-//        std::cerr << "READ2: " << query_acc2 << std::endl;
-//        for (auto zz : all_nams2){
-//            std::string ref_segm, oo;
-//            if (zz.is_rc){
-//                ref_segm = ref_seqs[zz.ref_id].substr(zz.ref_s - zz.query_s, 300);
-//                ref_segm = reverse_complement(ref_segm);
-//                oo = "RC";
-//            } else {
-//                ref_segm = ref_seqs[zz.ref_id].substr(zz.ref_s - zz.query_s, 300);
-//                oo = "FW";
-//            }
-//            std::cerr << zz.ref_s << " " << oo << " " << zz.n_hits  << " " << zz.query_s << " " << zz.query_e << " " << ref_segm << std::endl;
-//        }
-//        std::cerr << n_max1.ref_s << " " << n_max2.ref_s << " " << mu + 4*sigma << " " << n_max1.ref_s - n_max2.ref_s << " " << (n_max2.ref_s - n_max1.ref_s ) << " " << score_dropoff1 << " " << score_dropoff2 << " " << n_max1.is_rc << " " << n_max2.is_rc << " " << lol_tmp1 << " " << lol_tmp2 << " " << lol_tmp3 << " " << lol_tmp4 << std::endl;
 
-        // if highest scoring NAM for both read 1 and read 2 has matching genomic location and correct orientation and no good second hits - align immediately
-        if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) && ( ((n_max1.ref_s - n_max2.ref_s) < 2000) || ((n_max2.ref_s - n_max1.ref_s) < 2000)) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
+        int a = n_max1.ref_s - n_max1.query_s  > 0 ? n_max1.ref_s - n_max1.query_s : 0;
+        int b = n_max2.ref_s - n_max2.query_s  > 0 ? n_max2.ref_s - n_max2.query_s : 0;
+        bool r1_r2 = n_max2.is_rc && (a < b) && ((b-a) < 2000); // r1 ---> <---- r2
+        bool r2_r1 = n_max1.is_rc && (b < a) && ((a-b) < 2000); // r2 ---> <---- r1
+        if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) && ( r1_r2 || r1_r2 ) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
 //            std::cerr << "I'm here" << std::endl;
 //            std::cerr << query_acc1 << std::endl;
             get_alignment(aln_params, n_max1, ref_len_map, ref_seqs, read1, read1_rc, read_len1, sam_aln1, k, cnt1, rc_already_comp1, did_not_fit, tot_ksw_aligned);
