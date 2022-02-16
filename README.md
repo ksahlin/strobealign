@@ -89,9 +89,9 @@ do
 done
 ```
 
-| Read length  | Tool        | Pred SNVs | Pred Indels | True SNVs (Precision) | True Indels (Precision) | Time (s) |
+| Read length  | Tool        | Pred SNVs | Pred Indels | Correct SNVs (Precision) | Correct Indels (Precision) | Alignment time (s) |
 | :---         | :---        |      ---: |       ---:  |       ---: |       ---:  |       ---: |
-| 100          | Truth       |   78623   |  78015      |    78623 (100%)   |  78015      |  -  |
+| 100          | TRUTH       |   78623   |  78015      |    78623 (100%)   |  78015      |  -  |
 | 100          | strobealign |   73816   |  57764      |   73501 (**99.6%**)   |  **32088**  (**55.5%**)    | **455** |
 | 100          | minimap2    | 80013 |  55173      | 74112 (92.6%) |  30479  (55.2%)    | 605 |
 | 100          | bwa mem    | 80297 |  42299   |  **75374** (93.4%)  |  23371   (55.3%)     |  1020 |
