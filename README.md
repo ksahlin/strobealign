@@ -54,7 +54,7 @@ Strobealign comes with a parameter `-r read_length` that sets suitable seed para
 For alignment to SAM file:
 
 ```
-strobealign -r <read_length> -o <output.sam> ref.fa reads.fa 
+strobealign -r <read_length> ref.fa reads.fa > output.sam
 ```
 
 To report secondary alignments, set parameter `-N [INT]` for maximum of `[INT]` secondary alignments. 
@@ -64,7 +64,7 @@ To report secondary alignments, set parameter `-N [INT]` for maximum of `[INT]` 
 For mapping to PAF file (option -x):
 
 ```
-strobealign -r <read_length> -x -o <output.sam> ref.fa reads.fa 
+strobealign -r <read_length> -x ref.fa reads.fa > output.sam
 ```
 
 VARIANT CALLING BENCHMARK
