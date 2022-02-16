@@ -1154,10 +1154,10 @@ inline int HammingDistance(std::string &One, std::string &Two)
 }
 
 
-inline bool HammingToCigarEQX2(std::string &One, std::string &Two, std::stringstream &cigar, int match, int mismatch, int &aln_score, int &soft_left, int &soft_right)
+inline int HammingToCigarEQX2(std::string &One, std::string &Two, std::stringstream &cigar, int match, int mismatch, int &aln_score, int &soft_left, int &soft_right)
 {
     if (One.length() != Two.length()){
-        return true;
+        return -1;
     }
 
     // Decide softclipps
@@ -1227,6 +1227,7 @@ inline bool HammingToCigarEQX2(std::string &One, std::string &Two, std::stringst
             cigar << counter << 'X';
             aln_score -= counter * mismatch;
             hamming_mod += counter;
+//            std::cout << "Added1: " << counter << " current: " << hamming_mod << std::endl;
 //            if (beginning){
 //                needs_aln = counter > 2 ? true: false;
 //            }
@@ -1243,6 +1244,8 @@ inline bool HammingToCigarEQX2(std::string &One, std::string &Two, std::stringst
     } else{
         cigar << counter << 'X';
         hamming_mod += counter;
+//        std::cout << "Added2: " << counter << " current: " << hamming_mod << std::endl;
+
 //        needs_aln = counter > 2 ? true: false;
     }
 
@@ -1890,7 +1893,7 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, std::vect
 //            needs_aln = false;
             sam_aln.cigar = cigar_string.str();
 //            sam_aln.cigar = std::to_string(read_len) + "M";
-//            std::cerr<< "Here " << hamming_dist << " " << r_tmp.size() << " " << ref_segm.size() << std::endl;
+//            std::cerr<< "Here ham dist: " << hamming_dist << " ham mod: " << hamming_mod << " " << r_tmp.size() << " " << ref_segm.size()  << std::endl;
             sam_aln.ed = hamming_mod;
 //            sam_aln.sw_score = aln_score;
             sam_aln.sw_score = aln_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
@@ -2438,6 +2441,7 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
         sam_aln.cigar = "*";
         sam_aln.ed = read_len;
         sam_aln.sw_score = 0;
+        sam_aln.aln_score = 0;
         sam_aln.ref_start =  0;
         sam_aln.is_rc = n.is_rc;
         sam_aln.ref_id = n.ref_id;
@@ -2466,6 +2470,7 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
     sam_aln.cigar = info.cigar;
     sam_aln.ed = info.ed;
     sam_aln.sw_score = info.sw_score;
+    sam_aln.aln_score = sam_aln.sw_score;
     sam_aln.ref_start =  ref_start + info.ref_offset +1; // +1 because SAM is 1-based!
     sam_aln.is_rc = a_is_rc;
     sam_aln.ref_id = n.ref_id;
