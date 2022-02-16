@@ -70,7 +70,18 @@ strobealign -r <read_length> -x -o <output.sam> ref.fa reads.fa
 VARIANT CALLING BENCHMARK
 ---------------
 
-A small SNV and INDEL calling benchmark is provided below, for simulated reads to a repetitive genome of 500 copies of a 50k long simulated strings with INDELS and SNP between the copies, then 2M pired end reads from a related genome with 0.5% SNP rate and 0.5% INDEL rate (similar but not identical to the REPEATS example given in the [preprint](https://doi.org/10.1101/2021.06.18.449070). For the results, we ran
+A small SNV and INDEL calling benchmark is provided below. The experiment evaluates SNP and short INDEL calling for a simulated repetitive genome. The genome consist of 500 concatenated copies of a 50kbp sequence which is then mutated through INDELS (0.5%) and substitutions (5%) between the copies. 
+
+Then, 2 million paired-end reads (lengths 100,150,200,250,300) from a related genome with 0.5% SNV rate and 0.5% INDEL rate. The challange is to find the right location for each read pair to predict the SNVs in the simulated reads (similar but not identical to the REPEATS example given in the [preprint](https://doi.org/10.1101/2021.06.18.449070)) Results in table below 
+
+| Read length  | Tool        | Pred SNVs | Pred Indels | Correct SNVs (Precision) | Correct Indels (Precision) | Alignment time (s) |
+| :---         | :---        |      ---: |       ---:  |       ---: |       ---:  |       ---: |
+| 100          | GROUND TRUTH       |   78,623   |  78,015      |    78,623 (100%)   |  78,015 (100%)     |  -  |
+| 100          | strobealign |   73,816   |  57,764      |   73,501 (**99.6%**)   |  **32,088**  (**55.5%**)    | **455** |
+| 100          | minimap2    | 80,013 |  55,173      | 74,112 (92.6%) |  30,479  (55.2%)    | 605 |
+| 100          | bwa mem    | 80,297 |  42,299   |  **75,374** (93.4%)  |  23,371   (55.3%)     |  1020 |
+
+For the results, we ran
 
 ```
 bcftools mpileup -O z --fasta-ref ref aligned.bam > aligned.vcf.gz
@@ -88,15 +99,6 @@ do
 	bcftools isec --nfiles 2 -O u true_variants.sorted.$type.vcf.gz  aligned.variants.sorted.$type.vcf -p out_$type
 done
 ```
-
-| Read length  | Tool        | Pred SNVs | Pred Indels | Correct SNVs (Precision) | Correct Indels (Precision) | Alignment time (s) |
-| :---         | :---        |      ---: |       ---:  |       ---: |       ---:  |       ---: |
-| 100          | GROUND TRUTH       |   78,623   |  78,015      |    78,623 (100%)   |  78,015 (100%)     |  -  |
-| 100          | strobealign |   73,816   |  57,764      |   73,501 (**99.6%**)   |  **32,088**  (**55.5%**)    | **455** |
-| 100          | minimap2    | 80,013 |  55,173      | 74,112 (92.6%) |  30,479  (55.2%)    | 605 |
-| 100          | bwa mem    | 80,297 |  42,299   |  **75,374** (93.4%)  |  23,371   (55.3%)     |  1020 |
-
-
 
 
 CREDITS
