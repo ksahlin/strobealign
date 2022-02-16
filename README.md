@@ -85,7 +85,7 @@ for type in SNV INDEL
 do
 	bcftools sort -Oz aligned.variants.$type.vcf.gz -o aligned.variants.sorted.$type.vcf.gz
 	bcftools index aligned.variants.sorted.$type.vcf.gz
-	bcftools isec  -O u true_varinats.sorted.$type.vcf.gz  aligned.variants.sorted.$type.vcf -p out_$type
+	bcftools isec --nfiles 2 -O u true_variants.sorted.$type.vcf.gz  aligned.variants.sorted.$type.vcf -p out_$type
 done
 ```
 
