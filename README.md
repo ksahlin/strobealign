@@ -3,7 +3,7 @@ strobealign
 
 Strobealign is a fast short-read aligner. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers. Strobealign is multithreaded, implements alignment (SAM) and mapping (PAF), and benchmarked for SE and PE reads of lengths between 100-300bp. A preprint describing **v0.4** is available [here](https://doi.org/10.1101/2021.06.18.449070).
 
-**Current version is 0.5**, which implements:
+**Current version is 0.5**, implements:
 1. Several improvements for downstream SNP andf INDEL calling. See benchmark below.
 2. Option to report secondary alignments and more. 
 3. Option to set base level alignment parameters. 
@@ -57,7 +57,7 @@ For alignment to SAM file:
 strobealign -r <read_length> -o <output.sam> ref.fa reads.fa 
 ```
 
-To report secondary alignmentts, set parameter `-N [INT]` for maximum of `[INT]` secondary alignments. 
+To report secondary alignments, set parameter `-N [INT]` for maximum of `[INT]` secondary alignments. 
 
 ### Mapping
 
@@ -91,10 +91,10 @@ done
 
 | Read length  | Tool        | Pred SNVs | Pred Indels | Correct SNVs (Precision) | Correct Indels (Precision) | Alignment time (s) |
 | :---         | :---        |      ---: |       ---:  |       ---: |       ---:  |       ---: |
-| 100          | TRUTH       |   78623   |  78015      |    78623 (100%)   |  78015      |  -  |
-| 100          | strobealign |   73816   |  57764      |   73501 (**99.6%**)   |  **32088**  (**55.5%**)    | **455** |
-| 100          | minimap2    | 80013 |  55173      | 74112 (92.6%) |  30479  (55.2%)    | 605 |
-| 100          | bwa mem    | 80297 |  42299   |  **75374** (93.4%)  |  23371   (55.3%)     |  1020 |
+| 100          | GROUND TRUTH       |   78,623   |  78,015      |    78,623 (100%)   |  78,015 (100%)     |  -  |
+| 100          | strobealign |   73,816   |  57,764      |   73,501 (**99.6%**)   |  **32,088**  (**55.5%**)    | **455** |
+| 100          | minimap2    | 80,013 |  55,173      | 74,112 (92.6%) |  30,479  (55.2%)    | 605 |
+| 100          | bwa mem    | 80,297 |  42,299   |  **75,374** (93.4%)  |  23,371   (55.3%)     |  1020 |
 
 
 
