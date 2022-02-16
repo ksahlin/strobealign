@@ -67,26 +67,36 @@ For mapping to PAF file (option -x):
 strobealign -r <read_length> -x -o <output.sam> ref.fa reads.fa 
 ```
 
-<!-- VARIANT CALLING BENCHMARK
+VARIANT CALLING BENCHMARK
 ---------------
-v0.4 is 5-20% slower than v0.4.
-A small SNV and INDEL calling menghtmark is provided below, for simulated reads to a repetitive genome similare to the REPEATS example given in the [preprint](https://doi.org/10.1101/2021.06.18.449070). We ran
+
+A small SNV and INDEL calling benchmark is provided below, for simulated reads to a repetitive genome of 500 copies of a 50k long simulated strings with INDELS and SNP between the copies, then 2M pired end reads from a related genome with 0.5% SNP rate and 0.5% INDEL rate (similar but not identical to the REPEATS example given in the [preprint](https://doi.org/10.1101/2021.06.18.449070). For the results, we ran
 
 ```
 bcftools mpileup -O z --fasta-ref ref aligned.bam > aligned.vcf.gz
 bcftools call -v -c -O v aligned.vcf.gz > aligned.variants.vcf.gz
-bcftools sort -Oz aligned.variants.vcf.gz -o aligned.variants.sorted.vcf.gz
-bcftools index aligned.variants.sorted.vcf.gz
-bcftools isec -O u true_varinats.sorted.vcf.gz  aligned.variants.sorted.vcf -p out
+
+# Split into SNP and INDELS
+grep "#"  aligned.variants.vcf.gz > aligned.variants.SNV.vcf
+grep -E "\t[ACGT]\t[ACGT]\t" aligned.variants.vcf.gz >> aligned.variants.SNV.vcf
+grep -v -E "\t[ACGT]\t[ACGT]\t" aligned.variants.vcf.gz > aligned.variants.INDEL.vcf
+
+for type in SNV INDEL
+do
+	bcftools sort -Oz aligned.variants.$type.vcf.gz -o aligned.variants.sorted.$type.vcf.gz
+	bcftools index aligned.variants.sorted.$type.vcf.gz
+	bcftools isec  -O u true_varinats.sorted.$type.vcf.gz  aligned.variants.sorted.$type.vcf -p out_$type
+done
 ```
 
-| Read length  | Tool        | SNVs | Indels | Time |
-| :---         | :---        |      ---: |       ---:  |       ---: |
-| 100          | Truth       |   78623   |  78015      |  - |
-| 100          | strobealign |   73816   |  57764      | 450s |
-| 100          | minimap2    | 80013 |  55173      |  568s |
-| 100          | bwa mem    | .. |  ..      |  .. |
- -->
+| Read length  | Tool        | Pred SNVs | Pred Indels | True SNVs (TPR %) | True Indels | Time (s) |
+| :---         | :---        |      ---: |       ---:  |       ---: |       ---:  |       ---: |
+| 100          | Truth       |   78623   |  78015      |    78623 (100%)   |  78015      |  -  |
+| 100          | strobealign |   73816   |  57764      |   73501 (**99.6%**)   |  **32088**  (**55.5%**)    | **455** |
+| 100          | minimap2    | 80013 |  55173      | 74112 (92.6%) |  30479  (55.2%)    | 605 |
+| 100          | bwa mem    | 80297 |  42299   |  **75374** (93.4%)  |  23371   (55.3%)     |  1020 |
+
+
 
 
 CREDITS
