@@ -1,23 +1,21 @@
 strobealign
 ==============
 
-Strobealign is a fast short-read aligner. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers. Strobealign is multithreaded, implements alignment (SAM) and mapping (PAF), and benchmarked for SE and PE reads of lengths between 100-300bp. A preprint describing v0.4 is available [here](https://doi.org/10.1101/2021.06.18.449070).
+Strobealign is a fast short-read aligner. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers. Strobealign is multithreaded, implements alignment (SAM) and mapping (PAF), and benchmarked for SE and PE reads of lengths between 100-300bp. A preprint describing **v0.4** is available [here](https://doi.org/10.1101/2021.06.18.449070).
+
+**Current version is 0.5**, which implements:
+1. Several improvements for downstream SNP andf INDEL calling. See benchmark below.
+2. Option to report secondary alignments and more. 
+3. Option to set base level alignment parameters. 
+4. And more (See release notes)
 
 
 INSTALLATION
 ----------------
 
-### Binaries
-
 You can acquire precompiled binaries for Linux and Mac OSx from the [release page](https://github.com/ksahlin/StrobeAlign/releases) compiled with `-O3 -mavx2`. 
 
-It has been [reported](https://github.com/ksahlin/StrobeAlign/issues/6) that `strobealign` is even faster if compliled with flag `-march=skylake-avx512` for avx512 supported processors (see compiling from source below).
-
-### Conda
-
-### Source
-
-
+It has been [reported](https://github.com/ksahlin/StrobeAlign/issues/6) that `strobealign` is even faster if compliled with flag `-march=skylake-avx512` for avx512 supported processors.
 
 If you want to compile from the source, you need to have a newer `g++` and [zlib](https://zlib.net/) installed. Then do the following:
 
@@ -28,7 +26,7 @@ cd StrobeAlign
 g++ -std=c++14 main.cpp source/index.cpp source/xxhash.c source/ksw2_extz2_sse.c source/ssw_cpp.cpp source/ssw.c -lz -fopenmp -o strobealign -O3 -mavx2
 ```
 
-## Common installation from source errors
+### Zlib linking
 
 If you have `zlib` installed, and the `zlib.h` file is in folder `/path/to/zlib/include` and the `libz.so` file in `/path/to/zlib/lib` but you get 
 
@@ -49,25 +47,46 @@ g++ -std=c++14 -I/path/to/zlib/include -L/path/to/zlib/lib main.cpp source/index
 USAGE
 -------
 
+### Alignment
+
 Strobealign comes with a parameter `-r read_length` that sets suitable seed parameters for the rough read length. Specifically, it sets parameters `-k`, `-l` and `-u`. If not specified, it defaults to 150. The value of `r` does not have to match the exact read length.
 
 For alignment to SAM file:
 
 ```
-strobealign -r <read_length> ref.fa reads.fa  > output.sam
+strobealign -r <read_length> -o <output.sam> ref.fa reads.fa 
 ```
+
+To report secondary alignmentts, set parameter `-N [INT]` for maximum of `[INT]` secondary alignments. 
+
+### Mapping
 
 For mapping to PAF file (option -x):
 
 ```
-strobealign -r <read_length> -x ref.fa reads.fa > output.paf
+strobealign -r <read_length> -x -o <output.sam> ref.fa reads.fa 
 ```
 
-You can also write alingments to a file with `-o <filename.sam>`.
+<!-- VARIANT CALLING BENCHMARK
+---------------
+v0.4 is 5-20% slower than v0.4.
+A small SNV and INDEL calling menghtmark is provided below, for simulated reads to a repetitive genome similare to the REPEATS example given in the [preprint](https://doi.org/10.1101/2021.06.18.449070). We ran
 
-### Multimapping
+```
+bcftools mpileup -O z --fasta-ref ref aligned.bam > aligned.vcf.gz
+bcftools call -v -c -O v aligned.vcf.gz > aligned.variants.vcf.gz
+bcftools sort -Oz aligned.variants.vcf.gz -o aligned.variants.sorted.vcf.gz
+bcftools index aligned.variants.sorted.vcf.gz
+bcftools isec -O u true_varinats.sorted.vcf.gz  aligned.variants.sorted.vcf -p out
+```
 
-Strobealing will by default output only primary alimgnents. If you want secondary alignments you can specify `-N [INT]`. For example `-N 5` will report (at most) 5 secondary alignments in addition to the primary alignment.
+| Read length  | Tool        | SNVs | Indels | Time |
+| :---         | :---        |      ---: |       ---:  |       ---: |
+| 100          | Truth       |   78623   |  78015      |  - |
+| 100          | strobealign |   73816   |  57764      | 450s |
+| 100          | minimap2    | 80013 |  55173      |  568s |
+| 100          | bwa mem    | .. |  ..      |  .. |
+ -->
 
 
 CREDITS
@@ -86,5 +105,4 @@ LICENCE
 ----------------
 
 GPL v3.0, see [LICENSE.txt](https://github.com/ksahlin/uLTRA/blob/master/LICENCE.txt).
-
 
