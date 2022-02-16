@@ -89,7 +89,7 @@ do
 done
 ```
 
-| Read length  | Tool        | Pred SNVs | Pred Indels | True SNVs (TPR %) | True Indels | Time (s) |
+| Read length  | Tool        | Pred SNVs | Pred Indels | True SNVs (Precision) | True Indels (Precision) | Time (s) |
 | :---         | :---        |      ---: |       ---:  |       ---: |       ---:  |       ---: |
 | 100          | Truth       |   78623   |  78015      |    78623 (100%)   |  78015      |  -  |
 | 100          | strobealign |   73816   |  57764      |   73501 (**99.6%**)   |  **32088**  (**55.5%**)    | **455** |
