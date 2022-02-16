@@ -1,6 +1,20 @@
-cmake_minimum_required(VERSION 3.19)
-project(StrobeAlign)
+cmake_minimum_required(VERSION 3.16)
 
-set(CMAKE_CXX_STANDARD 14)
+project(StrobeAlign VERSION 0.5)
 
-add_executable(StrobeAlign main.cpp source/index.cpp source/index.hpp source/robin_hood.h source/edlib.cpp source/edlib.h source/ksw2.h source/ksw2_extz2_sse.c)
+find_package(ZLIB)
+
+find_package(OpenMP)
+
+add_executable(StrobeAlign
+   main.cpp
+   source/index.cpp
+   source/ksw2_extz2_sse.c
+   source/xxhash.c
+   source/ssw_cpp.cpp
+   source/ssw.c
+)
+
+target_link_libraries(StrobeAlign PUBLIC ZLIB::ZLIB OpenMP::OpenMP_CXX)
+
+target_compile_features(StrobeAlign PUBLIC cxx_std_14)

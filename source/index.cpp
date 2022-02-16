@@ -104,7 +104,7 @@ void process_flat_vector(mers_vector &flat_vector, uint64_t &unique_elements){
     uint64_t curr_k;
     unique_elements = 1;
     for ( auto &t : flat_vector ) {
-//        std::cout << t << std::endl;
+//        std::cerr << t << std::endl;
         curr_k = std::get<0>(t);
         if (curr_k != prev_k){
             unique_elements ++;
@@ -118,7 +118,7 @@ void process_flat_vector(mers_vector &flat_vector, uint64_t &unique_elements){
 
 unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, float f){
 
-    std::cout << "Flat vector size: " << flat_vector.size() << std::endl;
+    std::cerr << "Flat vector size: " << flat_vector.size() << std::endl;
 //    kmer_lookup mers_index;
     unsigned int offset = 0;
     unsigned int prev_offset = 0;
@@ -135,7 +135,7 @@ unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, flo
     uint64_t curr_k;
 
     for ( auto &t : flat_vector ) {
-//        std::cout << t << std::endl;
+//        std::cerr << t << std::endl;
         curr_k = std::get<0>(t);
         if (curr_k == prev_k){
             count ++;
@@ -147,7 +147,7 @@ unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, flo
             else if (count > 100){
                 tot_high_ab ++;
                 strobemer_counts.push_back(count);
-//                std::cout << count << std::endl;
+//                std::cerr << count << std::endl;
             }
             else{
                 tot_mid_ab ++;
@@ -167,29 +167,34 @@ unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, flo
     std::tuple<unsigned int, unsigned int> s(prev_offset, count);
     mers_index[curr_k] = s;
     float frac_unique = ((float) tot_occur_once )/ mers_index.size();
-    std::cout << "Total strobemers count: " << offset << std::endl;
-    std::cout << "Total strobemers occur once: " << tot_occur_once << std::endl;
-    std::cout << "Fraction Unique: " << frac_unique << std::endl;
-    std::cout << "Total strobemers highly abundant > 100: " << tot_high_ab << std::endl;
-    std::cout << "Total strobemers mid abundance (between 2-100): " << tot_mid_ab << std::endl;
-    std::cout << "Total distinct strobemers stored: " << mers_index.size() << std::endl;
+    std::cerr << "Total strobemers count: " << offset << std::endl;
+    std::cerr << "Total strobemers occur once: " << tot_occur_once << std::endl;
+    std::cerr << "Fraction Unique: " << frac_unique << std::endl;
+    std::cerr << "Total strobemers highly abundant > 100: " << tot_high_ab << std::endl;
+    std::cerr << "Total strobemers mid abundance (between 2-100): " << tot_mid_ab << std::endl;
+    std::cerr << "Total distinct strobemers stored: " << mers_index.size() << std::endl;
     if (tot_high_ab >= 1) {
-        std::cout << "Ratio distinct to highly abundant: " << mers_index.size() / tot_high_ab << std::endl;
+        std::cerr << "Ratio distinct to highly abundant: " << mers_index.size() / tot_high_ab << std::endl;
     }
     if (tot_mid_ab >= 1) {
-        std::cout << "Ratio distinct to non distinct: " << mers_index.size() / (tot_high_ab + tot_mid_ab) << std::endl;
+        std::cerr << "Ratio distinct to non distinct: " << mers_index.size() / (tot_high_ab + tot_mid_ab) << std::endl;
     }
     // get count for top -f fraction of strobemer count to filter them out
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
     unsigned int index_cutoff = mers_index.size()*f;
-    std::cout << "Filtered cutoff index: " << index_cutoff << std::endl;
+    std::cerr << "Filtered cutoff index: " << index_cutoff << std::endl;
     unsigned int filter_cutoff;
-    filter_cutoff =  index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back() ;
-    filter_cutoff = filter_cutoff > 30 ? filter_cutoff : 30; // cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
-    std::cout << "Filtered cutoff count: " << filter_cutoff << std::endl;
-    std::cout << "" << std::endl;
-    std::cout << "" << std::endl;
+    if (!strobemer_counts.empty()){
+        filter_cutoff =  index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back();
+        filter_cutoff = filter_cutoff > 30 ? filter_cutoff : 30; // cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
+
+    } else {
+        filter_cutoff = 30;
+    }
+    std::cerr << "Filtered cutoff count: " << filter_cutoff << std::endl;
+    std::cerr << "" << std::endl;
+    std::cerr << "" << std::endl;
     return filter_cutoff;
 }
 
@@ -303,11 +308,11 @@ static inline void update_window(std::deque <uint64_t> &q, std::deque <unsigned 
 //            qs_pos.clear();
 //        }
 //    }
-////    std::cout << hash_count << " values produced from string of length " <<   seq_length << std::endl;
+////    std::cerr << hash_count << " values produced from string of length " <<   seq_length << std::endl;
 ////    for(auto t: pos_to_seq_choord){
-////        std::cout << t << " ";
+////        std::cerr << t << " ";
 ////    }
-////    std::cout << " " << std::endl;
+////    std::cerr << " " << std::endl;
 //}
 
 
@@ -323,7 +328,7 @@ static inline void make_string_to_hashvalues_closed_syncmers_canonical(std::stri
 
 //    robin_hood::hash<uint64_t> robin_hash;
     uint64_t mask = (1ULL<<2*k) - 1;
-//    std::cout << mask << std::endl;
+//    std::cerr << mask << std::endl;
 
 //    std::vector<std::tuple<uint64_t, unsigned int, unsigned int> > kmers;
     unsigned int hash_count = 0;
@@ -357,9 +362,9 @@ static inline void make_string_to_hashvalues_closed_syncmers_canonical(std::stri
                     qs.push_back(hash_s);
                     qs_pos.push_back(i - s + 1);
                     qs_size++;
-//                    std::cout << qs_size << " "<< i - k + 1 << std::endl;
+//                    std::cerr << qs_size << " "<< i - k + 1 << std::endl;
                     for (int j = 0; j < qs_size; j++) {
-//                        std::cout << qs_pos[j] << " " << qs[j] << " " << qs_min_val << std::endl;
+//                        std::cerr << qs_pos[j] << " " << qs[j] << " " << qs_min_val << std::endl;
                         if (qs[j] < qs_min_val) {
                             qs_min_val = qs[j];
                             qs_min_pos = qs_pos[j];
@@ -376,8 +381,8 @@ static inline void make_string_to_hashvalues_closed_syncmers_canonical(std::stri
                         string_hashes.push_back(hash_k);
                         pos_to_seq_choord.push_back(startpos + i - k + 1);
                         hash_count++;
-//                        std::cout << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
-//                        std::cout <<  "Sampled gap " << std::endl;
+//                        std::cerr << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
+//                        std::cerr <<  "Sampled gap " << std::endl;
                     }
                 }
                 else{
@@ -395,10 +400,10 @@ static inline void make_string_to_hashvalues_closed_syncmers_canonical(std::stri
 //                        uint64_t hash_k =  sahlin_dna_hash(yk, mask);
                         string_hashes.push_back(hash_k);
                         pos_to_seq_choord.push_back(startpos + i - k + 1);
-//                        std::cout << i - k + 1 << std::endl;
+//                        std::cerr << i - k + 1 << std::endl;
                         hash_count++;
-//                        std::cout << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
-//                        std::cout <<  "Sampled gap " << std::endl;
+//                        std::cerr << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
+//                        std::cerr <<  "Sampled gap " << std::endl;
                     }
                 }
             }
@@ -411,11 +416,11 @@ static inline void make_string_to_hashvalues_closed_syncmers_canonical(std::stri
             qs_pos.clear();
         }
     }
-//    std::cout << hash_count << " values produced from string of length " <<   seq_length << std::endl;
+//    std::cerr << hash_count << " values produced from string of length " <<   seq_length << std::endl;
 //    for(auto t: pos_to_seq_choord){
-//        std::cout << t << " ";
+//        std::cerr << t << " ";
 //    }
-//    std::cout << " " << std::endl;
+//    std::cerr << " " << std::endl;
 }
 
 
@@ -431,7 +436,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 
 //    robin_hood::hash<uint64_t> robin_hash;
     uint64_t mask = (1ULL<<2*k) - 1;
-//    std::cout << mask << std::endl;
+//    std::cerr << mask << std::endl;
 
 //    std::vector<std::tuple<uint64_t, unsigned int, unsigned int> > kmers;
     int gap = 0;
@@ -467,9 +472,9 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
                     qs.push_back(hash_s);
                     qs_pos.push_back(i - s + 1);
                     qs_size++;
-//                    std::cout << qs_size << " "<< i - k + 1 << std::endl;
+//                    std::cerr << qs_size << " "<< i - k + 1 << std::endl;
                     for (int j = 0; j < qs_size; j++) {
-//                        std::cout << qs_pos[j] << " " << qs[j] << " " << qs_min_val << std::endl;
+//                        std::cerr << qs_pos[j] << " " << qs[j] << " " << qs_min_val << std::endl;
                         if (qs[j] < qs_min_val) {
                             qs_min_val = qs[j];
                             qs_min_pos = qs_pos[j];
@@ -486,8 +491,8 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
                         string_hashes.push_back(hash_k);
                         pos_to_seq_choord.push_back(i - k + 1);
                         hash_count++;
-//                        std::cout << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
-//                        std::cout <<  "Sampled gap: " << gap (k-s+1) << std::endl;
+//                        std::cerr << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
+//                        std::cerr <<  "Sampled gap: " << gap (k-s+1) << std::endl;
                         gap = 0;
                     }
                 }
@@ -509,18 +514,18 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 //                        uint64_t hash_k =  sahlin_dna_hash(yk, mask);
                         string_hashes.push_back(hash_k);
                         pos_to_seq_choord.push_back(i - k + 1);
-//                        std::cout << i - k + 1 << std::endl;
+//                        std::cerr << i - k + 1 << std::endl;
                         hash_count++;
-//                        std::cout << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
-//                        std::cout <<  "Gap: " << gap << " position:" << i - k + 1 << std::endl;
+//                        std::cerr << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
+//                        std::cerr <<  "Gap: " << gap << " position:" << i - k + 1 << std::endl;
                         gap = 0;
                     }
                     gap ++;
                 }
 //                if (gap > 25){
-//                    std::cout <<  "Gap: " << gap << " position:" << i - k + 1 << std::endl;
+//                    std::cerr <<  "Gap: " << gap << " position:" << i - k + 1 << std::endl;
 //                    if (gap < 500 ) {
-//                        std::cout << seq.substr(i - k + 1 - gap + 1, gap +k) << std::endl;
+//                        std::cerr << seq.substr(i - k + 1 - gap + 1, gap +k) << std::endl;
 //                    }
 //                }
             }
@@ -533,11 +538,11 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
             qs_pos.clear();
         }
     }
-//    std::cout << hash_count << " values produced from string of length " <<   seq_length << std::endl;
+//    std::cerr << hash_count << " values produced from string of length " <<   seq_length << std::endl;
 //    for(auto t: pos_to_seq_choord){
-//        std::cout << t << " ";
+//        std::cerr << t << " ";
 //    }
-//    std::cout << " " << std::endl;
+//    std::cerr << " " << std::endl;
 }
 
 //
@@ -602,11 +607,11 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 //            l = 0, x = 0; // if there is an "N", restart
 //        }
 //    }
-////    std::cout << hash_count << " values produced from string of length " <<   seq_length << std::endl;
+////    std::cerr << hash_count << " values produced from string of length " <<   seq_length << std::endl;
 ////    for(auto t: pos_to_seq_choord){
-////        std::cout << t << " ";
+////        std::cerr << t << " ";
 ////    }
-////    std::cout << " " << std::endl;
+////    std::cerr << " " << std::endl;
 //}
 
 
@@ -658,11 +663,11 @@ static inline void get_next_strobe(std::vector<uint64_t> &string_hashes, uint64_
         if (res < min_val){
             min_val = res;
             strobe_pos_next = i;
-//            std::cout << strobe_pos_next << " " << min_val << std::endl;
+//            std::cerr << strobe_pos_next << " " << min_val << std::endl;
             strobe_hashval_next = string_hashes[i];
         }
     }
-//    std::cout << "Offset: " <<  strobe_pos_next - w_start << " val: " << min_val <<  ", P exact:" <<  1.0 - pow ( (float) (8-min_val)/9, strobe_pos_next - w_start) << std::endl;
+//    std::cerr << "Offset: " <<  strobe_pos_next - w_start << " val: " << min_val <<  ", P exact:" <<  1.0 - pow ( (float) (8-min_val)/9, strobe_pos_next - w_start) << std::endl;
 
 }
 
@@ -686,11 +691,11 @@ static inline void get_next_strobe_dist_constraint(std::vector<uint64_t> &string
         if (res < min_val){
             min_val = res;
             strobe_pos_next = i;
-//            std::cout << strobe_pos_next << " " << min_val << std::endl;
+//            std::cerr << strobe_pos_next << " " << min_val << std::endl;
             strobe_hashval_next = string_hashes[i];
         }
     }
-//    std::cout << "Offset: " <<  strobe_pos_next - w_start << " val: " << min_val <<  ", P exact:" <<  1.0 - pow ( (float) (8-min_val)/9, strobe_pos_next - w_start) << std::endl;
+//    std::cerr << "Offset: " <<  strobe_pos_next - w_start << " val: " << min_val <<  ", P exact:" <<  1.0 - pow ( (float) (8-min_val)/9, strobe_pos_next - w_start) << std::endl;
 
 }
 
@@ -713,7 +718,7 @@ static inline void get_next_strobe_dist_constraint(std::vector<uint64_t> &string
 //                kmers.push_back(s);
 //                cnt ++;
 //                if ((cnt % 1000000) == 0 ){
-//                    std::cout << cnt << " kmers created." << std::endl;
+//                    std::cerr << cnt << " kmers created." << std::endl;
 //                }
 //            }
 //        }
@@ -736,7 +741,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
     std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
     uint64_t kmask=(1ULL<<2*k) - 1;
 //    std::bitset<64> x(q);
-//    std::cout << x << '\n';
+//    std::cerr << x << '\n';
     // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
     std::vector<uint64_t> string_hashes;
     std::vector<unsigned int> pos_to_seq_choord;
@@ -755,20 +760,20 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
     }
 
 //        for (unsigned int i = 0; i < seq_length; i++) {
-//        std::cout << "REF POS INDEXED: " << pos_to_seq_choord[i] << " OTHER DIRECTION: " << seq.length() - pos_to_seq_choord[i] - k <<std::endl;
+//        std::cerr << "REF POS INDEXED: " << pos_to_seq_choord[i] << " OTHER DIRECTION: " << seq.length() - pos_to_seq_choord[i] - k <<std::endl;
 //    }
 //    int tmp_cnt = 0;
 //    for (auto a: pos_to_seq_choord){
-//        std::cout << " OK: " << tmp_cnt << " " << a << std::endl;
+//        std::cerr << " OK: " << tmp_cnt << " " << a << std::endl;
 //        tmp_cnt ++;
 //    }
-//    std::cout << seq << std::endl;
+//    std::cerr << seq << std::endl;
 
     // create the randstrobes
     for (unsigned int i = 0; i <= nr_hashes; i++) {
 
 //        if ((i % 1000000) == 0 ){
-//            std::cout << i << " strobemers created." << std::endl;
+//            std::cerr << i << " strobemers created." << std::endl;
 //        }
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
@@ -794,7 +799,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 
         }
         else{
-//            std::cout << randstrobes2.size() << " randstrobes generated" << '\n';
+//            std::cerr << randstrobes2.size() << " randstrobes generated" << '\n';
             return randstrobes2;
         }
 
@@ -803,29 +808,29 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 
 
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
-//        std::cout <<  "Seed length: " << seq_pos_strobe2 + k - seq_pos_strobe1 << std::endl;
+//        std::cerr <<  "Seed length: " << seq_pos_strobe2 + k - seq_pos_strobe1 << std::endl;
         int packed = (ref_index << 8);
 //        int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
         packed = packed + (seq_pos_strobe2 - seq_pos_strobe1);
         std::tuple<uint64_t, unsigned int, int> s (hash_randstrobe2, seq_pos_strobe1, packed);
         randstrobes2.push_back(s);
-//        std::cout << seq_pos_strobe1 << " " << seq_pos_strobe2 << std::endl;
-//        std::cout << "FORWARD REF: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
-//        std::cout << "REFERENCE: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
+//        std::cerr << seq_pos_strobe1 << " " << seq_pos_strobe2 << std::endl;
+//        std::cerr << "FORWARD REF: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
+//        std::cerr << "REFERENCE: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
 
 
 //        auto strobe1 = seq.substr(seq_pos_strobe1, k);
 //        auto strobe2 = seq.substr(seq_pos_strobe2, k);
 //        unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
 //        if (seq_pos_strobe2 > (seq_pos_strobe1+k)) {
-////            std::cout << seq_pos_strobe1 << " LOOOOL " << seq_pos_strobe2 << " " << seq_pos_strobe2 - (seq_pos_strobe1+k) << std::endl;
-//            std::cout << std::string(seq_pos_strobe1, ' ') << strobe1 << std::string(seq_pos_strobe2 - (seq_pos_strobe1+k), ' ') << strobe2 << std::endl;
+////            std::cerr << seq_pos_strobe1 << " LOOOOL " << seq_pos_strobe2 << " " << seq_pos_strobe2 - (seq_pos_strobe1+k) << std::endl;
+//            std::cerr << std::string(seq_pos_strobe1, ' ') << strobe1 << std::string(seq_pos_strobe2 - (seq_pos_strobe1+k), ' ') << strobe2 << std::endl;
 //        }
-//        std::cout << i << " " << strobe_pos_next << " " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << seq_pos_strobe2 - (seq_pos_strobe1+k) << " " << hash_randstrobe2 << std::endl;
-//        std::cout << i << " " << strobe_pos_next << std::endl;
+//        std::cerr << i << " " << strobe_pos_next << " " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << seq_pos_strobe2 - (seq_pos_strobe1+k) << " " << hash_randstrobe2 << std::endl;
+//        std::cerr << i << " " << strobe_pos_next << std::endl;
 
     }
-//    std::cout << randstrobes2.size() << " randstrobes generated" << '\n';
+//    std::cerr << randstrobes2.size() << " randstrobes generated" << '\n';
     return randstrobes2;
 }
 
@@ -844,7 +849,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
     std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
     uint64_t kmask=(1ULL<<2*k) - 1;
 //    std::bitset<64> x(q);
-//    std::cout << x << '\n';
+//    std::cerr << x << '\n';
     // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
     std::vector<uint64_t> string_hashes;
     std::vector<unsigned int> pos_to_seq_choord;
@@ -857,23 +862,23 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 //    make_string_to_hashvalues_open_syncmers(seq, string_hashes, pos_to_seq_choord, kmask, k, smask, s, t);
 
     unsigned int nr_hashes = string_hashes.size();
-//    std::cout << nr_hashes << " okay" << std::endl;
+//    std::cerr << nr_hashes << " okay" << std::endl;
     if (nr_hashes == 0) {
         return randstrobes2;
     }
 
 //    int tmp_cnt = 0;
 //    for (auto a: pos_to_seq_choord){
-//        std::cout << " OK: " << tmp_cnt << " " << a << std::endl;
+//        std::cerr << " OK: " << tmp_cnt << " " << a << std::endl;
 //        tmp_cnt ++;
 //    }
-//    std::cout << seq << std::endl;
+//    std::cerr << seq << std::endl;
 
     // create the randstrobes FW direction!
     for (unsigned int i = 0; i <= nr_hashes; i++) {
 
 //        if ((i % 1000000) == 0 ){
-//            std::cout << i << " strobemers created." << std::endl;
+//            std::cerr << i << " strobemers created." << std::endl;
 //        }
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
@@ -898,7 +903,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 
         }
         else{
-//            std::cout << randstrobes2.size() << " randstrobes generated" << '\n';
+//            std::cerr << randstrobes2.size() << " randstrobes generated" << '\n';
             break;
         }
 
@@ -909,16 +914,16 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
         unsigned int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
         std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool> s (hash_randstrobe2, ref_index, seq_pos_strobe1, offset_strobe, false);
         randstrobes2.push_back(s);
-//        std::cout << "FORWARD: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
+//        std::cerr << "FORWARD: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
 
 //        auto strobe1 = seq.substr(seq_pos_strobe1, k);
 //        unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
 //        if (seq_pos_strobe2 > (seq_pos_strobe1+k)) {
-////            std::cout << seq_pos_strobe1 << " LOOOOL " << seq_pos_strobe2 << " " << seq_pos_strobe2 - (seq_pos_strobe1+k) << std::endl;
-//            std::cout << std::string(seq_pos_strobe1, ' ') << strobe1 << std::string(seq_pos_strobe2 - (seq_pos_strobe1+k), ' ') << std::string(k, 'X') << std::endl;
+////            std::cerr << seq_pos_strobe1 << " LOOOOL " << seq_pos_strobe2 << " " << seq_pos_strobe2 - (seq_pos_strobe1+k) << std::endl;
+//            std::cerr << std::string(seq_pos_strobe1, ' ') << strobe1 << std::string(seq_pos_strobe2 - (seq_pos_strobe1+k), ' ') << std::string(k, 'X') << std::endl;
 //        }
-//        std::cout << i << " " << strobe_pos_next << " " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << seq_pos_strobe2 - (seq_pos_strobe1+k) << " " << hash_randstrobe2 << std::endl;
-//        std::cout << i << " " << strobe_pos_next << std::endl;
+//        std::cerr << i << " " << strobe_pos_next << " " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << seq_pos_strobe2 - (seq_pos_strobe1+k) << " " << hash_randstrobe2 << std::endl;
+//        std::cerr << i << " " << strobe_pos_next << std::endl;
 
     }
 
@@ -930,13 +935,13 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
     }
 
 //    for (unsigned int i = 0; i < nr_hashes; i++) {
-//        std::cout << "REVERSE: " << pos_to_seq_choord[i] <<std::endl;
+//        std::cerr << "REVERSE: " << pos_to_seq_choord[i] <<std::endl;
 //    }
 
     for (unsigned int i = 0; i <= nr_hashes; i++) {
 
 //        if ((i % 1000000) == 0 ){
-//            std::cout << i << " strobemers created." << std::endl;
+//            std::cerr << i << " strobemers created." << std::endl;
 //        }
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
@@ -962,7 +967,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 
         }
         else{
-//            std::cout << randstrobes2.size() << " randstrobes generated" << '\n';
+//            std::cerr << randstrobes2.size() << " randstrobes generated" << '\n';
             return randstrobes2;
         }
 
@@ -973,19 +978,19 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
         unsigned int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
         std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool> s (hash_randstrobe2, ref_index, seq_pos_strobe1, offset_strobe, true);
         randstrobes2.push_back(s);
-//        std::cout << "REVERSE: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
+//        std::cerr << "REVERSE: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
 
 //        auto strobe1 = seq.substr(seq_pos_strobe1, k);
 //        unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
 //        if (seq_pos_strobe2 > (seq_pos_strobe1+k)) {
-////            std::cout << seq_pos_strobe1 << " LOOOOL " << seq_pos_strobe2 << " " << seq_pos_strobe2 - (seq_pos_strobe1+k) << std::endl;
-//            std::cout << std::string(seq_pos_strobe1, ' ') << strobe1 << std::string(seq_pos_strobe2 - (seq_pos_strobe1+k), ' ') << std::string(k, 'X') << std::endl;
+////            std::cerr << seq_pos_strobe1 << " LOOOOL " << seq_pos_strobe2 << " " << seq_pos_strobe2 - (seq_pos_strobe1+k) << std::endl;
+//            std::cerr << std::string(seq_pos_strobe1, ' ') << strobe1 << std::string(seq_pos_strobe2 - (seq_pos_strobe1+k), ' ') << std::string(k, 'X') << std::endl;
 //        }
-//        std::cout << i << " " << strobe_pos_next << " " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << seq_pos_strobe2 - (seq_pos_strobe1+k) << " " << hash_randstrobe2 << std::endl;
-//        std::cout << i << " " << strobe_pos_next << std::endl;
+//        std::cerr << i << " " << strobe_pos_next << " " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << seq_pos_strobe2 - (seq_pos_strobe1+k) << " " << hash_randstrobe2 << std::endl;
+//        std::cerr << i << " " << strobe_pos_next << std::endl;
 
     }
-//    std::cout << randstrobes2.size() << " randstrobes generated" << '\n';
+//    std::cerr << randstrobes2.size() << " randstrobes generated" << '\n';
     return randstrobes2;
 }
 
@@ -1008,13 +1013,13 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 //    make_string_to_hashvalues_random_minimizers(seq, string_hashes, pos_to_seq_choord, k, kmask, w);
 //    unsigned int seq_length = string_hashes.size();
 //
-////    std::cout << seq << std::endl;
+////    std::cerr << seq << std::endl;
 //
 //    // create the randstrobes
 //    for (unsigned int i = 0; i <= seq_length; i++) {
 //
 ////        if ((i % 10) == 0 ){
-////            std::cout << i << " randstrobes created." << std::endl;
+////            std::cerr << i << " randstrobes created." << std::endl;
 ////        }
 //        uint64_t strobe_hash;
 //        strobe_hash = string_hashes[i];
@@ -1057,11 +1062,11 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 //        unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
 ////        unsigned int seq_pos_strobe2 =  pos_to_seq_choord[strobe_pos_next1]; //seq_pos_strobe1 + (strobe_pos_next1 - i); //
 //        unsigned int seq_pos_strobe3 =  pos_to_seq_choord[strobe_pos_next2]; //seq_pos_strobe1 + (strobe_pos_next2 - i); //
-////        std::cout << i << " " << strobe_pos_next1 << " " << strobe_pos_next2 << " " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << seq_pos_strobe3 << " " << pos_to_seq_choord.size() << std::endl;
+////        std::cerr << i << " " << strobe_pos_next1 << " " << strobe_pos_next2 << " " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << seq_pos_strobe3 << " " << pos_to_seq_choord.size() << std::endl;
 //
 ////         TODO: Take care of corner case (tmep if statement below. Some values in end of string produce a cororidnate of 0 for the last strobe. Probably an off-by-one error in the calculation of the strobe coord in the last strobe window
 ////        if (strobe_pos_next2 ==  seq_length){
-//////            std::cout << "OMGGGGGGG " << i << " " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << seq_pos_strobe3 << std::endl;
+//////            std::cerr << "OMGGGGGGG " << i << " " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << seq_pos_strobe3 << std::endl;
 ////            seq_pos_strobe3 = seq_length-1;
 ////        }
 //        std::tuple<uint64_t, unsigned int, unsigned int, unsigned int> s (hash_randstrobe3, ref_index, seq_pos_strobe1, seq_pos_strobe3);
@@ -1069,8 +1074,8 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 //
 //
 ////        auto strobe1 = seq.substr(i, k);
-////        std::cout << std::string(i, ' ') << strobe1 << std::string(strobe_pos_next1 - (i+k), ' ') << std::string(k, 'X') << std::string(strobe_pos_next2 - strobe_pos_next1 - k, ' ') << std::string(k, 'X') << std::endl;
-////        std::cout << i << " " << strobe_pos_next1 << " " << strobe_pos_next2 << " " << seq_length << std::endl;
+////        std::cerr << std::string(i, ' ') << strobe1 << std::string(strobe_pos_next1 - (i+k), ' ') << std::string(k, 'X') << std::string(strobe_pos_next2 - strobe_pos_next1 - k, ' ') << std::string(k, 'X') << std::endl;
+////        std::cerr << i << " " << strobe_pos_next1 << " " << strobe_pos_next2 << " " << seq_length << std::endl;
 //    }
 //    return randstrobes3;
 //}

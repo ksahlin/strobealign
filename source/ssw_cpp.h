@@ -20,7 +20,9 @@ struct Alignment {
   int32_t  query_end;          // Query end position of the best alignment
   int32_t  ref_end_next_best;  // Reference end position of the next best alignment
   int32_t  mismatches;         // Number of mismatches of the alignment
-  std::string cigar_string;    // Cigar string of the best alignment
+  int32_t  global_ed;         // Global edit distance including softclipps
+
+    std::string cigar_string;    // Cigar string of the best alignment
   std::vector<uint32_t> cigar; // Cigar stored in the BAM format
                                //   high 28 bits: length
 			       //   low 4 bits: M/I/D/S/X (0/1/2/4/8);
