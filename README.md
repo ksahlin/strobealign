@@ -70,9 +70,9 @@ strobealign -r <read_length> -x ref.fa reads.fa > output.sam
 VARIANT CALLING BENCHMARK
 ---------------
 
-A small SNV and INDEL calling benchmark is provided below. The experiment evaluates SNP and short INDEL calling for a simulated repetitive genome. The genome is a 16.8Mbp sequence consisting of 500 concatenated copies of a 40kbp sequence which is mutated through substitutions (5%) and removing segments of size between 1bp to 1kbp (0.5%) along the oringinal 20Mbp string. 
+A small SNV and INDEL calling benchmark is provided below using `bcftools` to call SNPs and indels on a simulated repetitive genome based on alignments from strobealign, BWA-MEM, and minimap2. The genome is a 16.8Mbp sequence consisting of 500 concatenated copies of a 40kbp sequence which is mutated through substitutions (5%) and removing segments of size 1bp-1kbp (0.5%) along the oringinal 20Mbp string. 
 
-Then, 2 million paired-end reads (lengths 100, 150, 200, 250, 300) from a related genome with 0.5% SNV rate and 0.5% INDEL rate. The challange is to find the right location for each read pair to predict the SNVs and INDELs in the simulated reads (similar to the REPEATS example given in the [preprint](https://doi.org/10.1101/2021.06.18.449070)). In the dataset, there is a total of 78,623 SNVs and 78,015 INDELS in the genome where the reads are simulated from. The precision (P), recall (R), and F-score are computed from these numbers. Results in table below. 
+Then, 2 million paired-end reads (lengths 100, 150, 200, 250, 300) from a related genome with high variation rate: 0.5% SNVs and 0.5% INDELs. The challange is to find the right location of reads in the repetitive genome to predict the SNVs and INDELs in the related genome. In the  in the genome where the reads are simulated from there is about 78k SNVs and INDELS, respectively. The precision (P), recall (R), and F-score are computed from these numbers. Results in table below. 
 
 In the experiments strobealing is in general the fastest tool, has the highest SNV precision, and *highest precision, recall, and F-score* for indels. 
 
