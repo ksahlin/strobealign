@@ -74,7 +74,9 @@ A small SNV and INDEL calling benchmark is provided below. The experiment evalua
 
 Then, 2 million paired-end reads (lengths 100, 150, 200, 250, 300) from a related genome with 0.5% SNV rate and 0.5% INDEL rate. The challange is to find the right location for each read pair to predict the SNVs and INDELs in the simulated reads (similar to the REPEATS example given in the [preprint](https://doi.org/10.1101/2021.06.18.449070)). In the dataset, there is a total of 78,623 SNVs and 78,015 INDELS in the genome where the reads are simulated from. The precision (P), recall (R), and F-score are computed from these numbers. Results in table below. 
 
-In the experiments strobealing is in general the fastest tool, has the highest SNV precision, and *highest precision, recall, and F-score* for indels. On this instance there are frequent indels (every 200th bases on average) requiring calls to base level alignments for most reads. Between 65% (read length 100) to 85% (read length 300) of strobealign's runtime is spent doing base level alignemetns with third party SSW alignment module. So faster improvements to alignment modules will greatly reduce runtime in this scenario.
+In the experiments strobealing is in general the fastest tool, has the highest SNV precision, and *highest precision, recall, and F-score* for indels. 
+
+In this dataset there are frequent indels (every 200th bases on average) requiring calls to base level alignments for most reads. Between 65-85%) of strobealign's runtime is spent doing base level alignemetns with third-party SSW alignment module. The longer the reads the hicher % of time is spent on base level alignment. Speed improvements to base-level alignment libraries will greatly reduce runtime on this dataset.
 
 
 | Read length  | Tool        | SNVs (P) | SNVs (R) | SNVs (F-score) | Indels (P) | Indels (R) | Indels (F-score) | Alignment time (s) |
