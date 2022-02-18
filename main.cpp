@@ -1393,34 +1393,110 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
         int max_diff = ref_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
         int diff = max_diff - min_diff;
 
+
+//        // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
+//
+//        if ( (ref_segm.substr(n.query_s, k) == read.substr(n.query_s, k) ) ) { //&& (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read.substr(n.query_e - k, k)) ){
+//            n.is_rc = false;
+//        }
+//        else {
+//            if (!rc_already_comp){
+//                read_rc = reverse_complement(read);
+//                rc_already_comp = true;
+//            }
+//
+//            if ((ref_segm.substr(n.query_s, k) == read_rc.substr(n.query_s, k))) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
+//                n.is_rc = true;
+//            } else {
+//                did_not_fit++;
+//                aln_did_not_fit = true;
+//            }
+//        }
+
+        // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
+        bool fits = false;
+        std::string ref_start_kmer;
+        std::string ref_end_kmer;
+        std::string read_start_kmer;
+        std::string read_end_kmer;
+        std::string read_rc_start_kmer;
+        std::string read_rc_end_kmer;
+        ref_start_kmer = ref_seqs[n.ref_id].substr(n.ref_s, k);
+        ref_end_kmer = ref_seqs[n.ref_id].substr(n.ref_e-k, k);
+
+        if (!n.is_rc) {
+            read_start_kmer = read.substr(n.query_s, k);
+            read_end_kmer = read.substr(n.query_e-k, k);
+            if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)) {
+//            n.is_rc = false;
+                fits = true;
+            } else  {
+                //  FALSE FORWARD TAKE CARE OF FALSE HITS HERE - it can be false forwards or false rc because of symmetrical hash values
+                //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
+
+//              std::cerr << " CHECKING1!! " << std::endl;
+                // false reverse hit, change coordinates in nam to forward
+                if (!rc_already_comp){
+                    read_rc = reverse_complement(read);
+                    rc_already_comp = true;
+                }
+
+                int q_start_tmp = read_len - n.query_e;
+                int q_end_tmp = read_len - n.query_s;
+                read_start_kmer = read_rc.substr(q_start_tmp, k);
+                read_end_kmer = read_rc.substr(q_end_tmp-k, k);
+                if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
+                    fits = true;
+                    n.is_rc = true;
+                    n.query_s = q_start_tmp;
+                    n.query_e = q_end_tmp;
+//                std::cerr << " DETECTED FALSE RC FROM SYMM!! " << std::endl;
+                }
+
+            }
+        } else {
+            if (!rc_already_comp){
+                read_rc = reverse_complement(read);
+                rc_already_comp = true;
+            }
+            read_rc_start_kmer = read_rc.substr(n.query_s, k);
+            read_rc_end_kmer = read_rc.substr(n.query_e-k, k);
+            if ( (ref_start_kmer == read_rc_start_kmer) && (ref_end_kmer == read_rc_end_kmer) ) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
+                n.is_rc = true;
+                fits = true;
+            } else{
+                //  FALSE REVERSE TAKE CARE OF FALSE HITS HERE - it can be false forwards or false rc because of symmetrical hash values
+                //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
+
+                int q_start_tmp = read_len - n.query_e;
+                int q_end_tmp = read_len - n.query_s;
+                read_start_kmer = read.substr(q_start_tmp, k);
+                read_end_kmer = read.substr(q_end_tmp-k, k);
+//            std::cerr << " CHECKING2!! " <<   n.query_s << " " <<   n.query_e << " " << std::endl;
+//            std::cerr << read_start_kmer  << " " <<  ref_start_kmer << " " <<  read_end_kmer << " " << ref_end_kmer << std::endl;
+
+                if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
+                    fits = true;
+                    n.is_rc = false;
+                    n.query_s = q_start_tmp;
+                    n.query_e = q_end_tmp;
+//                std::cerr << " DETECTED FALSE FW FROM SYMM!! " << std::endl;
+                }
+            }
+        }
+        if (!fits){
+            did_not_fit++;
+            aln_did_not_fit = true;
+        }
+
         // deal with any read hanging of ends of reference not to get 'std::out_of_range' what(): basic_string::substr
         int ref_tmp_start = n.ref_s - n.query_s;
         int ref_tmp_segm_size = read_len + diff;
         int ref_len = ref_len_map[n.ref_id];
         int ref_start = ref_tmp_start > 0 ? ref_tmp_start : 0;
         int ref_segm_size = ref_tmp_segm_size < ref_len - ref_start ? ref_tmp_segm_size : ref_len - 1 - ref_start;
-
         std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
 
-        // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
-
-        if ( (ref_segm.substr(n.query_s, k) == read.substr(n.query_s, k) ) ) { //&& (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read.substr(n.query_e - k, k)) ){
-            n.is_rc = false;
-        }
-        else {
-            if (!rc_already_comp){
-                read_rc = reverse_complement(read);
-                rc_already_comp = true;
-            }
-
-            if ((ref_segm.substr(n.query_s, k) == read_rc.substr(n.query_s, k))) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
-                n.is_rc = true;
-            } else {
-                did_not_fit++;
-                aln_did_not_fit = true;
-            }
-        }
-//        bool needs_aln = false;
         int soft_left = 50;
         int soft_right = 50;
         int hamming_mod;
@@ -1629,6 +1705,82 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
         int max_diff = ref_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
         int diff = max_diff - min_diff;
 
+        // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
+        bool fits = false;
+        std::string ref_start_kmer;
+        std::string ref_end_kmer;
+        std::string read_start_kmer;
+        std::string read_end_kmer;
+        std::string read_rc_start_kmer;
+        std::string read_rc_end_kmer;
+        ref_start_kmer = ref_seqs[n.ref_id].substr(n.ref_s, k);
+        ref_end_kmer = ref_seqs[n.ref_id].substr(n.ref_e-k, k);
+
+        if (!n.is_rc) {
+            read_start_kmer = read.substr(n.query_s, k);
+            read_end_kmer = read.substr(n.query_e-k, k);
+            if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)) {
+//            n.is_rc = false;
+                fits = true;
+            } else  {
+                //  FALSE FORWARD TAKE CARE OF FALSE HITS HERE - it can be false forwards or false rc because of symmetrical hash values
+                //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
+
+//              std::cerr << " CHECKING1!! " << std::endl;
+                // false reverse hit, change coordinates in nam to forward
+                if (!rc_already_comp){
+                    read_rc = reverse_complement(read);
+                    rc_already_comp = true;
+                }
+
+                int q_start_tmp = read_len - n.query_e;
+                int q_end_tmp = read_len - n.query_s;
+                read_start_kmer = read_rc.substr(q_start_tmp, k);
+                read_end_kmer = read_rc.substr(q_end_tmp-k, k);
+                if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
+                    fits = true;
+                    n.is_rc = true;
+                    n.query_s = q_start_tmp;
+                    n.query_e = q_end_tmp;
+//                std::cerr << " DETECTED FALSE RC FROM SYMM!! " << std::endl;
+                }
+
+            }
+        } else {
+            if (!rc_already_comp){
+                read_rc = reverse_complement(read);
+                rc_already_comp = true;
+            }
+            read_rc_start_kmer = read_rc.substr(n.query_s, k);
+            read_rc_end_kmer = read_rc.substr(n.query_e-k, k);
+            if ( (ref_start_kmer == read_rc_start_kmer) && (ref_end_kmer == read_rc_end_kmer) ) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
+                n.is_rc = true;
+                fits = true;
+            } else{
+                //  FALSE REVERSE TAKE CARE OF FALSE HITS HERE - it can be false forwards or false rc because of symmetrical hash values
+                //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
+
+                int q_start_tmp = read_len - n.query_e;
+                int q_end_tmp = read_len - n.query_s;
+                read_start_kmer = read.substr(q_start_tmp, k);
+                read_end_kmer = read.substr(q_end_tmp-k, k);
+//            std::cerr << " CHECKING2!! " <<   n.query_s << " " <<   n.query_e << " " << std::endl;
+//            std::cerr << read_start_kmer  << " " <<  ref_start_kmer << " " <<  read_end_kmer << " " << ref_end_kmer << std::endl;
+
+                if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
+                    fits = true;
+                    n.is_rc = false;
+                    n.query_s = q_start_tmp;
+                    n.query_e = q_end_tmp;
+//                std::cerr << " DETECTED FALSE FW FROM SYMM!! " << std::endl;
+                }
+            }
+        }
+        if (!fits){
+            did_not_fit++;
+            aln_did_not_fit = true;
+        }
+
         // deal with any read hanging of ends of reference not to get 'std::out_of_range' what(): basic_string::substr
         int ref_tmp_start = n.ref_s - n.query_s;
         int ref_tmp_segm_size = read_len + diff;
@@ -1638,24 +1790,25 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
 
         std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
 
-        // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
+//        // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
+//
+//        if ( (ref_segm.substr(n.query_s, k) == read.substr(n.query_s, k) ) ) { //&& (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read.substr(n.query_e - k, k)) ){
+//            n.is_rc = false;
+//        }
+//        else {
+//            if (!rc_already_comp){
+//                read_rc = reverse_complement(read);
+//                rc_already_comp = true;
+//            }
+//
+//            if ((ref_segm.substr(n.query_s, k) == read_rc.substr(n.query_s, k))) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
+//                n.is_rc = true;
+//            } else {
+//                did_not_fit++;
+//                aln_did_not_fit = true;
+//            }
+//        }
 
-        if ( (ref_segm.substr(n.query_s, k) == read.substr(n.query_s, k) ) ) { //&& (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read.substr(n.query_e - k, k)) ){
-            n.is_rc = false;
-        }
-        else {
-            if (!rc_already_comp){
-                read_rc = reverse_complement(read);
-                rc_already_comp = true;
-            }
-
-            if ((ref_segm.substr(n.query_s, k) == read_rc.substr(n.query_s, k))) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
-                n.is_rc = true;
-            } else {
-                did_not_fit++;
-                aln_did_not_fit = true;
-            }
-        }
         int hamming_mod;
         int soft_left = 50;
         int soft_right = 50;
