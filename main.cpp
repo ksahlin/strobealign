@@ -722,6 +722,28 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 
                 }
 
+//                // CHECK IF FALSE REVERSE HITS FROM SYM HASHES
+//                if (( o.is_rc == h.is_rc) && (o.query_prev_hit_startpos < h.query_s) && (h.query_s <= o.query_e ) && (o.ref_prev_hit_startpos <= h.ref_e) && (h.ref_e < o.ref_e) ){
+//                    if ( (h.query_e > o.query_e) && (h.ref_s < o.ref_s) ) {
+//                        o.query_e = h.query_e;
+//                        o.ref_s = h.ref_s;
+////                        o.previous_query_start = h.query_s;
+////                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
+//                        o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
+//                        o.ref_prev_hit_startpos = h.ref_s; // log the last strobemer hit in case of outputting paf
+//                        o.n_hits ++;
+////                        o.score += (float)1/ (float)h.count;
+//                        is_added = true;
+//                        break;
+//                    }
+//                    else if ((h.query_e <= o.query_e) && (h.ref_s >= o.ref_s)) {
+//                        o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
+//                        o.ref_prev_hit_startpos = h.ref_s; // log the last strobemer hit in case of outputting paf
+//                        o.n_hits ++;
+//                        is_added = true;
+//                        break;
+//                    }
+//                }
 
             }
 //            if (local_repeat_worse_fit){
@@ -996,16 +1018,17 @@ static inline std::string reverse_complement(std::string &read) {
 inline aln_info ssw_align(std::string &ref, std::string &query, int read_len, int match_score, int mismatch_penalty, int gap_opening_penalty, int gap_extending_penalty) {
 
     aln_info aln;
-//    const std::string ref   = "AGTATCTGGAACTGGACTTTTGGAGCGCTTTCAGGGATAAGGTGAAAAAGGAAATATCTTCCCATAAAAACTGGACAGAAGCATTCTCAGAAACTTATTTGAGATGTGTGTACTCAACTAAGAGAATTGAACCACCGTTTTGAAGGAGCAGTTTTGAAACTCTCTTTTTCTGGAATCTGCAAGTGGATATTTGGCTAGCTTTGGGGATTTCGCTGGAAGCGGGAATACATATAAAAAGCACACAGCAGCGTTCTGAGAAACTGCTTTCTGATGTTTGCATTCAAGTCAAAAGTTGAACACTCCCTTTCATAGAGCAGTCTTGAAACACCCCTTTTGTAGTATCTGGAACTGGACTTTTGGAGCGATTTCAGGGCTAAGGTGAAAAAGGAAATATCTTCCCATAAAAACTGGACAGAAGCATTCTCAGAAACTTGGTTATGCTGTATCTACTCAACTAACAAAGTTGAACCTTTCTTTTGATAGAGCAGTTTTGAAATGGTCTTTTTGTGGAATCTGCAAGTGGATATTTGGCTAGTTTTGAGGATTTCGTTGGAAGCGGGAATTCATACAAATTGCAGACTGCAGCGTTCTGAGAAACATCTTTGTGATGTTTGTATTCAGGACAGAGAGTTGAACATTCCCTATCATAGAGCAGGTTGGAATCACTCCTTTTGTAGTATCTGGAAGTGGACATTTGGAGCGCTTTCAGGCCTATTTTGGAAAGGGAAATATCTTCCCGTAACAACTATGCAGAAGCATTCTCAGAAACTTGTTTGTGATGTGTGCCCTCTACTGACAGAGTTGAACCTTTCTTTTCATAGAGCAGTTTTGAAACACTCTTTTTGTAGAA";
-//    const std::string query = "CGGGAATACATATAAAAAGCACACAGCAGCGTTCTGAGAAACTGCTTTCTGATGTTTGCATTAAAGTCAAAAGTTGAACACTCCCTTTCATAGAGCAGTC";
     int32_t maskLen = strlen(query.c_str())/2;
     maskLen = maskLen < 15 ? 15 : maskLen;
-//    int match_score = 1;
-//    int mismatch_penalty = 4;
-//    int gap_opening_penalty = 6;
-//    int gap_extending_penalty = 1;
-    // Declares Aligner
-//    std::cerr << match_score << " " <<  mismatch_penalty << " " <<  gap_opening_penalty << " " << gap_extending_penalty <<std::endl;
+    if (ref.length() > 1000){
+        std::cerr << "ALIGNMENT TO REF LONGER THAN 1000bp - REPORT TO DEVELOPER. Happened for read: " <<  query << std::endl;
+        aln.global_ed = 100000;
+        aln.ed = 100000;
+        aln.ref_offset = 0;
+        aln.cigar = "*";
+        aln.sw_score = -1000000;
+        return aln;
+    }
 
     StripedSmithWaterman::Aligner aligner(match_score, mismatch_penalty, gap_opening_penalty, gap_extending_penalty);
 //    StripedSmithWaterman::Aligner aligner;
@@ -1814,8 +1837,49 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
     }
 }
 
+static inline void align_segment(alignment_params &aln_params, std::string &read_segm, std::string &ref_segm, int read_segm_len, int ref_segm_len, int ref_start,  int ext_left, int ext_right, bool aln_did_not_fit, bool is_rc, alignment &sam_aln_segm, unsigned int &tot_ksw_aligned) {
+    int hamming_dist = -1;
+    int soft_left = 50;
+    int soft_right = 50;
+    int hamming_mod;
+    int ref_segm_len_ham = ref_segm_len - ext_left - ext_right; // we send in the already extended ref segment to save time. This is not true in center alignment if merged match have diff length
+//    std::cout << "ref_segm_len_ham" << ref_segm_len_ham << std::endl;
+    if ( (ref_segm_len_ham == read_segm_len) && (!aln_did_not_fit) ){
+        std::string ref_segm_ham = ref_segm.substr(ext_left, read_segm_len);
+//        std::cout << "ref_segm_ham " << ref_segm_ham << std::endl;
 
+        hamming_dist = HammingDistance(read_segm, ref_segm_ham);
+//        std::cout << "hamming_dist " << hamming_dist << std::endl;
 
+        if ( (hamming_dist >= 0) && (((float) hamming_dist / read_segm_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
+            std::stringstream cigar_string;
+            int aln_score = 0;
+            hamming_mod = HammingToCigarEQX2(read_segm, ref_segm_ham, cigar_string, aln_params.match, aln_params.mismatch, aln_score, soft_left, soft_right);
+            sam_aln_segm.cigar = cigar_string.str();
+            sam_aln_segm.ed = hamming_mod;
+            sam_aln_segm.sw_score = aln_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
+            sam_aln_segm.ref_start = ref_start + ext_left + soft_left+1; // +1 because SAM is 1-based!
+            sam_aln_segm.is_rc = is_rc;
+            sam_aln_segm.is_unaligned = false;
+            sam_aln_segm.aln_score = aln_score;
+//            std::cout << "cigar " << sam_aln_segm.cigar << " sam_aln_segm.ref_start " << sam_aln_segm.ref_start << std::endl;
+            return;
+        }
+    }
+
+    aln_info info;
+    info = ssw_align(ref_segm, read_segm, read_segm_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+    tot_ksw_aligned ++;
+    sam_aln_segm.cigar = info.cigar;
+    sam_aln_segm.ed = info.ed;
+//    std::cerr << r_tmp << " " << n.n_hits << " " << n.score << " " <<  diff << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << hamming_dist << " " << sam_aln.cigar << " " << info.sw_score << std::endl;
+    sam_aln_segm.sw_score = info.sw_score;
+    sam_aln_segm.ref_start =  ref_start + info.ref_offset +1; // +1 because SAM is 1-based!
+    sam_aln_segm.is_rc = is_rc;
+    sam_aln_segm.is_unaligned = false;
+    sam_aln_segm.aln_score = info.sw_score;
+//    std::cerr << " ALIGN SCORE: " << sam_aln_segm.sw_score << " cigar: " << sam_aln_segm.cigar << std::endl;
+}
 
 static inline void get_alignment(alignment_params &aln_params, nam &n, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, int read_len, alignment &sam_aln, int k, int cnt, bool &rc_already_comp, unsigned int &did_not_fit, unsigned int &tot_ksw_aligned){
     bool aln_did_not_fit = false;
@@ -1826,30 +1890,72 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, std::vect
     int diff = max_diff - min_diff;
 //    int max_allowed_mask = aln_params.gap_open/aln_params.match - 1 > 0 ? aln_params.gap_open/aln_params.match - 1 : 1;
 
-    // deal with any read hanging of ends of reference not to get 'std::out_of_range' what(): basic_string::substr
-    int ref_tmp_start = n.ref_s - n.query_s;
-    int ref_tmp_segm_size = read_len + diff;
-    int ref_len = ref_len_map[n.ref_id];
-    int ref_start = ref_tmp_start > 0 ? ref_tmp_start : 0;
-    int ref_segm_size = ref_tmp_segm_size < ref_len - ref_start ? ref_tmp_segm_size : ref_len - 1 - ref_start;
-
-    std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
+//    std::cerr << "n.ID " << n.nam_id  << " n.n_hits " << n.n_hits << " n.ref_s " <<  n.ref_s <<  " n.ref_e " << n.ref_e << " read " << read << std::endl;
 
     // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
     bool fits = false;
-    if ( (ref_segm.substr(n.query_s, k) == read.substr(n.query_s, k) ) ) { //&& (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read.substr(n.query_e - k, k)) ){
-        n.is_rc = false;
-        fits = true;
-    }
-    else {
+    std::string ref_start_kmer;
+    std::string ref_end_kmer;
+    std::string read_start_kmer;
+    std::string read_end_kmer;
+    std::string read_rc_start_kmer;
+    std::string read_rc_end_kmer;
+    ref_start_kmer = ref_seqs[n.ref_id].substr(n.ref_s, k);
+    ref_end_kmer = ref_seqs[n.ref_id].substr(n.ref_e-k, k);
+
+    if (!n.is_rc) {
+        read_start_kmer = read.substr(n.query_s, k);
+        read_end_kmer = read.substr(n.query_e-k, k);
+        if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)) {
+//            n.is_rc = false;
+            fits = true;
+        } else  {
+            //  FALSE FORWARD TAKE CARE OF FALSE HITS HERE - it can be false forwards or false rc because of symmetrical hash values
+            //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
+
+//              std::cerr << " CHECKING1!! " << std::endl;
+            // false reverse hit, change coordinates in nam to forward
+            if (!rc_already_comp){
+                read_rc = reverse_complement(read);
+                rc_already_comp = true;
+            }
+            int q_tmp = read_len - n.query_e;
+            n.query_e = read_len - n.query_s;
+            n.query_s = q_tmp;
+            read_start_kmer = read_rc.substr(n.query_s, k);
+            read_end_kmer = read_rc.substr(n.query_e-k, k);
+            if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
+                fits = true;
+//                std::cerr << " DETECTED FALSE RC FROM SYMM!! " << std::endl;
+            }
+
+        }
+    } else {
         if (!rc_already_comp){
             read_rc = reverse_complement(read);
             rc_already_comp = true;
         }
-
-        if ((ref_segm.substr(n.query_s, k) == read_rc.substr(n.query_s, k))) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
+        read_rc_start_kmer = read_rc.substr(n.query_s, k);
+        read_rc_end_kmer = read_rc.substr(n.query_e-k, k);
+        if ( (ref_start_kmer == read_rc_start_kmer) && (ref_end_kmer == read_rc_end_kmer) ) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
             n.is_rc = true;
             fits = true;
+        } else{
+            //  FALSE REVERSE TAKE CARE OF FALSE HITS HERE - it can be false forwards or false rc because of symmetrical hash values
+            //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
+
+            int q_tmp = read_len - n.query_e;
+            n.query_e = read_len - n.query_s;
+            n.query_s = q_tmp;
+            read_start_kmer = read.substr(n.query_s, k);
+            read_end_kmer = read.substr(n.query_e-k, k);
+//            std::cerr << " CHECKING2!! " <<   n.query_s << " " <<   n.query_e << " " << std::endl;
+//            std::cerr << read_start_kmer  << " " <<  ref_start_kmer << " " <<  read_end_kmer << " " << ref_end_kmer << std::endl;
+
+            if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
+                fits = true;
+//                std::cerr << " DETECTED FALSE FW FROM SYMM!! " << std::endl;
+            }
         }
     }
 
@@ -1857,12 +1963,8 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, std::vect
         did_not_fit++;
         aln_did_not_fit = true;
         sam_aln.not_proper = true;
-//            sam_aln.sw_score = 0;
-//            sam_aln.is_unaligned = true;
-//            return;
     }
 
-    int hamming_dist = -1;
     std::string r_tmp;
     bool is_rc;
     if (n.is_rc){
@@ -1873,81 +1975,261 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, std::vect
         is_rc = false;
     }
 
-//    std::cerr<< r_tmp << std::endl;
-//    std::cerr<< ref_segm << std::endl;
-//    std::cerr<< diff << std::endl;
-    int soft_left = 50;
-    int soft_right = 50;
-    int hamming_mod;
-//    bool needs_aln = false;
-    if ( (ref_segm_size == read_len) && (!aln_did_not_fit) ){
-        hamming_dist = HammingDistance(r_tmp, ref_segm);
-//        std::cerr<< "Here " << hamming_dist << std::endl;
-//        std::cerr<< aln_params.gap_open/aln_params.match  << std::endl;
-        if ( (hamming_dist >= 0) && (((float) hamming_dist / read_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-            std::stringstream cigar_string;
-//            needs_aln = HammingToCigarEQX(r_tmp, ref_segm, cigar_string);
-            int aln_score = 0;
-            hamming_mod = HammingToCigarEQX2(r_tmp, ref_segm, cigar_string, aln_params.match, aln_params.mismatch, aln_score, soft_left, soft_right);
+    int ext_left;
+    int ext_right;
+    int ref_tmp_segm_size;
+    int ref_len = ref_len_map[n.ref_id];
+    int ref_segm_size;
+    int ref_tmp_end;
+    int ref_tmp_start;
+    int ref_end;
+    int ref_start;
+    std::string ref_segm;
+    std::string read_segm;
 
-//            needs_aln = false;
-            sam_aln.cigar = cigar_string.str();
-//            sam_aln.cigar = std::to_string(read_len) + "M";
-//            std::cerr<< "Here ham dist: " << hamming_dist << " ham mod: " << hamming_mod << " " << r_tmp.size() << " " << ref_segm.size()  << std::endl;
-            sam_aln.ed = hamming_mod;
-//            sam_aln.sw_score = aln_score;
-            sam_aln.sw_score = aln_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
-            sam_aln.ref_start = ref_start + soft_left+1; // +1 because SAM is 1-based!
-            sam_aln.is_rc = is_rc;
-            sam_aln.ref_id = n.ref_id;
-            sam_aln.is_unaligned = false;
-            sam_aln.aln_score = aln_score;
-            return;
-//            if (hamming_mod == hamming_dist ){ // masked only what is justified by alingment parameters max_allowed_mask
-//                return;
-//            }
+    if (true){ // full alignment
+        ref_tmp_start = n.ref_s - n.query_s > 0 ? n.ref_s - n.query_s : 0;
+        ext_left = ref_tmp_start < 50 ? ref_tmp_start : 50;
+        ref_start = ref_tmp_start - ext_left;
+
+        ref_tmp_segm_size = read_len + diff;
+        ext_right = ref_len - (n.ref_e +1) < 50 ? ref_len - (n.ref_e +1) : 50;
+
+        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
+        ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
+//        std::cerr << " ref_tmp_start " << ref_tmp_start << " ext left " << ext_left << " ext right " << ext_right << " ref_tmp_segm_size " << ref_tmp_segm_size << " ref_segm_size " << ref_segm_size << " ref_segm " << ref_segm << std::endl;
+        sam_aln.ref_id = n.ref_id;
+        align_segment(aln_params, r_tmp, ref_segm, read_len, ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln, tot_ksw_aligned);
+    } else{
+        // test full hamming based alignment first
+        ref_tmp_start = n.ref_s - n.query_s > 0 ? n.ref_s - n.query_s : 0;
+        int ref_start = ref_tmp_start > 0 ? ref_tmp_start : 0;
+        ref_tmp_segm_size = read_len + diff;
+        ref_segm_size = ref_tmp_segm_size < ref_len - ref_start ? ref_tmp_segm_size : ref_len - 1 - ref_start;
+
+        std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
+        if ( (ref_segm_size == read_len) && fits ){
+            std::cout << "ref_segm_full_ham " << ref_segm << std::endl;
+
+            int hamming_dist = HammingDistance(r_tmp, ref_segm);
+            std::cout << "hamming_dist " << hamming_dist << std::endl;
+
+            if ( (hamming_dist >= 0) && (((float) hamming_dist / ref_segm_size) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
+                std::stringstream cigar_string;
+                int aln_score = 0;
+                int soft_left = 0;
+                int soft_right = 0;
+                int hamming_mod = HammingToCigarEQX2(r_tmp, ref_segm, cigar_string, aln_params.match, aln_params.mismatch, aln_score, soft_left, soft_right);
+                sam_aln.cigar = cigar_string.str();
+                sam_aln.ed = hamming_mod;
+                sam_aln.sw_score = aln_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
+                sam_aln.ref_start = ref_start + ext_left + soft_left+1; // +1 because SAM is 1-based!
+                sam_aln.is_rc = is_rc;
+                sam_aln.is_unaligned = false;
+                sam_aln.aln_score = aln_score;
+                std::cout << "FULL HAMMING , returning " << sam_aln.cigar << " sam_aln_segm.ref_start " << sam_aln.ref_start << std::endl;
+                return;
+            }
         }
-        //TODO: Only do ksw of the ends outside the NAM to increase speed here
-//        else{ // Segment(s) of read outside the NAM span is not fitting to reference, align the segments
-//            std::cerr<< sam_aln.ed << " " << sam_aln.sw_score << " " <<   n.query_s << " " << n.query_e << std::endl;
-//            std::cerr<< r_tmp << std::endl;
-//            std::cerr<< ref_segm.substr(0,read_len) << std::endl;
-//
-//        }
+
+        //// Didn't work with global Hamming - split into parts
+
+        // left alignment
+        ref_end = n.ref_s + k;
+        ext_left = ref_end < 50 ? ref_end : 50;
+        ref_start = ref_end - ext_left;
+
+        ref_tmp_segm_size = n.query_s + k;
+        ext_right = 0;
+
+        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
+        ref_segm = ref_seqs[n.ref_id].substr(ref_end - ext_left, ref_segm_size);
+        alignment sam_aln_segm_left;
+        sam_aln_segm_left.ref_id = n.ref_id;
+        read_segm = r_tmp.substr(0, n.query_s+k);
+        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln_segm_left, tot_ksw_aligned);
+
+
+        // center alignment
+        ref_tmp_start = n.ref_s - n.query_s;
+        ref_start = ref_tmp_start > 0 ? ref_tmp_start : 0;
+        ext_left = 0;
+
+        ref_tmp_segm_size =  n.ref_e - n.ref_s;
+        ext_right = 0;
+
+        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
+        ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
+        alignment sam_aln_segm_center;
+        sam_aln_segm_center.ref_id = n.ref_id;
+        read_segm = r_tmp.substr(n.query_s, n.query_e - n.query_s);
+        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln_segm_center, tot_ksw_aligned);
+
+
+        // right alignment
+        ext_left = 0;
+        ref_start = n.ref_e - k;
+
+        ext_right = ref_len - (n.ref_e +1) < 50 ? ref_len - (n.ref_e +1) : 50;
+        ref_tmp_segm_size = n.ref_e + ext_right - ref_start;
+
+        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
+        ref_segm = ref_seqs[n.ref_id].substr(n.ref_e  - ext_left, ref_segm_size);
+        alignment sam_aln_segm_right;
+        sam_aln_segm_left.ref_id = n.ref_id;
+        read_segm = r_tmp.substr(0, n.query_s+k);
+        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln_segm_right, tot_ksw_aligned);
+
+        std::cout << sam_aln_segm_left.cigar << " " << sam_aln_segm_center.cigar << " " << sam_aln_segm_right.cigar << std::endl;
+
+        sam_aln.ref_id = n.ref_id;
+        sam_aln.cigar = sam_aln_segm_left.cigar + sam_aln_segm_center.cigar + sam_aln_segm_right.cigar;
+        sam_aln.ed = sam_aln_segm_left.ed + sam_aln_segm_center.ed + sam_aln_segm_right.ed;
+        sam_aln.sw_score = sam_aln_segm_left.sw_score + sam_aln_segm_center.sw_score + sam_aln_segm_right.sw_score;
+        sam_aln.ref_start =   sam_aln_segm_left.ref_start;
+        sam_aln.is_rc = sam_aln_segm_left.is_rc;
+        sam_aln.is_unaligned = false;
+        sam_aln.aln_score = sam_aln.sw_score;
+        std::cout << "Joint: " << sam_aln.cigar << std::endl;
+
     }
 
-    // We didn't get away with hamming distance, do full ksw alignment
-//    else {
-//    std::cerr<< "3" << std::endl;
+    }
 
-    int extra_ref_left = soft_left <= 50 ? soft_left : 50;
-    int extra_ref_right = soft_right <= 50 ? soft_right: 50;
-    int a = n.ref_s - n.query_s - extra_ref_left;
-    ref_start = std::max(0, a);
-    int b = n.ref_e + (read_len - n.query_e)+ extra_ref_right;
-    int ref_end = std::min(ref_len, b);
-    ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
-//    ksw_extz_t ez;
-//    const char *ref_ptr = ref_segm.c_str();
-//    const char *read_ptr = r_tmp.c_str();
-    aln_info info;
-//    std::cerr<< "4" << std::endl;
-//    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
-    info = ssw_align(ref_segm, r_tmp, read_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
 
-//    std::cerr<< "5" << std::endl;
-    sam_aln.cigar = info.cigar;
-    sam_aln.ed = info.ed;
-//    std::cerr << r_tmp << " " << n.n_hits << " " << n.score << " " <<  diff << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << hamming_dist << " " << sam_aln.cigar << " " << info.sw_score << std::endl;
-    sam_aln.sw_score = info.sw_score;
-    sam_aln.ref_start =  ref_start + info.ref_offset +1; // +1 because SAM is 1-based!
-    sam_aln.is_rc = is_rc;
-    sam_aln.ref_id = n.ref_id;
-    sam_aln.is_unaligned = false;
-    sam_aln.aln_score = info.sw_score;
-    tot_ksw_aligned ++;
+
+
+//static inline void get_alignment_old(alignment_params &aln_params, nam &n, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, int read_len, alignment &sam_aln, int k, int cnt, bool &rc_already_comp, unsigned int &did_not_fit, unsigned int &tot_ksw_aligned){
+//    bool aln_did_not_fit = false;
+//    int ref_diff = n.ref_e - n.ref_s;
+//    int read_diff = n.query_e - n.query_s;
+//    int min_diff =  read_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
+//    int max_diff = ref_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
+//    int diff = max_diff - min_diff;
+////    int max_allowed_mask = aln_params.gap_open/aln_params.match - 1 > 0 ? aln_params.gap_open/aln_params.match - 1 : 1;
+//
+//    // deal with any read hanging of ends of reference not to get 'std::out_of_range' what(): basic_string::substr
+//    int ref_tmp_start = n.ref_s - n.query_s;
+//    int ref_tmp_segm_size = read_len + diff;
+//    int ref_len = ref_len_map[n.ref_id];
+//    int ref_start = ref_tmp_start > 0 ? ref_tmp_start : 0;
+//    int ref_segm_size = ref_tmp_segm_size < ref_len - ref_start ? ref_tmp_segm_size : ref_len - 1 - ref_start;
+//
+//    std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
+//
+//    // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
+//    bool fits = false;
+//    if ( (ref_segm.substr(n.query_s, k) == read.substr(n.query_s, k) ) ) { //&& (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read.substr(n.query_e - k, k)) ){
+//        n.is_rc = false;
+//        fits = true;
 //    }
-}
+//    else {
+//        if (!rc_already_comp){
+//            read_rc = reverse_complement(read);
+//            rc_already_comp = true;
+//        }
+//
+//        if ((ref_segm.substr(n.query_s, k) == read_rc.substr(n.query_s, k))) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
+//            n.is_rc = true;
+//            fits = true;
+//        }
+//    }
+//
+//    if (!fits) {
+//        did_not_fit++;
+//        aln_did_not_fit = true;
+//        sam_aln.not_proper = true;
+////            sam_aln.sw_score = 0;
+////            sam_aln.is_unaligned = true;
+////            return;
+//    }
+//
+//    int hamming_dist = -1;
+//    std::string r_tmp;
+//    bool is_rc;
+//    if (n.is_rc){
+//        r_tmp = read_rc;
+//        is_rc = true;
+//    }else{
+//        r_tmp = read;
+//        is_rc = false;
+//    }
+//
+////    std::cerr<< r_tmp << std::endl;
+////    std::cerr<< ref_segm << std::endl;
+////    std::cerr<< diff << std::endl;
+//    int soft_left = 50;
+//    int soft_right = 50;
+//    int hamming_mod;
+////    bool needs_aln = false;
+//    if ( (ref_segm_size == read_len) && (!aln_did_not_fit) ){
+//        hamming_dist = HammingDistance(r_tmp, ref_segm);
+////        std::cerr<< "Here " << hamming_dist << std::endl;
+////        std::cerr<< aln_params.gap_open/aln_params.match  << std::endl;
+//        if ( (hamming_dist >= 0) && (((float) hamming_dist / read_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
+//            std::stringstream cigar_string;
+////            needs_aln = HammingToCigarEQX(r_tmp, ref_segm, cigar_string);
+//            int aln_score = 0;
+//            hamming_mod = HammingToCigarEQX2(r_tmp, ref_segm, cigar_string, aln_params.match, aln_params.mismatch, aln_score, soft_left, soft_right);
+//
+////            needs_aln = false;
+//            sam_aln.cigar = cigar_string.str();
+////            sam_aln.cigar = std::to_string(read_len) + "M";
+////            std::cerr<< "Here ham dist: " << hamming_dist << " ham mod: " << hamming_mod << " " << r_tmp.size() << " " << ref_segm.size()  << std::endl;
+//            sam_aln.ed = hamming_mod;
+////            sam_aln.sw_score = aln_score;
+//            sam_aln.sw_score = aln_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
+//            sam_aln.ref_start = ref_start + soft_left+1; // +1 because SAM is 1-based!
+//            sam_aln.is_rc = is_rc;
+//            sam_aln.ref_id = n.ref_id;
+//            sam_aln.is_unaligned = false;
+//            sam_aln.aln_score = aln_score;
+//            return;
+////            if (hamming_mod == hamming_dist ){ // masked only what is justified by alingment parameters max_allowed_mask
+////                return;
+////            }
+//        }
+//        //TODO: Only do ksw of the ends outside the NAM to increase speed here
+////        else{ // Segment(s) of read outside the NAM span is not fitting to reference, align the segments
+////            std::cerr<< sam_aln.ed << " " << sam_aln.sw_score << " " <<   n.query_s << " " << n.query_e << std::endl;
+////            std::cerr<< r_tmp << std::endl;
+////            std::cerr<< ref_segm.substr(0,read_len) << std::endl;
+////
+////        }
+//    }
+//
+//    // We didn't get away with hamming distance, do full ksw alignment
+////    else {
+////    std::cerr<< "3" << std::endl;
+//
+//    int extra_ref_left = soft_left <= 50 ? soft_left : 50;
+//    int extra_ref_right = soft_right <= 50 ? soft_right: 50;
+//    int a = n.ref_s - n.query_s - extra_ref_left;
+//    ref_start = std::max(0, a);
+//    int b = n.ref_e + (read_len - n.query_e)+ extra_ref_right;
+//    int ref_end = std::min(ref_len, b);
+//    ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
+////    ksw_extz_t ez;
+////    const char *ref_ptr = ref_segm.c_str();
+////    const char *read_ptr = r_tmp.c_str();
+//    aln_info info;
+////    std::cerr<< "4" << std::endl;
+////    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
+//    info = ssw_align(ref_segm, r_tmp, read_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+//
+////    std::cerr<< "5" << std::endl;
+//    sam_aln.cigar = info.cigar;
+//    sam_aln.ed = info.ed;
+////    std::cerr << r_tmp << " " << n.n_hits << " " << n.score << " " <<  diff << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << hamming_dist << " " << sam_aln.cigar << " " << info.sw_score << std::endl;
+//    sam_aln.sw_score = info.sw_score;
+//    sam_aln.ref_start =  ref_start + info.ref_offset +1; // +1 because SAM is 1-based!
+//    sam_aln.is_rc = is_rc;
+//    sam_aln.ref_id = n.ref_id;
+//    sam_aln.is_unaligned = false;
+//    sam_aln.aln_score = info.sw_score;
+//    tot_ksw_aligned ++;
+////    }
+//}
 
 static inline void get_MAPQ(std::vector<nam> &all_nams, nam &n_max, int &mapq){
     float s1 = n_max.score;
@@ -2318,8 +2600,8 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
                     joint_hits = n1.n_hits + n2.n_hits; // - n1_penalty - n2_penalty; // trying out idea about penalty but it needs to be on the individual seed level - to late on merged match level.
                     std::tuple<int, nam, nam> t (joint_hits, n1, n2);
                     joint_NAM_scores.push_back(t);
-                    added_n1.insert(n1.ref_s);
-                    added_n2.insert(n2.ref_s);
+                    added_n1.insert(n1.nam_id);
+                    added_n2.insert(n2.nam_id);
                     if (joint_hits > hjss) {
                         hjss = joint_hits;
                     }
@@ -2349,12 +2631,13 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
 
     if ( !all_nams1.empty() ){
         int hjss1 = hjss > 0 ? hjss : all_nams1[0].n_hits;
+//        std::cerr <<" hjss1 " << hjss1 << " " << std::endl;
     //    int hjss1 = all_nams1[0].n_hits;
         for (auto &n1 : all_nams1) {
             if (n1.n_hits  < hjss1/2){
                 break;
             }
-            if (added_n1.find(n1.ref_s) != added_n1.end()){
+            if (added_n1.find(n1.nam_id) != added_n1.end()){
                 continue;
             }
 //            int diff1 = (n1.query_e - n1.query_s) - (n1.ref_e - n1.ref_s);
@@ -2368,12 +2651,13 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
 
     if ( !all_nams2.empty() ){
         int hjss2 = hjss  > 0 ? hjss : all_nams2[0].n_hits;
+//        std::cerr <<" hjss2 " << hjss2 << " " << std::endl;
     //    int hjss2 = all_nams2[0].n_hits;
         for (auto &n2 : all_nams2) {
             if (n2.n_hits  < hjss2/2){
                 break;
             }
-            if (added_n2.find(n2.ref_s) != added_n2.end()){
+            if (added_n2.find(n2.nam_id) != added_n2.end()){
                 continue;
             }
 //            int diff2 = (n2.query_e - n2.query_s) - (n2.ref_e - n2.ref_s);
@@ -3786,7 +4070,7 @@ int main (int argc, char **argv)
 //    out.close();
 
     std::cerr << "Total mapping sites tried: " << tot_all_tried << std::endl;
-    std::cerr << "Total calls to ksw: " << tot_ksw_aligned << std::endl;
+    std::cerr << "Total calls to ssw: " << tot_ksw_aligned << std::endl;
     std::cerr << "Calls to ksw (rescue mode): " << tot_rescued << std::endl;
     std::cerr << "Did not fit strobe start site: " << did_not_fit  << std::endl;
     std::cerr << "Tried rescue: " << tried_rescue  << std::endl;
@@ -3801,7 +4085,7 @@ int main (int argc, char **argv)
 //    std::cerr << "Total time finding NAMs ALTERNATIVE (candidate sites): " << tot_find_nams_alt.count()/n_threads  << " s." <<  std::endl;
     std::cerr << "Total time sorting NAMs (candidate sites): " << tot_sort_nams.count()/n_threads  << " s." <<  std::endl;
     std::cerr << "Total time reverse compl seq: " << tot_rc.count()/n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time extending alignment: " << tot_extend.count()/n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time base level alignment (ssw): " << tot_extend.count()/n_threads  << " s." <<  std::endl;
     std::cerr << "Total time writing alignment to files: " << tot_write_file.count() << " s." <<  std::endl;
 
     //////////////////////////////////////////////////////////////////////////
