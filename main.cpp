@@ -1919,13 +1919,16 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, std::vect
                 read_rc = reverse_complement(read);
                 rc_already_comp = true;
             }
-            int q_tmp = read_len - n.query_e;
-            n.query_e = read_len - n.query_s;
-            n.query_s = q_tmp;
-            read_start_kmer = read_rc.substr(n.query_s, k);
-            read_end_kmer = read_rc.substr(n.query_e-k, k);
+
+            int q_start_tmp = read_len - n.query_e;
+            int q_end_tmp = read_len - n.query_s;
+            read_start_kmer = read_rc.substr(q_start_tmp, k);
+            read_end_kmer = read_rc.substr(q_end_tmp-k, k);
             if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
                 fits = true;
+                n.is_rc = true;
+                n.query_s = q_start_tmp;
+                n.query_e = q_end_tmp;
 //                std::cerr << " DETECTED FALSE RC FROM SYMM!! " << std::endl;
             }
 
@@ -1944,16 +1947,18 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, std::vect
             //  FALSE REVERSE TAKE CARE OF FALSE HITS HERE - it can be false forwards or false rc because of symmetrical hash values
             //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
 
-            int q_tmp = read_len - n.query_e;
-            n.query_e = read_len - n.query_s;
-            n.query_s = q_tmp;
-            read_start_kmer = read.substr(n.query_s, k);
-            read_end_kmer = read.substr(n.query_e-k, k);
+            int q_start_tmp = read_len - n.query_e;
+            int q_end_tmp = read_len - n.query_s;
+            read_start_kmer = read.substr(q_start_tmp, k);
+            read_end_kmer = read.substr(q_end_tmp-k, k);
 //            std::cerr << " CHECKING2!! " <<   n.query_s << " " <<   n.query_e << " " << std::endl;
 //            std::cerr << read_start_kmer  << " " <<  ref_start_kmer << " " <<  read_end_kmer << " " << ref_end_kmer << std::endl;
 
             if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
                 fits = true;
+                n.is_rc = false;
+                n.query_s = q_start_tmp;
+                n.query_e = q_end_tmp;
 //                std::cerr << " DETECTED FALSE FW FROM SYMM!! " << std::endl;
             }
         }
