@@ -1020,8 +1020,8 @@ inline aln_info ssw_align(std::string &ref, std::string &query, int read_len, in
     aln_info aln;
     int32_t maskLen = strlen(query.c_str())/2;
     maskLen = maskLen < 15 ? 15 : maskLen;
-    if (ref.length() > 1000){
-        std::cerr << "ALIGNMENT TO REF LONGER THAN 1000bp - REPORT TO DEVELOPER. Happened for read: " <<  query << std::endl;
+    if (ref.length() > 2000){
+        std::cerr << "ALIGNMENT TO REF LONGER THAN 2000bp - REPORT TO DEVELOPER. Happened for read: " <<  query << " ref len:" << ref.length() << std::endl;
         aln.global_ed = 100000;
         aln.ed = 100000;
         aln.ref_offset = 0;
@@ -2425,6 +2425,14 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, std::vect
 //    std::cerr<< "4" << std::endl;
 //    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
     info = ssw_align(ref_segm, r_tmp, read_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+//    if (info.ed == 100000){
+//        std::cerr<< "________________________________________" << std::endl;
+//        std::cerr<< "NORMAL MODE" << std::endl;
+//        std::cerr<< read << "   " << read_rc << std::endl;
+//        std::cerr << r_tmp << " " << n.n_hits << " " << n.score << " " <<  diff << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << hamming_dist << " " << sam_aln.cigar << " " << info.sw_score << std::endl;
+//        std::cerr << "a " << a << " b " << b << " ref_start " <<  ref_start << " ref_end " << ref_end << "  ref_end - ref_start "  <<  ref_end - ref_start << " extra_ref_left "  << extra_ref_left << " extra_ref_right "<<  extra_ref_right << "  n.is_flipped " <<  n.is_flipped << std::endl;
+//        std::cerr<< "________________________________________" << std::endl;
+//    }
 
 //    std::cerr<< "5" << std::endl;
     sam_aln.cigar = info.cigar;
@@ -2898,6 +2906,79 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
     int a, b, ref_start,ref_len,ref_end;
     std::string r_tmp;
     bool a_is_rc;
+
+    // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
+    bool fits = false;
+    std::string ref_start_kmer;
+    std::string ref_end_kmer;
+    std::string read_start_kmer;
+    std::string read_end_kmer;
+    std::string read_rc_start_kmer;
+    std::string read_rc_end_kmer;
+    ref_start_kmer = ref_seqs[n.ref_id].substr(n.ref_s, k);
+    ref_end_kmer = ref_seqs[n.ref_id].substr(n.ref_e-k, k);
+
+    if (!n.is_rc) {
+        read_start_kmer = read.substr(n.query_s, k);
+        read_end_kmer = read.substr(n.query_e-k, k);
+        if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)) {
+//            n.is_rc = false;
+            fits = true;
+        } else  {
+            //  FALSE FORWARD TAKE CARE OF FALSE HITS HERE - it can be false forwards or false rc because of symmetrical hash values
+            //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
+
+//              std::cerr << " CHECKING1!! " << std::endl;
+            // false reverse hit, change coordinates in nam to forward
+            if (!rc_already_comp){
+                read_rc = reverse_complement(read);
+                rc_already_comp = true;
+            }
+
+            int q_start_tmp = read_len - n.query_e;
+            int q_end_tmp = read_len - n.query_s;
+            read_start_kmer = read_rc.substr(q_start_tmp, k);
+            read_end_kmer = read_rc.substr(q_end_tmp-k, k);
+            if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
+                fits = true;
+                n.is_rc = true;
+                n.query_s = q_start_tmp;
+                n.query_e = q_end_tmp;
+//                std::cerr << " DETECTED FALSE RC FROM SYMM!! " << std::endl;
+            }
+
+        }
+    } else {
+        if (!rc_already_comp){
+            read_rc = reverse_complement(read);
+            rc_already_comp = true;
+        }
+        read_rc_start_kmer = read_rc.substr(n.query_s, k);
+        read_rc_end_kmer = read_rc.substr(n.query_e-k, k);
+        if ( (ref_start_kmer == read_rc_start_kmer) && (ref_end_kmer == read_rc_end_kmer) ) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
+            n.is_rc = true;
+            fits = true;
+        } else{
+            //  FALSE REVERSE TAKE CARE OF FALSE HITS HERE - it can be false forwards or false rc because of symmetrical hash values
+            //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
+
+            int q_start_tmp = read_len - n.query_e;
+            int q_end_tmp = read_len - n.query_s;
+            read_start_kmer = read.substr(q_start_tmp, k);
+            read_end_kmer = read.substr(q_end_tmp-k, k);
+//            std::cerr << " CHECKING2!! " <<   n.query_s << " " <<   n.query_e << " " << std::endl;
+//            std::cerr << read_start_kmer  << " " <<  ref_start_kmer << " " <<  read_end_kmer << " " << ref_end_kmer << std::endl;
+
+            if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
+                fits = true;
+                n.is_rc = false;
+                n.query_s = q_start_tmp;
+                n.query_e = q_end_tmp;
+//                std::cerr << " DETECTED FALSE FW FROM SYMM!! " << std::endl;
+            }
+        }
+    }
+
     if (n.is_rc){
         r_tmp = read;
         a = n.ref_s - n.query_s - (mu+5*sigma);
@@ -2954,6 +3035,15 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
 //    std::cerr << "read: " << r_tmp << std::endl;
 //    std::cerr << "ref: " << ref_segm << std::endl;
     info = ssw_align(ref_segm, r_tmp, read_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+
+//    if (info.ed == 100000){
+//        std::cerr<< "________________________________________" << std::endl;
+//        std::cerr<< "RESCUE MODE: " << mu << "  " << sigma << std::endl;
+//        std::cerr<< read << "   " << read_rc << std::endl;
+//        std::cerr << r_tmp << " " << n.n_hits << " " << n.score << " " << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << " " << sam_aln.cigar << " " << info.sw_score << std::endl;
+//        std::cerr << "a " << a << " b " << b << " ref_start " <<  ref_start << " ref_end " << ref_end << "  ref_end - ref_start "  <<  ref_end - ref_start << "  n.is_flipped " <<  n.is_flipped << std::endl;
+//        std::cerr<< "________________________________________" << std::endl;
+//    }
 //    info = parasail_align(ref_segm, ref_segm.size(), r_tmp, read_len, 1, 4, 6, 1);
 
 //    ksw_extz_t ez;
@@ -4102,10 +4192,6 @@ int main (int argc, char **argv)
     else{
         std::cerr << "Running PE mode" <<  std::endl;
         //    KSeq record;
-        float mu = 300;
-        float sigma = 100;
-        float V = 10000;
-        float SSE = 10000;
 //        int max_nam_n_hits1,max_nam_n_hits2;
         std::pair<float, int> info1, info2;
 //        std::vector<int> isizes;
@@ -4142,6 +4228,10 @@ int main (int argc, char **argv)
             auto read_finish = std::chrono::high_resolution_clock::now();
             tot_read_file += read_finish - read_start;
             float sample_size = 1;
+            float mu = 300;
+            float sigma = 100;
+            float V = 10000;
+            float SSE = 10000;
             int n_it = records1.size();
             std::cerr << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
             #pragma omp parallel for num_threads(n_threads) shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
