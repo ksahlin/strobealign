@@ -8,7 +8,7 @@ Strobealign is a fast short-read aligner. It achieves the speedup by using a dyn
 v0.6 implements:
 1. Crucial bugfix to v0.5 causing occasional alignments to very long reference regions.
 2. Several improvements such as identifying symmetrical hash collisions and testing reverse orientation. This leads to a further slight bump in alignment accuracy over previous versions, particularly for shorter read lengths.
-3. Fixes reporting of template len filed in SAM output if deletion in alignment.
+3. Fixes reporting of template len field in SAM output if deletion in alignment.
 
 v0.5 implements:
 1. Several improvements for downstream SNP andf INDEL calling. See benchmark below.
