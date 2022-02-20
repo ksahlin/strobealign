@@ -2162,7 +2162,7 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, std::vect
     std::string ref_segm;
     std::string read_segm;
 
-    if (true){ // full alignment
+    if (!fits){ // full alignment
         ref_tmp_start = n.ref_s - n.query_s > 0 ? n.ref_s - n.query_s : 0;
         ext_left = ref_tmp_start < 50 ? ref_tmp_start : 50;
         ref_start = ref_tmp_start - ext_left;
@@ -2180,7 +2180,7 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, std::vect
         ref_tmp_start = n.ref_s - n.query_s > 0 ? n.ref_s - n.query_s : 0;
         int ref_start = ref_tmp_start > 0 ? ref_tmp_start : 0;
         ref_tmp_segm_size = read_len + diff;
-        ref_segm_size = ref_tmp_segm_size < ref_len - ref_start ? ref_tmp_segm_size : ref_len - 1 - ref_start;
+        ref_segm_size = ref_tmp_segm_size < ref_len - ref_start + 1 ? ref_tmp_segm_size : ref_len - ref_start + 1;
 
         std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
         if ( (ref_segm_size == read_len) && fits ){
@@ -2206,66 +2206,198 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, std::vect
                 return;
             }
         }
+//        std::cerr << diff << " " << ref_segm_size << "  " << read_len << std::endl;
 
         //// Didn't work with global Hamming - split into parts
 
-        // left alignment
-        ref_end = n.ref_s + k;
-        ext_left = ref_end < 50 ? ref_end : 50;
-        ref_start = ref_end - ext_left;
+        // identify one or two split points within the read if the segment is  are larger than T
+        int T = 20;
+        // find the most central split point Use convex function result sum of squares
+        int left_outer =  pow (n.query_s+k, 2) + pow(read_len - n.query_s, 2);
+//        int left_inner =  pow (n.query_s + k, 2) + pow (read_len - (n.query_s + k), 2);
+//        int right_outer =  pow (n.query_e, 2) + pow (read_len - n.query_e, 2);
+        int right_inner = pow (n.query_e - k, 2) + pow (read_len - (n.query_e - k), 2);
 
-        ref_tmp_segm_size = n.query_s + k;
-        ext_right = 0;
+//        int left_min = left_outer < left_inner ? left_outer: left_inner;
+//        int left_min_bp = left_outer < left_inner ? n.query_s : n.query_s + k;
+//        int right_min = right_outer < right_inner ? right_outer : right_inner;
+//        int right_min_bp = right_outer < right_inner ? n.query_e : n.query_e - k;
 
-        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
-        ref_segm = ref_seqs[n.ref_id].substr(ref_end - ext_left, ref_segm_size);
-        alignment sam_aln_segm_left;
-        sam_aln_segm_left.ref_id = n.ref_id;
-        read_segm = r_tmp.substr(0, n.query_s+k);
-        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln_segm_left, tot_ksw_aligned);
-
-
-        // center alignment
-        ref_tmp_start = n.ref_s - n.query_s;
-        ref_start = ref_tmp_start > 0 ? ref_tmp_start : 0;
-        ext_left = 0;
-
-        ref_tmp_segm_size =  n.ref_e - n.ref_s;
-        ext_right = 0;
-
-        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
-        ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
-        alignment sam_aln_segm_center;
-        sam_aln_segm_center.ref_id = n.ref_id;
-        read_segm = r_tmp.substr(n.query_s, n.query_e - n.query_s);
-        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln_segm_center, tot_ksw_aligned);
+        int global_max_bp = left_outer < right_inner ? n.query_s : n.query_e - k;
+        int break_point = (global_max_bp >= T) && (global_max_bp <= (read_len - T)) ? global_max_bp : -1;
+        if (break_point > 0 ){
+            std::cerr << "MAX BREAKPOINT " << break_point << " candidates: " << left_outer << " " << right_inner << std::endl;
+            int left_region_bp = break_point + k;
+            int right_region_bp = break_point;
+            std::cerr << "left_region_bp " << left_region_bp << " right_region_bp: " << right_region_bp << std::endl;
+            int left_ref_end_bp = -1;
+            int right_ref_start_bp = -1;
+            if (break_point == n.query_s){
+                left_ref_end_bp = n.ref_s +k;
+                right_ref_start_bp = n.ref_s;
+            } else if (break_point == (n.query_e - k)) {
+                left_ref_end_bp = n.ref_e;
+                right_ref_start_bp = n.ref_e-k;
+            } else  {
+                std::cerr << "BUUUUUUG " << std::endl;
+            }
 
 
-        // right alignment
-        ext_left = 0;
-        ref_start = n.ref_e - k;
+//            int ref_diff = n.ref_e - n.ref_s;
+//            int read_diff = n.query_e - n.query_s;
+//            int min_diff =  read_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
+//            int max_diff = ref_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
+//            int diff = max_diff - min_diff;
 
-        ext_right = ref_len - (n.ref_e +1) < 50 ? ref_len - (n.ref_e +1) : 50;
-        ref_tmp_segm_size = n.ref_e + ext_right - ref_start;
+            // Left region align
+            alignment sam_aln_segm_left;
+            sam_aln_segm_left.ref_id = n.ref_id;
+            read_segm = r_tmp.substr(0, left_region_bp);
 
-        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
-        ref_segm = ref_seqs[n.ref_id].substr(n.ref_e  - ext_left, ref_segm_size);
-        alignment sam_aln_segm_right;
-        sam_aln_segm_left.ref_id = n.ref_id;
-        read_segm = r_tmp.substr(0, n.query_s+k);
-        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln_segm_right, tot_ksw_aligned);
+            ref_tmp_start = n.ref_s - n.query_s > 0 ? n.ref_s - n.query_s : 0;
+            ext_left = ref_tmp_start < 50 ? ref_tmp_start : 50;
+            ref_start = ref_tmp_start - ext_left;
+            ref_segm_size = left_ref_end_bp + ext_left;
+            ext_right = 0;
+            ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
 
-        std::cout << sam_aln_segm_left.cigar << " " << sam_aln_segm_center.cigar << " " << sam_aln_segm_right.cigar << std::endl;
 
-        sam_aln.ref_id = n.ref_id;
-        sam_aln.cigar = sam_aln_segm_left.cigar + sam_aln_segm_center.cigar + sam_aln_segm_right.cigar;
-        sam_aln.ed = sam_aln_segm_left.ed + sam_aln_segm_center.ed + sam_aln_segm_right.ed;
-        sam_aln.sw_score = sam_aln_segm_left.sw_score + sam_aln_segm_center.sw_score + sam_aln_segm_right.sw_score;
-        sam_aln.ref_start =   sam_aln_segm_left.ref_start;
-        sam_aln.is_rc = sam_aln_segm_left.is_rc;
-        sam_aln.is_unaligned = false;
-        sam_aln.aln_score = sam_aln.sw_score;
-        std::cout << "Joint: " << sam_aln.cigar << std::endl;
+            //Right region align
+            alignment sam_aln_segm_right;
+            sam_aln_segm_right.ref_id = n.ref_id;
+            read_segm = r_tmp.substr(0, right_region_bp);
+
+
+            ref_tmp_segm_size = read_len + diff;
+            ext_right = ref_len - (n.ref_e +1) < 50 ? ref_len - (n.ref_e +1) : 50;
+
+            ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
+            ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
+
+            ext_left = 0;
+            ref_start = ref_tmp_start - ext_left;
+            ref_segm_size = left_region_bp + ext_left;
+            ext_right = 0;
+            ref_segm = ref_seqs[n.ref_id].substr(right_ref_start_bp, ref_segm_size);
+
+        } else{
+            std::cerr << "NOOOO MAX BREAKPOINT " << break_point << " candidates: " << left_min_bp << " " << right_min_bp << std::endl;
+            // full align
+            ref_tmp_start = n.ref_s - n.query_s > 0 ? n.ref_s - n.query_s : 0;
+            ext_left = ref_tmp_start < 50 ? ref_tmp_start : 50;
+            ref_start = ref_tmp_start - ext_left;
+
+            ref_tmp_segm_size = read_len + diff;
+            ext_right = ref_len - (n.ref_e +1) < 50 ? ref_len - (n.ref_e +1) : 50;
+
+            ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
+            ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
+//        std::cerr << " ref_tmp_start " << ref_tmp_start << " ext left " << ext_left << " ext right " << ext_right << " ref_tmp_segm_size " << ref_tmp_segm_size << " ref_segm_size " << ref_segm_size << " ref_segm " << ref_segm << std::endl;
+            sam_aln.ref_id = n.ref_id;
+            align_segment(aln_params, r_tmp, ref_segm, read_len, ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln, tot_ksw_aligned);
+        }
+
+
+        // TODO: Several breakpoints. To complicated for probably little gain if short reads, maybe implement later..
+//        // Left and right breakpoint
+//        int left_bp_read = n.query_s + k;
+//        int right_bp_read = n.query_e - k;
+//        left_bp_read = left_bp_read > T ? left_bp_read : -1;
+//        right_bp_read = read_len - right_bp_read > T ? read_len - right_bp_read : -1;
+//
+//        // Decide where to break
+//        bool break1, break2;
+//        if ( ((read_len - right_bp_read - left_bp_read) > T) && (left_bp_read >= T) && (right_bp_read >= T) ){ // Use two breakpoints ---------------X|------------------X|---------------
+//            break1 = true;
+//            break2 = true;
+//            std::cerr << "CASE1 " << std::endl;
+//        } else if (  (left_bp_read >= T) && (right_bp_read >= T) ) { // Use one breakpoint  ---------------------------X--------X--------------------------
+//            break1 = left_bp_read >= right_bp_read ? true : false;  // ------------------------------------X|--------X--------------------
+//            break2 = left_bp_read < right_bp_read ? true : false;   // ---------------------X--------|X-----------------------------------
+//            std::cerr << "CASE2 " << std::endl;
+//        } else if ( (left_bp_read >= T) && ( (read_len - left_bp_read) >= T) ) { // Use one breakpoint  -----------------------X|-------------------X-------
+//            break1 = true;
+//            break2 = false;
+//            std::cerr << "CASE3 " << std::endl;
+//        } else if ( ((right_bp_read) > T) && (read_len - right_bp_read >= T)  ) { // Use one breakpoint  ----------X-------------------X|---------------------------
+//            break1 = false;
+//            break2 = true;
+//            std::cerr << "CASE4 " << std::endl;
+//        } else { // No breakpoints ------X--------------------------------------X--------
+//            break1 = false;
+//            break2 = false;
+//            std::cerr << "CASE5 " << std::endl;
+//        }
+//
+//        std::cerr << "BREAKPOINTS: LEFT:  " << left_bp_read << " RIGHT:  " << right_bp_read << " BREAKING LEFT:  " << break1 << " BREAKING RIGHT: " << break2 << std::endl;
+//        std::cerr << "MAPPING POS n.ref_s:  " << n.ref_s << " n.ref_e:  " << n.ref_e << " n.query_s  " << n.query_s << " n.query_e: " << n.query_e << std::endl;
+//        std::cerr << " " << std::endl;
+
+
+//        // left alignment
+//        ref_end = n.ref_s + k;
+//        ref_start = ref_end - ext_left;
+//        ext_left = ref_end < 50 ? ref_end : 50;
+//
+//        ref_tmp_segm_size = n.query_s + k;
+//        ext_right = 0;
+//
+//        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
+//        ref_segm = ref_seqs[n.ref_id].substr(ref_end - ext_left, ref_segm_size);
+//        alignment sam_aln_segm_left;
+//        sam_aln_segm_left.ref_id = n.ref_id;
+//        read_segm = r_tmp.substr(0, n.query_s+k);
+//
+//        std::cerr << "LEFT: ref_start:  " << ref_start << " LEFT: ref_end:  " << ref_end << " ref_segm_size  " << ref_segm_size << " read segm size: " << read_segm.length() << std::endl;
+//
+//        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln_segm_left, tot_ksw_aligned);
+//
+//
+//        // center alignment
+//        ref_tmp_start = n.ref_s - n.query_s;
+//        ref_start = ref_tmp_start > 0 ? ref_tmp_start : 0;
+//        ext_left = 0;
+//
+//        ref_tmp_segm_size =  n.ref_e - n.ref_s;
+//        ext_right = 0;
+//
+//        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
+//        ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
+//        alignment sam_aln_segm_center;
+//        sam_aln_segm_center.ref_id = n.ref_id;
+//        read_segm = r_tmp.substr(n.query_s, n.query_e - n.query_s);
+//        std::cerr << "CENTER: ref_start:  " << ref_start <<  " CENTER: ref_end:  " << ref_end << " ref_segm_size  " << ref_segm_size << " read segm size: " << read_segm.length() << std::endl;
+//
+//        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln_segm_center, tot_ksw_aligned);
+//
+//
+//        // right alignment
+//        ext_left = 0;
+//        ref_start = n.ref_e - k;
+//
+//        ext_right = ref_len - (n.ref_e +1) < 50 ? ref_len - (n.ref_e +1) : 50;
+//        ref_tmp_segm_size = n.ref_e + ext_right - ref_start;
+//
+//        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
+//        ref_segm = ref_seqs[n.ref_id].substr(n.ref_e  - ext_left, ref_segm_size);
+//        alignment sam_aln_segm_right;
+//        sam_aln_segm_left.ref_id = n.ref_id;
+//        read_segm = r_tmp.substr(0, n.query_s+k);
+//        std::cerr << "RIGHT: ref_start:  " << ref_start <<  " RIGHT: ref_end:  " << ref_end << " ref_segm_size  " << ref_segm_size << " read segm size: " << read_segm.length() << std::endl;
+//
+//        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln_segm_right, tot_ksw_aligned);
+//
+//        std::cout << sam_aln_segm_left.cigar << " " << sam_aln_segm_center.cigar << " " << sam_aln_segm_right.cigar << std::endl;
+//
+//        sam_aln.ref_id = n.ref_id;
+//        sam_aln.cigar = sam_aln_segm_left.cigar + sam_aln_segm_center.cigar + sam_aln_segm_right.cigar;
+//        sam_aln.ed = sam_aln_segm_left.ed + sam_aln_segm_center.ed + sam_aln_segm_right.ed;
+//        sam_aln.sw_score = sam_aln_segm_left.sw_score + sam_aln_segm_center.sw_score + sam_aln_segm_right.sw_score;
+//        sam_aln.ref_start =   sam_aln_segm_left.ref_start;
+//        sam_aln.is_rc = sam_aln_segm_left.is_rc;
+//        sam_aln.is_unaligned = false;
+//        sam_aln.aln_score = sam_aln.sw_score;
+//        std::cout << "Joint: " << sam_aln.cigar << std::endl;
 
     }
 
