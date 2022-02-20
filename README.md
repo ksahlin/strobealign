@@ -6,15 +6,15 @@ Strobealign is a fast short-read aligner. It achieves the speedup by using a dyn
 **Current version is 0.6.**
 
 v0.6 implements:
-1. Crucial bugfix to v0.5 causing occasional alignments to very long reference regions.
-2. Several improvements such as identifying symmetrical hash collisions and testing reverse orientation. This leads to a further slight bump in alignment accuracy over previous versions, particularly for shorter read lengths.
+1. Crucial bugfix to v0.5: Rare but occasional alignments to very long reference regions.
+2. Identifying symmetrical hash collisions and testing reverse orientation. This leads to a slightly increased alignment accuracy over previous versions, particularly for shorter read lengths.
 3. Fixes reporting of template len field in SAM output if deletion in alignment.
 
 v0.5 implements:
-1. Several improvements for downstream SNP andf INDEL calling. See benchmark below.
-2. Option to report secondary alignments and more. 
-3. Option to set base level alignment parameters. 
-4. And more (See release notes)
+1. Several improvements for downstream SNP and INDEL calling. SNV and small indel calling benchmark below.
+2. Option to report secondary alignments. 
+3. Base level SW alignment parameters are now parameters to strobealign. 
+4. And more.. (See release notes)
 
 
 INSTALLATION
@@ -33,7 +33,7 @@ cd StrobeAlign
 g++ -std=c++14 main.cpp source/index.cpp source/xxhash.c source/ksw2_extz2_sse.c source/ssw_cpp.cpp source/ssw.c -lz -fopenmp -o strobealign -O3 -mavx2
 ```
 
-### Zlib linking
+### Zlib linking error
 
 If you have `zlib` installed, and the `zlib.h` file is in folder `/path/to/zlib/include` and the `libz.so` file in `/path/to/zlib/lib` but you get 
 
@@ -77,7 +77,7 @@ strobealign -r <read_length> -x ref.fa reads.fa > output.sam
 VARIANT CALLING BENCHMARK
 ---------------
 
-A small SNV and INDEL calling benchmark is provided below using `bcftools` to call SNPs and indels on a simulated repetitive genome based on alignments from strobealign, BWA-MEM, and minimap2. The genome is a 16.8Mbp sequence consisting of 500 concatenated copies of a 40kbp sequence which is mutated through substitutions (5%) and removing segments of size 1bp-1kbp (0.5%) along the oringinal 20Mbp string. 
+A small SNV and INDEL calling benchmark with strobealign v0.6 is provided below using `bcftools` to call SNPs and indels on a simulated repetitive genome based on alignments from strobealign, BWA-MEM, and minimap2. The genome is a 16.8Mbp sequence consisting of 500 concatenated copies of a 40kbp sequence which is mutated through substitutions (5%) and removing segments of size 1bp-1kbp (0.5%) along the oringinal 20Mbp string. 
 
 Then, 2 million paired-end reads (lengths 100, 150, 200, 250, 300) from a related genome with high variation rate: 0.5% SNVs and 0.5% INDELs. The challange is to find the right location of reads in the repetitive genome to predict the SNVs and INDELs in the related genome. In the  in the genome where the reads are simulated from there is about 78k SNVs and INDELS, respectively. The precision (P), recall (R), and F-score are computed from these numbers. Results in table below. 
 
@@ -88,23 +88,23 @@ There are frequent indels in this dataset (every 200th bases on average) requiri
 
 | Read length  | Tool        | SNVs (P) | SNVs (R) | SNVs (F-score) | Indels (P) | Indels (R) | Indels (F-score) | Alignment time (s) |
 | :---         | :---        |      ---: |       ---:  |       ---: |       ---:  |       ---: |       ---: |       ---: |
-| 100 | strobealign | **97.8** | 93.5 | **95.6** | **55.5** | **41.1** | **47.3** | **455** |
+| 100 | strobealign | **97.9** | 93.5 | **95.6** | **55.6** | **41.1** | **47.2** | **424** |
 | &nbsp; | minimap2 | 91.4 | 94.3 | 92.8 | 55.2 | 39.1 | 45.8 | 605 |
 | &nbsp; | bwa_mem | 93.7 | **95.9** | 94.8 | 55.3 | 30.0 | 38.9 | 1020 |
 | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; |
-| 150 | strobealign | **96.5** | 92.7 | 94.6 | **55.2** | **46.3** | **50.3** |  **369** |
+| 150 | strobealign | **96.6** | 92.7 | 94.6 | **55.2** | **46.2** | **50.3** |  **350** |
 | &nbsp; | minimap2 | 89.8 | 94.6 | 92.1 | 54.9 | 44.8 | 49.3 | 902 |
 | &nbsp; | bwa_mem | 96.0 | **96.0** | **96.0** | 55.0 | 39.6 | 46.1 | 1010|
 | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; |
-| 200 | strobealign | **97.2** | 94.1 | 95.6 | **55.3** | **45.8** | **50.1** | **515**|
+| 200 | strobealign | **97.4** | 94.1 | 95.7 | **55.3** | **45.8** | **50.1** | **487**|
 | &nbsp; | minimap2 | 88.1 | **96.7** | 92.2 | 55.0 | 44.7 | 49.3 | 1290 |
 | &nbsp; | bwa_mem | 95.2 | 96.5 | **95.8** | 55.1 | 42.3 | 47.8 | 12623 |
 | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; |
-| 250 | strobealign | **96.4** | 93.3 | 94.8 | **55.1** | **45.0** | **49.6** | **733** |
+| 250 | strobealign | **96.4** | 93.3 | 94.8 | **55.1** | **45.0** | **49.6** | **697** |
 | &nbsp; | minimap2 | 87.7 | 94.8 | 91.1 | 54.9 | 43.8 | 48.7 | 998 |
 | &nbsp; | bwa_mem | 94.3 | **96.2** | **95.2** | **55.1** | 42.3 | 47.8 | 1593 |
 | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; | &nbsp; |
-| 300 | strobealign | **95.7** | 92.7 | 94.2 | **55.1** | **44.5** | **49.2** | **976** |
+| 300 | strobealign | **95.7** | 92.7 | 94.1 | **55.1** | **44.5** | **49.2** | **1005** |
 | &nbsp; | minimap2 | 88.2 | 94.3 | 91.2 | 54.8 | 43.4 | 48.4 | 1046 |
 | &nbsp; | bwa_mem | 93.7 | **96.4** | **95.0** | 54.9 | 42.0 | 47.6 | 1988 |
 
