@@ -69,6 +69,7 @@ struct aln_info {
     unsigned int ref_offset;
     int sw_score;
     int global_ed;
+    int length;
 };
 
 struct alignment {
@@ -80,6 +81,7 @@ struct alignment {
     int aln_score;
     int ref_id;
     int mapq;
+    int aln_length;
     bool not_proper;
     bool is_rc;
     bool is_unaligned = false;

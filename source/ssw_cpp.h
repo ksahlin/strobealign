@@ -138,7 +138,7 @@ class Aligner {
   //                     will NOT return the suboptimal alignment information.
   // @return   True: succeed; false: fail.
   // =========
-  bool Align(const char* query, const Filter& filter, Alignment* alignment, const int32_t maskLen) const;
+  bool Align(const char* query, const Filter& filter, Alignment* alignment, const int32_t maskLen, const int8_t score_size) const;
 
   // =========
   // @function Align the query againt the reference.
@@ -156,7 +156,7 @@ class Aligner {
   // @return   True: succeed; false: fail.
   // =========
   bool Align(const char* query, const char* ref, const int& ref_len,
-             const Filter& filter, Alignment* alignment, const int32_t maskLen) const;
+             const Filter& filter, Alignment* alignment, const int32_t maskLen, const int8_t score_size) const;
 
   // @function Clear up all containers and thus the aligner is disabled.
   //             To rebuild the aligner please use Build functions.
