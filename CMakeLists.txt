@@ -28,6 +28,8 @@ add_executable(strobealign ${SOURCES})
 
 target_link_libraries(strobealign PUBLIC ZLIB::ZLIB OpenMP::OpenMP_CXX)
 
+install(TARGETS strobealign DESTINATION bin)
+
 IF(ENABLE_AVX)
   target_compile_options(strobealign PUBLIC "-mavx2")
 ENDIF()
