@@ -3070,7 +3070,7 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
 }
 
 
-static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, int read_len, alignment &sam_aln, bool &rc_already_comp, unsigned int &tot_ksw_aligned, float &mu, float &sigma, unsigned int &tot_rescued, int k) {
+static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &guide_read, std::string &guide_read_rc, int guide_read_len, bool &guide_rc_already_comp, std::string &read, std::string &read_rc, int read_len, alignment &sam_aln, bool &rc_already_comp, unsigned int &tot_ksw_aligned, float &mu, float &sigma, unsigned int &tot_rescued, int k) {
     int a, b, ref_start,ref_len,ref_end;
     std::string r_tmp;
     bool a_is_rc;
@@ -3083,12 +3083,16 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
     std::string read_end_kmer;
     std::string read_rc_start_kmer;
     std::string read_rc_end_kmer;
+//    std::cerr << "I'm here: n.ref_s:" << n.ref_s << " n.ref_e-k: " << n.ref_e-k <<  " ref_len: " << ref_seqs[n.ref_id].length() << " n.ref_e-k+k: " << n.ref_e-k+k << std::endl;
+
     ref_start_kmer = ref_seqs[n.ref_id].substr(n.ref_s, k);
     ref_end_kmer = ref_seqs[n.ref_id].substr(n.ref_e-k, k);
 
     if (!n.is_rc) {
-        read_start_kmer = read.substr(n.query_s, k);
-        read_end_kmer = read.substr(n.query_e-k, k);
+//        std::cerr << "CHECK1: n.query_s:" << n.query_s << " n.query_e-k: " << n.query_e-k <<  " read_len: " << guide_read.length() << " n.query_e-k+k: " << n.query_e-k+k << std::endl;
+
+        read_start_kmer = guide_read.substr(n.query_s, k);
+        read_end_kmer = guide_read.substr(n.query_e-k, k);
         if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)) {
 //            n.is_rc = false;
             fits = true;
@@ -3097,32 +3101,35 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
             //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
 
 //              std::cerr << " CHECKING1!! " << std::endl;
+//            std::cerr << read_start_kmer  << " " <<  ref_start_kmer << " " <<  read_end_kmer << " " << ref_end_kmer << std::endl;
             // false reverse hit, change coordinates in nam to forward
-            if (!rc_already_comp){
-                read_rc = reverse_complement(read);
-                rc_already_comp = true;
+            if (!guide_rc_already_comp){
+                guide_read_rc = reverse_complement(guide_read);
+                guide_rc_already_comp = true;
             }
 
-            int q_start_tmp = read_len - n.query_e;
-            int q_end_tmp = read_len - n.query_s;
-            read_start_kmer = read_rc.substr(q_start_tmp, k);
-            read_end_kmer = read_rc.substr(q_end_tmp-k, k);
+            int q_start_tmp = guide_read_len - n.query_e;
+            int q_end_tmp = guide_read_len - n.query_s;
+            read_start_kmer = guide_read_rc.substr(q_start_tmp, k);
+            read_end_kmer = guide_read_rc.substr(q_end_tmp-k, k);
             if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
                 fits = true;
                 n.is_rc = true;
                 n.query_s = q_start_tmp;
                 n.query_e = q_end_tmp;
-//                std::cerr << " DETECTED FALSE RC FROM SYMM!! " << std::endl;
+//                std::cerr << " RESCUE DETECTED FALSE RC FROM SYMM!! " << std::endl;
             }
 
         }
     } else {
-        if (!rc_already_comp){
-            read_rc = reverse_complement(read);
-            rc_already_comp = true;
+        if (!guide_rc_already_comp){
+            guide_read_rc = reverse_complement(guide_read);
+            guide_rc_already_comp = true;
         }
-        read_rc_start_kmer = read_rc.substr(n.query_s, k);
-        read_rc_end_kmer = read_rc.substr(n.query_e-k, k);
+//        std::cerr << "CHECK2: n.query_s:" << n.query_s << " n.query_e-k: " << n.query_e-k <<  " read_len: " << guide_read.length() << " n.query_e-k+k: " << n.query_e-k+k << std::endl;
+
+        read_rc_start_kmer = guide_read_rc.substr(n.query_s, k);
+        read_rc_end_kmer = guide_read_rc.substr(n.query_e-k, k);
         if ( (ref_start_kmer == read_rc_start_kmer) && (ref_end_kmer == read_rc_end_kmer) ) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
             n.is_rc = true;
             fits = true;
@@ -3130,10 +3137,10 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
             //  FALSE REVERSE TAKE CARE OF FALSE HITS HERE - it can be false forwards or false rc because of symmetrical hash values
             //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
 
-            int q_start_tmp = read_len - n.query_e;
-            int q_end_tmp = read_len - n.query_s;
-            read_start_kmer = read.substr(q_start_tmp, k);
-            read_end_kmer = read.substr(q_end_tmp-k, k);
+            int q_start_tmp = guide_read_len - n.query_e;
+            int q_end_tmp = guide_read_len - n.query_s;
+            read_start_kmer = guide_read.substr(q_start_tmp, k);
+            read_end_kmer = guide_read.substr(q_end_tmp-k, k);
 //            std::cerr << " CHECKING2!! " <<   n.query_s << " " <<   n.query_e << " " << std::endl;
 //            std::cerr << read_start_kmer  << " " <<  ref_start_kmer << " " <<  read_end_kmer << " " << ref_end_kmer << std::endl;
 
@@ -3142,7 +3149,7 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
                 n.is_rc = false;
                 n.query_s = q_start_tmp;
                 n.query_e = q_end_tmp;
-//                std::cerr << " DETECTED FALSE FW FROM SYMM!! " << std::endl;
+//                std::cerr << " RESCUE DETECTED FALSE FW FROM SYMM!! " << std::endl;
             }
         }
     }
@@ -3166,6 +3173,7 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
     ref_len = ref_len_map[n.ref_id];
     ref_start = std::max(0, std::min(a,ref_len));
     ref_end = std::min(ref_len, b);
+//    std::cerr << "Reached here: a:" << a << " b: " << b <<  " ref_len: " << ref_len << " ref_start: " << ref_start << " ref_end - ref_start: " << ref_end - ref_start << " sub ref str len: " << ref_start + ref_end - ref_start << std::endl;
     std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
     aln_info info;
 
@@ -3384,7 +3392,7 @@ static inline void align_PE(alignment_params &aln_params, std::string &sam_strin
 //                    std::cerr << "RESCUE HERE1" << std::endl;
                     //////// Force SW alignment to rescue mate /////////
 //                    std::cerr << query_acc2 << " RESCUE MATE 1" << a1.is_rc << " " n1.is_rc << std::endl;
-                    rescue_mate(aln_params, n2, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, rc_already_comp1, tot_ksw_aligned, mu, sigma, tot_rescued, k);
+                    rescue_mate(aln_params, n2, ref_len_map, ref_seqs, read2, read2_rc,  read_len2, rc_already_comp2, read1, read1_rc, read_len1, a1, rc_already_comp1, tot_ksw_aligned, mu, sigma, tot_rescued, k);
 //                    is_aligned1[n1.nam_id] = a1;
                     tot_all_tried ++;
                 }
@@ -3415,7 +3423,7 @@ static inline void align_PE(alignment_params &aln_params, std::string &sam_strin
 //                    std::cerr << "RESCUE HERE2" << std::endl;
                     //////// Force SW alignment to rescue mate /////////
 //                    std::cerr << query_acc1 << " RESCUE MATE 2" << a1.is_rc << " " n1.is_rc << std::endl;
-                    rescue_mate(aln_params, n1, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma, tot_rescued, k);
+                    rescue_mate(aln_params, n1, ref_len_map, ref_seqs, read1, read1_rc,  read_len1, rc_already_comp1, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma, tot_rescued, k);
 //                    is_aligned2[n2.nam_id] = a2;
                     tot_all_tried ++;
                 }
@@ -3585,7 +3593,7 @@ static inline void align_PE(alignment_params &aln_params, std::string &sam_strin
             //////// Force SW alignment to rescue mate /////////
             alignment a2;
 //            std::cerr << query_acc2 << " force rescue" << std::endl;
-            rescue_mate(aln_params, n, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma,tot_rescued, k);
+            rescue_mate(aln_params, n, ref_len_map, ref_seqs, read1, read1_rc,  read_len1, rc_already_comp1, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma,tot_rescued, k);
             aln_scores2.push_back(a2);
             //////////////////////////////////////////////////////////////////
 
@@ -3656,15 +3664,19 @@ static inline void align_PE(alignment_params &aln_params, std::string &sam_strin
             if ( (cnt2 >= max_tries) || score_dropoff2 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
                 break;
             }
+//            std::cerr << "here1" << std::endl;
+
             //////// the actual testing of base pair alignment part start /////////
             alignment a2;
             get_alignment(aln_params, n, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, k, cnt2, rc_already_comp2, did_not_fit, tot_ksw_aligned);
             aln_scores2.push_back(a2);
             //////////////////////////////////////////////////////////////////
 
+//            std::cerr << "here2" << std::endl;
+
             //////// Force SW alignment to rescue mate /////////
             alignment a1;
-            rescue_mate(aln_params, n, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, rc_already_comp1, tot_ksw_aligned, mu, sigma, tot_rescued, k);
+            rescue_mate(aln_params, n, ref_len_map, ref_seqs, read2, read2_rc,  read_len2, rc_already_comp2, read1, read1_rc, read_len1, a1, rc_already_comp1, tot_ksw_aligned, mu, sigma, tot_rescued, k);
             aln_scores1.push_back(a1);
             //////////////////////////////////////////////////////////////////
 
@@ -3791,7 +3803,7 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.6 \n";
+    std::cerr << "StrobeAlign VERSION 0.6.1 \n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
@@ -4223,7 +4235,7 @@ int main (int argc, char **argv)
         for (auto &it : acc_map) {
             out << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
         }
-        out << "@PG\tID:strobealign\tPN:strobealign\tVN:0.6\tCL:strobealign\n";
+        out << "@PG\tID:strobealign\tPN:strobealign\tVN:0.6.1\tCL:strobealign\n";
     }
 
     if(is_SE) {
