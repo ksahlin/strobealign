@@ -81,6 +81,8 @@ strobealign -r <read_length> -x ref.fa reads.fa > output.sam
 V0.6.1 PERFORMANCE
 ---------------
 
+Accuracy and runtime metrics as well as SNV and small indel calling performance of version 0.6.1 are described below.
+
 ## Mapping accuracy and runtime
 
 Below shows the accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for the SIM3 and REPEATS dataset in the preprint using strobealign v0.6.1. On all but the 2x100 dataset, it has comparable or higher accuracy than BWA MEM while being substantially faster. On the 2x100 dataset it has the second highest accuracy after BWA MEM while being substantially faster.
