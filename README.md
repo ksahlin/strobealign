@@ -87,7 +87,7 @@ Accuracy and runtime metrics as well as SNV and small indel calling performance 
 
 Below shows the accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for the SIM3 (Fig 1) and REPEATS (Fig 2) datasets in the preprint using strobealign v0.6.1. On all but the 2x100 datasets, strobealign has comparable or higher accuracy than BWA MEM while being substantially faster. On the 2x100 datasets, strobealign has the second highest accuracy after BWA MEM on SIM3 while being substantially faster, and comparable accuracy to minimap2 and BWA MEM on the REPEATS dataset while being twice as fast.
 
-![v0 6 1_sim_and_repeats_experiment 001](https://user-images.githubusercontent.com/1714667/155538019-a5be1a72-9d14-4a4d-831c-e5de32d79c34.jpeg)
+![v0 6 1_sim3 001 jpeg 001](https://user-images.githubusercontent.com/1714667/155574282-35bd370c-e7f5-4e59-896d-465473e6a71f.jpeg)
 Fig 1. Accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for the SIM3 dataset
 
 ![v0 6 1_repeats_experiment 001](https://user-images.githubusercontent.com/1714667/155572146-9d51b822-e9bc-4dda-8703-71ea0306330b.jpeg)
