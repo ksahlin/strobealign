@@ -3,7 +3,7 @@ strobealign
 
 Strobealign is a fast short-read aligner. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers. Strobealign is multithreaded, implements alignment (SAM) and mapping (PAF), and benchmarked for SE and PE reads of lengths between 100-300bp. A preprint describing **v0.4** is available [here](https://doi.org/10.1101/2021.06.18.449070).
 
-**Current version is 0.6.1**. See the performance of v0.6.1 [here](https://github.com/ksahlin/StrobeAlign/edit/main/README.md#v061-performance).
+**Current version is 0.6.1**. See the performance of v0.6.1 [here](https://github.com/ksahlin/StrobeAlign#v061-performance).
 
 v0.6.1 implements:
 1. Runtime bugfix introduced in v0.6.
