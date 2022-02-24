@@ -3,7 +3,7 @@ strobealign
 
 Strobealign is a fast short-read aligner. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers. Strobealign is multithreaded, implements alignment (SAM) and mapping (PAF), and benchmarked for SE and PE reads of lengths between 100-300bp. A preprint describing **v0.4** is available [here](https://doi.org/10.1101/2021.06.18.449070).
 
-**Current version is 0.6.1**
+**Current version is 0.6.1**. See the performance of v0.6.1 [here](https://github.com/ksahlin/StrobeAlign/edit/main/README.md#v061-performance).
 
 v0.6.1 implements:
 1. Runtime bugfix introduced in v0.6.
@@ -77,9 +77,22 @@ For mapping to PAF file (option -x):
 strobealign -r <read_length> -x ref.fa reads.fa > output.sam
 ```
 
-VARIANT CALLING BENCHMARK
+
+V0.6.1 PERFORMANCE
 ---------------
 
+## Mapping accuracy and runtime
+
+Below shows the accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for the SIM3 and REPEATS dataset in the preprint using strobealign v0.6.1. On all but the 2x100 dataset, it has comparable or higher accuracy than BWA MEM while being substantially faster. On the 2x100 dataset it has the second highest accuracy after BWA MEM while being substantially faster.
+
+![v0 6 1_sim_and_repeats_experiment 001](https://user-images.githubusercontent.com/1714667/155538019-a5be1a72-9d14-4a4d-831c-e5de32d79c34.jpeg)
+Fig 1. Accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for the SIM3 dataset
+
+FIG2 TO BE GENERATED
+
+Fig 2. Accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for the REPEATS dataset
+
+## Variant calling benchmark
 A small SNV and INDEL calling benchmark with strobealign v0.6 is provided below. We used `bcftools` to call SNPs and indels on a simulated repetitive genome based on alignments from strobealign, BWA-MEM, and minimap2. The genome is a 16.8Mbp sequence consisting of 500 concatenated copies of a 40kbp sequence which is mutated through substitutions (5%) and removing segments of size 1bp-1kbp (0.5%) along the oringinal 20Mbp string. 
 
 Then, 2 million paired-end reads (lengths 100, 150, 200, 250, 300) from a related genome with high variation rate: 0.5% SNVs and 0.5% INDELs. The challange is to find the right location of reads in the repetitive genome to predict the SNVs and INDELs in the related genome. In the genome where the reads are simulated from there is about 78k SNVs and INDELS, respectively. The precision (P), recall (R), and F-score are computed from these numbers. Results in table below. 
