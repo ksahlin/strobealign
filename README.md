@@ -81,7 +81,7 @@ strobealign -r <read_length> -x ref.fa reads.fa > output.sam
 V0.6.1 PERFORMANCE
 ---------------
 
-Accuracy and runtime metrics as well as SNV and small indel calling performance of version 0.6.1 are described below.
+Accuracy and runtime metrics as well as SNV and small indel calling performance for simulated and GIAB datasets of version 0.6.1 are described below. For the GIAB datasets we used HG004 (Mother) with 2x150bp reads (subsampled to ~26x coverage) and 2x250bp reads (~17x coverage).
 
 ## Mapping accuracy and runtime
 
@@ -93,7 +93,7 @@ Fig 1. Accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for th
 ![v0 6 1_repeats_experiment 001](https://user-images.githubusercontent.com/1714667/155572146-9d51b822-e9bc-4dda-8703-71ea0306330b.jpeg)
 Fig 2. Accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for the REPEATS dataset
 
-## Variant calling benchmark
+## Variant calling benchmark (simulated)
 A small SNV and INDEL calling benchmark with strobealign v0.6 is provided below. We used `bcftools` to call SNPs and indels on a simulated repetitive genome based on alignments from strobealign, BWA-MEM, and minimap2. The genome is a 16.8Mbp sequence consisting of 500 concatenated copies of a 40kbp sequence which is mutated through substitutions (5%) and removing segments of size 1bp-1kbp (0.5%) along the oringinal 20Mbp string. 
 
 Then, 2 million paired-end reads (lengths 100, 150, 200, 250, 300) from a related genome with high variation rate: 0.5% SNVs and 0.5% INDELs. The challange is to find the right location of reads in the repetitive genome to predict the SNVs and INDELs in the related genome. In the genome where the reads are simulated from there is about 78k SNVs and INDELS, respectively. The precision (P), recall (R), and F-score are computed from these numbers. Results in table below. 
@@ -125,6 +125,17 @@ There are frequent indels in this dataset (every 200th bases on average) requiri
 | &nbsp; | minimap2 | 88.2 | 94.3 | 91.2 | 54.8 | 43.4 | 48.4 | 1046 |
 | &nbsp; | bwa_mem | 93.7 | **96.4** | **95.0** | 54.9 | 42.0 | 47.6 | 1988 |
 
+## Variant calling benchmark (GIAB)
+
+We used Illumina paired end reads from the [GIAB datasets](https://github.com/genome-in-a-bottle/giab_data_indexes) HG004 (Mother) with the 2x150bp reads (subsampled to ~26x coverage; using only the reads in `140818_D00360_0047_BHA66FADXX/Project_RM8392`) and 2x250bp reads (~17x coverage). We aligned the reads to hg38 without alternative haplotypes as proposed [here](https://lh3.github.io/2017/11/13/which-human-reference-genome-to-use).
+
+Results are shown for SNVs and indels separately in Figure 3. For SNVs, strobealign has the highest F-score out of all benchmarked aligners on both datasets. This is due to having the precision out of all aligners at the cost of slightly lower recall. As for indels, al alignerd have low recall, precision, and F-score. This may be because we benchmarked against all SVs that were not SNVs (see below method for the evaluation). Overall Bowtie2 performs the best on these datasets. 
+
+
+![sv_calling 001](https://user-images.githubusercontent.com/1714667/156128690-266ccfad-14c0-48a7-8fe7-de794d98cc65.jpeg)
+Fig. 3. Recall precision and F-score for the aligners on 2x150 and 2x250 datasets from HG004.
+
+## Variant calling benchmark method
 
 For the results, we ran
 
@@ -136,6 +147,11 @@ bcftools call -v -c -O v aligned.vcf.gz > aligned.variants.vcf.gz
 grep -v -E -e "INDEL;" aligned.variants.vcf.gz > aligned.variants.SNV.vcf
 grep "#"  aligned.variants.vcf.gz > aligned.variants.INDEL.vcf
 grep -E -e "INDEL;" aligned.variants.vcf.gz >> aligned.variants.INDEL.vcf
+
+# Separate GIAB SNVs and INDELS
+shell('zgrep "#" true.variants.vcf > true.variants.SNV.vcf')
+shell('zgrep -P  "\t[ACGT]\t[ACGT]\t" true.variants.vcf >> true.variants.SNV.vcf')
+shell('zgrep -v -P  "\t[ACGT]\t[ACGT]\t" true.variants.vcf > true.variants.INDEL.vcf')
 
 for type in SNV INDEL
 do
