@@ -81,7 +81,9 @@ strobealign -r <read_length> -x ref.fa reads.fa > output.sam
 V0.6.1 PERFORMANCE
 ---------------
 
-Accuracy and runtime metrics as well as SNV and small indel calling performance for simulated and GIAB datasets of version 0.6.1 are described below. For the GIAB datasets we used HG004 (Mother) with 2x150bp reads (subsampled to ~26x coverage) and 2x250bp reads (~17x coverage).
+We have in below three sections investigated accuracy and runtime metrics for v0.6.1 on SIM3 and REPEATS datasets included in the preprint, as well as performance of SNV and small indel calling for additional simulated and biological (GIAB) datasets. 
+
+For the biological SNV and indel experiments, we used GIAB datasets (HG004; Mother) with 2x150bp reads (subsampled to ~26x coverage) and 2x250bp reads (~17x coverage).
 
 ## Mapping accuracy and runtime
 
