@@ -95,7 +95,7 @@ Fig 1. Accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for th
 ![v0 6 1_repeats_experiment 001](https://user-images.githubusercontent.com/1714667/155572146-9d51b822-e9bc-4dda-8703-71ea0306330b.jpeg)
 Fig 2. Accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for the REPEATS dataset
 
-## Variant calling benchmark (simulated)
+## Variant calling benchmark (simulated REPEATS)
 A small SNV and INDEL calling benchmark with strobealign v0.6 is provided below. We used `bcftools` to call SNPs and indels on a simulated repetitive genome based on alignments from strobealign, BWA-MEM, and minimap2. The genome is a 16.8Mbp sequence consisting of 500 concatenated copies of a 40kbp sequence which is mutated through substitutions (5%) and removing segments of size 1bp-1kbp (0.5%) along the oringinal 20Mbp string. 
 
 Then, 2 million paired-end reads (lengths 100, 150, 200, 250, 300) from a related genome with high variation rate: 0.5% SNVs and 0.5% INDELs. The challange is to find the right location of reads in the repetitive genome to predict the SNVs and INDELs in the related genome. In the genome where the reads are simulated from there is about 78k SNVs and INDELS, respectively. Locations of true SNVs and INDELs and provided by the read simulator. The precision (P), recall (R), and [F-score](https://en.wikipedia.org/wiki/F-score) are computed based on the true variants (for details see section [Variant calling benchmark method](https://github.com/ksahlin/StrobeAlign#variant-calling-benchmark-method)). Results in table below. 
@@ -127,15 +127,26 @@ There are frequent indels in this dataset (every 200th bases on average) requiri
 | &nbsp; | minimap2 | 88.2 | 94.3 | 91.2 | 54.8 | 43.4 | 48.4 | 1046 |
 | &nbsp; | bwa_mem | 93.7 | **96.4** | **95.0** | 54.9 | 42.0 | 47.6 | 1988 |
 
+
+## Variant calling benchmark (simulated SIM3)
+
+We simulated 2x150 and 2x250 reads at 30x coverage from a human genome with SNV and indel rate according to the SIM3 genome (described in the preprint). We aligned the reads to hg38 without alternative haplotypes as proposed [here](https://lh3.github.io/2017/11/13/which-human-reference-genome-to-use). 
+
+Results are shown for SNVs and indels separately in Figure 3. For SNVs, predictions with strobealign as the aligner have an [F-score](https://en.wikipedia.org/wiki/F-score) on par with most other aligners. BWA has the best performance on this dataset. However, indel predictions have both the highest recall and precision using strobealign. Minimap2 is the close second best aligner for calling indels on this dataset, having only 0.1% lower recall and precision to strobealign.
+
+
+![sv_calling_sim 001](https://user-images.githubusercontent.com/1714667/156549014-66d7b015-877e-48c2-a3b2-131e7a4a2db0.jpeg)
+Fig. 3. Recall precision and F-score for the aligners on 2x150 and 2x250 datasets from SIM3.
+
 ## Variant calling benchmark (GIAB)
 
 We used Illumina paired-end reads from the [GIAB datasets](https://github.com/genome-in-a-bottle/giab_data_indexes) HG004 (Mother) with the 2x150bp reads (subsampled to ~26x coverage; using only the reads in `140818_D00360_0047_BHA66FADXX/Project_RM8392`) and 2x250bp reads (~17x coverage). We aligned the reads to hg38 without alternative haplotypes as proposed [here](https://lh3.github.io/2017/11/13/which-human-reference-genome-to-use). We obtain the "true" SNVs and INDELs from the GIAB gold standard predictions formed from several sequencing technologies. They are provided [here](https://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/release/AshkenazimTrio/HG004_NA24143_mother/latest/GRCh38/).
 
-Results are shown for SNVs and indels separately in Figure 3. For SNVs, predictions with strobealign as the aligner have the highest [F-score](https://en.wikipedia.org/wiki/F-score) of all benchmarked aligners on both datasets. Strobealign's alignments yield the highest precision at the cost of a slightly lower recall. As for indels, predictions have a low recall, precision, and F-score with all aligners. This may be because we benchmarked against all gold standard SVs for HG004 that were not SNVs (see below method for the evaluation). Overall, predictions using Bowtie2 are the most desirable on these datasets. 
+Results are shown for SNVs and indels separately in Figure 4. For SNVs, predictions with strobealign as the aligner have the highest [F-score](https://en.wikipedia.org/wiki/F-score) of all benchmarked aligners on both datasets. Strobealign's alignments yield the highest precision at the cost of a slightly lower recall. As for indels, predictions have a low recall, precision, and F-score with all aligners. This may be because we benchmarked against all gold standard SVs for HG004 that were not SNVs (see below method for the evaluation). Overall, predictions using Bowtie2 are the most desirable on these datasets. 
 
 
 ![sv_calling 001](https://user-images.githubusercontent.com/1714667/156128690-266ccfad-14c0-48a7-8fe7-de794d98cc65.jpeg)
-Fig. 3. Recall precision and F-score for the aligners on 2x150 and 2x250 datasets from HG004.
+Fig. 4. Recall precision and F-score for the aligners on 2x150 and 2x250 datasets from HG004.
 
 ## Variant calling benchmark method
 
