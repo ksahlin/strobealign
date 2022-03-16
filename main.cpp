@@ -4563,9 +4563,8 @@ int main (int argc, char **argv)
                             nams2.clear();
                         }
                     }
-                    std::cerr << "Estimated diff in start coordinates b/t mates, (mean: " << mu << ", stddev: " << sigma << ") " << std::endl;
-//                }
             }
+            std::cerr << "Estimated diff in start coordinates b/t mates, (mean: " << mu << ", stddev: " << sigma << ") " << std::endl;
             records1 = new_records1;
             records2 = new_records2;
 //            std::cerr << "Len: " << isizes.size() << std::endl;
