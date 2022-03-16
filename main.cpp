@@ -2166,7 +2166,7 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, std::vect
     std::string ref_segm;
     std::string read_segm;
 
-    if (!fits){ // full alignment
+    if (true){ // currently deactivate partial SSW implementation.. (!fits){ // full alignment
         ref_tmp_start = n.ref_s - n.query_s > 0 ? n.ref_s - n.query_s : 0;
         ext_left = ref_tmp_start < 50 ? ref_tmp_start : 50;
         ref_start = ref_tmp_start - ext_left;
@@ -4270,7 +4270,7 @@ int main (int argc, char **argv)
         while (ks) {
 
             auto read_start = std::chrono::high_resolution_clock::now();
-            auto records = ks.read(n_q_chunk_size);  // read a chunk of 500000 records
+            auto records = ks.read(n_q_chunk_size);  // read a chunk of 1000000 records
             auto read_finish = std::chrono::high_resolution_clock::now();
             tot_read_file += read_finish - read_start;
 //        std::chrono::duration<double> elapsed_read = read_finish - read_start;
@@ -4401,44 +4401,59 @@ int main (int argc, char **argv)
                                       450); // Reserve sufficient space for appending multiple SAM records (400 is an upper setimate on the number of characters for each sam record of a 200-300bp read)
         }
 
-        while (ks1) {
+        auto read_start = std::chrono::high_resolution_clock::now();
+        auto records1 = ks1.read(n_q_chunk_size);  // read a chunk of 1000000 records
+        auto records2 = ks2.read(n_q_chunk_size);  // read a chunk of 1000000 records
+        auto read_finish = std::chrono::high_resolution_clock::now();
+        tot_read_file += read_finish - read_start;
+        std::vector<KSeq> new_records1;
+        std::vector<KSeq> new_records2;
+        while (!records1.empty()) {
+            #pragma omp parallel sections
+            {
 
-            auto read_start = std::chrono::high_resolution_clock::now();
-            auto records1 = ks1.read(n_q_chunk_size);  // read a chunk of 1000000 records
-            auto records2 = ks2.read(n_q_chunk_size);  // read a chunk of 1000000 records
-            auto read_finish = std::chrono::high_resolution_clock::now();
-            tot_read_file += read_finish - read_start;
-            float sample_size = 1;
-            float mu = 300;
-            float sigma = 100;
-            float V = 10000;
-            float SSE = 10000;
-            int n_it = records1.size();
-            std::cerr << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
-            #pragma omp parallel for num_threads(n_threads) shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
-            for (int i = 0; i < n_it; ++i) {
-                auto record1 = records1[i];
-                auto record2 = records2[i];
-                // generate mers here
-                auto strobe_start = std::chrono::high_resolution_clock::now();
+                // Consumers
+#pragma omp section
+                {
+                    float sample_size = 1;
+                    float mu = 300;
+                    float sigma = 100;
+                    float V = 10000;
+                    float SSE = 10000;
+                    int n_it = records1.size();
+                    std::cerr << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
+                    //#pragma omp parallel for num_threads(n_threads) shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
+                    for (int i = 0; i < n_it; ++i) {
+#pragma omp task firstprivate(i) shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
+                        {
+                            auto record1 = records1[i];
+                            auto record2 = records2[i];
+                            // generate mers here
+                            auto strobe_start = std::chrono::high_resolution_clock::now();
 //                std::cerr << "Going in! " << std::endl;
-                query_mers1 = seq_to_randstrobes2_read(n, k, w_min, w_max, record1.seq, q_id, s, t_syncmer, q, max_dist);
+                            query_mers1 = seq_to_randstrobes2_read(n, k, w_min, w_max, record1.seq, q_id, s, t_syncmer,
+                                                                   q,
+                                                                   max_dist);
 //                std::cerr << "Lolz1 " << std::endl;
-                query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer, q, max_dist);
+                            query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer,
+                                                                   q,
+                                                                   max_dist);
 //                std::cerr << "Lolz2 " << std::endl;
-                auto strobe_finish = std::chrono::high_resolution_clock::now();
-                tot_construct_strobemers += strobe_finish - strobe_start;
+                            auto strobe_finish = std::chrono::high_resolution_clock::now();
+                            tot_construct_strobemers += strobe_finish - strobe_start;
 //                std::cerr << record1.name << " " << query_mers1.size() << std::endl;
 //                std::cerr << record2.name << " " << query_mers2.size() << std::endl;
 
-                // Find NAMs
-                auto nam_start = std::chrono::high_resolution_clock::now();
-                info1 = find_nams(nams1, hits_per_ref, query_mers1, flat_vector, mers_index, k, ref_seqs, record1.seq, filter_cutoff);
-                hits_per_ref.clear();
-                info2 = find_nams(nams2, hits_per_ref, query_mers2, flat_vector, mers_index, k, ref_seqs, record2.seq, filter_cutoff);
-                hits_per_ref.clear();
-                auto nam_finish = std::chrono::high_resolution_clock::now();
-                tot_find_nams += nam_finish - nam_start;
+                            // Find NAMs
+                            auto nam_start = std::chrono::high_resolution_clock::now();
+                            info1 = find_nams(nams1, hits_per_ref, query_mers1, flat_vector, mers_index, k, ref_seqs,
+                                              record1.seq, filter_cutoff);
+                            hits_per_ref.clear();
+                            info2 = find_nams(nams2, hits_per_ref, query_mers2, flat_vector, mers_index, k, ref_seqs,
+                                              record2.seq, filter_cutoff);
+                            hits_per_ref.clear();
+                            auto nam_finish = std::chrono::high_resolution_clock::now();
+                            tot_find_nams += nam_finish - nam_start;
 
 //                if ( ((info1.second + info2.second) <= 10) || (info1.first < 0.7) || (info2.first < 0.7) ){
 //                    tried_rescue +=2;
@@ -4451,43 +4466,47 @@ int main (int argc, char **argv)
 //                    hits_per_ref.clear();
 //                }
 
-                if (R > 1) {
-                    auto rescue_start = std::chrono::high_resolution_clock::now();
-                    if ((nams1.size() == 0) || (info1.first < 0.7)) {
-                        tried_rescue += 1;
-                        nams1.clear();
+                            if (R > 1) {
+                                auto rescue_start = std::chrono::high_resolution_clock::now();
+                                if ((nams1.size() == 0) || (info1.first < 0.7)) {
+                                    tried_rescue += 1;
+                                    nams1.clear();
 //                        std::cerr << "Rescue is_sam_out read 1: " << record1.name << info1.first <<  std::endl;
-                        info1 = find_nams_rescue(hits_fw, hits_rc, nams1, hits_per_ref, query_mers1, flat_vector, mers_index, k, ref_seqs,
-                                                 record1.seq, rescue_cutoff);
-                        hits_per_ref.clear();
-                        hits_fw.clear();
-                        hits_rc.clear();
+                                    info1 = find_nams_rescue(hits_fw, hits_rc, nams1, hits_per_ref, query_mers1,
+                                                             flat_vector,
+                                                             mers_index, k, ref_seqs,
+                                                             record1.seq, rescue_cutoff);
+                                    hits_per_ref.clear();
+                                    hits_fw.clear();
+                                    hits_rc.clear();
 //                    std::cerr << "Found: " << nams.size() <<  std::endl;
-                    }
+                                }
 
-                    if ((nams2.size() == 0) || (info2.first < 0.7)) {
-                        tried_rescue += 1;
-                        nams2.clear();
+                                if ((nams2.size() == 0) || (info2.first < 0.7)) {
+                                    tried_rescue += 1;
+                                    nams2.clear();
 //                        std::cerr << "Rescue is_sam_out read 2: " << record2.name << info2.first <<  std::endl;
-                        info2 = find_nams_rescue(hits_fw, hits_rc, nams2, hits_per_ref, query_mers2, flat_vector, mers_index, k, ref_seqs,
-                                                 record2.seq, rescue_cutoff);
-                        hits_per_ref.clear();
-                        hits_fw.clear();
-                        hits_rc.clear();
+                                    info2 = find_nams_rescue(hits_fw, hits_rc, nams2, hits_per_ref, query_mers2,
+                                                             flat_vector,
+                                                             mers_index, k, ref_seqs,
+                                                             record2.seq, rescue_cutoff);
+                                    hits_per_ref.clear();
+                                    hits_fw.clear();
+                                    hits_rc.clear();
 //                    std::cerr << "Found: " << nams.size() <<  std::endl;
-                    }
-                    auto rescue_finish = std::chrono::high_resolution_clock::now();
-                    tot_time_rescue += rescue_finish - rescue_start;
-                }
+                                }
+                                auto rescue_finish = std::chrono::high_resolution_clock::now();
+                                tot_time_rescue += rescue_finish - rescue_start;
+                            }
 
 
 
-                //Sort hits based on start choordinate on query sequence
-                auto nam_sort_start = std::chrono::high_resolution_clock::now();
-                std::sort(nams1.begin(), nams1.end(), score);
-                std::sort(nams2.begin(), nams2.end(), score);
-                auto nam_sort_finish = std::chrono::high_resolution_clock::now();
-                tot_sort_nams += nam_sort_finish - nam_sort_start;
+                            //Sort hits based on start choordinate on query sequence
+                            auto nam_sort_start = std::chrono::high_resolution_clock::now();
+                            std::sort(nams1.begin(), nams1.end(), score);
+                            std::sort(nams2.begin(), nams2.end(), score);
+                            auto nam_sort_finish = std::chrono::high_resolution_clock::now();
+                            tot_sort_nams += nam_sort_finish - nam_sort_start;
 
 //                std::cerr << record1.name << std::endl;
 //                for (auto &n : nams1){
@@ -4498,29 +4517,54 @@ int main (int argc, char **argv)
 //                    std::cerr << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
 //                }
 
-                auto extend_start = std::chrono::high_resolution_clock::now();
-                if (!is_sam_out) {
+                            auto extend_start = std::chrono::high_resolution_clock::now();
+                            if (!is_sam_out) {
 //                    output_hits_paf(output_streams[omp_get_thread_num()], nams1, record1.name, acc_map, k,
 //                                    record1.seq.length(), ref_lengths);
-                    nam nam_read1;
-                    nam nam_read2;
-                    std::vector<std::tuple<int,nam,nam>> joint_NAM_scores;
-                    get_best_map_location(joint_NAM_scores, nams1, nams2, mu, sigma, sample_size, V, SSE, nam_read1, nam_read2);
-                    output_hits_paf_PE(output_streams[omp_get_thread_num()], nam_read1,  record1.name, acc_map, k, record1.seq.length(), ref_lengths);
-                    output_hits_paf_PE(output_streams[omp_get_thread_num()], nam_read2,  record2.name, acc_map, k, record2.seq.length(), ref_lengths);
-                    joint_NAM_scores.clear();
-                } else {
-                    align_PE(aln_params, output_streams[omp_get_thread_num()], nams1, nams2, record1, record2, acc_map, k,
-                             ref_lengths, ref_seqs, tot_ksw_aligned, tot_all_tried, tot_rescued, dropoff_threshold, did_not_fit, mu, sigma, sample_size, V, SSE, maxTries, max_secondary);
+                                nam nam_read1;
+                                nam nam_read2;
+                                std::vector<std::tuple<int, nam, nam>> joint_NAM_scores;
+                                get_best_map_location(joint_NAM_scores, nams1, nams2, mu, sigma, sample_size, V, SSE,
+                                                      nam_read1,
+                                                      nam_read2);
+                                output_hits_paf_PE(output_streams[omp_get_thread_num()], nam_read1, record1.name,
+                                                   acc_map,
+                                                   k,
+                                                   record1.seq.length(), ref_lengths);
+                                output_hits_paf_PE(output_streams[omp_get_thread_num()], nam_read2, record2.name,
+                                                   acc_map,
+                                                   k,
+                                                   record2.seq.length(), ref_lengths);
+                                joint_NAM_scores.clear();
+                            } else {
+                                align_PE(aln_params, output_streams[omp_get_thread_num()], nams1, nams2, record1,
+                                         record2,
+                                         acc_map, k,
+                                         ref_lengths, ref_seqs, tot_ksw_aligned, tot_all_tried, tot_rescued,
+                                         dropoff_threshold,
+                                         did_not_fit, mu, sigma, sample_size, V, SSE, maxTries, max_secondary);
+                            }
+                            auto extend_finish = std::chrono::high_resolution_clock::now();
+                            tot_extend += extend_finish - extend_start;
+                            q_id++;
+                            nams1.clear();
+                            nams2.clear();
+                        }
+                    }
+                    std::cerr << "Estimated diff in start coordinates b/t mates, (mean: " << mu << ", stddev: " << sigma << ") " << std::endl;
                 }
-                auto extend_finish = std::chrono::high_resolution_clock::now();
-                tot_extend += extend_finish - extend_start;
-                q_id++;
-                nams1.clear();
-                nams2.clear();
+                // Producer
+                #pragma omp section
+                {
+                    auto read_start = std::chrono::high_resolution_clock::now();
+                    new_records1 = ks1.read(n_q_chunk_size);
+                    new_records2 = ks2.read(n_q_chunk_size);
+                    auto read_finish = std::chrono::high_resolution_clock::now();
+                    tot_read_file += read_finish - read_start;
+                }
             }
-
-            std::cerr << "Estimated diff in start coordinates b/t mates, (mean: " << mu << ", stddev: " << sigma << ") " << std::endl;
+            records1 = new_records1;
+            records2 = new_records2;
 //            std::cerr << "Len: " << isizes.size() << std::endl;
 
             // Output results
