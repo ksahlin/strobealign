@@ -4409,22 +4409,34 @@ int main (int argc, char **argv)
         std::vector<KSeq> new_records1;
         std::vector<KSeq> new_records2;
         while (!records1.empty()) {
-            #pragma omp parallel sections
+            float sample_size = 1;
+            float mu = 300;
+            float sigma = 100;
+            float V = 10000;
+            float SSE = 10000;
+            int n_it = records1.size();
+            std::cerr << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
+
+            #pragma omp parallel shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE)
             {
+                // Producer
+                #pragma omp single nowait
+                {
+                    auto read_start = std::chrono::high_resolution_clock::now();
+                    new_records1 = ks1.read(n_q_chunk_size);
+                    new_records2 = ks2.read(n_q_chunk_size);
+                    auto read_finish = std::chrono::high_resolution_clock::now();
+                    tot_read_file += read_finish - read_start;
+                }
 
                 // Consumers
-#pragma omp section
-                {
-                    float sample_size = 1;
-                    float mu = 300;
-                    float sigma = 100;
-                    float V = 10000;
-                    float SSE = 10000;
-                    int n_it = records1.size();
-                    std::cerr << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
-                    //#pragma omp parallel for num_threads(n_threads) shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
+//                #pragma omp parallel
+//                {
+
+//                    #pragma omp parallel for num_threads(n_threads) shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
+                    #pragma omp for schedule(dynamic) nowait  private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
                     for (int i = 0; i < n_it; ++i) {
-#pragma omp task firstprivate(i) shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
+//                        #pragma omp task firstprivate(i) shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
                         {
                             auto record1 = records1[i];
                             auto record2 = records2[i];
@@ -4552,16 +4564,7 @@ int main (int argc, char **argv)
                         }
                     }
                     std::cerr << "Estimated diff in start coordinates b/t mates, (mean: " << mu << ", stddev: " << sigma << ") " << std::endl;
-                }
-                // Producer
-                #pragma omp section
-                {
-                    auto read_start = std::chrono::high_resolution_clock::now();
-                    new_records1 = ks1.read(n_q_chunk_size);
-                    new_records2 = ks2.read(n_q_chunk_size);
-                    auto read_finish = std::chrono::high_resolution_clock::now();
-                    tot_read_file += read_finish - read_start;
-                }
+//                }
             }
             records1 = new_records1;
             records2 = new_records2;
