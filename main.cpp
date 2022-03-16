@@ -3803,7 +3803,7 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
 
 void print_usage() {
     std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.6.1 \n";
+    std::cerr << "StrobeAlign VERSION 0.6.2 \n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
@@ -4235,7 +4235,7 @@ int main (int argc, char **argv)
         for (auto &it : acc_map) {
             out << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
         }
-        out << "@PG\tID:strobealign\tPN:strobealign\tVN:0.6.1\tCL:strobealign\n";
+        out << "@PG\tID:strobealign\tPN:strobealign\tVN:0.6.2\tCL:strobealign\n";
     }
 
     if(is_SE) {
