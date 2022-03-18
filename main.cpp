@@ -38,6 +38,22 @@ typedef struct { int match;
                 int gap_open;
                 int gap_extend;} alignment_params;
 
+typedef struct {
+    std::chrono::duration<double> tot_read_file;
+    std::chrono::duration<double> tot_construct_strobemers;
+    std::chrono::duration<double> tot_find_nams;
+    std::chrono::duration<double> tot_time_rescue;
+    std::chrono::duration<double> tot_find_nams_alt;
+    std::chrono::duration<double> tot_sort_nams;
+    std::chrono::duration<double> tot_extend;
+    std::chrono::duration<double> tot_rc;
+    std::chrono::duration<double> tot_write_file;
+
+    unsigned int tot_ksw_aligned = 0;
+    unsigned int tot_rescued = 0;
+    unsigned int tot_all_tried = 0;
+    unsigned int did_not_fit = 0;
+    unsigned int tried_rescue = 0;} logging_variables;
 
 static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsigned int> &lengths, idx_to_acc &acc_map, std::string fn)
 {
@@ -1350,7 +1366,7 @@ static inline bool sort_highest_sw_scores_single(const std::tuple<int, alignment
 }
 
 
-static inline void align_SE(alignment_params &aln_params, std::string &sam_string, std::vector<nam> &all_nams, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &qual, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit, int max_tries ) {
+static inline void align_SE(alignment_params &aln_params, std::string &sam_string, std::vector<nam> &all_nams, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &qual, logging_variables &log_vars, float dropoff, int max_tries ) {
 
     std::string read_rc;
     bool rc_already_comp = false;
@@ -1395,7 +1411,7 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
             break;
         }
 
-        tot_all_tried ++;
+        log_vars.tot_all_tried ++;
 
         int ref_diff = n.ref_e - n.ref_s;
         int read_diff = n.query_e - n.query_s;
@@ -1495,7 +1511,7 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
             }
         }
         if (!fits){
-            did_not_fit++;
+            log_vars.did_not_fit++;
             aln_did_not_fit = true;
         }
 
@@ -1595,7 +1611,7 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
 //            info.ed = info.global_ed; // read_len - info.sw_score;
             int diff_to_best = info.sw_score < best_align_sw_score ? best_align_sw_score - info.sw_score : info.sw_score - best_align_sw_score;
             min_mapq_diff = min_mapq_diff < diff_to_best ? min_mapq_diff : diff_to_best;
-            tot_ksw_aligned ++;
+            log_vars.tot_ksw_aligned ++;
 //            if (info.global_ed <= best_align_dist){
             if (info.sw_score >= best_align_sw_score){
                 min_mapq_diff = (info.sw_score - best_align_sw_score) > 0 ? (info.sw_score - best_align_sw_score)  : 0 ; // new distance to next best match
@@ -1671,7 +1687,7 @@ static inline void align_SE(alignment_params &aln_params, std::string &sam_strin
 }
 
 
-static inline void align_SE_secondary_hits(alignment_params &aln_params, std::string &sam_string, std::vector<nam> &all_nams, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &qual, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, float dropoff, unsigned int &did_not_fit, int max_tries, int max_secondary ) {
+static inline void align_SE_secondary_hits(alignment_params &aln_params, std::string &sam_string, std::vector<nam> &all_nams, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &qual, logging_variables &log_vars, float dropoff, int max_tries, int max_secondary ) {
 
     std::string read_rc;
     bool rc_already_comp = false;
@@ -1709,7 +1725,7 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
             break;
         }
 
-        tot_all_tried ++;
+        log_vars.tot_all_tried ++;
 
         int ref_diff = n.ref_e - n.ref_s;
         int read_diff = n.query_e - n.query_s;
@@ -1789,7 +1805,7 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
             }
         }
         if (!fits){
-            did_not_fit++;
+            log_vars.did_not_fit++;
             aln_did_not_fit = true;
         }
 
@@ -1906,7 +1922,7 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
             info = ssw_align(ref_segm, r_tmp, read_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
 //            info.ed = info.global_ed; // read_len - info.sw_score;
             sw_score = info.sw_score;
-            tot_ksw_aligned ++;
+            log_vars.tot_ksw_aligned ++;
             int diff_to_best = sw_score < best_align_sw_score ? best_align_sw_score - sw_score : sw_score - best_align_sw_score;
              min_mapq_diff = min_mapq_diff < diff_to_best ? min_mapq_diff : diff_to_best;
 //            if (info.global_ed <= best_align_dist) {
@@ -3241,7 +3257,7 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
     tot_rescued ++;
 }
 
-static inline void align_PE(alignment_params &aln_params, std::string &sam_string, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, KSeq &record1, KSeq &record2, idx_to_acc &acc_map, int k, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, unsigned int &tot_ksw_aligned, unsigned int &tot_all_tried, unsigned int &tot_rescued, float dropoff, unsigned int &did_not_fit, float &mu, float &sigma, float &sample_size, float &V, float &SSE, int max_tries, int max_secondary) {
+static inline void align_PE(alignment_params &aln_params, std::string &sam_string, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, KSeq &record1, KSeq &record2, idx_to_acc &acc_map, int k, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, logging_variables  &log_vars, float dropoff, float &mu, float &sigma, float &sample_size, float &V, float &SSE, int max_tries, int max_secondary) {
     int read_len1 = record1.seq.length();
     int read_len2 = record2.seq.length();
     std::string read1 = record1.seq;
@@ -3297,11 +3313,11 @@ static inline void align_PE(alignment_params &aln_params, std::string &sam_strin
         if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) && ( r1_r2 || r1_r2 ) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
 //            std::cerr << "I'm here" << std::endl;
 //            std::cerr << query_acc1 << std::endl;
-            get_alignment(aln_params, n_max1, ref_len_map, ref_seqs, read1, read1_rc, read_len1, sam_aln1, k, cnt1, rc_already_comp1, did_not_fit, tot_ksw_aligned);
-            tot_all_tried ++;
+            get_alignment(aln_params, n_max1, ref_len_map, ref_seqs, read1, read1_rc, read_len1, sam_aln1, k, cnt1, rc_already_comp1, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
+            log_vars.tot_all_tried ++;
 //            std::cerr << query_acc2 << std::endl;
-            get_alignment(aln_params, n_max2, ref_len_map, ref_seqs, read2, read2_rc, read_len2, sam_aln2, k, cnt2, rc_already_comp2, did_not_fit, tot_ksw_aligned);
-            tot_all_tried ++;
+            get_alignment(aln_params, n_max2, ref_len_map, ref_seqs, read2, read2_rc, read_len2, sam_aln2, k, cnt2, rc_already_comp2, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
+            log_vars.tot_all_tried ++;
 //            std::cerr<< "6" << std::endl;
             get_MAPQ(all_nams1, n_max1, mapq1);
             get_MAPQ(all_nams2, n_max2, mapq2);
@@ -3343,16 +3359,16 @@ static inline void align_PE(alignment_params &aln_params, std::string &sam_strin
 //            a1_indv_max.sw_score = -10000;
             auto n1_max = all_nams1[0];
             get_alignment(aln_params, n1_max, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1_indv_max, k, cnt1, rc_already_comp1,
-                          did_not_fit, tot_ksw_aligned);
+                          log_vars.did_not_fit, log_vars.tot_ksw_aligned);
             is_aligned1[n1_max.nam_id] = a1_indv_max;
-            tot_all_tried ++;
+            log_vars.tot_all_tried ++;
             alignment a2_indv_max;
 //            a2_indv_max.sw_score = -10000;
             auto n2_max = all_nams2[0];
             get_alignment(aln_params, n2_max, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2_indv_max, k, cnt2, rc_already_comp2,
-                          did_not_fit, tot_ksw_aligned);
+                          log_vars.did_not_fit, log_vars.tot_ksw_aligned);
             is_aligned2[n2_max.nam_id] = a2_indv_max;
-            tot_all_tried ++;
+            log_vars.tot_all_tried ++;
 
 //            int a, b;
             std::string r_tmp;
@@ -3384,17 +3400,17 @@ static inline void align_PE(alignment_params &aln_params, std::string &sam_strin
 //                    std::cerr << query_acc1 << std::endl;
                         get_alignment(aln_params, n1, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, k, cnt1,
                                       rc_already_comp1,
-                                      did_not_fit, tot_ksw_aligned);
+                                      log_vars.did_not_fit, log_vars.tot_ksw_aligned);
                         is_aligned1[n1.nam_id] = a1;
-                        tot_all_tried++;
+                        log_vars.tot_all_tried++;
                     }
                 } else { //rescue
 //                    std::cerr << "RESCUE HERE1" << std::endl;
                     //////// Force SW alignment to rescue mate /////////
 //                    std::cerr << query_acc2 << " RESCUE MATE 1" << a1.is_rc << " " n1.is_rc << std::endl;
-                    rescue_mate(aln_params, n2, ref_len_map, ref_seqs, read2, read2_rc,  read_len2, rc_already_comp2, read1, read1_rc, read_len1, a1, rc_already_comp1, tot_ksw_aligned, mu, sigma, tot_rescued, k);
+                    rescue_mate(aln_params, n2, ref_len_map, ref_seqs, read2, read2_rc,  read_len2, rc_already_comp2, read1, read1_rc, read_len1, a1, rc_already_comp1, log_vars.tot_ksw_aligned, mu, sigma, log_vars.tot_rescued, k);
 //                    is_aligned1[n1.nam_id] = a1;
-                    tot_all_tried ++;
+                    log_vars.tot_all_tried ++;
                 }
 
 
@@ -3415,17 +3431,17 @@ static inline void align_PE(alignment_params &aln_params, std::string &sam_strin
 //                    std::cerr << query_acc2 << std::endl;
                         get_alignment(aln_params, n2, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, k, cnt2,
                                       rc_already_comp2,
-                                      did_not_fit, tot_ksw_aligned);
+                                      log_vars.did_not_fit, log_vars.tot_ksw_aligned);
                         is_aligned2[n2.nam_id] = a2;
-                        tot_all_tried++;
+                        log_vars.tot_all_tried++;
                     }
                 } else{
 //                    std::cerr << "RESCUE HERE2" << std::endl;
                     //////// Force SW alignment to rescue mate /////////
 //                    std::cerr << query_acc1 << " RESCUE MATE 2" << a1.is_rc << " " n1.is_rc << std::endl;
-                    rescue_mate(aln_params, n1, ref_len_map, ref_seqs, read1, read1_rc,  read_len1, rc_already_comp1, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma, tot_rescued, k);
+                    rescue_mate(aln_params, n1, ref_len_map, ref_seqs, read1, read1_rc,  read_len1, rc_already_comp1, read2, read2_rc, read_len2, a2, rc_already_comp2, log_vars.tot_ksw_aligned, mu, sigma, log_vars.tot_rescued, k);
 //                    is_aligned2[n2.nam_id] = a2;
-                    tot_all_tried ++;
+                    log_vars.tot_all_tried ++;
                 }
 //                a2_indv_max = a2.sw_score >  a2_indv_max.sw_score ? a2 : a2_indv_max;
 //                min_ed = a2.ed < min_ed ? a2.ed : min_ed;
@@ -3586,19 +3602,19 @@ static inline void align_PE(alignment_params &aln_params, std::string &sam_strin
             //////// the actual testing of base pair alignment part start /////////
             alignment a1;
 //            std::cerr << query_acc1 << " force rescue"  << std::endl;
-            get_alignment(aln_params, n, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, k, cnt1, rc_already_comp1, did_not_fit, tot_ksw_aligned);
+            get_alignment(aln_params, n, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, k, cnt1, rc_already_comp1, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
             aln_scores1.push_back(a1);
             //////////////////////////////////////////////////////////////////
 
             //////// Force SW alignment to rescue mate /////////
             alignment a2;
 //            std::cerr << query_acc2 << " force rescue" << std::endl;
-            rescue_mate(aln_params, n, ref_len_map, ref_seqs, read1, read1_rc,  read_len1, rc_already_comp1, read2, read2_rc, read_len2, a2, rc_already_comp2, tot_ksw_aligned, mu, sigma,tot_rescued, k);
+            rescue_mate(aln_params, n, ref_len_map, ref_seqs, read1, read1_rc,  read_len1, rc_already_comp1, read2, read2_rc, read_len2, a2, rc_already_comp2, log_vars.tot_ksw_aligned, mu, sigma, log_vars.tot_rescued, k);
             aln_scores2.push_back(a2);
             //////////////////////////////////////////////////////////////////
 
             cnt1 ++;
-            tot_all_tried ++;
+            log_vars.tot_all_tried ++;
         }
         std::sort(aln_scores1.begin(), aln_scores1.end(), score_sw);
         std::sort(aln_scores2.begin(), aln_scores2.end(), score_sw);
@@ -3668,7 +3684,7 @@ static inline void align_PE(alignment_params &aln_params, std::string &sam_strin
 
             //////// the actual testing of base pair alignment part start /////////
             alignment a2;
-            get_alignment(aln_params, n, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, k, cnt2, rc_already_comp2, did_not_fit, tot_ksw_aligned);
+            get_alignment(aln_params, n, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, k, cnt2, rc_already_comp2, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
             aln_scores2.push_back(a2);
             //////////////////////////////////////////////////////////////////
 
@@ -3676,12 +3692,12 @@ static inline void align_PE(alignment_params &aln_params, std::string &sam_strin
 
             //////// Force SW alignment to rescue mate /////////
             alignment a1;
-            rescue_mate(aln_params, n, ref_len_map, ref_seqs, read2, read2_rc,  read_len2, rc_already_comp2, read1, read1_rc, read_len1, a1, rc_already_comp1, tot_ksw_aligned, mu, sigma, tot_rescued, k);
+            rescue_mate(aln_params, n, ref_len_map, ref_seqs, read2, read2_rc,  read_len2, rc_already_comp2, read1, read1_rc, read_len1, a1, rc_already_comp1, log_vars.tot_ksw_aligned, mu, sigma, log_vars.tot_rescued, k);
             aln_scores1.push_back(a1);
             //////////////////////////////////////////////////////////////////
 
             cnt2 ++;
-            tot_all_tried ++;
+            log_vars.tot_all_tried ++;
         }
         std::sort(aln_scores1.begin(), aln_scores1.end(), score_sw);
         std::sort(aln_scores2.begin(), aln_scores2.end(), score_sw);
@@ -4194,21 +4210,7 @@ int main (int argc, char **argv)
     // Record matching time
     auto start_aln_part = std::chrono::high_resolution_clock::now();
 
-    std::chrono::duration<double> tot_read_file;
-    std::chrono::duration<double> tot_construct_strobemers;
-    std::chrono::duration<double> tot_find_nams;
-    std::chrono::duration<double> tot_time_rescue;
-    std::chrono::duration<double> tot_find_nams_alt;
-    std::chrono::duration<double> tot_sort_nams;
-    std::chrono::duration<double> tot_extend;
-    std::chrono::duration<double> tot_rc;
-    std::chrono::duration<double> tot_write_file;
-
-    unsigned int tot_ksw_aligned = 0;
-    unsigned int tot_rescued = 0;
-    unsigned int tot_all_tried = 0;
-    unsigned int did_not_fit = 0;
-    unsigned int tried_rescue = 0;
+    logging_variables log_vars;
 //    std::ifstream query_file(reads_filename);
 
     int rescue_cutoff = R < 100 ? R*filter_cutoff : 1000;
@@ -4228,8 +4230,8 @@ int main (int argc, char **argv)
 //    std::ofstream out;
 //    out.open(output_file_name);
 
-    std::stringstream sam_output;
-    std::stringstream paf_output;
+//    std::stringstream sam_output;
+//    std::stringstream paf_output;
 
     if (is_sam_out) {
         for (auto &it : acc_map) {
@@ -4272,20 +4274,20 @@ int main (int argc, char **argv)
             auto read_start = std::chrono::high_resolution_clock::now();
             auto records = ks.read(n_q_chunk_size);  // read a chunk of 1000000 records
             auto read_finish = std::chrono::high_resolution_clock::now();
-            tot_read_file += read_finish - read_start;
+            log_vars.tot_read_file += read_finish - read_start;
 //        std::chrono::duration<double> elapsed_read = read_finish - read_start;
 //        std::cerr << "Total time reading from file: " << elapsed_read.count() << " s\n" <<  std::endl;
 
             int n_it = records.size();
             std::cerr << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
-            #pragma omp parallel for num_threads(n_threads) shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue) private(sam_output, paf_output, record, seq_rc, query_mers, nams, hits_per_ref, info)
+            #pragma omp parallel for num_threads(n_threads) shared(aln_params, output_streams, log_vars, out, q_id) private(record, seq_rc, query_mers, nams, hits_per_ref, info)
             for (int i = 0; i < n_it; ++i) {
                 auto record = records[i];
                 // generate mers here
                 auto strobe_start = std::chrono::high_resolution_clock::now();
                 query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, record.seq, q_id, s, t_syncmer, q, max_dist);
                 auto strobe_finish = std::chrono::high_resolution_clock::now();
-                tot_construct_strobemers += strobe_finish - strobe_start;
+                log_vars.tot_construct_strobemers += strobe_finish - strobe_start;
 
 //            // Find NAMs alternative function
 //            auto nam_alt_start = std::chrono::high_resolution_clock::now();
@@ -4301,12 +4303,12 @@ int main (int argc, char **argv)
                 info = find_nams(nams, hits_per_ref, query_mers, flat_vector, mers_index, k, ref_seqs, record.seq, filter_cutoff);
                 hits_per_ref.clear();
                 auto nam_finish = std::chrono::high_resolution_clock::now();
-                tot_find_nams += nam_finish - nam_start;
+                log_vars.tot_find_nams += nam_finish - nam_start;
 
                 if (R > 1) {
                     auto rescue_start = std::chrono::high_resolution_clock::now();
                     if ((nams.size() == 0) || (info.first < 0.7)) {
-                        tried_rescue += 1;
+                        log_vars.tried_rescue += 1;
                         nams.clear();
 //                    std::cerr << "Rescue is_sam_out: " << record.name <<  std::endl;
                         info = find_nams_rescue(hits_fw, hits_rc, nams, hits_per_ref, query_mers, flat_vector, mers_index, k, ref_seqs,
@@ -4317,7 +4319,7 @@ int main (int argc, char **argv)
 //                    std::cerr << "Found: " << nams.size() <<  std::endl;
                     }
                     auto rescue_finish = std::chrono::high_resolution_clock::now();
-                    tot_time_rescue += rescue_finish - rescue_start;
+                    log_vars.tot_time_rescue += rescue_finish - rescue_start;
                 }
 
 
@@ -4325,7 +4327,7 @@ int main (int argc, char **argv)
                 auto nam_sort_start = std::chrono::high_resolution_clock::now();
                 std::sort(nams.begin(), nams.end(), score);
                 auto nam_sort_finish = std::chrono::high_resolution_clock::now();
-                tot_sort_nams += nam_sort_finish - nam_sort_start;
+                log_vars.tot_sort_nams += nam_sort_finish - nam_sort_start;
 
                 auto extend_start = std::chrono::high_resolution_clock::now();
                 if (!is_sam_out) {
@@ -4344,18 +4346,16 @@ int main (int argc, char **argv)
                         // original align_SE function (storing a vector of hits and sorting them)
                         // Such overhead is not present in align_PE - which implements both options in the same function.
                         align_SE_secondary_hits(aln_params,output_streams[omp_get_thread_num()], nams, record.name, acc_map, k, record.seq.length(),
-                                 ref_lengths, ref_seqs, record.seq, record.qual,
-                                 tot_ksw_aligned, tot_all_tried, dropoff_threshold, did_not_fit, maxTries, max_secondary);
+                                 ref_lengths, ref_seqs, record.seq, record.qual, log_vars, dropoff_threshold, maxTries, max_secondary);
                     } else {
                         align_SE(aln_params,output_streams[omp_get_thread_num()], nams, record.name, acc_map, k, record.seq.length(),
-                                 ref_lengths, ref_seqs, record.seq, record.qual,
-                                 tot_ksw_aligned, tot_all_tried, dropoff_threshold, did_not_fit, maxTries);
+                                 ref_lengths, ref_seqs, record.seq, record.qual, log_vars,  dropoff_threshold, maxTries);
                     }
 
 //                output_streams[omp_get_thread_num()] << sam_output.str();
                 }
                 auto extend_finish = std::chrono::high_resolution_clock::now();
-                tot_extend += extend_finish - extend_start;
+                log_vars.tot_extend += extend_finish - extend_start;
                 q_id++;
                 nams.clear();
             }
@@ -4366,7 +4366,7 @@ int main (int argc, char **argv)
                 output_streams[i].clear();
             }
             auto write_finish = std::chrono::high_resolution_clock::now();
-            tot_write_file += write_finish - write_start;
+            log_vars.tot_write_file += write_finish - write_start;
         }
         gzclose(fp);
     }
@@ -4405,7 +4405,7 @@ int main (int argc, char **argv)
         auto records1 = ks1.read(n_q_chunk_size);  // read a chunk of 1000000 records
         auto records2 = ks2.read(n_q_chunk_size);  // read a chunk of 1000000 records
         auto read_finish = std::chrono::high_resolution_clock::now();
-        tot_read_file += read_finish - read_start;
+        log_vars.tot_read_file += read_finish - read_start;
         std::vector<KSeq> new_records1;
         std::vector<KSeq> new_records2;
 //        std::vector<std::string> old_output_streams(n_threads);
@@ -4422,7 +4422,7 @@ int main (int argc, char **argv)
             int n_it = records1.size();
             std::cerr << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
 
-            #pragma omp parallel sections shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE)
+            #pragma omp parallel sections shared(aln_params, output_streams, log_vars, sample_size, mu, sigma, V, SSE)
             {
                 // Producer (read-write IO)
 #pragma omp section
@@ -4431,7 +4431,7 @@ int main (int argc, char **argv)
                     new_records1 = ks1.read(n_q_chunk_size);
                     new_records2 = ks2.read(n_q_chunk_size);
                     auto read_finish = std::chrono::high_resolution_clock::now();
-                    tot_read_file += read_finish - read_start;
+                    log_vars.tot_read_file += read_finish - read_start;
 
 //                    // Output results
 //                    auto write_start = std::chrono::high_resolution_clock::now();
@@ -4447,26 +4447,26 @@ int main (int argc, char **argv)
 #pragma omp section
                 {
 
-//                    #pragma omp parallel for num_threads(n_threads) shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
-//                    #pragma omp for schedule(dynamic) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
+//                    #pragma omp parallel for num_threads(n_threads) shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
+//                    #pragma omp for schedule(dynamic) private(record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
                     for (int i = 0; i < n_it; ++i) {
-#pragma omp task firstprivate(i)  private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
+#pragma omp task firstprivate(i)  private(record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
                         {
                             auto record1 = records1[i];
                             auto record2 = records2[i];
                             // generate mers here
                             auto strobe_start = std::chrono::high_resolution_clock::now();
 //                std::cerr << "Going in! " << std::endl;
-                            query_mers1 = seq_to_randstrobes2_read(n, k, w_min, w_max, record1.seq, q_id, s, t_syncmer,
+                            query_mers1 = seq_to_randstrobes2_read(n, k, w_min, w_max, record1.seq, 0, s, t_syncmer,
                                                                    q,
                                                                    max_dist);
 //                std::cerr << "Lolz1 " << std::endl;
-                            query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, q_id, s, t_syncmer,
+                            query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, 0, s, t_syncmer,
                                                                    q,
                                                                    max_dist);
 //                std::cerr << "Lolz2 " << std::endl;
                             auto strobe_finish = std::chrono::high_resolution_clock::now();
-                            tot_construct_strobemers += strobe_finish - strobe_start;
+                            log_vars.tot_construct_strobemers += strobe_finish - strobe_start;
 //                std::cerr << record1.name << " " << query_mers1.size() << std::endl;
 //                std::cerr << record2.name << " " << query_mers2.size() << std::endl;
 
@@ -4479,7 +4479,7 @@ int main (int argc, char **argv)
                                               record2.seq, filter_cutoff);
                             hits_per_ref.clear();
                             auto nam_finish = std::chrono::high_resolution_clock::now();
-                            tot_find_nams += nam_finish - nam_start;
+                            log_vars.tot_find_nams += nam_finish - nam_start;
 
 //                if ( ((info1.second + info2.second) <= 10) || (info1.first < 0.7) || (info2.first < 0.7) ){
 //                    tried_rescue +=2;
@@ -4495,7 +4495,7 @@ int main (int argc, char **argv)
                             if (R > 1) {
                                 auto rescue_start = std::chrono::high_resolution_clock::now();
                                 if ((nams1.size() == 0) || (info1.first < 0.7)) {
-                                    tried_rescue += 1;
+                                    log_vars.tried_rescue += 1;
                                     nams1.clear();
 //                        std::cerr << "Rescue is_sam_out read 1: " << record1.name << info1.first <<  std::endl;
                                     info1 = find_nams_rescue(hits_fw, hits_rc, nams1, hits_per_ref, query_mers1,
@@ -4509,7 +4509,7 @@ int main (int argc, char **argv)
                                 }
 
                                 if ((nams2.size() == 0) || (info2.first < 0.7)) {
-                                    tried_rescue += 1;
+                                    log_vars.tried_rescue += 1;
                                     nams2.clear();
 //                        std::cerr << "Rescue is_sam_out read 2: " << record2.name << info2.first <<  std::endl;
                                     info2 = find_nams_rescue(hits_fw, hits_rc, nams2, hits_per_ref, query_mers2,
@@ -4522,7 +4522,7 @@ int main (int argc, char **argv)
 //                    std::cerr << "Found: " << nams.size() <<  std::endl;
                                 }
                                 auto rescue_finish = std::chrono::high_resolution_clock::now();
-                                tot_time_rescue += rescue_finish - rescue_start;
+                                log_vars.tot_time_rescue += rescue_finish - rescue_start;
                             }
 
 
@@ -4532,7 +4532,7 @@ int main (int argc, char **argv)
                             std::sort(nams1.begin(), nams1.end(), score);
                             std::sort(nams2.begin(), nams2.end(), score);
                             auto nam_sort_finish = std::chrono::high_resolution_clock::now();
-                            tot_sort_nams += nam_sort_finish - nam_sort_start;
+                            log_vars.tot_sort_nams += nam_sort_finish - nam_sort_start;
 
 //                std::cerr << record1.name << std::endl;
 //                for (auto &n : nams1){
@@ -4566,12 +4566,11 @@ int main (int argc, char **argv)
                                 align_PE(aln_params, output_streams[omp_get_thread_num()], nams1, nams2, record1,
                                          record2,
                                          acc_map, k,
-                                         ref_lengths, ref_seqs, tot_ksw_aligned, tot_all_tried, tot_rescued,
-                                         dropoff_threshold,
-                                         did_not_fit, mu, sigma, sample_size, V, SSE, maxTries, max_secondary);
+                                         ref_lengths, ref_seqs, log_vars,
+                                         dropoff_threshold,  mu, sigma, sample_size, V, SSE, maxTries, max_secondary);
                             }
                             auto extend_finish = std::chrono::high_resolution_clock::now();
-                            tot_extend += extend_finish - extend_start;
+                            log_vars.tot_extend += extend_finish - extend_start;
                             q_id++;
                             nams1.clear();
                             nams2.clear();
@@ -4593,7 +4592,7 @@ int main (int argc, char **argv)
                 output_streams[i].clear();
             }
             auto write_finish = std::chrono::high_resolution_clock::now();
-            tot_write_file += write_finish - write_start;
+            log_vars.tot_write_file += write_finish - write_start;
         }
 
 //        // Output last batch of results
@@ -4613,24 +4612,24 @@ int main (int argc, char **argv)
 
 //    out.close();
 
-    std::cerr << "Total mapping sites tried: " << tot_all_tried << std::endl;
-    std::cerr << "Total calls to ssw: " << tot_ksw_aligned << std::endl;
-    std::cerr << "Calls to ksw (rescue mode): " << tot_rescued << std::endl;
-    std::cerr << "Did not fit strobe start site: " << did_not_fit  << std::endl;
-    std::cerr << "Tried rescue: " << tried_rescue  << std::endl;
+    std::cerr << "Total mapping sites tried: " << log_vars.tot_all_tried << std::endl;
+    std::cerr << "Total calls to ssw: " << log_vars.tot_ksw_aligned << std::endl;
+    std::cerr << "Calls to ksw (rescue mode): " << log_vars.tot_rescued << std::endl;
+    std::cerr << "Did not fit strobe start site: " << log_vars.did_not_fit  << std::endl;
+    std::cerr << "Tried rescue: " << log_vars.tried_rescue  << std::endl;
     // Record mapping end time
     auto finish_aln_part = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> tot_aln_part = finish_aln_part - start_aln_part;
     std::cerr << "Total time mapping: " << tot_aln_part.count() << " s." <<  std::endl;
-    std::cerr << "Total time reading read-file(s): " << tot_read_file.count() << " s." <<  std::endl;
-    std::cerr << "Total time creating strobemers: " << tot_construct_strobemers.count()/n_threads << " s." <<  std::endl;
-    std::cerr << "Total time finding NAMs (non-rescue mode): " << tot_find_nams.count()/n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time finding NAMs (rescue mode): " << tot_time_rescue.count()/n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time reading read-file(s): " << log_vars.tot_read_file.count() << " s." <<  std::endl;
+    std::cerr << "Total time creating strobemers: " << log_vars.tot_construct_strobemers.count()/n_threads << " s." <<  std::endl;
+    std::cerr << "Total time finding NAMs (non-rescue mode): " << log_vars.tot_find_nams.count()/n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time finding NAMs (rescue mode): " << log_vars.tot_time_rescue.count()/n_threads  << " s." <<  std::endl;
 //    std::cerr << "Total time finding NAMs ALTERNATIVE (candidate sites): " << tot_find_nams_alt.count()/n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time sorting NAMs (candidate sites): " << tot_sort_nams.count()/n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time reverse compl seq: " << tot_rc.count()/n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time base level alignment (ssw): " << tot_extend.count()/n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time writing alignment to files: " << tot_write_file.count() << " s." <<  std::endl;
+    std::cerr << "Total time sorting NAMs (candidate sites): " << log_vars.tot_sort_nams.count()/n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time reverse compl seq: " << log_vars.tot_rc.count()/n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time base level alignment (ssw): " << log_vars.tot_extend.count()/n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time writing alignment to files: " << log_vars.tot_write_file.count() << " s." <<  std::endl;
 
     //////////////////////////////////////////////////////////////////////////
 
