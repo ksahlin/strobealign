@@ -4398,7 +4398,7 @@ int main (int argc, char **argv)
         std::vector<std::string> output_streams(n_threads);
         for (int i = 0; i < n_threads; ++i) {
             output_streams[i].reserve((n_q_chunk_size / n_threads + 1) *
-                                      450); // Reserve sufficient space for appending multiple SAM records (400 is an upper setimate on the number of characters for each sam record of a 200-300bp read)
+                                      600); // Reserve sufficient space for appending multiple SAM records (600 is an estimate on the number of characters for each sam record of a 200-300bp read)
         }
 
         auto read_start = std::chrono::high_resolution_clock::now();
@@ -4408,6 +4408,11 @@ int main (int argc, char **argv)
         tot_read_file += read_finish - read_start;
         std::vector<KSeq> new_records1;
         std::vector<KSeq> new_records2;
+//        std::vector<std::string> old_output_streams(n_threads);
+//        for (int i = 0; i < n_threads; ++i) {
+//            old_output_streams[i].reserve((n_q_chunk_size / n_threads + 1) *
+//                                      600); // Reserve sufficient space for appending multiple SAM records (600 is an estimate on the number of characters for each sam record of a 200-300bp read)
+//        }
         while (!records1.empty()) {
             float sample_size = 1;
             float mu = 300;
@@ -4417,26 +4422,35 @@ int main (int argc, char **argv)
             int n_it = records1.size();
             std::cerr << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
 
-            #pragma omp parallel shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE)
+            #pragma omp parallel sections shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE)
             {
-                // Producer
-                #pragma omp single
+                // Producer (read-write IO)
+#pragma omp section
                 {
                     auto read_start = std::chrono::high_resolution_clock::now();
                     new_records1 = ks1.read(n_q_chunk_size);
                     new_records2 = ks2.read(n_q_chunk_size);
                     auto read_finish = std::chrono::high_resolution_clock::now();
                     tot_read_file += read_finish - read_start;
+
+//                    // Output results
+//                    auto write_start = std::chrono::high_resolution_clock::now();
+//                    for (int i = 0; i < n_threads; ++i) {
+//                        out << old_output_streams[i];
+//                        old_output_streams[i].clear();
+//                    }
+//                    auto write_finish = std::chrono::high_resolution_clock::now();
+//                    tot_write_file += write_finish - write_start;
                 }
 
                 // Consumers
-//                #pragma omp parallel
-//                {
+#pragma omp section
+                {
 
 //                    #pragma omp parallel for num_threads(n_threads) shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
-                    #pragma omp for schedule(dynamic) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
+//                    #pragma omp for schedule(dynamic) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
                     for (int i = 0; i < n_it; ++i) {
-//                        #pragma omp task firstprivate(i) shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
+#pragma omp task firstprivate(i)  private(sam_output, paf_output, record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
                         {
                             auto record1 = records1[i];
                             auto record2 = records2[i];
@@ -4563,13 +4577,16 @@ int main (int argc, char **argv)
                             nams2.clear();
                         }
                     }
+                }
             }
-            std::cerr << "Estimated diff in start coordinates b/t mates, (mean: " << mu << ", stddev: " << sigma << ") " << std::endl;
-            records1 = new_records1;
-            records2 = new_records2;
+                std::cerr << "Estimated diff in start coordinates b/t mates, (mean: " << mu << ", stddev: " << sigma
+                          << ") " << std::endl;
+                records1 = new_records1;
+                records2 = new_records2;
+//                old_output_streams = output_streams;
 //            std::cerr << "Len: " << isizes.size() << std::endl;
 
-            // Output results
+            // Output last batch of results
             auto write_start = std::chrono::high_resolution_clock::now();
             for (int i = 0; i < n_threads; ++i) {
                 out << output_streams[i];
@@ -4578,6 +4595,16 @@ int main (int argc, char **argv)
             auto write_finish = std::chrono::high_resolution_clock::now();
             tot_write_file += write_finish - write_start;
         }
+
+//        // Output last batch of results
+//        auto write_start = std::chrono::high_resolution_clock::now();
+//        for (int i = 0; i < n_threads; ++i) {
+//            out << output_streams[i];
+//            output_streams[i].clear();
+//        }
+//        auto write_finish = std::chrono::high_resolution_clock::now();
+//        tot_write_file += write_finish - write_start;
+
         gzclose(fp1);
         gzclose(fp2);
 
