@@ -55,6 +55,14 @@ typedef struct {
     unsigned int did_not_fit = 0;
     unsigned int tried_rescue = 0;} logging_variables;
 
+
+typedef struct {
+    float sample_size = 1;
+    float mu = 300;
+    float sigma = 100;
+    float V = 10000;
+    float SSE = 10000;} i_dist_est;
+
 static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsigned int> &lengths, idx_to_acc &acc_map, std::string fn)
 {
     uint64_t total_ref_seq_size = 0;
@@ -3257,9 +3265,11 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
     tot_rescued ++;
 }
 
-static inline void align_PE(alignment_params &aln_params, std::string &sam_string, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, KSeq &record1, KSeq &record2, idx_to_acc &acc_map, int k, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, logging_variables  &log_vars, float dropoff, float &mu, float &sigma, float &sample_size, float &V, float &SSE, int max_tries, int max_secondary) {
+static inline void align_PE(alignment_params &aln_params, std::string &sam_string, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, KSeq &record1, KSeq &record2, idx_to_acc &acc_map, int k, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, logging_variables  &log_vars, float dropoff, i_dist_est &isize_est,  int max_tries, int max_secondary) {
     int read_len1 = record1.seq.length();
     int read_len2 = record2.seq.length();
+    auto mu = isize_est.mu;
+    auto sigma = isize_est.sigma;
     std::string read1 = record1.seq;
     std::string read2 = record2.seq;
     std::string query_acc1 = record1.name;
@@ -3324,17 +3334,17 @@ static inline void align_PE(alignment_params &aln_params, std::string &sam_strin
 //            std::cerr<< "7" << std::endl;
             append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2, mu, sigma, read_len1, true, record1.qual, record2.qual);
 
-            if ((sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && !sam_aln1.not_proper && !sam_aln2.not_proper ){
+            if ((isize_est.sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && !sam_aln1.not_proper && !sam_aln2.not_proper ){
                 int d = sam_aln1.ref_start > sam_aln2.ref_start ? sam_aln1.ref_start - sam_aln2.ref_start : sam_aln2.ref_start - sam_aln1.ref_start;
                 if ( d < 2000){
 //                    std::cerr<< "8 " << sample_size << std::endl;
                     float e;
-                    e = d - mu;
-                    mu = mu + e/sample_size; // (1.0/(sample_size +1.0)) * (sample_size*mu + d);
-                    SSE = SSE + e*(d-mu);
-                    V = sample_size > 1 ? SSE/(sample_size -1.0) : SSE; //d < 1000 ? ((sample_size +1.0)/sample_size) * ( (V*sample_size/(sample_size +1)) + ((mu-d)*(mu-d))/sample_size ) : V;
-                    sigma = std::sqrt( V );
-                    sample_size = sample_size + 1.0;
+                    e = d - isize_est.mu;
+                    isize_est.mu = isize_est.mu + e/isize_est.sample_size; // (1.0/(sample_size +1.0)) * (sample_size*mu + d);
+                    isize_est.SSE = isize_est.SSE + e*(d-isize_est.mu);
+                    isize_est.V = isize_est.sample_size > 1 ? isize_est.SSE/(isize_est.sample_size -1.0) : isize_est.SSE; //d < 1000 ? ((sample_size +1.0)/sample_size) * ( (V*sample_size/(sample_size +1)) + ((mu-d)*(mu-d))/sample_size ) : V;
+                    isize_est.sigma = std::sqrt( isize_est.V );
+                    isize_est.sample_size = isize_est.sample_size + 1.0;
                 }
             }
 
@@ -3758,10 +3768,10 @@ static inline void align_PE(alignment_params &aln_params, std::string &sam_strin
 }
 
 
-static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM_scores, std::vector<nam> &nams1, std::vector<nam> &nams2, float &mu, float &sigma, float &sample_size, float &V, float &SSE, nam &best_nam1,  nam &best_nam2 ) {
+static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM_scores, std::vector<nam> &nams1, std::vector<nam> &nams2, i_dist_est &isize_est, nam &best_nam1,  nam &best_nam2 ) {
     robin_hood::unordered_set<int> added_n1;
     robin_hood::unordered_set<int> added_n2;
-    get_best_scoring_NAM_locations(nams1, nams2, joint_NAM_scores, mu, sigma, added_n1, added_n2 );
+    get_best_scoring_NAM_locations(nams1, nams2, joint_NAM_scores, isize_est.mu, isize_est.sigma, added_n1, added_n2 );
     nam n1_joint_max, n2_joint_max, n1_indiv_max, n2_indiv_max;
     float score_joint = 0;
     float score_indiv = 0;
@@ -3798,17 +3808,17 @@ static inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> jo
             best_nam2 = n2_joint_max;
         }
 
-        if ((sample_size < 400) && (score_joint > score_indiv) ){
+        if ((isize_est.sample_size < 400) && (score_joint > score_indiv) ){
             int d = n1_joint_max.ref_s > n2_joint_max.ref_s ? n1_joint_max.ref_s - n2_joint_max.ref_s : n2_joint_max.ref_s - n1_joint_max.ref_s;
 //            std::cerr << "HERE " << d << " " << mu <<  " " << sigma << " "<< n1_joint_max.ref_s << " " <<  n2_joint_max.ref_s << " "<< n1_joint_max.score << " " <<  n2_joint_max.score << std::endl;
             if ( d < 2000){
                 float e;
-                e = d - mu;
-                mu = mu + e/sample_size; // (1.0/(sample_size +1.0)) * (sample_size*mu + d);
-                SSE = SSE + e*(d-mu);
-                V = sample_size > 1 ? SSE/(sample_size -1.0) : SSE; //d < 1000 ? ((sample_size +1.0)/sample_size) * ( (V*sample_size/(sample_size +1)) + ((mu-d)*(mu-d))/sample_size ) : V;
-                sigma = std::sqrt( V );
-                sample_size = sample_size + 1.0;
+                e = d - isize_est.mu;
+                isize_est.mu = isize_est.mu + e/isize_est.sample_size; // (1.0/(sample_size +1.0)) * (sample_size*mu + d);
+                isize_est.SSE = isize_est.SSE + e*(d-isize_est.mu);
+                isize_est.V = isize_est.sample_size > 1 ? isize_est.SSE/(isize_est.sample_size -1.0) : isize_est.SSE; //d < 1000 ? ((sample_size +1.0)/sample_size) * ( (V*sample_size/(sample_size +1)) + ((mu-d)*(mu-d))/sample_size ) : V;
+                isize_est.sigma = std::sqrt( isize_est.V );
+                isize_est.sample_size = isize_est.sample_size + 1.0;
             }
         }
     }
@@ -3863,6 +3873,31 @@ void print_usage() {
     std::cerr << "\t-R INT Rescue level. Perform additional search for reads with many repetitive seeds filtered out.\n\t   This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign\n\t   significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest. \n";
 }
 
+typedef struct {
+    uint64_t q;
+    int n;
+    int k;
+    int s;
+    int t_syncmer;
+    int w_min;
+    int w_max;
+    int max_secondary;
+    float dropoff_threshold;
+    int r;
+    int m;
+    int l;
+    int u;
+    int c;
+    float f;
+    int S;
+    int M;
+    int R;
+    int max_dist;
+    int maxTries;
+    int max_seed_len;
+    int rescue_cutoff;
+    unsigned int filter_cutoff;} mapping_params;
+
 
 int main (int argc, char **argv)
 {
@@ -3879,22 +3914,23 @@ int main (int argc, char **argv)
     int O = 12;
     int E = 1;
 
-    int max_secondary = 0;
+    mapping_params map_param;
+    map_param.max_secondary = 0;
     bool is_sam_out = true; // true = align, false=map, default is_sam_out is align
     int n_threads = 3;
-    int n = 2;
-    int k = 20;
-    int s = k - 4;
-    float f = 0.0002;
-    int R = 2;
-    float dropoff_threshold = 0.5;
-    int maxTries = 20;
-    int l = 0;
-    int u = 7;
-    int c = 8;
-    int r = 150;
+    map_param.n = 2;
+    map_param.k = 20;
+    map_param.s = map_param.k - 4;
+    map_param.f = 0.0002;
+    map_param.R = 2;
+    map_param.dropoff_threshold = 0.5;
+    map_param.maxTries = 20;
+    map_param.l = 0;
+    map_param.u = 7;
+    map_param.c = 8;
+    map_param.r = 150;
     int max_seed_len;
-    int max_dist = r - 50 < 255 ? r-50 : 255;
+    map_param.max_dist = map_param.r - 50 < 255 ? map_param.r-50 : 255;
     bool r_set = false;
     bool max_seed_len_set = false;
     bool write_to_stdout = true;
@@ -3916,7 +3952,7 @@ int main (int argc, char **argv)
                 opn += 2;
                 flag = true;
             } else if (argv[opn][1] == 'k') {
-                k = std::stoi(argv[opn + 1]);
+                map_param.k = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
             } else if (argv[opn][1] == 'o') {
@@ -3930,12 +3966,12 @@ int main (int argc, char **argv)
                 opn += 2;
                 flag = true;
             } else if (argv[opn][1] == 's') {
-                s = std::stoi(argv[opn + 1]);
+                map_param.s = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
                 s_set = true;
             } else if (argv[opn][1] == 'f') {
-                f = std::stof(argv[opn + 1]);
+                map_param.f = std::stof(argv[opn + 1]);
                 opn += 2;
                 flag = true;
             } else if (argv[opn][1] == 'x') {
@@ -3943,23 +3979,23 @@ int main (int argc, char **argv)
                 opn += 1;
                 flag = true;
             } else if (argv[opn][1] == 'R') {
-                R = std::stoi(argv[opn + 1]);
+                map_param.R = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
             } else if (argv[opn][1] == 'l') {
-                l = std::stoi(argv[opn + 1]);
+                map_param.l = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
             } else if (argv[opn][1] == 'u') {
-                u = std::stoi(argv[opn + 1]);
+                map_param.u = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
             } else if (argv[opn][1] == 'c') {
-                c = std::stoi(argv[opn + 1]);
+                map_param.c = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
             } else if (argv[opn][1] == 'r') {
-                r = std::stoi(argv[opn + 1]);
+                map_param.r = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
                 r_set = true;
@@ -3969,11 +4005,11 @@ int main (int argc, char **argv)
                 flag = true;
                 max_seed_len_set = true;
             } else if (argv[opn][1] == 'S') {
-                dropoff_threshold = std::stof(argv[opn + 1]);
+                map_param.dropoff_threshold = std::stof(argv[opn + 1]);
                 opn += 2;
                 flag = true;
             } else if (argv[opn][1] == 'M') {
-                maxTries = std::stoi(argv[opn + 1]);
+                map_param.maxTries = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
             } else if (argv[opn][1] == 'A') {
@@ -3993,7 +4029,7 @@ int main (int argc, char **argv)
                 opn += 2;
                 flag = true;
             } else if (argv[opn][1] == 'N') {
-                max_secondary = std::stoi(argv[opn + 1]);
+                map_param.max_secondary = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
             }
@@ -4007,45 +4043,45 @@ int main (int argc, char **argv)
     }
 
     if (r_set) {
-        if (r <= 125) { // based on params for 100
-            k = 20;
-            l = -2;
-            u = 2;
-        } else if ((r > 125) && (r <= 175)) { // based on params for 150
-            k = 20;
-            l = 1;
-            u = 7;
-        } else if ((r > 175) && (r <= 275)) { // based on params for 200 and 250
-            k = 20;
-            l = 4;
-            u = 13;
+        if (map_param.r <= 125) { // based on params for 100
+            map_param.k = 20;
+            map_param.l = -2;
+            map_param.u = 2;
+        } else if ((map_param.r > 125) && (map_param.r <= 175)) { // based on params for 150
+            map_param.k = 20;
+            map_param.l = 1;
+            map_param.u = 7;
+        } else if ((map_param.r > 175) && (map_param.r <= 275)) { // based on params for 200 and 250
+            map_param.k = 20;
+            map_param.l = 4;
+            map_param.u = 13;
         } else { // based on params for 300
-            k = 22;
-            l = 2;
-            u = 12;
+            map_param.k = 22;
+            map_param.l = 2;
+            map_param.u = 12;
         }
     }
 
     if (!max_seed_len_set){
-        max_dist = r - 70 > k ? r - 70 : k;
+        map_param.max_dist = map_param.r - 70 > map_param.k ? map_param.r - 70 : map_param.k;
     } else {
-        max_dist = max_seed_len - k; //convert to distance in start positions
+        map_param.max_dist = max_seed_len - map_param.k; //convert to distance in start positions
     }
 
     if ( (!s_set ) ){
-        s = k - 4; // Update default s to k - 4 if user has not set s parameter
+        map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
     }
-    uint64_t q;
-    if ( (c < 64) && (c > 0)){
-        q = pow (2, c) - 1;
+
+    if ( (map_param.c < 64) && (map_param.c > 0)){
+        map_param.q = pow (2, map_param.c) - 1;
     } else{
         std::cerr << "Warning wrong value for parameter c, setting c=8" << std::endl;
-        q = pow (2, 8) - 1;
+        map_param.q = pow (2, 8) - 1;
     }
     omp_set_num_threads(n_threads); // set number of threads in "parallel" blocks
-    int w_min = k/(k-s+1) + l > 1 ? k/(k-s+1) + l : 1;
-    int w_max = k/(k-s+1) + u;
-    int t_syncmer = (k-s)/2 + 1;
+    map_param.w_min = map_param.k/(map_param.k-map_param.s+1) + map_param.l > 1 ? map_param.k/(map_param.k-map_param.s+1) + map_param.l : 1;
+    map_param.w_max = map_param.k/(map_param.k-map_param.s+1) + map_param.u;
+    map_param.t_syncmer = (map_param.k-map_param.s)/2 + 1;
 
     alignment_params aln_params;
     aln_params.match = A;
@@ -4054,25 +4090,25 @@ int main (int argc, char **argv)
     aln_params.gap_extend = E;
 
     std::cerr << "Using" << std::endl;
-    std::cerr << "k: " << k << std::endl;
-    std::cerr << "s: " << s << std::endl;
-    std::cerr << "w_min: " << w_min << std::endl;
-    std::cerr << "w_max: " << w_max << std::endl;
-    std::cerr << "maximum seed length: " << max_dist +k << std::endl;
+    std::cerr << "k: " << map_param.k << std::endl;
+    std::cerr << "s: " << map_param.s << std::endl;
+    std::cerr << "w_min: " << map_param.w_min << std::endl;
+    std::cerr << "w_max: " << map_param.w_max << std::endl;
+    std::cerr << "maximum seed length: " << map_param.max_dist + map_param.k << std::endl;
     std::cerr << "threads: " << n_threads << std::endl;
-    std::cerr << "R: " << R << std::endl;
-    std::cerr << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (expected values): [" << (k-s+1)*w_min << ", " << (k-s+1)*w_max << "]" << std::endl;
+    std::cerr << "R: " << map_param.R << std::endl;
+    std::cerr << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (expected values): [" << (map_param.k-map_param.s+1)*map_param.w_min << ", " << (map_param.k-map_param.s+1)*map_param.w_max << "]" << std::endl;
     std::cerr << "A: " << A << std::endl;
     std::cerr << "B: " << B << std::endl;
     std::cerr << "O: " << O << std::endl;
     std::cerr << "E: " << E << std::endl;
 
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
-    assert(k > 7 && "You should really not use too small strobe size!");
-    assert(k <= 32 && "k have to be smaller than 32!");
-    assert( ( s <= k ) && " s have to be smaller or equal to k!");
-    assert( ( (k-s) % 2 == 0) && " k - s have to be an even number to create canonical syncmers. Set s to e.g., k-2, k-4, k-6, k-8.");
-    assert(max_dist <= 255 && " -m (maximum seed length have to be smaller than 255 + k in v0.4 and up. If you need longer seeds, use v0.3");
+    assert(map_param.k > 7 && "You should really not use too small strobe size!");
+    assert(map_param.k <= 32 && "k have to be smaller than 32!");
+    assert( ( map_param.s <= map_param.k ) && " s have to be smaller or equal to k!");
+    assert( ( (map_param.k-map_param.s) % 2 == 0) && " k - s have to be an even number to create canonical syncmers. Set s to e.g., k-2, k-4, k-6, k-8.");
+    assert(map_param.max_dist <= 255 && " -m (maximum seed length have to be smaller than 255 + k in v0.4 and up. If you need longer seeds, use v0.3");
 
 //    assert(n == 2 && "Currently only n=2 is implemented");
     // File name to reference
@@ -4116,7 +4152,7 @@ int main (int argc, char **argv)
     auto start_flat_vector = std::chrono::high_resolution_clock::now();
 
     mers_vector flat_vector;
-    int approx_vec_size = total_ref_seq_size / (k-s+1);
+    int approx_vec_size = total_ref_seq_size / (map_param.k-map_param.s+1);
     std::cerr << "ref vector approximate size: " << approx_vec_size << std::endl;
     flat_vector.reserve(approx_vec_size);
     unsigned int mer_cnt = 0;
@@ -4124,7 +4160,7 @@ int main (int argc, char **argv)
     {
         mers_vector randstrobes2; // pos, chr_id, kmer hash value
 //        std::cerr << i << " " << i_mod << std::endl;
-        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t_syncmer, q, max_dist);
+        randstrobes2 = seq_to_randstrobes2(map_param.n, map_param.k, map_param.w_min, map_param.w_max, ref_seqs[i], i, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
         for (auto &t : randstrobes2)
         {
             flat_vector.push_back(t);
@@ -4169,8 +4205,7 @@ int main (int argc, char **argv)
     auto start_hash_index = std::chrono::high_resolution_clock::now();
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
     mers_index.reserve(unique_mers);
-    unsigned int filter_cutoff;
-    filter_cutoff = index_vector(flat_vector, mers_index, f); // construct index over flat array
+    map_param.filter_cutoff = index_vector(flat_vector, mers_index, map_param.f); // construct index over flat array
     auto finish_hash_index = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_hash_index = finish_hash_index - start_hash_index;
     std::cerr << "Total time generating hash table index: " << elapsed_hash_index.count() << " s\n" <<  std::endl;
@@ -4197,7 +4232,7 @@ int main (int argc, char **argv)
 
     if (index_log){
         std::cerr << "Printing log stats" << std::endl;
-        print_diagnostics(flat_vector, mers_index, logfile_name, k);
+        print_diagnostics(flat_vector, mers_index, logfile_name, map_param.k);
         std::cerr << "Finished printing log stats" << std::endl;
 
     }
@@ -4210,11 +4245,11 @@ int main (int argc, char **argv)
     // Record matching time
     auto start_aln_part = std::chrono::high_resolution_clock::now();
 
-    logging_variables log_vars;
+    logging_variables tot_log_vars;
 //    std::ifstream query_file(reads_filename);
 
-    int rescue_cutoff = R < 100 ? R*filter_cutoff : 1000;
-    std::cerr << "Using rescue cutoff: " << rescue_cutoff <<  std::endl;
+    map_param.rescue_cutoff = map_param.R < 100 ? map_param.R*map_param.filter_cutoff : 1000;
+    std::cerr << "Using rescue cutoff: " << map_param.rescue_cutoff <<  std::endl;
 
     std::streambuf *buf;
     std::ofstream of;
@@ -4274,20 +4309,20 @@ int main (int argc, char **argv)
             auto read_start = std::chrono::high_resolution_clock::now();
             auto records = ks.read(n_q_chunk_size);  // read a chunk of 1000000 records
             auto read_finish = std::chrono::high_resolution_clock::now();
-            log_vars.tot_read_file += read_finish - read_start;
+            tot_log_vars.tot_read_file += read_finish - read_start;
 //        std::chrono::duration<double> elapsed_read = read_finish - read_start;
 //        std::cerr << "Total time reading from file: " << elapsed_read.count() << " s\n" <<  std::endl;
 
             int n_it = records.size();
             std::cerr << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
-            #pragma omp parallel for num_threads(n_threads) shared(aln_params, output_streams, log_vars, out, q_id) private(record, seq_rc, query_mers, nams, hits_per_ref, info)
+            #pragma omp parallel for num_threads(n_threads) shared(aln_params, output_streams, tot_log_vars, out, q_id) private(record, seq_rc, query_mers, nams, hits_per_ref, info)
             for (int i = 0; i < n_it; ++i) {
                 auto record = records[i];
                 // generate mers here
                 auto strobe_start = std::chrono::high_resolution_clock::now();
-                query_mers = seq_to_randstrobes2_read(n, k, w_min, w_max, record.seq, q_id, s, t_syncmer, q, max_dist);
+                query_mers = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record.seq, q_id, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
                 auto strobe_finish = std::chrono::high_resolution_clock::now();
-                log_vars.tot_construct_strobemers += strobe_finish - strobe_start;
+                tot_log_vars.tot_construct_strobemers += strobe_finish - strobe_start;
 
 //            // Find NAMs alternative function
 //            auto nam_alt_start = std::chrono::high_resolution_clock::now();
@@ -4300,26 +4335,26 @@ int main (int argc, char **argv)
                 // Find NAMs
 //                std::cerr << "mapping " << record.name << std::endl;
                 auto nam_start = std::chrono::high_resolution_clock::now();
-                info = find_nams(nams, hits_per_ref, query_mers, flat_vector, mers_index, k, ref_seqs, record.seq, filter_cutoff);
+                info = find_nams(nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, ref_seqs, record.seq, map_param.filter_cutoff);
                 hits_per_ref.clear();
                 auto nam_finish = std::chrono::high_resolution_clock::now();
-                log_vars.tot_find_nams += nam_finish - nam_start;
+                tot_log_vars.tot_find_nams += nam_finish - nam_start;
 
-                if (R > 1) {
+                if (map_param.R > 1) {
                     auto rescue_start = std::chrono::high_resolution_clock::now();
                     if ((nams.size() == 0) || (info.first < 0.7)) {
-                        log_vars.tried_rescue += 1;
+                        tot_log_vars.tried_rescue += 1;
                         nams.clear();
 //                    std::cerr << "Rescue is_sam_out: " << record.name <<  std::endl;
-                        info = find_nams_rescue(hits_fw, hits_rc, nams, hits_per_ref, query_mers, flat_vector, mers_index, k, ref_seqs,
-                                                record.seq, rescue_cutoff);
+                        info = find_nams_rescue(hits_fw, hits_rc, nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, ref_seqs,
+                                                record.seq, map_param.rescue_cutoff);
                         hits_per_ref.clear();
                         hits_fw.clear();
                         hits_rc.clear();
 //                    std::cerr << "Found: " << nams.size() <<  std::endl;
                     }
                     auto rescue_finish = std::chrono::high_resolution_clock::now();
-                    log_vars.tot_time_rescue += rescue_finish - rescue_start;
+                    tot_log_vars.tot_time_rescue += rescue_finish - rescue_start;
                 }
 
 
@@ -4327,11 +4362,11 @@ int main (int argc, char **argv)
                 auto nam_sort_start = std::chrono::high_resolution_clock::now();
                 std::sort(nams.begin(), nams.end(), score);
                 auto nam_sort_finish = std::chrono::high_resolution_clock::now();
-                log_vars.tot_sort_nams += nam_sort_finish - nam_sort_start;
+                tot_log_vars.tot_sort_nams += nam_sort_finish - nam_sort_start;
 
                 auto extend_start = std::chrono::high_resolution_clock::now();
                 if (!is_sam_out) {
-                    output_hits_paf(output_streams[omp_get_thread_num()], nams, record.name, acc_map, k,
+                    output_hits_paf(output_streams[omp_get_thread_num()], nams, record.name, acc_map, map_param.k,
                                     record.seq.length(), ref_lengths);
 //                output_streams[omp_get_thread_num()].append(paf_output.str()); // << paf_output.str();
                 } else {
@@ -4341,21 +4376,21 @@ int main (int argc, char **argv)
 //                    align_SE_multimap_deprecated(aln_params, output_streams[omp_get_thread_num()], nams, record.name, acc_map, k, record.seq.length(),
 //                             ref_lengths, ref_seqs, record.seq,
 //                             tot_ksw_aligned, tot_all_tried, dropoff_threshold, did_not_fit, maxTries, max_secondary);
-                    if (max_secondary > 0){
+                    if (map_param.max_secondary > 0){
                         // I created an entire new function here, dupliocating a lot of the code as outputting secondary hits is has some overhead to the
                         // original align_SE function (storing a vector of hits and sorting them)
                         // Such overhead is not present in align_PE - which implements both options in the same function.
-                        align_SE_secondary_hits(aln_params,output_streams[omp_get_thread_num()], nams, record.name, acc_map, k, record.seq.length(),
-                                 ref_lengths, ref_seqs, record.seq, record.qual, log_vars, dropoff_threshold, maxTries, max_secondary);
+                        align_SE_secondary_hits(aln_params,output_streams[omp_get_thread_num()], nams, record.name, acc_map, map_param.k, record.seq.length(),
+                                 ref_lengths, ref_seqs, record.seq, record.qual, tot_log_vars, map_param.dropoff_threshold, map_param.maxTries, map_param.max_secondary);
                     } else {
-                        align_SE(aln_params,output_streams[omp_get_thread_num()], nams, record.name, acc_map, k, record.seq.length(),
-                                 ref_lengths, ref_seqs, record.seq, record.qual, log_vars,  dropoff_threshold, maxTries);
+                        align_SE(aln_params,output_streams[omp_get_thread_num()], nams, record.name, acc_map, map_param.k, record.seq.length(),
+                                 ref_lengths, ref_seqs, record.seq, record.qual, tot_log_vars,  map_param.dropoff_threshold, map_param.maxTries);
                     }
 
 //                output_streams[omp_get_thread_num()] << sam_output.str();
                 }
                 auto extend_finish = std::chrono::high_resolution_clock::now();
-                log_vars.tot_extend += extend_finish - extend_start;
+                tot_log_vars.tot_extend += extend_finish - extend_start;
                 q_id++;
                 nams.clear();
             }
@@ -4366,7 +4401,7 @@ int main (int argc, char **argv)
                 output_streams[i].clear();
             }
             auto write_finish = std::chrono::high_resolution_clock::now();
-            log_vars.tot_write_file += write_finish - write_start;
+            tot_log_vars.tot_write_file += write_finish - write_start;
         }
         gzclose(fp);
     }
@@ -4374,31 +4409,23 @@ int main (int argc, char **argv)
         std::cerr << "Running PE mode" <<  std::endl;
         //    KSeq record;
 //        int max_nam_n_hits1,max_nam_n_hits2;
-        std::pair<float, int> info1, info2;
 //        std::vector<int> isizes;
         gzFile fp1 = gzopen(reads_filename1, "r");
         auto ks1 = make_ikstream(fp1, gzread);
         gzFile fp2 = gzopen(reads_filename2, "r");
         auto ks2 = make_ikstream(fp2, gzread);
         int n_q_chunk_size = 1000000;
-        KSeq record1;
-        KSeq record2;
-        std::string seq1, seq2, seq_rc1, seq_rc2;
-        unsigned int q_id = 0;
-        mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
-        std::vector<nam> nams1;
-        std::vector<nam> nams2;
-        robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
-        std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw;
-        std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc;
-        hits_per_ref.reserve(100);
-        hits_fw.reserve(5000);
-        hits_rc.reserve(5000);
-        std::vector<std::tuple<int,nam,nam>> joint_NAM_scores; // (score, aln1, aln2)
+        i_dist_est isize_est;
+        logging_variables log_vars;
         std::vector<std::string> output_streams(n_threads);
+        std::vector<logging_variables> log_stats_vec(n_threads);
+        std::vector<i_dist_est> isize_est_vec(n_threads);
         for (int i = 0; i < n_threads; ++i) {
             output_streams[i].reserve((n_q_chunk_size / n_threads + 1) *
                                       600); // Reserve sufficient space for appending multiple SAM records (600 is an estimate on the number of characters for each sam record of a 200-300bp read)
+            log_stats_vec[i] = log_vars;
+            isize_est_vec[i] = isize_est;
+
         }
 
         auto read_start = std::chrono::high_resolution_clock::now();
@@ -4414,15 +4441,10 @@ int main (int argc, char **argv)
 //                                      600); // Reserve sufficient space for appending multiple SAM records (600 is an estimate on the number of characters for each sam record of a 200-300bp read)
 //        }
         while (!records1.empty()) {
-            float sample_size = 1;
-            float mu = 300;
-            float sigma = 100;
-            float V = 10000;
-            float SSE = 10000;
             int n_it = records1.size();
             std::cerr << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
 
-            #pragma omp parallel sections shared(aln_params, output_streams, log_vars, sample_size, mu, sigma, V, SSE)
+            #pragma omp parallel sections shared(output_streams, log_stats_vec, isize_est_vec) //private(aln_params, map_param)
             {
                 // Producer (read-write IO)
 #pragma omp section
@@ -4431,7 +4453,7 @@ int main (int argc, char **argv)
                     new_records1 = ks1.read(n_q_chunk_size);
                     new_records2 = ks2.read(n_q_chunk_size);
                     auto read_finish = std::chrono::high_resolution_clock::now();
-                    log_vars.tot_read_file += read_finish - read_start;
+                    log_stats_vec[omp_get_thread_num()].tot_read_file += read_finish - read_start;
 
 //                    // Output results
 //                    auto write_start = std::chrono::high_resolution_clock::now();
@@ -4450,20 +4472,25 @@ int main (int argc, char **argv)
 //                    #pragma omp parallel for num_threads(n_threads) shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
 //                    #pragma omp for schedule(dynamic) private(record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
                     for (int i = 0; i < n_it; ++i) {
-#pragma omp task firstprivate(i)  private(record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
+#pragma omp task firstprivate(i)  //private(aln_params, map_param)
                         {
+                            // Declare variables
+                            mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
+                            auto log_vars = log_stats_vec[omp_get_thread_num()];
+                            auto isize_est = isize_est_vec[omp_get_thread_num()];
                             auto record1 = records1[i];
                             auto record2 = records2[i];
+
                             // generate mers here
                             auto strobe_start = std::chrono::high_resolution_clock::now();
 //                std::cerr << "Going in! " << std::endl;
-                            query_mers1 = seq_to_randstrobes2_read(n, k, w_min, w_max, record1.seq, 0, s, t_syncmer,
-                                                                   q,
-                                                                   max_dist);
+                            query_mers1 = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record1.seq, 0, map_param.s, map_param.t_syncmer,
+                                                                   map_param.q,
+                                                                   map_param.max_dist);
 //                std::cerr << "Lolz1 " << std::endl;
-                            query_mers2 = seq_to_randstrobes2_read(n, k, w_min, w_max, record2.seq, 0, s, t_syncmer,
-                                                                   q,
-                                                                   max_dist);
+                            query_mers2 = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record2.seq, 0, map_param.s, map_param.t_syncmer,
+                                                                   map_param.q,
+                                                                   map_param.max_dist);
 //                std::cerr << "Lolz2 " << std::endl;
                             auto strobe_finish = std::chrono::high_resolution_clock::now();
                             log_vars.tot_construct_strobemers += strobe_finish - strobe_start;
@@ -4472,11 +4499,16 @@ int main (int argc, char **argv)
 
                             // Find NAMs
                             auto nam_start = std::chrono::high_resolution_clock::now();
-                            info1 = find_nams(nams1, hits_per_ref, query_mers1, flat_vector, mers_index, k, ref_seqs,
-                                              record1.seq, filter_cutoff);
+                            robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
+                            hits_per_ref.reserve(100);
+                            std::vector<nam> nams1;
+                            std::vector<nam> nams2;
+                            std::pair<float, int> info1, info2;
+                            info1 = find_nams(nams1, hits_per_ref, query_mers1, flat_vector, mers_index, map_param.k, ref_seqs,
+                                              record1.seq, map_param.filter_cutoff);
                             hits_per_ref.clear();
-                            info2 = find_nams(nams2, hits_per_ref, query_mers2, flat_vector, mers_index, k, ref_seqs,
-                                              record2.seq, filter_cutoff);
+                            info2 = find_nams(nams2, hits_per_ref, query_mers2, flat_vector, mers_index, map_param.k, ref_seqs,
+                                              record2.seq, map_param.filter_cutoff);
                             hits_per_ref.clear();
                             auto nam_finish = std::chrono::high_resolution_clock::now();
                             log_vars.tot_find_nams += nam_finish - nam_start;
@@ -4492,16 +4524,20 @@ int main (int argc, char **argv)
 //                    hits_per_ref.clear();
 //                }
 
-                            if (R > 1) {
+                            if (map_param.R > 1) {
                                 auto rescue_start = std::chrono::high_resolution_clock::now();
+                                std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw;
+                                std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc;
                                 if ((nams1.size() == 0) || (info1.first < 0.7)) {
+                                    hits_fw.reserve(5000);
+                                    hits_rc.reserve(5000);
                                     log_vars.tried_rescue += 1;
                                     nams1.clear();
 //                        std::cerr << "Rescue is_sam_out read 1: " << record1.name << info1.first <<  std::endl;
                                     info1 = find_nams_rescue(hits_fw, hits_rc, nams1, hits_per_ref, query_mers1,
                                                              flat_vector,
-                                                             mers_index, k, ref_seqs,
-                                                             record1.seq, rescue_cutoff);
+                                                             mers_index, map_param.k, ref_seqs,
+                                                             record1.seq, map_param.rescue_cutoff);
                                     hits_per_ref.clear();
                                     hits_fw.clear();
                                     hits_rc.clear();
@@ -4509,13 +4545,15 @@ int main (int argc, char **argv)
                                 }
 
                                 if ((nams2.size() == 0) || (info2.first < 0.7)) {
+                                    hits_fw.reserve(5000);
+                                    hits_rc.reserve(5000);
                                     log_vars.tried_rescue += 1;
                                     nams2.clear();
 //                        std::cerr << "Rescue is_sam_out read 2: " << record2.name << info2.first <<  std::endl;
                                     info2 = find_nams_rescue(hits_fw, hits_rc, nams2, hits_per_ref, query_mers2,
                                                              flat_vector,
-                                                             mers_index, k, ref_seqs,
-                                                             record2.seq, rescue_cutoff);
+                                                             mers_index, map_param.k, ref_seqs,
+                                                             record2.seq, map_param.rescue_cutoff);
                                     hits_per_ref.clear();
                                     hits_fw.clear();
                                     hits_rc.clear();
@@ -4550,86 +4588,101 @@ int main (int argc, char **argv)
                                 nam nam_read1;
                                 nam nam_read2;
                                 std::vector<std::tuple<int, nam, nam>> joint_NAM_scores;
-                                get_best_map_location(joint_NAM_scores, nams1, nams2, mu, sigma, sample_size, V, SSE,
+                                get_best_map_location(joint_NAM_scores, nams1, nams2, isize_est,
                                                       nam_read1,
                                                       nam_read2);
                                 output_hits_paf_PE(output_streams[omp_get_thread_num()], nam_read1, record1.name,
                                                    acc_map,
-                                                   k,
+                                                   map_param.k,
                                                    record1.seq.length(), ref_lengths);
                                 output_hits_paf_PE(output_streams[omp_get_thread_num()], nam_read2, record2.name,
                                                    acc_map,
-                                                   k,
+                                                   map_param.k,
                                                    record2.seq.length(), ref_lengths);
                                 joint_NAM_scores.clear();
                             } else {
                                 align_PE(aln_params, output_streams[omp_get_thread_num()], nams1, nams2, record1,
                                          record2,
-                                         acc_map, k,
+                                         acc_map, map_param.k,
                                          ref_lengths, ref_seqs, log_vars,
-                                         dropoff_threshold,  mu, sigma, sample_size, V, SSE, maxTries, max_secondary);
+                                         map_param.dropoff_threshold, isize_est, map_param.maxTries, map_param.max_secondary);
                             }
                             auto extend_finish = std::chrono::high_resolution_clock::now();
                             log_vars.tot_extend += extend_finish - extend_start;
-                            q_id++;
                             nams1.clear();
                             nams2.clear();
+
+                            log_stats_vec[omp_get_thread_num()] = log_vars;
+                            isize_est_vec[omp_get_thread_num()] = isize_est;
                         }
                     }
                 }
             }
-                std::cerr << "Estimated diff in start coordinates b/t mates, (mean: " << mu << ", stddev: " << sigma
-                          << ") " << std::endl;
-                records1 = new_records1;
-                records2 = new_records2;
-//                old_output_streams = output_streams;
-//            std::cerr << "Len: " << isizes.size() << std::endl;
 
-            // Output last batch of results
+            auto isize_est = isize_est_vec[omp_get_thread_num()];
+            std::cerr << "Estimated diff in start coordinates b/t mates, (mean: " << isize_est.mu << ", stddev: " << isize_est.sigma << ") " << std::endl;
+            records1 = new_records1;
+            records2 = new_records2;
+            // Reset isize estiamtions
+            for (int i = 0; i < n_threads; ++i) {
+                i_dist_est isize_est;
+                isize_est_vec[i] = isize_est;
+            }
+
             auto write_start = std::chrono::high_resolution_clock::now();
             for (int i = 0; i < n_threads; ++i) {
                 out << output_streams[i];
                 output_streams[i].clear();
             }
             auto write_finish = std::chrono::high_resolution_clock::now();
-            log_vars.tot_write_file += write_finish - write_start;
+            log_stats_vec[omp_get_thread_num()].tot_write_file += write_finish - write_start;
         }
-
-//        // Output last batch of results
-//        auto write_start = std::chrono::high_resolution_clock::now();
-//        for (int i = 0; i < n_threads; ++i) {
-//            out << output_streams[i];
-//            output_streams[i].clear();
-//        }
-//        auto write_finish = std::chrono::high_resolution_clock::now();
-//        tot_write_file += write_finish - write_start;
 
         gzclose(fp1);
         gzclose(fp2);
+
+        for (int i = 0; i < n_threads; ++i) {
+            //auto isize_est = isize_est_vec[i];
+            auto log_vars = log_stats_vec[i];
+            tot_log_vars.tot_all_tried += log_vars.tot_all_tried;
+            tot_log_vars.tot_ksw_aligned += log_vars.tot_ksw_aligned;
+            tot_log_vars.tot_rescued += log_vars.tot_rescued;
+            tot_log_vars.did_not_fit += log_vars.did_not_fit;
+            tot_log_vars.tried_rescue += log_vars.tried_rescue;
+
+            tot_log_vars.tot_read_file += log_vars.tot_read_file;
+            tot_log_vars.tot_construct_strobemers += log_vars.tot_construct_strobemers;
+            tot_log_vars.tot_find_nams += log_vars.tot_find_nams;
+            tot_log_vars.tot_time_rescue += log_vars.tot_time_rescue;
+            tot_log_vars.tot_sort_nams += log_vars.tot_sort_nams;
+            tot_log_vars.tot_rc += log_vars.tot_rc;
+            tot_log_vars.tot_extend += log_vars.tot_extend;
+            tot_log_vars.tot_write_file += log_vars.tot_write_file;
+        }
 
     }
 
 
 //    out.close();
 
-    std::cerr << "Total mapping sites tried: " << log_vars.tot_all_tried << std::endl;
-    std::cerr << "Total calls to ssw: " << log_vars.tot_ksw_aligned << std::endl;
-    std::cerr << "Calls to ksw (rescue mode): " << log_vars.tot_rescued << std::endl;
-    std::cerr << "Did not fit strobe start site: " << log_vars.did_not_fit  << std::endl;
-    std::cerr << "Tried rescue: " << log_vars.tried_rescue  << std::endl;
+    std::cerr << "Total mapping sites tried: " << tot_log_vars.tot_all_tried << std::endl;
+    std::cerr << "Total calls to ssw: " << tot_log_vars.tot_ksw_aligned << std::endl;
+    std::cerr << "Calls to ksw (rescue mode): " << tot_log_vars.tot_rescued << std::endl;
+    std::cerr << "Did not fit strobe start site: " << tot_log_vars.did_not_fit  << std::endl;
+    std::cerr << "Tried rescue: " << tot_log_vars.tried_rescue  << std::endl;
     // Record mapping end time
     auto finish_aln_part = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> tot_aln_part = finish_aln_part - start_aln_part;
     std::cerr << "Total time mapping: " << tot_aln_part.count() << " s." <<  std::endl;
-    std::cerr << "Total time reading read-file(s): " << log_vars.tot_read_file.count() << " s." <<  std::endl;
-    std::cerr << "Total time creating strobemers: " << log_vars.tot_construct_strobemers.count()/n_threads << " s." <<  std::endl;
-    std::cerr << "Total time finding NAMs (non-rescue mode): " << log_vars.tot_find_nams.count()/n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time finding NAMs (rescue mode): " << log_vars.tot_time_rescue.count()/n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time reading read-file(s): " << tot_log_vars.tot_read_file.count() << " s." <<  std::endl;
+    std::cerr << "Total time creating strobemers: " << tot_log_vars.tot_construct_strobemers.count()/n_threads << " s." <<  std::endl;
+    std::cerr << "Total time finding NAMs (non-rescue mode): " << tot_log_vars.tot_find_nams.count()/n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time finding NAMs (rescue mode): " << tot_log_vars.tot_time_rescue.count()/n_threads  << " s." <<  std::endl;
 //    std::cerr << "Total time finding NAMs ALTERNATIVE (candidate sites): " << tot_find_nams_alt.count()/n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time sorting NAMs (candidate sites): " << log_vars.tot_sort_nams.count()/n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time reverse compl seq: " << log_vars.tot_rc.count()/n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time base level alignment (ssw): " << log_vars.tot_extend.count()/n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time writing alignment to files: " << log_vars.tot_write_file.count() << " s." <<  std::endl;
+    std::cerr << "Total time sorting NAMs (candidate sites): " << tot_log_vars.tot_sort_nams.count()/n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time reverse compl seq: " << tot_log_vars.tot_rc.count()/n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time base level alignment (ssw): " << tot_log_vars.tot_extend.count()/n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time writing alignment to files: " << tot_log_vars.tot_write_file.count() << " s." <<  std::endl;
 
     //////////////////////////////////////////////////////////////////////////
 
