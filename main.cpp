@@ -1045,7 +1045,7 @@ inline aln_info ssw_align(std::string &ref, std::string &query, int read_len, in
     int32_t maskLen = strlen(query.c_str())/2;
     maskLen = maskLen < 15 ? 15 : maskLen;
     if (ref.length() > 2000){
-        std::cerr << "ALIGNMENT TO REF LONGER THAN 2000bp - REPORT TO DEVELOPER. Happened for read: " <<  query << " ref len:" << ref.length() << std::endl;
+//        std::cerr << "ALIGNMENT TO REF LONGER THAN 2000bp - REPORT TO DEVELOPER. Happened for read: " <<  query << " ref len:" << ref.length() << std::endl;
         aln.global_ed = 100000;
         aln.ed = 100000;
         aln.ref_offset = 0;
@@ -4474,6 +4474,20 @@ int main (int argc, char **argv)
                     for (int i = 0; i < n_it; ++i) {
 #pragma omp task firstprivate(i)  //private(aln_params, map_param)
                         {
+//#pragma omp critical
+//                            {
+//                                std::cerr << aln_params.match << aln_params.mismatch << aln_params.gap_open
+//                                          << aln_params.gap_extend << std::endl;
+//                                std::cerr << map_param.q << map_param.n << map_param.k << map_param.w_min
+//                                          << map_param.w_max << map_param.s << map_param.t_syncmer << map_param.q
+//                                          << map_param.max_dist << map_param.max_secondary
+//                                          << map_param.dropoff_threshold << map_param.r << map_param.m << map_param.l
+//                                          << map_param.u << map_param.c << map_param.f << map_param.S << map_param.M
+//                                          << map_param.R << map_param.max_dist << map_param.maxTries
+//                                          << map_param.max_seed_len << map_param.rescue_cutoff
+//                                          << map_param.filter_cutoff << std::endl;
+//                            }
+
                             // Declare variables
                             mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
                             auto log_vars = log_stats_vec[omp_get_thread_num()];
