@@ -16,10 +16,8 @@
 using namespace klibpp;
 #include "source/robin_hood.h"
 #include "source/index.hpp"
-//#include "gap_affine/affine_wavefront_align.h"
 #include "source/ksw2.h"
 #include "source/ssw_cpp.h"
-//#include "source/parasail/parasail.h"
 
 
 //develop
@@ -4423,6 +4421,8 @@ int main (int argc, char **argv)
         for (int i = 0; i < n_threads; ++i) {
             output_streams[i].reserve((n_q_chunk_size / n_threads + 1) *
                                       600); // Reserve sufficient space for appending multiple SAM records (600 is an estimate on the number of characters for each sam record of a 200-300bp read)
+            i_dist_est isize_est;
+            logging_variables log_vars;
             log_stats_vec[i] = log_vars;
             isize_est_vec[i] = isize_est;
 
@@ -4631,6 +4631,20 @@ int main (int argc, char **argv)
                         }
                     }
                 }
+            }
+
+            //// DEBUG INFO, PRINT THE WORK PERFORMED BY EACH TREAD /////
+
+            for (int i = 0; i < n_threads; ++i) {
+                i_dist_est isize_est;
+                isize_est = isize_est_vec[i];
+                std::cerr << "THREAD " << i << " estimated diff in start coordinates b/t mates, (mean: " << isize_est.mu << ", stddev: " << isize_est.sigma << ") " << std::endl;
+            }
+
+            for (int i = 0; i < n_threads; ++i) {
+                logging_variables log_s;
+                log_s = log_stats_vec[i];
+                std::cerr << "THREAD " << i << ": " << log_s.tot_all_tried << " " << log_s.tot_ksw_aligned << " " << log_s.tot_rescued << " " <<  log_s.tot_construct_strobemers.count() << " " <<  log_s.tot_find_nams.count() << " " <<  log_s.tot_extend.count() << std::endl;
             }
 
             auto isize_est = isize_est_vec[omp_get_thread_num()];
