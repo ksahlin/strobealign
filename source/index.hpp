@@ -8,6 +8,7 @@
 #ifndef index_hpp
 #define index_hpp
 
+#include <chrono>  // for high_resolution_clock
 #include <stdio.h>
 #include <string>
 #include <vector>
@@ -63,14 +64,14 @@ struct nam {
     bool is_rc = false;
 };
 
-struct aln_info {
-    std::string cigar;
-    unsigned int ed;
-    unsigned int ref_offset;
-    int sw_score;
-    int global_ed;
-    int length;
-};
+//struct aln_info {
+//    std::string cigar;
+//    unsigned int ed;
+//    unsigned int ref_offset;
+//    int sw_score;
+//    int global_ed;
+//    int length;
+//};
 
 struct alignment {
     std::string cigar;
@@ -84,8 +85,65 @@ struct alignment {
     int aln_length;
     bool not_proper;
     bool is_rc;
-    bool is_unaligned = false;
-};
+    bool is_unaligned = false; };
+
+struct alignment_params {
+    int match;
+    int mismatch;
+    int gap_open;
+    int gap_extend; };
+
+struct logging_variables {
+    std::chrono::duration<double> tot_read_file;
+    std::chrono::duration<double> tot_construct_strobemers;
+    std::chrono::duration<double> tot_find_nams;
+    std::chrono::duration<double> tot_time_rescue;
+    std::chrono::duration<double> tot_find_nams_alt;
+    std::chrono::duration<double> tot_sort_nams;
+    std::chrono::duration<double> tot_extend;
+    std::chrono::duration<double> tot_rc;
+    std::chrono::duration<double> tot_write_file;
+
+    unsigned int tot_ksw_aligned = 0;
+    unsigned int tot_rescued = 0;
+    unsigned int tot_all_tried = 0;
+    unsigned int did_not_fit = 0;
+    unsigned int tried_rescue = 0;} ;
+
+
+struct i_dist_est {
+    float sample_size = 1;
+    float mu = 300;
+    float sigma = 100;
+    float V = 10000;
+    float SSE = 10000;} ;
+
+struct mapping_params {
+    uint64_t q;
+    int n;
+    int k;
+    int s;
+    int t_syncmer;
+    int w_min;
+    int w_max;
+    int max_secondary;
+    float dropoff_threshold;
+    int r;
+    int m;
+    int l;
+    int u;
+    int c;
+    float f;
+    int S;
+    int M;
+    int R;
+    int max_dist;
+    int maxTries;
+    int max_seed_len;
+    int rescue_cutoff;
+    unsigned int filter_cutoff;
+    bool is_sam_out;};
+
 
 #endif /* index_hpp */
 

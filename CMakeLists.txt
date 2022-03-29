@@ -22,6 +22,8 @@ source/ksw2_extz2_sse.c
 source/xxhash.c
 source/ssw_cpp.cpp
 source/ssw.c
+source/pc.cpp
+source/aln.cpp
 )
 
 add_executable(strobealign ${SOURCES})
