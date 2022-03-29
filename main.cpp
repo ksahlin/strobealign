@@ -720,16 +720,16 @@ int main (int argc, char **argv)
         ////// REAL PRODUCER-CONSUMER START /////
 
 //        int n_threads = 4;
-        int input_chunk_size = 5000;
+        int input_chunk_size = 50000;
 //        int read_len = 100;
         std::cerr << "Nr threads: " << n_threads << "\n";
 
         // Create Buffers
         InputBuffer input_buffer = { {}, {}, {}, {}, {}, ks1, ks2, false, 0, input_chunk_size};
 
-        int64_t reserve_size = (OUTPUT_BUFFER_CAPACITY)*input_chunk_size * 2 * 4 * map_param.r;
-        std::cerr << "OUTPUT_BUFFER_CAPACITY: " << OUTPUT_BUFFER_CAPACITY << " input_chunk_size: " << input_chunk_size <<   " reserve_size: " << reserve_size << "\n";
-        OutputBuffer output_buffer(reserve_size);
+//        int64_t reserve_size = (OUTPUT_BUFFER_CAPACITY)*input_chunk_size * 2 * 4 * map_param.r;
+//        std::cerr << "OUTPUT_BUFFER_CAPACITY: " << OUTPUT_BUFFER_CAPACITY << " input_chunk_size: " << input_chunk_size <<   " reserve_size: " << reserve_size << "\n";
+        OutputBuffer output_buffer;
 
         std::vector<std::thread> workers;
         for (int i = 0; i < n_threads; ++i) {
@@ -744,11 +744,11 @@ int main (int argc, char **argv)
             workers[i].join();
         }
 
-        std::cerr << "LAST BUFFER SIZE: " << output_buffer.buffer_size <<  std::endl;
-        if (output_buffer.buffer_size > 0 ){ // write last set of records
-            std::cerr << "Final writing to output " <<output_buffer.buffer_size << " " << input_buffer.buffer_size  << " threadID: " << std::this_thread::get_id() << " " << input_buffer.finished_reading << std::endl;
-            output_buffer.output_records(std::this_thread::get_id()); // Implement write here
-        }
+//        std::cerr << "LAST BUFFER SIZE: " << output_buffer.buffer_size <<  std::endl;
+//        if (output_buffer.buffer_size > 0 ){ // write last set of records
+//            std::cerr << "Final writing to output " <<output_buffer.buffer_size << " " << input_buffer.buffer_size  << " threadID: " << std::this_thread::get_id() << " " << input_buffer.finished_reading << std::endl;
+//            output_buffer.output_records(std::this_thread::get_id()); // Implement write here
+//        }
 
         std::cerr << "Done!\n";
         /////////////////////////////////////

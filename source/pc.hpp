@@ -20,7 +20,7 @@ using namespace klibpp;
 #include "index.hpp"
 #include "aln.hpp"
 
-#define INPUT_BUFFER_CAPACITY 100
+#define INPUT_BUFFER_CAPACITY 20
 
 #define OUTPUT_BUFFER_CAPACITY 200
 
@@ -64,12 +64,12 @@ public:
     std::condition_variable not_full;
 
     int buffer_size = 0;
-    std::string out;
+//    std::string out;
 //    int n_threads;
 //    std::vector<std::string> output_strings;
-    OutputBuffer( int64_t reserve_size){ // Constructor
-        out.reserve(reserve_size);
-    }
+//    OutputBuffer( int64_t reserve_size){ // Constructor
+//        out.reserve(reserve_size);
+//    }
     //OutputBuffer( int n) {     // Constructor
 //        int n_threads = n;
 //        output_strings.reserve(n_threads);
@@ -80,9 +80,9 @@ public:
 //    }
 
 
-    void add_aligned_reads(std::thread::id  thread_id,  std::string &sam_alignments);
+//    void add_aligned_reads(std::thread::id  thread_id, std::string &sam_alignments);
 
-    void output_records(std::thread::id thread_id);
+    void output_records(std::thread::id thread_id, std::string &sam_alignments);
 
 };
 

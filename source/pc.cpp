@@ -51,46 +51,41 @@ void InputBuffer::add_records(std::thread::id  thread_id) {
 }
 
 
-void OutputBuffer::add_aligned_reads(std::thread::id  thread_id, std::string &sam_alignments) {
-//    output_strings[thread_id].append(sam_alignment);
-//    output_strings[thread_id].append("\n");
-
-    // Acquire a unique lock on the mutex
-    std::unique_lock<std::mutex> unique_lock(mtx);
-
-    // Wait if the buffer is full
-    not_full.wait(unique_lock, [this]() {
-        return buffer_size < OUTPUT_BUFFER_CAPACITY;
-    });
-
-    // Add input to buffer
-    out.append(sam_alignments);
-//    out.append("\n");
-    // Update appropriate fields
-    buffer_size++;
-    // Unlock unique lock
-    unique_lock.unlock();
-    // Notify a single thread that buffer isn't empty
-    not_empty.notify_one();
-
-}
-
-void OutputBuffer::output_records(std::thread::id  thread_id) {
-    // Acquire a unique lock on the mutex
-    std::unique_lock<std::mutex> unique_lock(mtx);
-
-    // Wait if buffer is empty
-    not_empty.wait(unique_lock, [this]() {
-        return buffer_size > 0;
-    });
+//void OutputBuffer::add_aligned_reads(std::thread::id  thread_id, std::string &sam_alignments) {
+////    output_strings[thread_id].append(sam_alignment);
+////    output_strings[thread_id].append("\n");
 //
+//    // Acquire a unique lock on the mutex
+//    std::unique_lock<std::mutex> unique_lock(mtx);
+//
+//    // Wait if the buffer is full
+//    not_full.wait(unique_lock, [this]() {
+//        return buffer_size < OUTPUT_BUFFER_CAPACITY;
+//    });
+//
+//    // Add input to buffer
+//    out.append(sam_alignments);
+////    out.append("\n");
+//    // Update appropriate fields
+//    buffer_size++;
+//    // Unlock unique lock
+//    unique_lock.unlock();
+//    // Notify a single thread that buffer isn't empty
+//    not_empty.notify_one();
+//
+//}
 
-//    for (int i = 0; i < n_threads; ++i) {
-//        std::cout << output_strings[i];
-//        output_strings[i].clear();
-//    }
-    std::cout << out;
-    out.clear();
+void OutputBuffer::output_records(std::thread::id  thread_id, std::string &sam_alignments) {
+    // Acquire a unique lock on the mutex
+    std::unique_lock<std::mutex> unique_lock(mtx);
+
+//    // Wait if buffer is empty
+//    not_empty.wait(unique_lock, [this]() {
+//        return buffer_size > 0;
+//    });
+
+    std::cout << sam_alignments;
+//    sam_alignments.clear();
 
 //    int q_size = q.size();
     // Update appropriate fields
@@ -170,7 +165,9 @@ inline bool align_reads(std::thread::id thread_id, InputBuffer &input_buffer, Ou
         log_stats_vec[thread_id] = log_vars;
         isize_est_vec[thread_id] = isize_est;
     }
-    output_buffer.add_aligned_reads(thread_id, sam_out);
+//    IMMEDIATELY PRINT TO STDOUT/FILE HERE
+    output_buffer.output_records(thread_id, sam_out);
+//    output_buffer.add_aligned_reads(thread_id, sam_out);
 
     return false;
 }
@@ -183,11 +180,13 @@ void perform_task(InputBuffer &input_buffer, OutputBuffer &output_buffer,
                   kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map ){
     bool eof = false;
     while (true){
-        if (output_buffer.buffer_size >= OUTPUT_BUFFER_CAPACITY ){ // first try write if buffer is full
-            output_buffer.output_records(std::this_thread::get_id()); // Implement write here
-        } else if ( (!input_buffer.finished_reading) && (input_buffer.buffer_size < INPUT_BUFFER_CAPACITY/2) ){
+//        if (output_buffer.buffer_size >= OUTPUT_BUFFER_CAPACITY ){ // first try write if buffer is full
+//            output_buffer.output_records(std::this_thread::get_id()); // Implement write here
+//        } else
+       if ( (!input_buffer.finished_reading) && (input_buffer.buffer_size < INPUT_BUFFER_CAPACITY/2) ){
             input_buffer.add_records(std::this_thread::get_id());
-        } else { // otherwise align
+        }
+       else { // otherwise align
             eof = align_reads(std::this_thread::get_id(), input_buffer, output_buffer, log_stats_vec, isize_est_vec,
                               aln_params, map_param, ref_lengths, ref_seqs, mers_index, flat_vector,  acc_map);
         }

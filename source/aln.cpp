@@ -2130,15 +2130,15 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, std::vect
         ext_right = ref_len - (n.ref_e +1) < 50 ? ref_len - (n.ref_e +1) : 50;
 
         ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
-        if (ref_start < 0  ){
-            std::cerr << "Get_alignment Bug1! ref start: " << ref_start << " ref_segm_size: " << ref_segm_size  << " ref len:  " << ref_seqs[n.ref_id].length() << std::endl;
-        }
-        if (ref_start + ref_segm_size >= ref_seqs[n.ref_id].length() ){
-            std::cerr << "Get_alignment Bug2! ref start: " << ref_start << " ref_segm_size: " << ref_segm_size << " ref len:  " << ref_seqs[n.ref_id].length() << std::endl;
-        }
-        if (ref_segm_size <= 20){
-            std::cerr << "Get_alignment Bug3! ref start: " << ref_start << " ref_segm_size: " << ref_segm_size << " ref len:  " << ref_seqs[n.ref_id].length() << std::endl;
-        }
+//        if (ref_start < 0  ){
+//            std::cerr << "Get_alignment Bug1! ref start: " << ref_start << " ref_segm_size: " << ref_segm_size  << " ref len:  " << ref_seqs[n.ref_id].length() << std::endl;
+//        }
+//        if (ref_start + ref_segm_size >= ref_seqs[n.ref_id].length() ){
+//            std::cerr << "Get_alignment Bug2! ref start: " << ref_start << " ref_segm_size: " << ref_segm_size << " ref len:  " << ref_seqs[n.ref_id].length() << std::endl;
+//        }
+//        if (ref_segm_size <= 20){
+//            std::cerr << "Get_alignment Bug3! ref start: " << ref_start << " ref_segm_size: " << ref_segm_size << " ref len:  " << ref_seqs[n.ref_id].length() << std::endl;
+//        }
         ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
 //        std::cerr << " ref_tmp_start " << ref_tmp_start << " ext left " << ext_left << " ext right " << ext_right << " ref_tmp_segm_size " << ref_tmp_segm_size << " ref_segm_size " << ref_segm_size << " ref_segm " << ref_segm << std::endl;
         sam_aln.ref_id = n.ref_id;
@@ -3140,15 +3140,15 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
     ref_len = ref_len_map[n.ref_id];
     ref_start = std::max(0, std::min(a,ref_len));
     ref_end = std::min(ref_len, b);
-    if (ref_start == ref_len ){
-        std::cerr << "Rescue Bug1! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
-    }
-    if (ref_end == ref_len ){
-        std::cerr << "Rescue Bug2! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
-    }
-    if (ref_end <= ref_start){
-        std::cerr << "Rescue Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
-    }
+//    if (ref_start == ref_len ){
+//        std::cerr << "Rescue Bug1! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
+//    }
+//    if (ref_end == ref_len ){
+//        std::cerr << "Rescue Bug2! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
+//    }
+//    if (ref_end <= ref_start){
+//        std::cerr << "Rescue Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
+//    }
 
 //    std::cerr << "Reached here: a:" << a << " b: " << b <<  " ref_len: " << ref_len << " ref_start: " << ref_start << " ref_end - ref_start: " << ref_end - ref_start << " sub ref str len: " << ref_start + ref_end - ref_start << std::endl;
     std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
