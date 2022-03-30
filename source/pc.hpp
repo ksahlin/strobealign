@@ -83,7 +83,7 @@ public:
 
 //    void add_aligned_reads(std::thread::id  thread_id, std::string &sam_alignments);
 
-    void output_records(std::thread::id thread_id, std::string &sam_alignments);
+    void output_records(std::thread::id thread_id, std::string &sam_alignments, std::ostream *out);
 
 };
 

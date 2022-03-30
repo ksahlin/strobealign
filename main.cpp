@@ -548,6 +548,7 @@ int main (int argc, char **argv)
     }
 
     std::ostream out(buf);
+    map_param.out = &out;
 //    std::ofstream out;
 //    out.open(output_file_name);
 

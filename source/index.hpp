@@ -119,6 +119,7 @@ struct i_dist_est {
     float SSE = 10000;} ;
 
 struct mapping_params {
+    std::ostream *out;
     uint64_t q;
     int n;
     int k;
