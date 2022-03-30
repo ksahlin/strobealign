@@ -65,6 +65,7 @@ public:
     std::condition_variable not_full;
 
     int buffer_size = 0;
+    std::ostream &out;
 //    std::string out;
 //    int n_threads;
 //    std::vector<std::string> output_strings;
@@ -83,7 +84,7 @@ public:
 
 //    void add_aligned_reads(std::thread::id  thread_id, std::string &sam_alignments);
 
-    void output_records(std::thread::id thread_id, std::string &sam_alignments, std::ostream *out);
+    void output_records(std::thread::id thread_id, std::string &sam_alignments);
 
 };
 

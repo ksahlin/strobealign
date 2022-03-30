@@ -10,7 +10,7 @@
 #include <assert.h>
 #include <math.h>
 #include <chrono>  // for high_resolution_clock
-#include <omp.h>
+//#include <omp.h>
 #include <zlib.h>
 #include <sstream>
 #include <algorithm>

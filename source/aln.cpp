@@ -5,7 +5,7 @@
 #include <assert.h>
 #include <math.h>
 #include <chrono>  // for high_resolution_clock
-#include <omp.h>
+//#include <omp.h>
 #include <zlib.h>
 #include <sstream>
 #include <algorithm>
@@ -3139,7 +3139,7 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
 
     ref_len = ref_len_map[n.ref_id];
     ref_start = std::max(0, std::min(a,ref_len));
-    ref_end = std::min(ref_len, b);
+    ref_end = std::min(ref_len, std::max(0, b));
 //    if (ref_start == ref_len ){
 //        std::cerr << "Rescue Bug1! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
 //    }
@@ -3150,6 +3150,19 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
 //        std::cerr << "Rescue Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
 //    }
 
+    if (ref_end <= ref_start){
+        sam_aln.cigar = "*";
+        sam_aln.ed = read_len;
+        sam_aln.sw_score = 0;
+        sam_aln.aln_score = 0;
+        sam_aln.ref_start =  0;
+        sam_aln.is_rc = n.is_rc;
+        sam_aln.ref_id = n.ref_id;
+        sam_aln.is_unaligned = true;
+        sam_aln.not_proper = true;
+        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
+        return;
+    }
 //    std::cerr << "Reached here: a:" << a << " b: " << b <<  " ref_len: " << ref_len << " ref_start: " << ref_start << " ref_end - ref_start: " << ref_end - ref_start << " sub ref str len: " << ref_start + ref_end - ref_start << std::endl;
     std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
     aln_info info;

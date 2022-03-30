@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <math.h>
 #include <chrono>  // for high_resolution_clock
-#include <omp.h>
+//#include <omp.h>
 #include <zlib.h>
 #include <sstream>
 #include <algorithm>
@@ -363,7 +363,7 @@ int main (int argc, char **argv)
         std::cerr << "Warning wrong value for parameter c, setting c=8" << std::endl;
         map_param.q = pow (2, 8) - 1;
     }
-    omp_set_num_threads(n_threads); // set number of threads in "parallel" blocks
+//    omp_set_num_threads(n_threads); // set number of threads in "parallel" blocks
     map_param.w_min = map_param.k/(map_param.k-map_param.s+1) + map_param.l > 1 ? map_param.k/(map_param.k-map_param.s+1) + map_param.l : 1;
     map_param.w_max = map_param.k/(map_param.k-map_param.s+1) + map_param.u;
     map_param.t_syncmer = (map_param.k-map_param.s)/2 + 1;
@@ -548,7 +548,6 @@ int main (int argc, char **argv)
     }
 
     std::ostream out(buf);
-    map_param.out = &out;
 //    std::ofstream out;
 //    out.open(output_file_name);
 
@@ -730,7 +729,8 @@ int main (int argc, char **argv)
 
 //        int64_t reserve_size = (OUTPUT_BUFFER_CAPACITY)*input_chunk_size * 2 * 4 * map_param.r;
 //        std::cerr << "OUTPUT_BUFFER_CAPACITY: " << OUTPUT_BUFFER_CAPACITY << " input_chunk_size: " << input_chunk_size <<   " reserve_size: " << reserve_size << "\n";
-        OutputBuffer output_buffer;
+
+        OutputBuffer output_buffer = { {}, {}, {}, 0, out};
 
         std::vector<std::thread> workers;
         for (int i = 0; i < n_threads; ++i) {

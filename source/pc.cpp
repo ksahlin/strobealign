@@ -90,7 +90,7 @@ void InputBuffer::add_records(std::thread::id  thread_id) {
 //
 //}
 
-void OutputBuffer::output_records(std::thread::id  thread_id, std::string &sam_alignments, std::ostream *out) {
+void OutputBuffer::output_records(std::thread::id  thread_id, std::string &sam_alignments) {
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
 
@@ -101,7 +101,7 @@ void OutputBuffer::output_records(std::thread::id  thread_id, std::string &sam_a
 
 //    TODO: WRITE TO EITHER FILE OR STDOUT HERE - NEED TO PASS out AS ARG
 //    std::cout << sam_alignments;
-    *out << sam_alignments;
+    out << sam_alignments;
 //    sam_alignments.clear();
 
 //    int q_size = q.size();
@@ -219,7 +219,7 @@ inline bool align_reads2(std::thread::id thread_id, InputBuffer &input_buffer, O
         isize_est_vec[thread_id] = isize_est;
     }
 //    IMMEDIATELY PRINT TO STDOUT/FILE HERE
-    output_buffer.output_records(thread_id, sam_out, map_param.out);
+    output_buffer.output_records(thread_id, sam_out);
 //    output_buffer.add_aligned_reads(thread_id, sam_out);
 
     return false;
