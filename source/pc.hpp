@@ -43,7 +43,7 @@ public:
     klibpp::KStream<gzFile_s*, int (*)(gzFile_s*, void*, unsigned int), klibpp::mode::In_> &ks2;
     bool finished_reading = false;
     int buffer_size = 0;
-    int X = 50000; // input read chunk size
+    int X = 100000; // input read chunk size
 
     void read_records(std::thread::id  thread_id, std::vector<KSeq> &records1, std::vector<KSeq> &records2);
     void add_records(std::thread::id thread_id);

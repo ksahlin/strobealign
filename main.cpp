@@ -720,7 +720,7 @@ int main (int argc, char **argv)
         ////// REAL PRODUCER-CONSUMER START /////
 
 //        int n_threads = 4;
-        int input_chunk_size = 50000;
+        int input_chunk_size = 100000;
 //        int read_len = 100;
         std::cerr << "Nr threads: " << n_threads << "\n";
 
