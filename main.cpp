@@ -705,8 +705,8 @@ int main (int argc, char **argv)
         i_dist_est isize_est;
         logging_variables log_vars;
 //        std::vector<std::string> output_streams(n_threads);
-        robin_hood::unordered_map<std::thread::id, logging_variables> log_stats_vec(n_threads);
-        robin_hood::unordered_map<std::thread::id, i_dist_est> isize_est_vec(n_threads);
+        std::unordered_map<std::thread::id, logging_variables> log_stats_vec(n_threads);
+        std::unordered_map<std::thread::id, i_dist_est> isize_est_vec(n_threads);
 //        for (int i = 0; i < n_threads; ++i) {
 ////            output_streams[i].reserve((n_q_chunk_size / n_threads + 1) *
 ////                                      600); // Reserve sufficient space for appending multiple SAM records (600 is an estimate on the number of characters for each sam record of a 200-300bp read)
@@ -980,10 +980,12 @@ int main (int argc, char **argv)
 
         gzclose(fp1);
         gzclose(fp2);
-
-        for (int i = 0; i < n_threads; ++i) {
-            //auto isize_est = isize_est_vec[i];
-            auto log_vars = log_stats_vec[std::this_thread::get_id()];
+        for (auto &it : log_stats_vec) {
+            auto thread_id = it.first;
+            auto log_vars = it.second;
+//        for (int i = 0; i < n_threads; ++i) {
+//            //auto isize_est = isize_est_vec[i];
+//            auto log_vars = log_stats_vec[std::this_thread::get_id()];
             tot_log_vars.tot_all_tried += log_vars.tot_all_tried;
             tot_log_vars.tot_ksw_aligned += log_vars.tot_ksw_aligned;
             tot_log_vars.tot_rescued += log_vars.tot_rescued;

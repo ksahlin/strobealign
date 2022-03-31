@@ -17,7 +17,8 @@
 using namespace klibpp;
 
 
-void InputBuffer::read_records(std::thread::id  thread_id, std::vector<KSeq> &records1, std::vector<KSeq> &records2) {
+void InputBuffer::read_records(std::thread::id  thread_id, std::vector<KSeq> &records1, std::vector<KSeq> &records2, logging_variables &log_vars) {
+     auto read_start = std::chrono::high_resolution_clock::now();
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
     records1 = ks1.read(X);
@@ -31,39 +32,41 @@ void InputBuffer::read_records(std::thread::id  thread_id, std::vector<KSeq> &re
     unique_lock.unlock();
     // Notify a single thread that buffer isn't empty
     not_empty.notify_one();
+    auto read_finish = std::chrono::high_resolution_clock::now();
+    log_vars.tot_read_file += read_finish - read_start;
 
 }
 
-void InputBuffer::add_records(std::thread::id  thread_id) {
-    // Acquire a unique lock on the mutex
-    std::unique_lock<std::mutex> unique_lock(mtx);
-
-    // Wait if the buffer is full
-    not_full.wait(unique_lock, [this]() {
-        return buffer_size != INPUT_BUFFER_CAPACITY;
-    });
-
-    // Add input to buffer
-
-    auto records1 = ks1.read(X);
-    q1.push(records1);
-    auto records2 = ks2.read(X);
-    q2.push(records2);
-
-    // Update appropriate fields
-    buffer_size ++;
-//    buffer_size += records.size(); //++;
-
-    if (records1.empty()){
-        finished_reading = true;
-    }
-
-    // Unlock unique lock
-    unique_lock.unlock();
-    // Notify a single thread that buffer isn't empty
-    not_empty.notify_one();
-
-}
+//void InputBuffer::add_records(std::thread::id  thread_id) {
+//    // Acquire a unique lock on the mutex
+//    std::unique_lock<std::mutex> unique_lock(mtx);
+//
+//    // Wait if the buffer is full
+//    not_full.wait(unique_lock, [this]() {
+//        return buffer_size != INPUT_BUFFER_CAPACITY;
+//    });
+//
+//    // Add input to buffer
+//
+//    auto records1 = ks1.read(X);
+//    q1.push(records1);
+//    auto records2 = ks2.read(X);
+//    q2.push(records2);
+//
+//    // Update appropriate fields
+//    buffer_size ++;
+////    buffer_size += records.size(); //++;
+//
+//    if (records1.empty()){
+//        finished_reading = true;
+//    }
+//
+//    // Unlock unique lock
+//    unique_lock.unlock();
+//    // Notify a single thread that buffer isn't empty
+//    not_empty.notify_one();
+//
+//}
 
 
 //void OutputBuffer::add_aligned_reads(std::thread::id  thread_id, std::string &sam_alignments) {
@@ -191,8 +194,7 @@ void OutputBuffer::output_records(std::thread::id  thread_id, std::string &sam_a
 
 
 inline bool align_reads2(std::thread::id thread_id, InputBuffer &input_buffer, OutputBuffer &output_buffer,  std::vector<KSeq> &records1,  std::vector<KSeq> &records2,
-                        robin_hood::unordered_map<std::thread::id, logging_variables> &log_stats_vec,
-                        robin_hood::unordered_map<std::thread::id, i_dist_est> &isize_est_vec, alignment_params &aln_params,
+                         logging_variables &log_vars, i_dist_est &isize_est, alignment_params &aln_params,
                         mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs,
                         kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map ) {
 
@@ -206,18 +208,17 @@ inline bool align_reads2(std::thread::id thread_id, InputBuffer &input_buffer, O
     for (size_t i = 0; i < records1.size(); ++i) {
         auto record1 = records1[i];
         auto record2 = records2[i];
-        auto log_vars = log_stats_vec[thread_id];
-        auto isize_est = isize_est_vec[thread_id];
+//        auto log_vars = log_stats_vec[thread_id];
+//        auto isize_est = isize_est_vec[thread_id];
 
         align_PE_read(thread_id, record1, record2, sam_out,  log_vars, isize_est, aln_params,
                       map_param, ref_lengths, ref_seqs,
                       mers_index, flat_vector, acc_map );
-//        align_PE_read(thread_id, record1, record2, sam_out, log_vars, isize_est, aln_params,
-//                map_param, ref_lengths, ref_seqs,
-//                mers_index, flat_vector, acc_map );
-        log_stats_vec[thread_id] = log_vars;
-        isize_est_vec[thread_id] = isize_est;
+//        log_stats_vec[thread_id] = log_vars;
+//        isize_est_vec[thread_id] = isize_est;
     }
+//    std::cerr << isize_est_vec[thread_id].mu << " " << isize_est_vec[thread_id].sigma << "\n";
+//    std::cerr << log_stats_vec[thread_id].tot_all_tried << " " << log_stats_vec[thread_id].tot_ksw_aligned << "\n";
 //    IMMEDIATELY PRINT TO STDOUT/FILE HERE
     output_buffer.output_records(thread_id, sam_out);
 //    output_buffer.add_aligned_reads(thread_id, sam_out);
@@ -228,7 +229,7 @@ inline bool align_reads2(std::thread::id thread_id, InputBuffer &input_buffer, O
 
 
 void perform_task(InputBuffer &input_buffer, OutputBuffer &output_buffer,
-                  robin_hood::unordered_map<std::thread::id, logging_variables> &log_stats_vec, robin_hood::unordered_map<std::thread::id, i_dist_est> &isize_est_vec, alignment_params &aln_params,
+                  std::unordered_map<std::thread::id, logging_variables> &log_stats_vec, std::unordered_map<std::thread::id, i_dist_est> &isize_est_vec, alignment_params &aln_params,
                   mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs,
                   kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map ){
     bool eof = false;
@@ -246,9 +247,14 @@ void perform_task(InputBuffer &input_buffer, OutputBuffer &output_buffer,
 
         std::vector<KSeq> records1;
         std::vector<KSeq> records2;
-        input_buffer.read_records(std::this_thread::get_id(), records1, records2);
-        eof = align_reads2(std::this_thread::get_id(), input_buffer, output_buffer, records1, records2,
-                           log_stats_vec, isize_est_vec,
+        auto thread_id = std::this_thread::get_id();
+        if (log_stats_vec.find(thread_id) == log_stats_vec.end()) { //  Not initialized
+            logging_variables log_vars;
+            log_stats_vec[thread_id] = log_vars;
+        }
+        input_buffer.read_records(thread_id, records1, records2, log_stats_vec[thread_id]);
+        eof = align_reads2(thread_id, input_buffer, output_buffer, records1, records2,
+                           log_stats_vec[thread_id], isize_est_vec[thread_id],
                           aln_params, map_param, ref_lengths, ref_seqs, mers_index, flat_vector,  acc_map);
 
         if (eof){

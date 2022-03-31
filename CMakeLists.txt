@@ -28,7 +28,7 @@ source/aln.cpp
 
 add_executable(strobealign ${SOURCES})
 
-target_link_libraries(strobealign PUBLIC ZLIB::ZLIB OpenMP::OpenMP_CXX)
+target_link_libraries(strobealign PUBLIC ZLIB::ZLIB)
 
 install(TARGETS strobealign DESTINATION bin)
 

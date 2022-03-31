@@ -11,6 +11,7 @@
 #include <queue>
 #include <vector>
 #include <sstream>
+#include <unordered_map>
 
 #include "robin_hood.h"
 #include <zlib.h>
@@ -45,8 +46,8 @@ public:
     int buffer_size = 0;
     int X = 100000; // input read chunk size
 
-    void read_records(std::thread::id  thread_id, std::vector<KSeq> &records1, std::vector<KSeq> &records2);
-    void add_records(std::thread::id thread_id);
+    void read_records(std::thread::id  thread_id, std::vector<KSeq> &records1, std::vector<KSeq> &records2, logging_variables &log_vars);
+//    void add_records(std::thread::id thread_id);
 //    void init_file(std::thread::id thread_id, const char * fname);
     // bool align_read(std::thread::id  thread_id);
 
@@ -91,7 +92,7 @@ public:
 
 
 void perform_task(InputBuffer &input_buffer, OutputBuffer &output_buffer,
-                  robin_hood::unordered_map<std::thread::id, logging_variables> &log_stats_vec, robin_hood::unordered_map<std::thread::id, i_dist_est> &isize_est_vec, alignment_params &aln_params,
+                  std::unordered_map<std::thread::id, logging_variables> &log_stats_vec, std::unordered_map<std::thread::id, i_dist_est> &isize_est_vec, alignment_params &aln_params,
                   mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map );
 
 #endif // pc_hpp_
