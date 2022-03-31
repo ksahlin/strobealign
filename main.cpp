@@ -1016,7 +1016,7 @@ int main (int argc, char **argv)
     auto finish_aln_part = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> tot_aln_part = finish_aln_part - start_aln_part;
     std::cerr << "Total time mapping: " << tot_aln_part.count() << " s." <<  std::endl;
-    std::cerr << "Total time reading read-file(s): " << tot_log_vars.tot_read_file.count() << " s." <<  std::endl;
+    std::cerr << "Total time reading read-file(s): " << tot_log_vars.tot_read_file.count()/n_threads << " s." <<  std::endl;
     std::cerr << "Total time creating strobemers: " << tot_log_vars.tot_construct_strobemers.count()/n_threads << " s." <<  std::endl;
     std::cerr << "Total time finding NAMs (non-rescue mode): " << tot_log_vars.tot_find_nams.count()/n_threads  << " s." <<  std::endl;
     std::cerr << "Total time finding NAMs (rescue mode): " << tot_log_vars.tot_time_rescue.count()/n_threads  << " s." <<  std::endl;

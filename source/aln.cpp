@@ -3160,7 +3160,7 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
         sam_aln.ref_id = n.ref_id;
         sam_aln.is_unaligned = true;
         sam_aln.not_proper = true;
-        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
+//        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return;
     }
 //    std::cerr << "Reached here: a:" << a << " b: " << b <<  " ref_len: " << ref_len << " ref_start: " << ref_start << " ref_end - ref_start: " << ref_end - ref_start << " sub ref str len: " << ref_start + ref_end - ref_start << std::endl;

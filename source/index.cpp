@@ -770,7 +770,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 //    std::cerr << seq << std::endl;
 
     // create the randstrobes
-    for (unsigned int i = 0; i <= nr_hashes; i++) {
+    for (unsigned int i = 0; i < nr_hashes; i++) {
 
 //        if ((i % 1000000) == 0 ){
 //            std::cerr << i << " strobemers created." << std::endl;
@@ -875,7 +875,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 //    std::cerr << seq << std::endl;
 
     // create the randstrobes FW direction!
-    for (unsigned int i = 0; i <= nr_hashes; i++) {
+    for (unsigned int i = 0; i < nr_hashes; i++) {
 
 //        if ((i % 1000000) == 0 ){
 //            std::cerr << i << " strobemers created." << std::endl;
@@ -938,7 +938,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 //        std::cerr << "REVERSE: " << pos_to_seq_choord[i] <<std::endl;
 //    }
 
-    for (unsigned int i = 0; i <= nr_hashes; i++) {
+    for (unsigned int i = 0; i < nr_hashes; i++) {
 
 //        if ((i % 1000000) == 0 ){
 //            std::cerr << i << " strobemers created." << std::endl;
