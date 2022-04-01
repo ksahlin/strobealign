@@ -133,7 +133,16 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
 
     }
 
-
+int est_read_length( klibpp::KStream<gzFile_s*, int (*)(gzFile_s*, void*, unsigned int), klibpp::mode::In_> &ks, int n_reads){
+    auto records = ks.read(n_reads);
+    int tot_read_len = 0;
+    for (size_t i = 0; i < records.size(); ++i) {
+        auto record1 = records[i];
+        tot_read_len += record1.seq.length();
+    }
+    int avg_read_len = tot_read_len/n_reads;
+    return avg_read_len;
+}
 
 
 void print_usage() {
@@ -156,7 +165,7 @@ void print_usage() {
     std::cerr << "\n";
     std::cerr << "Seeding:\n";
 //    std::cerr << "\t-n INT number of strobes [2]\n";
-    std::cerr << "\t-r INT Approximate read length. Sets suitable parameters for -k, -l, -u and -q. [150] \n";
+    std::cerr << "\t-r INT Mean read length. This parameter is estimated from first 500 records in each read file. No need to set this explicitly  \n\t   unless you have a reason. [disabled] \n";
     std::cerr << "\t-m INT Maximum seed length. Defaults to r - 50. For reasonable values on -l and -u, the seed length distribution is usually determined by\n\t   parameters l and u. Then, this parameter is only active in regions where syncmers are very sparse.\n";
     std::cerr << "\t-k INT strobe length, has to be below 32. [20]\n";
     std::cerr << "\t-l INT Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]\n";
@@ -327,24 +336,60 @@ int main (int argc, char **argv)
             break;
     }
 
-    if (r_set) {
-        if (map_param.r <= 125) { // based on params for 100
-            map_param.k = 20;
-            map_param.l = -2;
-            map_param.u = 2;
-        } else if ((map_param.r > 125) && (map_param.r <= 175)) { // based on params for 150
-            map_param.k = 20;
-            map_param.l = 1;
-            map_param.u = 7;
-        } else if ((map_param.r > 175) && (map_param.r <= 275)) { // based on params for 200 and 250
-            map_param.k = 20;
-            map_param.l = 4;
-            map_param.u = 13;
-        } else { // based on params for 300
-            map_param.k = 22;
-            map_param.l = 2;
-            map_param.u = 12;
+    // File name to reference
+    std::string ref_filename = argv[opn];
+    opn++;
+    const char *reads_filename1;
+    const char *reads_filename2;
+    bool is_SE = false;
+    if (opn == argc - 1) {
+        reads_filename1 = argv[opn];
+        is_SE = true;
+        if (!r_set){
+            gzFile fp1_tmp = gzopen(reads_filename1, "r");
+            auto ks1_tmp = make_ikstream(fp1_tmp, gzread);
+            auto r1_tmp = est_read_length(ks1_tmp, 500);
+            gzclose(fp1_tmp);
+            map_param.r = r1_tmp;
         }
+
+    } else if (opn == argc - 2) {
+        reads_filename1 = argv[opn];
+        opn++;
+        reads_filename2 = argv[opn];
+        if (!r_set) {
+            gzFile fp1_tmp = gzopen(reads_filename1, "r");
+            auto ks1_tmp = make_ikstream(fp1_tmp, gzread);
+            gzFile fp2_tmp = gzopen(reads_filename2, "r");
+            auto ks2_tmp = make_ikstream(fp2_tmp, gzread);
+            auto r1_tmp = est_read_length(ks1_tmp, 500);
+            auto r2_tmp = est_read_length(ks2_tmp, 500);
+            gzclose(fp1_tmp);
+            gzclose(fp2_tmp);
+            map_param.r = (r1_tmp + r2_tmp) / 2;
+        }
+    } else {
+        print_usage();
+        return 0;
+    }
+
+
+    if (map_param.r <= 125) { // based on params for 100
+        map_param.k = 20;
+        map_param.l = -2;
+        map_param.u = 2;
+    } else if ((map_param.r > 125) && (map_param.r <= 175)) { // based on params for 150
+        map_param.k = 20;
+        map_param.l = 1;
+        map_param.u = 7;
+    } else if ((map_param.r > 175) && (map_param.r <= 275)) { // based on params for 200 and 250
+        map_param.k = 20;
+        map_param.l = 4;
+        map_param.u = 13;
+    } else { // based on params for 300
+        map_param.k = 22;
+        map_param.l = 2;
+        map_param.u = 12;
     }
 
     if (!max_seed_len_set){
@@ -363,7 +408,7 @@ int main (int argc, char **argv)
         std::cerr << "Warning wrong value for parameter c, setting c=8" << std::endl;
         map_param.q = pow (2, 8) - 1;
     }
-//    omp_set_num_threads(n_threads); // set number of threads in "parallel" blocks
+
     map_param.w_min = map_param.k/(map_param.k-map_param.s+1) + map_param.l > 1 ? map_param.k/(map_param.k-map_param.s+1) + map_param.l : 1;
     map_param.w_max = map_param.k/(map_param.k-map_param.s+1) + map_param.u;
     map_param.t_syncmer = (map_param.k-map_param.s)/2 + 1;
@@ -380,8 +425,9 @@ int main (int argc, char **argv)
     std::cerr << "s: " << map_param.s << std::endl;
     std::cerr << "w_min: " << map_param.w_min << std::endl;
     std::cerr << "w_max: " << map_param.w_max << std::endl;
-    std::cerr << "maximum seed length: " << map_param.max_dist + map_param.k << std::endl;
-    std::cerr << "threads: " << n_threads << std::endl;
+    std::cerr << "Read length (r): " << map_param.r << std::endl;
+    std::cerr << "Maximum seed length: " << map_param.max_dist + map_param.k << std::endl;
+    std::cerr << "Threads: " << n_threads << std::endl;
     std::cerr << "R: " << map_param.R << std::endl;
     std::cerr << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (expected values): [" << (map_param.k-map_param.s+1)*map_param.w_min << ", " << (map_param.k-map_param.s+1)*map_param.w_max << "]" << std::endl;
     std::cerr << "A: " << A << std::endl;
@@ -396,28 +442,6 @@ int main (int argc, char **argv)
     assert( ( (map_param.k-map_param.s) % 2 == 0) && " k - s have to be an even number to create canonical syncmers. Set s to e.g., k-2, k-4, k-6, k-8.");
     assert(map_param.max_dist <= 255 && " -m (maximum seed length have to be smaller than 255 + k in v0.4 and up. If you need longer seeds, use v0.3");
 
-//    assert(n == 2 && "Currently only n=2 is implemented");
-    // File name to reference
-    std::string ref_filename = argv[opn];
-//    opn++;
-//    const char *reads_filename = argv[opn];
-//    opn++;
-//    const char *reads_filename_PE2 = argv[opn];
-    opn++;
-    const char *reads_filename1;
-    const char *reads_filename2;
-    bool is_SE = false;
-    if (opn == argc - 1) {
-        reads_filename1 = argv[opn];
-        is_SE = true;
-    } else if (opn == argc - 2) {
-        reads_filename1 = argv[opn];
-        opn++;
-        reads_filename2 = argv[opn];
-    } else {
-        print_usage();
-        return 0;
-    }
 
 
     //////////// CREATE INDEX OF REF SEQUENCES /////////////////

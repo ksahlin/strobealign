@@ -3150,7 +3150,7 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
 //        std::cerr << "Rescue Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
 //    }
 
-    if (ref_end <= ref_start+20){
+    if (ref_end < ref_start + k){
         sam_aln.cigar = "*";
         sam_aln.ed = read_len;
         sam_aln.sw_score = 0;
