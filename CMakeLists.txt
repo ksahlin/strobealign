@@ -22,11 +22,13 @@ source/ksw2_extz2_sse.c
 source/xxhash.c
 source/ssw_cpp.cpp
 source/ssw.c
+source/pc.cpp
+source/aln.cpp
 )
 
 add_executable(strobealign ${SOURCES})
 
-target_link_libraries(strobealign PUBLIC ZLIB::ZLIB OpenMP::OpenMP_CXX)
+target_link_libraries(strobealign PUBLIC ZLIB::ZLIB)
 
 install(TARGETS strobealign DESTINATION bin)
 
