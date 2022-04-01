@@ -3802,7 +3802,7 @@ inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM
 }
 
 
-void align_PE_read(std::thread::id thread_id, KSeq &record1, KSeq &record2, std::string &sam_out, logging_variables &log_vars, i_dist_est &isize_est, alignment_params &aln_params,
+void align_PE_read(std::thread::id thread_id, KSeq &record1, KSeq &record2, std::string &outstring, logging_variables &log_vars, i_dist_est &isize_est, alignment_params &aln_params,
         mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map ){
     // Declare variables
     mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
@@ -3907,17 +3907,17 @@ void align_PE_read(std::thread::id thread_id, KSeq &record1, KSeq &record2, std:
         get_best_map_location(joint_NAM_scores, nams1, nams2, isize_est,
                               nam_read1,
                               nam_read2);
-        output_hits_paf_PE(sam_out, nam_read1, record1.name,
+        output_hits_paf_PE(outstring, nam_read1, record1.name,
                            acc_map,
                            map_param.k,
                            record1.seq.length(), ref_lengths);
-        output_hits_paf_PE(sam_out, nam_read2, record2.name,
+        output_hits_paf_PE(outstring, nam_read2, record2.name,
                            acc_map,
                            map_param.k,
                            record2.seq.length(), ref_lengths);
         joint_NAM_scores.clear();
     } else {
-        align_PE(aln_params, sam_out, nams1, nams2, record1,
+        align_PE(aln_params, outstring, nams1, nams2, record1,
                  record2,
                  acc_map, map_param.k,
                  ref_lengths, ref_seqs, log_vars,
@@ -3927,6 +3927,83 @@ void align_PE_read(std::thread::id thread_id, KSeq &record1, KSeq &record2, std:
     log_vars.tot_extend += extend_finish - extend_start;
     nams1.clear();
     nams2.clear();
+
+}
+
+
+
+void align_SE_read(std::thread::id thread_id, KSeq &record, std::string &outstring, logging_variables &log_vars, alignment_params &aln_params,
+                   mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map ){
+
+
+        std::string seq, seq_rc;
+        unsigned int q_id = 0;
+        std::pair<float, int> info;
+        mers_vector_read query_mers; // pos, chr_id, kmer hash value
+        std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
+        robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
+        std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw;
+        std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc;
+        hits_per_ref.reserve(100);
+        hits_fw.reserve(5000);
+        hits_rc.reserve(5000);
+
+
+        // generate mers here
+        auto strobe_start = std::chrono::high_resolution_clock::now();
+        query_mers = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record.seq, q_id, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
+        auto strobe_finish = std::chrono::high_resolution_clock::now();
+        log_vars.tot_construct_strobemers += strobe_finish - strobe_start;
+
+        // Find NAMs
+        auto nam_start = std::chrono::high_resolution_clock::now();
+        info = find_nams(nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, ref_seqs, record.seq, map_param.filter_cutoff);
+        hits_per_ref.clear();
+        auto nam_finish = std::chrono::high_resolution_clock::now();
+        log_vars.tot_find_nams += nam_finish - nam_start;
+
+        if (map_param.R > 1) {
+            auto rescue_start = std::chrono::high_resolution_clock::now();
+            if ((nams.size() == 0) || (info.first < 0.7)) {
+                log_vars.tried_rescue += 1;
+                nams.clear();
+                info = find_nams_rescue(hits_fw, hits_rc, nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, ref_seqs,
+                                        record.seq, map_param.rescue_cutoff);
+                hits_per_ref.clear();
+                hits_fw.clear();
+                hits_rc.clear();
+            }
+            auto rescue_finish = std::chrono::high_resolution_clock::now();
+            log_vars.tot_time_rescue += rescue_finish - rescue_start;
+        }
+
+        //Sort hits on score
+        auto nam_sort_start = std::chrono::high_resolution_clock::now();
+        std::sort(nams.begin(), nams.end(), score);
+        auto nam_sort_finish = std::chrono::high_resolution_clock::now();
+        log_vars.tot_sort_nams += nam_sort_finish - nam_sort_start;
+
+        auto extend_start = std::chrono::high_resolution_clock::now();
+        if (!map_param.is_sam_out) {
+            output_hits_paf(outstring, nams, record.name, acc_map, map_param.k,
+                            record.seq.length(), ref_lengths);
+        } else {
+
+            if (map_param.max_secondary > 0){
+                // I created an entire new function here, duplicating a lot of the code as outputting secondary hits is has some overhead to the
+                // original align_SE function (storing a vector of hits and sorting them)
+                // Such overhead is not present in align_PE - which implements both options in the same function.
+                align_SE_secondary_hits(aln_params, outstring, nams, record.name, acc_map, map_param.k, record.seq.length(),
+                         ref_lengths, ref_seqs, record.seq, record.qual, log_vars, map_param.dropoff_threshold, map_param.maxTries, map_param.max_secondary);
+            } else {
+                align_SE(aln_params, outstring, nams, record.name, acc_map, map_param.k, record.seq.length(),
+                         ref_lengths, ref_seqs, record.seq, record.qual, log_vars,  map_param.dropoff_threshold, map_param.maxTries);
+            }
+        }
+        auto extend_finish = std::chrono::high_resolution_clock::now();
+        log_vars.tot_extend += extend_finish - extend_start;
+        q_id++;
+        nams.clear();
 
 }
 

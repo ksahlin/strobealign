@@ -21,12 +21,6 @@ using namespace klibpp;
 #include "index.hpp"
 #include "aln.hpp"
 
-#define INPUT_BUFFER_CAPACITY 20
-
-#define OUTPUT_BUFFER_CAPACITY 200
-
-//int dummy_align_read(int q_size);
-
 
 class InputBuffer {
     // InputBuffer fields
@@ -46,10 +40,8 @@ public:
     int buffer_size = 0;
     int X = 100000; // input read chunk size
 
-    void read_records(std::thread::id  thread_id, std::vector<KSeq> &records1, std::vector<KSeq> &records2, logging_variables &log_vars);
-//    void add_records(std::thread::id thread_id);
-//    void init_file(std::thread::id thread_id, const char * fname);
-    // bool align_read(std::thread::id  thread_id);
+    void read_records_PE(std::thread::id  thread_id, std::vector<KSeq> &records1, std::vector<KSeq> &records2, logging_variables &log_vars);
+    void read_records_SE(std::thread::id  thread_id, std::vector<KSeq> &records1, logging_variables &log_vars);
 
 };
 
@@ -67,23 +59,6 @@ public:
 
     int buffer_size = 0;
     std::ostream &out;
-//    std::string out;
-//    int n_threads;
-//    std::vector<std::string> output_strings;
-//    OutputBuffer( int64_t reserve_size){ // Constructor
-//        out.reserve(reserve_size);
-//    }
-    //OutputBuffer( int n) {     // Constructor
-//        int n_threads = n;
-//        output_strings.reserve(n_threads);
-//        for (int i = 0; i < n_threads; ++i) {
-//            output_strings[i].reserve(OUTPUT_BUFFER_CAPACITY *
-//                                      600); // Reserve sufficient space for appending multiple SAM records (400 is an upper setimate on the number of characters for each sam record of a 200-300bp read)
-//        }
-//    }
-
-
-//    void add_aligned_reads(std::thread::id  thread_id, std::string &sam_alignments);
 
     void output_records(std::thread::id thread_id, std::string &sam_alignments);
 
@@ -91,8 +66,11 @@ public:
 
 
 
-void perform_task(InputBuffer &input_buffer, OutputBuffer &output_buffer,
+void perform_task_PE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
                   std::unordered_map<std::thread::id, logging_variables> &log_stats_vec, std::unordered_map<std::thread::id, i_dist_est> &isize_est_vec, alignment_params &aln_params,
                   mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map );
 
+void perform_task_SE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
+                     std::unordered_map<std::thread::id, logging_variables> &log_stats_vec, alignment_params &aln_params,
+                     mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map );
 #endif // pc_hpp_

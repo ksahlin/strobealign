@@ -585,180 +585,61 @@ int main (int argc, char **argv)
         out << "@PG\tID:strobealign\tPN:strobealign\tVN:0.6.2\tCL:strobealign\n";
     }
 
+    std::unordered_map<std::thread::id, logging_variables> log_stats_vec(n_threads);
+
+
     if(is_SE) {
-        ;
-//        std::cerr << "Running SE mode" <<  std::endl;
-//        //    KSeq record;
-//        gzFile fp = gzopen(reads_filename1, "r");
-//        auto ks = make_ikstream(fp, gzread);
-//        int n_q_chunk_size = 1000000;
-//        KSeq record;
-//        std::string seq, seq_rc;
-//        unsigned int q_id = 0;
-//        std::pair<float, int> info;
-//        mers_vector_read query_mers; // pos, chr_id, kmer hash value
-//        std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-////        std::vector<alignment> alignments;
-////        alignments.reserve(maxTries);
-//        robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
-//        std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw;
-//        std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc;
-//        hits_per_ref.reserve(100);
-//        hits_fw.reserve(5000);
-//        hits_rc.reserve(5000);
-////    mers_vector_read query_mers_rc; // pos, chr_id, kmer hash value
-//
-////    std::vector<std::stringstream> output_streams(n_threads);
-//        std::vector<std::string> output_streams(n_threads);
-//        for (int i = 0; i < n_threads; ++i) {
-//            output_streams[i].reserve((n_q_chunk_size / n_threads + 1) *
-//                                      450); // Reserve sufficient space for appending multiple SAM records (400 is an upper setimate on the number of characters for each sam record of a 200-300bp read)
-//        }
-//
-//        while (ks) {
-//
-//            auto read_start = std::chrono::high_resolution_clock::now();
-//            auto records = ks.read(n_q_chunk_size);  // read a chunk of 1000000 records
-//            auto read_finish = std::chrono::high_resolution_clock::now();
-//            tot_log_vars.tot_read_file += read_finish - read_start;
-////        std::chrono::duration<double> elapsed_read = read_finish - read_start;
-////        std::cerr << "Total time reading from file: " << elapsed_read.count() << " s\n" <<  std::endl;
-//
-//            int n_it = records.size();
-//            std::cerr << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
-//            #pragma omp parallel for num_threads(n_threads) shared(aln_params, output_streams, tot_log_vars, out, q_id) private(record, seq_rc, query_mers, nams, hits_per_ref, info)
-//            for (int i = 0; i < n_it; ++i) {
-//                auto record = records[i];
-//                // generate mers here
-//                auto strobe_start = std::chrono::high_resolution_clock::now();
-//                query_mers = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record.seq, q_id, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
-//                auto strobe_finish = std::chrono::high_resolution_clock::now();
-//                tot_log_vars.tot_construct_strobemers += strobe_finish - strobe_start;
-//
-////            // Find NAMs alternative function
-////            auto nam_alt_start = std::chrono::high_resolution_clock::now();
-////            std::vector<nam> nams_alt; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-////            nams_alt = find_nams_alt(query_mers, all_mers_vector, mers_index, k, ref_seqs, record.seq, hit_upper_window_lim,
-////                                       filter_cutoff);
-////            auto nam_alt_finish = std::chrono::high_resolution_clock::now();
-////            tot_find_nams_alt += nam_alt_finish - nam_alt_start;
-//
-//                // Find NAMs
-////                std::cerr << "mapping " << record.name << std::endl;
-//                auto nam_start = std::chrono::high_resolution_clock::now();
-//                info = find_nams(nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, ref_seqs, record.seq, map_param.filter_cutoff);
-//                hits_per_ref.clear();
-//                auto nam_finish = std::chrono::high_resolution_clock::now();
-//                tot_log_vars.tot_find_nams += nam_finish - nam_start;
-//
-//                if (map_param.R > 1) {
-//                    auto rescue_start = std::chrono::high_resolution_clock::now();
-//                    if ((nams.size() == 0) || (info.first < 0.7)) {
-//                        tot_log_vars.tried_rescue += 1;
-//                        nams.clear();
-////                    std::cerr << "Rescue is_sam_out: " << record.name <<  std::endl;
-//                        info = find_nams_rescue(hits_fw, hits_rc, nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, ref_seqs,
-//                                                record.seq, map_param.rescue_cutoff);
-//                        hits_per_ref.clear();
-//                        hits_fw.clear();
-//                        hits_rc.clear();
-////                    std::cerr << "Found: " << nams.size() <<  std::endl;
-//                    }
-//                    auto rescue_finish = std::chrono::high_resolution_clock::now();
-//                    tot_log_vars.tot_time_rescue += rescue_finish - rescue_start;
-//                }
-//
-//
-//                //Sort hits on score
-//                auto nam_sort_start = std::chrono::high_resolution_clock::now();
-//                std::sort(nams.begin(), nams.end(), score);
-//                auto nam_sort_finish = std::chrono::high_resolution_clock::now();
-//                tot_log_vars.tot_sort_nams += nam_sort_finish - nam_sort_start;
-//
-//                auto extend_start = std::chrono::high_resolution_clock::now();
-//                if (!is_sam_out) {
-//                    output_hits_paf(output_streams[omp_get_thread_num()], nams, record.name, acc_map, map_param.k,
-//                                    record.seq.length(), ref_lengths);
-////                output_streams[omp_get_thread_num()].append(paf_output.str()); // << paf_output.str();
-//                } else {
-////                auto rc_start = std::chrono::high_resolution_clock::now();
-////                auto rc_finish = std::chrono::high_resolution_clock::now();
-////                tot_rc += rc_finish - rc_start;
-////                    align_SE_multimap_deprecated(aln_params, output_streams[omp_get_thread_num()], nams, record.name, acc_map, k, record.seq.length(),
-////                             ref_lengths, ref_seqs, record.seq,
-////                             tot_ksw_aligned, tot_all_tried, dropoff_threshold, did_not_fit, maxTries, max_secondary);
-//                    if (map_param.max_secondary > 0){
-//                        // I created an entire new function here, dupliocating a lot of the code as outputting secondary hits is has some overhead to the
-//                        // original align_SE function (storing a vector of hits and sorting them)
-//                        // Such overhead is not present in align_PE - which implements both options in the same function.
-//                        align_SE_secondary_hits(aln_params,output_streams[omp_get_thread_num()], nams, record.name, acc_map, map_param.k, record.seq.length(),
-//                                 ref_lengths, ref_seqs, record.seq, record.qual, tot_log_vars, map_param.dropoff_threshold, map_param.maxTries, map_param.max_secondary);
-//                    } else {
-//                        align_SE(aln_params,output_streams[omp_get_thread_num()], nams, record.name, acc_map, map_param.k, record.seq.length(),
-//                                 ref_lengths, ref_seqs, record.seq, record.qual, tot_log_vars,  map_param.dropoff_threshold, map_param.maxTries);
-//                    }
-//
-////                output_streams[omp_get_thread_num()] << sam_output.str();
-//                }
-//                auto extend_finish = std::chrono::high_resolution_clock::now();
-//                tot_log_vars.tot_extend += extend_finish - extend_start;
-//                q_id++;
-//                nams.clear();
-//            }
-//            // Output results
-//            auto write_start = std::chrono::high_resolution_clock::now();
-//            for (int i = 0; i < n_threads; ++i) {
-//                out << output_streams[i];
-//                output_streams[i].clear();
-//            }
-//            auto write_finish = std::chrono::high_resolution_clock::now();
-//            tot_log_vars.tot_write_file += write_finish - write_start;
-//        }
-//        gzclose(fp);
-    }
-    else{
-        std::cerr << "Running PE mode" <<  std::endl;
+        std::cerr << "Running SE mode" <<  std::endl;
         //    KSeq record;
-//        int max_nam_n_hits1,max_nam_n_hits2;
-//        std::vector<int> isizes;
-        gzFile fp1 = gzopen(reads_filename1, "r");
-        auto ks1 = make_ikstream(fp1, gzread);
-        gzFile fp2 = gzopen(reads_filename2, "r");
-        auto ks2 = make_ikstream(fp2, gzread);
-        int n_q_chunk_size = 1000000;
-        i_dist_est isize_est;
-        logging_variables log_vars;
-//        std::vector<std::string> output_streams(n_threads);
-        std::unordered_map<std::thread::id, logging_variables> log_stats_vec(n_threads);
-        std::unordered_map<std::thread::id, i_dist_est> isize_est_vec(n_threads);
-//        for (int i = 0; i < n_threads; ++i) {
-////            output_streams[i].reserve((n_q_chunk_size / n_threads + 1) *
-////                                      600); // Reserve sufficient space for appending multiple SAM records (600 is an estimate on the number of characters for each sam record of a 200-300bp read)
-//            i_dist_est isize_est;
-//            logging_variables log_vars;
-//            log_stats_vec[i] = log_vars;
-//            isize_est_vec[i] = isize_est;
-//
-//        }
+        gzFile fp = gzopen(reads_filename1, "r");
+        auto ks = make_ikstream(fp, gzread);
 
-        ////// REAL PRODUCER-CONSUMER START /////
+        ////////// ALIGNMENT START //////////
+        /////////////////////////////////////
 
-//        int n_threads = 4;
         int input_chunk_size = 100000;
-//        int read_len = 100;
-        std::cerr << "Nr threads: " << n_threads << "\n";
-
         // Create Buffers
-        InputBuffer input_buffer = { {}, {}, {}, {}, {}, ks1, ks2, false, 0, input_chunk_size};
-
-//        int64_t reserve_size = (OUTPUT_BUFFER_CAPACITY)*input_chunk_size * 2 * 4 * map_param.r;
-//        std::cerr << "OUTPUT_BUFFER_CAPACITY: " << OUTPUT_BUFFER_CAPACITY << " input_chunk_size: " << input_chunk_size <<   " reserve_size: " << reserve_size << "\n";
-
+        InputBuffer input_buffer = { {}, {}, {}, {}, {}, ks, ks, false, 0, input_chunk_size};
         OutputBuffer output_buffer = { {}, {}, {}, 0, out};
 
         std::vector<std::thread> workers;
         for (int i = 0; i < n_threads; ++i) {
-            std::thread consumer(perform_task, std::ref(input_buffer), std::ref(output_buffer),
+            std::thread consumer(perform_task_SE, std::ref(input_buffer), std::ref(output_buffer),
+                                 std::ref(log_stats_vec), std::ref(aln_params),
+                                 std::ref(map_param), std::ref(ref_lengths), std::ref(ref_seqs),
+                                 std::ref(mers_index), std::ref(flat_vector), std::ref(acc_map) );
+            workers.push_back(std::move(consumer));
+        }
+
+        for (size_t i = 0; i < workers.size(); ++i) {
+            workers[i].join();
+        }
+
+        std::cerr << "Done!\n";
+        /////////////////////////////////////
+        /////////////////////////////////////
+
+        gzclose(fp);
+    }
+    else{
+        std::cerr << "Running PE mode" <<  std::endl;
+        gzFile fp1 = gzopen(reads_filename1, "r");
+        auto ks1 = make_ikstream(fp1, gzread);
+        gzFile fp2 = gzopen(reads_filename2, "r");
+        auto ks2 = make_ikstream(fp2, gzread);
+        std::unordered_map<std::thread::id, i_dist_est> isize_est_vec(n_threads);
+
+        ////////// ALIGNMENT START //////////
+        /////////////////////////////////////
+
+        int input_chunk_size = 100000;
+        // Create Buffers
+        InputBuffer input_buffer = { {}, {}, {}, {}, {}, ks1, ks2, false, 0, input_chunk_size};
+        OutputBuffer output_buffer = { {}, {}, {}, 0, out};
+
+        std::vector<std::thread> workers;
+        for (int i = 0; i < n_threads; ++i) {
+            std::thread consumer(perform_task_PE, std::ref(input_buffer), std::ref(output_buffer),
                                  std::ref(log_stats_vec), std::ref(isize_est_vec), std::ref(aln_params),
                                  std::ref(map_param), std::ref(ref_lengths), std::ref(ref_seqs),
                                  std::ref(mers_index), std::ref(flat_vector), std::ref(acc_map) );
@@ -769,267 +650,32 @@ int main (int argc, char **argv)
             workers[i].join();
         }
 
-//        std::cerr << "LAST BUFFER SIZE: " << output_buffer.buffer_size <<  std::endl;
-//        if (output_buffer.buffer_size > 0 ){ // write last set of records
-//            std::cerr << "Final writing to output " <<output_buffer.buffer_size << " " << input_buffer.buffer_size  << " threadID: " << std::this_thread::get_id() << " " << input_buffer.finished_reading << std::endl;
-//            output_buffer.output_records(std::this_thread::get_id()); // Implement write here
-//        }
-
         std::cerr << "Done!\n";
         /////////////////////////////////////
-
-
-//        auto read_start = std::chrono::high_resolution_clock::now();
-//        auto records1 = ks1.read(n_q_chunk_size);  // read a chunk of 1000000 records
-//        auto records2 = ks2.read(n_q_chunk_size);  // read a chunk of 1000000 records
-//        auto read_finish = std::chrono::high_resolution_clock::now();
-//        log_vars.tot_read_file += read_finish - read_start;
-//        std::vector<KSeq> new_records1;
-//        std::vector<KSeq> new_records2;
-//        while (!records1.empty()) {
-//            int n_it = records1.size();
-//            std::cerr << "Mapping chunk of " << n_it << " query sequences... " << std::endl;
-//
-//            #pragma omp parallel sections shared(output_streams, log_stats_vec, isize_est_vec) //private(aln_params, map_param)
-//            {
-//                // Producer (read-write IO)
-//#pragma omp section
-//                {
-//                    auto read_start = std::chrono::high_resolution_clock::now();
-//                    new_records1 = ks1.read(n_q_chunk_size);
-//                    new_records2 = ks2.read(n_q_chunk_size);
-//                    auto read_finish = std::chrono::high_resolution_clock::now();
-//                    log_stats_vec[omp_get_thread_num()].tot_read_file += read_finish - read_start;
-//
-////                    // Output results
-////                    auto write_start = std::chrono::high_resolution_clock::now();
-////                    for (int i = 0; i < n_threads; ++i) {
-////                        out << old_output_streams[i];
-////                        old_output_streams[i].clear();
-////                    }
-////                    auto write_finish = std::chrono::high_resolution_clock::now();
-////                    tot_write_file += write_finish - write_start;
-//                }
-//
-//                // Consumers
-//#pragma omp section
-//                {
-//
-////                    #pragma omp parallel for num_threads(n_threads) shared(aln_params, output_streams, out, q_id, tot_all_tried, did_not_fit, tot_ksw_aligned, tried_rescue, sample_size, mu, sigma, V, SSE) private(record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
-////                    #pragma omp for schedule(dynamic) private(record1, record2, seq_rc1, seq_rc2, query_mers1, query_mers2, nams1, nams2, hits_per_ref, joint_NAM_scores, info1, info2)
-//                    for (int i = 0; i < n_it; ++i) {
-//#pragma omp task firstprivate(i)  //private(aln_params, map_param)
-//                        {
-////#pragma omp critical
-////                            {
-////                                std::cerr << aln_params.match << aln_params.mismatch << aln_params.gap_open
-////                                          << aln_params.gap_extend << std::endl;
-////                                std::cerr << map_param.q << map_param.n << map_param.k << map_param.w_min
-////                                          << map_param.w_max << map_param.s << map_param.t_syncmer << map_param.q
-////                                          << map_param.max_dist << map_param.max_secondary
-////                                          << map_param.dropoff_threshold << map_param.r << map_param.m << map_param.l
-////                                          << map_param.u << map_param.c << map_param.f << map_param.S << map_param.M
-////                                          << map_param.R << map_param.max_dist << map_param.maxTries
-////                                          << map_param.max_seed_len << map_param.rescue_cutoff
-////                                          << map_param.filter_cutoff << std::endl;
-////                            }
-//
-//                            // Declare variables
-//                            mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
-//                            auto log_vars = log_stats_vec[omp_get_thread_num()];
-//                            auto isize_est = isize_est_vec[omp_get_thread_num()];
-//                            auto record1 = records1[i];
-//                            auto record2 = records2[i];
-//
-//                            // generate mers here
-//                            auto strobe_start = std::chrono::high_resolution_clock::now();
-////                std::cerr << "Going in! " << std::endl;
-//                            query_mers1 = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record1.seq, 0, map_param.s, map_param.t_syncmer,
-//                                                                   map_param.q,
-//                                                                   map_param.max_dist);
-////                std::cerr << "Lolz1 " << std::endl;
-//                            query_mers2 = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record2.seq, 0, map_param.s, map_param.t_syncmer,
-//                                                                   map_param.q,
-//                                                                   map_param.max_dist);
-////                std::cerr << "Lolz2 " << std::endl;
-//                            auto strobe_finish = std::chrono::high_resolution_clock::now();
-//                            log_vars.tot_construct_strobemers += strobe_finish - strobe_start;
-////                std::cerr << record1.name << " " << query_mers1.size() << std::endl;
-////                std::cerr << record2.name << " " << query_mers2.size() << std::endl;
-//
-//                            // Find NAMs
-//                            auto nam_start = std::chrono::high_resolution_clock::now();
-//                            robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
-//                            hits_per_ref.reserve(100);
-//                            std::vector<nam> nams1;
-//                            std::vector<nam> nams2;
-//                            std::pair<float, int> info1, info2;
-//                            info1 = find_nams(nams1, hits_per_ref, query_mers1, flat_vector, mers_index, map_param.k, ref_seqs,
-//                                              record1.seq, map_param.filter_cutoff);
-//                            hits_per_ref.clear();
-//                            info2 = find_nams(nams2, hits_per_ref, query_mers2, flat_vector, mers_index, map_param.k, ref_seqs,
-//                                              record2.seq, map_param.filter_cutoff);
-//                            hits_per_ref.clear();
-//                            auto nam_finish = std::chrono::high_resolution_clock::now();
-//                            log_vars.tot_find_nams += nam_finish - nam_start;
-//
-//
-//                            if (map_param.R > 1) {
-//                                auto rescue_start = std::chrono::high_resolution_clock::now();
-//                                std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw;
-//                                std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc;
-//                                if ((nams1.size() == 0) || (info1.first < 0.7)) {
-//                                    hits_fw.reserve(5000);
-//                                    hits_rc.reserve(5000);
-//                                    log_vars.tried_rescue += 1;
-//                                    nams1.clear();
-////                        std::cerr << "Rescue is_sam_out read 1: " << record1.name << info1.first <<  std::endl;
-//                                    info1 = find_nams_rescue(hits_fw, hits_rc, nams1, hits_per_ref, query_mers1,
-//                                                             flat_vector,
-//                                                             mers_index, map_param.k, ref_seqs,
-//                                                             record1.seq, map_param.rescue_cutoff);
-//                                    hits_per_ref.clear();
-//                                    hits_fw.clear();
-//                                    hits_rc.clear();
-////                    std::cerr << "Found: " << nams.size() <<  std::endl;
-//                                }
-//
-//                                if ((nams2.size() == 0) || (info2.first < 0.7)) {
-//                                    hits_fw.reserve(5000);
-//                                    hits_rc.reserve(5000);
-//                                    log_vars.tried_rescue += 1;
-//                                    nams2.clear();
-////                        std::cerr << "Rescue is_sam_out read 2: " << record2.name << info2.first <<  std::endl;
-//                                    info2 = find_nams_rescue(hits_fw, hits_rc, nams2, hits_per_ref, query_mers2,
-//                                                             flat_vector,
-//                                                             mers_index, map_param.k, ref_seqs,
-//                                                             record2.seq, map_param.rescue_cutoff);
-//                                    hits_per_ref.clear();
-//                                    hits_fw.clear();
-//                                    hits_rc.clear();
-////                    std::cerr << "Found: " << nams.size() <<  std::endl;
-//                                }
-//                                auto rescue_finish = std::chrono::high_resolution_clock::now();
-//                                log_vars.tot_time_rescue += rescue_finish - rescue_start;
-//                            }
-//
-//
-//
-//                            //Sort hits based on start choordinate on query sequence
-//                            auto nam_sort_start = std::chrono::high_resolution_clock::now();
-//                            std::sort(nams1.begin(), nams1.end(), score);
-//                            std::sort(nams2.begin(), nams2.end(), score);
-//                            auto nam_sort_finish = std::chrono::high_resolution_clock::now();
-//                            log_vars.tot_sort_nams += nam_sort_finish - nam_sort_start;
-//
-////                std::cerr << record1.name << std::endl;
-////                for (auto &n : nams1){
-////                    std::cerr << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
-////                }
-////                std::cerr << record2.name << std::endl;
-////                for (auto &n : nams2){
-////                    std::cerr << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
-////                }
-//
-//                            auto extend_start = std::chrono::high_resolution_clock::now();
-//                            if (!is_sam_out) {
-////                    output_hits_paf(output_streams[omp_get_thread_num()], nams1, record1.name, acc_map, k,
-////                                    record1.seq.length(), ref_lengths);
-//                                nam nam_read1;
-//                                nam nam_read2;
-//                                std::vector<std::tuple<int, nam, nam>> joint_NAM_scores;
-//                                get_best_map_location(joint_NAM_scores, nams1, nams2, isize_est,
-//                                                      nam_read1,
-//                                                      nam_read2);
-//                                output_hits_paf_PE(output_streams[omp_get_thread_num()], nam_read1, record1.name,
-//                                                   acc_map,
-//                                                   map_param.k,
-//                                                   record1.seq.length(), ref_lengths);
-//                                output_hits_paf_PE(output_streams[omp_get_thread_num()], nam_read2, record2.name,
-//                                                   acc_map,
-//                                                   map_param.k,
-//                                                   record2.seq.length(), ref_lengths);
-//                                joint_NAM_scores.clear();
-//                            } else {
-//                                align_PE(aln_params, output_streams[omp_get_thread_num()], nams1, nams2, record1,
-//                                         record2,
-//                                         acc_map, map_param.k,
-//                                         ref_lengths, ref_seqs, log_vars,
-//                                         map_param.dropoff_threshold, isize_est, map_param.maxTries, map_param.max_secondary);
-//                            }
-//                            auto extend_finish = std::chrono::high_resolution_clock::now();
-//                            log_vars.tot_extend += extend_finish - extend_start;
-//                            nams1.clear();
-//                            nams2.clear();
-//
-//                            log_stats_vec[omp_get_thread_num()] = log_vars;
-//                            isize_est_vec[omp_get_thread_num()] = isize_est;
-//                        }
-//                    }
-//                }
-//            }
-//
-//            //// DEBUG INFO, PRINT THE WORK PERFORMED BY EACH TREAD /////
-//
-//            for (int i = 0; i < n_threads; ++i) {
-//                i_dist_est isize_est;
-//                isize_est = isize_est_vec[i];
-//                std::cerr << "THREAD " << i << " estimated diff in start coordinates b/t mates, (mean: " << isize_est.mu << ", stddev: " << isize_est.sigma << ") " << std::endl;
-//            }
-//
-//            for (int i = 0; i < n_threads; ++i) {
-//                logging_variables log_s;
-//                log_s = log_stats_vec[i];
-//                std::cerr << "THREAD " << i << ": " << log_s.tot_all_tried << " " << log_s.tot_ksw_aligned << " " << log_s.tot_rescued << " " <<  log_s.tot_construct_strobemers.count() << " " <<  log_s.tot_find_nams.count() << " " <<  log_s.tot_extend.count() << std::endl;
-//            }
-//
-//            auto isize_est = isize_est_vec[omp_get_thread_num()];
-//            std::cerr << "Estimated diff in start coordinates b/t mates, (mean: " << isize_est.mu << ", stddev: " << isize_est.sigma << ") " << std::endl;
-//            records1 = new_records1;
-//            records2 = new_records2;
-//            // Reset isize estiamtions
-//            for (int i = 0; i < n_threads; ++i) {
-//                i_dist_est isize_est;
-//                isize_est_vec[i] = isize_est;
-//            }
-//
-//            auto write_start = std::chrono::high_resolution_clock::now();
-//            for (int i = 0; i < n_threads; ++i) {
-//                out << output_streams[i];
-//                output_streams[i].clear();
-//            }
-//            auto write_finish = std::chrono::high_resolution_clock::now();
-//            log_stats_vec[omp_get_thread_num()].tot_write_file += write_finish - write_start;
-//        }
+        /////////////////////////////////////
 
         gzclose(fp1);
         gzclose(fp2);
-        for (auto &it : log_stats_vec) {
-            auto thread_id = it.first;
-            auto log_vars = it.second;
-//        for (int i = 0; i < n_threads; ++i) {
-//            //auto isize_est = isize_est_vec[i];
-//            auto log_vars = log_stats_vec[std::this_thread::get_id()];
-            tot_log_vars.tot_all_tried += log_vars.tot_all_tried;
-            tot_log_vars.tot_ksw_aligned += log_vars.tot_ksw_aligned;
-            tot_log_vars.tot_rescued += log_vars.tot_rescued;
-            tot_log_vars.did_not_fit += log_vars.did_not_fit;
-            tot_log_vars.tried_rescue += log_vars.tried_rescue;
-
-            tot_log_vars.tot_read_file += log_vars.tot_read_file;
-            tot_log_vars.tot_construct_strobemers += log_vars.tot_construct_strobemers;
-            tot_log_vars.tot_find_nams += log_vars.tot_find_nams;
-            tot_log_vars.tot_time_rescue += log_vars.tot_time_rescue;
-            tot_log_vars.tot_sort_nams += log_vars.tot_sort_nams;
-            tot_log_vars.tot_rc += log_vars.tot_rc;
-            tot_log_vars.tot_extend += log_vars.tot_extend;
-            tot_log_vars.tot_write_file += log_vars.tot_write_file;
-        }
-
     }
 
+    for (auto &it : log_stats_vec) {
+        auto thread_id = it.first;
+        auto log_vars = it.second;
+        tot_log_vars.tot_all_tried += log_vars.tot_all_tried;
+        tot_log_vars.tot_ksw_aligned += log_vars.tot_ksw_aligned;
+        tot_log_vars.tot_rescued += log_vars.tot_rescued;
+        tot_log_vars.did_not_fit += log_vars.did_not_fit;
+        tot_log_vars.tried_rescue += log_vars.tried_rescue;
 
-//    out.close();
+        tot_log_vars.tot_read_file += log_vars.tot_read_file;
+        tot_log_vars.tot_construct_strobemers += log_vars.tot_construct_strobemers;
+        tot_log_vars.tot_find_nams += log_vars.tot_find_nams;
+        tot_log_vars.tot_time_rescue += log_vars.tot_time_rescue;
+        tot_log_vars.tot_sort_nams += log_vars.tot_sort_nams;
+        tot_log_vars.tot_rc += log_vars.tot_rc;
+        tot_log_vars.tot_extend += log_vars.tot_extend;
+        tot_log_vars.tot_write_file += log_vars.tot_write_file;
+    }
 
     std::cerr << "Total mapping sites tried: " << tot_log_vars.tot_all_tried << std::endl;
     std::cerr << "Total calls to ssw: " << tot_log_vars.tot_ksw_aligned << std::endl;
