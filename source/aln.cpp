@@ -16,7 +16,7 @@
 using namespace klibpp;
 #include "robin_hood.h"
 #include "index.hpp"
-#include "ksw2.h"
+//#include "ksw2.h"
 #include "ssw_cpp.h"
 #include "pc.hpp"
 #include "aln.hpp"
@@ -1036,95 +1036,95 @@ static inline std::string reverse_complement(std::string &read) {
 //}
 
 
-inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen,
-                          int sc_mch, int sc_mis, int gapo, int gape, ksw_extz_t &ez) {
-    int8_t a = sc_mch, b = sc_mis < 0 ? sc_mis : -sc_mis; // a>0 and b<0
-    int8_t mat[25] = {a, b, b, b, 0, b, a, b, b, 0, b, b, a, b, 0, b, b, b, a, 0, 0, 0, 0, 0, 0};
-    const uint8_t *ts = reinterpret_cast<const uint8_t *>(tseq);
-    const uint8_t *qs = reinterpret_cast<const uint8_t *>(qseq);
-    memset(&ez, 0, sizeof(ksw_extz_t));
-    ksw_extz2_sse(0, qlen, qs, tlen, ts, 5, mat, gapo, gape, -1, -1, 10000, KSW_EZ_EXTZ_ONLY, &ez);
-
-    aln_info aln;
-//    std::string cigar_mod;
-//    cigar_mod.reserve(5*ez.n_cigar);
-    unsigned int tstart_offset = 0;
-    int eqx_len, switch_ind;
-    std::stringstream cigar_string;
-    int edit_distance = 0;
-    int sw_score = 0;
-    unsigned ref_pos = 0, read_pos = 0;
-    for (int i = 0; i < ez.n_cigar; i++) {
-        int count = ez.cigar[i] >> 4;
-        char op = "MID"[ez.cigar[i] & 0xf];
-//        std::cerr << "count: " << count << " op:" << op << std::endl;
-        if ( (i==0) && op == 'D'){
-            ref_pos += count;
-            tstart_offset = ref_pos;
-//            std::cerr << "First deletion " << i << " " << count << std::endl;
-            continue;
-        }
-        if ( (i==ez.n_cigar-1) && op == 'D'){
-            ref_pos += count;
-//            std::cerr << "Last deletion " << i << " " << count << std::endl;
-            continue;
-        }
-        cigar_string << count << op;
-        switch (op) {
-            case 'M': {
-//                eqx_len = 0;
-//                switch_ind = 0; // switch_ind 0 if prev was match, 1 if mismatch
-//                char o = '=';
-                for (int j = 0; j < count; j++, ref_pos++, read_pos++) {
-                    if (tseq[ref_pos] != qseq[read_pos]) {
-                        edit_distance++;
-                        sw_score -= -b;
-//                        if ((switch_ind == 0) && (j > 0)) { // prev was match
-//                            cigar_string << eqx_len << '=';
-//                            eqx_len = 0;
-//                        }
-//                        switch_ind = 1;
-//                        o = 'X';
-//                        eqx_len++;
-                    } else{
-                        sw_score += sc_mch;
-//                        if (switch_ind == 1) { // prev was mismatch
-//                            cigar_string << eqx_len << 'X';
-//                            eqx_len = 0;
-//                            o = '=';
-//                            switch_ind = 0;
-//                        }
-//                        eqx_len++;
-                    }
-                }
-//                cigar_string << eqx_len << o;
-                break;
-            }
-            case 'D': {
-                edit_distance += count;
-                ref_pos += count;
-                sw_score -= (gapo + (count - 1));
-//                cigar_string << count << op;
-                break;
-            }
-            case 'I': {
-                edit_distance += count;
-                read_pos += count;
-                sw_score -= (gapo + (count - 1));
-//                cigar_string << count << op;
-                break;
-            }
-            default:assert(0);
-        }
-//        std::cerr << "ED " << edit_distance << std::endl;
-    }
-    aln.ed = edit_distance;
-    aln.sw_score = sw_score;
-    aln.ref_offset = tstart_offset;
-    aln.cigar = cigar_string.str();
-    free(ez.cigar); //free(ts); free(qs);
-    return aln;
-}
+//inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen,
+//                          int sc_mch, int sc_mis, int gapo, int gape, ksw_extz_t &ez) {
+//    int8_t a = sc_mch, b = sc_mis < 0 ? sc_mis : -sc_mis; // a>0 and b<0
+//    int8_t mat[25] = {a, b, b, b, 0, b, a, b, b, 0, b, b, a, b, 0, b, b, b, a, 0, 0, 0, 0, 0, 0};
+//    const uint8_t *ts = reinterpret_cast<const uint8_t *>(tseq);
+//    const uint8_t *qs = reinterpret_cast<const uint8_t *>(qseq);
+//    memset(&ez, 0, sizeof(ksw_extz_t));
+//    ksw_extz2_sse(0, qlen, qs, tlen, ts, 5, mat, gapo, gape, -1, -1, 10000, KSW_EZ_EXTZ_ONLY, &ez);
+//
+//    aln_info aln;
+////    std::string cigar_mod;
+////    cigar_mod.reserve(5*ez.n_cigar);
+//    unsigned int tstart_offset = 0;
+//    int eqx_len, switch_ind;
+//    std::stringstream cigar_string;
+//    int edit_distance = 0;
+//    int sw_score = 0;
+//    unsigned ref_pos = 0, read_pos = 0;
+//    for (int i = 0; i < ez.n_cigar; i++) {
+//        int count = ez.cigar[i] >> 4;
+//        char op = "MID"[ez.cigar[i] & 0xf];
+////        std::cerr << "count: " << count << " op:" << op << std::endl;
+//        if ( (i==0) && op == 'D'){
+//            ref_pos += count;
+//            tstart_offset = ref_pos;
+////            std::cerr << "First deletion " << i << " " << count << std::endl;
+//            continue;
+//        }
+//        if ( (i==ez.n_cigar-1) && op == 'D'){
+//            ref_pos += count;
+////            std::cerr << "Last deletion " << i << " " << count << std::endl;
+//            continue;
+//        }
+//        cigar_string << count << op;
+//        switch (op) {
+//            case 'M': {
+////                eqx_len = 0;
+////                switch_ind = 0; // switch_ind 0 if prev was match, 1 if mismatch
+////                char o = '=';
+//                for (int j = 0; j < count; j++, ref_pos++, read_pos++) {
+//                    if (tseq[ref_pos] != qseq[read_pos]) {
+//                        edit_distance++;
+//                        sw_score -= -b;
+////                        if ((switch_ind == 0) && (j > 0)) { // prev was match
+////                            cigar_string << eqx_len << '=';
+////                            eqx_len = 0;
+////                        }
+////                        switch_ind = 1;
+////                        o = 'X';
+////                        eqx_len++;
+//                    } else{
+//                        sw_score += sc_mch;
+////                        if (switch_ind == 1) { // prev was mismatch
+////                            cigar_string << eqx_len << 'X';
+////                            eqx_len = 0;
+////                            o = '=';
+////                            switch_ind = 0;
+////                        }
+////                        eqx_len++;
+//                    }
+//                }
+////                cigar_string << eqx_len << o;
+//                break;
+//            }
+//            case 'D': {
+//                edit_distance += count;
+//                ref_pos += count;
+//                sw_score -= (gapo + (count - 1));
+////                cigar_string << count << op;
+//                break;
+//            }
+//            case 'I': {
+//                edit_distance += count;
+//                read_pos += count;
+//                sw_score -= (gapo + (count - 1));
+////                cigar_string << count << op;
+//                break;
+//            }
+//            default:assert(0);
+//        }
+////        std::cerr << "ED " << edit_distance << std::endl;
+//    }
+//    aln.ed = edit_distance;
+//    aln.sw_score = sw_score;
+//    aln.ref_offset = tstart_offset;
+//    aln.cigar = cigar_string.str();
+//    free(ez.cigar); //free(ts); free(qs);
+//    return aln;
+//}
 
 inline int HammingDistance(std::string &One, std::string &Two)
 {

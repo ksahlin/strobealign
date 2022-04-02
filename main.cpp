@@ -17,7 +17,7 @@
 using namespace klibpp;
 #include "source/robin_hood.h"
 #include "source/index.hpp"
-#include "source/ksw2.h"
+//#include "source/ksw2.h"
 #include "source/ssw_cpp.h"
 #include "source/pc.hpp"
 #include "source/aln.hpp"
