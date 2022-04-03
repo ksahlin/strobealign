@@ -5,20 +5,20 @@ Strobealign is a fast short-read aligner. It achieves the speedup by using a dyn
 
 **Current version is 0.7**. See the performance of v0.7 [here](https://github.com/ksahlin/StrobeAlign#v07-performance).
 
-v0.7 implements:
+**v0.7** implements:
 1. New parallelization (scrapping OpenMP) with better fileIO and CPU usage makes it substaintially faster with many cores. 
-2. Remove parameter -r automatic inferece of read length
-3. Bugfixes.
+2. Removes parameter `-r` (automatic inferece of read length)
+3. Minor bugfixes.
 
-v0.6.1 implements:
+**v0.6.1** implements:
 1. Runtime bugfix introduced in v0.6.
 
-v0.6 implements:
+**v0.6** implements:
 1. Crucial bugfix to v0.5: Rare but occasional alignments to very long reference regions.
 2. Identifying symmetrical hash collisions and testing reverse orientation. This leads to a slightly increased alignment accuracy over previous versions, particularly for shorter read lengths.
 3. Fixes reporting of template len field in SAM output if deletion in alignment.
 
-v0.5 implements:
+**v0.5** implements:
 1. Several improvements for downstream SNP and INDEL calling. SNV and small indel calling benchmark below.
 2. Option to report secondary alignments. 
 3. Base level SW alignment parameters are now parameters to strobealign. 
