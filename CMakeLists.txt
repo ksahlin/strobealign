@@ -5,7 +5,7 @@ project(strobealign VERSION 0.7)
 option(ENABLE_AVX "Enable AVX2 support" ON)
 
 find_package(ZLIB)
-
+find_package(Threads)
 find_package(OpenMP)
 
 set(CMAKE_CXX_STANDARD 14)
@@ -28,7 +28,7 @@ source/aln.cpp
 
 add_executable(strobealign ${SOURCES})
 
-target_link_libraries(strobealign PUBLIC ZLIB::ZLIB)
+target_link_libraries(strobealign PUBLIC ZLIB::ZLIB Threads::Threads)
 
 install(TARGETS strobealign DESTINATION bin)
 
