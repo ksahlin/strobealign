@@ -231,6 +231,7 @@ int main (int argc, char **argv)
     std::string output_file_name;
     std::string logfile_name = "log.csv";
     bool s_set = false;
+    bool k_set = false;
     bool index_log = false;
     int opn = 1;
     while (opn < argc) {
@@ -249,6 +250,7 @@ int main (int argc, char **argv)
                 map_param.k = std::stoi(argv[opn + 1]);
                 opn += 2;
                 flag = true;
+                k_set = true;
             } else if (argv[opn][1] == 'o') {
                 output_file_name = argv[opn + 1];
                 opn += 2;
@@ -373,34 +375,72 @@ int main (int argc, char **argv)
         return 0;
     }
 
-
-    if (map_param.r <= 125) { // based on params for 100
-        map_param.k = 20;
+    if (map_param.r <= 75) { // based on params for 100
+        if (!k_set){
+            map_param.k = 20;
+        }
+        if ( (!s_set ) ){
+            map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
+        }
+        map_param.l = -4;
+        map_param.u = 2;
+    } else if (map_param.r <= 125) { // based on params for 100
+        if (!k_set){
+            map_param.k = 20;
+        }
+        if ( (!s_set ) ){
+            map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
+        }
         map_param.l = -2;
         map_param.u = 2;
     } else if ((map_param.r > 125) && (map_param.r <= 175)) { // based on params for 150
-        map_param.k = 20;
+        if (!k_set) {
+            map_param.k = 20;
+        }
+        if ( (!s_set ) ){
+            map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
+        }
         map_param.l = 1;
         map_param.u = 7;
     } else if ((map_param.r > 175) && (map_param.r <= 275)) { // based on params for 200 and 250
-        map_param.k = 20;
+        if (!k_set) {
+            map_param.k = 20;
+        }
+        if ( (!s_set ) ){
+            map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
+        }
         map_param.l = 4;
         map_param.u = 13;
-    } else { // based on params for 300
-        map_param.k = 22;
+    } else if ((map_param.r > 275) && (map_param.r <= 375)) { // based on params for 300
+        if (!k_set) {
+            map_param.k = 22;
+        }
+        if ( (!s_set ) ){
+            map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
+        }
+        map_param.l = 2;
+        map_param.u = 12;
+    } else{
+        if (!k_set) {
+            map_param.k = 23;
+        }
+        if ( (!s_set ) ){
+            map_param.s = map_param.k - 6; // Update default s to k - 4 if user has not set s parameter
+        }
         map_param.l = 2;
         map_param.u = 12;
     }
 
+
     if (!max_seed_len_set){
         map_param.max_dist = map_param.r - 70 > map_param.k ? map_param.r - 70 : map_param.k;
+        if (map_param.max_dist > 255){
+            map_param.max_dist = 255;
+        }
     } else {
         map_param.max_dist = max_seed_len - map_param.k; //convert to distance in start positions
     }
 
-    if ( (!s_set ) ){
-        map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
-    }
 
     if ( (map_param.c < 64) && (map_param.c > 0)){
         map_param.q = pow (2, map_param.c) - 1;
@@ -429,7 +469,8 @@ int main (int argc, char **argv)
     std::cerr << "Maximum seed length: " << map_param.max_dist + map_param.k << std::endl;
     std::cerr << "Threads: " << n_threads << std::endl;
     std::cerr << "R: " << map_param.R << std::endl;
-    std::cerr << "[w_min, w_max] under thinning w roughly corresponds to sampling from downstream read coordinates (expected values): [" << (map_param.k-map_param.s+1)*map_param.w_min << ", " << (map_param.k-map_param.s+1)*map_param.w_max << "]" << std::endl;
+    std::cerr << "Expected [w_min, w_max] in #syncmers: [" << map_param.w_min << ", " << map_param.w_max << "]" << std::endl;
+    std::cerr << "Expected [w_min, w_max] in #nucleotides: [" << (map_param.k-map_param.s+1)*map_param.w_min << ", " << (map_param.k-map_param.s+1)*map_param.w_max << "]" << std::endl;
     std::cerr << "A: " << A << std::endl;
     std::cerr << "B: " << B << std::endl;
     std::cerr << "O: " << O << std::endl;
@@ -440,7 +481,7 @@ int main (int argc, char **argv)
     assert(map_param.k <= 32 && "k have to be smaller than 32!");
     assert( ( map_param.s <= map_param.k ) && " s have to be smaller or equal to k!");
     assert( ( (map_param.k-map_param.s) % 2 == 0) && " k - s have to be an even number to create canonical syncmers. Set s to e.g., k-2, k-4, k-6, k-8.");
-    assert(map_param.max_dist <= 255 && " -m (maximum seed length have to be smaller than 255 + k in v0.4 and up. If you need longer seeds, use v0.3");
+    assert(map_param.max_dist <= 255 && " -m (maximum seed length have to be smaller than 255 + k.");
 
 
 
