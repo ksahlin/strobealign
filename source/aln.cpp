@@ -216,12 +216,12 @@ static inline bool sort_hits(const hit &a, const hit &b)
     return (a.query_s < b.query_s) || ( (a.query_s == b.query_s) && (a.ref_s < b.ref_s) );
 }
 
-static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw, std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc, std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int filter_cutoff ){
-    std::pair<float,int> info (0,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
+static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw, std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc, std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int filter_cutoff ){
+//    std::pair<float,int> info (0,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
     bool is_rc = true, no_rep_fw = true, no_rep_rc = true;
-    std::pair<int, int> repeat_fw(0,0), repeat_rc(0,0);
-    std::vector<std::pair<int, int>> repetitive_fw, repetitive_rc;
+//    std::pair<int, int> repeat_fw(0,0), repeat_rc(0,0);
+//    std::vector<std::pair<int, int>> repetitive_fw, repetitive_rc;
     for (auto &q : query_mers)
     {
         auto mer_hashv = std::get<0>(q);
@@ -236,52 +236,52 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
             if (is_rc){
                 std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool> s(count, offset, query_s, query_e, is_rc);
                 hits_rc.push_back(s);
-                if (count > filter_cutoff){
-                    if (no_rep_rc){ //initialize
-                        repeat_rc.first = query_s;
-                        repeat_rc.second = query_e;
-                        no_rep_rc = false;
-                    }
-                    else if (query_s >= repeat_rc.second){
-                        repetitive_rc.push_back(repeat_rc);
-                        repeat_rc.first = query_s;
-                        repeat_rc.second = query_e;
-                    } else{
-                        repeat_rc.second = repeat_rc.second < query_e ? query_e : repeat_rc.second;
-                    }
-                } else{
-                    nr_good_hits ++;
-                }
+//                if (count > filter_cutoff){
+//                    if (no_rep_rc){ //initialize
+//                        repeat_rc.first = query_s;
+//                        repeat_rc.second = query_e;
+//                        no_rep_rc = false;
+//                    }
+//                    else if (query_s >= repeat_rc.second){
+//                        repetitive_rc.push_back(repeat_rc);
+//                        repeat_rc.first = query_s;
+//                        repeat_rc.second = query_e;
+//                    } else{
+//                        repeat_rc.second = repeat_rc.second < query_e ? query_e : repeat_rc.second;
+//                    }
+//                } else{
+//                    nr_good_hits ++;
+//                }
             } else{
                 std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool> s(count, offset, query_s, query_e, is_rc);
                 hits_fw.push_back(s);
-                if (count > filter_cutoff){
-                    if (no_rep_fw){ //initialize
-                        repeat_fw.first = query_s;
-                        repeat_fw.second = query_e;
-                        no_rep_fw = false;
-                    }
-                    else if (query_s >= repeat_fw.second ){
-                        repetitive_fw.push_back(repeat_fw);
-                        repeat_fw.first = query_s;
-                        repeat_fw.second = query_e;
-                    } else{
-                        repeat_fw.second = repeat_fw.second < query_e ? query_e : repeat_fw.second;
-                    }
-                } else{
-                    nr_good_hits ++;
-                }
+//                if (count > filter_cutoff){
+//                    if (no_rep_fw){ //initialize
+//                        repeat_fw.first = query_s;
+//                        repeat_fw.second = query_e;
+//                        no_rep_fw = false;
+//                    }
+//                    else if (query_s >= repeat_fw.second ){
+//                        repetitive_fw.push_back(repeat_fw);
+//                        repeat_fw.first = query_s;
+//                        repeat_fw.second = query_e;
+//                    } else{
+//                        repeat_fw.second = repeat_fw.second < query_e ? query_e : repeat_fw.second;
+//                    }
+//                } else{
+//                    nr_good_hits ++;
+//                }
             }
 
 
         }
     }
-    if (!no_rep_fw) {
-        repetitive_fw.push_back(repeat_fw);
-    }
-    if (!no_rep_rc) {
-        repetitive_rc.push_back(repeat_rc);
-    }
+//    if (!no_rep_fw) {
+//        repetitive_fw.push_back(repeat_fw);
+//    }
+//    if (!no_rep_rc) {
+//        repetitive_rc.push_back(repeat_rc);
+//    }
     std::sort(hits_fw.begin(), hits_fw.end());
     std::sort(hits_rc.begin(), hits_rc.end());
 
@@ -398,7 +398,7 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
     }
 
 //    std::cerr << "NUMBER OF HITS GENERATED: " << hit_count_all << std::endl;
-    info.first = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
+//    info.first = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     int max_nam_n_hits = 0;
     std::vector<nam> open_nams;
     int nam_id_cnt = 0;
@@ -516,8 +516,8 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
 //    for (auto &n : final_nams){
 //        std::cerr << "RESCUE NAM: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << " " <<  n.is_rc << std::endl;
 //    }
-    info.second = max_nam_n_hits;
-    return info;
+//    info.second = max_nam_n_hits;
+    return ;
 
 }
 
@@ -3850,7 +3850,7 @@ void align_PE_read(std::thread::id thread_id, KSeq &record1, KSeq &record2, std:
             log_vars.tried_rescue += 1;
             nams1.clear();
 //                        std::cerr << "Rescue is_sam_out read 1: " << record1.name << info1.first <<  std::endl;
-            info1 = find_nams_rescue(hits_fw, hits_rc, nams1, hits_per_ref, query_mers1,
+            find_nams_rescue(hits_fw, hits_rc, nams1, hits_per_ref, query_mers1,
                                      flat_vector,
                                      mers_index, map_param.k, ref_seqs,
                                      record1.seq, map_param.rescue_cutoff);
@@ -3866,7 +3866,7 @@ void align_PE_read(std::thread::id thread_id, KSeq &record1, KSeq &record2, std:
             log_vars.tried_rescue += 1;
             nams2.clear();
 //                        std::cerr << "Rescue is_sam_out read 2: " << record2.name << info2.first <<  std::endl;
-            info2 = find_nams_rescue(hits_fw, hits_rc, nams2, hits_per_ref, query_mers2,
+            find_nams_rescue(hits_fw, hits_rc, nams2, hits_per_ref, query_mers2,
                                      flat_vector,
                                      mers_index, map_param.k, ref_seqs,
                                      record2.seq, map_param.rescue_cutoff);
@@ -3967,7 +3967,7 @@ void align_SE_read(std::thread::id thread_id, KSeq &record, std::string &outstri
             if ((nams.size() == 0) || (info.first < 0.7)) {
                 log_vars.tried_rescue += 1;
                 nams.clear();
-                info = find_nams_rescue(hits_fw, hits_rc, nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, ref_seqs,
+                find_nams_rescue(hits_fw, hits_rc, nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, ref_seqs,
                                         record.seq, map_param.rescue_cutoff);
                 hits_per_ref.clear();
                 hits_fw.clear();
