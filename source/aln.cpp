@@ -16,7 +16,7 @@
 using namespace klibpp;
 #include "robin_hood.h"
 #include "index.hpp"
-#include "ksw2.h"
+//#include "ksw2.h"
 #include "ssw_cpp.h"
 #include "pc.hpp"
 #include "aln.hpp"
@@ -216,12 +216,12 @@ static inline bool sort_hits(const hit &a, const hit &b)
     return (a.query_s < b.query_s) || ( (a.query_s == b.query_s) && (a.ref_s < b.ref_s) );
 }
 
-static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw, std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc, std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int filter_cutoff ){
-    std::pair<float,int> info (0,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
+static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw, std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc, std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int filter_cutoff ){
+//    std::pair<float,int> info (0,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
     bool is_rc = true, no_rep_fw = true, no_rep_rc = true;
-    std::pair<int, int> repeat_fw(0,0), repeat_rc(0,0);
-    std::vector<std::pair<int, int>> repetitive_fw, repetitive_rc;
+//    std::pair<int, int> repeat_fw(0,0), repeat_rc(0,0);
+//    std::vector<std::pair<int, int>> repetitive_fw, repetitive_rc;
     for (auto &q : query_mers)
     {
         auto mer_hashv = std::get<0>(q);
@@ -236,52 +236,52 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
             if (is_rc){
                 std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool> s(count, offset, query_s, query_e, is_rc);
                 hits_rc.push_back(s);
-                if (count > filter_cutoff){
-                    if (no_rep_rc){ //initialize
-                        repeat_rc.first = query_s;
-                        repeat_rc.second = query_e;
-                        no_rep_rc = false;
-                    }
-                    else if (query_s >= repeat_rc.second){
-                        repetitive_rc.push_back(repeat_rc);
-                        repeat_rc.first = query_s;
-                        repeat_rc.second = query_e;
-                    } else{
-                        repeat_rc.second = repeat_rc.second < query_e ? query_e : repeat_rc.second;
-                    }
-                } else{
-                    nr_good_hits ++;
-                }
+//                if (count > filter_cutoff){
+//                    if (no_rep_rc){ //initialize
+//                        repeat_rc.first = query_s;
+//                        repeat_rc.second = query_e;
+//                        no_rep_rc = false;
+//                    }
+//                    else if (query_s >= repeat_rc.second){
+//                        repetitive_rc.push_back(repeat_rc);
+//                        repeat_rc.first = query_s;
+//                        repeat_rc.second = query_e;
+//                    } else{
+//                        repeat_rc.second = repeat_rc.second < query_e ? query_e : repeat_rc.second;
+//                    }
+//                } else{
+//                    nr_good_hits ++;
+//                }
             } else{
                 std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool> s(count, offset, query_s, query_e, is_rc);
                 hits_fw.push_back(s);
-                if (count > filter_cutoff){
-                    if (no_rep_fw){ //initialize
-                        repeat_fw.first = query_s;
-                        repeat_fw.second = query_e;
-                        no_rep_fw = false;
-                    }
-                    else if (query_s >= repeat_fw.second ){
-                        repetitive_fw.push_back(repeat_fw);
-                        repeat_fw.first = query_s;
-                        repeat_fw.second = query_e;
-                    } else{
-                        repeat_fw.second = repeat_fw.second < query_e ? query_e : repeat_fw.second;
-                    }
-                } else{
-                    nr_good_hits ++;
-                }
+//                if (count > filter_cutoff){
+//                    if (no_rep_fw){ //initialize
+//                        repeat_fw.first = query_s;
+//                        repeat_fw.second = query_e;
+//                        no_rep_fw = false;
+//                    }
+//                    else if (query_s >= repeat_fw.second ){
+//                        repetitive_fw.push_back(repeat_fw);
+//                        repeat_fw.first = query_s;
+//                        repeat_fw.second = query_e;
+//                    } else{
+//                        repeat_fw.second = repeat_fw.second < query_e ? query_e : repeat_fw.second;
+//                    }
+//                } else{
+//                    nr_good_hits ++;
+//                }
             }
 
 
         }
     }
-    if (!no_rep_fw) {
-        repetitive_fw.push_back(repeat_fw);
-    }
-    if (!no_rep_rc) {
-        repetitive_rc.push_back(repeat_rc);
-    }
+//    if (!no_rep_fw) {
+//        repetitive_fw.push_back(repeat_fw);
+//    }
+//    if (!no_rep_rc) {
+//        repetitive_rc.push_back(repeat_rc);
+//    }
     std::sort(hits_fw.begin(), hits_fw.end());
     std::sort(hits_rc.begin(), hits_rc.end());
 
@@ -398,7 +398,7 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
     }
 
 //    std::cerr << "NUMBER OF HITS GENERATED: " << hit_count_all << std::endl;
-    info.first = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
+//    info.first = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     int max_nam_n_hits = 0;
     std::vector<nam> open_nams;
     int nam_id_cnt = 0;
@@ -516,8 +516,8 @@ static inline std::pair<float,int> find_nams_rescue(std::vector<std::tuple<unsig
 //    for (auto &n : final_nams){
 //        std::cerr << "RESCUE NAM: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << " " <<  n.is_rc << std::endl;
 //    }
-    info.second = max_nam_n_hits;
-    return info;
+//    info.second = max_nam_n_hits;
+    return ;
 
 }
 
@@ -1036,95 +1036,95 @@ static inline std::string reverse_complement(std::string &read) {
 //}
 
 
-inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen,
-                          int sc_mch, int sc_mis, int gapo, int gape, ksw_extz_t &ez) {
-    int8_t a = sc_mch, b = sc_mis < 0 ? sc_mis : -sc_mis; // a>0 and b<0
-    int8_t mat[25] = {a, b, b, b, 0, b, a, b, b, 0, b, b, a, b, 0, b, b, b, a, 0, 0, 0, 0, 0, 0};
-    const uint8_t *ts = reinterpret_cast<const uint8_t *>(tseq);
-    const uint8_t *qs = reinterpret_cast<const uint8_t *>(qseq);
-    memset(&ez, 0, sizeof(ksw_extz_t));
-    ksw_extz2_sse(0, qlen, qs, tlen, ts, 5, mat, gapo, gape, -1, -1, 10000, KSW_EZ_EXTZ_ONLY, &ez);
-
-    aln_info aln;
-//    std::string cigar_mod;
-//    cigar_mod.reserve(5*ez.n_cigar);
-    unsigned int tstart_offset = 0;
-    int eqx_len, switch_ind;
-    std::stringstream cigar_string;
-    int edit_distance = 0;
-    int sw_score = 0;
-    unsigned ref_pos = 0, read_pos = 0;
-    for (int i = 0; i < ez.n_cigar; i++) {
-        int count = ez.cigar[i] >> 4;
-        char op = "MID"[ez.cigar[i] & 0xf];
-//        std::cerr << "count: " << count << " op:" << op << std::endl;
-        if ( (i==0) && op == 'D'){
-            ref_pos += count;
-            tstart_offset = ref_pos;
-//            std::cerr << "First deletion " << i << " " << count << std::endl;
-            continue;
-        }
-        if ( (i==ez.n_cigar-1) && op == 'D'){
-            ref_pos += count;
-//            std::cerr << "Last deletion " << i << " " << count << std::endl;
-            continue;
-        }
-        cigar_string << count << op;
-        switch (op) {
-            case 'M': {
-//                eqx_len = 0;
-//                switch_ind = 0; // switch_ind 0 if prev was match, 1 if mismatch
-//                char o = '=';
-                for (int j = 0; j < count; j++, ref_pos++, read_pos++) {
-                    if (tseq[ref_pos] != qseq[read_pos]) {
-                        edit_distance++;
-                        sw_score -= -b;
-//                        if ((switch_ind == 0) && (j > 0)) { // prev was match
-//                            cigar_string << eqx_len << '=';
-//                            eqx_len = 0;
-//                        }
-//                        switch_ind = 1;
-//                        o = 'X';
-//                        eqx_len++;
-                    } else{
-                        sw_score += sc_mch;
-//                        if (switch_ind == 1) { // prev was mismatch
-//                            cigar_string << eqx_len << 'X';
-//                            eqx_len = 0;
-//                            o = '=';
-//                            switch_ind = 0;
-//                        }
-//                        eqx_len++;
-                    }
-                }
-//                cigar_string << eqx_len << o;
-                break;
-            }
-            case 'D': {
-                edit_distance += count;
-                ref_pos += count;
-                sw_score -= (gapo + (count - 1));
-//                cigar_string << count << op;
-                break;
-            }
-            case 'I': {
-                edit_distance += count;
-                read_pos += count;
-                sw_score -= (gapo + (count - 1));
-//                cigar_string << count << op;
-                break;
-            }
-            default:assert(0);
-        }
-//        std::cerr << "ED " << edit_distance << std::endl;
-    }
-    aln.ed = edit_distance;
-    aln.sw_score = sw_score;
-    aln.ref_offset = tstart_offset;
-    aln.cigar = cigar_string.str();
-    free(ez.cigar); //free(ts); free(qs);
-    return aln;
-}
+//inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen,
+//                          int sc_mch, int sc_mis, int gapo, int gape, ksw_extz_t &ez) {
+//    int8_t a = sc_mch, b = sc_mis < 0 ? sc_mis : -sc_mis; // a>0 and b<0
+//    int8_t mat[25] = {a, b, b, b, 0, b, a, b, b, 0, b, b, a, b, 0, b, b, b, a, 0, 0, 0, 0, 0, 0};
+//    const uint8_t *ts = reinterpret_cast<const uint8_t *>(tseq);
+//    const uint8_t *qs = reinterpret_cast<const uint8_t *>(qseq);
+//    memset(&ez, 0, sizeof(ksw_extz_t));
+//    ksw_extz2_sse(0, qlen, qs, tlen, ts, 5, mat, gapo, gape, -1, -1, 10000, KSW_EZ_EXTZ_ONLY, &ez);
+//
+//    aln_info aln;
+////    std::string cigar_mod;
+////    cigar_mod.reserve(5*ez.n_cigar);
+//    unsigned int tstart_offset = 0;
+//    int eqx_len, switch_ind;
+//    std::stringstream cigar_string;
+//    int edit_distance = 0;
+//    int sw_score = 0;
+//    unsigned ref_pos = 0, read_pos = 0;
+//    for (int i = 0; i < ez.n_cigar; i++) {
+//        int count = ez.cigar[i] >> 4;
+//        char op = "MID"[ez.cigar[i] & 0xf];
+////        std::cerr << "count: " << count << " op:" << op << std::endl;
+//        if ( (i==0) && op == 'D'){
+//            ref_pos += count;
+//            tstart_offset = ref_pos;
+////            std::cerr << "First deletion " << i << " " << count << std::endl;
+//            continue;
+//        }
+//        if ( (i==ez.n_cigar-1) && op == 'D'){
+//            ref_pos += count;
+////            std::cerr << "Last deletion " << i << " " << count << std::endl;
+//            continue;
+//        }
+//        cigar_string << count << op;
+//        switch (op) {
+//            case 'M': {
+////                eqx_len = 0;
+////                switch_ind = 0; // switch_ind 0 if prev was match, 1 if mismatch
+////                char o = '=';
+//                for (int j = 0; j < count; j++, ref_pos++, read_pos++) {
+//                    if (tseq[ref_pos] != qseq[read_pos]) {
+//                        edit_distance++;
+//                        sw_score -= -b;
+////                        if ((switch_ind == 0) && (j > 0)) { // prev was match
+////                            cigar_string << eqx_len << '=';
+////                            eqx_len = 0;
+////                        }
+////                        switch_ind = 1;
+////                        o = 'X';
+////                        eqx_len++;
+//                    } else{
+//                        sw_score += sc_mch;
+////                        if (switch_ind == 1) { // prev was mismatch
+////                            cigar_string << eqx_len << 'X';
+////                            eqx_len = 0;
+////                            o = '=';
+////                            switch_ind = 0;
+////                        }
+////                        eqx_len++;
+//                    }
+//                }
+////                cigar_string << eqx_len << o;
+//                break;
+//            }
+//            case 'D': {
+//                edit_distance += count;
+//                ref_pos += count;
+//                sw_score -= (gapo + (count - 1));
+////                cigar_string << count << op;
+//                break;
+//            }
+//            case 'I': {
+//                edit_distance += count;
+//                read_pos += count;
+//                sw_score -= (gapo + (count - 1));
+////                cigar_string << count << op;
+//                break;
+//            }
+//            default:assert(0);
+//        }
+////        std::cerr << "ED " << edit_distance << std::endl;
+//    }
+//    aln.ed = edit_distance;
+//    aln.sw_score = sw_score;
+//    aln.ref_offset = tstart_offset;
+//    aln.cigar = cigar_string.str();
+//    free(ez.cigar); //free(ts); free(qs);
+//    return aln;
+//}
 
 inline int HammingDistance(std::string &One, std::string &Two)
 {
@@ -3850,7 +3850,7 @@ void align_PE_read(std::thread::id thread_id, KSeq &record1, KSeq &record2, std:
             log_vars.tried_rescue += 1;
             nams1.clear();
 //                        std::cerr << "Rescue is_sam_out read 1: " << record1.name << info1.first <<  std::endl;
-            info1 = find_nams_rescue(hits_fw, hits_rc, nams1, hits_per_ref, query_mers1,
+            find_nams_rescue(hits_fw, hits_rc, nams1, hits_per_ref, query_mers1,
                                      flat_vector,
                                      mers_index, map_param.k, ref_seqs,
                                      record1.seq, map_param.rescue_cutoff);
@@ -3866,7 +3866,7 @@ void align_PE_read(std::thread::id thread_id, KSeq &record1, KSeq &record2, std:
             log_vars.tried_rescue += 1;
             nams2.clear();
 //                        std::cerr << "Rescue is_sam_out read 2: " << record2.name << info2.first <<  std::endl;
-            info2 = find_nams_rescue(hits_fw, hits_rc, nams2, hits_per_ref, query_mers2,
+            find_nams_rescue(hits_fw, hits_rc, nams2, hits_per_ref, query_mers2,
                                      flat_vector,
                                      mers_index, map_param.k, ref_seqs,
                                      record2.seq, map_param.rescue_cutoff);
@@ -3967,7 +3967,7 @@ void align_SE_read(std::thread::id thread_id, KSeq &record, std::string &outstri
             if ((nams.size() == 0) || (info.first < 0.7)) {
                 log_vars.tried_rescue += 1;
                 nams.clear();
-                info = find_nams_rescue(hits_fw, hits_rc, nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, ref_seqs,
+                find_nams_rescue(hits_fw, hits_rc, nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, ref_seqs,
                                         record.seq, map_param.rescue_cutoff);
                 hits_per_ref.clear();
                 hits_fw.clear();

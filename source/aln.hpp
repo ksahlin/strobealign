@@ -21,7 +21,7 @@
 using namespace klibpp;
 #include "robin_hood.h"
 #include "index.hpp"
-#include "ksw2.h"
+//#include "ksw2.h"
 #include "ssw_cpp.h"
 
 
