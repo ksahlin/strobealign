@@ -85,6 +85,9 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
     std::vector<int> log_repetitive(max_size,0); // stores count unique and each index represents the length
 
 
+    std::vector<uint64_t> log_count_squared(max_size,0);
+    std::vector<uint64_t> tot_seed_count(max_size,0);
+
     int seed_length;
     for (auto &it : mers_index) {
         auto hash_refmer = it.first;
@@ -105,6 +108,8 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
             if (seed_length < max_size){
 
                 log_count[seed_length] ++;
+                log_count_squared[seed_length] += count;
+
             } else {
                std::cerr << "Detected seed size over " << max_size << " bp (can happen, e.g., over centromere): " << seed_length << std::endl;
             }
@@ -119,16 +124,23 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
         }
     }
 
-//    std::cerr << "Here" << std::endl;
 
     // printing
     std::ofstream log_file;
     log_file.open(logfile_name);
+
     for (int i=0 ; i < log_count.size(); ++i) {
         if (log_count[i] > 0) {
-            log_file << i << ',' << log_count[i] << ',' << (float) log_unique[i] / (float) log_count[i] << ',' << (float) log_repetitive[i] / (float) log_count[i] << std::endl;
+            double e_count = log_count_squared[i] / log_count[i];
+            log_file << i << ',' << log_count[i] << ',' << e_count << std::endl;
         }
     }
+
+//    for (int i=0 ; i < log_count.size(); ++i) {
+//        if (log_count[i] > 0) {
+//            log_file << i << ',' << log_count[i] << ',' << (float) log_unique[i] / (float) log_count[i] << ',' << (float) log_repetitive[i] / (float) log_count[i] << std::endl;
+//        }
+//    }
     log_file.close();
 
     }
