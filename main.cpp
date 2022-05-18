@@ -73,7 +73,7 @@ static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsi
 
 
 
-static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, std::string logfile_name, int k) {
+static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, std::string logfile_name, int k, int m) {
     // Prins to csv file the statistics on the number of seeds of a particular length and what fraction of them them are unique in the index:
     // format:
     // seed_length, count, percentage_unique
@@ -86,7 +86,8 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
 
 
     std::vector<uint64_t> log_count_squared(max_size,0);
-    std::vector<uint64_t> tot_seed_count(max_size,0);
+    uint64_t tot_seed_count = 0;
+    uint64_t tot_seed_count_sq = 0;
 
     int seed_length;
     for (auto &it : mers_index) {
@@ -109,6 +110,8 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
 
                 log_count[seed_length] ++;
                 log_count_squared[seed_length] += count;
+                tot_seed_count ++;
+                tot_seed_count_sq += count;
 
             } else {
                std::cerr << "Detected seed size over " << max_size << " bp (can happen, e.g., over centromere): " << seed_length << std::endl;
@@ -136,6 +139,9 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
         }
     }
 
+    log_file << "E_size for otal total seeding wih max seed size m below (m, tot_seeds, E_hits)" << std::endl;
+    double e_hits = tot_seed_count_sq/tot_seed_count;
+    log_file << m << ',' << tot_seed_count << ',' << e_hits << std::endl;
 //    for (int i=0 ; i < log_count.size(); ++i) {
 //        if (log_count[i] > 0) {
 //            log_file << i << ',' << log_count[i] << ',' << (float) log_unique[i] / (float) log_count[i] << ',' << (float) log_repetitive[i] / (float) log_count[i] << std::endl;
@@ -595,7 +601,7 @@ int main (int argc, char **argv)
 
     if (index_log){
         std::cerr << "Printing log stats" << std::endl;
-        print_diagnostics(flat_vector, mers_index, logfile_name, map_param.k);
+        print_diagnostics(flat_vector, mers_index, logfile_name, map_param.k, map_param.max_dist + map_param.k);
         std::cerr << "Finished printing log stats" << std::endl;
 
     }
