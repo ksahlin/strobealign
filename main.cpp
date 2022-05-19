@@ -89,6 +89,10 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
     uint64_t tot_seed_count = 0;
     uint64_t tot_seed_count_sq = 0;
 
+    std::vector<int> log_count_1000_limit(max_size,0);  // stores count and each index represents the length
+    uint64_t tot_seed_count_1000_limit = 0;
+    uint64_t tot_seed_count_sq_1000_limit = 0;
+
     int seed_length;
     for (auto &it : mers_index) {
         auto hash_refmer = it.first;
@@ -112,6 +116,11 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
                 log_count_squared[seed_length] += count;
                 tot_seed_count ++;
                 tot_seed_count_sq += count;
+                if (count <= 1000){
+                    log_count_1000_limit[seed_length] ++;
+                    tot_seed_count_1000_limit ++;
+                    tot_seed_count_sq_1000_limit += count;
+                }
 
             } else {
                std::cerr << "Detected seed size over " << max_size << " bp (can happen, e.g., over centromere): " << seed_length << std::endl;
@@ -139,9 +148,34 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
         }
     }
 
-    log_file << "E_size for otal total seeding wih max seed size m below (m, tot_seeds, E_hits)" << std::endl;
+    // Get median
+    int n = 0;
+    int median = 0;
+    for (int i=0 ; i < log_count.size(); ++i) {
+        n += log_count[i];
+        if ( n >= tot_seed_count/2){
+            median = i;
+            break;
+        }
+    }
+    // Get median 1000 limit
+    int n_lim = 0;
+    int median_lim = 0;
+    for (int i=0 ; i < log_count_1000_limit.size(); ++i) {
+        n_lim += log_count_1000_limit[i];
+        if ( n_lim >= tot_seed_count_1000_limit/2){
+            median_lim = i;
+            break;
+        }
+    }
+
+    log_file << "E_size for total seeding wih max seed size m below (m, tot_seeds, E_hits)" << std::endl;
     double e_hits = tot_seed_count_sq/tot_seed_count;
-    log_file << m << ',' << tot_seed_count << ',' << e_hits << std::endl;
+    log_file << median << ',' << tot_seed_count << ',' << e_hits << ',' << -1 << std::endl;
+
+    double e_hits_1000_limit = tot_seed_count_sq_1000_limit/tot_seed_count_1000_limit;
+    log_file << median_lim << ',' << tot_seed_count_1000_limit << ',' << e_hits_1000_limit << ',' << 1000 << std::endl;
+
 //    for (int i=0 ; i < log_count.size(); ++i) {
 //        if (log_count[i] > 0) {
 //            log_file << i << ',' << log_count[i] << ',' << (float) log_unique[i] / (float) log_count[i] << ',' << (float) log_repetitive[i] / (float) log_count[i] << std::endl;
