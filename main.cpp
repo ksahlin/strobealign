@@ -170,11 +170,9 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
     }
 
     log_file << "E_size for total seeding wih max seed size m below (m, tot_seeds, E_hits)" << std::endl;
-    double e_hits = tot_seed_count_sq/tot_seed_count;
-    log_file << median << ',' << tot_seed_count << ',' << e_hits << ',' << -1 << std::endl;
-
-    double e_hits_1000_limit = tot_seed_count_sq_1000_limit/tot_seed_count_1000_limit;
-    log_file << median_lim << ',' << tot_seed_count_1000_limit << ',' << e_hits_1000_limit << ',' << 1000 << std::endl;
+    double e_hits = (double) tot_seed_count_sq/ (double) tot_seed_count;
+    double fraction_masked = 1.0 - (double) tot_seed_count_1000_limit/ (double) tot_seed_count;
+    log_file << median << ',' << tot_seed_count << ',' << e_hits << ',' << 100*fraction_masked << std::endl;
 
 //    for (int i=0 ; i < log_count.size(); ++i) {
 //        if (log_count[i] > 0) {
