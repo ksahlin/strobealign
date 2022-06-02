@@ -181,5 +181,5 @@ See [release page](https://github.com/ksahlin/StrobeAlign/releases)
 LICENCE
 ----------------
 
-GPL v3.0, see [LICENSE](https://github.com/ksahlin/StrobeAlign/blob/main/LICENCE).
+MIT license, see [LICENSE](https://github.com/ksahlin/StrobeAlign/blob/main/LICENSE).
 
