@@ -73,7 +73,7 @@ static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsi
 
 
 
-static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, std::string logfile_name, int k) {
+static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, std::string logfile_name, int k, int m) {
     // Prins to csv file the statistics on the number of seeds of a particular length and what fraction of them them are unique in the index:
     // format:
     // seed_length, count, percentage_unique
@@ -84,6 +84,14 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
     std::vector<int> log_unique(max_size,0); // stores count unique and each index represents the length
     std::vector<int> log_repetitive(max_size,0); // stores count unique and each index represents the length
 
+
+    std::vector<uint64_t> log_count_squared(max_size,0);
+    uint64_t tot_seed_count = 0;
+    uint64_t tot_seed_count_sq = 0;
+
+    std::vector<int> log_count_1000_limit(max_size,0);  // stores count and each index represents the length
+    uint64_t tot_seed_count_1000_limit = 0;
+    uint64_t tot_seed_count_sq_1000_limit = 0;
 
     int seed_length;
     for (auto &it : mers_index) {
@@ -105,6 +113,15 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
             if (seed_length < max_size){
 
                 log_count[seed_length] ++;
+                log_count_squared[seed_length] += count;
+                tot_seed_count ++;
+                tot_seed_count_sq += count;
+                if (count <= 1000){
+                    log_count_1000_limit[seed_length] ++;
+                    tot_seed_count_1000_limit ++;
+                    tot_seed_count_sq_1000_limit += count;
+                }
+
             } else {
                std::cerr << "Detected seed size over " << max_size << " bp (can happen, e.g., over centromere): " << seed_length << std::endl;
             }
@@ -119,16 +136,49 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
         }
     }
 
-//    std::cerr << "Here" << std::endl;
 
     // printing
     std::ofstream log_file;
     log_file.open(logfile_name);
+
     for (int i=0 ; i < log_count.size(); ++i) {
         if (log_count[i] > 0) {
-            log_file << i << ',' << log_count[i] << ',' << (float) log_unique[i] / (float) log_count[i] << ',' << (float) log_repetitive[i] / (float) log_count[i] << std::endl;
+            double e_count = log_count_squared[i] / log_count[i];
+            log_file << i << ',' << log_count[i] << ',' << e_count << std::endl;
         }
     }
+
+    // Get median
+    int n = 0;
+    int median = 0;
+    for (int i=0 ; i < log_count.size(); ++i) {
+        n += log_count[i];
+        if ( n >= tot_seed_count/2){
+            median = i;
+            break;
+        }
+    }
+    // Get median 1000 limit
+    int n_lim = 0;
+    int median_lim = 0;
+    for (int i=0 ; i < log_count_1000_limit.size(); ++i) {
+        n_lim += log_count_1000_limit[i];
+        if ( n_lim >= tot_seed_count_1000_limit/2){
+            median_lim = i;
+            break;
+        }
+    }
+
+    log_file << "E_size for total seeding wih max seed size m below (m, tot_seeds, E_hits)" << std::endl;
+    double e_hits = (double) tot_seed_count_sq/ (double) tot_seed_count;
+    double fraction_masked = 1.0 - (double) tot_seed_count_1000_limit/ (double) tot_seed_count;
+    log_file << median << ',' << tot_seed_count << ',' << e_hits << ',' << 100*fraction_masked << std::endl;
+
+//    for (int i=0 ; i < log_count.size(); ++i) {
+//        if (log_count[i] > 0) {
+//            log_file << i << ',' << log_count[i] << ',' << (float) log_unique[i] / (float) log_count[i] << ',' << (float) log_repetitive[i] / (float) log_count[i] << std::endl;
+//        }
+//    }
     log_file.close();
 
     }
@@ -583,7 +633,7 @@ int main (int argc, char **argv)
 
     if (index_log){
         std::cerr << "Printing log stats" << std::endl;
-        print_diagnostics(flat_vector, mers_index, logfile_name, map_param.k);
+        print_diagnostics(flat_vector, mers_index, logfile_name, map_param.k, map_param.max_dist + map_param.k);
         std::cerr << "Finished printing log stats" << std::endl;
 
     }
