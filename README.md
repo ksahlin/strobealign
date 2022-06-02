@@ -1,29 +1,9 @@
 strobealign
 ==============
 
-Strobealign is a fast short-read aligner. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers. Strobealign is multithreaded, implements alignment (SAM) and mapping (PAF), and benchmarked for SE and PE reads of lengths between 100-300bp. A preprint describing **v0.4** is available [here](https://doi.org/10.1101/2021.06.18.449070).
+Strobealign is a fast short-read aligner. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers. Strobealign is multithreaded, implements alignment (SAM) and mapping (PAF), and benchmarked for SE and PE reads of lengths between 100-300bp. A preprint describing **v0.4** is available [here](https://doi.org/10.1101/2021.06.18.449070). **Current version is 0.7.1**. 
 
-**Current version is 0.7**. See the performance of v0.7 [here](https://github.com/ksahlin/StrobeAlign#v061-performance).
-
-v0.7 implements:
-1. New parallelization (scrapping OpenMP) with better fileIO and CPU usage makes it substaintially faster with many cores. 
-2. Remove parameter -r automatic inferece of read length
-3. Bugfixes.
-
-v0.6.1 implements:
-1. Runtime bugfix introduced in v0.6.
-
-v0.6 implements:
-1. Crucial bugfix to v0.5: Rare but occasional alignments to very long reference regions.
-2. Identifying symmetrical hash collisions and testing reverse orientation. This leads to a slightly increased alignment accuracy over previous versions, particularly for shorter read lengths.
-3. Fixes reporting of template len field in SAM output if deletion in alignment.
-
-v0.5 implements:
-1. Several improvements for downstream SNP and INDEL calling. SNV and small indel calling benchmark below.
-2. Option to report secondary alignments. 
-3. Base level SW alignment parameters are now parameters to strobealign. 
-4. And more.. (See release notes)
-
+See [INSTALLATION](https://github.com/ksahlin/StrobeAlign#installation) and [USAGE](https://github.com/ksahlin/StrobeAlign#usage) to install and run strobealign. See [v07 PERFORMANCE](https://github.com/ksahlin/StrobeAlign#v07-performance) for the updated accuracy and runtime performance of strobealign and [release notes](https://github.com/ksahlin/StrobeAlign/releases) for all the updates since v0.4 described in the preprint.
 
 INSTALLATION
 ----------------
@@ -38,7 +18,7 @@ If you want to compile from the source, you need to have a newer `g++` and [zlib
 git clone https://github.com/ksahlin/StrobeAlign
 cd StrobeAlign
 # Needs a newer g++ version. Tested with version 8 and upwards.
-g++ -std=c++14  main.cpp source/index.cpp source/ksw2_extz2_sse.c source/xxhash.c source/ssw_cpp.cpp source/ssw.c source/pc.cpp source/aln.cpp -lz -lpthread -o strobealign -O3 -mavx2
+g++ -std=c++14  main.cpp source/index.cpp source/xxhash.c source/ssw_cpp.cpp source/ssw.c source/pc.cpp source/aln.cpp -lz -lpthread -o strobealign -O3 -mavx2
 ```
 
 ### Zlib linking error
@@ -55,7 +35,7 @@ compilation terminated.
 add `-I/path/to/zlib/include -L/path/to/zlib/lib` to the compilation, that is
 
 ```
-g++ -std=c++14 -I/path/to/zlib/include -L/path/to/zlib/lib  main.cpp source/index.cpp source/ksw2_extz2_sse.c source/xxhash.c source/ssw_cpp.cpp source/ssw.c source/pc.cpp source/aln.cpp -lz -lpthread -o strobealign -O3 -mavx2
+g++ -std=c++14 -I/path/to/zlib/include -L/path/to/zlib/lib  main.cpp source/index.cpp source/xxhash.c source/ssw_cpp.cpp source/ssw.c source/pc.cpp source/aln.cpp -lz -lpthread -o strobealign -O3 -mavx2
 ``` 
 
 
@@ -201,5 +181,5 @@ See [release page](https://github.com/ksahlin/StrobeAlign/releases)
 LICENCE
 ----------------
 
-GPL v3.0, see [LICENSE.txt](https://github.com/ksahlin/uLTRA/blob/master/LICENCE.txt).
+MIT license, see [LICENSE](https://github.com/ksahlin/StrobeAlign/blob/main/LICENSE).
 
