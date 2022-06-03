@@ -8,10 +8,19 @@ See [INSTALLATION](https://github.com/ksahlin/StrobeAlign#installation) and [USA
 INSTALLATION
 ----------------
 
+### Conda
+Strobealign [can be installed through conda](https://anaconda.org/bioconda/strobealign). Simply run
+
+```
+conda create -n strobealign strobealign
+```
+
+### Binaries
 You can acquire precompiled binaries for Linux and Mac OSx from the [release page](https://github.com/ksahlin/StrobeAlign/releases) compiled with `-O3 -mavx2`. 
 
 It has been [reported](https://github.com/ksahlin/StrobeAlign/issues/6) that `strobealign` is even faster if compliled with flag `-march=skylake-avx512` for avx512 supported processors.
 
+### From source
 If you want to compile from the source, you need to have a newer `g++` and [zlib](https://zlib.net/) installed. Then do the following:
 
 ```
@@ -21,7 +30,7 @@ cd StrobeAlign
 g++ -std=c++14  main.cpp source/index.cpp source/xxhash.c source/ssw_cpp.cpp source/ssw.c source/pc.cpp source/aln.cpp -lz -lpthread -o strobealign -O3 -mavx2
 ```
 
-### Zlib linking error
+##### Zlib linking error
 
 If you have `zlib` installed, and the `zlib.h` file is in folder `/path/to/zlib/include` and the `libz.so` file in `/path/to/zlib/lib` but you get 
 
