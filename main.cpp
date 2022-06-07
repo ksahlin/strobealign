@@ -563,7 +563,7 @@ int main (int argc, char **argv)
 
     if (total_ref_seq_size == 0) {
         std::cerr << "No reference sequences found, aborting.." << std::endl;
-        return(1);
+        return 1;
     }
 
     auto start_flat_vector = std::chrono::high_resolution_clock::now();
