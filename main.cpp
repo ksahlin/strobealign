@@ -39,6 +39,17 @@ static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsi
     std::ifstream file(fn);
     std::string line, seq;
     int ref_index = 0;
+
+    if (!file.good()) {
+        std::cerr << "Unable to read from file " << fn << std::endl;
+        return total_ref_seq_size;
+    }
+
+    if (file.peek() != '>') {
+        std::cerr << fn << " is not a valid FASTA file." << std::endl;
+        return total_ref_seq_size;
+    }
+
     while (getline(file, line)) {
         if (line[0] == '>') {
 //            std::cerr << ref_index << " " << line << std::endl;
@@ -549,6 +560,11 @@ int main (int argc, char **argv)
     auto finish_read_refs = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_read_refs = finish_read_refs - start_read_refs;
     std::cerr << "Time reading references: " << elapsed_read_refs.count() << " s\n" <<  std::endl;
+
+    if (total_ref_seq_size == 0) {
+        std::cerr << "No reference sequences found, aborting.." << std::endl;
+        return 1;
+    }
 
     auto start_flat_vector = std::chrono::high_resolution_clock::now();
 
