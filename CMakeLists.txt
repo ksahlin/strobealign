@@ -16,7 +16,7 @@ set(CMAKE_C_FLAGS "-O3 ${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "-O3 ${CMAKE_CXX_FLAGS}")
 
 set(SOURCES
-main.cpp
+source/main.cpp
 source/index.cpp
 source/pc.cpp
 source/aln.cpp
