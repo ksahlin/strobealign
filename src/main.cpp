@@ -78,7 +78,7 @@ static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsi
 //        std::cerr << ref_index -1 << " here2 " << seq << std::endl;
 //        generate_kmers(h, k, seq, ref_index);
     }
-    file.close();
+
     return total_ref_seq_size;
 }
 
@@ -190,9 +190,8 @@ static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_in
 //            log_file << i << ',' << log_count[i] << ',' << (float) log_unique[i] / (float) log_count[i] << ',' << (float) log_repetitive[i] / (float) log_count[i] << std::endl;
 //        }
 //    }
-    log_file.close();
 
-    }
+}
 
 int est_read_length( klibpp::KStream<gzFile_s*, int (*)(gzFile_s*, void*, unsigned int), klibpp::mode::In_> &ks, int n_reads){
     auto records = ks.read(n_reads);
