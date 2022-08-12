@@ -256,24 +256,24 @@ void print_usage_and_exit() {
 
 
 struct CommandLineOptions {
-    int A;
-    int B;
-    int O;
-    int E;
+    int A { 2 };
+    int B { 8 };
+    int O { 12 };
+    int E { 1 };
     int max_seed_len;
     std::string output_file_name;
-    std::string logfile_name;
-    int n_threads;
+    std::string logfile_name { "log.csv" };
+    int n_threads { 3 };
     std::string ref_filename;
     const char *reads_filename1;
     const char *reads_filename2;
-    bool is_SE;
-    bool k_set;
-    bool write_to_stdout;
-    bool index_log;
-    bool r_set;
-    bool max_seed_len_set;
-    bool s_set;
+    bool is_SE { true };
+    bool k_set { false };
+    bool write_to_stdout { true };
+    bool index_log { false };
+    bool r_set { false };
+    bool max_seed_len_set { false };
+    bool s_set { false };
 };
 
 
@@ -284,14 +284,6 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
 
     // Default parameters
     CommandLineOptions opt;
-    opt.A = 2;
-    opt.B = 8;
-    opt.O = 12;
-    opt.E = 1;
-    opt.output_file_name;
-    opt.logfile_name = "log.csv";
-    opt.n_threads = 3;
-    opt.k_set = false;
 
     mapping_params map_param;
     map_param.max_secondary = 0;
@@ -309,11 +301,6 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     map_param.max_dist = map_param.r - 50 < 255 ? map_param.r-50 : 255;
     map_param.is_sam_out = true;  // true: align, false: map
 
-    opt.write_to_stdout = true;
-    opt.r_set = false;
-    opt.max_seed_len_set = false;
-    opt.s_set = false;
-    opt.index_log = false;
     int opn = 1;
     while (opn < argc) {
         bool flag = false;
