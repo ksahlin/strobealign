@@ -16,10 +16,10 @@ set(CMAKE_C_FLAGS "-O3 ${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "-O3 ${CMAKE_CXX_FLAGS}")
 
 set(SOURCES
-source/main.cpp
-source/index.cpp
-source/pc.cpp
-source/aln.cpp
+src/main.cpp
+src/index.cpp
+src/pc.cpp
+src/aln.cpp
 ext/xxhash.c
 ext/ssw_cpp.cpp
 ext/ssw.c
@@ -28,7 +28,7 @@ ext/ssw.c
 add_executable(strobealign ${SOURCES})
 
 target_link_libraries(strobealign PUBLIC ZLIB::ZLIB Threads::Threads)
-target_include_directories(strobealign PUBLIC source/ ext/)
+target_include_directories(strobealign PUBLIC src/ ext/)
 install(TARGETS strobealign DESTINATION bin)
 
 IF(ENABLE_AVX)
