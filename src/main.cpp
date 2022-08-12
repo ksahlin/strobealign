@@ -497,14 +497,13 @@ int main (int argc, char **argv)
     // Record index creation start time
 
     auto start = std::chrono::high_resolution_clock::now();
-    auto start_read_refs = std::chrono::high_resolution_clock::now();
+    auto start_read_refs = start;
     std::vector<std::string> ref_seqs;
     std::vector<unsigned int> ref_lengths;
     uint64_t total_ref_seq_size;
     idx_to_acc acc_map;
     total_ref_seq_size = read_references(ref_seqs, ref_lengths, acc_map, opt.ref_filename);
-    auto finish_read_refs = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed_read_refs = finish_read_refs - start_read_refs;
+    std::chrono::duration<double> elapsed_read_refs = std::chrono::high_resolution_clock::now() - start_read_refs;
     std::cerr << "Time reading references: " << elapsed_read_refs.count() << " s\n" <<  std::endl;
 
     if (total_ref_seq_size == 0) {
@@ -532,8 +531,7 @@ int main (int argc, char **argv)
     std::cerr << "Ref vector actual size: " << flat_vector.size() << std::endl;
     flat_vector.shrink_to_fit();
 
-    auto finish_generating_seeds = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed_generating_seeds = finish_generating_seeds - start_flat_vector;
+    std::chrono::duration<double> elapsed_generating_seeds = std::chrono::high_resolution_clock::now() - start_flat_vector;
     std::cerr << "Time generating seeds: " << elapsed_generating_seeds.count() << " s\n" <<  std::endl;
 
 
@@ -556,21 +554,18 @@ int main (int argc, char **argv)
 //    std::cerr << "Reserving flat vector size: " << approx_vec_size << std::endl;
 //    all_mers_vector_tmp.reserve(approx_vec_size); // reserve size corresponding to sum of lengths of all sequences divided by expected sampling
     process_flat_vector(flat_vector, unique_mers);
-    auto finish_sorting = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed_sorting_seeds = finish_sorting - start_sorting;
+    std::chrono::duration<double> elapsed_sorting_seeds = std::chrono::high_resolution_clock::now() - start_sorting;
     std::cerr << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s\n" <<  std::endl;
     std::cerr << "Unique strobemers: " << unique_mers  <<  std::endl;
 
-    auto finish_flat_vector = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed_flat_vector = finish_flat_vector - start_flat_vector;
+    std::chrono::duration<double> elapsed_flat_vector = std::chrono::high_resolution_clock::now() - start_flat_vector;
     std::cerr << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s\n" <<  std::endl;
 
     auto start_hash_index = std::chrono::high_resolution_clock::now();
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
     mers_index.reserve(unique_mers);
     map_param.filter_cutoff = index_vector(flat_vector, mers_index, map_param.f); // construct index over flat array
-    auto finish_hash_index = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed_hash_index = finish_hash_index - start_hash_index;
+    std::chrono::duration<double> elapsed_hash_index = std::chrono::high_resolution_clock::now() - start_hash_index;
     std::cerr << "Total time generating hash table index: " << elapsed_hash_index.count() << " s\n" <<  std::endl;
 
 //    mers_vector_reduced all_mers_vector;
@@ -589,8 +584,7 @@ int main (int argc, char **argv)
     //////////////////////////////////////////////////////////////////////////
 
     // Record index creation end time
-    auto finish = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = finish - start;
+    std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
     std::cerr << "Total time indexing: " << elapsed.count() << " s\n" <<  std::endl;
 
     if (opt.index_log){
@@ -739,8 +733,7 @@ int main (int argc, char **argv)
     std::cerr << "Did not fit strobe start site: " << tot_log_vars.did_not_fit  << std::endl;
     std::cerr << "Tried rescue: " << tot_log_vars.tried_rescue  << std::endl;
     // Record mapping end time
-    auto finish_aln_part = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> tot_aln_part = finish_aln_part - start_aln_part;
+    std::chrono::duration<double> tot_aln_part = std::chrono::high_resolution_clock::now() - start_aln_part;
     std::cerr << "Total time mapping: " << tot_aln_part.count() << " s." <<  std::endl;
     std::cerr << "Total time reading read-file(s): " << tot_log_vars.tot_read_file.count()/opt.n_threads << " s." <<  std::endl;
     std::cerr << "Total time creating strobemers: " << tot_log_vars.tot_construct_strobemers.count()/opt.n_threads << " s." <<  std::endl;
