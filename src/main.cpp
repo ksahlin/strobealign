@@ -81,7 +81,7 @@ static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsi
 
 
 
-static inline void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, std::string logfile_name, int k, int m) {
+static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, std::string logfile_name, int k, int m) {
     // Prins to csv file the statistics on the number of seeds of a particular length and what fraction of them them are unique in the index:
     // format:
     // seed_length, count, percentage_unique
