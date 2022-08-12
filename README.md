@@ -21,14 +21,19 @@ You can acquire precompiled binaries for Linux and Mac OSx from the [release pag
 It has been [reported](https://github.com/ksahlin/StrobeAlign/issues/6) that `strobealign` is even faster if compliled with flag `-march=skylake-avx512` for avx512 supported processors.
 
 ### From source
-If you want to compile from the source, you need to have a newer `g++` and [zlib](https://zlib.net/) installed. Then do the following:
+If you want to compile from the source, you need to have CMake, a recent `g++` (tested with version 8) and [zlib](https://zlib.net/) installed.
+Then do the following:
 
 ```
 git clone https://github.com/ksahlin/StrobeAlign
 cd StrobeAlign
-# Needs a newer g++ version. Tested with version 8 and upwards.
-g++ -std=c++14  main.cpp source/index.cpp source/xxhash.c source/ssw_cpp.cpp source/ssw.c source/pc.cpp source/aln.cpp -lz -lpthread -o strobealign -O3 -mavx2
+mkdir build
+cd build
+cmake ..
+make
 ```
+Try using `make -j8` for parallel compilation or `make VERBOSE=1` to get
+more logging output.
 
 ##### Zlib linking error
 
