@@ -18,17 +18,17 @@ set(CMAKE_CXX_FLAGS "-O3 ${CMAKE_CXX_FLAGS}")
 set(SOURCES
 main.cpp
 source/index.cpp
-source/xxhash.c
-source/ssw_cpp.cpp
-source/ssw.c
 source/pc.cpp
 source/aln.cpp
+ext/xxhash.c
+ext/ssw_cpp.cpp
+ext/ssw.c
 )
 
 add_executable(strobealign ${SOURCES})
 
 target_link_libraries(strobealign PUBLIC ZLIB::ZLIB Threads::Threads)
-
+target_include_directories(strobealign PUBLIC source/ ext/)
 install(TARGETS strobealign DESTINATION bin)
 
 IF(ENABLE_AVX)

@@ -13,14 +13,14 @@
 #include <numeric>
 #include <inttypes.h>
 
-#include "source/kseq++.hpp"
+#include "kseq++.hpp"
 using namespace klibpp;
-#include "source/robin_hood.h"
-#include "source/index.hpp"
-//#include "source/ksw2.h"
-#include "source/ssw_cpp.h"
-#include "source/pc.hpp"
-#include "source/aln.hpp"
+#include "robin_hood.h"
+#include "index.hpp"
+//#include "ksw2.h"
+#include "ssw_cpp.h"
+#include "pc.hpp"
+#include "aln.hpp"
 
 //develop
 #include <chrono>
