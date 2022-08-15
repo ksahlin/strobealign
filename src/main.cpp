@@ -206,12 +206,14 @@ int est_read_length( klibpp::KStream<gzFile_s*, int (*)(gzFile_s*, void*, unsign
 }
 
 
-void print_usage_and_exit() {
+void print_usage() {
     std::cerr << "\n";
     std::cerr << "StrobeAlign VERSION 0.7.1 \n";
     std::cerr << "\n";
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
+    std::cerr << "\n";
+    std::cerr << "\t-h Print help and exit\n";
     std::cerr << "\n";
     std::cerr << "Resources:\n";
     std::cerr << "\t-t INT number of threads [3]\n";
@@ -250,8 +252,6 @@ void print_usage_and_exit() {
     std::cerr << "\t-S FLOAT Try candidate sites with mapping score at least S of maximum mapping score [0.5]\n";
     std::cerr << "\t-M INT Maximum number of mapping sites to try [20]\n";
     std::cerr << "\t-R INT Rescue level. Perform additional search for reads with many repetitive seeds filtered out.\n\t   This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign\n\t   significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest. \n";
-
-    exit(1);
 }
 
 
@@ -278,9 +278,6 @@ struct CommandLineOptions {
 
 
 std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int argc, char **argv) {
-    if (argc < 3) {
-        print_usage_and_exit();
-    }
 
     // Default parameters
     CommandLineOptions opt;
@@ -312,6 +309,10 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
 //                    n = std::stoi(argv[opn + 1]);
 //                    opn += 2;
 //                    break;
+                case 'h':
+                    print_usage();
+                    exit(0);
+                    break;
                 case 't':
                     opt.n_threads = std::stoi(argv[opn + 1]);
                     opn += 2;
@@ -399,7 +400,8 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
                     opn += 2;
                     break;
                 default:
-                    print_usage_and_exit();
+                    print_usage();
+                    exit(1);
                     break;
             }
         }
@@ -421,7 +423,8 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
         opt.reads_filename2 = argv[opn];
         opt.is_SE = false;
     } else {
-        print_usage_and_exit();
+        print_usage();
+        exit(1);
     }
 
     return std::make_pair(opt, map_param);
