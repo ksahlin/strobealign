@@ -356,7 +356,6 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
 
 int main (int argc, char **argv)
 {
-    std::string choice = "randstrobes";
     CommandLineOptions opt;
     mapping_params map_param;
     std::tie(opt, map_param) = parse_command_line_arguments(argc, argv);
