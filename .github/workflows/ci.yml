@@ -7,9 +7,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: CMake
+      - name: Build
         run: |
           mkdir build
           cd build
           cmake ..
           make
+          make install
+      - name: Install test dependencies
+        run: sudo apt-get install samtools
+      - name: Run
+        run: tests/run.sh
