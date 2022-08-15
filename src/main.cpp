@@ -305,100 +305,102 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     while (opn < argc) {
         bool flag = false;
         if (argv[opn][0] == '-') {
-//            if (argv[opn][1] == 'n') {
-//                n = std::stoi(argv[opn + 1]);
-//                opn += 2;
-//                flag = true;
-//            } else
-            if (argv[opn][1] == 't') {
-                opt.n_threads = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'k') {
-                map_param.k = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-                opt.k_set = true;
-            } else if (argv[opn][1] == 'o') {
-                opt.output_file_name = argv[opn + 1];
-                opn += 2;
-                flag = true;
-                opt.write_to_stdout = false;
-            } else if (argv[opn][1] == 'L') {
-                opt.logfile_name = argv[opn + 1];
-                opt.index_log = true;
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 's') {
-                map_param.s = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-                opt.s_set = true;
-            } else if (argv[opn][1] == 'f') {
-                map_param.f = std::stof(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'x') {
-                map_param.is_sam_out = false;
-                opn += 1;
-                flag = true;
-            } else if (argv[opn][1] == 'R') {
-                map_param.R = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'l') {
-                map_param.l = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'u') {
-                map_param.u = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'c') {
-                map_param.c = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'r') {
-                map_param.r = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-                opt.r_set = true;
-            } else if (argv[opn][1] == 'm') {
-                opt.max_seed_len = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-                opt.max_seed_len_set = true;
-            } else if (argv[opn][1] == 'S') {
-                map_param.dropoff_threshold = std::stof(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'M') {
-                map_param.maxTries = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'A') {
-                opt.A = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'B') {
-                opt.B = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'O') {
-                opt.O = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'E') {
-                opt.E = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'N') {
-                map_param.max_secondary = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            }
-            else {
-                print_usage_and_exit();
+            char ch = argv[opn][1];
+            flag = true;
+            switch (ch) {
+//                case 'n':
+//                    n = std::stoi(argv[opn + 1]);
+//                    opn += 2;
+//                    break;
+                case 't':
+                    opt.n_threads = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'k':
+                    map_param.k = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    opt.k_set = true;
+                    break;
+                case 'o':
+                    opt.output_file_name = argv[opn + 1];
+                    opn += 2;
+                    opt.write_to_stdout = false;
+                    break;
+                case 'L':
+                    opt.logfile_name = argv[opn + 1];
+                    opt.index_log = true;
+                    opn += 2;
+                    break;
+                case 's':
+                    map_param.s = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    opt.s_set = true;
+                    break;
+                case 'f':
+                    map_param.f = std::stof(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'x':
+                    map_param.is_sam_out = false;
+                    opn += 1;
+                    break;
+                case 'R':
+                    map_param.R = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'l':
+                    map_param.l = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'u':
+                    map_param.u = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'c':
+                    map_param.c = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'r':
+                    map_param.r = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    opt.r_set = true;
+                    break;
+                case 'm':
+                    opt.max_seed_len = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    opt.max_seed_len_set = true;
+                    break;
+                case 'S':
+                    map_param.dropoff_threshold = std::stof(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'M':
+                    map_param.maxTries = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'A':
+                    opt.A = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'B':
+                    opt.B = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'O':
+                    opt.O = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'E':
+                    opt.E = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'N':
+                    map_param.max_secondary = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                default:
+                    print_usage_and_exit();
+                    break;
             }
         }
         if (!flag)
