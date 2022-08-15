@@ -201,6 +201,29 @@ int est_read_length( klibpp::KStream<gzFile_s*, int (*)(gzFile_s*, void*, unsign
     return avg_read_len;
 }
 
+/*
+ * Return average read length of single-end or paired-end reads.
+ * Set filename2 to the empty string if data is single end.
+ */
+int estimate_read_length(std::string filename1, std::string filename2) {
+    bool is_paired = filename2 != "";
+
+    gzFile fp1_tmp = gzopen(filename1.c_str(), "r");
+    auto ks1_tmp = make_ikstream(fp1_tmp, gzread);
+    auto r1_tmp = est_read_length(ks1_tmp, 500);
+    gzclose(fp1_tmp);
+
+    if (is_paired) {
+        gzFile fp2_tmp = gzopen(filename2.c_str(), "r");
+        auto ks2_tmp = make_ikstream(fp2_tmp, gzread);
+        auto r2_tmp = est_read_length(ks2_tmp, 500);
+        gzclose(fp2_tmp);
+        return (r1_tmp + r2_tmp) / 2;
+    } else {
+        return r1_tmp;
+    }
+}
+
 
 struct CommandLineOptions {
     int A { 2 };
@@ -360,26 +383,8 @@ int main (int argc, char **argv)
     mapping_params map_param;
     std::tie(opt, map_param) = parse_command_line_arguments(argc, argv);
 
-    if (opt.reads_filename2 == "") {
-        if (!opt.r_set){
-            gzFile fp1_tmp = gzopen(opt.reads_filename1.c_str(), "r");
-            auto ks1_tmp = make_ikstream(fp1_tmp, gzread);
-            auto r1_tmp = est_read_length(ks1_tmp, 500);
-            gzclose(fp1_tmp);
-            map_param.r = r1_tmp;
-        }
-    } else {
-        if (!opt.r_set) {
-            gzFile fp1_tmp = gzopen(opt.reads_filename1.c_str(), "r");
-            auto ks1_tmp = make_ikstream(fp1_tmp, gzread);
-            gzFile fp2_tmp = gzopen(opt.reads_filename2.c_str(), "r");
-            auto ks2_tmp = make_ikstream(fp2_tmp, gzread);
-            auto r1_tmp = est_read_length(ks1_tmp, 500);
-            auto r2_tmp = est_read_length(ks2_tmp, 500);
-            gzclose(fp1_tmp);
-            gzclose(fp2_tmp);
-            map_param.r = (r1_tmp + r2_tmp) / 2;
-        }
+    if (!opt.r_set) {
+        map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
     }
 
     if (map_param.r <= 75) { // based on params for 100
