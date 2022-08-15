@@ -213,6 +213,8 @@ void print_usage() {
     std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
     std::cerr << "options:\n";
     std::cerr << "\n";
+    std::cerr << "\t-h Print help and exit\n";
+    std::cerr << "\n";
     std::cerr << "Resources:\n";
     std::cerr << "\t-t INT number of threads [3]\n";
 
@@ -253,26 +255,35 @@ void print_usage() {
 }
 
 
+struct CommandLineOptions {
+    int A { 2 };
+    int B { 8 };
+    int O { 12 };
+    int E { 1 };
+    int max_seed_len;
+    std::string output_file_name;
+    std::string logfile_name { "log.csv" };
+    int n_threads { 3 };
+    std::string ref_filename;
+    const char *reads_filename1;
+    const char *reads_filename2;
+    bool is_SE { true };
+    bool k_set { false };
+    bool write_to_stdout { true };
+    bool index_log { false };
+    bool r_set { false };
+    bool max_seed_len_set { false };
+    bool s_set { false };
+};
 
-int main (int argc, char **argv)
-{
 
-    if (argc < 3) {
-        print_usage();
-        return 0;
-    }
+std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int argc, char **argv) {
 
     // Default parameters
-    std::string choice = "randstrobes";
-    int A = 2;
-    int B = 8;
-    int O = 12;
-    int E = 1;
+    CommandLineOptions opt;
 
     mapping_params map_param;
     map_param.max_secondary = 0;
-    bool is_sam_out = true; // true = align, false=map, default is_sam_out is align
-    int n_threads = 3;
     map_param.n = 2;
     map_param.k = 20;
     map_param.s = map_param.k - 4;
@@ -284,115 +295,114 @@ int main (int argc, char **argv)
     map_param.u = 7;
     map_param.c = 8;
     map_param.r = 150;
-    int max_seed_len;
     map_param.max_dist = map_param.r - 50 < 255 ? map_param.r-50 : 255;
-    bool r_set = false;
-    bool max_seed_len_set = false;
-    bool write_to_stdout = true;
-    std::string output_file_name;
-    std::string logfile_name = "log.csv";
-    bool s_set = false;
-    bool k_set = false;
-    bool index_log = false;
+    map_param.is_sam_out = true;  // true: align, false: map
+
     int opn = 1;
     while (opn < argc) {
         bool flag = false;
         if (argv[opn][0] == '-') {
-//            if (argv[opn][1] == 'n') {
-//                n = std::stoi(argv[opn + 1]);
-//                opn += 2;
-//                flag = true;
-//            } else
-            if (argv[opn][1] == 't') {
-                n_threads = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'k') {
-                map_param.k = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-                k_set = true;
-            } else if (argv[opn][1] == 'o') {
-                output_file_name = argv[opn + 1];
-                opn += 2;
-                flag = true;
-                write_to_stdout = false;
-            } else if (argv[opn][1] == 'L') {
-                logfile_name = argv[opn + 1];
-                index_log = true;
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 's') {
-                map_param.s = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-                s_set = true;
-            } else if (argv[opn][1] == 'f') {
-                map_param.f = std::stof(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'x') {
-                is_sam_out = false;
-                opn += 1;
-                flag = true;
-            } else if (argv[opn][1] == 'R') {
-                map_param.R = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'l') {
-                map_param.l = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'u') {
-                map_param.u = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'c') {
-                map_param.c = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'r') {
-                map_param.r = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-                r_set = true;
-            } else if (argv[opn][1] == 'm') {
-                max_seed_len = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-                max_seed_len_set = true;
-            } else if (argv[opn][1] == 'S') {
-                map_param.dropoff_threshold = std::stof(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'M') {
-                map_param.maxTries = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'A') {
-                A = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'B') {
-                B = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'O') {
-                O = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'E') {
-                E = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            } else if (argv[opn][1] == 'N') {
-                map_param.max_secondary = std::stoi(argv[opn + 1]);
-                opn += 2;
-                flag = true;
-            }
-
-            else {
-                print_usage();
+            char ch = argv[opn][1];
+            flag = true;
+            switch (ch) {
+//                case 'n':
+//                    n = std::stoi(argv[opn + 1]);
+//                    opn += 2;
+//                    break;
+                case 'h':
+                    print_usage();
+                    exit(0);
+                    break;
+                case 't':
+                    opt.n_threads = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'k':
+                    map_param.k = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    opt.k_set = true;
+                    break;
+                case 'o':
+                    opt.output_file_name = argv[opn + 1];
+                    opn += 2;
+                    opt.write_to_stdout = false;
+                    break;
+                case 'L':
+                    opt.logfile_name = argv[opn + 1];
+                    opt.index_log = true;
+                    opn += 2;
+                    break;
+                case 's':
+                    map_param.s = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    opt.s_set = true;
+                    break;
+                case 'f':
+                    map_param.f = std::stof(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'x':
+                    map_param.is_sam_out = false;
+                    opn += 1;
+                    break;
+                case 'R':
+                    map_param.R = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'l':
+                    map_param.l = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'u':
+                    map_param.u = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'c':
+                    map_param.c = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'r':
+                    map_param.r = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    opt.r_set = true;
+                    break;
+                case 'm':
+                    opt.max_seed_len = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    opt.max_seed_len_set = true;
+                    break;
+                case 'S':
+                    map_param.dropoff_threshold = std::stof(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'M':
+                    map_param.maxTries = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'A':
+                    opt.A = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'B':
+                    opt.B = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'O':
+                    opt.O = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'E':
+                    opt.E = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                case 'N':
+                    map_param.max_secondary = std::stoi(argv[opn + 1]);
+                    opn += 2;
+                    break;
+                default:
+                    print_usage();
+                    exit(1);
+                    break;
             }
         }
         if (!flag)
@@ -400,30 +410,46 @@ int main (int argc, char **argv)
     }
 
     // File name to reference
-    std::string ref_filename = argv[opn];
+    opt.ref_filename = argv[opn];
     opn++;
-    const char *reads_filename1;
-    const char *reads_filename2;
-    bool is_SE = false;
+
     if (opn == argc - 1) {
-        reads_filename1 = argv[opn];
-        is_SE = true;
-        if (!r_set){
-            gzFile fp1_tmp = gzopen(reads_filename1, "r");
+        opt.reads_filename1 = argv[opn];
+        opt.reads_filename2 = nullptr;
+        opt.is_SE = true;
+    } else if (opn == argc - 2) {
+        opt.reads_filename1 = argv[opn];
+        opn++;
+        opt.reads_filename2 = argv[opn];
+        opt.is_SE = false;
+    } else {
+        print_usage();
+        exit(1);
+    }
+
+    return std::make_pair(opt, map_param);
+}
+
+int main (int argc, char **argv)
+{
+    std::string choice = "randstrobes";
+    CommandLineOptions opt;
+    mapping_params map_param;
+    std::tie(opt, map_param) = parse_command_line_arguments(argc, argv);
+
+    if (opt.reads_filename2 == nullptr) {
+        if (!opt.r_set){
+            gzFile fp1_tmp = gzopen(opt.reads_filename1, "r");
             auto ks1_tmp = make_ikstream(fp1_tmp, gzread);
             auto r1_tmp = est_read_length(ks1_tmp, 500);
             gzclose(fp1_tmp);
             map_param.r = r1_tmp;
         }
-
-    } else if (opn == argc - 2) {
-        reads_filename1 = argv[opn];
-        opn++;
-        reads_filename2 = argv[opn];
-        if (!r_set) {
-            gzFile fp1_tmp = gzopen(reads_filename1, "r");
+    } else {
+        if (!opt.r_set) {
+            gzFile fp1_tmp = gzopen(opt.reads_filename1, "r");
             auto ks1_tmp = make_ikstream(fp1_tmp, gzread);
-            gzFile fp2_tmp = gzopen(reads_filename2, "r");
+            gzFile fp2_tmp = gzopen(opt.reads_filename2, "r");
             auto ks2_tmp = make_ikstream(fp2_tmp, gzread);
             auto r1_tmp = est_read_length(ks1_tmp, 500);
             auto r2_tmp = est_read_length(ks2_tmp, 500);
@@ -431,61 +457,58 @@ int main (int argc, char **argv)
             gzclose(fp2_tmp);
             map_param.r = (r1_tmp + r2_tmp) / 2;
         }
-    } else {
-        print_usage();
-        return 0;
     }
 
     if (map_param.r <= 75) { // based on params for 100
-        if (!k_set){
+        if (!opt.k_set){
             map_param.k = 20;
         }
-        if ( (!s_set ) ){
+        if ( (!opt.s_set ) ){
             map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
         }
         map_param.l = -4;
         map_param.u = 2;
     } else if (map_param.r <= 125) { // based on params for 100
-        if (!k_set){
+        if (!opt.k_set){
             map_param.k = 20;
         }
-        if ( (!s_set ) ){
+        if ( (!opt.s_set ) ){
             map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
         }
         map_param.l = -2;
         map_param.u = 2;
     } else if ((map_param.r > 125) && (map_param.r <= 175)) { // based on params for 150
-        if (!k_set) {
+        if (!opt.k_set) {
             map_param.k = 20;
         }
-        if ( (!s_set ) ){
+        if ( (!opt.s_set ) ){
             map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
         }
         map_param.l = 1;
         map_param.u = 7;
     } else if ((map_param.r > 175) && (map_param.r <= 275)) { // based on params for 200 and 250
-        if (!k_set) {
+        if (!opt.k_set) {
             map_param.k = 20;
         }
-        if ( (!s_set ) ){
+        if ( (!opt.s_set ) ){
             map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
         }
         map_param.l = 4;
         map_param.u = 13;
     } else if ((map_param.r > 275) && (map_param.r <= 375)) { // based on params for 300
-        if (!k_set) {
+        if (!opt.k_set) {
             map_param.k = 22;
         }
-        if ( (!s_set ) ){
+        if ( (!opt.s_set ) ){
             map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
         }
         map_param.l = 2;
         map_param.u = 12;
     } else{
-        if (!k_set) {
+        if (!opt.k_set) {
             map_param.k = 23;
         }
-        if ( (!s_set ) ){
+        if ( (!opt.s_set ) ){
             map_param.s = map_param.k - 6; // Update default s to k - 4 if user has not set s parameter
         }
         map_param.l = 2;
@@ -493,13 +516,13 @@ int main (int argc, char **argv)
     }
 
 
-    if (!max_seed_len_set){
+    if (!opt.max_seed_len_set){
         map_param.max_dist = map_param.r - 70 > map_param.k ? map_param.r - 70 : map_param.k;
         if (map_param.max_dist > 255){
             map_param.max_dist = 255;
         }
     } else {
-        map_param.max_dist = max_seed_len - map_param.k; //convert to distance in start positions
+        map_param.max_dist = opt.max_seed_len - map_param.k; //convert to distance in start positions
     }
 
 
@@ -513,13 +536,12 @@ int main (int argc, char **argv)
     map_param.w_min = map_param.k/(map_param.k-map_param.s+1) + map_param.l > 1 ? map_param.k/(map_param.k-map_param.s+1) + map_param.l : 1;
     map_param.w_max = map_param.k/(map_param.k-map_param.s+1) + map_param.u;
     map_param.t_syncmer = (map_param.k-map_param.s)/2 + 1;
-    map_param.is_sam_out = is_sam_out;
 
     alignment_params aln_params;
-    aln_params.match = A;
-    aln_params.mismatch = B;
-    aln_params.gap_open = O;
-    aln_params.gap_extend = E;
+    aln_params.match = opt.A;
+    aln_params.mismatch = opt.B;
+    aln_params.gap_open = opt.O;
+    aln_params.gap_extend = opt.E;
 
     std::cerr << "Using" << std::endl;
     std::cerr << "k: " << map_param.k << std::endl;
@@ -528,14 +550,14 @@ int main (int argc, char **argv)
     std::cerr << "w_max: " << map_param.w_max << std::endl;
     std::cerr << "Read length (r): " << map_param.r << std::endl;
     std::cerr << "Maximum seed length: " << map_param.max_dist + map_param.k << std::endl;
-    std::cerr << "Threads: " << n_threads << std::endl;
+    std::cerr << "Threads: " << opt.n_threads << std::endl;
     std::cerr << "R: " << map_param.R << std::endl;
     std::cerr << "Expected [w_min, w_max] in #syncmers: [" << map_param.w_min << ", " << map_param.w_max << "]" << std::endl;
     std::cerr << "Expected [w_min, w_max] in #nucleotides: [" << (map_param.k-map_param.s+1)*map_param.w_min << ", " << (map_param.k-map_param.s+1)*map_param.w_max << "]" << std::endl;
-    std::cerr << "A: " << A << std::endl;
-    std::cerr << "B: " << B << std::endl;
-    std::cerr << "O: " << O << std::endl;
-    std::cerr << "E: " << E << std::endl;
+    std::cerr << "A: " << opt.A << std::endl;
+    std::cerr << "B: " << opt.B << std::endl;
+    std::cerr << "O: " << opt.O << std::endl;
+    std::cerr << "E: " << opt.E << std::endl;
 
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
     assert(map_param.k > 7 && "You should really not use too small strobe size!");
@@ -556,7 +578,7 @@ int main (int argc, char **argv)
     std::vector<unsigned int> ref_lengths;
     uint64_t total_ref_seq_size;
     idx_to_acc acc_map;
-    total_ref_seq_size = read_references(ref_seqs, ref_lengths, acc_map, ref_filename);
+    total_ref_seq_size = read_references(ref_seqs, ref_lengths, acc_map, opt.ref_filename);
     auto finish_read_refs = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_read_refs = finish_read_refs - start_read_refs;
     std::cerr << "Time reading references: " << elapsed_read_refs.count() << " s\n" <<  std::endl;
@@ -592,7 +614,7 @@ int main (int argc, char **argv)
 
 
 //    create vector of vectors here nr_threads
-//    std::vector<std::vector<std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>>> vector_per_ref_chr(n_threads);
+//    std::vector<std::vector<std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>>> vector_per_ref_chr(opt.n_threads);
 //    for(size_t i = 0; i < ref_seqs.size(); ++i)
 //    {
 //        mers_vector randstrobes2; // pos, chr_id, kmer hash value
@@ -647,9 +669,9 @@ int main (int argc, char **argv)
     std::chrono::duration<double> elapsed = finish - start;
     std::cerr << "Total time indexing: " << elapsed.count() << " s\n" <<  std::endl;
 
-    if (index_log){
+    if (opt.index_log){
         std::cerr << "Printing log stats" << std::endl;
-        print_diagnostics(flat_vector, mers_index, logfile_name, map_param.k, map_param.max_dist + map_param.k);
+        print_diagnostics(flat_vector, mers_index, opt.logfile_name, map_param.k, map_param.max_dist + map_param.k);
         std::cerr << "Finished printing log stats" << std::endl;
 
     }
@@ -671,8 +693,8 @@ int main (int argc, char **argv)
     std::streambuf *buf;
     std::ofstream of;
 
-    if(!write_to_stdout) {
-        of.open(output_file_name);
+    if(!opt.write_to_stdout) {
+        of.open(opt.output_file_name);
         buf = of.rdbuf();
     } else {
         buf = std::cout.rdbuf();
@@ -680,12 +702,12 @@ int main (int argc, char **argv)
 
     std::ostream out(buf);
 //    std::ofstream out;
-//    out.open(output_file_name);
+//    out.open(opt.output_file_name);
 
 //    std::stringstream sam_output;
 //    std::stringstream paf_output;
 
-    if (is_sam_out) {
+    if (map_param.is_sam_out) {
         int nr_ref = acc_map.size();
         for (int i = 0; i < nr_ref; ++i) {
 //        for (auto &it : acc_map) {
@@ -695,13 +717,13 @@ int main (int argc, char **argv)
         out << "@PG\tID:strobealign\tPN:strobealign\tVN:0.7.1\tCL:strobealign\n";
     }
 
-    std::unordered_map<std::thread::id, logging_variables> log_stats_vec(n_threads);
+    std::unordered_map<std::thread::id, logging_variables> log_stats_vec(opt.n_threads);
 
 
-    if(is_SE) {
+    if(opt.is_SE) {
         std::cerr << "Running SE mode" <<  std::endl;
         //    KSeq record;
-        gzFile fp = gzopen(reads_filename1, "r");
+        gzFile fp = gzopen(opt.reads_filename1, "r");
         auto ks = make_ikstream(fp, gzread);
 
         ////////// ALIGNMENT START //////////
@@ -713,7 +735,7 @@ int main (int argc, char **argv)
         OutputBuffer output_buffer = { {}, {}, {}, 0, out};
 
         std::vector<std::thread> workers;
-        for (int i = 0; i < n_threads; ++i) {
+        for (int i = 0; i < opt.n_threads; ++i) {
             std::thread consumer(perform_task_SE, std::ref(input_buffer), std::ref(output_buffer),
                                  std::ref(log_stats_vec), std::ref(aln_params),
                                  std::ref(map_param), std::ref(ref_lengths), std::ref(ref_seqs),
@@ -733,11 +755,11 @@ int main (int argc, char **argv)
     }
     else{
         std::cerr << "Running PE mode" <<  std::endl;
-        gzFile fp1 = gzopen(reads_filename1, "r");
+        gzFile fp1 = gzopen(opt.reads_filename1, "r");
         auto ks1 = make_ikstream(fp1, gzread);
-        gzFile fp2 = gzopen(reads_filename2, "r");
+        gzFile fp2 = gzopen(opt.reads_filename2, "r");
         auto ks2 = make_ikstream(fp2, gzread);
-        std::unordered_map<std::thread::id, i_dist_est> isize_est_vec(n_threads);
+        std::unordered_map<std::thread::id, i_dist_est> isize_est_vec(opt.n_threads);
 
         ////////// ALIGNMENT START //////////
         /////////////////////////////////////
@@ -748,7 +770,7 @@ int main (int argc, char **argv)
         OutputBuffer output_buffer = { {}, {}, {}, 0, out};
 
         std::vector<std::thread> workers;
-        for (int i = 0; i < n_threads; ++i) {
+        for (int i = 0; i < opt.n_threads; ++i) {
             std::thread consumer(perform_task_PE, std::ref(input_buffer), std::ref(output_buffer),
                                  std::ref(log_stats_vec), std::ref(isize_est_vec), std::ref(aln_params),
                                  std::ref(map_param), std::ref(ref_lengths), std::ref(ref_seqs),
@@ -796,14 +818,14 @@ int main (int argc, char **argv)
     auto finish_aln_part = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> tot_aln_part = finish_aln_part - start_aln_part;
     std::cerr << "Total time mapping: " << tot_aln_part.count() << " s." <<  std::endl;
-    std::cerr << "Total time reading read-file(s): " << tot_log_vars.tot_read_file.count()/n_threads << " s." <<  std::endl;
-    std::cerr << "Total time creating strobemers: " << tot_log_vars.tot_construct_strobemers.count()/n_threads << " s." <<  std::endl;
-    std::cerr << "Total time finding NAMs (non-rescue mode): " << tot_log_vars.tot_find_nams.count()/n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time finding NAMs (rescue mode): " << tot_log_vars.tot_time_rescue.count()/n_threads  << " s." <<  std::endl;
-//    std::cerr << "Total time finding NAMs ALTERNATIVE (candidate sites): " << tot_find_nams_alt.count()/n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time sorting NAMs (candidate sites): " << tot_log_vars.tot_sort_nams.count()/n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time reverse compl seq: " << tot_log_vars.tot_rc.count()/n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time base level alignment (ssw): " << tot_log_vars.tot_extend.count()/n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time reading read-file(s): " << tot_log_vars.tot_read_file.count()/opt.n_threads << " s." <<  std::endl;
+    std::cerr << "Total time creating strobemers: " << tot_log_vars.tot_construct_strobemers.count()/opt.n_threads << " s." <<  std::endl;
+    std::cerr << "Total time finding NAMs (non-rescue mode): " << tot_log_vars.tot_find_nams.count()/opt.n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time finding NAMs (rescue mode): " << tot_log_vars.tot_time_rescue.count()/opt.n_threads  << " s." <<  std::endl;
+//    std::cerr << "Total time finding NAMs ALTERNATIVE (candidate sites): " << tot_find_nams_alt.count()/opt.n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time sorting NAMs (candidate sites): " << tot_log_vars.tot_sort_nams.count()/opt.n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time reverse compl seq: " << tot_log_vars.tot_rc.count()/opt.n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time base level alignment (ssw): " << tot_log_vars.tot_extend.count()/opt.n_threads  << " s." <<  std::endl;
     std::cerr << "Total time writing alignment to files: " << tot_log_vars.tot_write_file.count() << " s." <<  std::endl;
 
     //////////////////////////////////////////////////////////////////////////
