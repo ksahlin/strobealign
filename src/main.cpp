@@ -13,6 +13,8 @@
 #include <numeric>
 #include <inttypes.h>
 
+#include <args.hxx>
+
 #include "kseq++.hpp"
 using namespace klibpp;
 #include "robin_hood.h"
@@ -26,11 +28,6 @@ using namespace klibpp;
 #include <chrono>
 #include <thread>
 #include <sstream>
-
-
-
-
-
 
 
 static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsigned int> &lengths, idx_to_acc &acc_map, std::string fn)
@@ -205,55 +202,6 @@ int est_read_length( klibpp::KStream<gzFile_s*, int (*)(gzFile_s*, void*, unsign
 }
 
 
-void print_usage() {
-    std::cerr << "\n";
-    std::cerr << "StrobeAlign VERSION 0.7.1 \n";
-    std::cerr << "\n";
-    std::cerr << "StrobeAlign [options] <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]\n";
-    std::cerr << "options:\n";
-    std::cerr << "\n";
-    std::cerr << "\t-h Print help and exit\n";
-    std::cerr << "\n";
-    std::cerr << "Resources:\n";
-    std::cerr << "\t-t INT number of threads [3]\n";
-
-    std::cerr << "\n";
-    std::cerr << "Input/output:\n";
-    std::cerr << "\t-o STR redirect output to file [stdout]\n";
-    std::cerr << "\t-x Only map reads, no base level alignment (produces paf file)\n";
-    std::cerr << "\t-N INT retain at most INT secondary alignments (is upper bounded by -M, and depends on -S) [0]  \n";
-    std::cerr << "\t-L STR Print statistics of indexing to logfie [log.csv] \n";
-
-    std::cerr << "\n";
-    std::cerr << "Seeding:\n";
-//    std::cerr << "\t-n INT number of strobes [2]\n";
-    std::cerr << "\t-r INT Mean read length. This parameter is estimated from first 500 records in each read file. No need to set this explicitly  \n\t   unless you have a reason. [disabled] \n";
-    std::cerr << "\t-m INT Maximum seed length. Defaults to r - 50. For reasonable values on -l and -u, the seed length distribution is usually determined by\n\t   parameters l and u. Then, this parameter is only active in regions where syncmers are very sparse.\n";
-    std::cerr << "\t-k INT strobe length, has to be below 32. [20]\n";
-    std::cerr << "\t-l INT Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]\n";
-    std::cerr << "\t-u INT Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [7]\n";
-    std::cerr << "\t-c INT Bitcount length between 2 and 63. [8]\n";
-    std::cerr << "\t-s INT Submer size used for creating syncmers [k-4]. Only even numbers on k-s allowed.\n\t   A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. It is recommended not to change this parameter\n\t   unless you have a good understanding of syncmenrs as it will drastically change the memory usage and results with non default values. \n";
-
-
-    std::cerr << "\n";
-    std::cerr << "Alignment:\n";
-//    std::cerr << "\t-n INT number of strobes [2]\n";
-    std::cerr << "\t-A INT matching score [2]\n";
-    std::cerr << "\t-B INT mismatch penalty [8]\n";
-    std::cerr << "\t-O INT gap open penalty [12]\n";
-    std::cerr << "\t-E INT gap extension penalty [1]\n";
-
-
-    std::cerr << "\n";
-    std::cerr << "Search parameters:\n";
-    std::cerr << "\t-f FLOAT top fraction of repetitive strobemers to filter out from sampling [0.0002]\n";
-    std::cerr << "\t-S FLOAT Try candidate sites with mapping score at least S of maximum mapping score [0.5]\n";
-    std::cerr << "\t-M INT Maximum number of mapping sites to try [20]\n";
-    std::cerr << "\t-R INT Rescue level. Perform additional search for reads with many repetitive seeds filtered out.\n\t   This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign\n\t   significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest. \n";
-}
-
-
 struct CommandLineOptions {
     int A { 2 };
     int B { 8 };
@@ -264,8 +212,8 @@ struct CommandLineOptions {
     std::string logfile_name { "log.csv" };
     int n_threads { 3 };
     std::string ref_filename;
-    const char *reads_filename1;
-    const char *reads_filename2;
+    std::string reads_filename1;
+    std::string reads_filename2;
     bool is_SE { true };
     bool k_set { false };
     bool write_to_stdout { true };
@@ -278,7 +226,71 @@ struct CommandLineOptions {
 
 std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int argc, char **argv) {
 
-    // Default parameters
+    args::ArgumentParser parser("StrobeAlign 0.7.1");
+    parser.helpParams.showTerminator = false;
+    parser.helpParams.helpindent = 20;
+    parser.helpParams.width = 90;
+    parser.helpParams.programName = "strobealign";
+    parser.helpParams.shortSeparator = " ";
+
+    args::HelpFlag help(parser, "help", "Print help and exit", {'h', "help"});
+    args::ValueFlag<int> threads(parser, "threads", "Number of threads [3]", {'t', "threads"});
+
+    args::Group io(parser, "Input/output:");
+    args::ValueFlag<std::string> o(parser, "STR", "redirect output to file [stdout]", {'o'});
+    args::Flag x(parser, "x", "Only map reads, no base level alignment (produces paf file)", {'x'});
+    args::ValueFlag<int> N(parser, "INT", "retain at most INT secondary alignments (is upper bounded by -M, and depends on -S) [0]", {'N'});
+    args::ValueFlag<std::string> L(parser, "STR", "Print statistics of indexing to logfile [log.csv]", {'L'});
+
+    args::Group seeding(parser, "Seeding:");
+    //args::ValueFlag<int> n(parser, "INT", "number of strobes [2]", {'n'});
+    args::ValueFlag<int> r(parser, "INT", "Mean read length. This parameter is estimated from first 500 records in each read file. No need to set this explicitly unless you have a reason. [disabled]", {'r'});
+    args::ValueFlag<int> m(parser, "INT", "Maximum seed length. Defaults to r - 50. For reasonable values on -l and -u, the seed length distribution is usually determined by parameters l and u. Then, this parameter is only active in regions where syncmers are very sparse.", {'m'});
+
+    args::ValueFlag<int> k(parser, "INT", "strobe length, has to be below 32. [20]", {'k'});
+    args::ValueFlag<int> l(parser, "INT", "Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]", {'l'});
+
+    args::ValueFlag<int> u(parser, "INT", "Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [7]", {'u'});
+    args::ValueFlag<int> c(parser, "INT", "Bitcount length between 2 and 63. [8]", {'c'});
+    args::ValueFlag<int> s(parser, "INT", "Submer size used for creating syncmers [k-4]. Only even numbers on k-s allowed. A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. It is recommended not to change this parameter unless you have a good understanding of syncmers as it will drastically change the memory usage and results with non default values.", {'s'});
+
+    args::Group alignment(parser, "Alignment:");
+    args::ValueFlag<int> A(parser, "INT", "matching score [2]", {'A'});
+    args::ValueFlag<int> B(parser, "INT", "mismatch penalty [8]", {'B'});
+    args::ValueFlag<int> O(parser, "INT", "gap open penalty [12]", {'O'});
+    args::ValueFlag<int> E(parser, "INT", "gap extension penalty [1]", {'E'});
+
+    args::Group search(parser, "Search parameters:");
+    args::ValueFlag<float> f(parser, "FLOAT", "top fraction of repetitive strobemers to filter out from sampling [0.0002]", {'f'});
+    args::ValueFlag<float> S(parser, "FLOAT", "Try candidate sites with mapping score at least S of maximum mapping score [0.5]", {'S'});
+    args::ValueFlag<int> M(parser, "INT", "Maximum number of mapping sites to try [20]", {'M'});
+    args::ValueFlag<int> R(parser, "INT", "Rescue level. Perform additional search for reads with many repetitive seeds filtered out. This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest.", {'R'});
+
+    // <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]
+    args::Positional<std::string> ref_filename(parser, "reference", "Reference in FASTA format", args::Options::Required);
+    args::Positional<std::string> reads1_filename(parser, "reads1", "Reads 1 in FASTA or FASTQ format, optionally gzip compressed", args::Options::Required);
+    args::Positional<std::string> reads2_filename(parser, "reads2", "Reads 2 in FASTA or FASTQ format, optionally gzip compressed");
+
+
+    try {
+        parser.ParseCLI(argc, argv);
+    }
+    catch (const args::Completion& e) {
+        std::cout << e.what();
+        exit(0);
+    }
+    catch (const args::Help&)
+    {
+        std::cout << parser;
+        exit(0);
+    }
+    catch (const args::Error& e)
+    {
+        std::cerr << parser;
+        std::cerr << "Error: " << e.what() << std::endl;
+        exit(1);
+    }
+
     CommandLineOptions opt;
 
     mapping_params map_param;
@@ -297,133 +309,46 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     map_param.max_dist = map_param.r - 50 < 255 ? map_param.r-50 : 255;
     map_param.is_sam_out = true;  // true: align, false: map
 
-    int opn = 1;
-    while (opn < argc) {
-        bool flag = false;
-        if (argv[opn][0] == '-') {
-            char ch = argv[opn][1];
-            flag = true;
-            switch (ch) {
-//                case 'n':
-//                    n = std::stoi(argv[opn + 1]);
-//                    opn += 2;
-//                    break;
-                case 'h':
-                    print_usage();
-                    exit(0);
-                    break;
-                case 't':
-                    opt.n_threads = std::stoi(argv[opn + 1]);
-                    opn += 2;
-                    break;
-                case 'k':
-                    map_param.k = std::stoi(argv[opn + 1]);
-                    opn += 2;
-                    opt.k_set = true;
-                    break;
-                case 'o':
-                    opt.output_file_name = argv[opn + 1];
-                    opn += 2;
-                    opt.write_to_stdout = false;
-                    break;
-                case 'L':
-                    opt.logfile_name = argv[opn + 1];
-                    opt.index_log = true;
-                    opn += 2;
-                    break;
-                case 's':
-                    map_param.s = std::stoi(argv[opn + 1]);
-                    opn += 2;
-                    opt.s_set = true;
-                    break;
-                case 'f':
-                    map_param.f = std::stof(argv[opn + 1]);
-                    opn += 2;
-                    break;
-                case 'x':
-                    map_param.is_sam_out = false;
-                    opn += 1;
-                    break;
-                case 'R':
-                    map_param.R = std::stoi(argv[opn + 1]);
-                    opn += 2;
-                    break;
-                case 'l':
-                    map_param.l = std::stoi(argv[opn + 1]);
-                    opn += 2;
-                    break;
-                case 'u':
-                    map_param.u = std::stoi(argv[opn + 1]);
-                    opn += 2;
-                    break;
-                case 'c':
-                    map_param.c = std::stoi(argv[opn + 1]);
-                    opn += 2;
-                    break;
-                case 'r':
-                    map_param.r = std::stoi(argv[opn + 1]);
-                    opn += 2;
-                    opt.r_set = true;
-                    break;
-                case 'm':
-                    opt.max_seed_len = std::stoi(argv[opn + 1]);
-                    opn += 2;
-                    opt.max_seed_len_set = true;
-                    break;
-                case 'S':
-                    map_param.dropoff_threshold = std::stof(argv[opn + 1]);
-                    opn += 2;
-                    break;
-                case 'M':
-                    map_param.maxTries = std::stoi(argv[opn + 1]);
-                    opn += 2;
-                    break;
-                case 'A':
-                    opt.A = std::stoi(argv[opn + 1]);
-                    opn += 2;
-                    break;
-                case 'B':
-                    opt.B = std::stoi(argv[opn + 1]);
-                    opn += 2;
-                    break;
-                case 'O':
-                    opt.O = std::stoi(argv[opn + 1]);
-                    opn += 2;
-                    break;
-                case 'E':
-                    opt.E = std::stoi(argv[opn + 1]);
-                    opn += 2;
-                    break;
-                case 'N':
-                    map_param.max_secondary = std::stoi(argv[opn + 1]);
-                    opn += 2;
-                    break;
-                default:
-                    print_usage();
-                    exit(1);
-                    break;
-            }
-        }
-        if (!flag)
-            break;
-    }
+    if (threads) { opt.n_threads = args::get(threads); }
 
-    // File name to reference
-    opt.ref_filename = argv[opn];
-    opn++;
+    // Input/output
+    if (o) { opt.output_file_name = args::get(o); opt.write_to_stdout = false; }
+    if (x) { map_param.is_sam_out = false; }
+    if (N) { map_param.max_secondary = args::get(N); }
+    if (L) { opt.logfile_name = args::get(L); opt.index_log = true; }
 
-    if (opn == argc - 1) {
-        opt.reads_filename1 = argv[opn];
-        opt.reads_filename2 = nullptr;
-        opt.is_SE = true;
-    } else if (opn == argc - 2) {
-        opt.reads_filename1 = argv[opn];
-        opn++;
-        opt.reads_filename2 = argv[opn];
+    // Seeding
+    if (r) { map_param.r = args::get(r); opt.r_set = true; }
+    if (m) { opt.max_seed_len = args::get(m); opt.max_seed_len_set = true; }
+    if (k) { map_param.k = args::get(k); opt.k_set = true; }
+    if (l) { map_param.l = args::get(l); }
+    if (u) { map_param.u = args::get(u); }
+    if (c) { map_param.c = args::get(c); }
+    if (s) { map_param.s = args::get(s); opt.s_set = true; }
+
+    // Alignment
+    // if (n) { n = args::get(n); }
+    if (A) { opt.A = args::get(A); }
+    if (B) { opt.B = args::get(B); }
+    if (O) { opt.O = args::get(O); }
+    if (E) { opt.E = args::get(E); }
+
+    // Search parameters
+    if (f) { map_param.f = args::get(f); }
+    if (S) { map_param.dropoff_threshold = args::get(S); }
+    if (M) { map_param.maxTries = args::get(M); }
+    if (R) { map_param.R = args::get(R); }
+
+    // Reference and read files
+    opt.ref_filename = args::get(ref_filename);
+    opt.reads_filename1 = args::get(reads1_filename);
+
+    if (reads2_filename) {
+        opt.reads_filename2 = args::get(reads2_filename);
         opt.is_SE = false;
     } else {
-        print_usage();
-        exit(1);
+        opt.reads_filename2 = std::string();
+        opt.is_SE = true;
     }
 
     return std::make_pair(opt, map_param);
@@ -436,9 +361,9 @@ int main (int argc, char **argv)
     mapping_params map_param;
     std::tie(opt, map_param) = parse_command_line_arguments(argc, argv);
 
-    if (opt.reads_filename2 == nullptr) {
+    if (opt.reads_filename2 == "") {
         if (!opt.r_set){
-            gzFile fp1_tmp = gzopen(opt.reads_filename1, "r");
+            gzFile fp1_tmp = gzopen(opt.reads_filename1.c_str(), "r");
             auto ks1_tmp = make_ikstream(fp1_tmp, gzread);
             auto r1_tmp = est_read_length(ks1_tmp, 500);
             gzclose(fp1_tmp);
@@ -446,9 +371,9 @@ int main (int argc, char **argv)
         }
     } else {
         if (!opt.r_set) {
-            gzFile fp1_tmp = gzopen(opt.reads_filename1, "r");
+            gzFile fp1_tmp = gzopen(opt.reads_filename1.c_str(), "r");
             auto ks1_tmp = make_ikstream(fp1_tmp, gzread);
-            gzFile fp2_tmp = gzopen(opt.reads_filename2, "r");
+            gzFile fp2_tmp = gzopen(opt.reads_filename2.c_str(), "r");
             auto ks2_tmp = make_ikstream(fp2_tmp, gzread);
             auto r1_tmp = est_read_length(ks1_tmp, 500);
             auto r2_tmp = est_read_length(ks2_tmp, 500);
@@ -722,7 +647,7 @@ int main (int argc, char **argv)
     if(opt.is_SE) {
         std::cerr << "Running SE mode" <<  std::endl;
         //    KSeq record;
-        gzFile fp = gzopen(opt.reads_filename1, "r");
+        gzFile fp = gzopen(opt.reads_filename1.c_str(), "r");
         auto ks = make_ikstream(fp, gzread);
 
         ////////// ALIGNMENT START //////////
@@ -754,9 +679,9 @@ int main (int argc, char **argv)
     }
     else{
         std::cerr << "Running PE mode" <<  std::endl;
-        gzFile fp1 = gzopen(opt.reads_filename1, "r");
+        gzFile fp1 = gzopen(opt.reads_filename1.c_str(), "r");
         auto ks1 = make_ikstream(fp1, gzread);
-        gzFile fp2 = gzopen(opt.reads_filename2, "r");
+        gzFile fp2 = gzopen(opt.reads_filename2.c_str(), "r");
         auto ks2 = make_ikstream(fp2, gzread);
         std::unordered_map<std::thread::id, i_dist_est> isize_est_vec(opt.n_threads);
 
