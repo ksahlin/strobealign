@@ -379,6 +379,37 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     return std::make_pair(opt, map_param);
 }
 
+void adjust_mapping_params_depending_on_read_length(mapping_params &map_param, const CommandLineOptions &opt) {
+    struct settings {
+        int r_threshold;
+        int k;
+        int s_offset;
+        int l;
+        int u;
+    };
+    std::vector<settings> d = {
+        settings {75, 20, -4, -4, 2},
+        settings {125, 20, -4, -2, 2},
+        settings {175, 20, -4, 1, 7},
+        settings {275, 20, -4, 4, 13},
+        settings {375, 22, -4, 2, 12},
+        settings {std::numeric_limits<int>::max(), 23, -6, 2, 12},
+    };
+    for (const auto& v : d) {
+        if (map_param.r <= v.r_threshold) {
+            if (!opt.k_set) {
+                map_param.k = v.k;
+            }
+            if (!opt.s_set) {
+                map_param.s = map_param.k + v.s_offset;
+            }
+            map_param.l = v.l;
+            map_param.u = v.u;
+            break;
+        }
+    }
+}
+
 int main (int argc, char **argv)
 {
     CommandLineOptions opt;
@@ -389,62 +420,7 @@ int main (int argc, char **argv)
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
     }
 
-    if (map_param.r <= 75) { // based on params for 100
-        if (!opt.k_set){
-            map_param.k = 20;
-        }
-        if ( (!opt.s_set ) ){
-            map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
-        }
-        map_param.l = -4;
-        map_param.u = 2;
-    } else if (map_param.r <= 125) { // based on params for 100
-        if (!opt.k_set){
-            map_param.k = 20;
-        }
-        if ( (!opt.s_set ) ){
-            map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
-        }
-        map_param.l = -2;
-        map_param.u = 2;
-    } else if (map_param.r <= 175) { // based on params for 150
-        if (!opt.k_set) {
-            map_param.k = 20;
-        }
-        if ( (!opt.s_set ) ){
-            map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
-        }
-        map_param.l = 1;
-        map_param.u = 7;
-    } else if (map_param.r <= 275) { // based on params for 200 and 250
-        if (!opt.k_set) {
-            map_param.k = 20;
-        }
-        if ( (!opt.s_set ) ){
-            map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
-        }
-        map_param.l = 4;
-        map_param.u = 13;
-    } else if (map_param.r <= 375) { // based on params for 300
-        if (!opt.k_set) {
-            map_param.k = 22;
-        }
-        if ( (!opt.s_set ) ){
-            map_param.s = map_param.k - 4; // Update default s to k - 4 if user has not set s parameter
-        }
-        map_param.l = 2;
-        map_param.u = 12;
-    } else{
-        if (!opt.k_set) {
-            map_param.k = 23;
-        }
-        if ( (!opt.s_set ) ){
-            map_param.s = map_param.k - 6; // Update default s to k - 4 if user has not set s parameter
-        }
-        map_param.l = 2;
-        map_param.u = 12;
-    }
-
+    adjust_mapping_params_depending_on_read_length(map_param, opt);
 
     if (!opt.max_seed_len_set){
         map_param.max_dist = map_param.r - 70 > map_param.k ? map_param.r - 70 : map_param.k;
