@@ -463,7 +463,7 @@ int main (int argc, char **argv)
         map_param.q = pow (2, 8) - 1;
     }
 
-    map_param.w_min = map_param.k/(map_param.k-map_param.s+1) + map_param.l > 1 ? map_param.k/(map_param.k-map_param.s+1) + map_param.l : 1;
+    map_param.w_min = std::max(1, map_param.k/(map_param.k-map_param.s+1) + map_param.l);
     map_param.w_max = map_param.k/(map_param.k-map_param.s+1) + map_param.u;
     map_param.t_syncmer = (map_param.k-map_param.s)/2 + 1;
 
@@ -473,21 +473,21 @@ int main (int argc, char **argv)
     aln_params.gap_open = opt.O;
     aln_params.gap_extend = opt.E;
 
-    std::cerr << "Using" << std::endl;
-    std::cerr << "k: " << map_param.k << std::endl;
-    std::cerr << "s: " << map_param.s << std::endl;
-    std::cerr << "w_min: " << map_param.w_min << std::endl;
-    std::cerr << "w_max: " << map_param.w_max << std::endl;
-    std::cerr << "Read length (r): " << map_param.r << std::endl;
-    std::cerr << "Maximum seed length: " << map_param.max_dist + map_param.k << std::endl;
-    std::cerr << "Threads: " << opt.n_threads << std::endl;
-    std::cerr << "R: " << map_param.R << std::endl;
-    std::cerr << "Expected [w_min, w_max] in #syncmers: [" << map_param.w_min << ", " << map_param.w_max << "]" << std::endl;
-    std::cerr << "Expected [w_min, w_max] in #nucleotides: [" << (map_param.k-map_param.s+1)*map_param.w_min << ", " << (map_param.k-map_param.s+1)*map_param.w_max << "]" << std::endl;
-    std::cerr << "A: " << opt.A << std::endl;
-    std::cerr << "B: " << opt.B << std::endl;
-    std::cerr << "O: " << opt.O << std::endl;
-    std::cerr << "E: " << opt.E << std::endl;
+    std::cerr << "Using" << std::endl
+        << "k: " << map_param.k << std::endl
+        << "s: " << map_param.s << std::endl
+        << "w_min: " << map_param.w_min << std::endl
+        << "w_max: " << map_param.w_max << std::endl
+        << "Read length (r): " << map_param.r << std::endl
+        << "Maximum seed length: " << map_param.max_dist + map_param.k << std::endl
+        << "Threads: " << opt.n_threads << std::endl
+        << "R: " << map_param.R << std::endl
+        << "Expected [w_min, w_max] in #syncmers: [" << map_param.w_min << ", " << map_param.w_max << "]" << std::endl
+        << "Expected [w_min, w_max] in #nucleotides: [" << (map_param.k-map_param.s+1)*map_param.w_min << ", " << (map_param.k-map_param.s+1)*map_param.w_max << "]" << std::endl
+        << "A: " << opt.A << std::endl
+        << "B: " << opt.B << std::endl
+        << "O: " << opt.O << std::endl
+        << "E: " << opt.E << std::endl;
 
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
     assert(map_param.k > 7 && "You should really not use too small strobe size!");
@@ -732,33 +732,26 @@ int main (int argc, char **argv)
         tot_log_vars.tot_extend += log_vars.tot_extend;
         tot_log_vars.tot_write_file += log_vars.tot_write_file;
     }
-
-    std::cerr << "Total mapping sites tried: " << tot_log_vars.tot_all_tried << std::endl;
-    std::cerr << "Total calls to ssw: " << tot_log_vars.tot_ksw_aligned << std::endl;
-    std::cerr << "Calls to ksw (rescue mode): " << tot_log_vars.tot_rescued << std::endl;
-    std::cerr << "Did not fit strobe start site: " << tot_log_vars.did_not_fit  << std::endl;
-    std::cerr << "Tried rescue: " << tot_log_vars.tried_rescue  << std::endl;
     // Record mapping end time
     std::chrono::duration<double> tot_aln_part = high_resolution_clock::now() - start_aln_part;
-    std::cerr << "Total time mapping: " << tot_aln_part.count() << " s." <<  std::endl;
-    std::cerr << "Total time reading read-file(s): " << tot_log_vars.tot_read_file.count()/opt.n_threads << " s." <<  std::endl;
-    std::cerr << "Total time creating strobemers: " << tot_log_vars.tot_construct_strobemers.count()/opt.n_threads << " s." <<  std::endl;
-    std::cerr << "Total time finding NAMs (non-rescue mode): " << tot_log_vars.tot_find_nams.count()/opt.n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time finding NAMs (rescue mode): " << tot_log_vars.tot_time_rescue.count()/opt.n_threads  << " s." <<  std::endl;
-//    std::cerr << "Total time finding NAMs ALTERNATIVE (candidate sites): " << tot_find_nams_alt.count()/opt.n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time sorting NAMs (candidate sites): " << tot_log_vars.tot_sort_nams.count()/opt.n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time reverse compl seq: " << tot_log_vars.tot_rc.count()/opt.n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time base level alignment (ssw): " << tot_log_vars.tot_extend.count()/opt.n_threads  << " s." <<  std::endl;
-    std::cerr << "Total time writing alignment to files: " << tot_log_vars.tot_write_file.count() << " s." <<  std::endl;
 
-    //////////////////////////////////////////////////////////////////////////
-
+    std::cerr << "Total mapping sites tried: " << tot_log_vars.tot_all_tried << std::endl
+        << "Total calls to ssw: " << tot_log_vars.tot_ksw_aligned << std::endl
+        << "Calls to ksw (rescue mode): " << tot_log_vars.tot_rescued << std::endl
+        << "Did not fit strobe start site: " << tot_log_vars.did_not_fit  << std::endl
+        << "Tried rescue: " << tot_log_vars.tried_rescue  << std::endl
+        << "Total time mapping: " << tot_aln_part.count() << " s." <<  std::endl
+        << "Total time reading read-file(s): " << tot_log_vars.tot_read_file.count()/opt.n_threads << " s." <<  std::endl
+        << "Total time creating strobemers: " << tot_log_vars.tot_construct_strobemers.count()/opt.n_threads << " s." <<  std::endl
+        << "Total time finding NAMs (non-rescue mode): " << tot_log_vars.tot_find_nams.count()/opt.n_threads  << " s." <<  std::endl
+        << "Total time finding NAMs (rescue mode): " << tot_log_vars.tot_time_rescue.count()/opt.n_threads  << " s." <<  std::endl;
+    //<< "Total time finding NAMs ALTERNATIVE (candidate sites): " << tot_find_nams_alt.count()/opt.n_threads  << " s." <<  std::endl;
+    std::cerr << "Total time sorting NAMs (candidate sites): " << tot_log_vars.tot_sort_nams.count()/opt.n_threads  << " s." <<  std::endl
+        << "Total time reverse compl seq: " << tot_log_vars.tot_rc.count()/opt.n_threads  << " s." <<  std::endl
+        << "Total time base level alignment (ssw): " << tot_log_vars.tot_extend.count()/opt.n_threads  << " s." <<  std::endl
+        << "Total time writing alignment to files: " << tot_log_vars.tot_write_file.count() << " s." <<  std::endl;
 
     /////////////////////// FIND AND OUTPUT NAMs ///////////////////////////////
-
-
-
-
 
 }
 
