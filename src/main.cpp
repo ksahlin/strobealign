@@ -407,7 +407,7 @@ int main (int argc, char **argv)
         }
         map_param.l = -2;
         map_param.u = 2;
-    } else if ((map_param.r > 125) && (map_param.r <= 175)) { // based on params for 150
+    } else if (map_param.r <= 175) { // based on params for 150
         if (!opt.k_set) {
             map_param.k = 20;
         }
@@ -416,7 +416,7 @@ int main (int argc, char **argv)
         }
         map_param.l = 1;
         map_param.u = 7;
-    } else if ((map_param.r > 175) && (map_param.r <= 275)) { // based on params for 200 and 250
+    } else if (map_param.r <= 275) { // based on params for 200 and 250
         if (!opt.k_set) {
             map_param.k = 20;
         }
@@ -425,7 +425,7 @@ int main (int argc, char **argv)
         }
         map_param.l = 4;
         map_param.u = 13;
-    } else if ((map_param.r > 275) && (map_param.r <= 375)) { // based on params for 300
+    } else if (map_param.r <= 375) { // based on params for 300
         if (!opt.k_set) {
             map_param.k = 22;
         }
