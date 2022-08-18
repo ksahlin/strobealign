@@ -23,6 +23,7 @@ using namespace klibpp;
 #include "ssw_cpp.h"
 #include "pc.hpp"
 #include "aln.hpp"
+#include "version.hpp"
 
 //develop
 #include <chrono>
@@ -251,7 +252,7 @@ struct CommandLineOptions {
 
 std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int argc, char **argv) {
 
-    args::ArgumentParser parser("StrobeAlign 0.7.1");
+    args::ArgumentParser parser("StrobeAlign " VERSION_STRING);
     parser.helpParams.showTerminator = false;
     parser.helpParams.helpindent = 20;
     parser.helpParams.width = 90;
@@ -614,7 +615,7 @@ int main (int argc, char **argv)
 //            out << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
             out << "@SQ\tSN:" << acc_map[i] << "\tLN:" << ref_lengths[i] << "\n";
         }
-        out << "@PG\tID:strobealign\tPN:strobealign\tVN:0.7.1\tCL:strobealign\n";
+        out << "@PG\tID:strobealign\tPN:strobealign\tVN:" VERSION_STRING "\tCL:strobealign\n";
     }
 
     std::unordered_map<std::thread::id, logging_variables> log_stats_vec(opt.n_threads);
