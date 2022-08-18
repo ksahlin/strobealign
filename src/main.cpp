@@ -3,33 +3,28 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
-#include <assert.h>
-#include <math.h>
-#include <chrono>  // for high_resolution_clock
-//#include <omp.h>
-#include <zlib.h>
+#include <chrono>
 #include <sstream>
 #include <algorithm>
 #include <numeric>
+#include <thread>
+#include <assert.h>
+#include <math.h>
 #include <inttypes.h>
 
-#include <args.hxx>
-
+#include <zlib.h>
+#include "args.hxx"
 #include "kseq++.hpp"
-using namespace klibpp;
 #include "robin_hood.h"
-#include "index.hpp"
-//#include "ksw2.h"
 #include "ssw_cpp.h"
+
+#include "index.hpp"
 #include "pc.hpp"
 #include "aln.hpp"
 #include "version.hpp"
 
-//develop
-#include <chrono>
-#include <thread>
-#include <sstream>
 
+using namespace klibpp;
 using std::chrono::high_resolution_clock;
 
 
