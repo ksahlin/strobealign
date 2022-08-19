@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.16)
 
 project(strobealign VERSION 0.7.1)
 
+configure_file(
+    "${PROJECT_SOURCE_DIR}/src/version.hpp.in"
+    "${PROJECT_BINARY_DIR}/version.hpp"
+)
 option(ENABLE_AVX "Enable AVX2 support" OFF)
 
 find_package(ZLIB)
@@ -28,7 +32,7 @@ ext/ssw.c
 add_executable(strobealign ${SOURCES})
 
 target_link_libraries(strobealign PUBLIC ZLIB::ZLIB Threads::Threads)
-target_include_directories(strobealign PUBLIC src/ ext/)
+target_include_directories(strobealign PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 install(TARGETS strobealign DESTINATION bin)
 
 IF(ENABLE_AVX)

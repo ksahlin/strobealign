@@ -3,32 +3,28 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
-#include <assert.h>
-#include <math.h>
-#include <chrono>  // for high_resolution_clock
-//#include <omp.h>
-#include <zlib.h>
+#include <chrono>
 #include <sstream>
 #include <algorithm>
 #include <numeric>
+#include <thread>
+#include <assert.h>
+#include <math.h>
 #include <inttypes.h>
 
-#include <args.hxx>
-
+#include <zlib.h>
+#include "args.hxx"
 #include "kseq++.hpp"
-using namespace klibpp;
 #include "robin_hood.h"
-#include "index.hpp"
-//#include "ksw2.h"
 #include "ssw_cpp.h"
+
+#include "index.hpp"
 #include "pc.hpp"
 #include "aln.hpp"
+#include "version.hpp"
 
-//develop
-#include <chrono>
-#include <thread>
-#include <sstream>
 
+using namespace klibpp;
 using std::chrono::high_resolution_clock;
 
 
@@ -251,7 +247,7 @@ struct CommandLineOptions {
 
 std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int argc, char **argv) {
 
-    args::ArgumentParser parser("StrobeAlign 0.7.1");
+    args::ArgumentParser parser("StrobeAlign " VERSION_STRING);
     parser.helpParams.showTerminator = false;
     parser.helpParams.helpindent = 20;
     parser.helpParams.width = 90;
@@ -614,7 +610,7 @@ int main (int argc, char **argv)
 //            out << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
             out << "@SQ\tSN:" << acc_map[i] << "\tLN:" << ref_lengths[i] << "\n";
         }
-        out << "@PG\tID:strobealign\tPN:strobealign\tVN:0.7.1\tCL:strobealign\n";
+        out << "@PG\tID:strobealign\tPN:strobealign\tVN:" VERSION_STRING "\tCL:strobealign\n";
     }
 
     std::unordered_map<std::thread::id, logging_variables> log_stats_vec(opt.n_threads);
