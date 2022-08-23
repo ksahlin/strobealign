@@ -580,7 +580,6 @@ int main (int argc, char **argv)
     // Record matching time
     auto start_aln_part = high_resolution_clock::now();
 
-    logging_variables tot_log_vars;
 //    std::ifstream query_file(reads_filename);
 
     map_param.rescue_cutoff = map_param.R < 100 ? map_param.R*map_param.filter_cutoff : 1000;
@@ -686,23 +685,10 @@ int main (int argc, char **argv)
         gzclose(fp2);
     }
 
+    logging_variables tot_log_vars;
     for (auto &it : log_stats_vec) {
         auto thread_id = it.first;
-        auto log_vars = it.second;
-        tot_log_vars.tot_all_tried += log_vars.tot_all_tried;
-        tot_log_vars.tot_ksw_aligned += log_vars.tot_ksw_aligned;
-        tot_log_vars.tot_rescued += log_vars.tot_rescued;
-        tot_log_vars.did_not_fit += log_vars.did_not_fit;
-        tot_log_vars.tried_rescue += log_vars.tried_rescue;
-
-        tot_log_vars.tot_read_file += log_vars.tot_read_file;
-        tot_log_vars.tot_construct_strobemers += log_vars.tot_construct_strobemers;
-        tot_log_vars.tot_find_nams += log_vars.tot_find_nams;
-        tot_log_vars.tot_time_rescue += log_vars.tot_time_rescue;
-        tot_log_vars.tot_sort_nams += log_vars.tot_sort_nams;
-        tot_log_vars.tot_rc += log_vars.tot_rc;
-        tot_log_vars.tot_extend += log_vars.tot_extend;
-        tot_log_vars.tot_write_file += log_vars.tot_write_file;
+        tot_log_vars += it.second;
     }
     // Record mapping end time
     std::chrono::duration<double> tot_aln_part = high_resolution_clock::now() - start_aln_part;
