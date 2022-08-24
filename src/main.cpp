@@ -501,10 +501,7 @@ int main (int argc, char **argv)
         mers_vector randstrobes2; // pos, chr_id, kmer hash value
 //        std::cerr << i << " " << i_mod << std::endl;
         randstrobes2 = seq_to_randstrobes2(map_param.n, map_param.k, map_param.w_min, map_param.w_max, ref_seqs[i], i, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
-        for (auto &t : randstrobes2)
-        {
-            flat_vector.push_back(t);
-        }
+        flat_vector.insert(flat_vector.end(), randstrobes2.begin(), randstrobes2.end());
     }
     std::cerr << "Ref vector actual size: " << flat_vector.size() << std::endl;
     flat_vector.shrink_to_fit();
