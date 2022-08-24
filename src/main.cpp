@@ -495,7 +495,6 @@ int main (int argc, char **argv)
     int approx_vec_size = total_ref_seq_size / (map_param.k-map_param.s+1);
     std::cerr << "ref vector approximate size: " << approx_vec_size << std::endl;
     flat_vector.reserve(approx_vec_size);
-    unsigned int mer_cnt = 0;
     for(size_t i = 0; i < ref_seqs.size(); ++i)
     {
         mers_vector randstrobes2; // pos, chr_id, kmer hash value
@@ -678,7 +677,6 @@ int main (int argc, char **argv)
 
     logging_variables tot_log_vars;
     for (auto &it : log_stats_vec) {
-        auto thread_id = it.first;
         tot_log_vars += it.second;
     }
     // Record mapping end time
