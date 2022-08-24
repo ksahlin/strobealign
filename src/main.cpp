@@ -612,14 +612,13 @@ int main (int argc, char **argv)
     std::unordered_map<std::thread::id, logging_variables> log_stats_vec(opt.n_threads);
 
 
+    std::cerr << "Running in " << (opt.is_SE ? "single-end" : "paired-end") << " mode" << std::endl;
+
     if(opt.is_SE) {
-        std::cerr << "Running SE mode" <<  std::endl;
-        //    KSeq record;
         gzFile fp = gzopen(opt.reads_filename1.c_str(), "r");
         auto ks = make_ikstream(fp, gzread);
 
         ////////// ALIGNMENT START //////////
-        /////////////////////////////////////
 
         int input_chunk_size = 100000;
         // Create Buffers
@@ -639,14 +638,9 @@ int main (int argc, char **argv)
             workers[i].join();
         }
 
-        std::cerr << "Done!\n";
-        /////////////////////////////////////
-        /////////////////////////////////////
-
         gzclose(fp);
     }
     else{
-        std::cerr << "Running PE mode" <<  std::endl;
         gzFile fp1 = gzopen(opt.reads_filename1.c_str(), "r");
         auto ks1 = make_ikstream(fp1, gzread);
         gzFile fp2 = gzopen(opt.reads_filename2.c_str(), "r");
@@ -674,13 +668,13 @@ int main (int argc, char **argv)
             workers[i].join();
         }
 
-        std::cerr << "Done!\n";
         /////////////////////////////////////
         /////////////////////////////////////
 
         gzclose(fp1);
         gzclose(fp2);
     }
+    std::cerr << "Done!\n";
 
     logging_variables tot_log_vars;
     for (auto &it : log_stats_vec) {
