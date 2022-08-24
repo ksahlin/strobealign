@@ -473,6 +473,20 @@ std::pair<mers_vector, kmer_lookup> create_index(mapping_params map_param, std::
     return make_pair(flat_vector, mers_index);
 }
 
+/*
+ * Return formatted SAM header as a string
+ */
+std::string sam_header(idx_to_acc& acc_map, const std::vector<unsigned int>& ref_lengths) {
+    std::stringstream out;
+    int nr_ref = acc_map.size();
+    for (int i = 0; i < nr_ref; ++i) {
+//        for (auto &it : acc_map) {
+//            out << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
+        out << "@SQ\tSN:" << acc_map[i] << "\tLN:" << ref_lengths[i] << "\n";
+    }
+    out << "@PG\tID:strobealign\tPN:strobealign\tVN:" VERSION_STRING "\tCL:strobealign\n";
+    return out.str();
+}
 
 int main (int argc, char **argv)
 {
@@ -560,10 +574,6 @@ int main (int argc, char **argv)
     kmer_lookup mers_index;
     std::tie(flat_vector, mers_index) = create_index(map_param, ref_seqs, total_ref_seq_size);
 
-//    std::chrono::milliseconds timespan(10000); // or whatever
-//    std::this_thread::sleep_for(timespan);
-    //////////////////////////////////////////////////////////////////////////
-
     // Record index creation end time
     std::chrono::duration<double> elapsed = high_resolution_clock::now() - start;
     std::cerr << "Total time indexing: " << elapsed.count() << " s\n" <<  std::endl;
@@ -574,9 +584,6 @@ int main (int argc, char **argv)
         std::cerr << "Finished printing log stats" << std::endl;
 
     }
-
-//    std::chrono::milliseconds timespan2(1000000); // or whatever
-//    std::this_thread::sleep_for(timespan2);
 
     ///////////////////////////// MAP ///////////////////////////////////////
 
@@ -606,13 +613,7 @@ int main (int argc, char **argv)
 //    std::stringstream paf_output;
 
     if (map_param.is_sam_out) {
-        int nr_ref = acc_map.size();
-        for (int i = 0; i < nr_ref; ++i) {
-//        for (auto &it : acc_map) {
-//            out << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
-            out << "@SQ\tSN:" << acc_map[i] << "\tLN:" << ref_lengths[i] << "\n";
-        }
-        out << "@PG\tID:strobealign\tPN:strobealign\tVN:" VERSION_STRING "\tCL:strobealign\n";
+        out << sam_header(acc_map, ref_lengths);
     }
 
     std::unordered_map<std::thread::id, logging_variables> log_stats_vec(opt.n_threads);

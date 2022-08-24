@@ -8,5 +8,6 @@ set -euo pipefail
 strobealign -h
 
 d=tests
-strobealign $d/phix.fasta $d/phix.1.fastq $d/phix.2.fastq | samtools sort -o phix.bam -
+strobealign $d/phix.fasta $d/phix.1.fastq $d/phix.2.fastq | \
+  samtools sort --no-PG -o phix.bam -
 test $(samtools view -c -F 4 phix.bam) = 200
