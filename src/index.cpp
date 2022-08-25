@@ -11,7 +11,7 @@
 #include <bitset>
 #include <climits>
 #include <inttypes.h>
-
+#include <cassert>
 
 /**********************************************************
  *
@@ -93,26 +93,19 @@ static unsigned char seq_nt4_table[256] = {
 //}
 
 
-void process_flat_vector(mers_vector &flat_vector, uint64_t &unique_elements){
-
-    //    flat_array sort
-    std::sort(flat_vector.begin(), flat_vector.end());
-
-    uint64_t prev_k;
-    std::tuple<uint64_t, unsigned int, int> t = flat_vector[0];
-    prev_k = std::get<0>(t);
+uint64_t count_unique_elements(const mers_vector &flat_vector){
+    assert(flat_vector.size() > 0);
+    uint64_t prev_k = std::get<0>(flat_vector[0]);
     uint64_t curr_k;
-    unique_elements = 1;
-    for ( auto &t : flat_vector ) {
-//        std::cerr << t << std::endl;
+    uint64_t unique_elements = 1;
+    for (auto &t : flat_vector) {
         curr_k = std::get<0>(t);
-        if (curr_k != prev_k){
+        if (curr_k != prev_k) {
             unique_elements ++;
         }
         prev_k = curr_k;
     }
-
-//    return flat_vector;
+    return unique_elements;
 }
 
 
