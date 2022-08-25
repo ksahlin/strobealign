@@ -108,8 +108,7 @@ uint64_t count_unique_elements(const mers_vector &flat_vector){
     return unique_elements;
 }
 
-
-unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, float f){
+unsigned int index_vector(const mers_vector &flat_vector, kmer_lookup &mers_index, float f){
 
     std::cerr << "Flat vector size: " << flat_vector.size() << std::endl;
 //    kmer_lookup mers_index;
@@ -417,7 +416,7 @@ static inline void make_string_to_hashvalues_closed_syncmers_canonical(std::stri
 }
 
 
-static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, uint64_t kmask, int k, uint64_t smask, int s, int t) {
+static inline void make_string_to_hashvalues_open_syncmers_canonical(const std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, uint64_t kmask, int k, uint64_t smask, int s, int t) {
     // initialize the deque
     std::deque <uint64_t> qs;
     std::deque <unsigned int> qs_pos;
@@ -609,7 +608,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(std::string
 
 
 
-static inline void get_next_strobe(std::vector<uint64_t> &string_hashes, uint64_t strobe_hashval, unsigned int &strobe_pos_next, uint64_t &strobe_hashval_next,  unsigned int w_start, unsigned int w_end, uint64_t q){
+static inline void get_next_strobe(const std::vector<uint64_t> &string_hashes, uint64_t strobe_hashval, unsigned int &strobe_pos_next, uint64_t &strobe_hashval_next, unsigned int w_start, unsigned int w_end, uint64_t q){
     uint64_t min_val = UINT64_MAX;
 //    int max_val = INT_MIN;
 //    int min_val = INT_MAX;
@@ -665,7 +664,8 @@ static inline void get_next_strobe(std::vector<uint64_t> &string_hashes, uint64_
 }
 
 
-static inline void get_next_strobe_dist_constraint(std::vector<uint64_t> &string_hashes,  std::vector<unsigned int> &pos_to_seq_choord, uint64_t strobe_hashval, unsigned int &strobe_pos_next, uint64_t &strobe_hashval_next,  unsigned int w_start, unsigned int w_end, uint64_t q, unsigned int seq_start, unsigned int seq_end_constraint, unsigned int strobe1_start){
+static inline void get_next_strobe_dist_constraint(const std::vector<uint64_t> &string_hashes, const std::vector<unsigned int> &pos_to_seq_choord, uint64_t strobe_hashval, unsigned int &strobe_pos_next, uint64_t &strobe_hashval_next,  unsigned int w_start, unsigned int w_end, uint64_t q, unsigned int seq_start, unsigned int seq_end_constraint, unsigned int strobe1_start)
+{
     uint64_t min_val = UINT64_MAX;
     strobe_pos_next = strobe1_start; // Defaults if no nearby syncmer
     strobe_hashval_next = string_hashes[strobe1_start];
@@ -733,8 +733,6 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 
     std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
     uint64_t kmask=(1ULL<<2*k) - 1;
-//    std::bitset<64> x(q);
-//    std::cerr << x << '\n';
     // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
     std::vector<uint64_t> string_hashes;
     std::vector<unsigned int> pos_to_seq_choord;

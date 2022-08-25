@@ -28,7 +28,7 @@ typedef robin_hood::unordered_map< uint64_t, std::tuple<unsigned int, unsigned i
 typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool>> mers_vector_read;
 
 //static inline void make_string_to_hashvalues(std::string &seq, std::vector<uint64_t> &string_hashes, int k, uint64_t kmask);
-static inline void get_next_strobe(std::vector<uint64_t> &string_hashes, uint64_t strobe_hashval, unsigned int &strobe_pos_next, uint64_t &strobe_hashval_next,  unsigned int w_start, unsigned int w_end, uint64_t q);
+static inline void get_next_strobe(const std::vector<uint64_t> &string_hashes, uint64_t strobe_hashval, unsigned int &strobe_pos_next, uint64_t &strobe_hashval_next,  unsigned int w_start, unsigned int w_end, uint64_t q);
 
 
 //mers_vector seq_to_kmers(int k, std::string &seq, unsigned int ref_index);
@@ -37,7 +37,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 //mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int w);
 
 uint64_t count_unique_elements(const mers_vector &flat_vector);
-unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, float f);
+unsigned int index_vector(const mers_vector &flat_vector, kmer_lookup &mers_index, float f);
 
 struct hit {
     int query_s;
