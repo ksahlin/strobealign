@@ -37,7 +37,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, st
 //mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int w);
 
 uint64_t count_unique_elements(const mers_vector &flat_vector);
-unsigned int index_vector(mers_vector  &mers_vector, kmer_lookup &mers_index, float f);
+unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, float f);
 
 struct hit {
     int query_s;
