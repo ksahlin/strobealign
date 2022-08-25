@@ -406,6 +406,88 @@ void adjust_mapping_params_depending_on_read_length(mapping_params &map_param, c
     }
 }
 
+std::pair<mers_vector, kmer_lookup> create_index(mapping_params map_param, std::vector<std::string> ref_seqs, uint64_t total_ref_seq_size) {
+    auto start_flat_vector = high_resolution_clock::now();
+
+    mers_vector flat_vector;
+    int approx_vec_size = total_ref_seq_size / (map_param.k-map_param.s+1);
+    std::cerr << "ref vector approximate size: " << approx_vec_size << std::endl;
+    flat_vector.reserve(approx_vec_size);
+    for(size_t i = 0; i < ref_seqs.size(); ++i)
+    {
+        mers_vector randstrobes2; // pos, chr_id, kmer hash value
+//        std::cerr << i << " " << i_mod << std::endl;
+        randstrobes2 = seq_to_randstrobes2(map_param.n, map_param.k, map_param.w_min, map_param.w_max, ref_seqs[i], i, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
+        flat_vector.insert(flat_vector.end(), randstrobes2.begin(), randstrobes2.end());
+    }
+    std::cerr << "Ref vector actual size: " << flat_vector.size() << std::endl;
+    flat_vector.shrink_to_fit();
+
+    std::chrono::duration<double> elapsed_generating_seeds = high_resolution_clock::now() - start_flat_vector;
+    std::cerr << "Time generating seeds: " << elapsed_generating_seeds.count() << " s\n" <<  std::endl;
+
+
+//    create vector of vectors here nr_threads
+//    std::vector<std::vector<std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>>> vector_per_ref_chr(opt.n_threads);
+//    for(size_t i = 0; i < ref_seqs.size(); ++i)
+//    {
+//        mers_vector randstrobes2; // pos, chr_id, kmer hash value
+//        std::cerr << "Started thread: " << omp_get_thread_num() << " chr size: " << ref_lengths[i] << " acc map:" << acc_map[i] << std::endl;
+//        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t);
+//        for (auto &t : randstrobes2)
+//        {
+//            vector_per_ref_chr[omp_get_thread_num()].push_back(t);
+//        }
+//        std::cerr << "Completed thread: " << omp_get_thread_num() << " chr size: " << ref_lengths[i] << " acc map:" << acc_map[i] << std::endl;
+//    }
+
+    uint64_t unique_mers = 0;
+    auto start_sorting = high_resolution_clock::now();
+//    std::cerr << "Reserving flat vector size: " << approx_vec_size << std::endl;
+//    all_mers_vector_tmp.reserve(approx_vec_size); // reserve size corresponding to sum of lengths of all sequences divided by expected sampling
+    process_flat_vector(flat_vector, unique_mers);
+    std::chrono::duration<double> elapsed_sorting_seeds = high_resolution_clock::now() - start_sorting;
+    std::cerr << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s\n" <<  std::endl;
+    std::cerr << "Unique strobemers: " << unique_mers  <<  std::endl;
+
+    std::chrono::duration<double> elapsed_flat_vector = high_resolution_clock::now() - start_flat_vector;
+    std::cerr << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s\n" <<  std::endl;
+
+    auto start_hash_index = high_resolution_clock::now();
+    kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
+    mers_index.reserve(unique_mers);
+    map_param.filter_cutoff = index_vector(flat_vector, mers_index, map_param.f); // construct index over flat array
+    std::chrono::duration<double> elapsed_hash_index = high_resolution_clock::now() - start_hash_index;
+    std::cerr << "Total time generating hash table index: " << elapsed_hash_index.count() << " s\n" <<  std::endl;
+
+//    mers_vector_reduced all_mers_vector;
+//    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector);
+    /* destroy vector */
+//    flat_vector.clear();
+
+
+////////////////////////////////////////////////////////////////////////
+
+
+//    std::cerr << "Wrote index to disc" << std::endl;
+    return make_pair(flat_vector, mers_index);
+}
+
+/*
+ * Return formatted SAM header as a string
+ */
+std::string sam_header(idx_to_acc& acc_map, const std::vector<unsigned int>& ref_lengths) {
+    std::stringstream out;
+    int nr_ref = acc_map.size();
+    for (int i = 0; i < nr_ref; ++i) {
+//        for (auto &it : acc_map) {
+//            out << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
+        out << "@SQ\tSN:" << acc_map[i] << "\tLN:" << ref_lengths[i] << "\n";
+    }
+    out << "@PG\tID:strobealign\tPN:strobealign\tVN:" VERSION_STRING "\tCL:strobealign\n";
+    return out.str();
+}
+
 int main (int argc, char **argv)
 {
     CommandLineOptions opt;
@@ -472,15 +554,14 @@ int main (int argc, char **argv)
 
     //////////// CREATE INDEX OF REF SEQUENCES /////////////////
 
-    // Record index creation start time
 
+    // Record index creation start time
     auto start = high_resolution_clock::now();
     auto start_read_refs = start;
     std::vector<std::string> ref_seqs;
     std::vector<unsigned int> ref_lengths;
-    uint64_t total_ref_seq_size;
     idx_to_acc acc_map;
-    total_ref_seq_size = read_references(ref_seqs, ref_lengths, acc_map, opt.ref_filename);
+    uint64_t total_ref_seq_size = read_references(ref_seqs, ref_lengths, acc_map, opt.ref_filename);
     std::chrono::duration<double> elapsed_read_refs = high_resolution_clock::now() - start_read_refs;
     std::cerr << "Time reading references: " << elapsed_read_refs.count() << " s\n" <<  std::endl;
 
@@ -489,77 +570,9 @@ int main (int argc, char **argv)
         return 1;
     }
 
-    auto start_flat_vector = high_resolution_clock::now();
-
     mers_vector flat_vector;
-    int approx_vec_size = total_ref_seq_size / (map_param.k-map_param.s+1);
-    std::cerr << "ref vector approximate size: " << approx_vec_size << std::endl;
-    flat_vector.reserve(approx_vec_size);
-    unsigned int mer_cnt = 0;
-    for(size_t i = 0; i < ref_seqs.size(); ++i)
-    {
-        mers_vector randstrobes2; // pos, chr_id, kmer hash value
-//        std::cerr << i << " " << i_mod << std::endl;
-        randstrobes2 = seq_to_randstrobes2(map_param.n, map_param.k, map_param.w_min, map_param.w_max, ref_seqs[i], i, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
-        for (auto &t : randstrobes2)
-        {
-            flat_vector.push_back(t);
-        }
-    }
-    std::cerr << "Ref vector actual size: " << flat_vector.size() << std::endl;
-    flat_vector.shrink_to_fit();
-
-    std::chrono::duration<double> elapsed_generating_seeds = high_resolution_clock::now() - start_flat_vector;
-    std::cerr << "Time generating seeds: " << elapsed_generating_seeds.count() << " s\n" <<  std::endl;
-
-
-//    create vector of vectors here nr_threads
-//    std::vector<std::vector<std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>>> vector_per_ref_chr(opt.n_threads);
-//    for(size_t i = 0; i < ref_seqs.size(); ++i)
-//    {
-//        mers_vector randstrobes2; // pos, chr_id, kmer hash value
-//        std::cerr << "Started thread: " << omp_get_thread_num() << " chr size: " << ref_lengths[i] << " acc map:" << acc_map[i] << std::endl;
-//        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t);
-//        for (auto &t : randstrobes2)
-//        {
-//            vector_per_ref_chr[omp_get_thread_num()].push_back(t);
-//        }
-//        std::cerr << "Completed thread: " << omp_get_thread_num() << " chr size: " << ref_lengths[i] << " acc map:" << acc_map[i] << std::endl;
-//    }
-
-    uint64_t unique_mers = 0;
-    auto start_sorting = high_resolution_clock::now();
-//    std::cerr << "Reserving flat vector size: " << approx_vec_size << std::endl;
-//    all_mers_vector_tmp.reserve(approx_vec_size); // reserve size corresponding to sum of lengths of all sequences divided by expected sampling
-    process_flat_vector(flat_vector, unique_mers);
-    std::chrono::duration<double> elapsed_sorting_seeds = high_resolution_clock::now() - start_sorting;
-    std::cerr << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s\n" <<  std::endl;
-    std::cerr << "Unique strobemers: " << unique_mers  <<  std::endl;
-
-    std::chrono::duration<double> elapsed_flat_vector = high_resolution_clock::now() - start_flat_vector;
-    std::cerr << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s\n" <<  std::endl;
-
-    auto start_hash_index = high_resolution_clock::now();
-    kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
-    mers_index.reserve(unique_mers);
-    map_param.filter_cutoff = index_vector(flat_vector, mers_index, map_param.f); // construct index over flat array
-    std::chrono::duration<double> elapsed_hash_index = high_resolution_clock::now() - start_hash_index;
-    std::cerr << "Total time generating hash table index: " << elapsed_hash_index.count() << " s\n" <<  std::endl;
-
-//    mers_vector_reduced all_mers_vector;
-//    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector);
-    /* destroy vector */
-//    flat_vector.clear();
-
-
-////////////////////////////////////////////////////////////////////////
-
-
-//    std::cerr << "Wrote index to disc" << std::endl;
-
-//    std::chrono::milliseconds timespan(10000); // or whatever
-//    std::this_thread::sleep_for(timespan);
-    //////////////////////////////////////////////////////////////////////////
+    kmer_lookup mers_index;
+    std::tie(flat_vector, mers_index) = create_index(map_param, ref_seqs, total_ref_seq_size);
 
     // Record index creation end time
     std::chrono::duration<double> elapsed = high_resolution_clock::now() - start;
@@ -571,9 +584,6 @@ int main (int argc, char **argv)
         std::cerr << "Finished printing log stats" << std::endl;
 
     }
-
-//    std::chrono::milliseconds timespan2(1000000); // or whatever
-//    std::this_thread::sleep_for(timespan2);
 
     ///////////////////////////// MAP ///////////////////////////////////////
 
@@ -603,26 +613,19 @@ int main (int argc, char **argv)
 //    std::stringstream paf_output;
 
     if (map_param.is_sam_out) {
-        int nr_ref = acc_map.size();
-        for (int i = 0; i < nr_ref; ++i) {
-//        for (auto &it : acc_map) {
-//            out << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
-            out << "@SQ\tSN:" << acc_map[i] << "\tLN:" << ref_lengths[i] << "\n";
-        }
-        out << "@PG\tID:strobealign\tPN:strobealign\tVN:" VERSION_STRING "\tCL:strobealign\n";
+        out << sam_header(acc_map, ref_lengths);
     }
 
     std::unordered_map<std::thread::id, logging_variables> log_stats_vec(opt.n_threads);
 
 
+    std::cerr << "Running in " << (opt.is_SE ? "single-end" : "paired-end") << " mode" << std::endl;
+
     if(opt.is_SE) {
-        std::cerr << "Running SE mode" <<  std::endl;
-        //    KSeq record;
         gzFile fp = gzopen(opt.reads_filename1.c_str(), "r");
         auto ks = make_ikstream(fp, gzread);
 
         ////////// ALIGNMENT START //////////
-        /////////////////////////////////////
 
         int input_chunk_size = 100000;
         // Create Buffers
@@ -642,14 +645,9 @@ int main (int argc, char **argv)
             workers[i].join();
         }
 
-        std::cerr << "Done!\n";
-        /////////////////////////////////////
-        /////////////////////////////////////
-
         gzclose(fp);
     }
     else{
-        std::cerr << "Running PE mode" <<  std::endl;
         gzFile fp1 = gzopen(opt.reads_filename1.c_str(), "r");
         auto ks1 = make_ikstream(fp1, gzread);
         gzFile fp2 = gzopen(opt.reads_filename2.c_str(), "r");
@@ -677,17 +675,16 @@ int main (int argc, char **argv)
             workers[i].join();
         }
 
-        std::cerr << "Done!\n";
         /////////////////////////////////////
         /////////////////////////////////////
 
         gzclose(fp1);
         gzclose(fp2);
     }
+    std::cerr << "Done!\n";
 
     logging_variables tot_log_vars;
     for (auto &it : log_stats_vec) {
-        auto thread_id = it.first;
         tot_log_vars += it.second;
     }
     // Record mapping end time
@@ -712,4 +709,3 @@ int main (int argc, char **argv)
     /////////////////////// FIND AND OUTPUT NAMs ///////////////////////////////
 
 }
-
