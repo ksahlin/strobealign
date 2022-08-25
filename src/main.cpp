@@ -406,7 +406,7 @@ void adjust_mapping_params_depending_on_read_length(mapping_params &map_param, c
     }
 }
 
-std::pair<mers_vector, kmer_lookup> create_index(mapping_params map_param, std::vector<std::string> ref_seqs, uint64_t total_ref_seq_size) {
+std::pair<mers_vector, kmer_lookup> create_index(mapping_params& map_param, std::vector<std::string>& ref_seqs, uint64_t total_ref_seq_size) {
     auto start_flat_vector = high_resolution_clock::now();
 
     mers_vector flat_vector;
