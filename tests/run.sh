@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -xeuo pipefail
 
 # should fail when unknown command-line option used
 #if strobealign -G; then false; fi
@@ -8,6 +8,6 @@ set -euo pipefail
 strobealign -h
 
 d=tests
-strobealign $d/phix.fasta $d/phix.1.fastq $d/phix.2.fastq | \
-  samtools sort --no-PG -o phix.bam -
-test $(samtools view -c -F 4 phix.bam) = 200
+strobealign $d/phix.fasta $d/phix.1.fastq $d/phix.2.fastq > phix.sam
+diff -u tests/phix.sam phix.sam
+rm phix.sam
