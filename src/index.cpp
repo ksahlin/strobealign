@@ -50,6 +50,10 @@ static inline uint64_t hash64(uint64_t key, uint64_t mask)
 }//hash64
 
 
+// a, A -> 0
+// c, C -> 1
+// g, G -> 2
+// t, T, u, U -> 3
 static unsigned char seq_nt4_table[256] = {
         0, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
@@ -67,7 +71,7 @@ static unsigned char seq_nt4_table[256] = {
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
-}; //seq_nt4_table
+};
 
 
 
@@ -416,10 +420,10 @@ static inline void make_string_to_hashvalues_closed_syncmers_canonical(std::stri
 }
 
 
-static inline void make_string_to_hashvalues_open_syncmers_canonical(const std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, uint64_t kmask, int k, uint64_t smask, int s, int t) {
-    // initialize the deque
-    std::deque <uint64_t> qs;
-    std::deque <unsigned int> qs_pos;
+static inline void make_string_to_hashvalues_open_syncmers_canonical(const std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, uint64_t kmask, int k, uint64_t smask, int s, int t)
+{
+    std::deque<uint64_t> qs;
+    std::deque<unsigned int> qs_pos;
     int seq_length = seq.length();
     int qs_size = 0;
     uint64_t qs_min_val = UINT64_MAX;
@@ -449,12 +453,12 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(const std::
             xs[0] = (xs[0] << 2 | c) & smask;                  // forward strand
             xs[1] = xs[1] >> 2 | (uint64_t)(3 - c) << sshift;  // reverse strand
             if (++l >= s) { // we find an s-mer
-                uint64_t ys = xs[0] < xs[1]? xs[0] : xs[1];
+                uint64_t ys = std::min(xs[0], xs[1]);
 //                uint64_t hash_s = robin_hash(ys);
                 uint64_t hash_s = ys;
 //                uint64_t hash_s = hash64(ys, mask);
 //                uint64_t hash_s = XXH64(&ys, 8,0);
-                // que not initialized yet
+                // queue not initialized yet
                 if (qs_size < k - s ) {
                     qs.push_back(hash_s);
                     qs_pos.push_back(i - s + 1);
@@ -474,7 +478,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(const std::
                     }
                     if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
 //                    if ( (qs_min_pos == qs_pos[t-1]) || ((gap > 10) && ((qs_min_pos == qs_pos[k - s]) || (qs_min_pos == qs_pos[0]))) ) { // occurs at first or last position in k-mer
-                        uint64_t yk = xk[0] < xk[1]? xk[0] : xk[1];
+                        uint64_t yk = std::min(xk[0], xk[1]);
 //                        uint64_t hash_k = robin_hash(yk);
 //                        uint64_t hash_k = yk;
 //                        uint64_t hash_k =  hash64(yk, mask);
@@ -498,7 +502,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(const std::
 //                            make_string_to_hashvalues_closed_syncmers_canonical(subseq, string_hashes, pos_to_seq_choord, kmask, k, smask, s, t, i - k + 1 - gap + 1);
 //                        }
 
-                        uint64_t yk = xk[0] < xk[1]? xk[0] : xk[1];
+                        uint64_t yk = std::min(xk[0], xk[1]);
 //                        uint64_t hash_k = robin_hash(yk);
 //                        uint64_t hash_k = yk;
 //                        uint64_t hash_k = hash64(yk, mask);
@@ -522,9 +526,10 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(const std::
 //                }
             }
         } else {
+            // if there is an "N", restart
             qs_min_val = UINT64_MAX;
             qs_min_pos = -1;
-            l = 0, xs[0] = xs[1] = 0,  xk[0] = xk[1] = 0; // if there is an "N", restart
+            l = xs[0] = xs[1] = xk[0] = xk[1] = 0;
             qs_size = 0;
             qs.clear();
             qs_pos.clear();
