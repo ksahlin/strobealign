@@ -453,7 +453,7 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
 //                continue;
 //            }
             // Add the hit to open matches
-            if (not is_added){
+            if (!is_added){
                 nam n;
                 n.nam_id = nam_id_cnt;
                 nam_id_cnt ++;
@@ -708,7 +708,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //                continue;
 //            }
             // Add the hit to open matches
-            if (not is_added){
+            if (!is_added){
                 nam n;
                 n.nam_id = nam_id_cnt;
                 nam_id_cnt ++;
