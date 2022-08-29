@@ -203,8 +203,7 @@ unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, flo
 void write_index(const st_index& index, std::string filename) {
     std::ofstream ofs(filename, std::ios::binary);
 
-    //write ref_seqs
-    ////////////////
+    //write ref_seqs:
     uint64_t s1 = uint64_t(index.ref_seqs.size());
     ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
     //For each string, write length and then the string
@@ -215,14 +214,13 @@ void write_index(const st_index& index, std::string filename) {
         ofs.write(index.ref_seqs[i].c_str(), index.ref_seqs[i].length());
     }
     
-    //write ref_lengths - write everything in one large chunk
-    ////////////////
+    //write ref_lengths:
+    //write everything in one large chunk
     s1 = uint64_t(index.ref_lengths.size());
     ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
     ofs.write(reinterpret_cast<const char*>(&index.ref_lengths[0]), index.ref_lengths.size()*sizeof(index.ref_lengths[0]));
 
-    //write acc_map
-    ////////////////
+    //write acc_map:
     //TODO: Change acc_map to a vector - the keys are just 0,1,2, ... n anyways, so faster access and less complicated with a vector
     //we convert to a vector for now - remove this code later when we have replaced it
     std::vector<std::string> v; 
@@ -231,7 +229,6 @@ void write_index(const st_index& index, std::string filename) {
         [](const robin_hood::pair<idx_to_acc::key_type, idx_to_acc::mapped_type>& p) {
         return p.second;
     });
-
     //now write
     s1 = uint64_t(v.size());
     ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
@@ -242,14 +239,12 @@ void write_index(const st_index& index, std::string filename) {
         ofs.write(v[i].c_str(), v[i].length());
     }
 
-    //write flat_vector
-    ////////////////
+    //write flat_vector:
     s1 = uint64_t(index.flat_vector.size());
     ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
     ofs.write(reinterpret_cast<const char*>(&index.flat_vector[0]), index.flat_vector.size() * sizeof(index.flat_vector[0]));
 
-    //write mers_index
-    ////////////////
+    //write mers_index:
     s1 = uint64_t(index.mers_index.size());
     ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
     for (auto& p : index.mers_index) {
@@ -260,8 +255,7 @@ void write_index(const st_index& index, std::string filename) {
 
 void read_index(st_index& index, std::string filename) {
     std::ifstream ifs(filename, std::ios::binary);
-    //read ref_seqs
-    ////////////////
+    //read ref_seqs:
     index.ref_seqs.clear();
     uint64_t sz = 0;
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
@@ -284,8 +278,7 @@ void read_index(st_index& index, std::string filename) {
     index.ref_lengths.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but ignore that for now
     ifs.read(reinterpret_cast<char*>(&index.ref_lengths[0]), sz*sizeof(index.ref_lengths[0]));
 
-    //read acc_map
-    ////////////////
+    //read acc_map:
     //TODO: update the code to vector later
     index.acc_map.clear();
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
@@ -300,15 +293,13 @@ void read_index(st_index& index, std::string filename) {
         delete[] buf; //ignore that this will not be called in case of an exception in read - to save performance
     }
 
-    //read flat_vector
-    ////////////////
+    //read flat_vector:
     index.flat_vector.clear();
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
     index.flat_vector.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but let's ignore that for now
     ifs.read(reinterpret_cast<char*>(&index.flat_vector[0]), sz*sizeof(index.flat_vector[0]));
 
-    //read mers_index
-    ////////////////
+    //read mers_index:
     index.mers_index.clear();
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
     index.mers_index.reserve(sz);
