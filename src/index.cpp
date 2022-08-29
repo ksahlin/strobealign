@@ -260,11 +260,10 @@ void read_index(st_index& index, std::string filename) {
     auto& refseqs = index.ref_seqs;
     for (uint64_t i = 0; i < sz; ++i) {
         ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
-        char* buf = new char[sz2]; //The vector is short with large strings, so allocating this way should be ok.
-        ifs.read(buf, sz2);
+        std::shared_ptr<char> buf_ptr(new char[sz2], std::default_delete<char[]>());//The vector is short with large strings, so allocating this way should be ok.
+        ifs.read(buf_ptr.get(), sz2);
         //we could potentially use std::move here to avoid reallocation, something like std::string(std::move(buf), sz2), but it has to be investigated more
-        refseqs.push_back(std::string(buf, sz2)); 
-        delete[] buf;
+        refseqs.push_back(std::string(buf_ptr.get(), sz2));
     }
 
     //read ref_lengths
@@ -283,7 +282,7 @@ void read_index(st_index& index, std::string filename) {
 
     for (int i = 0; i < sz; ++i) {
         ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
-        std::shared_ptr<char> buf_ptr(new char[sz2], std::default_delete<char[]>());//Comes at a slight performance cost to allocate each round in the loop.
+        std::shared_ptr<char> buf_ptr(new char[sz2], std::default_delete<char[]>());
         char* buf = buf_ptr.get();
         ifs.read(buf_ptr.get(), sz2);
         acc_map[i] = std::string(buf_ptr.get(), sz2);
