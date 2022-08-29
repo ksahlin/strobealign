@@ -311,14 +311,20 @@ void read_index(st_index& index, std::string filename) {
 	index.mers_index.clear();
 	ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
 	index.mers_index.reserve(sz);
-	//read everything in one big chunk
-	auto buf_size = sz * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
+	//read in big chunks
+	const uint64_t chunk_size = 2 ^ 22;//4 M => chunks of ~50 MB
+	auto buf_size = std::min(sz, chunk_size) * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
 	char* buf2 = new char[buf_size];
-	ifs.read(buf2, buf_size);
-	//Add the elements directly from the buffer
-	for (int i = 0; i < sz; ++i) {
-		auto start = buf2 + i * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
-		index.mers_index[*reinterpret_cast<kmer_lookup::key_type*>(start)] = *reinterpret_cast<kmer_lookup::mapped_type*>(start + sizeof(kmer_lookup::key_type));
+	auto left_to_read = sz;
+	while (left_to_read > 0) {
+		auto to_read = std::min(left_to_read, chunk_size);
+		ifs.read(buf2, to_read * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type)));
+		//Add the elements directly from the buffer
+		for (int i = 0; i < to_read; ++i) {
+			auto start = buf2 + i * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
+			index.mers_index[*reinterpret_cast<kmer_lookup::key_type*>(start)] = *reinterpret_cast<kmer_lookup::mapped_type*>(start + sizeof(kmer_lookup::key_type));
+		}
+		left_to_read -= to_read;
 	}
 	delete[] buf2;
 };
