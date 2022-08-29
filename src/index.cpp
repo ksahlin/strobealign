@@ -283,10 +283,10 @@ void read_index(st_index& index, std::string filename) {
 
     for (int i = 0; i < sz; ++i) {
         ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
-        char* buf = new char[sz2];//Comes at a slight performance cost to allocate each round in the loop.
-        ifs.read(buf, sz2);
-        acc_map[i] = std::string(buf, sz2);
-        delete[] buf; //ignore that this will not be called in case of an exception in read - to save performance
+        std::shared_ptr<char> buf_ptr(new char[sz2], std::default_delete<char[]>());//Comes at a slight performance cost to allocate each round in the loop.
+        char* buf = buf_ptr.get();
+        ifs.read(buf_ptr.get(), sz2);
+        acc_map[i] = std::string(buf_ptr.get(), sz2);
     }
 
     //read flat_vector:
