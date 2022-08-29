@@ -312,7 +312,7 @@ void read_index(st_index& index, std::string filename) {
 	ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
 	index.mers_index.reserve(sz);
 	//read in big chunks
-	const uint64_t chunk_size = 2 ^ 22;//4 M => chunks of ~50 MB
+	const uint64_t chunk_size = pow(2,20);//4 M => chunks of ~10 MB - The chunk size seem not to be that important
 	auto buf_size = std::min(sz, chunk_size) * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
 	char* buf2 = new char[buf_size];
 	auto left_to_read = sz;
