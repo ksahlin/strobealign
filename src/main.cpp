@@ -291,7 +291,7 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     args::ValueFlag<int> R(parser, "INT", "Rescue level. Perform additional search for reads with many repetitive seeds filtered out. This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest.", {'R'});
 
     // <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]
-    args::Positional<std::string> ref_filename(parser, "reference", "A pregenerated strobomers index file (.sti) or a reference in FASTA format", args::Options::Required);
+    args::Positional<std::string> ref_filename(parser, "reference", "A pregenerated strobemers index file (.sti) or a reference in FASTA format", args::Options::Required);
     args::Positional<std::string> reads1_filename(parser, "reads1", "Reads 1 in FASTA or FASTQ format, optionally gzip compressed");
     args::Positional<std::string> reads2_filename(parser, "reads2", "Reads 2 in FASTA or FASTQ format, optionally gzip compressed");
 
