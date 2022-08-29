@@ -217,22 +217,13 @@ void write_index(const st_index& index, std::string filename) {
     ofs.write(reinterpret_cast<const char*>(&index.ref_lengths[0]), index.ref_lengths.size()*sizeof(index.ref_lengths[0]));
 
     //write acc_map:
-    //TODO: Change acc_map to a vector - the keys are just 0,1,2, ... n anyways, so faster access and less complicated with a vector
-    //we convert to a vector for now - remove this code later when we have replaced it
-    std::vector<std::string> v; 
-    std::transform(index.acc_map.begin(), index.acc_map.end(),
-        std::back_inserter(v),
-        [](const robin_hood::pair<idx_to_acc::key_type, idx_to_acc::mapped_type>& p) {
-        return p.second;
-    });
-    //now write
-    s1 = uint64_t(v.size());
+    s1 = uint64_t(index.acc_map.size());
     ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
     //For each string, write length and then the string
-    for (std::size_t i = 0; i < v.size(); ++i) {
-        s2 = uint32_t(v[i].length());
+    for (std::size_t i = 0; i < index.acc_map.size(); ++i) {
+        s2 = uint32_t(index.acc_map[i].length());
         ofs.write(reinterpret_cast<char*>(&s2), sizeof(s2));
-        ofs.write(v[i].c_str(), v[i].length());
+        ofs.write(index.acc_map[i].c_str(), index.acc_map[i].length());
     }
 
     //write flat_vector:
@@ -274,10 +265,9 @@ void read_index(st_index& index, std::string filename) {
     ifs.read(reinterpret_cast<char*>(&index.ref_lengths[0]), sz*sizeof(index.ref_lengths[0]));
 
     //read acc_map:
-    //TODO: update the code to vector later
     index.acc_map.clear();
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-    //index.acc_map.reserve(sz);
+    index.acc_map.reserve(sz);
     auto& acc_map = index.acc_map;
 
     for (int i = 0; i < sz; ++i) {
@@ -285,7 +275,7 @@ void read_index(st_index& index, std::string filename) {
         std::shared_ptr<char> buf_ptr(new char[sz2], std::default_delete<char[]>());
         char* buf = buf_ptr.get();
         ifs.read(buf_ptr.get(), sz2);
-        acc_map[i] = std::string(buf_ptr.get(), sz2);
+        acc_map.push_back(std::string(buf_ptr.get(), sz2));
     }
 
     //read flat_vector:
