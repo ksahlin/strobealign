@@ -529,7 +529,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //    std::vector<std::vector<hit>> hits_per_ref(10);
 //    int read_length = read.length();
 //    std::cerr << " "  <<  std::endl;
-    std::pair<float,int> info (0,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
+    std::pair<float,int> info (0.0f,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
     hit h;
     for (auto &q : query_mers)
@@ -1887,7 +1887,7 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
             best_align_sw_score = sw_score;
         }
 
-        std::tuple<double, alignment> t (sam_aln.sw_score, sam_aln);
+        std::tuple<int, alignment> t (sam_aln.sw_score, sam_aln);
         alignments.push_back(t);
         cnt ++;
     }
