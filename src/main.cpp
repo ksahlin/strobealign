@@ -451,11 +451,11 @@ std::pair<mers_vector, kmer_lookup> create_index(mapping_params& map_param, std:
 //        std::cerr << "Completed thread: " << omp_get_thread_num() << " chr size: " << ref_lengths[i] << " acc map:" << acc_map[i] << std::endl;
 //    }
 
-    uint64_t unique_mers = 0;
     auto start_sorting = high_resolution_clock::now();
 //    std::cerr << "Reserving flat vector size: " << approx_vec_size << std::endl;
 //    all_mers_vector_tmp.reserve(approx_vec_size); // reserve size corresponding to sum of lengths of all sequences divided by expected sampling
-    process_flat_vector(flat_vector, unique_mers);
+    std::sort(flat_vector.begin(), flat_vector.end());
+    uint64_t unique_mers = count_unique_elements(flat_vector);
     std::chrono::duration<double> elapsed_sorting_seeds = high_resolution_clock::now() - start_sorting;
     std::cerr << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s\n" <<  std::endl;
     std::cerr << "Unique strobemers: " << unique_mers  <<  std::endl;
@@ -466,7 +466,8 @@ std::pair<mers_vector, kmer_lookup> create_index(mapping_params& map_param, std:
     auto start_hash_index = high_resolution_clock::now();
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
     mers_index.reserve(unique_mers);
-    map_param.filter_cutoff = index_vector(flat_vector, mers_index, map_param.f); // construct index over flat array
+    // construct index over flat array
+    map_param.filter_cutoff = index_vector(flat_vector, mers_index, map_param.f);
     std::chrono::duration<double> elapsed_hash_index = high_resolution_clock::now() - start_hash_index;
     std::cerr << "Total time generating hash table index: " << elapsed_hash_index.count() << " s\n" <<  std::endl;
 
@@ -475,11 +476,6 @@ std::pair<mers_vector, kmer_lookup> create_index(mapping_params& map_param, std:
     /* destroy vector */
 //    flat_vector.clear();
 
-
-////////////////////////////////////////////////////////////////////////
-
-
-//    std::cerr << "Wrote index to disc" << std::endl;
     return make_pair(flat_vector, mers_index);
 }
 
