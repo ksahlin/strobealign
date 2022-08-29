@@ -201,133 +201,133 @@ unsigned int index_vector(mers_vector &flat_vector, kmer_lookup &mers_index, flo
 
 
 void write_index(const st_index& index, std::string filename) {
-	std::ofstream ofs(filename, std::ios::binary);
+    std::ofstream ofs(filename, std::ios::binary);
 
-	//write ref_seqs
-	////////////////
-	uint64_t s1 = uint64_t(index.ref_seqs.size());
-	ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
-	//For each string, write length and then the string
-	uint32_t s2 = 0;
-	for (std::size_t i = 0; i < index.ref_seqs.size(); ++i) {
-		s2 = uint32_t(index.ref_seqs[i].length());
-		ofs.write(reinterpret_cast<char*>(&s2), sizeof(s2));
-		ofs.write(index.ref_seqs[i].c_str(), index.ref_seqs[i].length());
-	}
-	
-	//write ref_lengths - write everything in one large chunk
-	////////////////
-	s1 = uint64_t(index.ref_lengths.size());
-	ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
-	ofs.write(reinterpret_cast<const char*>(&index.ref_lengths[0]), index.ref_lengths.size()*sizeof(index.ref_lengths[0]));
+    //write ref_seqs
+    ////////////////
+    uint64_t s1 = uint64_t(index.ref_seqs.size());
+    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
+    //For each string, write length and then the string
+    uint32_t s2 = 0;
+    for (std::size_t i = 0; i < index.ref_seqs.size(); ++i) {
+        s2 = uint32_t(index.ref_seqs[i].length());
+        ofs.write(reinterpret_cast<char*>(&s2), sizeof(s2));
+        ofs.write(index.ref_seqs[i].c_str(), index.ref_seqs[i].length());
+    }
+    
+    //write ref_lengths - write everything in one large chunk
+    ////////////////
+    s1 = uint64_t(index.ref_lengths.size());
+    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
+    ofs.write(reinterpret_cast<const char*>(&index.ref_lengths[0]), index.ref_lengths.size()*sizeof(index.ref_lengths[0]));
 
-	//write acc_map
-	////////////////
-	//TODO: Change acc_map to a vector - the keys are just 0,1,2, ... n anyways, so faster access and less complicated with a vector
-	//we convert to a vector for now - remove this code later when we have replaced it
-	std::vector<std::string> v; 
-	std::transform(index.acc_map.begin(), index.acc_map.end(),
-		std::back_inserter(v),
-		[](const robin_hood::pair<idx_to_acc::key_type, idx_to_acc::mapped_type>& p) {
-		return p.second;
-	});
+    //write acc_map
+    ////////////////
+    //TODO: Change acc_map to a vector - the keys are just 0,1,2, ... n anyways, so faster access and less complicated with a vector
+    //we convert to a vector for now - remove this code later when we have replaced it
+    std::vector<std::string> v; 
+    std::transform(index.acc_map.begin(), index.acc_map.end(),
+        std::back_inserter(v),
+        [](const robin_hood::pair<idx_to_acc::key_type, idx_to_acc::mapped_type>& p) {
+        return p.second;
+    });
 
-	//now write
-	s1 = uint64_t(v.size());
-	ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
-	//For each string, write length and then the string
-	for (std::size_t i = 0; i < v.size(); ++i) {
-		s2 = uint32_t(v[i].length());
-		ofs.write(reinterpret_cast<char*>(&s2), sizeof(s2));
-		ofs.write(v[i].c_str(), v[i].length());
-	}
+    //now write
+    s1 = uint64_t(v.size());
+    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
+    //For each string, write length and then the string
+    for (std::size_t i = 0; i < v.size(); ++i) {
+        s2 = uint32_t(v[i].length());
+        ofs.write(reinterpret_cast<char*>(&s2), sizeof(s2));
+        ofs.write(v[i].c_str(), v[i].length());
+    }
 
-	//write flat_vector
-	////////////////
-	s1 = uint64_t(index.flat_vector.size());
-	ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
-	ofs.write(reinterpret_cast<const char*>(&index.flat_vector[0]), index.flat_vector.size() * sizeof(index.flat_vector[0]));
+    //write flat_vector
+    ////////////////
+    s1 = uint64_t(index.flat_vector.size());
+    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
+    ofs.write(reinterpret_cast<const char*>(&index.flat_vector[0]), index.flat_vector.size() * sizeof(index.flat_vector[0]));
 
-	//write mers_index
-	////////////////
-	s1 = uint64_t(index.mers_index.size());
-	ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
-	for (auto& p : index.mers_index) {
-		ofs.write(reinterpret_cast<const char*>(&p.first), sizeof(p.first));
-		ofs.write(reinterpret_cast<const char*>(&p.second), sizeof(p.second));
-	}
+    //write mers_index
+    ////////////////
+    s1 = uint64_t(index.mers_index.size());
+    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
+    for (auto& p : index.mers_index) {
+        ofs.write(reinterpret_cast<const char*>(&p.first), sizeof(p.first));
+        ofs.write(reinterpret_cast<const char*>(&p.second), sizeof(p.second));
+    }
 };
 
 void read_index(st_index& index, std::string filename) {
-	std::ifstream ifs(filename, std::ios::binary);
-	//read ref_seqs
-	////////////////
-	index.ref_seqs.clear();
-	uint64_t sz = 0;
-	ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-	index.ref_seqs.reserve(sz);
-	uint32_t sz2 = 0;
-	auto& refseqs = index.ref_seqs;
-	for (uint64_t i = 0; i < sz; ++i) {
-		ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
-		char* buf = new char[sz2]; //The vector is short with large strings, so allocating this way should be ok.
-		ifs.read(buf, sz2);
-		//we could potentially use std::move here to avoid reallocation, something like std::string(std::move(buf), sz2), but it has to be investigated more
-		refseqs.push_back(std::string(buf, sz2)); 
-		delete[] buf;
-	}
+    std::ifstream ifs(filename, std::ios::binary);
+    //read ref_seqs
+    ////////////////
+    index.ref_seqs.clear();
+    uint64_t sz = 0;
+    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
+    index.ref_seqs.reserve(sz);
+    uint32_t sz2 = 0;
+    auto& refseqs = index.ref_seqs;
+    for (uint64_t i = 0; i < sz; ++i) {
+        ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
+        char* buf = new char[sz2]; //The vector is short with large strings, so allocating this way should be ok.
+        ifs.read(buf, sz2);
+        //we could potentially use std::move here to avoid reallocation, something like std::string(std::move(buf), sz2), but it has to be investigated more
+        refseqs.push_back(std::string(buf, sz2)); 
+        delete[] buf;
+    }
 
-	//read ref_lengths
-	////////////////
-	index.ref_lengths.clear();
-	ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-	index.ref_lengths.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but ignore that for now
-	ifs.read(reinterpret_cast<char*>(&index.ref_lengths[0]), sz*sizeof(index.ref_lengths[0]));
+    //read ref_lengths
+    ////////////////
+    index.ref_lengths.clear();
+    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
+    index.ref_lengths.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but ignore that for now
+    ifs.read(reinterpret_cast<char*>(&index.ref_lengths[0]), sz*sizeof(index.ref_lengths[0]));
 
-	//read acc_map
-	////////////////
-	//TODO: update the code to vector later
-	index.acc_map.clear();
-	ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-	//index.acc_map.reserve(sz);
-	auto& acc_map = index.acc_map;
+    //read acc_map
+    ////////////////
+    //TODO: update the code to vector later
+    index.acc_map.clear();
+    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
+    //index.acc_map.reserve(sz);
+    auto& acc_map = index.acc_map;
 
-	for (int i = 0; i < sz; ++i) {
-		ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
-		char* buf = new char[sz2];//Comes at a slight performance cost to allocate each round in the loop.
-		ifs.read(buf, sz2);
-		acc_map[i] = std::string(buf, sz2);
-		delete[] buf; //ignore that this will not be called in case of an exception in read - to save performance
-	}
+    for (int i = 0; i < sz; ++i) {
+        ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
+        char* buf = new char[sz2];//Comes at a slight performance cost to allocate each round in the loop.
+        ifs.read(buf, sz2);
+        acc_map[i] = std::string(buf, sz2);
+        delete[] buf; //ignore that this will not be called in case of an exception in read - to save performance
+    }
 
-	//read flat_vector
-	////////////////
-	index.flat_vector.clear();
-	ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-	index.flat_vector.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but let's ignore that for now
-	ifs.read(reinterpret_cast<char*>(&index.flat_vector[0]), sz*sizeof(index.flat_vector[0]));
+    //read flat_vector
+    ////////////////
+    index.flat_vector.clear();
+    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
+    index.flat_vector.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but let's ignore that for now
+    ifs.read(reinterpret_cast<char*>(&index.flat_vector[0]), sz*sizeof(index.flat_vector[0]));
 
-	//read mers_index
-	////////////////
-	index.mers_index.clear();
-	ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-	index.mers_index.reserve(sz);
-	//read in big chunks
-	const uint64_t chunk_size = pow(2,20);//4 M => chunks of ~10 MB - The chunk size seem not to be that important
-	auto buf_size = std::min(sz, chunk_size) * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
-	std::shared_ptr<char> buf_ptr(new char[buf_size], std::default_delete<char[]>());
-	char* buf2 = buf_ptr.get();
-	auto left_to_read = sz;
-	while (left_to_read > 0) {
-		auto to_read = std::min(left_to_read, chunk_size);
-		ifs.read(buf2, to_read * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type)));
-		//Add the elements directly from the buffer
-		for (int i = 0; i < to_read; ++i) {
-			auto start = buf2 + i * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
-			index.mers_index[*reinterpret_cast<kmer_lookup::key_type*>(start)] = *reinterpret_cast<kmer_lookup::mapped_type*>(start + sizeof(kmer_lookup::key_type));
-		}
-		left_to_read -= to_read;
-	}
+    //read mers_index
+    ////////////////
+    index.mers_index.clear();
+    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
+    index.mers_index.reserve(sz);
+    //read in big chunks
+    const uint64_t chunk_size = pow(2,20);//4 M => chunks of ~10 MB - The chunk size seem not to be that important
+    auto buf_size = std::min(sz, chunk_size) * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
+    std::shared_ptr<char> buf_ptr(new char[buf_size], std::default_delete<char[]>());
+    char* buf2 = buf_ptr.get();
+    auto left_to_read = sz;
+    while (left_to_read > 0) {
+        auto to_read = std::min(left_to_read, chunk_size);
+        ifs.read(buf2, to_read * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type)));
+        //Add the elements directly from the buffer
+        for (int i = 0; i < to_read; ++i) {
+            auto start = buf2 + i * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
+            index.mers_index[*reinterpret_cast<kmer_lookup::key_type*>(start)] = *reinterpret_cast<kmer_lookup::mapped_type*>(start + sizeof(kmer_lookup::key_type));
+        }
+        left_to_read -= to_read;
+    }
 };
 
 

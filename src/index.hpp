@@ -29,11 +29,11 @@ typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned i
 typedef robin_hood::unordered_map<int, std::string > idx_to_acc;
 
 struct st_index {
-	std::vector<std::string> ref_seqs;
-	std::vector<unsigned int> ref_lengths;
-	idx_to_acc acc_map;
-	mers_vector flat_vector;
-	kmer_lookup mers_index;
+    std::vector<std::string> ref_seqs;
+    std::vector<unsigned int> ref_lengths;
+    idx_to_acc acc_map;
+    mers_vector flat_vector;
+    kmer_lookup mers_index;
 };
 
 
