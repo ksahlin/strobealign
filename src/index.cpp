@@ -297,7 +297,7 @@ void read_index(st_index& index, std::string filename) {
 		char* buf = new char[sz2];//Comes at a slight performance cost to allocate each round in the loop.
 		ifs.read(buf, sz2);
 		acc_map[i] = std::string(buf, sz2);
-		delete[] buf;
+		delete[] buf; //ignore that this will not be called in case of an exception in read - to save performance
 	}
 
 	//read flat_vector
@@ -315,7 +315,8 @@ void read_index(st_index& index, std::string filename) {
 	//read in big chunks
 	const uint64_t chunk_size = pow(2,20);//4 M => chunks of ~10 MB - The chunk size seem not to be that important
 	auto buf_size = std::min(sz, chunk_size) * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
-	char* buf2 = new char[buf_size];
+	std::shared_ptr<char> buf_ptr(new char[buf_size], std::default_delete<char[]>());
+	char* buf2 = buf_ptr.get();
 	auto left_to_read = sz;
 	while (left_to_read > 0) {
 		auto to_read = std::min(left_to_read, chunk_size);
@@ -327,7 +328,6 @@ void read_index(st_index& index, std::string filename) {
 		}
 		left_to_read -= to_read;
 	}
-	delete[] buf2;
 };
 
 
