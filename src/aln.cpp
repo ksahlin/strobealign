@@ -310,7 +310,7 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
 //            int ref_d;
 //            for(size_t j = offset; j < offset+count; ++j) {
 //                auto r = ref_mers[j];
-//                ref_d = std::get<3>(r) + k - std::get<2>(r);
+//                ref_d = std::get<2>(r) + k - std::get<1>(r); //I changed this code from std::get<3>(r) + k - std::get<2>(r); - but it is probably old, 3 should not be possible since we only had 3 members in the tuple
 //                int diff = (h.query_e - h.query_s) - ref_d > 0 ? (h.query_e - h.query_s) -  ref_d : ref_d - (h.query_e - h.query_s);
 //                if (diff <= min_diff ){
 //                    min_diff = diff;
@@ -320,15 +320,15 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
             for(size_t j = offset; j < offset+count; ++j)
             {
                 auto r = ref_mers[j];
-                h.ref_s = std::get<1>(r);
-                auto p = std::get<2>(r);
+                h.ref_s = std::get<0>(r);
+                auto p = std::get<1>(r);
                 int bit_alloc = 8;
                 int r_id = (p >> bit_alloc);
                 int mask=(1<<bit_alloc) - 1;
                 int offset = (p & mask);
                 h.ref_e = h.ref_s + offset + k;
 //                h.count = count;
-//                hits_per_ref[std::get<1>(r)].push_back(h);
+//                hits_per_ref[std::get<0>(r)].push_back(h);
 
                 int diff = (h.query_e - h.query_s) - (h.ref_e - h.ref_s) > 0 ? (h.query_e - h.query_s) - (h.ref_e - h.ref_s) : (h.ref_e - h.ref_s) - (h.query_e - h.query_s);
                 if (diff <= min_diff ){
@@ -362,7 +362,7 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
 //            int ref_d;
 //            for(size_t j = offset; j < offset+count; ++j) {
 //                auto r = ref_mers[j];
-//                ref_d = std::get<3>(r) + k - std::get<2>(r);
+//                ref_d = std::get<2>(r) + k - std::get<1>(r); //same problem here, I changed from 3 to 2 etc., but it doesn't seem right
 //                int diff = (h.query_e - h.query_s) - ref_d > 0 ? (h.query_e - h.query_s) -  ref_d : ref_d - (h.query_e - h.query_s);
 //                if (diff <= min_diff ){
 //                    min_diff = diff;
@@ -372,8 +372,8 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
             for(size_t j = offset; j < offset+count; ++j)
             {
                 auto r = ref_mers[j];
-                h.ref_s = std::get<1>(r);
-                auto p = std::get<2>(r);
+                h.ref_s = std::get<0>(r);
+                auto p = std::get<1>(r);
                 int bit_alloc = 8;
                 int r_id = (p >> bit_alloc);
                 int mask=(1<<bit_alloc) - 1;
@@ -547,7 +547,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
             auto count = std::get<1>(mer);
 //            if (count == 1){
 //                auto r = ref_mers[offset];
-//                unsigned int ref_id = std::get<0>(r);
+//                unsigned int ref_id = std::get<0>(r); //The indexes in this code are not fixed after removal of the 64-bit hash
 //                unsigned int ref_s = std::get<1>(r);
 //                unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
 //
@@ -565,7 +565,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //                int ref_d;
 //                for(size_t j = offset; j < offset+count; ++j) {
 //                    auto r = ref_mers[j];
-//                    ref_d = std::get<3>(r) + k - std::get<2>(r);
+//                    ref_d = std::get<3>(r) + k - std::get<2>(r);//The indexes in this code are not fixed after removal of the 64-bit hash
 //                    int diff = (h.query_e - h.query_s) - ref_d > 0 ? (h.query_e - h.query_s) -  ref_d : ref_d - (h.query_e - h.query_s);
 //                    if (diff <= min_diff ){
 //                        min_diff = diff;
@@ -577,11 +577,11 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
                 {
                     auto r = ref_mers[j];
 //                    unsigned int  ref_id,ref_s,ref_e; std::tie(ref_id,ref_s,ref_e) = r;
-//                    unsigned int ref_id = std::get<0>(r);
+//                    unsigned int ref_id = std::get<0>(r);//The indexes in this code are not fixed after removal of the 64-bit hash
 //                    unsigned int ref_s = std::get<1>(r);
 //                    unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
-                    h.ref_s = std::get<1>(r);
-                    auto p = std::get<2>(r);
+                    h.ref_s = std::get<0>(r);
+                    auto p = std::get<1>(r);
                     int bit_alloc = 8;
                     int r_id = (p >> bit_alloc);
                     int mask=(1<<bit_alloc) - 1;

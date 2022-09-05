@@ -109,7 +109,7 @@ static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, st
 
         for (size_t j = offset; j < offset + count; ++j) {
             auto r = ref_mers[j];
-            auto p = std::get<2>(r);
+            auto p = std::get<1>(r);
             int bit_alloc = 8;
             int r_id = (p >> bit_alloc);
             int mask=(1<<bit_alloc) - 1;
@@ -415,26 +415,24 @@ void adjust_mapping_params_depending_on_read_length(mapping_params &map_param, c
     }
 }
 
-std::pair<mers_vector, kmer_lookup> create_index(mapping_params& map_param, std::vector<std::string>& ref_seqs, uint64_t total_ref_seq_size) {
+void create_index(mapping_params& map_param, std::vector<std::string>& ref_seqs, mers_vector& flat_vector, kmer_lookup& mers_index, uint64_t total_ref_seq_size) {
     auto start_flat_vector = high_resolution_clock::now();
-
-    mers_vector flat_vector;
+    flat_vector.clear();
+    mers_index.clear();
+    ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
     int approx_vec_size = total_ref_seq_size / (map_param.k-map_param.s+1);
     std::cerr << "ref vector approximate size: " << approx_vec_size << std::endl;
-    flat_vector.reserve(approx_vec_size);
+    ind_flat_vector.reserve(approx_vec_size);
     for(size_t i = 0; i < ref_seqs.size(); ++i)
     {
-        mers_vector randstrobes2; // pos, chr_id, kmer hash value
 //        std::cerr << i << " " << i_mod << std::endl;
-        randstrobes2 = seq_to_randstrobes2(map_param.n, map_param.k, map_param.w_min, map_param.w_max, ref_seqs[i], i, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
-        flat_vector.insert(flat_vector.end(), randstrobes2.begin(), randstrobes2.end());
+        seq_to_randstrobes2(ind_flat_vector, map_param.n, map_param.k, map_param.w_min, map_param.w_max, ref_seqs[i], i, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
     }
-    std::cerr << "Ref vector actual size: " << flat_vector.size() << std::endl;
-    flat_vector.shrink_to_fit();
+    std::cerr << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
+    //ind_flat_vector.shrink_to_fit(); //I think this costs performance and is no longer needed, it will soon be deallocated anyway
 
     std::chrono::duration<double> elapsed_generating_seeds = high_resolution_clock::now() - start_flat_vector;
     std::cerr << "Time generating seeds: " << elapsed_generating_seeds.count() << " s\n" <<  std::endl;
-
 
 //    create vector of vectors here nr_threads
 //    std::vector<std::vector<std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>>> vector_per_ref_chr(opt.n_threads);
@@ -453,20 +451,36 @@ std::pair<mers_vector, kmer_lookup> create_index(mapping_params& map_param, std:
     auto start_sorting = high_resolution_clock::now();
 //    std::cerr << "Reserving flat vector size: " << approx_vec_size << std::endl;
 //    all_mers_vector_tmp.reserve(approx_vec_size); // reserve size corresponding to sum of lengths of all sequences divided by expected sampling
-    std::sort(flat_vector.begin(), flat_vector.end());
-    uint64_t unique_mers = count_unique_elements(flat_vector);
+    std::sort(ind_flat_vector.begin(), ind_flat_vector.end());
     std::chrono::duration<double> elapsed_sorting_seeds = high_resolution_clock::now() - start_sorting;
     std::cerr << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s\n" <<  std::endl;
-    std::cerr << "Unique strobemers: " << unique_mers  <<  std::endl;
+
+    //Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
+    //The hash codes are only needed when generating the index and can be discarded afterwards.
+    //We want to do this split-up before creating the hash table to avoid a memory peak - the flat_vector is 
+    //smaller - doubling that size temporarily will not cause us to go above peak memory.
+    auto start_copy_flat_vector = high_resolution_clock::now();
+    hash_vector h_vector;
+    flat_vector.reserve(ind_flat_vector.size());
+    h_vector.reserve(ind_flat_vector.size());
+    for (std::size_t i = 0; i < ind_flat_vector.size(); ++i) {
+        flat_vector.push_back(std::make_tuple(std::get<1>(ind_flat_vector[i]), std::get<2>(ind_flat_vector[i])));
+        h_vector.push_back(std::get<0>(ind_flat_vector[i]));
+    }
+    uint64_t unique_mers = count_unique_elements(h_vector);
+    std::cerr << "Unique strobemers: " << unique_mers << std::endl;
+    ind_flat_vector.clear(); //deallocate the vector used for sorting
+    std::chrono::duration<double> elapsed_copy_flat_vector = high_resolution_clock::now() - start_copy_flat_vector;
+    std::cerr << "Time copying flat vector: " << elapsed_copy_flat_vector.count() << " s\n" << std::endl;
+
 
     std::chrono::duration<double> elapsed_flat_vector = high_resolution_clock::now() - start_flat_vector;
     std::cerr << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s\n" <<  std::endl;
 
     auto start_hash_index = high_resolution_clock::now();
-    kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
     mers_index.reserve(unique_mers);
     // construct index over flat array
-    map_param.filter_cutoff = index_vector(flat_vector, mers_index, map_param.f);
+    map_param.filter_cutoff = index_vector(h_vector, mers_index, map_param.f);
     std::chrono::duration<double> elapsed_hash_index = high_resolution_clock::now() - start_hash_index;
     std::cerr << "Total time generating hash table index: " << elapsed_hash_index.count() << " s\n" <<  std::endl;
 
@@ -474,8 +488,6 @@ std::pair<mers_vector, kmer_lookup> create_index(mapping_params& map_param, std:
 //    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector);
     /* destroy vector */
 //    flat_vector.clear();
-
-    return make_pair(flat_vector, mers_index);
 }
 
 /*
@@ -576,7 +588,8 @@ int main (int argc, char **argv)
             return 1;
         }
 
-        std::tie(index.flat_vector, index.mers_index) = create_index(map_param, index.ref_seqs, total_ref_seq_size);
+        create_index(map_param, index.ref_seqs, index.flat_vector, index.mers_index, total_ref_seq_size);
+        index.filter_cutoff = map_param.filter_cutoff;
 
         // Record index creation end time
         std::chrono::duration<double> elapsed = high_resolution_clock::now() - start;
@@ -608,6 +621,8 @@ int main (int argc, char **argv)
     ///////////////////////////// MAP ///////////////////////////////////////
     
     if (!(opt.only_gen_index && opt.reads_filename1.empty())) { // If the program was called with the -i flag and the fastqs are not specified, we don't run any alignment
+        
+        map_param.filter_cutoff = index.filter_cutoff; //This is calculated when building the filter and needs to be filled in
 
         // Record matching time
         auto start_aln_part = high_resolution_clock::now();

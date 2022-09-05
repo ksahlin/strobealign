@@ -98,13 +98,11 @@ static unsigned char seq_nt4_table[256] = {
 //}
 
 
-uint64_t count_unique_elements(const mers_vector &flat_vector){
-    assert(flat_vector.size() > 0);
-    uint64_t prev_k = std::get<0>(flat_vector[0]);
-    uint64_t curr_k;
+uint64_t count_unique_elements(const hash_vector& h_vector){
+    assert(h_vector.size() > 0);
+    uint64_t prev_k = h_vector[0];
     uint64_t unique_elements = 1;
-    for (auto &t : flat_vector) {
-        curr_k = std::get<0>(t);
+    for (auto &curr_k : h_vector) {
         if (curr_k != prev_k) {
             unique_elements ++;
         }
@@ -113,9 +111,9 @@ uint64_t count_unique_elements(const mers_vector &flat_vector){
     return unique_elements;
 }
 
-unsigned int index_vector(const mers_vector &flat_vector, kmer_lookup &mers_index, float f){
+unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, float f){
 
-    std::cerr << "Flat vector size: " << flat_vector.size() << std::endl;
+    std::cerr << "Flat vector size: " << h_vector.size() << std::endl;
 //    kmer_lookup mers_index;
     unsigned int offset = 0;
     unsigned int prev_offset = 0;
@@ -126,14 +124,12 @@ unsigned int index_vector(const mers_vector &flat_vector, kmer_lookup &mers_inde
     unsigned int tot_mid_ab = 0;
     std::vector<unsigned int> strobemer_counts;
 
-    uint64_t prev_k;
-    std::tuple<uint64_t, unsigned int, int> t = flat_vector[0];
-    prev_k = std::get<0>(t);
+    uint64_t prev_k = h_vector[0];
     uint64_t curr_k;
 
-    for ( auto &t : flat_vector ) {
+    for ( auto &t : h_vector) {
 //        std::cerr << t << std::endl;
-        curr_k = std::get<0>(t);
+        curr_k = t;
         if (curr_k == prev_k){
             count ++;
         }
@@ -199,6 +195,9 @@ unsigned int index_vector(const mers_vector &flat_vector, kmer_lookup &mers_inde
 void write_index(const st_index& index, std::string filename) {
     std::ofstream ofs(filename, std::ios::binary);
 
+    //write filter_cutoff
+    ofs.write(reinterpret_cast<const char*>(&index.filter_cutoff), sizeof(index.filter_cutoff));
+
     //write ref_seqs:
     uint64_t s1 = uint64_t(index.ref_seqs.size());
     ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
@@ -242,6 +241,9 @@ void write_index(const st_index& index, std::string filename) {
 
 void read_index(st_index& index, std::string filename) {
     std::ifstream ifs(filename, std::ios::binary);
+    //read filter_cutoff
+    ifs.read(reinterpret_cast<char*>(&index.filter_cutoff), sizeof(index.filter_cutoff));
+
     //read ref_seqs:
     index.ref_seqs.clear();
     uint64_t sz = 0;
@@ -838,12 +840,11 @@ static inline void get_next_strobe_dist_constraint(const std::vector<uint64_t> &
 //    return  kmers;
 //}
 
-mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string &seq, int ref_index, int s, int t, uint64_t q, int max_dist)
+void seq_to_randstrobes2(ind_mers_vector& flat_vector, int n, int k, int w_min, int w_max, std::string &seq, int ref_index, int s, int t, uint64_t q, int max_dist)
 {
-    mers_vector randstrobes2;
 
     if (seq.length() < w_max) {
-        return randstrobes2;
+        return;
     }
 
     std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
@@ -862,7 +863,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 
     unsigned int nr_hashes = string_hashes.size();
     if (nr_hashes == 0) {
-        return randstrobes2;
+        return;
     }
 
 //        for (unsigned int i = 0; i < seq_length; i++) {
@@ -906,7 +907,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
         }
         else{
 //            std::cerr << randstrobes2.size() << " randstrobes generated" << '\n';
-            return randstrobes2;
+            return;
         }
 
 //        uint64_t hash_randstrobe2 = (string_hashes[i] << k) ^ strobe_hashval_next;
@@ -918,8 +919,8 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
         int packed = (ref_index << 8);
 //        int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
         packed = packed + (seq_pos_strobe2 - seq_pos_strobe1);
-        std::tuple<uint64_t, unsigned int, int> s (hash_randstrobe2, seq_pos_strobe1, packed);
-        randstrobes2.push_back(s);
+        std::tuple<uint64_t, uint32_t, int32_t> s(hash_randstrobe2, seq_pos_strobe1, packed);
+        flat_vector.push_back(s);
 //        std::cerr << seq_pos_strobe1 << " " << seq_pos_strobe2 << std::endl;
 //        std::cerr << "FORWARD REF: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
 //        std::cerr << "REFERENCE: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
@@ -937,10 +938,9 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 
     }
 //    std::cerr << randstrobes2.size() << " randstrobes generated" << '\n';
-    return randstrobes2;
 }
 
-mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, std::string &seq, unsigned int  ref_index, int s, int t, uint64_t q, int max_dist)
+mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, std::string& seq, unsigned int  ref_index, int s, int t, uint64_t q, int max_dist)
 {
     // this function differs from  the function seq_to_randstrobes2 which creating randstrobes for the reference.
     // The seq_to_randstrobes2 stores randstobes only in one direction from canonical syncmers.
