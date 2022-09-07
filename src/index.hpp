@@ -167,16 +167,16 @@ struct mapping_params {
 
     void verify(){
 	if(k <= 7 | k > 32){
-	    throw mapping_parameter_exception("k not in [8,32]");
+	    throw BadMappingParameter("k not in [8,32]");
 	}
 	if(s > k){
-	    throw mapping_parameter_exception("s is larger than k");
+	    throw BadMappingParameter("s is larger than k");
 	}
 	if((k - s) % 2 != 0){
-	    throw mapping_parameter_exception("(k - s) should be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
+	    throw BadMappingParameter("(k - s) should be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
 	}
 	if(max_dist > 255){
-	    throw mapping_parameter_exception("maximum seed length (-m <max_dist>) is larger than 255");
+	    throw BadMappingParameter("maximum seed length (-m <max_dist>) is larger than 255");
 	}
     }
 };

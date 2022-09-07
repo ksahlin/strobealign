@@ -544,8 +544,8 @@ int main (int argc, char **argv)
     try {
 	map_param.verify();
     }
-    catch (mapping_parameter_exception& e) {
-	std::cerr << "An exception occured in parameter verification: " << e.what() << std::endl;
+    catch (BadMappingParameter& e) {
+	std::cerr << "A mapping parameter is invalid: " << e.what() << std::endl;
 	return EXIT_FAILURE;
     }
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
