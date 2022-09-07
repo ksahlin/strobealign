@@ -1,29 +1,11 @@
-//
-// exceptions.hpp
-//
-// Created by Paul-Theodor Pyl on 2022-09-07
-//
-
-
 #ifndef exceptions_hpp
 #define exceptions_hpp
 
-#include <exception>
+#include <stdexcept>
 
-class k_exception: public std::exception {
-    virtual const char* what() const throw();
-};
-
-class s_lt_k_exception: public std::exception {
-    virtual const char* what() const throw();
-};
-
-class k_minus_s_even_exception: public std::exception {
-    virtual const char* what() const throw();
-};
-
-class max_seed_length_exception: public std::exception {
-    virtual const char* what() const throw();
+class mapping_parameter_exception: public std::runtime_error {
+public:
+    mapping_parameter_exception( const char* what_arg ) : std::runtime_error(what_arg) {};
 };
 
 #endif /* exceptions.hpp */
