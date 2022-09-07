@@ -22,6 +22,7 @@ set(CMAKE_CXX_FLAGS "-O3 ${CMAKE_CXX_FLAGS}")
 set(SOURCES
 src/main.cpp
 src/index.cpp
+src/exceptions.cpp
 src/pc.cpp
 src/aln.cpp
 ext/xxhash.c
