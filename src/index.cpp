@@ -430,14 +430,14 @@ static inline void get_next_strobe_dist_constraint(const std::vector<uint64_t> &
 
 }
 
-void seq_to_randstrobes2(ind_mers_vector& flat_vector, int n, int k, int w_min, int w_max, std::string &seq, int ref_index, int s, int t, uint64_t q, int max_dist)
+
+void seq_to_randstrobes2(ind_mers_vector& flat_vector, int n, int k, int w_min, int w_max, const std::string &seq, int ref_index, int s, int t, uint64_t q, int max_dist)
 {
 
     if (seq.length() < w_max) {
         return;
     }
 
-    std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
     uint64_t kmask=(1ULL<<2*k) - 1;
     // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
     std::vector<uint64_t> string_hashes;
