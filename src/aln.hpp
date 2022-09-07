@@ -30,8 +30,6 @@ using namespace klibpp;
 
 
 typedef robin_hood::unordered_map<int, std::string > idx_to_acc;
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 struct aln_info {
     std::string cigar;
