@@ -470,7 +470,9 @@ std::pair<mers_vector, kmer_lookup>  create_index(mapping_params& map_param, std
     }
     uint64_t unique_mers = count_unique_elements(h_vector);
     std::cerr << "Unique strobemers: " << unique_mers << std::endl;
-    ind_flat_vector.clear(); //deallocate the vector used for sorting
+    ind_mers_vector().swap(ind_flat_vector);   //deallocate the vector used for sorting - ind_flat_vector.clear() will not deallocate, 
+                                               //swap with an empty vector will. I tested (in debug mode), the buffer gets deleted
+
     std::chrono::duration<double> elapsed_copy_flat_vector = high_resolution_clock::now() - start_copy_flat_vector;
     std::cerr << "Time copying flat vector: " << elapsed_copy_flat_vector.count() << " s\n" << std::endl;
 
