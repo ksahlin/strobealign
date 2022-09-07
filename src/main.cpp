@@ -534,13 +534,19 @@ int main (int argc, char **argv)
         // Record index creation start time
         auto start = high_resolution_clock::now();
         auto start_read_refs = start;
-        uint64_t total_ref_seq_size = read_references(index.ref_seqs, index.ref_lengths, index.acc_map, opt.ref_filename);
+        uint64_t total_ref_seq_size;
+        try {
+            total_ref_seq_size = read_references(index.ref_seqs, index.ref_lengths, index.acc_map, opt.ref_filename);
+        } catch (const InvalidFasta& e) {
+            std::cerr << "strobealign: " << e.what() << std::endl;
+            return EXIT_FAILURE;
+        }
         std::chrono::duration<double> elapsed_read_refs = high_resolution_clock::now() - start_read_refs;
         std::cerr << "Time reading references: " << elapsed_read_refs.count() << " s\n" << std::endl;
 
         if (total_ref_seq_size == 0) {
             std::cerr << "No reference sequences found, aborting.." << std::endl;
-            return 1;
+            return EXIT_FAILURE;
         }
 
         std::tie(index.flat_vector, index.mers_index) = create_index(map_param, index.ref_seqs, total_ref_seq_size);

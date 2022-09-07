@@ -1,5 +1,6 @@
 #include <vector>
 #include "fasta.hpp"
+#include "exceptions.hpp"
 
 uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsigned int> &lengths, idx_to_acc &acc_map, std::string fn)
 {
@@ -9,13 +10,15 @@ uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsigned in
     acc_map.clear();
 
     if (!file.good()) {
-        std::cerr << "Unable to read from file " << fn << std::endl;
-        return total_ref_seq_size;
+        throw InvalidFasta("Cannot read from FASTA file");
     }
 
-    if (file.peek() != '>') {
-        std::cerr << fn << " is not a valid FASTA file." << std::endl;
-        return total_ref_seq_size;
+    auto c = file.peek();
+    if (c != '>') {
+        std::ostringstream oss;
+        oss << "FASTA file must begin with '>' character, not '"
+            << static_cast<unsigned char>(c) << "'";
+        throw InvalidFasta(oss.str().c_str());
     }
 
     while (getline(file, line)) {
