@@ -253,7 +253,7 @@ void read_index(st_index& index, std::string filename) {
     auto& refseqs = index.ref_seqs;
     for (uint64_t i = 0; i < sz; ++i) {
         ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
-        std::shared_ptr<char> buf_ptr(new char[sz2], std::default_delete<char[]>());//The vector is short with large strings, so allocating this way should be ok.
+        std::unique_ptr<char> buf_ptr(new char[sz2]);//The vector is short with large strings, so allocating this way should be ok.
         ifs.read(buf_ptr.get(), sz2);
         //we could potentially use std::move here to avoid reallocation, something like std::string(std::move(buf), sz2), but it has to be investigated more
         refseqs.push_back(std::string(buf_ptr.get(), sz2));
@@ -274,7 +274,7 @@ void read_index(st_index& index, std::string filename) {
 
     for (int i = 0; i < sz; ++i) {
         ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
-        std::shared_ptr<char> buf_ptr(new char[sz2], std::default_delete<char[]>());
+        std::unique_ptr<char> buf_ptr(new char[sz2]);
         char* buf = buf_ptr.get();
         ifs.read(buf_ptr.get(), sz2);
         acc_map.push_back(std::string(buf_ptr.get(), sz2));
@@ -293,7 +293,7 @@ void read_index(st_index& index, std::string filename) {
     //read in big chunks
     const uint64_t chunk_size = pow(2,20);//4 M => chunks of ~10 MB - The chunk size seem not to be that important
     auto buf_size = std::min(sz, chunk_size) * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
-    std::shared_ptr<char> buf_ptr(new char[buf_size], std::default_delete<char[]>());
+    std::unique_ptr<char> buf_ptr(new char[buf_size]);
     char* buf2 = buf_ptr.get();
     auto left_to_read = sz;
     while (left_to_read > 0) {
