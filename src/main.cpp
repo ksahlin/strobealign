@@ -415,10 +415,11 @@ void adjust_mapping_params_depending_on_read_length(mapping_params &map_param, c
     }
 }
 
-void create_index(mapping_params& map_param, std::vector<std::string>& ref_seqs, mers_vector& flat_vector, kmer_lookup& mers_index, uint64_t total_ref_seq_size) {
+std::pair<mers_vector, kmer_lookup>  create_index(mapping_params& map_param, std::vector<std::string>& ref_seqs, uint64_t total_ref_seq_size) {
     auto start_flat_vector = high_resolution_clock::now();
-    flat_vector.clear();
-    mers_index.clear();
+
+    mers_vector flat_vector;
+
     ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
     int approx_vec_size = total_ref_seq_size / (map_param.k-map_param.s+1);
     std::cerr << "ref vector approximate size: " << approx_vec_size << std::endl;
@@ -478,6 +479,7 @@ void create_index(mapping_params& map_param, std::vector<std::string>& ref_seqs,
     std::cerr << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s\n" <<  std::endl;
 
     auto start_hash_index = high_resolution_clock::now();
+    kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
     mers_index.reserve(unique_mers);
     // construct index over flat array
     map_param.filter_cutoff = index_vector(h_vector, mers_index, map_param.f);
@@ -488,6 +490,8 @@ void create_index(mapping_params& map_param, std::vector<std::string>& ref_seqs,
 //    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector);
     /* destroy vector */
 //    flat_vector.clear();
+
+    return make_pair(flat_vector, mers_index);
 }
 
 /*
@@ -588,7 +592,7 @@ int main (int argc, char **argv)
             return 1;
         }
 
-        create_index(map_param, index.ref_seqs, index.flat_vector, index.mers_index, total_ref_seq_size);
+        std::tie(index.flat_vector, index.mers_index) = create_index(map_param, index.ref_seqs, total_ref_seq_size);
         index.filter_cutoff = map_param.filter_cutoff;
 
         // Record index creation end time
