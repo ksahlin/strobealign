@@ -28,10 +28,6 @@ using namespace klibpp;
 //#include <chrono>
 //#include <thread>
 
-
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-
 struct aln_info {
     std::string cigar;
     unsigned int ed;
