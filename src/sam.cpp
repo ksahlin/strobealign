@@ -75,12 +75,12 @@ void Sam::add_unmapped_pair(KSeq& r1, KSeq& r2) {
 }
 
 void Sam::add_pair(alignment &sam_aln1, alignment &sam_aln2, const std::string &read1, const std::string &read2, const std::string &read1_rc, const std::string &read2_rc, const std::string &query_acc1, const std::string &query_acc2, int &mapq1, int &mapq2, float &mu, float &sigma, int read_len, bool is_primary, const std::string &qual1, const std::string &qual2) {
-    int f1 = 1;
-    int f2 = 1; // template having multiple segments in sequencing
+    int f1 = PAIRED;
+    int f2 = PAIRED; // template having multiple segments in sequencing
 //    std::cerr <<  query_acc1 << " HERE 1: " << sam_aln1.is_unaligned << " " << query_acc2 << " HERE 2: " << sam_aln2.is_unaligned  << std::endl;
     if (!is_primary){
-        f1 |= (1u << 8); // not primary
-        f2 |= (1u << 8); // not primary
+        f1 |= SECONDARY;
+        f2 |= SECONDARY;
     }
 
     // Commented lines below because we do not longer mark a read as not proper just because of the non-matching hash
@@ -127,24 +127,24 @@ void Sam::add_pair(alignment &sam_aln1, alignment &sam_aln2, const std::string &
 //        }
 
     if ( (!sam_aln1.not_proper) && (!sam_aln2.not_proper)){ // if both segements in pair are properly aligned
-        f1 |= (1u << 1);
-        f2 |= (1u << 1);
+        f1 |= PROPER_PAIR;
+        f2 |= PROPER_PAIR;
     }
 
     std::string output_read1;
     output_read1 = read1;
     std::string output_read2;
     output_read2 = read2;
-    f1 |= (1u << 6); // first segment in template
-    f2 |= (1u << 7); // last segment in template
-    if (sam_aln1.is_rc){ // set if alignnment1 is reverse complemented
-        f1 |= (1u << 4);
-        f2 |= (1u << 5);
+    f1 |= READ1;
+    f2 |= READ2;
+    if (sam_aln1.is_rc) {
+        f1 |= REVERSE;
+        f2 |= MREVERSE;
         output_read1 = read1_rc;
     }
-    if (sam_aln2.is_rc){ // set if alignnment2 is reverse complemented
-        f1 |= (1u << 5);
-        f2 |= (1u << 4);
+    if (sam_aln2.is_rc) {
+        f1 |= MREVERSE;
+        f2 |= REVERSE;
         output_read2 = read2_rc;
     }
 
@@ -159,23 +159,23 @@ void Sam::add_pair(alignment &sam_aln1, alignment &sam_aln2, const std::string &
     }
 
 //    if ( (sam_aln1.is_unaligned) && (sam_aln2.is_unaligned) ){
-//        f1 = 13;
-//        f2 = 13;
+//        f1 = PAIRED | UNMAP | MUNMAP;
+//        f2 = PAIRED | UNMAP | MUNMAP;
 //        m1_chr = "*";
 //        m2_chr = "*";
 //        sam_aln1.cigar = "*";
 //        sam_aln2.cigar = "*";
 //    } else if (sam_aln1.is_unaligned){
-//        f1 = 5;
+//        f1 = PAIRED | UNMAP;
 //        m1_chr = "*";
 //        sam_aln1.cigar = "*";
-//        f2 |= (1u << 3);
+//        f2 |= MUNMAP;
 //        f2 -= 32;
 //    } else if (sam_aln2.is_unaligned){
 //        f2 = 5;
 //        m2_chr = "*";
 //        sam_aln2.cigar = "*";
-//        f1 |= (1u << 3);
+//        f1 |= MUNMAP;
 //        f1 -= 32;
 //    }
     std::string ref1 = acc_map[sam_aln1.ref_id];
@@ -184,10 +184,10 @@ void Sam::add_pair(alignment &sam_aln1, alignment &sam_aln2, const std::string &
     int ed2 = sam_aln2.ed;
 
     if (sam_aln1.is_unaligned && sam_aln2.is_unaligned){
-        f1 |= (1u << 2);
-        f1 |= (1u << 3);
-        f2 |= (1u << 2);
-        f2 |= (1u << 3);
+        f1 |= UNMAP;
+        f1 |= MUNMAP;
+        f2 |= UNMAP;
+        f2 |= MUNMAP;
         sam_aln1.ref_start = 0;
         sam_aln2.ref_start = 0;
         template_len1 = 0;
@@ -255,7 +255,7 @@ void Sam::add_pair(alignment &sam_aln1, alignment &sam_aln2, const std::string &
         sam_string.append("\t");
         if (sam_aln1.is_rc){
             auto qual_rev = qual1;
-            std::reverse(qual_rev.begin(), qual_rev.end()); // reverse
+            std::reverse(qual_rev.begin(), qual_rev.end());
             sam_string.append(qual_rev);
         } else {
             sam_string.append(qual1);
