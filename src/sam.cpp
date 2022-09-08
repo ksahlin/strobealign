@@ -70,10 +70,25 @@ void Sam::add(
     sam_string.append("\n");
 }
 
-void Sam::add_pair(alignment &sam_aln1, alignment &sam_aln2, const std::string &read1, const std::string &read2, const std::string &read1_rc, const std::string &read2_rc, const std::string &query_acc1, const std::string &query_acc2, int &mapq1, int &mapq2, float &mu, float &sigma, int read_len, bool is_primary, const std::string &qual1, const std::string &qual2) {
+void Sam::add_pair(
+    alignment &sam_aln1,
+    alignment &sam_aln2,
+    const std::string &read1,
+    const std::string &read2,
+    const std::string &read1_rc,
+    const std::string &read2_rc,
+    const std::string &query_acc1,
+    const std::string &query_acc2,
+    int &mapq1,
+    int &mapq2,
+    float &mu,
+    float &sigma,
+    bool is_primary,
+    const std::string &qual1,
+    const std::string &qual2
+) {
     int f1 = PAIRED;
-    int f2 = PAIRED; // template having multiple segments in sequencing
-//    std::cerr <<  query_acc1 << " HERE 1: " << sam_aln1.is_unaligned << " " << query_acc2 << " HERE 2: " << sam_aln2.is_unaligned  << std::endl;
+    int f2 = PAIRED;
     if (!is_primary){
         f1 |= SECONDARY;
         f2 |= SECONDARY;
