@@ -1917,7 +1917,8 @@ static inline void align_segment(alignment_params &aln_params, std::string &read
 //    std::cerr << " ALIGN SCORE: " << sam_aln_segm.sw_score << " cigar: " << sam_aln_segm.cigar << std::endl;
 }
 
-static inline void get_alignment(alignment_params &aln_params, nam &n, const std::vector<unsigned int> &ref_len_map, const std::vector<std::string> &ref_seqs, const std::string &read, std::string &read_rc, int read_len, alignment &sam_aln, int k, int cnt, bool &rc_already_comp, unsigned int &did_not_fit, unsigned int &tot_ksw_aligned){
+static inline void get_alignment(alignment_params &aln_params, nam &n, const std::vector<unsigned int> &ref_len_map, const std::vector<std::string> &ref_seqs, const std::string &read, std::string &read_rc, alignment &sam_aln, int k, int cnt, bool &rc_already_comp, unsigned int &did_not_fit, unsigned int &tot_ksw_aligned){
+    auto read_len = read.size();
     bool aln_did_not_fit = false;
     int ref_diff = n.ref_e - n.ref_s;
     int read_diff = n.query_e - n.query_s;
@@ -2703,10 +2704,13 @@ static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, s
 }
 
 
-static inline void rescue_mate(alignment_params &aln_params , nam &n, const std::vector<unsigned int> &ref_len_map, const std::vector<std::string> &ref_seqs, std::string &guide_read, std::string &guide_read_rc, int guide_read_len, bool &guide_rc_already_comp, std::string &read, std::string &read_rc, int read_len, alignment &sam_aln, bool &rc_already_comp, unsigned int &tot_ksw_aligned, float &mu, float &sigma, unsigned int &tot_rescued, int k) {
+static inline void rescue_mate(alignment_params &aln_params , nam &n, const std::vector<unsigned int> &ref_len_map, const std::vector<std::string> &ref_seqs, std::string &guide_read, std::string &guide_read_rc, bool &guide_rc_already_comp, std::string &read, std::string &read_rc, alignment &sam_aln, bool &rc_already_comp, unsigned int &tot_ksw_aligned, float &mu, float &sigma, unsigned int &tot_rescued, int k
+) {
     int a, b, ref_start,ref_len,ref_end;
     std::string r_tmp;
     bool a_is_rc;
+    auto guide_read_len = guide_read.size();
+    auto read_len = read.size();
 
     // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
     bool fits = false;
@@ -2951,10 +2955,10 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
         if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) && ( r1_r2 || r1_r2 ) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
 //            std::cerr << "I'm here" << std::endl;
 //            std::cerr << query_acc1 << std::endl;
-            get_alignment(aln_params, n_max1, ref_len_map, ref_seqs, read1, read1_rc, read_len1, sam_aln1, k, cnt1, rc_already_comp1, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
+            get_alignment(aln_params, n_max1, ref_len_map, ref_seqs, read1, read1_rc, sam_aln1, k, cnt1, rc_already_comp1, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
             log_vars.tot_all_tried ++;
 //            std::cerr << query_acc2 << std::endl;
-            get_alignment(aln_params, n_max2, ref_len_map, ref_seqs, read2, read2_rc, read_len2, sam_aln2, k, cnt2, rc_already_comp2, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
+            get_alignment(aln_params, n_max2, ref_len_map, ref_seqs, read2, read2_rc, sam_aln2, k, cnt2, rc_already_comp2, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
             log_vars.tot_all_tried ++;
 //            std::cerr<< "6" << std::endl;
             get_MAPQ(all_nams1, n_max1, mapq1);
@@ -3002,14 +3006,14 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
             alignment a1_indv_max;
 //            a1_indv_max.sw_score = -10000;
             auto n1_max = all_nams1[0];
-            get_alignment(aln_params, n1_max, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1_indv_max, k, cnt1, rc_already_comp1,
+            get_alignment(aln_params, n1_max, ref_len_map, ref_seqs, read1, read1_rc, a1_indv_max, k, cnt1, rc_already_comp1,
                           log_vars.did_not_fit, log_vars.tot_ksw_aligned);
             is_aligned1[n1_max.nam_id] = a1_indv_max;
             log_vars.tot_all_tried ++;
             alignment a2_indv_max;
 //            a2_indv_max.sw_score = -10000;
             auto n2_max = all_nams2[0];
-            get_alignment(aln_params, n2_max, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2_indv_max, k, cnt2, rc_already_comp2,
+            get_alignment(aln_params, n2_max, ref_len_map, ref_seqs, read2, read2_rc, a2_indv_max, k, cnt2, rc_already_comp2,
                           log_vars.did_not_fit, log_vars.tot_ksw_aligned);
             is_aligned2[n2_max.nam_id] = a2_indv_max;
             log_vars.tot_all_tried ++;
@@ -3042,7 +3046,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
                         a1 = is_aligned1[n1.nam_id];
                     } else {
 //                    std::cerr << query_acc1 << std::endl;
-                        get_alignment(aln_params, n1, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, k, cnt1,
+                        get_alignment(aln_params, n1, ref_len_map, ref_seqs, read1, read1_rc, a1, k, cnt1,
                                       rc_already_comp1,
                                       log_vars.did_not_fit, log_vars.tot_ksw_aligned);
                         is_aligned1[n1.nam_id] = a1;
@@ -3052,7 +3056,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
 //                    std::cerr << "RESCUE HERE1" << std::endl;
                     //////// Force SW alignment to rescue mate /////////
 //                    std::cerr << query_acc2 << " RESCUE MATE 1" << a1.is_rc << " " n1.is_rc << std::endl;
-                    rescue_mate(aln_params, n2, ref_len_map, ref_seqs, read2, read2_rc,  read_len2, rc_already_comp2, read1, read1_rc, read_len1, a1, rc_already_comp1, log_vars.tot_ksw_aligned, mu, sigma, log_vars.tot_rescued, k);
+                    rescue_mate(aln_params, n2, ref_len_map, ref_seqs, read2, read2_rc, rc_already_comp2, read1, read1_rc, a1, rc_already_comp1, log_vars.tot_ksw_aligned, mu, sigma, log_vars.tot_rescued, k);
 //                    is_aligned1[n1.nam_id] = a1;
                     log_vars.tot_all_tried ++;
                 }
@@ -3073,7 +3077,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
                         a2 = is_aligned2[n2.nam_id];
                     } else {
 //                    std::cerr << query_acc2 << std::endl;
-                        get_alignment(aln_params, n2, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, k, cnt2,
+                        get_alignment(aln_params, n2, ref_len_map, ref_seqs, read2, read2_rc, a2, k, cnt2,
                                       rc_already_comp2,
                                       log_vars.did_not_fit, log_vars.tot_ksw_aligned);
                         is_aligned2[n2.nam_id] = a2;
@@ -3083,7 +3087,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
 //                    std::cerr << "RESCUE HERE2" << std::endl;
                     //////// Force SW alignment to rescue mate /////////
 //                    std::cerr << query_acc1 << " RESCUE MATE 2" << a1.is_rc << " " n1.is_rc << std::endl;
-                    rescue_mate(aln_params, n1, ref_len_map, ref_seqs, read1, read1_rc,  read_len1, rc_already_comp1, read2, read2_rc, read_len2, a2, rc_already_comp2, log_vars.tot_ksw_aligned, mu, sigma, log_vars.tot_rescued, k);
+                    rescue_mate(aln_params, n1, ref_len_map, ref_seqs, read1, read1_rc, rc_already_comp1, read2, read2_rc, a2, rc_already_comp2, log_vars.tot_ksw_aligned, mu, sigma, log_vars.tot_rescued, k);
 //                    is_aligned2[n2.nam_id] = a2;
                     log_vars.tot_all_tried ++;
                 }
@@ -3242,14 +3246,14 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
             //////// the actual testing of base pair alignment part start /////////
             alignment a1;
 //            std::cerr << query_acc1 << " force rescue"  << std::endl;
-            get_alignment(aln_params, n, ref_len_map, ref_seqs, read1, read1_rc, read_len1, a1, k, cnt1, rc_already_comp1, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
+            get_alignment(aln_params, n, ref_len_map, ref_seqs, read1, read1_rc, a1, k, cnt1, rc_already_comp1, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
             aln_scores1.push_back(a1);
             //////////////////////////////////////////////////////////////////
 
             //////// Force SW alignment to rescue mate /////////
             alignment a2;
 //            std::cerr << query_acc2 << " force rescue" << std::endl;
-            rescue_mate(aln_params, n, ref_len_map, ref_seqs, read1, read1_rc,  read_len1, rc_already_comp1, read2, read2_rc, read_len2, a2, rc_already_comp2, log_vars.tot_ksw_aligned, mu, sigma, log_vars.tot_rescued, k);
+            rescue_mate(aln_params, n, ref_len_map, ref_seqs, read1, read1_rc, rc_already_comp1, read2, read2_rc, a2, rc_already_comp2, log_vars.tot_ksw_aligned, mu, sigma, log_vars.tot_rescued, k);
             aln_scores2.push_back(a2);
             //////////////////////////////////////////////////////////////////
 
@@ -3324,7 +3328,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
 
             //////// the actual testing of base pair alignment part start /////////
             alignment a2;
-            get_alignment(aln_params, n, ref_len_map, ref_seqs, read2, read2_rc, read_len2, a2, k, cnt2, rc_already_comp2, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
+            get_alignment(aln_params, n, ref_len_map, ref_seqs, read2, read2_rc, a2, k, cnt2, rc_already_comp2, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
             aln_scores2.push_back(a2);
             //////////////////////////////////////////////////////////////////
 
@@ -3332,7 +3336,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
 
             //////// Force SW alignment to rescue mate /////////
             alignment a1;
-            rescue_mate(aln_params, n, ref_len_map, ref_seqs, read2, read2_rc,  read_len2, rc_already_comp2, read1, read1_rc, read_len1, a1, rc_already_comp1, log_vars.tot_ksw_aligned, mu, sigma, log_vars.tot_rescued, k);
+            rescue_mate(aln_params, n, ref_len_map, ref_seqs, read2, read2_rc, rc_already_comp2, read1, read1_rc, a1, rc_already_comp1, log_vars.tot_ksw_aligned, mu, sigma, log_vars.tot_rescued, k);
             aln_scores1.push_back(a1);
             //////////////////////////////////////////////////////////////////
 
