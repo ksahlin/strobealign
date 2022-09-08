@@ -16,6 +16,7 @@
 #include <tuple>
 #include "robin_hood.h"
 #include "xxhash.h"
+#include "exceptions.hpp"
 
 uint64_t hash(std::string kmer);
 static inline uint64_t hash64(uint64_t key, uint64_t mask);
@@ -135,7 +136,8 @@ struct i_dist_est {
     float mu = 300;
     float sigma = 100;
     float V = 10000;
-    float SSE = 10000;} ;
+    float SSE = 10000;
+};
 
 struct mapping_params {
     uint64_t q;
@@ -161,7 +163,23 @@ struct mapping_params {
     int max_seed_len;
     int rescue_cutoff;
     unsigned int filter_cutoff;
-    bool is_sam_out;};
+    bool is_sam_out;
+
+    void verify(){
+	if(k <= 7 | k > 32){
+	    throw BadMappingParameter("k not in [8,32]");
+	}
+	if(s > k){
+	    throw BadMappingParameter("s is larger than k");
+	}
+	if((k - s) % 2 != 0){
+	    throw BadMappingParameter("(k - s) should be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
+	}
+	if(max_dist > 255){
+	    throw BadMappingParameter("maximum seed length (-m <max_dist>) is larger than 255");
+	}
+    }
+};
 
 
 #endif /* index_hpp */

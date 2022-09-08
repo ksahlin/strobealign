@@ -18,11 +18,11 @@
 #include "robin_hood.h"
 #include "ssw_cpp.h"
 
+#include "exceptions.hpp"
 #include "index.hpp"
 #include "pc.hpp"
 #include "aln.hpp"
 #include "version.hpp"
-
 
 using namespace klibpp;
 using std::chrono::high_resolution_clock;
@@ -539,14 +539,14 @@ int main (int argc, char **argv)
         << "O: " << opt.O << std::endl
         << "E: " << opt.E << std::endl;
 
+    try {
+	map_param.verify();
+    }
+    catch (BadMappingParameter& e) {
+	std::cerr << "A mapping parameter is invalid: " << e.what() << std::endl;
+	return EXIT_FAILURE;
+    }
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
-    assert(map_param.k > 7 && "You should really not use too small strobe size!");
-    assert(map_param.k <= 32 && "k have to be smaller than 32!");
-    assert( ( map_param.s <= map_param.k ) && " s have to be smaller or equal to k!");
-    assert( ( (map_param.k-map_param.s) % 2 == 0) && " k - s have to be an even number to create canonical syncmers. Set s to e.g., k-2, k-4, k-6, k-8.");
-    assert(map_param.max_dist <= 255 && " -m (maximum seed length have to be smaller than 255 + k.");
-
-
 
     //////////// CREATE INDEX OF REF SEQUENCES /////////////////
 
