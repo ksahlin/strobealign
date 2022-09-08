@@ -17,7 +17,7 @@
 #include "kseq++.hpp"
 #include "robin_hood.h"
 #include "ssw_cpp.h"
-
+#include "fasta.hpp"
 #include "exceptions.hpp"
 #include "cmdline.hpp"
 #include "index.hpp"
@@ -27,57 +27,6 @@
 
 using namespace klibpp;
 using std::chrono::high_resolution_clock;
-
-
-static uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsigned int> &lengths, idx_to_acc &acc_map, std::string fn)
-{
-    uint64_t total_ref_seq_size = 0;
-    std::ifstream file(fn);
-    std::string line, seq;
-    acc_map.clear();
-
-    if (!file.good()) {
-        std::cerr << "Unable to read from file " << fn << std::endl;
-        return total_ref_seq_size;
-    }
-
-    if (file.peek() != '>') {
-        std::cerr << fn << " is not a valid FASTA file." << std::endl;
-        return total_ref_seq_size;
-    }
-
-    while (getline(file, line)) {
-        if (line[0] == '>') {
-//            std::cerr << ref_index << " " << line << std::endl;
-            if (seq.length() > 0) {
-//                seqs[ref_index -1] = seq;
-                seqs.push_back(seq);
-                lengths.push_back(seq.length());
-                total_ref_seq_size += seq.length();
-//                std::cerr << ref_index - 1 << " here " << seq << " " << seq.length() << " " << seq.size() << std::endl;
-//                generate_kmers(h, k, seq, ref_index);
-            }
-//            acc_map.push_back(line.substr(1, line.length() -1); //line;
-            acc_map.push_back(line.substr(1, line.find(' ') -1)); // cutting at first space;
-            seq = "";
-        }
-        else {
-            seq += line;
-        }
-    }
-    if (seq.length() > 0){
-//        seqs[ref_index -1] = seq;
-        seqs.push_back(seq);
-        lengths.push_back(seq.length());
-        total_ref_seq_size += seq.length();
-//        std::cerr << ref_index -1 << " here2 " << seq << std::endl;
-//        generate_kmers(h, k, seq, ref_index);
-    }
-
-    return total_ref_seq_size;
-}
-
-
 
 static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, std::string logfile_name, int k, int m) {
     // Prins to csv file the statistics on the number of seeds of a particular length and what fraction of them them are unique in the index:
@@ -423,13 +372,19 @@ int main (int argc, char **argv)
         // Record index creation start time
         auto start = high_resolution_clock::now();
         auto start_read_refs = start;
-        uint64_t total_ref_seq_size = read_references(index.ref_seqs, index.ref_lengths, index.acc_map, opt.ref_filename);
+        uint64_t total_ref_seq_size;
+        try {
+            total_ref_seq_size = read_references(index.ref_seqs, index.ref_lengths, index.acc_map, opt.ref_filename);
+        } catch (const InvalidFasta& e) {
+            std::cerr << "strobealign: " << e.what() << std::endl;
+            return EXIT_FAILURE;
+        }
         std::chrono::duration<double> elapsed_read_refs = high_resolution_clock::now() - start_read_refs;
         std::cerr << "Time reading references: " << elapsed_read_refs.count() << " s\n" << std::endl;
 
         if (total_ref_seq_size == 0) {
             std::cerr << "No reference sequences found, aborting.." << std::endl;
-            return 1;
+            return EXIT_FAILURE;
         }
 
         std::tie(index.flat_vector, index.mers_index) = create_index(map_param, index.ref_seqs, total_ref_seq_size);
