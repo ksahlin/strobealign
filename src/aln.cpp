@@ -1575,18 +1575,14 @@ inline void align_SE(alignment_params &aln_params, Sam& sam, std::vector<nam> &a
 }
 
 
-static inline void align_SE_secondary_hits(alignment_params &aln_params, std::string &sam_string, std::vector<nam> &all_nams, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &qual, logging_variables &log_vars, float dropoff, int max_tries, int max_secondary ) {
+static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, std::string &query_acc, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &qual, logging_variables &log_vars, float dropoff, int max_tries, int max_secondary ) {
 
     std::string read_rc;
     bool rc_already_comp = false;
 
     if (all_nams.size() == 0) {
-        sam_string.append(query_acc);
-        sam_string.append("\t4\t*\t0\t255\t*\t*\t0\t0\t");
-        sam_string.append(read);
-        sam_string.append("\t*\n");
+        sam.unmapped(query_acc, read, qual);
         return;
-
     }
 
     std::vector<std::tuple<int,alignment>> alignments; // (score, aln)
@@ -1851,59 +1847,15 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
             if ((sam_aln.sw_score - best_align_sw_score) > (2*aln_params.mismatch + aln_params.gap_open) ){
                 break;
             }
-            int f = 0;
+            bool is_secondary = false;
+
             if (i > 0) {
-                f += 256;
+                is_secondary = true;
                 sam_aln.mapq = 255;
             } else {
-                sam_aln.mapq = min_mapq_diff < 60 ? min_mapq_diff : 60;
+                sam_aln.mapq = std::min(min_mapq_diff, 60);
             }
-
-
-            std::string output_read;
-            if (sam_aln.is_rc) {
-                f += 16;
-                output_read = read_rc;
-            } else {
-                output_read = read;
-            }
-            sam_string.append(query_acc);
-            sam_string.append("\t");
-            sam_string.append(std::to_string(f));
-            sam_string.append("\t");
-            sam_string.append(acc_map[sam_aln.ref_id]);
-            sam_string.append("\t");
-            sam_string.append(std::to_string(sam_aln.ref_start));
-            sam_string.append("\t");
-            sam_string.append(std::to_string(sam_aln.mapq));
-            sam_string.append("\t");
-            sam_string.append(sam_aln.cigar);
-            sam_string.append("\t*\t0\t0\t");
-            if (!sam_aln.is_unaligned) {
-                sam_string.append(output_read);
-                sam_string.append("\t");
-                if (sam_aln.is_rc){
-                    auto qual_rev = qual;
-                    std::reverse(qual_rev.begin(), qual_rev.end()); // reverse
-                    sam_string.append(qual_rev);
-                } else {
-                    sam_string.append(qual);
-                }
-                sam_string.append("\t");
-                sam_string.append("NM:i:");
-                sam_string.append(std::to_string(sam_aln.ed));
-                sam_string.append("\t");
-                sam_string.append("AS:i:");
-                sam_string.append(std::to_string((int) sam_aln.aln_score));
-            } else {
-                sam_string.append(read);
-                sam_string.append("\t");
-                sam_string.append(qual);
-            }
-            sam_string.append("\n");
-//            sam_string.append("\t*\tNM:i:");
-//            sam_string.append(std::to_string(sam_aln.ed));
-//            sam_string.append("\n");
+            sam.add(sam_aln, read, read_rc, query_acc, qual, is_secondary);
         }
     }
 }
@@ -3937,15 +3889,15 @@ void align_SE_read(std::thread::id thread_id, KSeq &record, std::string &outstri
             output_hits_paf(outstring, nams, record.name, acc_map, map_param.k,
                             record.seq.length(), ref_lengths);
         } else {
-
+            Sam sam(outstring, acc_map);
             if (map_param.max_secondary > 0){
                 // I created an entire new function here, duplicating a lot of the code as outputting secondary hits is has some overhead to the
                 // original align_SE function (storing a vector of hits and sorting them)
                 // Such overhead is not present in align_PE - which implements both options in the same function.
-                align_SE_secondary_hits(aln_params, outstring, nams, record.name, acc_map, map_param.k, record.seq.length(),
+
+                align_SE_secondary_hits(aln_params, sam, nams, record.name, map_param.k, record.seq.length(),
                          ref_lengths, ref_seqs, record.seq, record.qual, log_vars, map_param.dropoff_threshold, map_param.maxTries, map_param.max_secondary);
             } else {
-                Sam sam(outstring, acc_map);
                 align_SE(aln_params, sam, nams, record.name, map_param.k, record.seq.length(),
                          ref_lengths, ref_seqs, record.seq, record.qual, log_vars,  map_param.dropoff_threshold, map_param.maxTries);
             }
@@ -3954,7 +3906,6 @@ void align_SE_read(std::thread::id thread_id, KSeq &record, std::string &outstri
         log_vars.tot_extend += extend_finish - extend_start;
         q_id++;
         nams.clear();
-
 }
 
 
