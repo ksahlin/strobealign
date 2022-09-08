@@ -1305,7 +1305,11 @@ static inline bool sort_highest_sw_scores_single(const std::tuple<int, alignment
 }
 
 
-inline void align_SE(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, std::string &query_acc, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &qual, logging_variables &log_vars, float dropoff, int max_tries ) {
+inline void align_SE(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, logging_variables &log_vars, float dropoff, int max_tries ) {
+    auto query_acc = record.name;
+    auto read = record.seq;
+    auto qual = record.qual;
+    auto read_len = read.size();
 
     std::string read_rc;
     bool rc_already_comp = false;
@@ -1575,8 +1579,12 @@ inline void align_SE(alignment_params &aln_params, Sam& sam, std::vector<nam> &a
 }
 
 
-static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, std::string &query_acc, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &qual, logging_variables &log_vars, float dropoff, int max_tries, int max_secondary ) {
+static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, logging_variables &log_vars, float dropoff, int max_tries, int max_secondary ) {
 
+    auto query_acc = record.name;
+    auto read = record.seq;
+    auto qual = record.qual;
+    auto read_len = read.size();
     std::string read_rc;
     bool rc_already_comp = false;
 
@@ -3647,11 +3655,11 @@ void align_SE_read(std::thread::id thread_id, KSeq &record, std::string &outstri
                 // original align_SE function (storing a vector of hits and sorting them)
                 // Such overhead is not present in align_PE - which implements both options in the same function.
 
-                align_SE_secondary_hits(aln_params, sam, nams, record.name, map_param.k, record.seq.length(),
-                         ref_lengths, ref_seqs, record.seq, record.qual, log_vars, map_param.dropoff_threshold, map_param.maxTries, map_param.max_secondary);
+                align_SE_secondary_hits(aln_params, sam, nams, record, map_param.k,
+                         ref_lengths, ref_seqs, log_vars, map_param.dropoff_threshold, map_param.maxTries, map_param.max_secondary);
             } else {
-                align_SE(aln_params, sam, nams, record.name, map_param.k, record.seq.length(),
-                         ref_lengths, ref_seqs, record.seq, record.qual, log_vars,  map_param.dropoff_threshold, map_param.maxTries);
+                align_SE(aln_params, sam, nams, record, map_param.k,
+                         ref_lengths, ref_seqs, log_vars,  map_param.dropoff_threshold, map_param.maxTries);
             }
         }
         auto extend_finish = std::chrono::high_resolution_clock::now();
