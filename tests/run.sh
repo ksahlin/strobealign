@@ -8,6 +8,13 @@ set -xeuo pipefail
 strobealign -h
 
 d=tests
-strobealign $d/phix.fasta $d/phix.1.fastq $d/phix.2.fastq > phix.sam
-diff -u tests/phix.sam phix.sam
-rm phix.sam
+
+# Paired-end test
+strobealign $d/phix.fasta $d/phix.1.fastq $d/phix.2.fastq > phix.pe.sam
+diff -u tests/phix.pe.sam phix.pe.sam
+rm phix.pe.sam
+
+# Single-end test
+strobealign $d/phix.fasta $d/phix.1.fastq > phix.se.sam
+diff -u tests/phix.se.sam phix.se.sam
+rm phix.se.sam
