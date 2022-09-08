@@ -1305,20 +1305,15 @@ static inline bool sort_highest_sw_scores_single(const std::tuple<int, alignment
 }
 
 
-inline void align_SE(alignment_params &aln_params, std::string &sam_string, std::vector<nam> &all_nams, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &qual, logging_variables &log_vars, float dropoff, int max_tries ) {
+inline void align_SE(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, std::string &query_acc, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &qual, logging_variables &log_vars, float dropoff, int max_tries ) {
 
     std::string read_rc;
     bool rc_already_comp = false;
 
     if (all_nams.size() == 0) {
-        sam_string.append(query_acc);
-        sam_string.append("\t4\t*\t0\t255\t*\t*\t0\t0\t");
-        sam_string.append(read);
-        sam_string.append("\t*\n");
+        sam.unmapped(query_acc, read, qual);
         return;
-
     }
-
 
     int cnt = 0;
     float score_dropoff;
@@ -1574,54 +1569,8 @@ inline void align_SE(alignment_params &aln_params, std::string &sam_string, std:
     }
 
     if (all_nams.size() > 0) {
-        int o;
-        std::string output_read;
-        if (sam_aln.is_rc) {
-            o = 16;
-            output_read = read_rc;
-        } else {
-            o = 0;
-            output_read = read;
-        }
         sam_aln.mapq = std::min(min_mapq_diff, 60);
-        sam_string.append(query_acc);
-        sam_string.append("\t");
-        sam_string.append(std::to_string(o));
-        sam_string.append("\t");
-        sam_string.append(acc_map[sam_aln.ref_id]);
-        sam_string.append("\t");
-        sam_string.append(std::to_string(sam_aln.ref_start));
-        sam_string.append("\t");
-        sam_string.append(std::to_string(sam_aln.mapq));
-        sam_string.append("\t");
-        sam_string.append(sam_aln.cigar);
-        sam_string.append("\t*\t0\t0\t");
-        if (!sam_aln.is_unaligned) {
-            sam_string.append(output_read);
-            sam_string.append("\t");
-            if (sam_aln.is_rc){
-                auto qual_rev = qual;
-                std::reverse(qual_rev.begin(), qual_rev.end()); // reverse
-                sam_string.append(qual_rev);
-            } else {
-                sam_string.append(qual);
-            }
-            sam_string.append("\t");
-            sam_string.append("NM:i:");
-            sam_string.append(std::to_string(sam_aln.ed));
-            sam_string.append("\t");
-            sam_string.append("AS:i:");
-            sam_string.append(std::to_string((int) sam_aln.aln_score));
-        } else {
-            sam_string.append(read);
-            sam_string.append("\t");
-            sam_string.append(qual);
-        }
-        sam_string.append("\n");
-
-//        sam_string.append("\t*\tNM:i:");
-//        sam_string.append(std::to_string(sam_aln.ed));
-//        sam_string.append("\n");
+        sam.add(sam_aln, read, read_rc, query_acc, qual);
     }
 }
 
@@ -3996,7 +3945,8 @@ void align_SE_read(std::thread::id thread_id, KSeq &record, std::string &outstri
                 align_SE_secondary_hits(aln_params, outstring, nams, record.name, acc_map, map_param.k, record.seq.length(),
                          ref_lengths, ref_seqs, record.seq, record.qual, log_vars, map_param.dropoff_threshold, map_param.maxTries, map_param.max_secondary);
             } else {
-                align_SE(aln_params, outstring, nams, record.name, acc_map, map_param.k, record.seq.length(),
+                Sam sam(outstring, acc_map);
+                align_SE(aln_params, sam, nams, record.name, map_param.k, record.seq.length(),
                          ref_lengths, ref_seqs, record.seq, record.qual, log_vars,  map_param.dropoff_threshold, map_param.maxTries);
             }
         }
