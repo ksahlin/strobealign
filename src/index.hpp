@@ -16,28 +16,46 @@
 #include <tuple>
 #include "robin_hood.h"
 #include "xxhash.h"
+#include "exceptions.hpp"
 
 uint64_t hash(std::string kmer);
 static inline uint64_t hash64(uint64_t key, uint64_t mask);
 
 
-typedef std::vector< std::tuple<uint64_t, unsigned int, int >> mers_vector;
+typedef std::vector< uint64_t > hash_vector; //only used during index generation
+typedef std::vector< std::tuple<uint32_t, int32_t >> mers_vector;
+typedef std::vector< std::tuple<uint64_t, uint32_t, int32_t >> ind_mers_vector; //only used during index generation
 //typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int>> mers_vector_reduced;
 typedef robin_hood::unordered_map< uint64_t, std::tuple<unsigned int, unsigned int >> kmer_lookup;
-
 typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool>> mers_vector_read;
+typedef std::vector<std::string > idx_to_acc;
+
+struct st_index {
+    st_index() : filter_cutoff(0) {}
+    unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation, 
+                                //therefore stored here since it needs to be saved with the index.
+    std::vector<std::string> ref_seqs;
+    std::vector<unsigned int> ref_lengths;
+    idx_to_acc acc_map;
+    mers_vector flat_vector;
+    kmer_lookup mers_index;
+};
+
 
 //static inline void make_string_to_hashvalues(std::string &seq, std::vector<uint64_t> &string_hashes, int k, uint64_t kmask);
 static inline void get_next_strobe(const std::vector<uint64_t> &string_hashes, uint64_t strobe_hashval, unsigned int &strobe_pos_next, uint64_t &strobe_hashval_next,  unsigned int w_start, unsigned int w_end, uint64_t q);
 
 
 //mers_vector seq_to_kmers(int k, std::string &seq, unsigned int ref_index);
-mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string &seq, int ref_index, int s, int t, uint64_t q, int max_dist);
+void seq_to_randstrobes2(ind_mers_vector& flat_vector, int n, int k, int w_min, int w_max, std::string &seq, int ref_index, int s, int t, uint64_t q, int max_dist);
 mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int s, int t, uint64_t q, int max_dist);
 //mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int w);
 
-uint64_t count_unique_elements(const mers_vector &flat_vector);
-unsigned int index_vector(const mers_vector &flat_vector, kmer_lookup &mers_index, float f);
+void write_index(const st_index& index, std::string filename);
+void read_index(st_index& index, std::string filename);
+
+uint64_t count_unique_elements(const hash_vector& h_vector);
+unsigned int index_vector(const hash_vector& h_vector, kmer_lookup &mers_index, float f);
 
 struct hit {
     int query_s;
@@ -135,7 +153,8 @@ struct i_dist_est {
     float mu = 300;
     float sigma = 100;
     float V = 10000;
-    float SSE = 10000;} ;
+    float SSE = 10000;
+};
 
 struct mapping_params {
     uint64_t q;
@@ -161,7 +180,23 @@ struct mapping_params {
     int max_seed_len;
     int rescue_cutoff;
     unsigned int filter_cutoff;
-    bool is_sam_out;};
+    bool is_sam_out;
+
+    void verify(){
+	if(k <= 7 | k > 32){
+	    throw BadMappingParameter("k not in [8,32]");
+	}
+	if(s > k){
+	    throw BadMappingParameter("s is larger than k");
+	}
+	if((k - s) % 2 != 0){
+	    throw BadMappingParameter("(k - s) should be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
+	}
+	if(max_dist > 255){
+	    throw BadMappingParameter("maximum seed length (-m <max_dist>) is larger than 255");
+	}
+    }
+};
 
 
 #endif /* index_hpp */

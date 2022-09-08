@@ -11,6 +11,7 @@
 #include <bitset>
 #include <climits>
 #include <inttypes.h>
+#include <fstream>
 #include <cassert>
 
 /**********************************************************
@@ -97,13 +98,11 @@ static unsigned char seq_nt4_table[256] = {
 //}
 
 
-uint64_t count_unique_elements(const mers_vector &flat_vector){
-    assert(flat_vector.size() > 0);
-    uint64_t prev_k = std::get<0>(flat_vector[0]);
-    uint64_t curr_k;
+uint64_t count_unique_elements(const hash_vector& h_vector){
+    assert(h_vector.size() > 0);
+    uint64_t prev_k = h_vector[0];
     uint64_t unique_elements = 1;
-    for (auto &t : flat_vector) {
-        curr_k = std::get<0>(t);
+    for (auto &curr_k : h_vector) {
         if (curr_k != prev_k) {
             unique_elements ++;
         }
@@ -112,9 +111,9 @@ uint64_t count_unique_elements(const mers_vector &flat_vector){
     return unique_elements;
 }
 
-unsigned int index_vector(const mers_vector &flat_vector, kmer_lookup &mers_index, float f){
+unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, float f){
 
-    std::cerr << "Flat vector size: " << flat_vector.size() << std::endl;
+    std::cerr << "Flat vector size: " << h_vector.size() << std::endl;
 //    kmer_lookup mers_index;
     unsigned int offset = 0;
     unsigned int prev_offset = 0;
@@ -125,14 +124,12 @@ unsigned int index_vector(const mers_vector &flat_vector, kmer_lookup &mers_inde
     unsigned int tot_mid_ab = 0;
     std::vector<unsigned int> strobemer_counts;
 
-    uint64_t prev_k;
-    std::tuple<uint64_t, unsigned int, int> t = flat_vector[0];
-    prev_k = std::get<0>(t);
+    uint64_t prev_k = h_vector[0];
     uint64_t curr_k;
 
-    for ( auto &t : flat_vector ) {
+    for ( auto &t : h_vector) {
 //        std::cerr << t << std::endl;
-        curr_k = std::get<0>(t);
+        curr_k = t;
         if (curr_k == prev_k){
             count ++;
         }
@@ -195,6 +192,121 @@ unsigned int index_vector(const mers_vector &flat_vector, kmer_lookup &mers_inde
 }
 
 
+void write_index(const st_index& index, std::string filename) {
+    std::ofstream ofs(filename, std::ios::binary);
+
+    //write filter_cutoff
+    ofs.write(reinterpret_cast<const char*>(&index.filter_cutoff), sizeof(index.filter_cutoff));
+
+    //write ref_seqs:
+    uint64_t s1 = uint64_t(index.ref_seqs.size());
+    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
+    //For each string, write length and then the string
+    uint32_t s2 = 0;
+    for (std::size_t i = 0; i < index.ref_seqs.size(); ++i) {
+        s2 = uint32_t(index.ref_seqs[i].length());
+        ofs.write(reinterpret_cast<char*>(&s2), sizeof(s2));
+        ofs.write(index.ref_seqs[i].c_str(), index.ref_seqs[i].length());
+    }
+    
+    //write ref_lengths:
+    //write everything in one large chunk
+    s1 = uint64_t(index.ref_lengths.size());
+    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
+    ofs.write(reinterpret_cast<const char*>(&index.ref_lengths[0]), index.ref_lengths.size()*sizeof(index.ref_lengths[0]));
+
+    //write acc_map:
+    s1 = uint64_t(index.acc_map.size());
+    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
+    //For each string, write length and then the string
+    for (std::size_t i = 0; i < index.acc_map.size(); ++i) {
+        s2 = uint32_t(index.acc_map[i].length());
+        ofs.write(reinterpret_cast<char*>(&s2), sizeof(s2));
+        ofs.write(index.acc_map[i].c_str(), index.acc_map[i].length());
+    }
+
+    //write flat_vector:
+    s1 = uint64_t(index.flat_vector.size());
+    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
+    ofs.write(reinterpret_cast<const char*>(&index.flat_vector[0]), index.flat_vector.size() * sizeof(index.flat_vector[0]));
+
+    //write mers_index:
+    s1 = uint64_t(index.mers_index.size());
+    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
+    for (auto& p : index.mers_index) {
+        ofs.write(reinterpret_cast<const char*>(&p.first), sizeof(p.first));
+        ofs.write(reinterpret_cast<const char*>(&p.second), sizeof(p.second));
+    }
+};
+
+void read_index(st_index& index, std::string filename) {
+    std::ifstream ifs(filename, std::ios::binary);
+    //read filter_cutoff
+    ifs.read(reinterpret_cast<char*>(&index.filter_cutoff), sizeof(index.filter_cutoff));
+
+    //read ref_seqs:
+    index.ref_seqs.clear();
+    uint64_t sz = 0;
+    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
+    index.ref_seqs.reserve(sz);
+    uint32_t sz2 = 0;
+    auto& refseqs = index.ref_seqs;
+    for (uint64_t i = 0; i < sz; ++i) {
+        ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
+        std::unique_ptr<char> buf_ptr(new char[sz2]);//The vector is short with large strings, so allocating this way should be ok.
+        ifs.read(buf_ptr.get(), sz2);
+        //we could potentially use std::move here to avoid reallocation, something like std::string(std::move(buf), sz2), but it has to be investigated more
+        refseqs.push_back(std::string(buf_ptr.get(), sz2));
+    }
+
+    //read ref_lengths
+    ////////////////
+    index.ref_lengths.clear();
+    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
+    index.ref_lengths.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but ignore that for now
+    ifs.read(reinterpret_cast<char*>(&index.ref_lengths[0]), sz*sizeof(index.ref_lengths[0]));
+
+    //read acc_map:
+    index.acc_map.clear();
+    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
+    index.acc_map.reserve(sz);
+    auto& acc_map = index.acc_map;
+
+    for (int i = 0; i < sz; ++i) {
+        ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
+        std::unique_ptr<char> buf_ptr(new char[sz2]);
+        char* buf = buf_ptr.get();
+        ifs.read(buf_ptr.get(), sz2);
+        acc_map.push_back(std::string(buf_ptr.get(), sz2));
+    }
+
+    //read flat_vector:
+    index.flat_vector.clear();
+    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
+    index.flat_vector.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but let's ignore that for now
+    ifs.read(reinterpret_cast<char*>(&index.flat_vector[0]), sz*sizeof(index.flat_vector[0]));
+
+    //read mers_index:
+    index.mers_index.clear();
+    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
+    index.mers_index.reserve(sz);
+    //read in big chunks
+    const uint64_t chunk_size = pow(2,20);//4 M => chunks of ~10 MB - The chunk size seem not to be that important
+    auto buf_size = std::min(sz, chunk_size) * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
+    std::unique_ptr<char> buf_ptr(new char[buf_size]);
+    char* buf2 = buf_ptr.get();
+    auto left_to_read = sz;
+    while (left_to_read > 0) {
+        auto to_read = std::min(left_to_read, chunk_size);
+        ifs.read(buf2, to_read * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type)));
+        //Add the elements directly from the buffer
+        for (int i = 0; i < to_read; ++i) {
+            auto start = buf2 + i * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
+            index.mers_index[*reinterpret_cast<kmer_lookup::key_type*>(start)] = *reinterpret_cast<kmer_lookup::mapped_type*>(start + sizeof(kmer_lookup::key_type));
+        }
+        left_to_read -= to_read;
+    }
+};
 
 
 
@@ -728,12 +840,11 @@ static inline void get_next_strobe_dist_constraint(const std::vector<uint64_t> &
 //    return  kmers;
 //}
 
-mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string &seq, int ref_index, int s, int t, uint64_t q, int max_dist)
+void seq_to_randstrobes2(ind_mers_vector& flat_vector, int n, int k, int w_min, int w_max, std::string &seq, int ref_index, int s, int t, uint64_t q, int max_dist)
 {
-    mers_vector randstrobes2;
 
     if (seq.length() < w_max) {
-        return randstrobes2;
+        return;
     }
 
     std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
@@ -752,7 +863,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 
     unsigned int nr_hashes = string_hashes.size();
     if (nr_hashes == 0) {
-        return randstrobes2;
+        return;
     }
 
 //        for (unsigned int i = 0; i < seq_length; i++) {
@@ -796,7 +907,7 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
         }
         else{
 //            std::cerr << randstrobes2.size() << " randstrobes generated" << '\n';
-            return randstrobes2;
+            return;
         }
 
 //        uint64_t hash_randstrobe2 = (string_hashes[i] << k) ^ strobe_hashval_next;
@@ -808,8 +919,8 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
         int packed = (ref_index << 8);
 //        int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
         packed = packed + (seq_pos_strobe2 - seq_pos_strobe1);
-        std::tuple<uint64_t, unsigned int, int> s (hash_randstrobe2, seq_pos_strobe1, packed);
-        randstrobes2.push_back(s);
+        std::tuple<uint64_t, uint32_t, int32_t> s(hash_randstrobe2, seq_pos_strobe1, packed);
+        flat_vector.push_back(s);
 //        std::cerr << seq_pos_strobe1 << " " << seq_pos_strobe2 << std::endl;
 //        std::cerr << "FORWARD REF: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
 //        std::cerr << "REFERENCE: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
@@ -827,10 +938,9 @@ mers_vector seq_to_randstrobes2(int n, int k, int w_min, int w_max, std::string 
 
     }
 //    std::cerr << randstrobes2.size() << " randstrobes generated" << '\n';
-    return randstrobes2;
 }
 
-mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, std::string &seq, unsigned int  ref_index, int s, int t, uint64_t q, int max_dist)
+mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, std::string& seq, unsigned int  ref_index, int s, int t, uint64_t q, int max_dist)
 {
     // this function differs from  the function seq_to_randstrobes2 which creating randstrobes for the reference.
     // The seq_to_randstrobes2 stores randstobes only in one direction from canonical syncmers.

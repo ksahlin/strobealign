@@ -28,9 +28,6 @@ using namespace klibpp;
 //#include <chrono>
 //#include <thread>
 
-
-typedef robin_hood::unordered_map<int, std::string > idx_to_acc;
-
 struct aln_info {
     std::string cigar;
     unsigned int ed;
