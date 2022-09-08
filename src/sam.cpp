@@ -1,7 +1,7 @@
 #include <ostream>
 #include "aln.hpp"
 
-void Sam::add_unmapped(std::string& name, std::string& sequence, std::string& qual) {
+void Sam::add_unmapped(const std::string& name, const std::string& sequence, const std::string& qual) {
     sam_string.append(name);
     sam_string.append("\t4\t*\t0\t255\t*\t*\t0\t0\t");
     sam_string.append(sequence);
@@ -63,7 +63,7 @@ void Sam::add(
     sam_string.append("\n");
 }
 
-void Sam::add_unmapped_pair(KSeq& r1, KSeq& r2) {
+void Sam::add_unmapped_pair(const KSeq& r1, const KSeq& r2) {
     sam_string.append(r1.name);
     sam_string.append("\t77\t*\t0\t255\t*\t*\t0\t0\t");
     sam_string.append(r1.seq);
