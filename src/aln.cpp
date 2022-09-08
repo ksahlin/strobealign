@@ -1313,7 +1313,7 @@ inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<n
     bool rc_already_comp = false;
 
     if (all_nams.size() == 0) {
-        sam.add_unmapped(query_acc, read, qual);
+        sam.add_unmapped(record);
         return;
     }
 
@@ -1587,7 +1587,7 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sa
     bool rc_already_comp = false;
 
     if (all_nams.size() == 0) {
-        sam.add_unmapped(query_acc, read, qual);
+        sam.add_unmapped(record);
         return;
     }
 

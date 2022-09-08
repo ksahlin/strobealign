@@ -1,11 +1,18 @@
 #include <ostream>
 #include "aln.hpp"
 
-void Sam::add_unmapped(const std::string& name, const std::string& sequence, const std::string& qual) {
-    sam_string.append(name);
-    sam_string.append("\t4\t*\t0\t255\t*\t*\t0\t0\t");
-    sam_string.append(sequence);
+void Sam::add_unmapped(const KSeq& record, int flags) {
+    sam_string.append(record.name);
+    sam_string.append("\t");
+    sam_string.append(std::to_string(flags));
+    sam_string.append("\t*\t0\t255\t*\t*\t0\t0\t");
+    sam_string.append(record.seq);
     sam_string.append("\t*\n");
+}
+
+void Sam::add_unmapped_pair(const KSeq& r1, const KSeq& r2) {
+    add_unmapped(r1, PAIRED | UNMAP | MUNMAP | READ1);
+    add_unmapped(r2, PAIRED | UNMAP | MUNMAP | READ2);
 }
 
 void Sam::add(
@@ -61,17 +68,6 @@ void Sam::add(
         sam_string.append(qual);
     }
     sam_string.append("\n");
-}
-
-void Sam::add_unmapped_pair(const KSeq& r1, const KSeq& r2) {
-    sam_string.append(r1.name);
-    sam_string.append("\t77\t*\t0\t255\t*\t*\t0\t0\t");
-    sam_string.append(r1.seq);
-    sam_string.append("\t*\n");
-    sam_string.append(r2.name);
-    sam_string.append("\t141\t*\t0\t255\t*\t*\t0\t0\t");
-    sam_string.append(r2.seq);
-    sam_string.append("\t*\n");
 }
 
 void Sam::add_pair(alignment &sam_aln1, alignment &sam_aln2, const std::string &read1, const std::string &read2, const std::string &read1_rc, const std::string &read2_rc, const std::string &query_acc1, const std::string &query_acc2, int &mapq1, int &mapq2, float &mu, float &sigma, int read_len, bool is_primary, const std::string &qual1, const std::string &qual2) {
