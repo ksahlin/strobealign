@@ -73,19 +73,15 @@ void Sam::add(
 void Sam::add_pair(
     alignment &sam_aln1,
     alignment &sam_aln2,
-    const std::string &read1,
-    const std::string &read2,
+    const KSeq& record1,
+    const KSeq& record2,
     const std::string &read1_rc,
     const std::string &read2_rc,
-    const std::string &query_acc1,
-    const std::string &query_acc2,
     int &mapq1,
     int &mapq2,
     float &mu,
     float &sigma,
-    bool is_primary,
-    const std::string &qual1,
-    const std::string &qual2
+    bool is_primary
 ) {
     int f1 = PAIRED;
     int f2 = PAIRED;
@@ -143,9 +139,9 @@ void Sam::add_pair(
     }
 
     std::string output_read1;
-    output_read1 = read1;
+    output_read1 = record1.seq;
     std::string output_read2;
-    output_read2 = read2;
+    output_read2 = record2.seq;
     f1 |= READ1;
     f2 |= READ2;
     if (sam_aln1.is_rc) {
@@ -242,7 +238,7 @@ void Sam::add_pair(
 //        std::cerr << query_acc2 << std::endl;
 //    }
 
-    sam_string.append(query_acc1);
+    sam_string.append(record1.name);
     sam_string.append("\t");
     sam_string.append(std::to_string(f1));
     sam_string.append("\t");
@@ -265,11 +261,11 @@ void Sam::add_pair(
         sam_string.append(output_read1);
         sam_string.append("\t");
         if (sam_aln1.is_rc){
-            auto qual_rev = qual1;
+            auto qual_rev = record1.qual;
             std::reverse(qual_rev.begin(), qual_rev.end());
             sam_string.append(qual_rev);
         } else {
-            sam_string.append(qual1);
+            sam_string.append(record1.qual);
         }
         sam_string.append("\t");
         sam_string.append("NM:i:");
@@ -278,13 +274,13 @@ void Sam::add_pair(
         sam_string.append("AS:i:");
         sam_string.append(std::to_string((int) sam_aln1.aln_score));
     } else {
-        sam_string.append(read1);
+        sam_string.append(record1.seq);
         sam_string.append("\t");
-        sam_string.append(qual1);
+        sam_string.append(record1.qual);
     }
     sam_string.append("\n");
 
-    sam_string.append(query_acc2);
+    sam_string.append(record2.name);
     sam_string.append("\t");
     sam_string.append(std::to_string(f2));
     sam_string.append("\t");
@@ -302,16 +298,15 @@ void Sam::add_pair(
     sam_string.append("\t");
     sam_string.append(std::to_string(template_len2));
     sam_string.append("\t");
-//    sam_string.append("\t*\t0\t0\t");
     if (!sam_aln2.is_unaligned) {
         sam_string.append(output_read2);
         sam_string.append("\t");
         if (sam_aln2.is_rc){
-            auto qual2_rev = qual2;
+            auto qual2_rev = record2.qual;
             std::reverse(qual2_rev.begin(), qual2_rev.end()); // reverse
             sam_string.append(qual2_rev);
         } else {
-            sam_string.append(qual2);
+            sam_string.append(record2.qual);
         }
         sam_string.append("\t");
         sam_string.append("NM:i:");
@@ -320,9 +315,9 @@ void Sam::add_pair(
         sam_string.append("AS:i:");
         sam_string.append(std::to_string((int) sam_aln2.aln_score));
     } else {
-        sam_string.append(read2);
+        sam_string.append(record2.seq);
         sam_string.append("\t");
-        sam_string.append(qual2);
+        sam_string.append(record2.qual);
     }
     sam_string.append("\n");
 }

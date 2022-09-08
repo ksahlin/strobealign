@@ -1917,7 +1917,7 @@ static inline void align_segment(alignment_params &aln_params, std::string &read
 //    std::cerr << " ALIGN SCORE: " << sam_aln_segm.sw_score << " cigar: " << sam_aln_segm.cigar << std::endl;
 }
 
-static inline void get_alignment(alignment_params &aln_params, nam &n, const std::vector<unsigned int> &ref_len_map, const std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, int read_len, alignment &sam_aln, int k, int cnt, bool &rc_already_comp, unsigned int &did_not_fit, unsigned int &tot_ksw_aligned){
+static inline void get_alignment(alignment_params &aln_params, nam &n, const std::vector<unsigned int> &ref_len_map, const std::vector<std::string> &ref_seqs, const std::string &read, std::string &read_rc, int read_len, alignment &sam_aln, int k, int cnt, bool &rc_already_comp, unsigned int &did_not_fit, unsigned int &tot_ksw_aligned){
     bool aln_did_not_fit = false;
     int ref_diff = n.ref_e - n.ref_s;
     int read_diff = n.query_e - n.query_s;
@@ -2960,7 +2960,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
             get_MAPQ(all_nams1, n_max1, mapq1);
             get_MAPQ(all_nams2, n_max2, mapq2);
 //            std::cerr<< "7" << std::endl;
-            sam.add_pair(sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, query_acc1, query_acc2, mapq1, mapq2, mu, sigma, true, record1.qual, record2.qual);
+            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc, mapq1, mapq2, mu, sigma, true);
 
             if ((isize_est.sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && !sam_aln1.not_proper && !sam_aln2.not_proper ){
                 int d = sam_aln1.ref_start > sam_aln2.ref_start ? sam_aln1.ref_start - sam_aln2.ref_start : sam_aln2.ref_start - sam_aln1.ref_start;
@@ -3181,8 +3181,8 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
                 sam_aln1 = std::get<1>(best_aln_pair);
                 sam_aln2 = std::get<2>(best_aln_pair);
 //            get_MAPQ_aln(sam_aln1, sam_aln2);
-                sam.add_pair(sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, query_acc1,
-                              query_acc2, mapq1, mapq2, mu, sigma, true, record1.qual, record2.qual);
+                sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc,
+                              mapq1, mapq2, mu, sigma, true);
             } else {
                 int max_out = high_scores.size() < max_secondary ? high_scores.size() : max_secondary;
 //                std::cout << high_scores.size() << std::endl;
@@ -3214,8 +3214,8 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
                     }
 
                     if ((s_max - s_score) < secondary_droppoff){
-                        sam.add_pair(sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, query_acc1,
-                                      query_acc2, mapq1, mapq2, mu, sigma, is_primary, record1.qual, record2.qual);
+                        sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc,
+                                      mapq1, mapq2, mu, sigma, is_primary);
                     } else{
                         break;
                     }
@@ -3226,10 +3226,6 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
                     prev_ref_id_m2 = sam_aln2.ref_id;
                 }
             }
-            //////////////////////////////////////////////////////////////////
-            //////////////////////////////////////////////////////////////////
-            //////////////////////////////////////////////////////////////////
-
 
         }
     } else if (all_nams1.size() > 0 ) { // rescue read 2
@@ -3287,7 +3283,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
             sam_aln2 = std::get<2>(best_aln_pair);
 //            get_MAPQ(all_nams1, n_max1, mapq1);
 //            mapq2 = 0;
-            sam.add_pair(sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, query_acc1, query_acc2, mapq1, mapq2, mu, sigma, true, record1.qual, record2.qual);
+            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc, mapq1, mapq2, mu, sigma, true);
         } else {
             int max_out = high_scores.size() < max_secondary ? high_scores.size() : max_secondary;
             bool is_primary = true;
@@ -3305,8 +3301,8 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
                 sam_aln1 = std::get<1>(aln_pair);
                 sam_aln2 = std::get<2>(aln_pair);
                 if ((s_max - s_score) < secondary_droppoff){
-                    sam.add_pair(sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, query_acc1,
-                                  query_acc2, mapq1, mapq2, mu, sigma, is_primary, record1.qual, record2.qual);
+                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc,
+                                  mapq1, mapq2, mu, sigma, is_primary);
                 } else{
                     break;
                 }
@@ -3370,8 +3366,8 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
             sam_aln2 = std::get<2>(best_aln_pair);
 //            get_MAPQ(all_nams2, n_max2, mapq2);
 //            mapq1 = 0;
-            sam.add_pair(sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, query_acc1,
-                          query_acc2, mapq1, mapq2, mu, sigma, true, record1.qual, record2.qual);
+            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc,
+                          mapq1, mapq2, mu, sigma, true);
         } else {
             int max_out = high_scores.size() < max_secondary ? high_scores.size() : max_secondary;
             bool is_primary = true;
@@ -3389,8 +3385,8 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
                 sam_aln1 = std::get<1>(aln_pair);
                 sam_aln2 = std::get<2>(aln_pair);
                 if ((s_max - s_score) < secondary_droppoff){
-                    sam.add_pair(sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, query_acc1,
-                                  query_acc2, mapq1, mapq2, mu, sigma, is_primary, record1.qual, record2.qual);
+                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc,
+                                  mapq1, mapq2, mu, sigma, is_primary);
                 } else{
                     break;
                 }
