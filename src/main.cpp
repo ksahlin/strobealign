@@ -12,8 +12,6 @@
 #include <math.h>
 #include <inttypes.h>
 
-#include <stdexcept>
-
 #include <zlib.h>
 #include "args.hxx"
 #include "kseq++.hpp"
