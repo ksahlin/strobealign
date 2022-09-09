@@ -24,6 +24,7 @@ src/main.cpp
 src/fasta.cpp
 src/cmdline.cpp
 src/index.cpp
+src/sam.cpp
 src/pc.cpp
 src/aln.cpp
 ext/xxhash.c

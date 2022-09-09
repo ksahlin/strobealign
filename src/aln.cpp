@@ -1305,20 +1305,15 @@ static inline bool sort_highest_sw_scores_single(const std::tuple<int, alignment
 }
 
 
-inline void align_SE(alignment_params &aln_params, std::string &sam_string, std::vector<nam> &all_nams, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &qual, logging_variables &log_vars, float dropoff, int max_tries ) {
+inline void align_SE(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, std::string &query_acc, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &qual, logging_variables &log_vars, float dropoff, int max_tries ) {
 
     std::string read_rc;
     bool rc_already_comp = false;
 
     if (all_nams.size() == 0) {
-        sam_string.append(query_acc);
-        sam_string.append("\t4\t*\t0\t255\t*\t*\t0\t0\t");
-        sam_string.append(read);
-        sam_string.append("\t*\n");
+        sam.add_unmapped(query_acc, read, qual);
         return;
-
     }
-
 
     int cnt = 0;
     float score_dropoff;
@@ -1574,70 +1569,20 @@ inline void align_SE(alignment_params &aln_params, std::string &sam_string, std:
     }
 
     if (all_nams.size() > 0) {
-        int o;
-        std::string output_read;
-        if (sam_aln.is_rc) {
-            o = 16;
-            output_read = read_rc;
-        } else {
-            o = 0;
-            output_read = read;
-        }
         sam_aln.mapq = std::min(min_mapq_diff, 60);
-        sam_string.append(query_acc);
-        sam_string.append("\t");
-        sam_string.append(std::to_string(o));
-        sam_string.append("\t");
-        sam_string.append(acc_map[sam_aln.ref_id]);
-        sam_string.append("\t");
-        sam_string.append(std::to_string(sam_aln.ref_start));
-        sam_string.append("\t");
-        sam_string.append(std::to_string(sam_aln.mapq));
-        sam_string.append("\t");
-        sam_string.append(sam_aln.cigar);
-        sam_string.append("\t*\t0\t0\t");
-        if (!sam_aln.is_unaligned) {
-            sam_string.append(output_read);
-            sam_string.append("\t");
-            if (sam_aln.is_rc){
-                auto qual_rev = qual;
-                std::reverse(qual_rev.begin(), qual_rev.end()); // reverse
-                sam_string.append(qual_rev);
-            } else {
-                sam_string.append(qual);
-            }
-            sam_string.append("\t");
-            sam_string.append("NM:i:");
-            sam_string.append(std::to_string(sam_aln.ed));
-            sam_string.append("\t");
-            sam_string.append("AS:i:");
-            sam_string.append(std::to_string((int) sam_aln.aln_score));
-        } else {
-            sam_string.append(read);
-            sam_string.append("\t");
-            sam_string.append(qual);
-        }
-        sam_string.append("\n");
-
-//        sam_string.append("\t*\tNM:i:");
-//        sam_string.append(std::to_string(sam_aln.ed));
-//        sam_string.append("\n");
+        sam.add(sam_aln, read, read_rc, query_acc, qual);
     }
 }
 
 
-static inline void align_SE_secondary_hits(alignment_params &aln_params, std::string &sam_string, std::vector<nam> &all_nams, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &qual, logging_variables &log_vars, float dropoff, int max_tries, int max_secondary ) {
+static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, std::string &query_acc, int k, int read_len, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &qual, logging_variables &log_vars, float dropoff, int max_tries, int max_secondary ) {
 
     std::string read_rc;
     bool rc_already_comp = false;
 
     if (all_nams.size() == 0) {
-        sam_string.append(query_acc);
-        sam_string.append("\t4\t*\t0\t255\t*\t*\t0\t0\t");
-        sam_string.append(read);
-        sam_string.append("\t*\n");
+        sam.add_unmapped(query_acc, read, qual);
         return;
-
     }
 
     std::vector<std::tuple<int,alignment>> alignments; // (score, aln)
@@ -1902,59 +1847,15 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, std::st
             if ((sam_aln.sw_score - best_align_sw_score) > (2*aln_params.mismatch + aln_params.gap_open) ){
                 break;
             }
-            int f = 0;
+            bool is_secondary = false;
+
             if (i > 0) {
-                f += 256;
+                is_secondary = true;
                 sam_aln.mapq = 255;
             } else {
-                sam_aln.mapq = min_mapq_diff < 60 ? min_mapq_diff : 60;
+                sam_aln.mapq = std::min(min_mapq_diff, 60);
             }
-
-
-            std::string output_read;
-            if (sam_aln.is_rc) {
-                f += 16;
-                output_read = read_rc;
-            } else {
-                output_read = read;
-            }
-            sam_string.append(query_acc);
-            sam_string.append("\t");
-            sam_string.append(std::to_string(f));
-            sam_string.append("\t");
-            sam_string.append(acc_map[sam_aln.ref_id]);
-            sam_string.append("\t");
-            sam_string.append(std::to_string(sam_aln.ref_start));
-            sam_string.append("\t");
-            sam_string.append(std::to_string(sam_aln.mapq));
-            sam_string.append("\t");
-            sam_string.append(sam_aln.cigar);
-            sam_string.append("\t*\t0\t0\t");
-            if (!sam_aln.is_unaligned) {
-                sam_string.append(output_read);
-                sam_string.append("\t");
-                if (sam_aln.is_rc){
-                    auto qual_rev = qual;
-                    std::reverse(qual_rev.begin(), qual_rev.end()); // reverse
-                    sam_string.append(qual_rev);
-                } else {
-                    sam_string.append(qual);
-                }
-                sam_string.append("\t");
-                sam_string.append("NM:i:");
-                sam_string.append(std::to_string(sam_aln.ed));
-                sam_string.append("\t");
-                sam_string.append("AS:i:");
-                sam_string.append(std::to_string((int) sam_aln.aln_score));
-            } else {
-                sam_string.append(read);
-                sam_string.append("\t");
-                sam_string.append(qual);
-            }
-            sam_string.append("\n");
-//            sam_string.append("\t*\tNM:i:");
-//            sam_string.append(std::to_string(sam_aln.ed));
-//            sam_string.append("\n");
+            sam.add(sam_aln, read, read_rc, query_acc, qual, is_secondary);
         }
     }
 }
@@ -2622,247 +2523,6 @@ static inline void get_joint_MAPQ_from_alingments(float S1, float S2, int &mapq1
     }
 }
 
-static inline void append_to_sam(std::string &sam_string, alignment &sam_aln1, alignment &sam_aln2, std::string &read1, std::string &read2, std::string &read1_rc, std::string &read2_rc, idx_to_acc &acc_map, std::string &query_acc1, std::string &query_acc2, int &mapq1, int &mapq2, float &mu, float &sigma, int read_len, bool is_primary, std::string &qual1, std::string &qual2){
-    int f1 = 1;
-    int f2 = 1; // template having multiple segments in sequencing
-//    std::cerr <<  query_acc1 << " HERE 1: " << sam_aln1.is_unaligned << " " << query_acc2 << " HERE 2: " << sam_aln2.is_unaligned  << std::endl;
-    if (!is_primary){
-        f1 |= (1u << 8); // not primary
-        f2 |= (1u << 8); // not primary
-    }
-
-    // Commented lines below because we do not longer mark a read as not proper just because of the non-matching hash
-    // Proper or non proper reads are further below only decided based on the expected distance and relative orientation they align to
-//    if (sam_aln1.ed < 5){ // Flag alignments previously deemed as 'not proper' (based on matching strobemer hash ) to proper because of small ed
-//        sam_aln1.not_proper = false;
-//    }
-//    if (sam_aln2.ed < 5){ // Flag alignments previously deemed as 'not proper' (based on matching strobemer hash ) to proper because of small ed
-//        sam_aln2.not_proper = false;
-//    }
-
-    int d, template_len1, template_len2;
-    if (sam_aln1.ref_start < sam_aln2.ref_start){
-        d = sam_aln2.ref_start - sam_aln1.ref_start;
-        template_len1 = - d - sam_aln2.aln_length;
-        template_len2 = d + sam_aln2.aln_length;
-//        std::cerr << "case1: " <<  query_acc1 << "HERE 1: " << sam_aln1.ref_start << " " << query_acc2 << " HERE 2: " << sam_aln2.ref_start << "  " << d <<  " sam_aln2.aln_length " << sam_aln2.aln_length << " sam_aln1.aln_length " << sam_aln1.aln_length << std::endl;
-    }
-    else{
-        d = sam_aln1.ref_start - sam_aln2.ref_start;
-        template_len1 = d + sam_aln1.aln_length;
-        template_len2 = - d - sam_aln1.aln_length;
-//        std::cerr << "case2: " <<   query_acc1 << "HERE 1: " << sam_aln1.ref_start << " " << query_acc2 << " HERE 2: " << sam_aln2.ref_start << "  " << d <<  " sam_aln2.aln_length " << sam_aln2.aln_length << " sam_aln1.aln_length " << sam_aln1.aln_length << std::endl;
-    }
-    //    int d = sam_aln1.ref_start < sam_aln2.ref_start ? sam_aln2.ref_start - sam_aln1.ref_start : sam_aln1.ref_start - sam_aln2.ref_start;
-
-    bool both_aligned = !sam_aln1.is_unaligned && !sam_aln2.is_unaligned;
-    int a = sam_aln2.ref_start - sam_aln1.ref_start;
-    bool r1_r2 = !sam_aln1.is_rc && sam_aln2.is_rc && a >= 0; // r1 ---> <---- r2
-    bool r2_r1 = !sam_aln2.is_rc && sam_aln1.is_rc && a <= 0 ; // r2 ---> <---- r1
-    bool rel_orientation_good = r1_r2 || r2_r1;
-    bool insert_good = d <= mu + 6*sigma;
-    if ( both_aligned && insert_good && rel_orientation_good ){
-        sam_aln1.not_proper = false;
-        sam_aln2.not_proper = false;
-    } else {
-        sam_aln1.not_proper = true;
-        sam_aln2.not_proper = true;
-    }
-
-//    if ( d > (mu + 6*sigma) ){ // Flag alignments as 'not proper' because of too large deviation in insert size
-//            sam_aln1.not_proper = true;
-//            sam_aln2.not_proper = true;
-//        }
-
-    if ( (!sam_aln1.not_proper) && (!sam_aln2.not_proper)){ // if both segements in pair are properly aligned
-        f1 |= (1u << 1);
-        f2 |= (1u << 1);
-    }
-
-    std::string output_read1;
-    output_read1 = read1;
-    std::string output_read2;
-    output_read2 = read2;
-    f1 |= (1u << 6); // first segment in template
-    f2 |= (1u << 7); // last segment in template
-    if (sam_aln1.is_rc){ // set if alignnment1 is reverse complemented
-        f1 |= (1u << 4);
-        f2 |= (1u << 5);
-        output_read1 = read1_rc;
-    }
-    if (sam_aln2.is_rc){ // set if alignnment2 is reverse complemented
-        f1 |= (1u << 5);
-        f2 |= (1u << 4);
-        output_read2 = read2_rc;
-    }
-
-    std::string m1_chr;
-    std::string m2_chr;
-    if (sam_aln1.ref_id == sam_aln2.ref_id){
-        m1_chr = "=";
-        m2_chr = "=";
-    } else{
-        m1_chr = acc_map[sam_aln1.ref_id];
-        m2_chr = acc_map[sam_aln2.ref_id];
-    }
-
-//    if ( (sam_aln1.is_unaligned) && (sam_aln2.is_unaligned) ){
-//        f1 = 13;
-//        f2 = 13;
-//        m1_chr = "*";
-//        m2_chr = "*";
-//        sam_aln1.cigar = "*";
-//        sam_aln2.cigar = "*";
-//    } else if (sam_aln1.is_unaligned){
-//        f1 = 5;
-//        m1_chr = "*";
-//        sam_aln1.cigar = "*";
-//        f2 |= (1u << 3);
-//        f2 -= 32;
-//    } else if (sam_aln2.is_unaligned){
-//        f2 = 5;
-//        m2_chr = "*";
-//        sam_aln2.cigar = "*";
-//        f1 |= (1u << 3);
-//        f1 -= 32;
-//    }
-    std::string ref1 = acc_map[sam_aln1.ref_id];
-    std::string ref2 = acc_map[sam_aln2.ref_id];
-    int ed1 = sam_aln1.ed;
-    int ed2 = sam_aln2.ed;
-
-    if (sam_aln1.is_unaligned && sam_aln2.is_unaligned){
-        f1 |= (1u << 2);
-        f1 |= (1u << 3);
-        f2 |= (1u << 2);
-        f2 |= (1u << 3);
-        sam_aln1.ref_start = 0;
-        sam_aln2.ref_start = 0;
-        template_len1 = 0;
-        template_len2 = 0;
-        ref1 = "*";
-        ref2 = "*";
-        f1 |= (0u << 4);
-        f1 |= (0u << 5);
-        f2 |= (0u << 4);
-        f2 |= (0u << 5);
-        ed1 = 0;
-        ed2 = 0;
-        mapq1 = 255;
-        mapq2 = 255;
-    } else if (sam_aln1.is_unaligned){
-        f1 |= (1u << 2);
-        f1 |= (0u << 4);
-        f2 |= (1u << 3);
-        sam_aln1.ref_start = sam_aln2.ref_start;
-        template_len1 = 0;
-        template_len2 = 0;
-        ed1 = 0;
-        mapq1 = 255;
-    } else if (sam_aln2.is_unaligned){
-        f2 |= (1u << 2);
-        f2 |= (0u << 4);
-        f1 |= (1u << 3);
-        sam_aln2.ref_start = sam_aln1.ref_start;
-        template_len1 = 0;
-        template_len2 = 0;
-        ed2 = 0;
-        mapq2 = 255;
-    }
-
-//    if ( (sam_aln1.ref_start == 0)){ // && !sam_aln1.is_unaligned  ){
-//        std::cerr << "OMG1" << std::endl;
-//        std::cerr << query_acc1 << std::endl;
-//    }
-//    if ( (sam_aln2.ref_start == 0)){ // && !sam_aln2.is_unaligned  ){
-//        std::cerr << "OMG2" << std::endl;
-//        std::cerr << query_acc2 << std::endl;
-//    }
-
-    sam_string.append(query_acc1);
-    sam_string.append("\t");
-    sam_string.append(std::to_string(f1));
-    sam_string.append("\t");
-    sam_string.append(ref1);
-    sam_string.append("\t");
-    sam_string.append(std::to_string(sam_aln1.ref_start));
-    sam_string.append("\t");
-    sam_string.append(std::to_string(mapq1));
-    sam_string.append("\t");
-    sam_string.append(sam_aln1.cigar);
-    sam_string.append("\t");
-    sam_string.append(m2_chr);
-    sam_string.append("\t");
-    sam_string.append(std::to_string(sam_aln2.ref_start));
-    sam_string.append("\t");
-    sam_string.append(std::to_string(template_len1));
-    sam_string.append("\t");
-//    sam_string.append("\t*\t0\t0\t");
-    if (!sam_aln1.is_unaligned) {
-        sam_string.append(output_read1);
-        sam_string.append("\t");
-        if (sam_aln1.is_rc){
-            auto qual_rev = qual1;
-            std::reverse(qual_rev.begin(), qual_rev.end()); // reverse
-            sam_string.append(qual_rev);
-        } else {
-            sam_string.append(qual1);
-        }
-        sam_string.append("\t");
-        sam_string.append("NM:i:");
-        sam_string.append(std::to_string(ed1));
-        sam_string.append("\t");
-        sam_string.append("AS:i:");
-        sam_string.append(std::to_string((int) sam_aln1.aln_score));
-    } else {
-        sam_string.append(read1);
-        sam_string.append("\t");
-        sam_string.append(qual1);
-    }
-    sam_string.append("\n");
-
-    sam_string.append(query_acc2);
-    sam_string.append("\t");
-    sam_string.append(std::to_string(f2));
-    sam_string.append("\t");
-    sam_string.append(ref2);
-    sam_string.append("\t");
-    sam_string.append(std::to_string(sam_aln2.ref_start));
-    sam_string.append("\t");
-    sam_string.append(std::to_string(mapq2));
-    sam_string.append("\t");
-    sam_string.append(sam_aln2.cigar);
-    sam_string.append("\t");
-    sam_string.append(m1_chr);
-    sam_string.append("\t");
-    sam_string.append(std::to_string(sam_aln1.ref_start));
-    sam_string.append("\t");
-    sam_string.append(std::to_string(template_len2));
-    sam_string.append("\t");
-//    sam_string.append("\t*\t0\t0\t");
-    if (!sam_aln2.is_unaligned) {
-        sam_string.append(output_read2);
-        sam_string.append("\t");
-        if (sam_aln2.is_rc){
-            auto qual2_rev = qual2;
-            std::reverse(qual2_rev.begin(), qual2_rev.end()); // reverse
-            sam_string.append(qual2_rev);
-        } else {
-            sam_string.append(qual2);
-        }
-        sam_string.append("\t");
-        sam_string.append("NM:i:");
-        sam_string.append(std::to_string(ed2));
-        sam_string.append("\t");
-        sam_string.append("AS:i:");
-        sam_string.append(std::to_string((int) sam_aln2.aln_score));
-    } else {
-        sam_string.append(read2);
-        sam_string.append("\t");
-        sam_string.append(qual2);
-    }
-    sam_string.append("\n");
-}
 
 static inline float normal_pdf(float x, float m, float s)
 {
@@ -3233,8 +2893,8 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, std::vecto
 
 
 
-inline void align_PE(alignment_params &aln_params, std::string &sam_string, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2,
-                     KSeq &record1, KSeq &record2, idx_to_acc &acc_map, int k, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs,
+inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2,
+                     KSeq &record1, KSeq &record2, int k, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs,
                      logging_variables  &log_vars, float dropoff, i_dist_est &isize_est,  int max_tries, int max_secondary) {
     int read_len1 = record1.seq.length();
     int read_len2 = record2.seq.length();
@@ -3267,15 +2927,7 @@ inline void align_PE(alignment_params &aln_params, std::string &sam_string, std:
     int mapq1, mapq2;
 
     if ((all_nams1.size() == 0) && (all_nams2.size() == 0)) { // None of the read pairs has any NAMs
-//        std::cerr << "unaligned" << std::endl;
-        sam_string.append(query_acc1);
-        sam_string.append("\t77\t*\t0\t255\t*\t*\t0\t0\t");
-        sam_string.append(read1);
-        sam_string.append("\t*\n");
-        sam_string.append(query_acc2);
-        sam_string.append("\t141\t*\t0\t255\t*\t*\t0\t0\t");
-        sam_string.append(read2);
-        sam_string.append("\t*\n");
+        sam.add_unmapped_pair(record1, record2);
         return;
     } else if ((all_nams1.size() > 0) && (all_nams2.size() > 0)){
         n_max1 = all_nams1[0];
@@ -3302,7 +2954,7 @@ inline void align_PE(alignment_params &aln_params, std::string &sam_string, std:
             get_MAPQ(all_nams1, n_max1, mapq1);
             get_MAPQ(all_nams2, n_max2, mapq2);
 //            std::cerr<< "7" << std::endl;
-            append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2, mu, sigma, read_len1, true, record1.qual, record2.qual);
+            sam.add_pair(sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, query_acc1, query_acc2, mapq1, mapq2, mu, sigma, read_len1, true, record1.qual, record2.qual);
 
             if ((isize_est.sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && !sam_aln1.not_proper && !sam_aln2.not_proper ){
                 int d = sam_aln1.ref_start > sam_aln2.ref_start ? sam_aln1.ref_start - sam_aln2.ref_start : sam_aln2.ref_start - sam_aln1.ref_start;
@@ -3523,7 +3175,7 @@ inline void align_PE(alignment_params &aln_params, std::string &sam_string, std:
                 sam_aln1 = std::get<1>(best_aln_pair);
                 sam_aln2 = std::get<2>(best_aln_pair);
 //            get_MAPQ_aln(sam_aln1, sam_aln2);
-                append_to_sam(sam_string, sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1,
+                sam.add_pair(sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, query_acc1,
                               query_acc2, mapq1, mapq2, mu, sigma, read_len1, true, record1.qual, record2.qual);
             } else {
                 int max_out = high_scores.size() < max_secondary ? high_scores.size() : max_secondary;
@@ -3556,7 +3208,7 @@ inline void align_PE(alignment_params &aln_params, std::string &sam_string, std:
                     }
 
                     if ((s_max - s_score) < secondary_droppoff){
-                        append_to_sam(sam_string, sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1,
+                        sam.add_pair(sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, query_acc1,
                                       query_acc2, mapq1, mapq2, mu, sigma, read_len1, is_primary, record1.qual, record2.qual);
                     } else{
                         break;
@@ -3629,7 +3281,7 @@ inline void align_PE(alignment_params &aln_params, std::string &sam_string, std:
             sam_aln2 = std::get<2>(best_aln_pair);
 //            get_MAPQ(all_nams1, n_max1, mapq1);
 //            mapq2 = 0;
-            append_to_sam(sam_string,sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1, query_acc2, mapq1, mapq2, mu, sigma, read_len1, true, record1.qual, record2.qual);
+            sam.add_pair(sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, query_acc1, query_acc2, mapq1, mapq2, mu, sigma, read_len1, true, record1.qual, record2.qual);
         } else {
             int max_out = high_scores.size() < max_secondary ? high_scores.size() : max_secondary;
             bool is_primary = true;
@@ -3647,7 +3299,7 @@ inline void align_PE(alignment_params &aln_params, std::string &sam_string, std:
                 sam_aln1 = std::get<1>(aln_pair);
                 sam_aln2 = std::get<2>(aln_pair);
                 if ((s_max - s_score) < secondary_droppoff){
-                    append_to_sam(sam_string, sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1,
+                    sam.add_pair(sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, query_acc1,
                                   query_acc2, mapq1, mapq2, mu, sigma, read_len1, is_primary, record1.qual, record2.qual);
                 } else{
                     break;
@@ -3712,7 +3364,7 @@ inline void align_PE(alignment_params &aln_params, std::string &sam_string, std:
             sam_aln2 = std::get<2>(best_aln_pair);
 //            get_MAPQ(all_nams2, n_max2, mapq2);
 //            mapq1 = 0;
-            append_to_sam(sam_string, sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1,
+            sam.add_pair(sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, query_acc1,
                           query_acc2, mapq1, mapq2, mu, sigma, read_len1, true, record1.qual, record2.qual);
         } else {
             int max_out = high_scores.size() < max_secondary ? high_scores.size() : max_secondary;
@@ -3731,7 +3383,7 @@ inline void align_PE(alignment_params &aln_params, std::string &sam_string, std:
                 sam_aln1 = std::get<1>(aln_pair);
                 sam_aln2 = std::get<2>(aln_pair);
                 if ((s_max - s_score) < secondary_droppoff){
-                    append_to_sam(sam_string, sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, acc_map, query_acc1,
+                    sam.add_pair(sam_aln1, sam_aln2, read1, read2, read1_rc, read2_rc, query_acc1,
                                   query_acc2, mapq1, mapq2, mu, sigma, read_len1, is_primary, record1.qual, record2.qual);
                 } else{
                     break;
@@ -3917,9 +3569,10 @@ void align_PE_read(std::thread::id thread_id, KSeq &record1, KSeq &record2, std:
                            record2.seq.length(), ref_lengths);
         joint_NAM_scores.clear();
     } else {
-        align_PE(aln_params, outstring, nams1, nams2, record1,
+        Sam sam(outstring, acc_map);
+        align_PE(aln_params, sam, nams1, nams2, record1,
                  record2,
-                 acc_map, map_param.k,
+                 map_param.k,
                  ref_lengths, ref_seqs, log_vars,
                  map_param.dropoff_threshold, isize_est, map_param.maxTries, map_param.max_secondary);
     }
@@ -3988,15 +3641,16 @@ void align_SE_read(std::thread::id thread_id, KSeq &record, std::string &outstri
             output_hits_paf(outstring, nams, record.name, acc_map, map_param.k,
                             record.seq.length(), ref_lengths);
         } else {
-
+            Sam sam(outstring, acc_map);
             if (map_param.max_secondary > 0){
                 // I created an entire new function here, duplicating a lot of the code as outputting secondary hits is has some overhead to the
                 // original align_SE function (storing a vector of hits and sorting them)
                 // Such overhead is not present in align_PE - which implements both options in the same function.
-                align_SE_secondary_hits(aln_params, outstring, nams, record.name, acc_map, map_param.k, record.seq.length(),
+
+                align_SE_secondary_hits(aln_params, sam, nams, record.name, map_param.k, record.seq.length(),
                          ref_lengths, ref_seqs, record.seq, record.qual, log_vars, map_param.dropoff_threshold, map_param.maxTries, map_param.max_secondary);
             } else {
-                align_SE(aln_params, outstring, nams, record.name, acc_map, map_param.k, record.seq.length(),
+                align_SE(aln_params, sam, nams, record.name, map_param.k, record.seq.length(),
                          ref_lengths, ref_seqs, record.seq, record.qual, log_vars,  map_param.dropoff_threshold, map_param.maxTries);
             }
         }
@@ -4004,7 +3658,6 @@ void align_SE_read(std::thread::id thread_id, KSeq &record, std::string &outstri
         log_vars.tot_extend += extend_finish - extend_start;
         q_id++;
         nams.clear();
-
 }
 
 

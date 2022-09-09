@@ -1,8 +1,6 @@
 #ifndef aln_hpp
 #define aln_hpp
 
-// The declarations in the aln.hpp file
-
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -23,7 +21,7 @@ using namespace klibpp;
 #include "index.hpp"
 //#include "ksw2.h"
 #include "ssw_cpp.h"
-
+#include "sam.hpp"
 
 //#include <chrono>
 //#include <thread>
@@ -38,11 +36,10 @@ struct aln_info {
 };
 
 
-
 void align_PE_read(std::thread::id thread_id, KSeq &record1, KSeq &record2, std::string &sam_out, logging_variables &log_vars, i_dist_est &isize_est, alignment_params &aln_params,
                           mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map );
 
-void align_SE_read(std::thread::id thread_id, KSeq &record1, std::string &sam_out, logging_variables &log_vars, alignment_params &aln_params,
+void align_SE_read(std::thread::id thread_id, KSeq &record1, std::string& outstring, logging_variables &log_vars, alignment_params &aln_params,
                    mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map );
 
 

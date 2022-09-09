@@ -90,20 +90,6 @@ struct nam {
 //    int length;
 //};
 
-struct alignment {
-    std::string cigar;
-    int ref_start;
-    int ed;
-    int global_ed;
-    int sw_score;
-    int aln_score;
-    int ref_id;
-    int mapq;
-    int aln_length;
-    bool not_proper;
-    bool is_rc;
-    bool is_unaligned = false; };
-
 struct alignment_params {
     int match;
     int mismatch;
