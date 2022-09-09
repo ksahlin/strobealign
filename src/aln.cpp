@@ -1198,10 +1198,9 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
 
     int counter = 1;
     bool prev_is_match = One[start_softclipp+1] == Two[start_softclipp+1];
-    bool beginning = true;
     int hamming_mod = prev_is_match ? 0 : 1;
-    bool curr_match;
-    for(int i=start_softclipp+1; i < (end_softclipp+1); i++) {
+    bool curr_match = false;
+    for (int i = start_softclipp + 1; i < end_softclipp + 1; i++) {
         curr_match = (One[i] == Two[i]);
 
         if ( !curr_match && prev_is_match ){
@@ -1224,14 +1223,13 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
     }
 
     // Print last
-    if ( curr_match  ){
+    if (curr_match) {
         cigar << counter << '=';
         aln_score += counter * match;
-    } else{
+    } else {
         cigar << counter << 'X';
         hamming_mod += counter;
 //        std::cout << "Added2: " << counter << " current: " << hamming_mod << std::endl;
-
 //        needs_aln = counter > 2;
     }
 
@@ -2905,9 +2903,7 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, const std:
 
 inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2,
                      const KSeq &record1, const KSeq &record2, int k, std::vector<unsigned int> &ref_len_map, const std::vector<std::string> &ref_seqs,
-                     logging_variables &log_vars, float dropoff, i_dist_est &isize_est, int max_tries, int max_secondary) {
-    int read_len1 = record1.seq.length();
-    int read_len2 = record2.seq.length();
+                     logging_variables &log_vars, float dropoff, i_dist_est &isize_est, int max_tries, size_t max_secondary) {
     auto mu = isize_est.mu;
     auto sigma = isize_est.sigma;
     std::string read1 = record1.seq;
@@ -3188,7 +3184,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
                 sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc,
                               mapq1, mapq2, mu, sigma, true);
             } else {
-                int max_out = high_scores.size() < max_secondary ? high_scores.size() : max_secondary;
+                int max_out = std::min(high_scores.size(), max_secondary);
 //                std::cout << high_scores.size() << std::endl;
                 // remove eventual duplicates - comes from, e.g., adding individual best alignments above (if identical to joint best alignment)
                 auto best_aln_pair = high_scores[0];
@@ -3289,7 +3285,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
 //            mapq2 = 0;
             sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc, mapq1, mapq2, mu, sigma, true);
         } else {
-            int max_out = high_scores.size() < max_secondary ? high_scores.size() : max_secondary;
+            int max_out = std::min(high_scores.size(), max_secondary);
             bool is_primary = true;
             auto best_aln_pair = high_scores[0];
             auto s_max = std::get<0>(best_aln_pair);
@@ -3373,7 +3369,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
             sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc,
                           mapq1, mapq2, mu, sigma, true);
         } else {
-            int max_out = high_scores.size() < max_secondary ? high_scores.size() : max_secondary;
+            int max_out = std::min(high_scores.size(), max_secondary);
             bool is_primary = true;
             auto best_aln_pair = high_scores[0];
             auto s_max = std::get<0>(best_aln_pair);
@@ -3414,7 +3410,6 @@ inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM
     if (joint_NAM_scores.size() > 0) {
         // get best joint score
         for (auto &t : joint_NAM_scores) { // already sorted by descending score
-            auto score_ = std::get<0>(t);
             auto n1 = std::get<1>(t);
             auto n2 = std::get<2>(t);
             if ((n1.ref_s >=0) && (n2.ref_s >=0) ){ // Valid pair

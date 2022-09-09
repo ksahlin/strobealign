@@ -48,8 +48,7 @@ static inline uint64_t hash64(uint64_t key, uint64_t mask)
     key = key ^ key >> 28;
     key = (key + (key << 31)) & mask;
     return key;
-}//hash64
-
+}
 
 // a, A -> 0
 // c, C -> 1
