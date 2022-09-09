@@ -50,7 +50,6 @@ static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, st
 
     int seed_length;
     for (auto &it : mers_index) {
-        auto hash_refmer = it.first;
         auto ref_mer = it.second;
 
         auto offset = std::get<0>(ref_mer);
@@ -61,7 +60,6 @@ static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, st
             auto r = ref_mers[j];
             auto p = std::get<1>(r);
             int bit_alloc = 8;
-            int r_id = (p >> bit_alloc);
             int mask=(1<<bit_alloc) - 1;
             int offset = (p & mask);
             seed_length =  offset + k;
@@ -96,7 +94,7 @@ static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, st
     std::ofstream log_file;
     log_file.open(logfile_name);
 
-    for (int i=0 ; i < log_count.size(); ++i) {
+    for (size_t i = 0; i < log_count.size(); ++i) {
         if (log_count[i] > 0) {
             double e_count = log_count_squared[i] / log_count[i];
             log_file << i << ',' << log_count[i] << ',' << e_count << std::endl;
@@ -106,9 +104,9 @@ static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, st
     // Get median
     int n = 0;
     int median = 0;
-    for (int i=0 ; i < log_count.size(); ++i) {
+    for (size_t i = 0; i < log_count.size(); ++i) {
         n += log_count[i];
-        if ( n >= tot_seed_count/2){
+        if (n >= tot_seed_count/2) {
             median = i;
             break;
         }
@@ -116,7 +114,7 @@ static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, st
     // Get median 1000 limit
     int n_lim = 0;
     int median_lim = 0;
-    for (int i=0 ; i < log_count_1000_limit.size(); ++i) {
+    for (size_t i = 0; i < log_count_1000_limit.size(); ++i) {
         n_lim += log_count_1000_limit[i];
         if ( n_lim >= tot_seed_count_1000_limit/2){
             median_lim = i;

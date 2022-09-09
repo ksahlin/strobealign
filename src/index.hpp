@@ -19,8 +19,6 @@
 #include "exceptions.hpp"
 
 uint64_t hash(std::string kmer);
-static inline uint64_t hash64(uint64_t key, uint64_t mask);
-
 
 typedef std::vector< uint64_t > hash_vector; //only used during index generation
 typedef std::vector< std::tuple<uint32_t, int32_t >> mers_vector;
@@ -40,10 +38,6 @@ struct st_index {
     mers_vector flat_vector;
     kmer_lookup mers_index;
 };
-
-
-//static inline void make_string_to_hashvalues(std::string &seq, std::vector<uint64_t> &string_hashes, int k, uint64_t kmask);
-static inline void get_next_strobe(const std::vector<uint64_t> &string_hashes, uint64_t strobe_hashval, unsigned int &strobe_pos_next, uint64_t &strobe_hashval_next,  unsigned int w_start, unsigned int w_end, uint64_t q);
 
 
 //mers_vector seq_to_kmers(int k, std::string &seq, unsigned int ref_index);
@@ -94,7 +88,8 @@ struct alignment_params {
     int match;
     int mismatch;
     int gap_open;
-    int gap_extend; };
+    int gap_extend;
+};
 
 
 struct logging_variables {
@@ -169,18 +164,18 @@ struct mapping_params {
     bool is_sam_out;
 
     void verify(){
-	if(k <= 7 | k > 32){
-	    throw BadMappingParameter("k not in [8,32]");
-	}
-	if(s > k){
-	    throw BadMappingParameter("s is larger than k");
-	}
-	if((k - s) % 2 != 0){
-	    throw BadMappingParameter("(k - s) should be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
-	}
-	if(max_dist > 255){
-	    throw BadMappingParameter("maximum seed length (-m <max_dist>) is larger than 255");
-	}
+        if (k <= 7 || k > 32) {
+            throw BadMappingParameter("k not in [8,32]");
+        }
+        if (s > k) {
+            throw BadMappingParameter("s is larger than k");
+        }
+        if ((k - s) % 2 != 0) {
+            throw BadMappingParameter("(k - s) should be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
+        }
+        if (max_dist > 255) {
+            throw BadMappingParameter("maximum seed length (-m <max_dist>) is larger than 255");
+        }
     }
 };
 

@@ -17,7 +17,7 @@
 using namespace klibpp;
 
 
-void InputBuffer::read_records_PE(std::thread::id  thread_id, std::vector<KSeq> &records1, std::vector<KSeq> &records2, logging_variables &log_vars) {
+void InputBuffer::read_records_PE(std::vector<KSeq> &records1, std::vector<KSeq> &records2, logging_variables &log_vars) {
      auto read_start = std::chrono::high_resolution_clock::now();
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
@@ -37,7 +37,7 @@ void InputBuffer::read_records_PE(std::thread::id  thread_id, std::vector<KSeq> 
 
 }
 
-void InputBuffer::read_records_SE(std::thread::id  thread_id, std::vector<KSeq> &records1, logging_variables &log_vars) {
+void InputBuffer::read_records_SE(std::vector<KSeq> &records1, logging_variables &log_vars) {
     auto read_start = std::chrono::high_resolution_clock::now();
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
@@ -56,7 +56,7 @@ void InputBuffer::read_records_SE(std::thread::id  thread_id, std::vector<KSeq> 
 
 }
 
-void OutputBuffer::output_records(std::thread::id  thread_id, std::string &sam_alignments) {
+void OutputBuffer::output_records(std::string &sam_alignments) {
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
     out << sam_alignments;
@@ -69,9 +69,7 @@ void OutputBuffer::output_records(std::thread::id  thread_id, std::string &sam_a
 }
 
 
-
-
-inline bool align_reads_PE(std::thread::id thread_id, InputBuffer &input_buffer, OutputBuffer &output_buffer,  std::vector<KSeq> &records1,  std::vector<KSeq> &records2,
+inline bool align_reads_PE(InputBuffer &input_buffer, OutputBuffer &output_buffer,  std::vector<KSeq> &records1,  std::vector<KSeq> &records2,
                          logging_variables &log_vars, i_dist_est &isize_est, alignment_params &aln_params,
                         mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs,
                         kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map ) {
@@ -87,14 +85,14 @@ inline bool align_reads_PE(std::thread::id thread_id, InputBuffer &input_buffer,
         auto record1 = records1[i];
         auto record2 = records2[i];
 
-        align_PE_read(thread_id, record1, record2, sam_out,  log_vars, isize_est, aln_params,
+        align_PE_read(record1, record2, sam_out,  log_vars, isize_est, aln_params,
                       map_param, ref_lengths, ref_seqs,
                       mers_index, flat_vector, acc_map );
     }
 //    std::cerr << isize_est_vec[thread_id].mu << " " << isize_est_vec[thread_id].sigma << "\n";
 //    std::cerr << log_stats_vec[thread_id].tot_all_tried << " " << log_stats_vec[thread_id].tot_ksw_aligned << "\n";
 //    IMMEDIATELY PRINT TO STDOUT/FILE HERE
-    output_buffer.output_records(thread_id, sam_out);
+    output_buffer.output_records(sam_out);
     return false;
 }
 
@@ -113,8 +111,8 @@ void perform_task_PE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
             logging_variables log_vars;
             log_stats_vec[thread_id] = log_vars;
         }
-        input_buffer.read_records_PE(thread_id, records1, records2, log_stats_vec[thread_id]);
-        eof = align_reads_PE(thread_id, input_buffer, output_buffer, records1, records2,
+        input_buffer.read_records_PE(records1, records2, log_stats_vec[thread_id]);
+        eof = align_reads_PE(input_buffer, output_buffer, records1, records2,
                            log_stats_vec[thread_id], isize_est_vec[thread_id],
                           aln_params, map_param, ref_lengths, ref_seqs, mers_index, flat_vector,  acc_map);
 
@@ -126,7 +124,7 @@ void perform_task_PE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
 }
 
 
-inline bool align_reads_SE(std::thread::id thread_id, InputBuffer &input_buffer, OutputBuffer &output_buffer,  std::vector<KSeq> &records,
+inline bool align_reads_SE(InputBuffer &input_buffer, OutputBuffer &output_buffer,  std::vector<KSeq> &records,
                            logging_variables &log_vars, alignment_params &aln_params,
                            mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs,
                            kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map ) {
@@ -141,14 +139,14 @@ inline bool align_reads_SE(std::thread::id thread_id, InputBuffer &input_buffer,
     for (size_t i = 0; i < records.size(); ++i) {
         auto record1 = records[i];
 
-        align_SE_read(thread_id, record1, sam_out,  log_vars, aln_params,
+        align_SE_read(record1, sam_out,  log_vars, aln_params,
                       map_param, ref_lengths, ref_seqs,
                       mers_index, flat_vector, acc_map );
     }
 //    std::cerr << isize_est_vec[thread_id].mu << " " << isize_est_vec[thread_id].sigma << "\n";
 //    std::cerr << log_stats_vec[thread_id].tot_all_tried << " " << log_stats_vec[thread_id].tot_ksw_aligned << "\n";
 //    IMMEDIATELY PRINT TO STDOUT/FILE HERE
-    output_buffer.output_records(thread_id, sam_out);
+    output_buffer.output_records(sam_out);
     return false;
 }
 
@@ -165,8 +163,8 @@ void perform_task_SE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
             logging_variables log_vars;
             log_stats_vec[thread_id] = log_vars;
         }
-        input_buffer.read_records_SE(thread_id, records1, log_stats_vec[thread_id]);
-        eof = align_reads_SE(thread_id, input_buffer, output_buffer, records1,
+        input_buffer.read_records_SE(records1, log_stats_vec[thread_id]);
+        eof = align_reads_SE(input_buffer, output_buffer, records1,
                              log_stats_vec[thread_id],
                              aln_params, map_param, ref_lengths, ref_seqs, mers_index, flat_vector,  acc_map);
 

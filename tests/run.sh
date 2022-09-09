@@ -2,10 +2,10 @@
 set -xeuo pipefail
 
 # should fail when unknown command-line option used
-#if strobealign -G; then false; fi
+if strobealign -G > /dev/null; then false; fi
 
 # should succeed when only printing help
-strobealign -h
+strobealign -h > /dev/null
 
 d=tests
 

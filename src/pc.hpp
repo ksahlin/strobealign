@@ -40,8 +40,8 @@ public:
     int buffer_size = 0;
     int X = 100000; // input read chunk size
 
-    void read_records_PE(std::thread::id  thread_id, std::vector<KSeq> &records1, std::vector<KSeq> &records2, logging_variables &log_vars);
-    void read_records_SE(std::thread::id  thread_id, std::vector<KSeq> &records1, logging_variables &log_vars);
+    void read_records_PE(std::vector<KSeq> &records1, std::vector<KSeq> &records2, logging_variables &log_vars);
+    void read_records_SE(std::vector<KSeq> &records1, logging_variables &log_vars);
 
 };
 
@@ -60,7 +60,7 @@ public:
     int buffer_size = 0;
     std::ostream &out;
 
-    void output_records(std::thread::id thread_id, std::string &sam_alignments);
+    void output_records(std::string &sam_alignments);
 
 };
 
