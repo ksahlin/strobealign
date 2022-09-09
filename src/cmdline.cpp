@@ -87,7 +87,7 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     map_param.u = 7;
     map_param.c = 8;
     map_param.r = 150;
-    map_param.max_dist = map_param.r - 50 < 255 ? map_param.r-50 : 255;
+    map_param.max_dist = std::min(map_param.r - 50, 255);
     map_param.is_sam_out = true;  // true: align, false: map
 
     if (threads) { opt.n_threads = args::get(threads); }
