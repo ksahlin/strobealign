@@ -29,7 +29,7 @@ git clone https://github.com/ksahlin/StrobeAlign
 cd StrobeAlign
 mkdir build
 cd build
-cmake ..
+cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 ```
 Try using `make -j8` for parallel compilation or `make VERBOSE=1` to get
