@@ -18,6 +18,7 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
 
     args::Group io(parser, "Input/output:");
     args::ValueFlag<std::string> o(parser, "STR", "redirect output to file [stdout]", {'o'});
+    args::Flag v(parser, "v", "Verbose output", {'v'});
     args::Flag x(parser, "x", "Only map reads, no base level alignment (produces paf file)", {'x'});
     args::ValueFlag<int> N(parser, "INT", "retain at most INT secondary alignments (is upper bounded by -M, and depends on -S) [0]", {'N'});
     args::ValueFlag<std::string> L(parser, "STR", "Print statistics of indexing to logfile [log.csv]", {'L'});
@@ -94,6 +95,7 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
 
     // Input/output
     if (o) { opt.output_file_name = args::get(o); opt.write_to_stdout = false; }
+    if (v) { opt.verbose = true; }
     if (x) { map_param.is_sam_out = false; }
     if (N) { map_param.max_secondary = args::get(N); }
     if (L) { opt.logfile_name = args::get(L); opt.index_log = true; }

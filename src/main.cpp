@@ -23,10 +23,15 @@
 #include "index.hpp"
 #include "pc.hpp"
 #include "aln.hpp"
+#include "logger.hpp"
 #include "version.hpp"
 
 using namespace klibpp;
 using std::chrono::high_resolution_clock;
+
+
+static Logger& logger = Logger::get();
+
 
 static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, std::string logfile_name, int k, int m) {
     // Prins to csv file the statistics on the number of seeds of a particular length and what fraction of them them are unique in the index:
@@ -302,10 +307,10 @@ int main (int argc, char **argv)
     mapping_params map_param;
     std::tie(opt, map_param) = parse_command_line_arguments(argc, argv);
 
+    logger.set_level(opt.verbose ? LOG_DEBUG : LOG_INFO);
     if (!opt.r_set) {
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
     }
-
     adjust_mapping_params_depending_on_read_length(map_param, opt);
 
     if (!opt.max_seed_len_set){
