@@ -81,7 +81,7 @@ static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, st
                 }
 
             } else {
-               std::cerr << "Detected seed size over " << max_size << " bp (can happen, e.g., over centromere): " << seed_length << std::endl;
+               logger.info() << "Detected seed size over " << max_size << " bp (can happen, e.g., over centromere): " << seed_length << std::endl;
             }
 
         }
@@ -212,18 +212,18 @@ std::pair<mers_vector, kmer_lookup>  create_index(mapping_params& map_param, std
 
     ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
     int approx_vec_size = total_ref_seq_size / (map_param.k-map_param.s+1);
-    std::cerr << "ref vector approximate size: " << approx_vec_size << std::endl;
+    logger.debug() << "ref vector approximate size: " << approx_vec_size << std::endl;
     ind_flat_vector.reserve(approx_vec_size);
     for(size_t i = 0; i < ref_seqs.size(); ++i)
     {
 //        std::cerr << i << " " << i_mod << std::endl;
         seq_to_randstrobes2(ind_flat_vector, map_param.n, map_param.k, map_param.w_min, map_param.w_max, ref_seqs[i], i, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
     }
-    std::cerr << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
+    logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
     //ind_flat_vector.shrink_to_fit(); //I think this costs performance and is no longer needed, it will soon be deallocated anyway
 
     std::chrono::duration<double> elapsed_generating_seeds = high_resolution_clock::now() - start_flat_vector;
-    std::cerr << "Time generating seeds: " << elapsed_generating_seeds.count() << " s\n" <<  std::endl;
+    logger.info() << "Time generating seeds: " << elapsed_generating_seeds.count() << " s\n" <<  std::endl;
 
 //    create vector of vectors here nr_threads
 //    std::vector<std::vector<std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>>> vector_per_ref_chr(opt.n_threads);
@@ -244,7 +244,7 @@ std::pair<mers_vector, kmer_lookup>  create_index(mapping_params& map_param, std
 //    all_mers_vector_tmp.reserve(approx_vec_size); // reserve size corresponding to sum of lengths of all sequences divided by expected sampling
     std::sort(ind_flat_vector.begin(), ind_flat_vector.end());
     std::chrono::duration<double> elapsed_sorting_seeds = high_resolution_clock::now() - start_sorting;
-    std::cerr << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s\n" <<  std::endl;
+    logger.info() << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s\n" <<  std::endl;
 
     //Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
     //The hash codes are only needed when generating the index and can be discarded afterwards.
@@ -259,16 +259,16 @@ std::pair<mers_vector, kmer_lookup>  create_index(mapping_params& map_param, std
         h_vector.push_back(std::get<0>(ind_flat_vector[i]));
     }
     uint64_t unique_mers = count_unique_elements(h_vector);
-    std::cerr << "Unique strobemers: " << unique_mers << std::endl;
+    logger.debug() << "Unique strobemers: " << unique_mers << std::endl;
     ind_mers_vector().swap(ind_flat_vector);   //deallocate the vector used for sorting - ind_flat_vector.clear() will not deallocate, 
                                                //swap with an empty vector will. I tested (in debug mode), the buffer gets deleted
 
     std::chrono::duration<double> elapsed_copy_flat_vector = high_resolution_clock::now() - start_copy_flat_vector;
-    std::cerr << "Time copying flat vector: " << elapsed_copy_flat_vector.count() << " s\n" << std::endl;
+    logger.info() << "Time copying flat vector: " << elapsed_copy_flat_vector.count() << " s\n" << std::endl;
 
 
     std::chrono::duration<double> elapsed_flat_vector = high_resolution_clock::now() - start_flat_vector;
-    std::cerr << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s\n" <<  std::endl;
+    logger.info() << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s\n" <<  std::endl;
 
     auto start_hash_index = high_resolution_clock::now();
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
@@ -276,7 +276,7 @@ std::pair<mers_vector, kmer_lookup>  create_index(mapping_params& map_param, std
     // construct index over flat array
     map_param.filter_cutoff = index_vector(h_vector, mers_index, map_param.f);
     std::chrono::duration<double> elapsed_hash_index = high_resolution_clock::now() - start_hash_index;
-    std::cerr << "Total time generating hash table index: " << elapsed_hash_index.count() << " s\n" <<  std::endl;
+    logger.info() << "Total time generating hash table index: " << elapsed_hash_index.count() << " s\n" <<  std::endl;
 
 //    mers_vector_reduced all_mers_vector;
 //    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector);
@@ -326,7 +326,7 @@ int main (int argc, char **argv)
     if ( (map_param.c < 64) && (map_param.c > 0)){
         map_param.q = pow (2, map_param.c) - 1;
     } else{
-        std::cerr << "Warning wrong value for parameter c, setting c=8" << std::endl;
+        logger.warning() << "Warning wrong value for parameter c, setting c=8" << std::endl;
         map_param.q = pow (2, 8) - 1;
     }
 
@@ -340,7 +340,7 @@ int main (int argc, char **argv)
     aln_params.gap_open = opt.O;
     aln_params.gap_extend = opt.E;
 
-    std::cerr << "Using" << std::endl
+    logger.debug() << "Using" << std::endl
         << "k: " << map_param.k << std::endl
         << "s: " << map_param.s << std::endl
         << "w_min: " << map_param.w_min << std::endl
@@ -357,11 +357,11 @@ int main (int argc, char **argv)
         << "E: " << opt.E << std::endl;
 
     try {
-	map_param.verify();
+        map_param.verify();
     }
     catch (BadMappingParameter& e) {
-	std::cerr << "A mapping parameter is invalid: " << e.what() << std::endl;
-	return EXIT_FAILURE;
+        logger.error() << "A mapping parameter is invalid: " << e.what() << std::endl;
+        return EXIT_FAILURE;
     }
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
 
@@ -379,14 +379,14 @@ int main (int argc, char **argv)
         try {
             total_ref_seq_size = read_references(index.ref_seqs, index.ref_lengths, index.acc_map, opt.ref_filename);
         } catch (const InvalidFasta& e) {
-            std::cerr << "strobealign: " << e.what() << std::endl;
+            logger.error() << "strobealign: " << e.what() << std::endl;
             return EXIT_FAILURE;
         }
         std::chrono::duration<double> elapsed_read_refs = high_resolution_clock::now() - start_read_refs;
-        std::cerr << "Time reading references: " << elapsed_read_refs.count() << " s\n" << std::endl;
+        logger.info() << "Time reading references: " << elapsed_read_refs.count() << " s" << std::endl;
 
         if (total_ref_seq_size == 0) {
-            std::cerr << "No reference sequences found, aborting.." << std::endl;
+            logger.error() << "No reference sequences found, aborting.." << std::endl;
             return EXIT_FAILURE;
         }
 
@@ -395,12 +395,11 @@ int main (int argc, char **argv)
 
         // Record index creation end time
         std::chrono::duration<double> elapsed = high_resolution_clock::now() - start;
-        std::cerr << "Total time indexing: " << elapsed.count() << " s\n" << std::endl;
+        logger.info() << "Total time indexing: " << elapsed.count() << " s" << std::endl;
 
         if (opt.index_log) {
-            std::cerr << "Printing log stats" << std::endl;
             print_diagnostics(index.flat_vector, index.mers_index, opt.logfile_name, map_param.k, map_param.max_dist + map_param.k);
-            std::cerr << "Finished printing log stats" << std::endl;
+            logger.debug() << "Finished printing log stats" << std::endl;
         }
         
         // If the program was called with the -i flag, write the index to file
@@ -408,7 +407,7 @@ int main (int argc, char **argv)
             auto start_write_index = high_resolution_clock::now();
             write_index(index, opt.index_out_filename);
             std::chrono::duration<double> elapsed_write_index = high_resolution_clock::now() - start_write_index;
-            std::cerr << "Total time writing index: " << elapsed_write_index.count() << " s\n" << std::endl;
+            logger.info() << "Total time writing index: " << elapsed_write_index.count() << " s\n" << std::endl;
         }
     }
     else {
@@ -416,7 +415,7 @@ int main (int argc, char **argv)
         auto start_read_index = high_resolution_clock::now();
         read_index(index, opt.ref_filename);
         std::chrono::duration<double> elapsed_read_index = high_resolution_clock::now() - start_read_index;
-        std::cerr << "Total time reading index: " << elapsed_read_index.count() << " s\n" << std::endl;
+        logger.info() << "Total time reading index: " << elapsed_read_index.count() << " s\n" << std::endl;
 
     }
 
@@ -432,7 +431,7 @@ int main (int argc, char **argv)
         //    std::ifstream query_file(reads_filename);
 
         map_param.rescue_cutoff = map_param.R < 100 ? map_param.R * map_param.filter_cutoff : 1000;
-        std::cerr << "Using rescue cutoff: " << map_param.rescue_cutoff << std::endl;
+        logger.debug() << "Using rescue cutoff: " << map_param.rescue_cutoff << std::endl;
 
         std::streambuf* buf;
         std::ofstream of;
@@ -459,7 +458,7 @@ int main (int argc, char **argv)
         std::unordered_map<std::thread::id, logging_variables> log_stats_vec(opt.n_threads);
 
 
-        std::cerr << "Running in " << (opt.is_SE ? "single-end" : "paired-end") << " mode" << std::endl;
+        logger.info() << "Running in " << (opt.is_SE ? "single-end" : "paired-end") << " mode" << std::endl;
 
         if (opt.is_SE) {
             gzFile fp = gzopen(opt.reads_filename1.c_str(), "r");
@@ -521,7 +520,7 @@ int main (int argc, char **argv)
             gzclose(fp1);
             gzclose(fp2);
         }
-        std::cerr << "Done!\n";
+        logger.info() << "Done!\n";
 
         logging_variables tot_log_vars;
         for (auto& it : log_stats_vec) {
@@ -530,7 +529,7 @@ int main (int argc, char **argv)
         // Record mapping end time
         std::chrono::duration<double> tot_aln_part = high_resolution_clock::now() - start_aln_part;
 
-        std::cerr << "Total mapping sites tried: " << tot_log_vars.tot_all_tried << std::endl
+        logger.info() << "Total mapping sites tried: " << tot_log_vars.tot_all_tried << std::endl
             << "Total calls to ssw: " << tot_log_vars.tot_ksw_aligned << std::endl
             << "Calls to ksw (rescue mode): " << tot_log_vars.tot_rescued << std::endl
             << "Did not fit strobe start site: " << tot_log_vars.did_not_fit << std::endl
@@ -541,7 +540,7 @@ int main (int argc, char **argv)
             << "Total time finding NAMs (non-rescue mode): " << tot_log_vars.tot_find_nams.count() / opt.n_threads << " s." << std::endl
             << "Total time finding NAMs (rescue mode): " << tot_log_vars.tot_time_rescue.count() / opt.n_threads << " s." << std::endl;
         //<< "Total time finding NAMs ALTERNATIVE (candidate sites): " << tot_find_nams_alt.count()/opt.n_threads  << " s." <<  std::endl;
-        std::cerr << "Total time sorting NAMs (candidate sites): " << tot_log_vars.tot_sort_nams.count() / opt.n_threads << " s." << std::endl
+        logger.info() << "Total time sorting NAMs (candidate sites): " << tot_log_vars.tot_sort_nams.count() / opt.n_threads << " s." << std::endl
             << "Total time reverse compl seq: " << tot_log_vars.tot_rc.count() / opt.n_threads << " s." << std::endl
             << "Total time base level alignment (ssw): " << tot_log_vars.tot_extend.count() / opt.n_threads << " s." << std::endl
             << "Total time writing alignment to files: " << tot_log_vars.tot_write_file.count() << " s." << std::endl;
