@@ -14,6 +14,10 @@
 #include <fstream>
 #include <cassert>
 
+#include "logger.hpp"
+
+static Logger& logger = Logger::get();
+
 /**********************************************************
  *
  * hash kmer into uint64
@@ -112,7 +116,7 @@ uint64_t count_unique_elements(const hash_vector& h_vector){
 
 unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, float f){
 
-    std::cerr << "Flat vector size: " << h_vector.size() << std::endl;
+    logger.debug() << "Flat vector size: " << h_vector.size() << std::endl;
 //    kmer_lookup mers_index;
     unsigned int offset = 0;
     unsigned int prev_offset = 0;
@@ -159,23 +163,24 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
     std::tuple<unsigned int, unsigned int> s(prev_offset, count);
     mers_index[curr_k] = s;
     float frac_unique = ((float) tot_occur_once )/ mers_index.size();
-    std::cerr << "Total strobemers count: " << offset << std::endl;
-    std::cerr << "Total strobemers occur once: " << tot_occur_once << std::endl;
-    std::cerr << "Fraction Unique: " << frac_unique << std::endl;
-    std::cerr << "Total strobemers highly abundant > 100: " << tot_high_ab << std::endl;
-    std::cerr << "Total strobemers mid abundance (between 2-100): " << tot_mid_ab << std::endl;
-    std::cerr << "Total distinct strobemers stored: " << mers_index.size() << std::endl;
+    logger.debug()
+        << "Total strobemers count: " << offset << std::endl
+        << "Total strobemers occur once: " << tot_occur_once << std::endl
+        << "Fraction Unique: " << frac_unique << std::endl
+        << "Total strobemers highly abundant > 100: " << tot_high_ab << std::endl
+        << "Total strobemers mid abundance (between 2-100): " << tot_mid_ab << std::endl
+        << "Total distinct strobemers stored: " << mers_index.size() << std::endl;
     if (tot_high_ab >= 1) {
-        std::cerr << "Ratio distinct to highly abundant: " << mers_index.size() / tot_high_ab << std::endl;
+        logger.debug() << "Ratio distinct to highly abundant: " << mers_index.size() / tot_high_ab << std::endl;
     }
     if (tot_mid_ab >= 1) {
-        std::cerr << "Ratio distinct to non distinct: " << mers_index.size() / (tot_high_ab + tot_mid_ab) << std::endl;
+        logger.debug() << "Ratio distinct to non distinct: " << mers_index.size() / (tot_high_ab + tot_mid_ab) << std::endl;
     }
     // get count for top -f fraction of strobemer count to filter them out
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
     unsigned int index_cutoff = mers_index.size()*f;
-    std::cerr << "Filtered cutoff index: " << index_cutoff << std::endl;
+    logger.debug() << "Filtered cutoff index: " << index_cutoff << std::endl;
     unsigned int filter_cutoff;
     if (!strobemer_counts.empty()){
         filter_cutoff =  index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back();
@@ -184,9 +189,7 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
     } else {
         filter_cutoff = 30;
     }
-    std::cerr << "Filtered cutoff count: " << filter_cutoff << std::endl;
-    std::cerr << "" << std::endl;
-    std::cerr << "" << std::endl;
+    logger.debug() << "Filtered cutoff count: " << filter_cutoff << std::endl << std::endl;
     return filter_cutoff;
 }
 
