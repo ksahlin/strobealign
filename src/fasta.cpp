@@ -48,3 +48,12 @@ uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsigned in
 
     return total_ref_seq_size;
 }
+
+
+References References::from_fasta(std::string path) {
+    std::vector<std::string> sequences;
+    std::vector<std::string> names;
+    std::vector<unsigned int> lengths;
+    read_references(sequences, lengths, names, path);
+    return References(std::move(sequences), std::move(names), std::move(lengths));
+}

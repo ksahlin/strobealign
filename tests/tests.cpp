@@ -16,3 +16,12 @@ TEST_CASE("read_references") {
     CHECK(reference_names[0] == "NC_001422.1");
     CHECK(lengths[0] == 5386);
 }
+
+TEST_CASE("References") {
+    auto references = References::from_fasta("tests/phix.fasta");
+    CHECK(references.names.size() == 1);
+    CHECK(references.lengths.size() == 1);
+    CHECK(references.sequences.size() == 1);
+    CHECK(references.names[0] == "NC_001422.1");
+    CHECK(references.lengths[0] == 5386);
+}
