@@ -59,6 +59,7 @@ struct hit {
     bool is_rc = false;
 };
 
+// Non-overlapping approximate matches
 struct nam {
     int nam_id;
     int query_s;

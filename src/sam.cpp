@@ -1,6 +1,22 @@
 #include <ostream>
 #include "aln.hpp"
 
+/*
+ * SAM columns
+ *
+ * 1 QNAME query template name
+ * 2 FLAG  bitwise flag
+ * 3 RNAME reference sequence name
+ * 4 POS   1-based leftmost mapping position (set to 0 for unmapped read w/o pos)
+ * 5 MAPQ  mapping quality (255 if unavailable)
+ * 6 CIGAR
+ * 7 RNEXT reference name of mate/next read
+ * 8 PNEXT position of mate/next read
+ * 9 TLEN template length
+ * 10 SEQ
+ * 11 QUAL
+ * 12 optional fields
+*/
 void Sam::add_unmapped(const KSeq& record, int flags) {
     sam_string.append(record.name);
     sam_string.append("\t");
@@ -24,35 +40,35 @@ void Sam::add(
     bool is_secondary
 ) {
     int flags = 0;
-    std::string output_read;
-    if (sam_aln.is_rc) {
+    const std::string* output_read;
+    if (!sam_aln.is_unaligned && sam_aln.is_rc) {
         flags |= REVERSE;
-        output_read = sequence_rc;
+        output_read = &sequence_rc;
     } else {
-        output_read = sequence;
+        output_read = &sequence;
     }
     if (is_secondary) {
         flags |= SECONDARY;
     }
-    sam_string.append(query_acc);
+    sam_string.append(query_acc);  // QNAME
     sam_string.append("\t");
-    sam_string.append(std::to_string(flags));
+    sam_string.append(std::to_string(flags));  // FLAG
     sam_string.append("\t");
-    sam_string.append(acc_map[sam_aln.ref_id]);
+    sam_string.append(acc_map[sam_aln.ref_id]);  // RNAME
     sam_string.append("\t");
-    sam_string.append(std::to_string(sam_aln.ref_start));
+    sam_string.append(std::to_string(sam_aln.ref_start));  // POS
     sam_string.append("\t");
-    sam_string.append(std::to_string(sam_aln.mapq));
+    sam_string.append(std::to_string(sam_aln.mapq));  // MAPQ
     sam_string.append("\t");
-    sam_string.append(sam_aln.cigar);
-    sam_string.append("\t*\t0\t0\t");
+    sam_string.append(sam_aln.cigar);  // CIGAR
+    sam_string.append("\t*\t0\t0\t");  // RNEXT, PNEXT, TLEN
+    sam_string.append(*output_read);  // SEQ
+    sam_string.append("\t");
     if (!sam_aln.is_unaligned) {
-        sam_string.append(output_read);
-        sam_string.append("\t");
         if (sam_aln.is_rc){
             auto qual_rev = qual;
-            std::reverse(qual_rev.begin(), qual_rev.end()); // reverse
-            sam_string.append(qual_rev);
+            std::reverse(qual_rev.begin(), qual_rev.end());
+            sam_string.append(qual_rev);  // QUAL
         } else {
             sam_string.append(qual);
         }
@@ -63,9 +79,7 @@ void Sam::add(
         sam_string.append("AS:i:");
         sam_string.append(std::to_string((int) sam_aln.aln_score));
     } else {
-        sam_string.append(sequence);
-        sam_string.append("\t");
-        sam_string.append(qual);
+        sam_string.append(qual);  // QUAL
     }
     sam_string.append("\n");
 }
@@ -228,15 +242,6 @@ void Sam::add_pair(
         ed2 = 0;
         mapq2 = 255;
     }
-
-//    if ( (sam_aln1.ref_start == 0)){ // && !sam_aln1.is_unaligned  ){
-//        std::cerr << "OMG1" << std::endl;
-//        std::cerr << query_acc1 << std::endl;
-//    }
-//    if ( (sam_aln2.ref_start == 0)){ // && !sam_aln2.is_unaligned  ){
-//        std::cerr << "OMG2" << std::endl;
-//        std::cerr << query_acc2 << std::endl;
-//    }
 
     sam_string.append(record1.name);
     sam_string.append("\t");
