@@ -29,28 +29,16 @@ git clone https://github.com/ksahlin/StrobeAlign
 cd StrobeAlign
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake ..
 make
 ```
 Try using `make -j8` for parallel compilation or `make VERBOSE=1` to get
 more logging output.
 
-##### Zlib linking error
+##### Development installation
 
-If you have `zlib` installed, and the `zlib.h` file is in folder `/path/to/zlib/include` and the `libz.so` file in `/path/to/zlib/lib` but you get 
-
-```
-main.cpp:12:10: fatal error: zlib.h: No such file or directory
- #include <zlib.h>
-          ^~~~~~~~
-compilation terminated.
-```
-
-add `-I/path/to/zlib/include -L/path/to/zlib/lib` to the compilation, that is
-
-```
-g++ -std=c++14 -I/path/to/zlib/include -L/path/to/zlib/lib  main.cpp source/index.cpp source/xxhash.c source/ssw_cpp.cpp source/ssw.c source/pc.cpp source/aln.cpp -lz -lpthread -o strobealign -O3 -mavx2
-``` 
+When developing StrobeAlign, add `-DCMAKE_BUILD_TYPE=RelWithDebInfo` to the
+`cmake` options to get debug symbols.
 
 
 USAGE
