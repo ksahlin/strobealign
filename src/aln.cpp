@@ -2945,7 +2945,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
         int b = n_max2.ref_s - n_max2.query_s  > 0 ? n_max2.ref_s - n_max2.query_s : 0;
         bool r1_r2 = n_max2.is_rc && (a < b) && ((b-a) < 2000); // r1 ---> <---- r2
         bool r2_r1 = n_max1.is_rc && (b < a) && ((a-b) < 2000); // r2 ---> <---- r1
-        if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) && ( r1_r2 || r1_r2 ) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
+        if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) && ( r1_r2 || r2_r1 ) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
 //            std::cerr << "I'm here" << std::endl;
 //            std::cerr << query_acc1 << std::endl;
             get_alignment(aln_params, n_max1, ref_len_map, ref_seqs, read1, read1_rc, sam_aln1, k, rc_already_comp1, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
