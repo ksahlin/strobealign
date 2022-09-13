@@ -1570,7 +1570,7 @@ inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<n
 
     if (all_nams.size() > 0) {
         sam_aln.mapq = std::min(min_mapq_diff, 60);
-        sam.add(sam_aln, read, read_rc, query_acc, qual);
+        sam.add(sam_aln, record, read_rc);
     }
 }
 
@@ -1859,7 +1859,7 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sa
             } else {
                 sam_aln.mapq = std::min(min_mapq_diff, 60);
             }
-            sam.add(sam_aln, read, read_rc, query_acc, qual, is_secondary);
+            sam.add(sam_aln, record, read_rc, is_secondary);
         }
     }
 }

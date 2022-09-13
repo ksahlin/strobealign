@@ -33,10 +33,8 @@ void Sam::add_unmapped_pair(const KSeq& r1, const KSeq& r2) {
 
 void Sam::add(
     const alignment& sam_aln,
-    const std::string& sequence,
+    const KSeq& record,
     const std::string& sequence_rc,
-    const std::string& query_acc,
-    const std::string& qual,
     bool is_secondary
 ) {
     int flags = 0;
@@ -45,12 +43,12 @@ void Sam::add(
         flags |= REVERSE;
         output_read = &sequence_rc;
     } else {
-        output_read = &sequence;
+        output_read = &record.seq;
     }
     if (is_secondary) {
         flags |= SECONDARY;
     }
-    sam_string.append(query_acc);  // QNAME
+    sam_string.append(record.name);  // QNAME
     sam_string.append("\t");
     sam_string.append(std::to_string(flags));  // FLAG
     sam_string.append("\t");
@@ -66,11 +64,11 @@ void Sam::add(
     sam_string.append("\t");
     if (!sam_aln.is_unaligned) {
         if (sam_aln.is_rc){
-            auto qual_rev = qual;
+            auto qual_rev = record.qual;
             std::reverse(qual_rev.begin(), qual_rev.end());
             sam_string.append(qual_rev);  // QUAL
         } else {
-            sam_string.append(qual);
+            sam_string.append(record.qual);
         }
         sam_string.append("\t");
         sam_string.append("NM:i:");
@@ -79,7 +77,7 @@ void Sam::add(
         sam_string.append("AS:i:");
         sam_string.append(std::to_string((int) sam_aln.aln_score));
     } else {
-        sam_string.append(qual);  // QUAL
+        sam_string.append(record.qual);  // QUAL
     }
     sam_string.append("\n");
 }

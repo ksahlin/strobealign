@@ -41,7 +41,7 @@ public:
     Sam(std::string& sam_string, idx_to_acc& acc_map) : sam_string(sam_string), acc_map(acc_map) { }
 
     /* Add an alignment */
-    void add(const alignment& sam_aln, const std::string& sequence, const std::string& sequence_rc, const std::string& query_acc, const std::string& qual, bool is_secondary = false);
+    void add(const alignment& sam_aln, const KSeq& record, const std::string& sequence_rc, bool is_secondary = false);
     void add_pair(alignment &sam_aln1, alignment &sam_aln2, const KSeq& record1, const KSeq& record2, const std::string &read1_rc, const std::string &read2_rc, int &mapq1, int &mapq2, float &mu, float &sigma, bool is_primary);
     void add_unmapped(const KSeq& record, int flags = UNMAP);
     void add_unmapped_pair(const KSeq& r1, const KSeq& r2);
