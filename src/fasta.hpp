@@ -3,24 +3,42 @@
 
 #include <cstdint>
 #include <string>
-#include "aln.hpp"  // idx_to_acc
+#include <stdexcept>
+#include <numeric>
 
-uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsigned int> &lengths, idx_to_acc &acc_map, std::string fn);
+#include <iostream>
 
 
 class References {
 public:
+    References() { }
     References(
         std::vector<std::string>&& sequences,
         std::vector<std::string>&& names,
         std::vector<unsigned int>&& lengths
-    ) : sequences(std::move(sequences)), names(std::move(names)), lengths(std::move(lengths)) { }
+    ) : sequences(std::move(sequences)), names(std::move(names)), lengths(std::move(lengths)) {
+
+        _total_length = std::accumulate(this->lengths.begin(), this->lengths.end(), (size_t)0);
+        if (sequences.size() != names.size() || names.size() != lengths.size()) {
+            throw std::invalid_argument("lengths do not match");
+        }
+    }
 
     static References from_fasta(std::string path);
 
-    const std::vector<std::string> sequences;
-    const std::vector<std::string> names;
-    const std::vector<unsigned int> lengths;
+    size_t size() const {
+        return sequences.size();
+    }
+
+    size_t total_length() const {
+        return _total_length;
+    }
+
+    std::vector<std::string> sequences;
+    std::vector<std::string> names;
+    std::vector<unsigned int> lengths;
+private:
+    size_t _total_length;
 };
 
 #endif
