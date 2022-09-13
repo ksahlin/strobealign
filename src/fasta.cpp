@@ -41,12 +41,9 @@ uint64_t read_references(std::vector<std::string> &seqs, std::vector<unsigned in
         }
     }
     if (seq.length() > 0){
-//        seqs[ref_index -1] = seq;
         seqs.push_back(seq);
         lengths.push_back(seq.length());
         total_ref_seq_size += seq.length();
-//        std::cerr << ref_index -1 << " here2 " << seq << std::endl;
-//        generate_kmers(h, k, seq, ref_index);
     }
 
     return total_ref_seq_size;

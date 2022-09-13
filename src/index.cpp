@@ -114,10 +114,8 @@ uint64_t count_unique_elements(const hash_vector& h_vector){
     return unique_elements;
 }
 
-unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, float f){
-
+unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, float f) {
     logger.debug() << "Flat vector size: " << h_vector.size() << std::endl;
-//    kmer_lookup mers_index;
     unsigned int offset = 0;
     unsigned int prev_offset = 0;
     unsigned int count = 0;
@@ -131,7 +129,6 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
     uint64_t curr_k;
 
     for ( auto &t : h_vector) {
-//        std::cerr << t << std::endl;
         curr_k = t;
         if (curr_k == prev_k){
             count ++;
@@ -143,7 +140,6 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
             else if (count > 100){
                 tot_high_ab ++;
                 strobemer_counts.push_back(count);
-//                std::cerr << count << std::endl;
             }
             else{
                 tot_mid_ab ++;
