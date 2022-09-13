@@ -46,4 +46,5 @@ IF(ENABLE_AVX)
   target_compile_options(strobealign PUBLIC "-mavx2")
 ENDIF()
 
-
+add_executable(test-strobealign tests/tests.cpp)
+target_include_directories(test-strobealign PUBLIC ext/)
