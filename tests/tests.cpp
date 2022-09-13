@@ -1,11 +1,18 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-int factorial(int number) { return number <= 1 ? number : factorial(number - 1) * number; }
+#include "fasta.hpp"
 
-TEST_CASE("testing the factorial function") {
-    CHECK(factorial(1) == 1);
-    CHECK(factorial(2) == 2);
-    CHECK(factorial(3) == 6);
-    CHECK(factorial(10) == 3628800);
+TEST_CASE("read_references") {
+    std::vector<std::string> seqs;
+    std::vector<unsigned int> lengths;
+    idx_to_acc reference_names;
+    uint64_t n = read_references(seqs, lengths, reference_names, "tests/phix.fasta");
+
+    CHECK(n == 5386);
+    CHECK(reference_names.size() == 1);
+    CHECK(lengths.size() == 1);
+    CHECK(seqs.size() == 1);
+    CHECK(reference_names[0] == "NC_001422.1");
+    CHECK(lengths[0] == 5386);
 }
