@@ -24,7 +24,6 @@ endif()
 add_compile_options(-Wall -Wextra)
 
 set(SOURCES
-  src/main.cpp
   src/fasta.cpp
   src/cmdline.cpp
   src/index.cpp
@@ -36,15 +35,18 @@ set(SOURCES
   ext/ssw.c
 )
 
-add_executable(strobealign ${SOURCES})
-
-target_link_libraries(strobealign PUBLIC ZLIB::ZLIB Threads::Threads)
-target_include_directories(strobealign PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
-install(TARGETS strobealign DESTINATION bin)
-
+add_library(salib STATIC ${SOURCES})
+target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
+target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads)
 IF(ENABLE_AVX)
-  target_compile_options(strobealign PUBLIC "-mavx2")
+  target_compile_options(salib PUBLIC "-mavx2")
 ENDIF()
 
-add_executable(test-strobealign tests/tests.cpp src/fasta.cpp)
+add_executable(strobealign src/main.cpp)
+target_link_libraries(strobealign PUBLIC salib)
+install(TARGETS strobealign DESTINATION bin)
+
+
+add_executable(test-strobealign tests/tests.cpp)
+target_link_libraries(test-strobealign salib)
 target_include_directories(test-strobealign PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
