@@ -1,5 +1,6 @@
 #include <ostream>
-#include "aln.hpp"
+#include "sam.hpp"
+
 
 /*
  * SAM columns

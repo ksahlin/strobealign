@@ -21,7 +21,6 @@ using namespace klibpp;
 #include "index.hpp"
 //#include "ksw2.h"
 #include "ssw_cpp.h"
-#include "sam.hpp"
 
 //#include <chrono>
 //#include <thread>

@@ -2,8 +2,11 @@
 #define SAM_HPP
 
 #include <string>
-
+#include "kseq++.hpp"
 #include "index.hpp"
+
+using namespace klibpp;
+
 
 struct alignment {
     std::string cigar;

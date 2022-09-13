@@ -20,7 +20,7 @@ using namespace klibpp;
 #include "ssw_cpp.h"
 #include "pc.hpp"
 #include "aln.hpp"
-
+#include "sam.hpp"
 
 #include <chrono>
 #include <thread>
