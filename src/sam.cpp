@@ -23,7 +23,9 @@ void Sam::add_unmapped(const KSeq& record, int flags) {
     sam_string.append(std::to_string(flags));
     sam_string.append("\t*\t0\t255\t*\t*\t0\t0\t");
     sam_string.append(record.seq);
-    sam_string.append("\t*\n");
+    sam_string.append("\t");
+    sam_string.append(record.qual);
+    sam_string.append("\n");
 }
 
 void Sam::add_unmapped_pair(const KSeq& r1, const KSeq& r2) {
