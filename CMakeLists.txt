@@ -16,20 +16,24 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_C_FLAGS "-O3 -Wall -Wextra ${CMAKE_C_FLAGS}")
-set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra ${CMAKE_CXX_FLAGS}")
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING
+      "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
+endif()
+
+add_compile_options(-Wall -Wextra)
 
 set(SOURCES
-src/main.cpp
-src/fasta.cpp
-src/cmdline.cpp
-src/index.cpp
-src/sam.cpp
-src/pc.cpp
-src/aln.cpp
-ext/xxhash.c
-ext/ssw_cpp.cpp
-ext/ssw.c
+  src/main.cpp
+  src/fasta.cpp
+  src/cmdline.cpp
+  src/index.cpp
+  src/sam.cpp
+  src/pc.cpp
+  src/aln.cpp
+  ext/xxhash.c
+  ext/ssw_cpp.cpp
+  ext/ssw.c
 )
 
 add_executable(strobealign ${SOURCES})
