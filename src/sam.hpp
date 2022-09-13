@@ -46,6 +46,8 @@ public:
     void add_unmapped(const KSeq& record, int flags = UNMAP);
     void add_unmapped_pair(const KSeq& r1, const KSeq& r2);
 
+    void add_one(const KSeq& record, int flags, const std::string& ref_name, const alignment& sam_aln, int mapq, const std::string& mate_name, int mate_ref_start, int template_len, const std::string& output_read, int ed);
+
 private:
     std::string& sam_string;
     const idx_to_acc& acc_map;
