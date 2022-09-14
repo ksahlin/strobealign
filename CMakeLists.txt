@@ -48,3 +48,8 @@ install(TARGETS strobealign DESTINATION bin)
 add_executable(test-strobealign tests/tests.cpp)
 target_link_libraries(test-strobealign salib)
 target_include_directories(test-strobealign PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
+
+# Currently unused code for which we only want to ensure that it still compiles
+add_executable(unused-code src/unused.cpp)
+target_link_libraries(unused-code salib)
+target_include_directories(unused-code PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
