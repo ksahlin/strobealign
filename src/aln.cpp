@@ -1230,51 +1230,12 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
 }
 
 
-inline bool HammingToCigarEQX(const std::string &One, const std::string &Two, std::stringstream &cigar)
-{
-    if (One.length() != Two.length()){
-        return true;
-    }
-
-    int counter = 1;
-    bool prev_is_match = One[0] == Two[0];
-    bool beginning = true;
-    bool needs_aln = false; // !prev_is_match
-    bool curr_match;
-    for(int i=1; i<One.length(); i++) {
-        curr_match = (One[i] == Two[i]);
-
-        if ( !curr_match && prev_is_match ){
-            cigar << counter << '=';
-            counter = 0;
-        }
-        else if ( curr_match && !prev_is_match ){
-            cigar << counter << 'X';
-            if (beginning){
-                needs_aln = counter > 2;
-            }
-            counter = 0;
-        }
-        prev_is_match = curr_match;
-        counter++;
-    }
-
-    // Print last
-    if ( curr_match  ){
-        cigar << counter << '=';
-    } else{
-        cigar << counter << 'X';
-        needs_aln = counter > 2;
-    }
-    return needs_aln;
-}
-
-
 static inline bool sort_lowest_ed_scores_single(const std::tuple<int, alignment> &a,
                                                 const std::tuple<int, alignment> &b)
 {
     return (std::get<0>(a) < std::get<0>(b));
 }
+
 
 static inline bool sort_highest_sw_scores_single(const std::tuple<int, alignment> &a,
                                                  const std::tuple<int, alignment> &b)

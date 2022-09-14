@@ -1,6 +1,7 @@
 #include <string>
 #include <vector>
 #include <deque>
+#include <sstream>
 #include "xxhash.h"
 #include "index.hpp"
 
@@ -289,3 +290,44 @@ static inline void make_string_to_hashvalues_closed_syncmers_canonical(std::stri
 //    }
 //    std::cerr << " " << std::endl;
 }
+
+
+inline bool HammingToCigarEQX(const std::string &One, const std::string &Two, std::stringstream &cigar)
+{
+    if (One.length() != Two.length()){
+        return true;
+    }
+
+    int counter = 1;
+    bool prev_is_match = One[0] == Two[0];
+    bool beginning = true;
+    bool needs_aln = false; // !prev_is_match
+    bool curr_match;
+    for(int i=1; i<One.length(); i++) {
+        curr_match = (One[i] == Two[i]);
+
+        if ( !curr_match && prev_is_match ){
+            cigar << counter << '=';
+            counter = 0;
+        }
+        else if ( curr_match && !prev_is_match ){
+            cigar << counter << 'X';
+            if (beginning){
+                needs_aln = counter > 2;
+            }
+            counter = 0;
+        }
+        prev_is_match = curr_match;
+        counter++;
+    }
+
+    // Print last
+    if ( curr_match  ){
+        cigar << counter << '=';
+    } else{
+        cigar << counter << 'X';
+        needs_aln = counter > 2;
+    }
+    return needs_aln;
+}
+
