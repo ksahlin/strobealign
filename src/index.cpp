@@ -402,62 +402,6 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(const std::
 }
 
 
-static inline void get_next_strobe(const std::vector<uint64_t> &string_hashes, uint64_t strobe_hashval, unsigned int &strobe_pos_next, uint64_t &strobe_hashval_next, unsigned int w_start, unsigned int w_end, uint64_t q){
-    uint64_t min_val = UINT64_MAX;
-//    int max_val = INT_MIN;
-//    int min_val = INT_MAX;
-//    int res;
-//    std::bitset<64> b1,b2;
-//        uint64_t rot_strobe_hashval = (strobe_hashval << q)|(strobe_hashval >> (64 - q));
-//    uint64_t shift_strobe_hashval = strobe_hashval >> 5;
-    std::bitset<64> b;
-//    int a,b;
-//    int p = pow (2, 4) - 1;
-//    a = strobe_hashval & p;
-//    int c = b1.count();
-//    int d;
-
-//    unsigned int min_pos;
-//    min_pos = -1;
-    for (auto i = w_start; i <= w_end; i++) {
-//         Method 2
-//        uint64_t res = (strobe_hashval + string_hashes[i]) & q;
-
-//         Method 1
-//        uint64_t res = (strobe_hashval + string_hashes[i]) % q;
-
-        // Method 3 - seems to give the best tradeoff in speed and accuracy at this point
-//        b = (strobe_hashval ^ string_hashes[i]);
-//        uint64_t res = b.count();
-
-        // Method 3' skew sample more for prob exact matching
-        b = (strobe_hashval ^ string_hashes[i])  & q;
-        uint64_t res = b.count();
-
-        // Method by Lidon Gao (other strobemers library) and Giulio Ermanno Pibiri @giulio_pibiri
-//        uint64_t res = (strobe_hashval ^ string_hashes[i]) ;
-
-        // Method 6 Sahlin introduce skew (Method 3 and 3' are symmetrical for comp value of (s1,s2) and (s2,s1)
-        // Methods 6 introduce asymmetry to reduce prob that we pick (s1,s2) and (s2,s1) as strobes to minimize fw and rc collisions
-//        b = (shift_strobe_hashval ^ string_hashes[i])  & q;
-//        uint64_t res = b.count();
-
-        // Method 7 minimize collisions while still keeping small values space:
-//        b = string_hashes[i] & p;
-//        int res = a - b;
-
-        if (res < min_val){
-            min_val = res;
-            strobe_pos_next = i;
-//            std::cerr << strobe_pos_next << " " << min_val << std::endl;
-            strobe_hashval_next = string_hashes[i];
-        }
-    }
-//    std::cerr << "Offset: " <<  strobe_pos_next - w_start << " val: " << min_val <<  ", P exact:" <<  1.0 - pow ( (float) (8-min_val)/9, strobe_pos_next - w_start) << std::endl;
-
-}
-
-
 static inline void get_next_strobe_dist_constraint(const std::vector<uint64_t> &string_hashes, const std::vector<unsigned int> &pos_to_seq_choord, uint64_t strobe_hashval, unsigned int &strobe_pos_next, uint64_t &strobe_hashval_next,  unsigned int w_start, unsigned int w_end, uint64_t q, unsigned int seq_start, unsigned int seq_end_constraint, unsigned int strobe1_start)
 {
     uint64_t min_val = UINT64_MAX;
