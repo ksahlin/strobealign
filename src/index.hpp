@@ -27,7 +27,7 @@ typedef std::vector< std::tuple<uint64_t, uint32_t, int32_t >> ind_mers_vector; 
 //typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int>> mers_vector_reduced;
 typedef robin_hood::unordered_map< uint64_t, std::tuple<unsigned int, unsigned int >> kmer_lookup;
 typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool>> mers_vector_read;
-typedef std::vector<std::string> idx_to_acc;
+
 
 struct st_index {
     st_index() : filter_cutoff(0) {}

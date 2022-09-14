@@ -6,8 +6,8 @@
 
 References References::from_fasta(std::string filename) {
     std::vector<std::string> sequences;
-    std::vector<std::string> names;
-    std::vector<unsigned int> lengths;
+    ref_names names;
+    ref_lengths lengths;
 
     std::ifstream file(filename);
     std::string line, seq;

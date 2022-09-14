@@ -7,14 +7,16 @@
 #include <numeric>
 #include <vector>
 
+typedef std::vector<unsigned int> ref_lengths;
+typedef std::vector<std::string> ref_names;
 
 class References {
 public:
     References() { }
     References(
         std::vector<std::string>&& sequences,
-        std::vector<std::string>&& names,
-        std::vector<unsigned int>&& lengths
+        ref_names&& names,
+        ref_lengths&& lengths
     ) : sequences(std::move(sequences)), names(std::move(names)), lengths(std::move(lengths)) {
 
         _total_length = std::accumulate(this->lengths.begin(), this->lengths.end(), (size_t)0);
@@ -34,8 +36,8 @@ public:
     }
 
     std::vector<std::string> sequences;
-    std::vector<std::string> names;
-    std::vector<unsigned int> lengths;
+    ref_names names;
+    ref_lengths lengths;
 private:
     size_t _total_length;
 };

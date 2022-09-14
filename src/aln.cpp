@@ -1,29 +1,10 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <string>
-#include <assert.h>
-#include <math.h>
-#include <chrono>  // for high_resolution_clock
-//#include <omp.h>
-#include <zlib.h>
-#include <sstream>
-#include <algorithm>
-#include <numeric>
-#include <inttypes.h>
-
-#include "kseq++.hpp"
-using namespace klibpp;
-#include "robin_hood.h"
-#include "index.hpp"
-//#include "ksw2.h"
-#include "ssw_cpp.h"
-#include "pc.hpp"
 #include "aln.hpp"
-#include "sam.hpp"
 
-#include <chrono>
-#include <thread>
+#include <iostream>
+#include <math.h>
+#include <sstream>
+#include "ssw_cpp.h"
+#include "sam.hpp"
 
 
 static inline bool score(const nam &a, const nam &b)
@@ -811,7 +792,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 
 
 
-inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all_nams, const std::string& query_acc, const idx_to_acc &acc_map, int k, int read_len, const std::vector<unsigned int> &ref_len_map) {
+inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all_nams, const std::string& query_acc, const ref_names &acc_map, int k, int read_len, const std::vector<unsigned int> &ref_len_map) {
     // Output results
     if (all_nams.size() == 0) {
         return;
@@ -850,7 +831,7 @@ inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all
     paf_output.append("\t255\n");
 }
 
-inline void output_hits_paf_PE(std::string &paf_output, nam &n, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map) {
+inline void output_hits_paf_PE(std::string &paf_output, nam &n, std::string &query_acc, ref_names &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map) {
     // Output results
     std::string o;
     if (n.ref_s >= 0) {
@@ -3453,7 +3434,7 @@ inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM
 
 
 void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, logging_variables &log_vars, i_dist_est &isize_est, alignment_params &aln_params,
-        mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map ){
+        mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &acc_map ){
     // Declare variables
     mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
 
@@ -3584,7 +3565,7 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, logging
 
 
 void align_SE_read(KSeq &record, std::string &outstring, logging_variables &log_vars, alignment_params &aln_params,
-                   mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map ){
+                   mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &acc_map ){
 
 
         std::string seq, seq_rc;
