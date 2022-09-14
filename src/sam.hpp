@@ -2,8 +2,11 @@
 #define SAM_HPP
 
 #include <string>
+#include "kseq++.hpp"
+#include "refs.hpp"
 
-#include "index.hpp"
+using namespace klibpp;
+
 
 struct alignment {
     std::string cigar;
@@ -38,17 +41,21 @@ enum SamFlags {
 class Sam {
 
 public:
-    Sam(std::string& sam_string, idx_to_acc& acc_map) : sam_string(sam_string), acc_map(acc_map) { }
+    Sam(std::string& sam_string, const ref_names& reference_names)
+        : sam_string(sam_string)
+        , reference_names(reference_names) { }
 
     /* Add an alignment */
-    void add(const alignment& sam_aln, const std::string& sequence, const std::string& sequence_rc, const std::string& query_acc, const std::string& qual, bool is_secondary = false);
+    void add(const alignment& sam_aln, const KSeq& record, const std::string& sequence_rc, bool is_secondary = false);
     void add_pair(alignment &sam_aln1, alignment &sam_aln2, const KSeq& record1, const KSeq& record2, const std::string &read1_rc, const std::string &read2_rc, int &mapq1, int &mapq2, float &mu, float &sigma, bool is_primary);
     void add_unmapped(const KSeq& record, int flags = UNMAP);
     void add_unmapped_pair(const KSeq& r1, const KSeq& r2);
 
+    void add_one(const KSeq& record, int flags, const std::string& ref_name, const alignment& sam_aln, int mapq, const std::string& mate_name, int mate_ref_start, int template_len, const std::string& output_read, int ed);
+
 private:
     std::string& sam_string;
-    const idx_to_acc& acc_map;
+    const ref_names& reference_names;
 };
 
 

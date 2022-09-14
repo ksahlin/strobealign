@@ -17,7 +17,7 @@
 #include "kseq++.hpp"
 #include "robin_hood.h"
 #include "ssw_cpp.h"
-#include "fasta.hpp"
+#include "refs.hpp"
 #include "exceptions.hpp"
 #include "cmdline.hpp"
 #include "index.hpp"
@@ -214,9 +214,7 @@ std::pair<mers_vector, kmer_lookup>  create_index(mapping_params& map_param, std
     int approx_vec_size = total_ref_seq_size / (map_param.k-map_param.s+1);
     logger.debug() << "ref vector approximate size: " << approx_vec_size << std::endl;
     ind_flat_vector.reserve(approx_vec_size);
-    for(size_t i = 0; i < ref_seqs.size(); ++i)
-    {
-//        std::cerr << i << " " << i_mod << std::endl;
+    for(size_t i = 0; i < ref_seqs.size(); ++i) {
         seq_to_randstrobes2(ind_flat_vector, map_param.n, map_param.k, map_param.w_min, map_param.w_max, ref_seqs[i], i, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
     }
     logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
@@ -289,13 +287,10 @@ std::pair<mers_vector, kmer_lookup>  create_index(mapping_params& map_param, std
 /*
  * Return formatted SAM header as a string
  */
-std::string sam_header(idx_to_acc& acc_map, const std::vector<unsigned int>& ref_lengths) {
+std::string sam_header(References& references) {
     std::stringstream out;
-    int nr_ref = acc_map.size();
-    for (int i = 0; i < nr_ref; ++i) {
-//        for (auto &it : acc_map) {
-//            out << "@SQ\tSN:" << it.second << "\tLN:" << ref_lengths[it.first] << "\n";
-        out << "@SQ\tSN:" << acc_map[i] << "\tLN:" << ref_lengths[i] << "\n";
+    for (auto i = 0; i < references.size(); ++i) {
+        out << "@SQ\tSN:" << references.names[i] << "\tLN:" << references.lengths[i] << "\n";
     }
     out << "@PG\tID:strobealign\tPN:strobealign\tVN:" VERSION_STRING "\tCL:strobealign\n";
     return out.str();
@@ -368,29 +363,29 @@ int main (int argc, char **argv)
     //////////// CREATE INDEX OF REF SEQUENCES /////////////////
 
     st_index index;
-
+    References references;
     if (opt.ref_filename.substr(opt.ref_filename.length() - 4) != ".sti") { //assume it is a fasta file if not named ".sti"
         //Generate index from FASTA
     
         // Record index creation start time
         auto start = high_resolution_clock::now();
         auto start_read_refs = start;
-        uint64_t total_ref_seq_size;
         try {
-            total_ref_seq_size = read_references(index.ref_seqs, index.ref_lengths, index.acc_map, opt.ref_filename);
+            references = References::from_fasta(opt.ref_filename);
         } catch (const InvalidFasta& e) {
             logger.error() << "strobealign: " << e.what() << std::endl;
             return EXIT_FAILURE;
         }
+
         std::chrono::duration<double> elapsed_read_refs = high_resolution_clock::now() - start_read_refs;
         logger.info() << "Time reading references: " << elapsed_read_refs.count() << " s" << std::endl;
 
-        if (total_ref_seq_size == 0) {
-            logger.error() << "No reference sequences found, aborting.." << std::endl;
+        if (references.total_length() == 0) {
+            logger.error() << "No reference sequences found, aborting" << std::endl;
             return EXIT_FAILURE;
         }
 
-        std::tie(index.flat_vector, index.mers_index) = create_index(map_param, index.ref_seqs, total_ref_seq_size);
+        std::tie(index.flat_vector, index.mers_index) = create_index(map_param, references.sequences, references.total_length());
         index.filter_cutoff = map_param.filter_cutoff;
 
         // Record index creation end time
@@ -405,7 +400,7 @@ int main (int argc, char **argv)
         // If the program was called with the -i flag, write the index to file
         if (opt.only_gen_index) { // If the program was called with the -i flag, we do not do the alignment
             auto start_write_index = high_resolution_clock::now();
-            write_index(index, opt.index_out_filename);
+            write_index(index, references, opt.index_out_filename);
             std::chrono::duration<double> elapsed_write_index = high_resolution_clock::now() - start_write_index;
             logger.info() << "Total time writing index: " << elapsed_write_index.count() << " s\n" << std::endl;
         }
@@ -413,7 +408,7 @@ int main (int argc, char **argv)
     else {
         //load index from file
         auto start_read_index = high_resolution_clock::now();
-        read_index(index, opt.ref_filename);
+        read_index(index, references, opt.ref_filename);
         std::chrono::duration<double> elapsed_read_index = high_resolution_clock::now() - start_read_index;
         logger.info() << "Total time reading index: " << elapsed_read_index.count() << " s\n" << std::endl;
 
@@ -452,7 +447,7 @@ int main (int argc, char **argv)
         //    std::stringstream paf_output;
 
         if (map_param.is_sam_out) {
-            out << sam_header(index.acc_map, index.ref_lengths);
+            out << sam_header(references);
         }
 
         std::unordered_map<std::thread::id, logging_variables> log_stats_vec(opt.n_threads);
@@ -468,15 +463,15 @@ int main (int argc, char **argv)
 
             int input_chunk_size = 100000;
             // Create Buffers
-            InputBuffer input_buffer = { {}, {}, {}, {}, {}, ks, ks, false, 0, input_chunk_size };
-            OutputBuffer output_buffer = { {}, {}, {}, 0, out };
+            InputBuffer input_buffer(ks, ks, input_chunk_size);
+            OutputBuffer output_buffer(out);
 
             std::vector<std::thread> workers;
             for (int i = 0; i < opt.n_threads; ++i) {
                 std::thread consumer(perform_task_SE, std::ref(input_buffer), std::ref(output_buffer),
                     std::ref(log_stats_vec), std::ref(aln_params),
-                    std::ref(map_param), std::ref(index.ref_lengths), std::ref(index.ref_seqs),
-                    std::ref(index.mers_index), std::ref(index.flat_vector), std::ref(index.acc_map));
+                    std::ref(map_param), std::ref(references.lengths), std::ref(references.sequences),
+                    std::ref(index.mers_index), std::ref(index.flat_vector), std::ref(references.names));
                 workers.push_back(std::move(consumer));
             }
 
@@ -498,15 +493,15 @@ int main (int argc, char **argv)
 
             int input_chunk_size = 100000;
             // Create Buffers
-            InputBuffer input_buffer = { {}, {}, {}, {}, {}, ks1, ks2, false, 0, input_chunk_size };
-            OutputBuffer output_buffer = { {}, {}, {}, 0, out };
+            InputBuffer input_buffer(ks1, ks2, input_chunk_size);
+            OutputBuffer output_buffer(out);
 
             std::vector<std::thread> workers;
             for (int i = 0; i < opt.n_threads; ++i) {
                 std::thread consumer(perform_task_PE, std::ref(input_buffer), std::ref(output_buffer),
                     std::ref(log_stats_vec), std::ref(isize_est_vec), std::ref(aln_params),
-                    std::ref(map_param), std::ref(index.ref_lengths), std::ref(index.ref_seqs),
-                    std::ref(index.mers_index), std::ref(index.flat_vector), std::ref(index.acc_map));
+                    std::ref(map_param), std::ref(references.lengths), std::ref(references.sequences),
+                    std::ref(index.mers_index), std::ref(index.flat_vector), std::ref(references.names));
                 workers.push_back(std::move(consumer));
             }
 
