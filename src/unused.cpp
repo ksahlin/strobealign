@@ -458,3 +458,89 @@ static inline void get_next_strobe(const std::vector<uint64_t> &string_hashes, u
 
 }
 
+
+//mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int w)
+//{
+//    mers_vector randstrobes3;
+//
+//    if (seq.length() < 2*w_max) {
+//        return randstrobes3;
+//    }
+//
+//    std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
+//    uint64_t kmask=(1ULL<<2*k) - 1;
+//    uint64_t q = pow (2, 16) - 1;
+//    // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
+//    std::vector<uint64_t> string_hashes;
+////    std::vector<uint64_t> pos_to_seq_choord;
+//    std::vector<unsigned int> pos_to_seq_choord;
+////    robin_hood::unordered_map< unsigned int, unsigned int>  pos_to_seq_choord;
+//    make_string_to_hashvalues_random_minimizers(seq, string_hashes, pos_to_seq_choord, k, kmask, w);
+//    unsigned int seq_length = string_hashes.size();
+//
+////    std::cerr << seq << std::endl;
+//
+//    // create the randstrobes
+//    for (unsigned int i = 0; i <= seq_length; i++) {
+//
+////        if ((i % 10) == 0 ){
+////            std::cerr << i << " randstrobes created." << std::endl;
+////        }
+//        uint64_t strobe_hash;
+//        strobe_hash = string_hashes[i];
+//
+//        unsigned int strobe_pos_next1;
+//        uint64_t strobe_hashval_next1;
+//        unsigned int strobe_pos_next2;
+//        uint64_t strobe_hashval_next2;
+//
+//        if (i + 2*w_max < seq_length){
+//            unsigned int w1_start = i+w_min;
+//            unsigned int w1_end = i+w_max;
+//            get_next_strobe(string_hashes, strobe_hash, strobe_pos_next1, strobe_hashval_next1, w1_start, w1_end, q);
+//
+//            unsigned int w2_start = i+w_max + w_min;
+//            unsigned int w2_end = i+2*w_max;
+////            uint64_t conditional_next = strobe_hash ^ strobe_hashval_next1;
+//            get_next_strobe(string_hashes, strobe_hashval_next1, strobe_pos_next2, strobe_hashval_next2, w2_start, w2_end, q);
+//        }
+//
+//        else if ((i + 2*w_min + 1 < seq_length) && (seq_length <= i + 2*w_max) ){
+//
+//            int overshot;
+//            overshot = i + 2*w_max - seq_length;
+//            unsigned int w1_start = i+w_min;
+//            unsigned int w1_end = i+w_max - overshot/2;
+//            get_next_strobe(string_hashes, strobe_hash, strobe_pos_next1, strobe_hashval_next1, w1_start, w1_end, q);
+//
+//            unsigned int w2_start = i+w_max - overshot/2 + w_min;
+//            unsigned int w2_end = i+2*w_max - overshot;
+////            uint64_t conditional_next = strobe_hash ^ strobe_hashval_next1;
+//            get_next_strobe(string_hashes, strobe_hashval_next1, strobe_pos_next2, strobe_hashval_next2, w2_start, w2_end, q);
+//        }
+//        else{
+//            return randstrobes3;
+//        }
+//
+//        uint64_t hash_randstrobe3 = (strobe_hash/3) + (strobe_hashval_next1/4) + (strobe_hashval_next2/5);
+//
+//        unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
+////        unsigned int seq_pos_strobe2 =  pos_to_seq_choord[strobe_pos_next1]; //seq_pos_strobe1 + (strobe_pos_next1 - i); //
+//        unsigned int seq_pos_strobe3 =  pos_to_seq_choord[strobe_pos_next2]; //seq_pos_strobe1 + (strobe_pos_next2 - i); //
+////        std::cerr << i << " " << strobe_pos_next1 << " " << strobe_pos_next2 << " " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << seq_pos_strobe3 << " " << pos_to_seq_choord.size() << std::endl;
+//
+////         TODO: Take care of corner case (tmep if statement below. Some values in end of string produce a cororidnate of 0 for the last strobe. Probably an off-by-one error in the calculation of the strobe coord in the last strobe window
+////        if (strobe_pos_next2 ==  seq_length){
+//////            std::cerr << "OMGGGGGGG " << i << " " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << seq_pos_strobe3 << std::endl;
+////            seq_pos_strobe3 = seq_length-1;
+////        }
+//        std::tuple<uint64_t, unsigned int, unsigned int, unsigned int> s (hash_randstrobe3, ref_index, seq_pos_strobe1, seq_pos_strobe3);
+//        randstrobes3.push_back(s);
+//
+//
+////        auto strobe1 = seq.substr(i, k);
+////        std::cerr << std::string(i, ' ') << strobe1 << std::string(strobe_pos_next1 - (i+k), ' ') << std::string(k, 'X') << std::string(strobe_pos_next2 - strobe_pos_next1 - k, ' ') << std::string(k, 'X') << std::endl;
+////        std::cerr << i << " " << strobe_pos_next1 << " " << strobe_pos_next2 << " " << seq_length << std::endl;
+//    }
+//    return randstrobes3;
+//}
