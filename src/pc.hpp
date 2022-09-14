@@ -51,7 +51,8 @@ public:
 class OutputBuffer {
 
 public:
-    // Fields for concurrency input
+    OutputBuffer(std::ostream& out) : out(out) { }
+
     std::mutex mtx;
     std::condition_variable not_empty;
     std::condition_variable not_full;

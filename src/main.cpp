@@ -464,7 +464,7 @@ int main (int argc, char **argv)
             int input_chunk_size = 100000;
             // Create Buffers
             InputBuffer input_buffer(ks, ks, input_chunk_size);
-            OutputBuffer output_buffer = { {}, {}, {}, 0, out };
+            OutputBuffer output_buffer(out);
 
             std::vector<std::thread> workers;
             for (int i = 0; i < opt.n_threads; ++i) {
@@ -494,7 +494,7 @@ int main (int argc, char **argv)
             int input_chunk_size = 100000;
             // Create Buffers
             InputBuffer input_buffer(ks1, ks2, input_chunk_size);
-            OutputBuffer output_buffer = { {}, {}, {}, 0, out };
+            OutputBuffer output_buffer(out);
 
             std::vector<std::thread> workers;
             for (int i = 0; i < opt.n_threads; ++i) {
