@@ -72,7 +72,7 @@ void OutputBuffer::output_records(std::string &sam_alignments) {
 inline bool align_reads_PE(InputBuffer &input_buffer, OutputBuffer &output_buffer,  std::vector<KSeq> &records1,  std::vector<KSeq> &records2,
                          logging_variables &log_vars, i_dist_est &isize_est, alignment_params &aln_params,
                         mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs,
-                        kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map ) {
+                        kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &acc_map ) {
 
     // If no more reads to align
     if (records1.empty() && input_buffer.finished_reading){
@@ -101,7 +101,7 @@ inline bool align_reads_PE(InputBuffer &input_buffer, OutputBuffer &output_buffe
 void perform_task_PE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
                   std::unordered_map<std::thread::id, logging_variables> &log_stats_vec, std::unordered_map<std::thread::id, i_dist_est> &isize_est_vec, alignment_params &aln_params,
                   mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs,
-                  kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map ){
+                  kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &acc_map ){
     bool eof = false;
     while (true){
         std::vector<KSeq> records1;
@@ -127,7 +127,7 @@ void perform_task_PE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
 inline bool align_reads_SE(InputBuffer &input_buffer, OutputBuffer &output_buffer,  std::vector<KSeq> &records,
                            logging_variables &log_vars, alignment_params &aln_params,
                            mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs,
-                           kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map ) {
+                           kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &acc_map ) {
 
     // If no more reads to align
     if (records.empty() && input_buffer.finished_reading){
@@ -154,7 +154,7 @@ inline bool align_reads_SE(InputBuffer &input_buffer, OutputBuffer &output_buffe
 void perform_task_SE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
                      std::unordered_map<std::thread::id, logging_variables> &log_stats_vec, alignment_params &aln_params,
                      mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs,
-                     kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map ){
+                     kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &acc_map ){
     bool eof = false;
     while (true){
         std::vector<KSeq> records1;

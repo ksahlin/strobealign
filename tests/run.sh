@@ -19,3 +19,5 @@ strobealign $d/phix.fasta $d/phix.1.fastq $d/phix.2.fastq > phix.pe.sam
 diff -u tests/phix.pe.sam phix.pe.sam
 rm phix.pe.sam
 
+# Unit tests
+build/test-strobealign

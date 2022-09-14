@@ -2,8 +2,11 @@
 #define SAM_HPP
 
 #include <string>
+#include "kseq++.hpp"
+#include "refs.hpp"
 
-#include "index.hpp"
+using namespace klibpp;
+
 
 struct alignment {
     std::string cigar;
@@ -38,7 +41,9 @@ enum SamFlags {
 class Sam {
 
 public:
-    Sam(std::string& sam_string, idx_to_acc& acc_map) : sam_string(sam_string), acc_map(acc_map) { }
+    Sam(std::string& sam_string, const ref_names& reference_names)
+        : sam_string(sam_string)
+        , reference_names(reference_names) { }
 
     /* Add an alignment */
     void add(const alignment& sam_aln, const KSeq& record, const std::string& sequence_rc, bool is_secondary = false);
@@ -50,7 +55,7 @@ public:
 
 private:
     std::string& sam_string;
-    const idx_to_acc& acc_map;
+    const ref_names& reference_names;
 };
 
 

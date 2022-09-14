@@ -4,8 +4,8 @@
 //
 //  Created by Kristoffer Sahlin on 4/21/21.
 //
-
 #include "index.hpp"
+
 #include <iostream>
 #include <math.h>       /* pow */
 #include <bitset>
@@ -114,10 +114,8 @@ uint64_t count_unique_elements(const hash_vector& h_vector){
     return unique_elements;
 }
 
-unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, float f){
-
+unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, float f) {
     logger.debug() << "Flat vector size: " << h_vector.size() << std::endl;
-//    kmer_lookup mers_index;
     unsigned int offset = 0;
     unsigned int prev_offset = 0;
     unsigned int count = 0;
@@ -131,7 +129,6 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
     uint64_t curr_k;
 
     for ( auto &t : h_vector) {
-//        std::cerr << t << std::endl;
         curr_k = t;
         if (curr_k == prev_k){
             count ++;
@@ -143,7 +140,6 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
             else if (count > 100){
                 tot_high_ab ++;
                 strobemer_counts.push_back(count);
-//                std::cerr << count << std::endl;
             }
             else{
                 tot_mid_ab ++;
@@ -194,37 +190,37 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
 }
 
 
-void write_index(const st_index& index, std::string filename) {
+void write_index(const st_index& index, const References& references, const std::string& filename) {
     std::ofstream ofs(filename, std::ios::binary);
 
     //write filter_cutoff
     ofs.write(reinterpret_cast<const char*>(&index.filter_cutoff), sizeof(index.filter_cutoff));
 
     //write ref_seqs:
-    uint64_t s1 = uint64_t(index.ref_seqs.size());
+    uint64_t s1 = uint64_t(references.sequences.size());
     ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
     //For each string, write length and then the string
     uint32_t s2 = 0;
-    for (std::size_t i = 0; i < index.ref_seqs.size(); ++i) {
-        s2 = uint32_t(index.ref_seqs[i].length());
+    for (std::size_t i = 0; i < references.sequences.size(); ++i) {
+        s2 = uint32_t(references.sequences[i].length());
         ofs.write(reinterpret_cast<char*>(&s2), sizeof(s2));
-        ofs.write(index.ref_seqs[i].c_str(), index.ref_seqs[i].length());
+        ofs.write(references.sequences[i].c_str(), references.sequences[i].length());
     }
     
     //write ref_lengths:
     //write everything in one large chunk
-    s1 = uint64_t(index.ref_lengths.size());
+    s1 = uint64_t(references.lengths.size());
     ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
-    ofs.write(reinterpret_cast<const char*>(&index.ref_lengths[0]), index.ref_lengths.size()*sizeof(index.ref_lengths[0]));
+    ofs.write(reinterpret_cast<const char*>(&references.lengths[0]), references.lengths.size()*sizeof(references.lengths[0]));
 
     //write acc_map:
-    s1 = uint64_t(index.acc_map.size());
+    s1 = uint64_t(references.names.size());
     ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
     //For each string, write length and then the string
-    for (std::size_t i = 0; i < index.acc_map.size(); ++i) {
-        s2 = uint32_t(index.acc_map[i].length());
+    for (std::size_t i = 0; i < references.names.size(); ++i) {
+        s2 = uint32_t(references.names[i].length());
         ofs.write(reinterpret_cast<char*>(&s2), sizeof(s2));
-        ofs.write(index.acc_map[i].c_str(), index.acc_map[i].length());
+        ofs.write(references.names[i].c_str(), references.names[i].length());
     }
 
     //write flat_vector:
@@ -241,18 +237,18 @@ void write_index(const st_index& index, std::string filename) {
     }
 };
 
-void read_index(st_index& index, std::string filename) {
+void read_index(st_index& index, References& references, const std::string& filename) {
     std::ifstream ifs(filename, std::ios::binary);
     //read filter_cutoff
     ifs.read(reinterpret_cast<char*>(&index.filter_cutoff), sizeof(index.filter_cutoff));
 
     //read ref_seqs:
-    index.ref_seqs.clear();
+    references.sequences.clear();
     uint64_t sz = 0;
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-    index.ref_seqs.reserve(sz);
+    references.sequences.reserve(sz);
     uint32_t sz2 = 0;
-    auto& refseqs = index.ref_seqs;
+    auto& refseqs = references.sequences;
     for (uint64_t i = 0; i < sz; ++i) {
         ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
         std::unique_ptr<char> buf_ptr(new char[sz2]);//The vector is short with large strings, so allocating this way should be ok.
@@ -263,16 +259,16 @@ void read_index(st_index& index, std::string filename) {
 
     //read ref_lengths
     ////////////////
-    index.ref_lengths.clear();
+    references.lengths.clear();
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-    index.ref_lengths.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but ignore that for now
-    ifs.read(reinterpret_cast<char*>(&index.ref_lengths[0]), sz*sizeof(index.ref_lengths[0]));
+    references.lengths.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but ignore that for now
+    ifs.read(reinterpret_cast<char*>(&references.lengths[0]), sz*sizeof(references.lengths[0]));
 
     //read acc_map:
-    index.acc_map.clear();
+    references.names.clear();
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-    index.acc_map.reserve(sz);
-    auto& acc_map = index.acc_map;
+    references.names.reserve(sz);
+    auto& acc_map = references.names;
 
     for (int i = 0; i < sz; ++i) {
         ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
