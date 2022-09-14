@@ -17,7 +17,7 @@
 #include "robin_hood.h"
 #include "xxhash.h"
 #include "exceptions.hpp"
-#include "fasta.hpp"
+#include "refs.hpp"
 
 uint64_t hash(std::string kmer);
 

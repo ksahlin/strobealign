@@ -5,8 +5,7 @@
 #include <string>
 #include <stdexcept>
 #include <numeric>
-
-#include <iostream>
+#include <vector>
 
 
 class References {

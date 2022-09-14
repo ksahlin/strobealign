@@ -1,7 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-#include "fasta.hpp"
+#include "refs.hpp"
 
 TEST_CASE("References::from_fasta") {
     auto references = References::from_fasta("tests/phix.fasta");

@@ -17,7 +17,7 @@
 #include "kseq++.hpp"
 #include "robin_hood.h"
 #include "ssw_cpp.h"
-#include "fasta.hpp"
+#include "refs.hpp"
 #include "exceptions.hpp"
 #include "cmdline.hpp"
 #include "index.hpp"

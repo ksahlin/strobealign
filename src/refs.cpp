@@ -1,7 +1,7 @@
+#include "refs.hpp"
 #include <vector>
 #include <fstream>
 #include <sstream>
-#include "fasta.hpp"
 #include "exceptions.hpp"
 
 References References::from_fasta(std::string filename) {
