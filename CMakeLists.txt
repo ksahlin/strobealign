@@ -23,8 +23,8 @@ endif()
 
 add_compile_options(-Wall -Wextra)
 
-set(SOURCES
-  src/fasta.cpp
+add_library(salib STATIC ${SOURCES}
+  src/refs.cpp
   src/cmdline.cpp
   src/index.cpp
   src/sam.cpp
@@ -34,8 +34,6 @@ set(SOURCES
   ext/ssw_cpp.cpp
   ext/ssw.c
 )
-
-add_library(salib STATIC ${SOURCES})
 target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads)
 IF(ENABLE_AVX)

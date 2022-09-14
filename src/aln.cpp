@@ -1,29 +1,10 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <string>
-#include <assert.h>
-#include <math.h>
-#include <chrono>  // for high_resolution_clock
-//#include <omp.h>
-#include <zlib.h>
-#include <sstream>
-#include <algorithm>
-#include <numeric>
-#include <inttypes.h>
-
-#include "kseq++.hpp"
-using namespace klibpp;
-#include "robin_hood.h"
-#include "index.hpp"
-//#include "ksw2.h"
-#include "ssw_cpp.h"
-#include "pc.hpp"
 #include "aln.hpp"
 
-
-#include <chrono>
-#include <thread>
+#include <iostream>
+#include <math.h>
+#include <sstream>
+#include "ssw_cpp.h"
+#include "sam.hpp"
 
 
 static inline bool score(const nam &a, const nam &b)
@@ -31,7 +12,7 @@ static inline bool score(const nam &a, const nam &b)
     return ( a.score > b.score );
 }
 
-inline aln_info ssw_align(const std::string &ref, const std::string &query, int read_len, int match_score, int mismatch_penalty, int gap_opening_penalty, int gap_extending_penalty) {
+inline aln_info ssw_align(const std::string &ref, const std::string &query, int match_score, int mismatch_penalty, int gap_opening_penalty, int gap_extending_penalty) {
 
     aln_info aln;
     int32_t maskLen = strlen(query.c_str())/2;
@@ -811,7 +792,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 
 
 
-inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all_nams, const std::string& query_acc, const idx_to_acc &acc_map, int k, int read_len, const std::vector<unsigned int> &ref_len_map) {
+inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all_nams, const std::string& query_acc, const ref_names &acc_map, int k, int read_len, const std::vector<unsigned int> &ref_len_map) {
     // Output results
     if (all_nams.size() == 0) {
         return;
@@ -850,7 +831,7 @@ inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all
     paf_output.append("\t255\n");
 }
 
-inline void output_hits_paf_PE(std::string &paf_output, nam &n, std::string &query_acc, idx_to_acc &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map) {
+inline void output_hits_paf_PE(std::string &paf_output, nam &n, std::string &query_acc, ref_names &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map) {
     // Output results
     std::string o;
     if (n.ref_s >= 0) {
@@ -1541,7 +1522,7 @@ inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<n
             aln_info info;
 //            std::cout << "Extra ref: " << extra_ref << " " << read_diff << " " << ref_diff << " " << ref_start << " " << ref_end << std::endl;
 //            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
-            info = ssw_align(ref_segm, r_tmp, read_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+            info = ssw_align(ref_segm, r_tmp, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
 //            info.ed = info.global_ed; // read_len - info.sw_score;
             int diff_to_best = std::abs(best_align_sw_score - info.sw_score);
             min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
@@ -1807,7 +1788,7 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sa
             aln_info info;
 //            std::cout << "Extra ref: " << extra_ref << " " << read_diff << " " << ref_diff << " " << ref_start << " " << ref_end << std::endl;
 //            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
-            info = ssw_align(ref_segm, r_tmp, read_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+            info = ssw_align(ref_segm, r_tmp, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
 //            info.ed = info.global_ed; // read_len - info.sw_score;
             sw_score = info.sw_score;
             log_vars.tot_ksw_aligned ++;
@@ -1897,11 +1878,7 @@ static inline void align_segment(alignment_params &aln_params, std::string &read
     }
 
     aln_info info;
-//    std::cerr << "PERFORM SSW: "<< std::endl;
-//    std::cerr << ref_segm << std::endl;
-//    std::cerr << read_segm << std::endl;
-//    std::cerr << read_segm_len << " " << ref_segm_len << std::endl;
-    info = ssw_align(ref_segm, read_segm, read_segm_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+    info = ssw_align(ref_segm, read_segm, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
     tot_ksw_aligned ++;
     sam_aln_segm.cigar = info.cigar;
     sam_aln_segm.ed = info.ed;
@@ -2828,7 +2805,6 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, const std:
 //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return;
     }
-//    std::cerr << "Reached here: a:" << a << " b: " << b <<  " ref_len: " << ref_len << " ref_start: " << ref_start << " ref_end - ref_start: " << ref_end - ref_start << " sub ref str len: " << ref_start + ref_end - ref_start << std::endl;
     std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
     aln_info info;
 
@@ -2856,16 +2832,10 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, const std:
         sam_aln.not_proper = true;
 //        std::cerr << "Avoided!" << std::endl;
         return;
-//        std::cerr << "LOOOOOOL!" << std::endl;
 //        std::cerr << "Aligning anyway at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
-//        std::cerr << "read: " << r_tmp << std::endl;
-//        std::cerr << "ref: " << ref_segm << std::endl;
     }
 
-//    std::cerr << "Aligning at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
-//    std::cerr << "read: " << r_tmp << std::endl;
-//    std::cerr << "ref: " << ref_segm << std::endl;
-    info = ssw_align(ref_segm, r_tmp, read_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+    info = ssw_align(ref_segm, r_tmp, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
 
 //    if (info.ed == 100000){
 //        std::cerr<< "________________________________________" << std::endl;
@@ -2895,7 +2865,6 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, const std:
     tot_ksw_aligned ++;
     tot_rescued ++;
 }
-
 
 
 inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2,
@@ -3453,7 +3422,7 @@ inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM
 
 
 void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, logging_variables &log_vars, i_dist_est &isize_est, alignment_params &aln_params,
-        mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map ){
+        mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &acc_map ){
     // Declare variables
     mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
 
@@ -3584,7 +3553,7 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, logging
 
 
 void align_SE_read(KSeq &record, std::string &outstring, logging_variables &log_vars, alignment_params &aln_params,
-                   mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, idx_to_acc &acc_map ){
+                   mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &acc_map ){
 
 
         std::string seq, seq_rc;
