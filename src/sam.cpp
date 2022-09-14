@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <ostream>
 
+using namespace klibpp;
+
 /*
  * SAM columns
  *

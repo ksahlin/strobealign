@@ -12,8 +12,8 @@
 
 #include "robin_hood.h"
 #include "index.hpp"
-
 #include "kseq++.hpp"
+
 using namespace klibpp;
 
 

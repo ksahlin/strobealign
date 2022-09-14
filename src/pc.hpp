@@ -20,8 +20,6 @@
 #include "aln.hpp"
 #include "refs.hpp"
 
-using namespace klibpp;
-
 class InputBuffer {
 
 public:
@@ -35,16 +33,16 @@ public:
     std::condition_variable not_empty;
     std::condition_variable not_full;
 
-    std::queue<std::vector<KSeq>> q1;
-    std::queue<std::vector<KSeq>> q2;
+    std::queue<std::vector<klibpp::KSeq>> q1;
+    std::queue<std::vector<klibpp::KSeq>> q2;
     input_stream_t &ks1;
     input_stream_t &ks2;
     bool finished_reading = false;
     int buffer_size = 0;
     int X = 100000; // input read chunk size
 
-    void read_records_PE(std::vector<KSeq> &records1, std::vector<KSeq> &records2, logging_variables &log_vars);
-    void read_records_SE(std::vector<KSeq> &records1, logging_variables &log_vars);
+    void read_records_PE(std::vector<klibpp::KSeq> &records1, std::vector<klibpp::KSeq> &records2, logging_variables &log_vars);
+    void read_records_SE(std::vector<klibpp::KSeq> &records1, logging_variables &log_vars);
 };
 
 

@@ -5,8 +5,6 @@
 #include "kseq++.hpp"
 #include "refs.hpp"
 
-using namespace klibpp;
-
 
 struct alignment {
     std::string cigar;
@@ -46,12 +44,12 @@ public:
         , reference_names(reference_names) { }
 
     /* Add an alignment */
-    void add(const alignment& sam_aln, const KSeq& record, const std::string& sequence_rc, bool is_secondary = false);
-    void add_pair(alignment &sam_aln1, alignment &sam_aln2, const KSeq& record1, const KSeq& record2, const std::string &read1_rc, const std::string &read2_rc, int &mapq1, int &mapq2, float &mu, float &sigma, bool is_primary);
-    void add_unmapped(const KSeq& record, int flags = UNMAP);
-    void add_unmapped_pair(const KSeq& r1, const KSeq& r2);
+    void add(const alignment& sam_aln, const klibpp::KSeq& record, const std::string& sequence_rc, bool is_secondary = false);
+    void add_pair(alignment &sam_aln1, alignment &sam_aln2, const klibpp::KSeq& record1, const klibpp::KSeq& record2, const std::string &read1_rc, const std::string &read2_rc, int &mapq1, int &mapq2, float &mu, float &sigma, bool is_primary);
+    void add_unmapped(const klibpp::KSeq& record, int flags = UNMAP);
+    void add_unmapped_pair(const klibpp::KSeq& r1, const klibpp::KSeq& r2);
 
-    void add_one(const KSeq& record, int flags, const std::string& ref_name, const alignment& sam_aln, int mapq, const std::string& mate_name, int mate_ref_start, int template_len, const std::string& output_read, int ed);
+    void add_one(const klibpp::KSeq& record, int flags, const std::string& ref_name, const alignment& sam_aln, int mapq, const std::string& mate_name, int mate_ref_start, int template_len, const std::string& output_read, int ed);
 
 private:
     std::string& sam_string;

@@ -6,6 +6,7 @@
 #include "ssw_cpp.h"
 #include "sam.hpp"
 
+using namespace klibpp;
 
 static inline bool score(const nam &a, const nam &b)
 {
