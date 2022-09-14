@@ -25,6 +25,11 @@ using namespace klibpp;
 class InputBuffer {
 
 public:
+    typedef klibpp::KStream<gzFile_s*, int (*)(gzFile_s*, void*, unsigned int), klibpp::mode::In_> input_stream_t;
+
+    InputBuffer(input_stream_t& ks1, input_stream_t& ks2, int chunk_size)
+    : ks1(ks1), ks2(ks2), X(chunk_size) { }
+
     // Fields for concurrency input
     std::mutex mtx;
     std::condition_variable not_empty;
@@ -32,8 +37,8 @@ public:
 
     std::queue<std::vector<KSeq>> q1;
     std::queue<std::vector<KSeq>> q2;
-    klibpp::KStream<gzFile_s*, int (*)(gzFile_s*, void*, unsigned int), klibpp::mode::In_> &ks1;
-    klibpp::KStream<gzFile_s*, int (*)(gzFile_s*, void*, unsigned int), klibpp::mode::In_> &ks2;
+    input_stream_t &ks1;
+    input_stream_t &ks2;
     bool finished_reading = false;
     int buffer_size = 0;
     int X = 100000; // input read chunk size

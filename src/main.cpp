@@ -463,7 +463,7 @@ int main (int argc, char **argv)
 
             int input_chunk_size = 100000;
             // Create Buffers
-            InputBuffer input_buffer = { {}, {}, {}, {}, {}, ks, ks, false, 0, input_chunk_size };
+            InputBuffer input_buffer(ks, ks, input_chunk_size);
             OutputBuffer output_buffer = { {}, {}, {}, 0, out };
 
             std::vector<std::thread> workers;
@@ -493,7 +493,7 @@ int main (int argc, char **argv)
 
             int input_chunk_size = 100000;
             // Create Buffers
-            InputBuffer input_buffer = { {}, {}, {}, {}, {}, ks1, ks2, false, 0, input_chunk_size };
+            InputBuffer input_buffer(ks1, ks2, input_chunk_size);
             OutputBuffer output_buffer = { {}, {}, {}, 0, out };
 
             std::vector<std::thread> workers;
