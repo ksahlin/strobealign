@@ -551,7 +551,119 @@ static inline void get_next_strobe(const std::vector<uint64_t> &string_hashes, u
 
 // from aln.cpp
 
+//static inline bool sort_hits(const hit &a, const hit &b)
+//{
+//    // first sort on ref ID, then on reference starts, then on query starts
+//    return (a.ref_id < b.ref_id) ||
+//           ( (a.ref_id == b.ref_id) && (a.ref_s < b.ref_s) ) ||
+//           ((a.ref_id == b.ref_id) && (a.ref_s == b.ref_s) && (a.query_s < b.query_s )) ;
+//}
+//static inline std::vector<nam> find_nams_alt(mers_vector_read &query_mers, mers_vector_reduced &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int hit_upper_window_lim, unsigned int filter_cutoff ) {
+////    std::cerr << "ENTER FIND NAMS " <<  std::endl;
+//    std::vector<hit> all_hits;
+//    for (auto &q : query_mers)
+////    for (size_t i = 0; i < query_mers.size(); ++i)
+//    {
+////        std::cerr << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
+//        uint64_t mer_hashv = std::get<0>(q);
+//        if (mers_index.find(mer_hashv) != mers_index.end()) { //  In  index
+//            hit h;
+//            h.query_s = std::get<2>(q);
+//            h.query_e = std::get<3>(q) + k; // h.query_s + read_length/2;
+//            h.is_rc = std::get<4>(q);
+//            std::tuple<uint64_t, unsigned int> mer;
+//            mer = mers_index[mer_hashv];
+//            unsigned int offset = std::get<0>(mer);
+//            unsigned int count = std::get<1>(mer);
 //
+//            for (size_t j = offset; j < offset + count; ++j) {
+//                auto r = ref_mers[j];
+//                unsigned int ref_id = std::get<0>(r);
+//                unsigned int ref_s = std::get<1>(r);
+//                unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
+//
+//                h.ref_id = ref_id;
+//                h.ref_s = ref_s;
+//                h.ref_e = ref_e;
+//                all_hits.push_back(h);
+//            }
+//
+//        }
+//    }
+//
+//    std::sort(all_hits.begin(), all_hits.end(), sort_hits);
+//
+//    std::vector<nam> final_nams; // [ref_id] -> vector(struct nam)
+//    nam o;
+//    if (all_hits.size() == 0){
+//        return final_nams;
+//    }
+//    else{
+//        hit h = all_hits[0];
+//        o.ref_id = h.ref_id;
+//        o.query_s = h.query_s;
+//        o.query_e = h.query_e;
+//        o.ref_s = h.ref_s;
+//        o.ref_e = h.ref_e;
+////        o.previous_query_start = h.query_s;
+////        o.previous_ref_start = h.ref_s;
+//        o.query_prev_hit_startpos = h.query_s;
+//        o.ref_prev_hit_startpos = h.ref_s;
+//        o.n_hits = 1;
+//        o.is_rc = h.is_rc;
+//    }
+//
+//    hit h;
+//    for(size_t i = 1; i < all_hits.size(); ++i) // all but first element
+//    {
+//        h = all_hits[i];
+//        if ( (o.ref_id == h.ref_id) && ( o.is_rc == h.is_rc) && ( o.query_prev_hit_startpos < h.query_s) && (h.query_s <= o.query_e ) && ( o.ref_prev_hit_startpos < h.ref_s) && (h.ref_s <= o.ref_e)){
+//            if ( (h.query_e > o.query_e) && (h.ref_e > o.ref_e) ) {
+//                o.query_e = h.query_e;
+//                o.ref_e = h.ref_e;
+////                o.previous_query_start = h.query_s;
+////                o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
+//                o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
+//                o.ref_prev_hit_startpos = h.ref_s; // log the last strobemer hit in case of outputting paf
+//                o.n_hits ++;
+//            }
+//            else if ((h.query_e <= o.query_e) && (h.ref_e <= o.ref_e)) {
+////                o.previous_query_start = h.query_s;
+////                o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
+//                o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
+//                o.ref_prev_hit_startpos = h.ref_s; // log the last strobemer hit in case of outputting paf
+//                o.n_hits ++;
+//            }
+//        } else {
+//            final_nams.push_back(o);
+//            o.ref_id = h.ref_id;
+//            o.query_s = h.query_s;
+//            o.query_e = h.query_e;
+//            o.ref_s = h.ref_s;
+//            o.ref_e = h.ref_e;
+////            o.previous_query_start = h.query_s;
+////            o.previous_ref_start = h.ref_s;
+//            o.query_prev_hit_startpos = h.query_s;
+//            o.ref_prev_hit_startpos = h.ref_s;
+//            o.n_hits = 1;
+//            o.is_rc = h.is_rc;
+//        }
+//    }
+//
+//
+//    final_nams.push_back(o);
+//
+//
+////        for (auto &n : final_nams){
+////        std::cerr << "NAM ALT: " << n.ref_id << ": (" << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
+////    }
+////    std::cerr << " " << std::endl;
+//
+//    return final_nams;
+//}
+
+
+// from aln.cpp
 //
 //static inline void get_alignment(alignment_params &aln_params, nam &n, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, int read_len, alignment &sam_aln, int k, int cnt, bool &rc_already_comp, unsigned int &did_not_fit, unsigned int &tot_ksw_aligned){
 //    bool aln_did_not_fit = false;
