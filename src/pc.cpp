@@ -21,8 +21,8 @@ void InputBuffer::read_records_PE(std::vector<KSeq> &records1, std::vector<KSeq>
      auto read_start = std::chrono::high_resolution_clock::now();
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
-    records1 = ks1.read(X);
-    records2 = ks2.read(X);
+    records1 = ks1.read(chunk_size);
+    records2 = ks2.read(chunk_size);
 
     if (records1.empty()){
         finished_reading = true;
@@ -41,7 +41,7 @@ void InputBuffer::read_records_SE(std::vector<KSeq> &records1, logging_variables
     auto read_start = std::chrono::high_resolution_clock::now();
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
-    records1 = ks1.read(X);
+    records1 = ks1.read(chunk_size);
 
     if (records1.empty()){
         finished_reading = true;
