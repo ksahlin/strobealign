@@ -12,7 +12,7 @@ static inline bool score(const nam &a, const nam &b)
     return ( a.score > b.score );
 }
 
-inline aln_info ssw_align(const std::string &ref, const std::string &query, int read_len, int match_score, int mismatch_penalty, int gap_opening_penalty, int gap_extending_penalty) {
+inline aln_info ssw_align(const std::string &ref, const std::string &query, int match_score, int mismatch_penalty, int gap_opening_penalty, int gap_extending_penalty) {
 
     aln_info aln;
     int32_t maskLen = strlen(query.c_str())/2;
@@ -1522,7 +1522,7 @@ inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<n
             aln_info info;
 //            std::cout << "Extra ref: " << extra_ref << " " << read_diff << " " << ref_diff << " " << ref_start << " " << ref_end << std::endl;
 //            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
-            info = ssw_align(ref_segm, r_tmp, read_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+            info = ssw_align(ref_segm, r_tmp, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
 //            info.ed = info.global_ed; // read_len - info.sw_score;
             int diff_to_best = std::abs(best_align_sw_score - info.sw_score);
             min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
@@ -1788,7 +1788,7 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sa
             aln_info info;
 //            std::cout << "Extra ref: " << extra_ref << " " << read_diff << " " << ref_diff << " " << ref_start << " " << ref_end << std::endl;
 //            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
-            info = ssw_align(ref_segm, r_tmp, read_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+            info = ssw_align(ref_segm, r_tmp, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
 //            info.ed = info.global_ed; // read_len - info.sw_score;
             sw_score = info.sw_score;
             log_vars.tot_ksw_aligned ++;
@@ -1878,11 +1878,7 @@ static inline void align_segment(alignment_params &aln_params, std::string &read
     }
 
     aln_info info;
-//    std::cerr << "PERFORM SSW: "<< std::endl;
-//    std::cerr << ref_segm << std::endl;
-//    std::cerr << read_segm << std::endl;
-//    std::cerr << read_segm_len << " " << ref_segm_len << std::endl;
-    info = ssw_align(ref_segm, read_segm, read_segm_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+    info = ssw_align(ref_segm, read_segm, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
     tot_ksw_aligned ++;
     sam_aln_segm.cigar = info.cigar;
     sam_aln_segm.ed = info.ed;
@@ -2809,7 +2805,6 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, const std:
 //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return;
     }
-//    std::cerr << "Reached here: a:" << a << " b: " << b <<  " ref_len: " << ref_len << " ref_start: " << ref_start << " ref_end - ref_start: " << ref_end - ref_start << " sub ref str len: " << ref_start + ref_end - ref_start << std::endl;
     std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
     aln_info info;
 
@@ -2837,16 +2832,10 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, const std:
         sam_aln.not_proper = true;
 //        std::cerr << "Avoided!" << std::endl;
         return;
-//        std::cerr << "LOOOOOOL!" << std::endl;
 //        std::cerr << "Aligning anyway at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
-//        std::cerr << "read: " << r_tmp << std::endl;
-//        std::cerr << "ref: " << ref_segm << std::endl;
     }
 
-//    std::cerr << "Aligning at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
-//    std::cerr << "read: " << r_tmp << std::endl;
-//    std::cerr << "ref: " << ref_segm << std::endl;
-    info = ssw_align(ref_segm, r_tmp, read_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+    info = ssw_align(ref_segm, r_tmp, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
 
 //    if (info.ed == 100000){
 //        std::cerr<< "________________________________________" << std::endl;
@@ -2876,7 +2865,6 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, const std:
     tot_ksw_aligned ++;
     tot_rescued ++;
 }
-
 
 
 inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2,
