@@ -25,7 +25,7 @@ static Logger& logger = Logger::get();
  * *******************************************************/
 // copy from http://www.cse.yorku.ca/~oz/hash.html:
 
-uint64_t hash(std::string kmer)
+uint64_t hash(const std::string& kmer)
 {
     unsigned long hash = 5381;
     int c;
@@ -273,7 +273,6 @@ void read_index(st_index& index, References& references, const std::string& file
     for (int i = 0; i < sz; ++i) {
         ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
         std::unique_ptr<char> buf_ptr(new char[sz2]);
-        char* buf = buf_ptr.get();
         ifs.read(buf_ptr.get(), sz2);
         acc_map.push_back(std::string(buf_ptr.get(), sz2));
     }
@@ -453,7 +452,7 @@ static inline void make_string_to_hashvalues_closed_syncmers_canonical(std::stri
             xs[0] = (xs[0] << 2 | c) & smask;                  // forward strand
             xs[1] = xs[1] >> 2 | (uint64_t)(3 - c) << sshift;  // reverse strand
             if (++l >= s) { // we find an s-mer
-                uint64_t ys = xs[0] < xs[1]? xs[0] : xs[1];
+                uint64_t ys = std::min(xs[0], xs[1]);
 //                uint64_t hash_s = robin_hash(ys);
                 uint64_t hash_s = ys;
 //                uint64_t hash_s = hash64(ys, mask);
@@ -478,7 +477,7 @@ static inline void make_string_to_hashvalues_closed_syncmers_canonical(std::stri
                     }
 //                    if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
                     if ( (qs_min_pos == qs_pos[k - s]) || (qs_min_pos == qs_pos[0]) ) { // occurs at first or last position in k-mer
-                        uint64_t yk = xk[0] < xk[1]? xk[0] : xk[1];
+                        uint64_t yk = std::min(xk[0], xk[1]);
 //                        uint64_t hash_k = robin_hash(yk);
 //                        uint64_t hash_k = yk;
 //                        uint64_t hash_k =  hash64(yk, mask);

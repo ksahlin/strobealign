@@ -19,7 +19,7 @@
 #include "exceptions.hpp"
 #include "refs.hpp"
 
-uint64_t hash(std::string kmer);
+uint64_t hash(const std::string& kmer);
 
 typedef std::vector< uint64_t > hash_vector; //only used during index generation
 typedef std::vector< std::tuple<uint32_t, int32_t >> mers_vector;

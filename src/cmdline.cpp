@@ -1,6 +1,6 @@
-#include <args.hxx>
-
 #include "cmdline.hpp"
+
+#include <args.hxx>
 #include "version.hpp"
 
 
