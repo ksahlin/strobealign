@@ -2433,16 +2433,6 @@ static inline void get_MAPQ(std::vector<nam> &all_nams, nam &n_max, int &mapq){
     }
 }
 
-static inline void get_joint_MAPQ(float s1, float s2, int joint_n_matches, int &mapq1, int &mapq2){
-    // MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1     // from minimap paper
-    float min_matches;
-    min_matches  = (float)joint_n_matches/10 > 1 ? (float)joint_n_matches/10 : 1;
-    mapq1 = 40*(1 - s2/s1)*min_matches*log(s1) < 60 ? 40*(1 - s2/s1)*min_matches*log(s1) : 60 ;
-    if (mapq1 < 0){
-        mapq1 = 0;
-    }
-    mapq2 = mapq1;
-}
 
 static inline void get_joint_MAPQ_from_alingments(float S1, float S2, int &mapq1, int &mapq2){
     if (S1 == S2){ // At least two identical placements

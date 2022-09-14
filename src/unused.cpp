@@ -2,6 +2,7 @@
 #include <vector>
 #include <deque>
 #include <sstream>
+#include <cmath>
 #include <bitset>
 #include "xxhash.h"
 #include "index.hpp"
@@ -544,3 +545,16 @@ static inline void get_next_strobe(const std::vector<uint64_t> &string_hashes, u
 //    }
 //    return randstrobes3;
 //}
+
+
+// aln.cpp
+static inline void get_joint_MAPQ(float s1, float s2, int joint_n_matches, int &mapq1, int &mapq2){
+    // MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1     // from minimap paper
+    float min_matches;
+    min_matches  = (float)joint_n_matches/10 > 1 ? (float)joint_n_matches/10 : 1;
+    mapq1 = 40*(1 - s2/s1)*min_matches*log(s1) < 60 ? 40*(1 - s2/s1)*min_matches*log(s1) : 60 ;
+    if (mapq1 < 0){
+        mapq1 = 0;
+    }
+    mapq2 = mapq1;
+}
