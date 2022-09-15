@@ -29,7 +29,6 @@ inline aln_info ssw_align(const std::string &ref, const std::string &query, int 
     }
 
     StripedSmithWaterman::Aligner aligner(match_score, mismatch_penalty, gap_opening_penalty, gap_extending_penalty);
-//    StripedSmithWaterman::Aligner aligner;
     // Declares a default filter
     StripedSmithWaterman::Filter filter;
     // Declares an alignment that stores the result
@@ -77,119 +76,6 @@ inline aln_info ssw_align(const std::string &ref, const std::string &query, int 
     aln.length = alignment_ssw.ref_end - alignment_ssw.ref_begin;
     return aln;
 }
-
-
-
-//static inline bool sort_hits(const hit &a, const hit &b)
-//{
-//    // first sort on ref ID, then on reference starts, then on query starts
-//    return (a.ref_id < b.ref_id) ||
-//           ( (a.ref_id == b.ref_id) && (a.ref_s < b.ref_s) ) ||
-//           ((a.ref_id == b.ref_id) && (a.ref_s == b.ref_s) && (a.query_s < b.query_s )) ;
-//}
-//static inline std::vector<nam> find_nams_alt(mers_vector_read &query_mers, mers_vector_reduced &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int hit_upper_window_lim, unsigned int filter_cutoff ) {
-////    std::cerr << "ENTER FIND NAMS " <<  std::endl;
-//    std::vector<hit> all_hits;
-//    for (auto &q : query_mers)
-////    for (size_t i = 0; i < query_mers.size(); ++i)
-//    {
-////        std::cerr << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
-//        uint64_t mer_hashv = std::get<0>(q);
-//        if (mers_index.find(mer_hashv) != mers_index.end()) { //  In  index
-//            hit h;
-//            h.query_s = std::get<2>(q);
-//            h.query_e = std::get<3>(q) + k; // h.query_s + read_length/2;
-//            h.is_rc = std::get<4>(q);
-//            std::tuple<uint64_t, unsigned int> mer;
-//            mer = mers_index[mer_hashv];
-//            unsigned int offset = std::get<0>(mer);
-//            unsigned int count = std::get<1>(mer);
-//
-//            for (size_t j = offset; j < offset + count; ++j) {
-//                auto r = ref_mers[j];
-//                unsigned int ref_id = std::get<0>(r);
-//                unsigned int ref_s = std::get<1>(r);
-//                unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
-//
-//                h.ref_id = ref_id;
-//                h.ref_s = ref_s;
-//                h.ref_e = ref_e;
-//                all_hits.push_back(h);
-//            }
-//
-//        }
-//    }
-//
-//    std::sort(all_hits.begin(), all_hits.end(), sort_hits);
-//
-//    std::vector<nam> final_nams; // [ref_id] -> vector(struct nam)
-//    nam o;
-//    if (all_hits.size() == 0){
-//        return final_nams;
-//    }
-//    else{
-//        hit h = all_hits[0];
-//        o.ref_id = h.ref_id;
-//        o.query_s = h.query_s;
-//        o.query_e = h.query_e;
-//        o.ref_s = h.ref_s;
-//        o.ref_e = h.ref_e;
-////        o.previous_query_start = h.query_s;
-////        o.previous_ref_start = h.ref_s;
-//        o.query_prev_hit_startpos = h.query_s;
-//        o.ref_prev_hit_startpos = h.ref_s;
-//        o.n_hits = 1;
-//        o.is_rc = h.is_rc;
-//    }
-//
-//    hit h;
-//    for(size_t i = 1; i < all_hits.size(); ++i) // all but first element
-//    {
-//        h = all_hits[i];
-//        if ( (o.ref_id == h.ref_id) && ( o.is_rc == h.is_rc) && ( o.query_prev_hit_startpos < h.query_s) && (h.query_s <= o.query_e ) && ( o.ref_prev_hit_startpos < h.ref_s) && (h.ref_s <= o.ref_e)){
-//            if ( (h.query_e > o.query_e) && (h.ref_e > o.ref_e) ) {
-//                o.query_e = h.query_e;
-//                o.ref_e = h.ref_e;
-////                o.previous_query_start = h.query_s;
-////                o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
-//                o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
-//                o.ref_prev_hit_startpos = h.ref_s; // log the last strobemer hit in case of outputting paf
-//                o.n_hits ++;
-//            }
-//            else if ((h.query_e <= o.query_e) && (h.ref_e <= o.ref_e)) {
-////                o.previous_query_start = h.query_s;
-////                o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
-//                o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
-//                o.ref_prev_hit_startpos = h.ref_s; // log the last strobemer hit in case of outputting paf
-//                o.n_hits ++;
-//            }
-//        } else {
-//            final_nams.push_back(o);
-//            o.ref_id = h.ref_id;
-//            o.query_s = h.query_s;
-//            o.query_e = h.query_e;
-//            o.ref_s = h.ref_s;
-//            o.ref_e = h.ref_e;
-////            o.previous_query_start = h.query_s;
-////            o.previous_ref_start = h.ref_s;
-//            o.query_prev_hit_startpos = h.query_s;
-//            o.ref_prev_hit_startpos = h.ref_s;
-//            o.n_hits = 1;
-//            o.is_rc = h.is_rc;
-//        }
-//    }
-//
-//
-//    final_nams.push_back(o);
-//
-//
-////        for (auto &n : final_nams){
-////        std::cerr << "NAM ALT: " << n.ref_id << ": (" << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
-////    }
-////    std::cerr << " " << std::endl;
-//
-//    return final_nams;
-//}
 
 
 static inline bool sort_hits(const hit &a, const hit &b)
@@ -323,15 +209,12 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
         else{
             break;
 //            std::cerr << "Found repetitive count FORWARD: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
-
         }
-
     }
 
     cnt = 0;
     for (auto &q : hits_rc)
     {
-//        std::cerr << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
         auto count = std::get<0>(q);
         auto offset = std::get<1>(q);
         h.query_s = std::get<2>(q);
@@ -374,9 +257,7 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
         else{
             break;
 //            std::cerr << "Found repetitive count REVERSE: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
-
         }
-
     }
 
 //    std::cerr << "NUMBER OF HITS GENERATED: " << hit_count_all << std::endl;
@@ -428,8 +309,6 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
 //                    }
 
                 }
-
-
             }
 //            if (local_repeat_worse_fit){
 //                continue;
@@ -454,7 +333,6 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
                 open_nams.push_back(n);
             }
 
-
             // Only filter if we have advanced at least k nucleotides
             if (h.query_s > prev_q_start + k) {
 
@@ -478,8 +356,6 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
                 open_nams.erase(std::remove_if(open_nams.begin(), open_nams.end(), predicate), open_nams.end());
                 prev_q_start = h.query_s;
             }
-
-
         }
 
         // Add all current open_matches to final NAMs
@@ -502,7 +378,6 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
     return ;
 
 }
-
 
 
 static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, std::vector<std::string> &ref_seqs, std::string &read, unsigned int filter_cutoff ){
@@ -763,36 +638,6 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 }
 
 
-
-
-//static inline bool compareByQueryCoord(const hit &a, const hit &b)
-//{
-//    // first sort on ref ID, then on query, then on reference
-//    return (a.ref_id < b.ref_id) ||
-//           ( (a.ref_id == b.ref_id) && (a.query_s < b.query_s) ) ||
-//           ((a.ref_id == b.ref_id) && (a.query_s == b.query_s ) && (a.ref_s < b.ref_s)) ;
-//}
-//
-//static inline bool compareByQueryLength(const hit &a, const hit &b)
-//{
-//    return (a.query_e - a.query_s) < ( b.query_e - b.query_s);
-//}
-
-//static inline bool compareByNrHitsAndSimilarSpan(const nam &a, const nam &b)
-//{
-//    // first sort on nr hits, then on diff in span between query and reference, then on reference
-//    return (a.n_hits > b.n_hits) ||
-//           ( (a.n_hits == b.n_hits) && ( ((a.query_e - a.query_s) - (a.ref_e - a.ref_s)) < ((b.query_e - b.query_s) - (b.ref_e - b.ref_s)) ) );
-//}
-
-//static inline bool score(const nam &a, const nam &b)
-//{
-//    return ( (a.n_hits * (a.query_e - a.query_s)) > (b.n_hits * (b.query_e - b.query_s)) );
-//}
-
-
-
-
 inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all_nams, const std::string& query_acc, const ref_names &acc_map, int k, int read_len, const std::vector<unsigned int> &ref_len_map) {
     // Output results
     if (all_nams.size() == 0) {
@@ -873,238 +718,6 @@ static inline std::string reverse_complement(const std::string &read) {
     }
     return read_rev;
 }
-
-
-//aln_info parasail_align(std::string &ref, int tlen, std::string &query, int qlen, int sc_mch, int sc_mis, int gapo, int gape) {
-//    const char *ref_ptr = ref.c_str();
-//    const char *read_ptr = query.c_str();
-//    parasail_matrix_t *user_matrix = NULL;
-//    user_matrix = parasail_matrix_create("ACGT", sc_mch, -sc_mis);
-//    aln_info aln;
-////    const std::string ref   = "AGTATCTGGAACTGGACTTTTGGAGCGCTTTCAGGGATAAGGTGAAAAAGGAAATATCTTCCCATAAAAACTGGACAGAAGCATTCTCAGAAACTTATTTGAGATGTGTGTACTCAACTAAGAGAATTGAACCACCGTTTTGAAGGAGCAGTTTTGAAACTCTCTTTTTCTGGAATCTGCAAGTGGATATTTGGCTAGCTTTGGGGATTTCGCTGGAAGCGGGAATACATATAAAAAGCACACAGCAGCGTTCTGAGAAACTGCTTTCTGATGTTTGCATTCAAGTCAAAAGTTGAACACTCCCTTTCATAGAGCAGTCTTGAAACACCCCTTTTGTAGTATCTGGAACTGGACTTTTGGAGCGATTTCAGGGCTAAGGTGAAAAAGGAAATATCTTCCCATAAAAACTGGACAGAAGCATTCTCAGAAACTTGGTTATGCTGTATCTACTCAACTAACAAAGTTGAACCTTTCTTTTGATAGAGCAGTTTTGAAATGGTCTTTTTGTGGAATCTGCAAGTGGATATTTGGCTAGTTTTGAGGATTTCGTTGGAAGCGGGAATTCATACAAATTGCAGACTGCAGCGTTCTGAGAAACATCTTTGTGATGTTTGTATTCAGGACAGAGAGTTGAACATTCCCTATCATAGAGCAGGTTGGAATCACTCCTTTTGTAGTATCTGGAAGTGGACATTTGGAGCGCTTTCAGGCCTATTTTGGAAAGGGAAATATCTTCCCGTAACAACTATGCAGAAGCATTCTCAGAAACTTGTTTGTGATGTGTGCCCTCTACTGACAGAGTTGAACCTTTCTTTTCATAGAGCAGTTTTGAAACACTCTTTTTGTAGAA";
-////    const std::string query = "CGGGAATACATATAAAAAGCACACAGCAGCGTTCTGAGAAACTGCTTTCTGATGTTTGCATTAAAGTCAAAAGTTGAACACTCCCTTTCATAGAGCAGTC";
-//
-//
-////    parasail_result_t *result = NULL;
-////    result = parasail_sw_trace_striped_sat(read_ptr, qlen, ref_ptr, tlen,  gapo, gape, user_matrix);
-////    parasail_result_free(result);
-//
-//        parasail_result_ssw *result = NULL;
-//        result = parasail_ssw(read_ptr, qlen, ref_ptr, tlen, gapo, gape, user_matrix );
-//
-//    // TODO: Fix cigarstring to use M instead of =/X
-////    aln.ed = result->;
-//    aln.ref_offset = result->ref_begin1;
-//    aln.sw_score = result->score1; //(alignment.query_end - alignment.query_begin) - 4*alignment.mismatches; //approximate for ssw until I implement a cigar parser
-//
-//    std::stringstream cigar_string;
-//    int edit_distance = 0;
-//    int sw_score = 0;
-//    unsigned ref_pos = 0, read_pos = 0;
-//
-//    for (int i = 0; i < result->cigarLen; i++) {
-//        int count = result->cigar[i] >> 4;
-//        char op = "MID"[result->cigar[i] & 0xf];
-////        std::cerr << "count: " << count << " op:" << op << std::endl;
-//        if ( (i==0) && op == 'D'){
-//            ref_pos += count;
-////            std::cerr << "First deletion " << i << " " << count << std::endl;
-//            continue;
-//        }
-//        if ( (i==result->cigarLen-1) && op == 'D'){
-//            ref_pos += count;
-////            std::cerr << "Last deletion " << i << " " << count << std::endl;
-//            continue;
-//        }
-//        cigar_string << count << op;
-//        switch (op) {
-//            case 'M':
-//                for (int j = 0; j < count; j++, ref_pos++, read_pos++) {
-//                    if (ref_ptr[ref_pos] != read_ptr[read_pos]) {
-//                        edit_distance++;
-//                        sw_score -= sc_mis;
-//                    } else{
-//                        sw_score += sc_mch;
-//                    }
-//                }
-//                break;
-//            case 'D':edit_distance += count;
-//                ref_pos += count;
-//                sw_score -= (gapo + (count-1));
-//                break;
-//            case 'I':edit_distance += count;
-//                read_pos += count;
-//                sw_score -= (gapo + (count-1));
-//                break;
-//            default:assert(0);
-//        }
-////        std::cerr << "ED " << edit_distance << std::endl;
-//    }
-//
-//    aln.cigar =  cigar_string.str();
-//    aln.ed =  edit_distance;
-//
-//    parasail_result_ssw_free(result);
-//
-//    return aln;
-//}
-
-
-//inline aln_info ssw_align(std::string &ref, std::string &query, int read_len, int match_score, int mismatch_penalty, int gap_opening_penalty, int gap_extending_penalty) {
-//
-//    aln_info aln;
-//    int32_t maskLen = strlen(query.c_str())/2;
-//    maskLen = std::max(maskLen, 15);
-//    if (ref.length() > 2000){
-////        std::cerr << "ALIGNMENT TO REF LONGER THAN 2000bp - REPORT TO DEVELOPER. Happened for read: " <<  query << " ref len:" << ref.length() << std::endl;
-//        aln.global_ed = 100000;
-//        aln.ed = 100000;
-//        aln.ref_offset = 0;
-//        aln.cigar = "*";
-//        aln.sw_score = -1000000;
-//        return aln;
-//    }
-//
-//    StripedSmithWaterman::Aligner aligner(match_score, mismatch_penalty, gap_opening_penalty, gap_extending_penalty);
-////    StripedSmithWaterman::Aligner aligner;
-//    // Declares a default filter
-//    StripedSmithWaterman::Filter filter;
-//    // Declares an alignment that stores the result
-//    StripedSmithWaterman::Alignment alignment_ssw;
-//    aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 1);
-//        // Have to give up this optimization untill the 'Command terminated abnormally' bug is fixed in ssw library
-////     if (read_len*match_score < 255){
-////         std::cerr << "Here: "  << read_len*match_score << " " << ref.length() << std::endl;
-////         try
-////         {
-////             aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 0);
-////         }
-////         catch (...)
-////         {
-////             aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 1);
-////         }
-////
-////     } else {
-////            aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 1);
-////     }
-////    std::cerr << passed << std::endl;
-////    if(!passed){
-////        std::cerr << "Failed" << std::endl;
-////        std::cerr << "read: " << query << std::endl;
-////        std::cerr << "ref: "  << ref << std::endl;
-////    }
-//
-//
-////    std::cerr << "===== SSW result =====" << std::endl;
-////    std::cerr << "Best Smith-Waterman score:\t" << alignment_ssw.sw_score << std::endl
-////         << "Next-best Smith-Waterman score:\t" << alignment_ssw.sw_score_next_best << std::endl
-////         << "Reference start:\t" << alignment_ssw.ref_begin << std::endl
-////         << "Reference end:\t" << alignment_ssw.ref_end << std::endl
-////         << "Query start:\t" << alignment_ssw.query_begin << std::endl
-////         << "Query end:\t" << alignment_ssw.query_end << std::endl
-////         << "Next-best reference end:\t" << alignment_ssw.ref_end_next_best << std::endl
-////         << "Number of mismatches:\t" << alignment_ssw.mismatches << std::endl
-////         << "Cigar: " << alignment_ssw.cigar_string << std::endl;
-//
-//    aln.global_ed = alignment_ssw.global_ed;
-//    aln.ed = alignment_ssw.mismatches;
-//    aln.ref_offset = alignment_ssw.ref_begin;
-//    aln.cigar = alignment_ssw.cigar_string;
-//    aln.sw_score = alignment_ssw.sw_score;
-//    aln.length = alignment_ssw.ref_end - alignment_ssw.ref_begin;
-//    return aln;
-//}
-
-
-//inline aln_info ksw_align(const char *tseq, int tlen, const char *qseq, int qlen,
-//                          int sc_mch, int sc_mis, int gapo, int gape, ksw_extz_t &ez) {
-//    int8_t a = sc_mch, b = sc_mis < 0 ? sc_mis : -sc_mis; // a>0 and b<0
-//    int8_t mat[25] = {a, b, b, b, 0, b, a, b, b, 0, b, b, a, b, 0, b, b, b, a, 0, 0, 0, 0, 0, 0};
-//    const uint8_t *ts = reinterpret_cast<const uint8_t *>(tseq);
-//    const uint8_t *qs = reinterpret_cast<const uint8_t *>(qseq);
-//    memset(&ez, 0, sizeof(ksw_extz_t));
-//    ksw_extz2_sse(0, qlen, qs, tlen, ts, 5, mat, gapo, gape, -1, -1, 10000, KSW_EZ_EXTZ_ONLY, &ez);
-//
-//    aln_info aln;
-////    std::string cigar_mod;
-////    cigar_mod.reserve(5*ez.n_cigar);
-//    unsigned int tstart_offset = 0;
-//    int eqx_len, switch_ind;
-//    std::stringstream cigar_string;
-//    int edit_distance = 0;
-//    int sw_score = 0;
-//    unsigned ref_pos = 0, read_pos = 0;
-//    for (int i = 0; i < ez.n_cigar; i++) {
-//        int count = ez.cigar[i] >> 4;
-//        char op = "MID"[ez.cigar[i] & 0xf];
-////        std::cerr << "count: " << count << " op:" << op << std::endl;
-//        if ( (i==0) && op == 'D'){
-//            ref_pos += count;
-//            tstart_offset = ref_pos;
-////            std::cerr << "First deletion " << i << " " << count << std::endl;
-//            continue;
-//        }
-//        if ( (i==ez.n_cigar-1) && op == 'D'){
-//            ref_pos += count;
-////            std::cerr << "Last deletion " << i << " " << count << std::endl;
-//            continue;
-//        }
-//        cigar_string << count << op;
-//        switch (op) {
-//            case 'M': {
-////                eqx_len = 0;
-////                switch_ind = 0; // switch_ind 0 if prev was match, 1 if mismatch
-////                char o = '=';
-//                for (int j = 0; j < count; j++, ref_pos++, read_pos++) {
-//                    if (tseq[ref_pos] != qseq[read_pos]) {
-//                        edit_distance++;
-//                        sw_score -= -b;
-////                        if ((switch_ind == 0) && (j > 0)) { // prev was match
-////                            cigar_string << eqx_len << '=';
-////                            eqx_len = 0;
-////                        }
-////                        switch_ind = 1;
-////                        o = 'X';
-////                        eqx_len++;
-//                    } else{
-//                        sw_score += sc_mch;
-////                        if (switch_ind == 1) { // prev was mismatch
-////                            cigar_string << eqx_len << 'X';
-////                            eqx_len = 0;
-////                            o = '=';
-////                            switch_ind = 0;
-////                        }
-////                        eqx_len++;
-//                    }
-//                }
-////                cigar_string << eqx_len << o;
-//                break;
-//            }
-//            case 'D': {
-//                edit_distance += count;
-//                ref_pos += count;
-//                sw_score -= (gapo + (count - 1));
-////                cigar_string << count << op;
-//                break;
-//            }
-//            case 'I': {
-//                edit_distance += count;
-//                read_pos += count;
-//                sw_score -= (gapo + (count - 1));
-////                cigar_string << count << op;
-//                break;
-//            }
-//            default:assert(0);
-//        }
-////        std::cerr << "ED " << edit_distance << std::endl;
-//    }
-//    aln.ed = edit_distance;
-//    aln.sw_score = sw_score;
-//    aln.ref_offset = tstart_offset;
-//    aln.cigar = cigar_string.str();
-//    free(ez.cigar); //free(ts); free(qs);
-//    return aln;
-//}
 
 inline int HammingDistance(const std::string &One, const std::string &Two)
 {
@@ -1229,52 +842,6 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
     return hamming_mod;
 }
 
-
-inline bool HammingToCigarEQX(const std::string &One, const std::string &Two, std::stringstream &cigar)
-{
-    if (One.length() != Two.length()){
-        return true;
-    }
-
-    int counter = 1;
-    bool prev_is_match = One[0] == Two[0];
-    bool beginning = true;
-    bool needs_aln = false; // !prev_is_match
-    bool curr_match;
-    for(int i=1; i<One.length(); i++) {
-        curr_match = (One[i] == Two[i]);
-
-        if ( !curr_match && prev_is_match ){
-            cigar << counter << '=';
-            counter = 0;
-        }
-        else if ( curr_match && !prev_is_match ){
-            cigar << counter << 'X';
-            if (beginning){
-                needs_aln = counter > 2;
-            }
-            counter = 0;
-        }
-        prev_is_match = curr_match;
-        counter++;
-    }
-
-    // Print last
-    if ( curr_match  ){
-        cigar << counter << '=';
-    } else{
-        cigar << counter << 'X';
-        needs_aln = counter > 2;
-    }
-    return needs_aln;
-}
-
-
-static inline bool sort_lowest_ed_scores_single(const std::tuple<int, alignment> &a,
-                                                const std::tuple<int, alignment> &b)
-{
-    return (std::get<0>(a) < std::get<0>(b));
-}
 
 static inline bool sort_highest_sw_scores_single(const std::tuple<int, alignment> &a,
                                                  const std::tuple<int, alignment> &b)
@@ -2267,199 +1834,6 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, const std
 }
 
 
-//
-//
-//static inline void get_alignment(alignment_params &aln_params, nam &n, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, std::string &read, std::string &read_rc, int read_len, alignment &sam_aln, int k, int cnt, bool &rc_already_comp, unsigned int &did_not_fit, unsigned int &tot_ksw_aligned){
-//    bool aln_did_not_fit = false;
-//    int ref_diff = n.ref_e - n.ref_s;
-//    int read_diff = n.query_e - n.query_s;
-//    int min_diff =  read_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
-//    int max_diff = ref_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
-//    int diff = max_diff - min_diff;
-////    int max_allowed_mask = aln_params.gap_open/aln_params.match - 1 > 0 ? aln_params.gap_open/aln_params.match - 1 : 1;
-//
-//    // deal with any read hanging of ends of reference not to get 'std::out_of_range' what(): basic_string::substr
-//    int ref_tmp_start = n.ref_s - n.query_s;
-//    int ref_tmp_segm_size = read_len + diff;
-//    int ref_len = ref_len_map[n.ref_id];
-//    int ref_start = ref_tmp_start > 0 ? ref_tmp_start : 0;
-//    int ref_segm_size = ref_tmp_segm_size < ref_len - ref_start ? ref_tmp_segm_size : ref_len - 1 - ref_start;
-//
-//    std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
-//
-//    // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
-//    bool fits = false;
-//    std::string ref_start_kmer;
-//    std::string ref_end_kmer;
-//    std::string read_start_kmer;
-//    std::string read_end_kmer;
-//    std::string read_rc_start_kmer;
-//    std::string read_rc_end_kmer;
-//    ref_start_kmer = ref_seqs[n.ref_id].substr(n.ref_s, k);
-//    ref_end_kmer = ref_seqs[n.ref_id].substr(n.ref_e-k, k);
-//
-//    if (!n.is_rc) {
-//        read_start_kmer = read.substr(n.query_s, k);
-//        read_end_kmer = read.substr(n.query_e-k, k);
-//        if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)) {
-////            n.is_rc = false;
-//            fits = true;
-//        } else  {
-//            //  FALSE FORWARD TAKE CARE OF FALSE HITS HERE - it can be false forwards or false rc because of symmetrical hash values
-//            //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
-//
-////              std::cerr << " CHECKING1!! " << std::endl;
-//            // false reverse hit, change coordinates in nam to forward
-//            if (!rc_already_comp){
-//                read_rc = reverse_complement(read);
-//                rc_already_comp = true;
-//            }
-//
-//            int q_start_tmp = read_len - n.query_e;
-//            int q_end_tmp = read_len - n.query_s;
-//            read_start_kmer = read_rc.substr(q_start_tmp, k);
-//            read_end_kmer = read_rc.substr(q_end_tmp-k, k);
-//            if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
-//                fits = true;
-//                n.is_rc = true;
-//                n.query_s = q_start_tmp;
-//                n.query_e = q_end_tmp;
-////                std::cerr << " DETECTED FALSE RC FROM SYMM!! " << std::endl;
-//            }
-//
-//        }
-//    } else {
-//        if (!rc_already_comp){
-//            read_rc = reverse_complement(read);
-//            rc_already_comp = true;
-//        }
-//        read_rc_start_kmer = read_rc.substr(n.query_s, k);
-//        read_rc_end_kmer = read_rc.substr(n.query_e-k, k);
-//        if ( (ref_start_kmer == read_rc_start_kmer) && (ref_end_kmer == read_rc_end_kmer) ) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
-//            n.is_rc = true;
-//            fits = true;
-//        } else{
-//            //  FALSE REVERSE TAKE CARE OF FALSE HITS HERE - it can be false forwards or false rc because of symmetrical hash values
-//            //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
-//
-//            int q_start_tmp = read_len - n.query_e;
-//            int q_end_tmp = read_len - n.query_s;
-//            read_start_kmer = read.substr(q_start_tmp, k);
-//            read_end_kmer = read.substr(q_end_tmp-k, k);
-////            std::cerr << " CHECKING2!! " <<   n.query_s << " " <<   n.query_e << " " << std::endl;
-////            std::cerr << read_start_kmer  << " " <<  ref_start_kmer << " " <<  read_end_kmer << " " << ref_end_kmer << std::endl;
-//
-//            if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
-//                fits = true;
-//                n.is_rc = false;
-//                n.query_s = q_start_tmp;
-//                n.query_e = q_end_tmp;
-////                std::cerr << " DETECTED FALSE FW FROM SYMM!! " << std::endl;
-//            }
-//        }
-//    }
-//
-//    if (!fits) {
-//        did_not_fit++;
-//        aln_did_not_fit = true;
-//        sam_aln.not_proper = true;
-//    }
-//
-//    int hamming_dist = -1;
-//    std::string r_tmp;
-//    bool is_rc;
-//    if (n.is_rc){
-//        r_tmp = read_rc;
-//        is_rc = true;
-//    }else{
-//        r_tmp = read;
-//        is_rc = false;
-//    }
-//
-////    std::cerr<< r_tmp << std::endl;
-////    std::cerr<< ref_segm << std::endl;
-////    std::cerr<< diff << std::endl;
-//    int soft_left = 50;
-//    int soft_right = 50;
-//    int hamming_mod;
-////    bool needs_aln = false;
-//    if ( (ref_segm_size == read_len) && (!aln_did_not_fit) ){
-//        hamming_dist = HammingDistance(r_tmp, ref_segm);
-////        std::cerr<< "Here " << hamming_dist << std::endl;
-////        std::cerr<< aln_params.gap_open/aln_params.match  << std::endl;
-//        if ( (hamming_dist >= 0) && (((float) hamming_dist / read_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-//            std::stringstream cigar_string;
-////            needs_aln = HammingToCigarEQX(r_tmp, ref_segm, cigar_string);
-//            int aln_score = 0;
-//            hamming_mod = HammingToCigarEQX2(r_tmp, ref_segm, cigar_string, aln_params.match, aln_params.mismatch, aln_score, soft_left, soft_right);
-//
-////            needs_aln = false;
-//            sam_aln.cigar = cigar_string.str();
-////            sam_aln.cigar = std::to_string(read_len) + "M";
-////            std::cerr<< "Here ham dist: " << hamming_dist << " ham mod: " << hamming_mod << " " << r_tmp.size() << " " << ref_segm.size()  << std::endl;
-//            sam_aln.ed = hamming_mod;
-////            sam_aln.sw_score = aln_score;
-//            sam_aln.sw_score = aln_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
-//            sam_aln.ref_start = ref_start + soft_left+1; // +1 because SAM is 1-based!
-//            sam_aln.is_rc = is_rc;
-//            sam_aln.ref_id = n.ref_id;
-//            sam_aln.is_unaligned = false;
-//            sam_aln.aln_score = aln_score;
-//            return;
-////            if (hamming_mod == hamming_dist ){ // masked only what is justified by alingment parameters max_allowed_mask
-////                return;
-////            }
-//        }
-//        //TODO: Only do ksw of the ends outside the NAM to increase speed here
-////        else{ // Segment(s) of read outside the NAM span is not fitting to reference, align the segments
-////            std::cerr<< sam_aln.ed << " " << sam_aln.sw_score << " " <<   n.query_s << " " << n.query_e << std::endl;
-////            std::cerr<< r_tmp << std::endl;
-////            std::cerr<< ref_segm.substr(0,read_len) << std::endl;
-////
-////        }
-//    }
-//
-//    // We didn't get away with hamming distance, do full ksw alignment
-////    else {
-////    std::cerr<< "3" << std::endl;
-//
-//    int extra_ref_left = soft_left <= 50 ? soft_left : 50;
-//    int extra_ref_right = soft_right <= 50 ? soft_right: 50;
-//    int a = n.ref_s - n.query_s - extra_ref_left;
-//    ref_start = std::max(0, a);
-//    int b = n.ref_e + (read_len - n.query_e)+ extra_ref_right;
-//    int ref_end = std::min(ref_len, b);
-//    ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
-////    ksw_extz_t ez;
-////    const char *ref_ptr = ref_segm.c_str();
-////    const char *read_ptr = r_tmp.c_str();
-//    aln_info info;
-////    std::cerr<< "4" << std::endl;
-////    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
-//    info = ssw_align(ref_segm, r_tmp, read_len, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
-////    if (info.ed == 100000){
-////        std::cerr<< "________________________________________" << std::endl;
-////        std::cerr<< "NORMAL MODE" << std::endl;
-////        std::cerr<< read << "   " << read_rc << std::endl;
-////        std::cerr << r_tmp << " " << n.n_hits << " " << n.score << " " <<  diff << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << hamming_dist << " " << sam_aln.cigar << " " << info.sw_score << std::endl;
-////        std::cerr << "a " << a << " b " << b << " ref_start " <<  ref_start << " ref_end " << ref_end << "  ref_end - ref_start "  <<  ref_end - ref_start << " extra_ref_left "  << extra_ref_left << " extra_ref_right "<<  extra_ref_right << "  n.is_flipped " <<  n.is_flipped << std::endl;
-////        std::cerr<< "________________________________________" << std::endl;
-////    }
-//
-////    std::cerr<< "5" << std::endl;
-//    sam_aln.cigar = info.cigar;
-//    sam_aln.ed = info.ed;
-////    std::cerr << r_tmp << " " << n.n_hits << " " << n.score << " " <<  diff << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << hamming_dist << " " << sam_aln.cigar << " " << info.sw_score << std::endl;
-//    sam_aln.sw_score = info.sw_score;
-//    sam_aln.ref_start =  ref_start + info.ref_offset +1; // +1 because SAM is 1-based!
-//    sam_aln.is_rc = is_rc;
-//    sam_aln.ref_id = n.ref_id;
-//    sam_aln.is_unaligned = false;
-//    sam_aln.aln_score = info.sw_score;
-//    tot_ksw_aligned ++;
-////    }
-//}
-
 static inline void get_MAPQ(std::vector<nam> &all_nams, nam &n_max, int &mapq){
     float s1 = n_max.score;
     mapq = 60; // MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
@@ -2472,16 +1846,6 @@ static inline void get_MAPQ(std::vector<nam> &all_nams, nam &n_max, int &mapq){
     }
 }
 
-static inline void get_joint_MAPQ(float s1, float s2, int joint_n_matches, int &mapq1, int &mapq2){
-    // MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1     // from minimap paper
-    float min_matches;
-    min_matches  = (float)joint_n_matches/10 > 1 ? (float)joint_n_matches/10 : 1;
-    mapq1 = 40*(1 - s2/s1)*min_matches*log(s1) < 60 ? 40*(1 - s2/s1)*min_matches*log(s1) : 60 ;
-    if (mapq1 < 0){
-        mapq1 = 0;
-    }
-    mapq2 = mapq1;
-}
 
 static inline void get_joint_MAPQ_from_alingments(float S1, float S2, int &mapq1, int &mapq2){
     if (S1 == S2){ // At least two identical placements
