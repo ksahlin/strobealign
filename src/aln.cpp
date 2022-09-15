@@ -638,44 +638,10 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 }
 
 
-inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all_nams, const std::string& query_name, const ref_names &reference_names, int k, int read_len, const ref_lengths &ref_len_map) {
-    // Output results
-    if (all_nams.size() == 0) {
-        return;
-    }
-    // Only output single best hit based on: number of randstrobe-matches times span of the merged match.
-    nam n = all_nams[0];
-    std::string o = n.is_rc ? "-" : "+";
-    paf_output.append(query_name);
-    paf_output.append("\t");
-    paf_output.append(std::to_string(read_len));
-    paf_output.append("\t");
-    paf_output.append(std::to_string(n.query_s));
-    paf_output.append("\t");
-    paf_output.append(std::to_string(n.query_prev_hit_startpos + k));
-    paf_output.append("\t");
-    paf_output.append(o);
-    paf_output.append("\t");
-    paf_output.append(reference_names[n.ref_id]);
-    paf_output.append("\t");
-    paf_output.append(std::to_string( ref_len_map[n.ref_id]));
-    paf_output.append("\t");
-    paf_output.append(std::to_string(n.ref_s));
-    paf_output.append("\t");
-    paf_output.append(std::to_string(n.ref_prev_hit_startpos + k));
-    paf_output.append("\t");
-    paf_output.append(std::to_string( n.n_hits));
-    paf_output.append("\t");
-    paf_output.append(std::to_string(n.ref_prev_hit_startpos + k - n.ref_s));
-    paf_output.append("\t255\n");
-}
-
 inline void output_hits_paf_PE(std::string &paf_output, const nam &n, const std::string &query_name, const ref_names &reference_names, int k, int read_len, const ref_lengths &ref_len_map) {
     if (n.ref_s < 0 ) {
         return;
     }
-    std::string o;
-    o = n.is_rc ? "-" : "+";
     paf_output.append(query_name);
     paf_output.append("\t");
     paf_output.append(std::to_string(read_len));
@@ -684,11 +650,11 @@ inline void output_hits_paf_PE(std::string &paf_output, const nam &n, const std:
     paf_output.append("\t");
     paf_output.append(std::to_string(n.query_prev_hit_startpos + k));
     paf_output.append("\t");
-    paf_output.append(o);
+    paf_output.append(n.is_rc ? "-" : "+");
     paf_output.append("\t");
     paf_output.append(reference_names[n.ref_id]);
     paf_output.append("\t");
-    paf_output.append(std::to_string( ref_len_map[n.ref_id]));
+    paf_output.append(std::to_string(ref_len_map[n.ref_id]));
     paf_output.append("\t");
     paf_output.append(std::to_string(n.ref_s));
     paf_output.append("\t");
@@ -699,6 +665,18 @@ inline void output_hits_paf_PE(std::string &paf_output, const nam &n, const std:
     paf_output.append(std::to_string(n.ref_prev_hit_startpos + k - n.ref_s));
     paf_output.append("\t255\n");
 }
+
+
+inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all_nams, const std::string& query_name, const ref_names &reference_names, int k, int read_len, const ref_lengths &ref_len_map) {
+    // Output results
+    if (all_nams.size() == 0) {
+        return;
+    }
+    // Only output single best hit based on: number of randstrobe-matches times span of the merged match.
+    nam n = all_nams[0];
+    output_hits_paf_PE(paf_output, n, query_name, reference_names, k, read_len, ref_len_map);
+}
+
 
 static inline std::string reverse_complement(const std::string &read) {
     auto read_rev = read;
