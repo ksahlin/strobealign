@@ -638,22 +638,15 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 }
 
 
-inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all_nams, const std::string& query_acc, const ref_names &acc_map, int k, int read_len, const std::vector<unsigned int> &ref_len_map) {
+inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all_nams, const std::string& query_name, const ref_names &reference_names, int k, int read_len, const ref_lengths &ref_len_map) {
     // Output results
     if (all_nams.size() == 0) {
         return;
     }
     // Only output single best hit based on: number of randstrobe-matches times span of the merged match.
-    std::string o;
     nam n = all_nams[0];
-    if (n.is_rc){
-        o = "-";
-    }
-    else{
-        o = "+";
-    }
-//    paf_output << query_acc << "\t" << read_len <<  "\t" << n.query_s << "\t" << n.query_prev_hit_startpos + k << "\t" << o  <<  "\t" << acc_map[n.ref_id] << "\t" << ref_len_map[n.ref_id] << "\t" << n.ref_s << "\t" << n.ref_prev_hit_startpos + k << "\t" << n.n_hits << "\t" << n.ref_prev_hit_startpos + k - n.ref_s << "\t" << "-" << "\n";
-    paf_output.append(query_acc);
+    std::string o = n.is_rc ? "-" : "+";
+    paf_output.append(query_name);
     paf_output.append("\t");
     paf_output.append(std::to_string(read_len));
     paf_output.append("\t");
@@ -663,7 +656,7 @@ inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all
     paf_output.append("\t");
     paf_output.append(o);
     paf_output.append("\t");
-    paf_output.append(acc_map[n.ref_id]);
+    paf_output.append(reference_names[n.ref_id]);
     paf_output.append("\t");
     paf_output.append(std::to_string( ref_len_map[n.ref_id]));
     paf_output.append("\t");
@@ -677,34 +670,34 @@ inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all
     paf_output.append("\t255\n");
 }
 
-inline void output_hits_paf_PE(std::string &paf_output, nam &n, std::string &query_acc, ref_names &acc_map, int k, int read_len, std::vector<unsigned int> &ref_len_map) {
-    // Output results
-    std::string o;
-    if (n.ref_s >= 0) {
-        o = n.is_rc ? "-" : "+";
-        paf_output.append(query_acc);
-        paf_output.append("\t");
-        paf_output.append(std::to_string(read_len));
-        paf_output.append("\t");
-        paf_output.append(std::to_string(n.query_s));
-        paf_output.append("\t");
-        paf_output.append(std::to_string(n.query_prev_hit_startpos + k));
-        paf_output.append("\t");
-        paf_output.append(o);
-        paf_output.append("\t");
-        paf_output.append(acc_map[n.ref_id]);
-        paf_output.append("\t");
-        paf_output.append(std::to_string( ref_len_map[n.ref_id]));
-        paf_output.append("\t");
-        paf_output.append(std::to_string(n.ref_s));
-        paf_output.append("\t");
-        paf_output.append(std::to_string(n.ref_prev_hit_startpos + k));
-        paf_output.append("\t");
-        paf_output.append(std::to_string(n.n_hits));
-        paf_output.append("\t");
-        paf_output.append(std::to_string(n.ref_prev_hit_startpos + k - n.ref_s));
-        paf_output.append("\t255\n");
+inline void output_hits_paf_PE(std::string &paf_output, const nam &n, const std::string &query_name, const ref_names &reference_names, int k, int read_len, const ref_lengths &ref_len_map) {
+    if (n.ref_s < 0 ) {
+        return;
     }
+    std::string o;
+    o = n.is_rc ? "-" : "+";
+    paf_output.append(query_name);
+    paf_output.append("\t");
+    paf_output.append(std::to_string(read_len));
+    paf_output.append("\t");
+    paf_output.append(std::to_string(n.query_s));
+    paf_output.append("\t");
+    paf_output.append(std::to_string(n.query_prev_hit_startpos + k));
+    paf_output.append("\t");
+    paf_output.append(o);
+    paf_output.append("\t");
+    paf_output.append(reference_names[n.ref_id]);
+    paf_output.append("\t");
+    paf_output.append(std::to_string( ref_len_map[n.ref_id]));
+    paf_output.append("\t");
+    paf_output.append(std::to_string(n.ref_s));
+    paf_output.append("\t");
+    paf_output.append(std::to_string(n.ref_prev_hit_startpos + k));
+    paf_output.append("\t");
+    paf_output.append(std::to_string(n.n_hits));
+    paf_output.append("\t");
+    paf_output.append(std::to_string(n.ref_prev_hit_startpos + k - n.ref_s));
+    paf_output.append("\t255\n");
 }
 
 static inline std::string reverse_complement(const std::string &read) {
@@ -2787,7 +2780,7 @@ inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM
 
 
 void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, logging_variables &log_vars, i_dist_est &isize_est, alignment_params &aln_params,
-        mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &acc_map ){
+        mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &reference_names ){
     // Declare variables
     mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
 
@@ -2883,8 +2876,6 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, logging
 
     auto extend_start = std::chrono::high_resolution_clock::now();
     if (!map_param.is_sam_out) {
-//                    output_hits_paf(output_streams[omp_get_thread_num()], nams1, record1.name, acc_map, k,
-//                                    record1.seq.length(), ref_lengths);
         nam nam_read1;
         nam nam_read2;
         std::vector<std::tuple<int, nam, nam>> joint_NAM_scores;
@@ -2892,16 +2883,16 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, logging
                               nam_read1,
                               nam_read2);
         output_hits_paf_PE(outstring, nam_read1, record1.name,
-                           acc_map,
+                           reference_names,
                            map_param.k,
                            record1.seq.length(), ref_lengths);
         output_hits_paf_PE(outstring, nam_read2, record2.name,
-                           acc_map,
+                           reference_names,
                            map_param.k,
                            record2.seq.length(), ref_lengths);
         joint_NAM_scores.clear();
     } else {
-        Sam sam(outstring, acc_map);
+        Sam sam(outstring, reference_names);
         align_PE(aln_params, sam, nams1, nams2, record1,
                  record2,
                  map_param.k,
@@ -2918,7 +2909,7 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, logging
 
 
 void align_SE_read(KSeq &record, std::string &outstring, logging_variables &log_vars, alignment_params &aln_params,
-                   mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &acc_map ){
+                   mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &reference_names ){
 
 
         std::string seq, seq_rc;
@@ -2970,10 +2961,10 @@ void align_SE_read(KSeq &record, std::string &outstring, logging_variables &log_
 
         auto extend_start = std::chrono::high_resolution_clock::now();
         if (!map_param.is_sam_out) {
-            output_hits_paf(outstring, nams, record.name, acc_map, map_param.k,
+            output_hits_paf(outstring, nams, record.name, reference_names, map_param.k,
                             record.seq.length(), ref_lengths);
         } else {
-            Sam sam(outstring, acc_map);
+            Sam sam(outstring, reference_names);
             if (map_param.max_secondary > 0){
                 // I created an entire new function here, duplicating a lot of the code as outputting secondary hits is has some overhead to the
                 // original align_SE function (storing a vector of hits and sorting them)
