@@ -169,10 +169,10 @@ void Sam::add_pair(
     const int dist = sam_aln2.ref_start - sam_aln1.ref_start;
     int template_len1;
     if (dist > 0) {
-        template_len1 = -(dist + sam_aln2.aln_length);
+        template_len1 = dist + sam_aln2.aln_length;
     }
     else {
-        template_len1 = -dist + sam_aln1.aln_length;
+        template_len1 = dist - sam_aln1.aln_length;
     }
 
     bool both_aligned = !sam_aln1.is_unaligned && !sam_aln2.is_unaligned;
