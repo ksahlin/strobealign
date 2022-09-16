@@ -1896,7 +1896,7 @@ static inline void get_best_scoring_pair(std::vector<alignment> &aln_scores1, st
     std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
 }
 
-static inline void get_best_scoring_NAM_locations(std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, std::vector<std::tuple<int,nam,nam>> &joint_NAM_scores, float mu, float sigma, robin_hood::unordered_set<int> &added_n1, robin_hood::unordered_set<int> &added_n2)
+static inline void get_best_scoring_NAM_locations(const std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, std::vector<std::tuple<int,nam,nam>> &joint_NAM_scores, float mu, float sigma, robin_hood::unordered_set<int> &added_n1, robin_hood::unordered_set<int> &added_n2)
 {
     if ( all_nams1.empty() && all_nams2.empty() ){
         return;
@@ -2709,51 +2709,52 @@ inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM
     float score_indiv = 0;
     best_nam1.ref_s = -1; //Unmapped until proven mapped
     best_nam2.ref_s = -1; //Unmapped until proven mapped
-    if (joint_NAM_scores.size() > 0) {
-        // get best joint score
-        for (auto &t : joint_NAM_scores) { // already sorted by descending score
-            auto n1 = std::get<1>(t);
-            auto n2 = std::get<2>(t);
-            if ((n1.ref_s >=0) && (n2.ref_s >=0) ){ // Valid pair
-                score_joint =  n1.score + n2.score;
-                n1_joint_max = n1;
-                n2_joint_max = n2;
-                break;
-            }
-        }
 
-        // get individual best scores
-        if (nams1.size() > 0) {
-            auto n1_indiv_max = nams1[0];
-            score_indiv += n1_indiv_max.score - (n1_indiv_max.score/2.0); //Penalty for being mapped individually
-            best_nam1 = n1_indiv_max;
-        }
-        if (nams2.size() > 0) {
-            auto n2_indiv_max = nams2[0];
-            score_indiv += n2_indiv_max.score - (n2_indiv_max.score/2.0); //Penalty for being mapped individually
-            best_nam2 = n2_indiv_max;
-        }
-        if ( score_joint > score_indiv ){ // joint score is better than individual
-//            std::cerr << "HERE " << score_joint << " " << score_indiv << std::endl;
-            best_nam1 = n1_joint_max;
-            best_nam2 = n2_joint_max;
-        }
-
-        if ((isize_est.sample_size < 400) && (score_joint > score_indiv) ){
-            int d = n1_joint_max.ref_s > n2_joint_max.ref_s ? n1_joint_max.ref_s - n2_joint_max.ref_s : n2_joint_max.ref_s - n1_joint_max.ref_s;
-//            std::cerr << "HERE " << d << " " << mu <<  " " << sigma << " "<< n1_joint_max.ref_s << " " <<  n2_joint_max.ref_s << " "<< n1_joint_max.score << " " <<  n2_joint_max.score << std::endl;
-            if ( d < 2000){
-                float e;
-                e = d - isize_est.mu;
-                isize_est.mu = isize_est.mu + e/isize_est.sample_size; // (1.0/(sample_size +1.0)) * (sample_size*mu + d);
-                isize_est.SSE = isize_est.SSE + e*(d-isize_est.mu);
-                isize_est.V = isize_est.sample_size > 1 ? isize_est.SSE/(isize_est.sample_size -1.0) : isize_est.SSE; //d < 1000 ? ((sample_size +1.0)/sample_size) * ( (V*sample_size/(sample_size +1)) + ((mu-d)*(mu-d))/sample_size ) : V;
-                isize_est.sigma = std::sqrt( isize_est.V );
-                isize_est.sample_size = isize_est.sample_size + 1.0;
-            }
+    if (joint_NAM_scores.empty()) {
+        return;
+    }
+    // get best joint score
+    for (auto &t : joint_NAM_scores) { // already sorted by descending score
+        auto n1 = std::get<1>(t);
+        auto n2 = std::get<2>(t);
+        if ((n1.ref_s >=0) && (n2.ref_s >=0) ){ // Valid pair
+            score_joint =  n1.score + n2.score;
+            n1_joint_max = n1;
+            n2_joint_max = n2;
+            break;
         }
     }
 
+    // get individual best scores
+    if (nams1.size() > 0) {
+        auto n1_indiv_max = nams1[0];
+        score_indiv += n1_indiv_max.score - (n1_indiv_max.score/2.0); //Penalty for being mapped individually
+        best_nam1 = n1_indiv_max;
+    }
+    if (nams2.size() > 0) {
+        auto n2_indiv_max = nams2[0];
+        score_indiv += n2_indiv_max.score - (n2_indiv_max.score/2.0); //Penalty for being mapped individually
+        best_nam2 = n2_indiv_max;
+    }
+    if ( score_joint > score_indiv ){ // joint score is better than individual
+//            std::cerr << "HERE " << score_joint << " " << score_indiv << std::endl;
+        best_nam1 = n1_joint_max;
+        best_nam2 = n2_joint_max;
+    }
+
+    if ((isize_est.sample_size < 400) && (score_joint > score_indiv) ){
+        int d = n1_joint_max.ref_s > n2_joint_max.ref_s ? n1_joint_max.ref_s - n2_joint_max.ref_s : n2_joint_max.ref_s - n1_joint_max.ref_s;
+//            std::cerr << "HERE " << d << " " << mu <<  " " << sigma << " "<< n1_joint_max.ref_s << " " <<  n2_joint_max.ref_s << " "<< n1_joint_max.score << " " <<  n2_joint_max.score << std::endl;
+        if ( d < 2000){
+            float e;
+            e = d - isize_est.mu;
+            isize_est.mu = isize_est.mu + e/isize_est.sample_size; // (1.0/(sample_size +1.0)) * (sample_size*mu + d);
+            isize_est.SSE = isize_est.SSE + e*(d-isize_est.mu);
+            isize_est.V = isize_est.sample_size > 1 ? isize_est.SSE/(isize_est.sample_size -1.0) : isize_est.SSE; //d < 1000 ? ((sample_size +1.0)/sample_size) * ( (V*sample_size/(sample_size +1)) + ((mu-d)*(mu-d))/sample_size ) : V;
+            isize_est.sigma = std::sqrt( isize_est.V );
+            isize_est.sample_size = isize_est.sample_size + 1.0;
+        }
+    }
 }
 
 
