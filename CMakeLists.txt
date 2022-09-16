@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
+include(ExternalProject)
 
 project(strobealign VERSION 0.7.1)
 include(FetchContent)
@@ -26,6 +27,22 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+ExternalProject_Add(wfa2
+  GIT_REPOSITORY https://github.com/smarco/WFA2-lib.git
+  GIT_TAG 4600d5d42ea0ee1cd7c346fc3861777f4492e961
+  BUILD_IN_SOURCE 1
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND make  # parallel build (-j) does not work with WFA2-lib
+  INSTALL_COMMAND ""
+)
+foreach(lib wfa wfacpp)
+  add_library(${lib} STATIC IMPORTED GLOBAL)
+  set_property(TARGET ${lib}
+    PROPERTY IMPORTED_LOCATION
+    ${CMAKE_CURRENT_BINARY_DIR}/wfa2-prefix/src/wfa2/lib/lib${lib}.a
+  )
+endforeach()
+
 add_compile_options(-Wall -Wextra)
 
 FetchContent_Declare(cmake_git_version_tracking
@@ -54,13 +71,17 @@ add_library(salib STATIC ${SOURCES}
   ext/ssw.c
 )
 target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
-target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads)
+target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads wfa)
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(salib PUBLIC OpenMP::OpenMP_CXX)
+endif()
+
 IF(ENABLE_AVX)
   target_compile_options(salib PUBLIC "-mavx2")
 ENDIF()
 
 add_executable(strobealign src/main.cpp)
-target_link_libraries(strobealign PUBLIC salib cmake_git_version_tracking)
+target_link_libraries(strobealign PUBLIC salib cmake_git_version_tracking wfacpp)
 install(TARGETS strobealign DESTINATION bin)
 
 add_executable(test-strobealign
@@ -69,6 +90,7 @@ add_executable(test-strobealign
   tests/test_refs.cpp
   tests/test_sam.cpp
 )
+
 target_link_libraries(test-strobealign salib)
 target_include_directories(test-strobealign PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 
@@ -80,3 +102,7 @@ target_include_directories(dumpstrobes PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 add_executable(unused-code src/unused.cpp)
 target_link_libraries(unused-code salib)
 target_include_directories(unused-code PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
+
+add_executable(wfademo src/wfademo.cpp)
+target_link_libraries(wfademo salib wfacpp)
+target_include_directories(wfademo PUBLIC src/ ext/ ${PROJECT_BINARY_DIR}/wfa2-prefix/src/wfa2 ${PROJECT_BINARY_DIR})

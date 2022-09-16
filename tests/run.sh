@@ -44,3 +44,5 @@ rm without-sti.sam with-sti.sam
 
 # Create index requires -r or reads file
 if strobealign --create-index tests/phix.fasta > /dev/null 2> /dev/null; then false; fi
+
+build/wfademo
