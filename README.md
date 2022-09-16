@@ -27,13 +27,10 @@ Then do the following:
 ```
 git clone https://github.com/ksahlin/StrobeAlign
 cd StrobeAlign
-mkdir build
-cd build
-cmake ..
-make
+cmake -B build
+make -j8
 ```
-Try using `make -j8` for parallel compilation or `make VERBOSE=1` to get
-more logging output.
+Try `make VERBOSE=1` to get more logging output.
 
 ##### Development installation
 
