@@ -131,7 +131,7 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
 }
 
 
-void st_index::write(const References& references, const std::string& filename) const {
+void StrobemerIndex::write(const References& references, const std::string& filename) const {
     std::ofstream ofs(filename, std::ios::binary);
 
     //write filter_cutoff
@@ -178,7 +178,7 @@ void st_index::write(const References& references, const std::string& filename) 
     }
 };
 
-void st_index::read(References& references, const std::string& filename) {
+void StrobemerIndex::read(References& references, const std::string& filename) {
     std::ifstream ifs(filename, std::ios::binary);
     //read filter_cutoff
     ifs.read(reinterpret_cast<char*>(&filter_cutoff), sizeof(filter_cutoff));

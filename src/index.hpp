@@ -29,8 +29,8 @@ typedef robin_hood::unordered_map< uint64_t, std::tuple<unsigned int, unsigned i
 typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool>> mers_vector_read;
 
 
-struct st_index {
-    st_index() : filter_cutoff(0) {}
+struct StrobemerIndex {
+    StrobemerIndex() : filter_cutoff(0) {}
     unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation, 
                                 //therefore stored here since it needs to be saved with the index.
     mers_vector flat_vector;

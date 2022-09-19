@@ -362,7 +362,7 @@ int main (int argc, char **argv)
 
     //////////// CREATE INDEX OF REF SEQUENCES /////////////////
 
-    st_index index;
+    StrobemerIndex index;
     References references;
     if (opt.ref_filename.substr(opt.ref_filename.length() - 4) != ".sti") { //assume it is a fasta file if not named ".sti"
         //Generate index from FASTA
