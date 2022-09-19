@@ -131,11 +131,11 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
 }
 
 
-void write_index(const st_index& index, const References& references, const std::string& filename) {
+void st_index::write(const References& references, const std::string& filename) const {
     std::ofstream ofs(filename, std::ios::binary);
 
     //write filter_cutoff
-    ofs.write(reinterpret_cast<const char*>(&index.filter_cutoff), sizeof(index.filter_cutoff));
+    ofs.write(reinterpret_cast<const char*>(&filter_cutoff), sizeof(filter_cutoff));
 
     //write ref_seqs:
     uint64_t s1 = uint64_t(references.sequences.size());
@@ -165,23 +165,23 @@ void write_index(const st_index& index, const References& references, const std:
     }
 
     //write flat_vector:
-    s1 = uint64_t(index.flat_vector.size());
+    s1 = uint64_t(flat_vector.size());
     ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
-    ofs.write(reinterpret_cast<const char*>(&index.flat_vector[0]), index.flat_vector.size() * sizeof(index.flat_vector[0]));
+    ofs.write(reinterpret_cast<const char*>(&flat_vector[0]), flat_vector.size() * sizeof(flat_vector[0]));
 
     //write mers_index:
-    s1 = uint64_t(index.mers_index.size());
+    s1 = uint64_t(mers_index.size());
     ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
-    for (auto& p : index.mers_index) {
+    for (auto& p : mers_index) {
         ofs.write(reinterpret_cast<const char*>(&p.first), sizeof(p.first));
         ofs.write(reinterpret_cast<const char*>(&p.second), sizeof(p.second));
     }
 };
 
-void read_index(st_index& index, References& references, const std::string& filename) {
+void st_index::read(References& references, const std::string& filename) {
     std::ifstream ifs(filename, std::ios::binary);
     //read filter_cutoff
-    ifs.read(reinterpret_cast<char*>(&index.filter_cutoff), sizeof(index.filter_cutoff));
+    ifs.read(reinterpret_cast<char*>(&filter_cutoff), sizeof(filter_cutoff));
 
     //read ref_seqs:
     references.sequences.clear();
@@ -219,15 +219,15 @@ void read_index(st_index& index, References& references, const std::string& file
     }
 
     //read flat_vector:
-    index.flat_vector.clear();
+    flat_vector.clear();
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-    index.flat_vector.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but let's ignore that for now
-    ifs.read(reinterpret_cast<char*>(&index.flat_vector[0]), sz*sizeof(index.flat_vector[0]));
+    flat_vector.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but let's ignore that for now
+    ifs.read(reinterpret_cast<char*>(&flat_vector[0]), sz*sizeof(flat_vector[0]));
 
     //read mers_index:
-    index.mers_index.clear();
+    mers_index.clear();
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-    index.mers_index.reserve(sz);
+    mers_index.reserve(sz);
     //read in big chunks
     const uint64_t chunk_size = pow(2,20);//4 M => chunks of ~10 MB - The chunk size seem not to be that important
     auto buf_size = std::min(sz, chunk_size) * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
@@ -240,7 +240,7 @@ void read_index(st_index& index, References& references, const std::string& file
         //Add the elements directly from the buffer
         for (int i = 0; i < to_read; ++i) {
             auto start = buf2 + i * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
-            index.mers_index[*reinterpret_cast<kmer_lookup::key_type*>(start)] = *reinterpret_cast<kmer_lookup::mapped_type*>(start + sizeof(kmer_lookup::key_type));
+            mers_index[*reinterpret_cast<kmer_lookup::key_type*>(start)] = *reinterpret_cast<kmer_lookup::mapped_type*>(start + sizeof(kmer_lookup::key_type));
         }
         left_to_read -= to_read;
     }

@@ -400,7 +400,7 @@ int main (int argc, char **argv)
         // If the program was called with the -i flag, write the index to file
         if (opt.only_gen_index) { // If the program was called with the -i flag, we do not do the alignment
             auto start_write_index = high_resolution_clock::now();
-            write_index(index, references, opt.index_out_filename);
+            index.write(references, opt.index_out_filename);
             std::chrono::duration<double> elapsed_write_index = high_resolution_clock::now() - start_write_index;
             logger.info() << "Total time writing index: " << elapsed_write_index.count() << " s\n" << std::endl;
         }
@@ -408,7 +408,7 @@ int main (int argc, char **argv)
     else {
         //load index from file
         auto start_read_index = high_resolution_clock::now();
-        read_index(index, references, opt.ref_filename);
+        index.read(references, opt.ref_filename);
         std::chrono::duration<double> elapsed_read_index = high_resolution_clock::now() - start_read_index;
         logger.info() << "Total time reading index: " << elapsed_read_index.count() << " s\n" << std::endl;
 

@@ -35,6 +35,10 @@ struct st_index {
                                 //therefore stored here since it needs to be saved with the index.
     mers_vector flat_vector;
     kmer_lookup mers_index;
+
+    void write(const References& references, const std::string& filename) const;
+    void read(References& references, const std::string& filename);
+
 };
 
 
@@ -43,8 +47,6 @@ void seq_to_randstrobes2(ind_mers_vector& flat_vector, int n, int k, int w_min, 
 mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, const std::string &seq, unsigned int ref_index, int s, int t, uint64_t q, int max_dist);
 //mers_vector seq_to_randstrobes3(int n, int k, int w_min, int w_max, std::string &seq, unsigned int ref_index, int w);
 
-void write_index(const st_index& index, const References& references, const std::string& filename);
-void read_index(st_index& index, References& references, const std::string& filename);
 
 uint64_t count_unique_elements(const hash_vector& h_vector);
 unsigned int index_vector(const hash_vector& h_vector, kmer_lookup &mers_index, float f);
