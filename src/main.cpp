@@ -307,7 +307,7 @@ int main (int argc, char **argv)
             return EXIT_FAILURE;
         }
 
-        std::tie(index.flat_vector, index.mers_index) = create_index(map_param, references.sequences, references.total_length());
+        index.populate(map_param, references.sequences, references.total_length());
         index.filter_cutoff = map_param.filter_cutoff;
 
         // Record index creation end time

@@ -29,18 +29,6 @@ typedef robin_hood::unordered_map< uint64_t, std::tuple<unsigned int, unsigned i
 typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool>> mers_vector_read;
 
 
-struct StrobemerIndex {
-    StrobemerIndex() : filter_cutoff(0) {}
-    unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation, 
-                                //therefore stored here since it needs to be saved with the index.
-    mers_vector flat_vector;
-    kmer_lookup mers_index;
-
-    void write(const References& references, const std::string& filename) const;
-    void read(References& references, const std::string& filename);
-
-};
-
 //mers_vector seq_to_kmers(int k, std::string &seq, unsigned int ref_index);
 void seq_to_randstrobes2(ind_mers_vector& flat_vector, int n, int k, int w_min, int w_max, const std::string &seq, int ref_index, int s, int t, uint64_t q, int max_dist);
 mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, const std::string &seq, unsigned int ref_index, int s, int t, uint64_t q, int max_dist);
@@ -179,7 +167,17 @@ struct mapping_params {
     }
 };
 
-std::pair<mers_vector, kmer_lookup> create_index(mapping_params& map_param, std::vector<std::string>& ref_seqs, uint64_t total_ref_seq_size);
+struct StrobemerIndex {
+    StrobemerIndex() : filter_cutoff(0) {}
+    unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
+                                //therefore stored here since it needs to be saved with the index.
+    mers_vector flat_vector;
+    kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
+
+    void write(const References& references, const std::string& filename) const;
+    void read(References& references, const std::string& filename);
+    void populate(mapping_params& map_param, std::vector<std::string>& ref_seqs, uint64_t total_ref_seq_size);
+};
 
 
 #endif /* index_hpp */
