@@ -2759,25 +2759,25 @@ inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM
 
 
 void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, logging_variables &log_vars, i_dist_est &isize_est, alignment_params &aln_params,
-        mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &reference_names ){
-    // Declare variables
+        mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &reference_names)
+{
     mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
 
     // generate mers here
     auto strobe_start = std::chrono::high_resolution_clock::now();
-//                std::cerr << "Going in! " << std::endl;
+
+    std::transform(record1.seq.begin(), record1.seq.end(), record1.seq.begin(), ::toupper);
     query_mers1 = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record1.seq, 0, map_param.s, map_param.t_syncmer,
                                            map_param.q,
                                            map_param.max_dist);
-//                std::cerr << "Lolz1 " << std::endl;
+
+    std::transform(record2.seq.begin(), record2.seq.end(), record2.seq.begin(), ::toupper);
     query_mers2 = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record2.seq, 0, map_param.s, map_param.t_syncmer,
                                            map_param.q,
                                            map_param.max_dist);
-//                std::cerr << "Lolz2 " << std::endl;
+
     auto strobe_finish = std::chrono::high_resolution_clock::now();
     log_vars.tot_construct_strobemers += strobe_finish - strobe_start;
-//                std::cerr << record1.name << " " << query_mers1.size() << std::endl;
-//                std::cerr << record2.name << " " << query_mers2.size() << std::endl;
 
     // Find NAMs
     auto nam_start = std::chrono::high_resolution_clock::now();
@@ -2844,7 +2844,6 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, logging
     auto nam_sort_finish = std::chrono::high_resolution_clock::now();
     log_vars.tot_sort_nams += nam_sort_finish - nam_sort_start;
 
-//                std::cerr << record1.name << std::endl;
 //                for (auto &n : nams1){
 //                    std::cerr << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
 //                }
@@ -2886,10 +2885,8 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, logging
 }
 
 
-
 void align_SE_read(KSeq &record, std::string &outstring, logging_variables &log_vars, alignment_params &aln_params,
                    mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &reference_names ){
-
 
         std::string seq, seq_rc;
         unsigned int q_id = 0;
@@ -2903,8 +2900,8 @@ void align_SE_read(KSeq &record, std::string &outstring, logging_variables &log_
         hits_fw.reserve(5000);
         hits_rc.reserve(5000);
 
-
         // generate mers here
+        std::transform(record.seq.begin(), record.seq.end(), record.seq.begin(), ::toupper);
         auto strobe_start = std::chrono::high_resolution_clock::now();
         query_mers = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record.seq, q_id, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
         auto strobe_finish = std::chrono::high_resolution_clock::now();

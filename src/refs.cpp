@@ -2,9 +2,10 @@
 #include <vector>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
 #include "exceptions.hpp"
 
-References References::from_fasta(std::string filename) {
+References References::from_fasta(const std::string& filename) {
     std::vector<std::string> sequences;
     ref_names names;
     ref_lengths lengths;
@@ -38,6 +39,8 @@ References References::from_fasta(std::string filename) {
         }
     }
     if (seq.length() > 0){
+        std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
+
         sequences.push_back(seq);
         lengths.push_back(seq.length());
     }
