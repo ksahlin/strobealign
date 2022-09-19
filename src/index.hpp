@@ -41,7 +41,6 @@ struct StrobemerIndex {
 
 };
 
-
 //mers_vector seq_to_kmers(int k, std::string &seq, unsigned int ref_index);
 void seq_to_randstrobes2(ind_mers_vector& flat_vector, int n, int k, int w_min, int w_max, const std::string &seq, int ref_index, int s, int t, uint64_t q, int max_dist);
 mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, const std::string &seq, unsigned int ref_index, int s, int t, uint64_t q, int max_dist);
@@ -179,6 +178,8 @@ struct mapping_params {
         }
     }
 };
+
+std::pair<mers_vector, kmer_lookup> create_index(mapping_params& map_param, std::vector<std::string>& ref_seqs, uint64_t total_ref_seq_size);
 
 
 #endif /* index_hpp */
