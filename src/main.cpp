@@ -307,7 +307,7 @@ int main (int argc, char **argv)
             return EXIT_FAILURE;
         }
 
-        index.populate(map_param, references.sequences, references.total_length());
+        index.populate(references, map_param);
         index.filter_cutoff = map_param.filter_cutoff;
 
         // Record index creation end time

@@ -250,15 +250,15 @@ void StrobemerIndex::read(References& references, const std::string& filename) {
 };
 
 
-void StrobemerIndex::populate(mapping_params& map_param, std::vector<std::string>& ref_seqs, uint64_t total_ref_seq_size) {
+void StrobemerIndex::populate(const References& references, mapping_params& map_param) {
     auto start_flat_vector = high_resolution_clock::now();
 
     ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
-    int approx_vec_size = total_ref_seq_size / (map_param.k-map_param.s+1);
+    int approx_vec_size = references.total_length() / (map_param.k - map_param.s + 1);
     logger.debug() << "ref vector approximate size: " << approx_vec_size << std::endl;
     ind_flat_vector.reserve(approx_vec_size);
-    for(size_t i = 0; i < ref_seqs.size(); ++i) {
-        seq_to_randstrobes2(ind_flat_vector, map_param.n, map_param.k, map_param.w_min, map_param.w_max, ref_seqs[i], i, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
+    for(size_t i = 0; i < references.size(); ++i) {
+        seq_to_randstrobes2(ind_flat_vector, map_param.n, map_param.k, map_param.w_min, map_param.w_max, references.sequences[i], i, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
     }
     logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
     //ind_flat_vector.shrink_to_fit(); //I think this costs performance and is no longer needed, it will soon be deallocated anyway

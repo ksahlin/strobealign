@@ -176,7 +176,7 @@ struct StrobemerIndex {
 
     void write(const References& references, const std::string& filename) const;
     void read(References& references, const std::string& filename);
-    void populate(mapping_params& map_param, std::vector<std::string>& ref_seqs, uint64_t total_ref_seq_size);
+    void populate(const References& references, mapping_params& map_param);
 };
 
 
