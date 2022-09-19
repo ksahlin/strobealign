@@ -252,28 +252,28 @@ void StrobemerIndex::read(References& references, const std::string& filename) {
 
 void StrobemerIndex::populate(const References& references, mapping_params& map_param) {
     auto start_flat_vector = high_resolution_clock::now();
-    auto ind_flat_vector = generate_seeds(references, map_param);
-
-    //Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
-    //The hash codes are only needed when generating the index and can be discarded afterwards.
-    //We want to do this split-up before creating the hash table to avoid a memory peak - the flat_vector is
-    //smaller - doubling that size temporarily will not cause us to go above peak memory.
-    auto start_copy_flat_vector = high_resolution_clock::now();
     hash_vector h_vector;
-    flat_vector.reserve(ind_flat_vector.size());
-    h_vector.reserve(ind_flat_vector.size());
-    for (std::size_t i = 0; i < ind_flat_vector.size(); ++i) {
-        flat_vector.push_back(std::make_tuple(std::get<1>(ind_flat_vector[i]), std::get<2>(ind_flat_vector[i])));
-        h_vector.push_back(std::get<0>(ind_flat_vector[i]));
+    {
+        auto ind_flat_vector = generate_seeds(references, map_param);
+
+        //Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
+        //The hash codes are only needed when generating the index and can be discarded afterwards.
+        //We want to do this split-up before creating the hash table to avoid a memory peak - the flat_vector is
+        //smaller - doubling that size temporarily will not cause us to go above peak memory.
+        auto start_copy_flat_vector = high_resolution_clock::now();
+        flat_vector.reserve(ind_flat_vector.size());
+        h_vector.reserve(ind_flat_vector.size());
+        for (std::size_t i = 0; i < ind_flat_vector.size(); ++i) {
+            flat_vector.push_back(std::make_tuple(std::get<1>(ind_flat_vector[i]), std::get<2>(ind_flat_vector[i])));
+            h_vector.push_back(std::get<0>(ind_flat_vector[i]));
+        }
+        std::chrono::duration<double> elapsed_copy_flat_vector = high_resolution_clock::now() - start_copy_flat_vector;
+        logger.info() << "Time copying flat vector: " << elapsed_copy_flat_vector.count() << " s\n" << std::endl;
+
+        // ind_flat_vector is freed here
     }
     uint64_t unique_mers = count_unique_elements(h_vector);
     logger.debug() << "Unique strobemers: " << unique_mers << std::endl;
-    ind_mers_vector().swap(ind_flat_vector);   //deallocate the vector used for sorting - ind_flat_vector.clear() will not deallocate,
-                                               //swap with an empty vector will. I tested (in debug mode), the buffer gets deleted
-
-    std::chrono::duration<double> elapsed_copy_flat_vector = high_resolution_clock::now() - start_copy_flat_vector;
-    logger.info() << "Time copying flat vector: " << elapsed_copy_flat_vector.count() << " s\n" << std::endl;
-
 
     std::chrono::duration<double> elapsed_flat_vector = high_resolution_clock::now() - start_flat_vector;
     logger.info() << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s\n" <<  std::endl;
@@ -285,11 +285,6 @@ void StrobemerIndex::populate(const References& references, mapping_params& map_
     map_param.filter_cutoff = index_vector(h_vector, mers_index, map_param.f);
     std::chrono::duration<double> elapsed_hash_index = high_resolution_clock::now() - start_hash_index;
     logger.info() << "Total time generating hash table index: " << elapsed_hash_index.count() << " s\n" <<  std::endl;
-
-//    mers_vector_reduced all_mers_vector;
-//    all_mers_vector = remove_kmer_hash_from_flat_vector(flat_vector);
-    /* destroy vector */
-//    flat_vector.clear();
 }
 
 ind_mers_vector StrobemerIndex::generate_seeds(const References& references, const mapping_params& map_param) const
