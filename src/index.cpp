@@ -252,26 +252,7 @@ void StrobemerIndex::read(References& references, const std::string& filename) {
 
 void StrobemerIndex::populate(const References& references, mapping_params& map_param) {
     auto start_flat_vector = high_resolution_clock::now();
-
-    ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
-    int approx_vec_size = references.total_length() / (map_param.k - map_param.s + 1);
-    logger.debug() << "ref vector approximate size: " << approx_vec_size << std::endl;
-    ind_flat_vector.reserve(approx_vec_size);
-    for(size_t i = 0; i < references.size(); ++i) {
-        seq_to_randstrobes2(ind_flat_vector, map_param.n, map_param.k, map_param.w_min, map_param.w_max, references.sequences[i], i, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
-    }
-    logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
-    //ind_flat_vector.shrink_to_fit(); //I think this costs performance and is no longer needed, it will soon be deallocated anyway
-
-    std::chrono::duration<double> elapsed_generating_seeds = high_resolution_clock::now() - start_flat_vector;
-    logger.info() << "Time generating seeds: " << elapsed_generating_seeds.count() << " s\n" <<  std::endl;
-
-    auto start_sorting = high_resolution_clock::now();
-//    std::cerr << "Reserving flat vector size: " << approx_vec_size << std::endl;
-//    all_mers_vector_tmp.reserve(approx_vec_size); // reserve size corresponding to sum of lengths of all sequences divided by expected sampling
-    std::sort(ind_flat_vector.begin(), ind_flat_vector.end());
-    std::chrono::duration<double> elapsed_sorting_seeds = high_resolution_clock::now() - start_sorting;
-    logger.info() << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s\n" <<  std::endl;
+    auto ind_flat_vector = generate_seeds(references, map_param);
 
     //Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
     //The hash codes are only needed when generating the index and can be discarded afterwards.
@@ -311,6 +292,30 @@ void StrobemerIndex::populate(const References& references, mapping_params& map_
 //    flat_vector.clear();
 }
 
+ind_mers_vector StrobemerIndex::generate_seeds(const References& references, const mapping_params& map_param) const
+{
+    auto start_flat_vector = high_resolution_clock::now();
+
+    ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
+    int expected_sampling = map_param.k - map_param.s + 1;
+    int approx_vec_size = references.total_length() / expected_sampling;
+    logger.debug() << "ref vector approximate size: " << approx_vec_size << std::endl;
+    ind_flat_vector.reserve(approx_vec_size);
+    for(size_t i = 0; i < references.size(); ++i) {
+        seq_to_randstrobes2(ind_flat_vector, map_param.n, map_param.k, map_param.w_min, map_param.w_max, references.sequences[i], i, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
+    }
+    logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
+
+    std::chrono::duration<double> elapsed_generating_seeds = high_resolution_clock::now() - start_flat_vector;
+    logger.info() << "Time generating seeds: " << elapsed_generating_seeds.count() << " s\n" <<  std::endl;
+
+    auto start_sorting = high_resolution_clock::now();
+    std::sort(ind_flat_vector.begin(), ind_flat_vector.end());
+    std::chrono::duration<double> elapsed_sorting_seeds = high_resolution_clock::now() - start_sorting;
+    logger.info() << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s\n" <<  std::endl;
+
+    return ind_flat_vector;
+}
 
 
 // update queue and current minimum and position
