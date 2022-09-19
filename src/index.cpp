@@ -268,7 +268,7 @@ void StrobemerIndex::populate(const References& references, mapping_params& map_
             h_vector.push_back(std::get<0>(ind_flat_vector[i]));
         }
         std::chrono::duration<double> elapsed_copy_flat_vector = high_resolution_clock::now() - start_copy_flat_vector;
-        logger.info() << "Time copying flat vector: " << elapsed_copy_flat_vector.count() << " s\n" << std::endl;
+        logger.info() << "Time copying flat vector: " << elapsed_copy_flat_vector.count() << " s" << std::endl;
 
         // ind_flat_vector is freed here
     }
@@ -276,7 +276,7 @@ void StrobemerIndex::populate(const References& references, mapping_params& map_
     logger.debug() << "Unique strobemers: " << unique_mers << std::endl;
 
     std::chrono::duration<double> elapsed_flat_vector = high_resolution_clock::now() - start_flat_vector;
-    logger.info() << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s\n" <<  std::endl;
+    logger.info() << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s" <<  std::endl;
 
     auto start_hash_index = high_resolution_clock::now();
 
@@ -284,7 +284,7 @@ void StrobemerIndex::populate(const References& references, mapping_params& map_
     // construct index over flat array
     map_param.filter_cutoff = index_vector(h_vector, mers_index, map_param.f);
     std::chrono::duration<double> elapsed_hash_index = high_resolution_clock::now() - start_hash_index;
-    logger.info() << "Total time generating hash table index: " << elapsed_hash_index.count() << " s\n" <<  std::endl;
+    logger.info() << "Total time generating hash table index: " << elapsed_hash_index.count() << " s" <<  std::endl;
 }
 
 ind_mers_vector StrobemerIndex::generate_seeds(const References& references, const mapping_params& map_param) const
@@ -302,12 +302,12 @@ ind_mers_vector StrobemerIndex::generate_seeds(const References& references, con
     logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
 
     std::chrono::duration<double> elapsed_generating_seeds = high_resolution_clock::now() - start_flat_vector;
-    logger.info() << "Time generating seeds: " << elapsed_generating_seeds.count() << " s\n" <<  std::endl;
+    logger.info() << "Time generating seeds: " << elapsed_generating_seeds.count() << " s" <<  std::endl;
 
     auto start_sorting = high_resolution_clock::now();
     std::sort(ind_flat_vector.begin(), ind_flat_vector.end());
     std::chrono::duration<double> elapsed_sorting_seeds = high_resolution_clock::now() - start_sorting;
-    logger.info() << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s\n" <<  std::endl;
+    logger.info() << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s" <<  std::endl;
 
     return ind_flat_vector;
 }
