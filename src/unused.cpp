@@ -1139,3 +1139,19 @@ static inline bool sort_lowest_ed_scores_single(const std::tuple<int, alignment>
 //    free(ez.cigar); //free(ts); free(qs);
 //    return aln;
 //}
+
+
+// index.cpp (StrobemerIndex::populate)
+//    create vector of vectors here nr_threads
+//    std::vector<std::vector<std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>>> vector_per_ref_chr(opt.n_threads);
+//    for(size_t i = 0; i < ref_seqs.size(); ++i)
+//    {
+//        mers_vector randstrobes2; // pos, chr_id, kmer hash value
+//        std::cerr << "Started thread: " << omp_get_thread_num() << " chr size: " << ref_lengths[i] << " acc map:" << acc_map[i] << std::endl;
+//        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t);
+//        for (auto &t : randstrobes2)
+//        {
+//            vector_per_ref_chr[omp_get_thread_num()].push_back(t);
+//        }
+//        std::cerr << "Completed thread: " << omp_get_thread_num() << " chr size: " << ref_lengths[i] << " acc map:" << acc_map[i] << std::endl;
+//    }

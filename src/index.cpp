@@ -266,20 +266,6 @@ void StrobemerIndex::populate(const References& references, mapping_params& map_
     std::chrono::duration<double> elapsed_generating_seeds = high_resolution_clock::now() - start_flat_vector;
     logger.info() << "Time generating seeds: " << elapsed_generating_seeds.count() << " s\n" <<  std::endl;
 
-//    create vector of vectors here nr_threads
-//    std::vector<std::vector<std::tuple<uint64_t, unsigned int, unsigned int, unsigned int>>> vector_per_ref_chr(opt.n_threads);
-//    for(size_t i = 0; i < ref_seqs.size(); ++i)
-//    {
-//        mers_vector randstrobes2; // pos, chr_id, kmer hash value
-//        std::cerr << "Started thread: " << omp_get_thread_num() << " chr size: " << ref_lengths[i] << " acc map:" << acc_map[i] << std::endl;
-//        randstrobes2 = seq_to_randstrobes2(n, k, w_min, w_max, ref_seqs[i], i, s, t);
-//        for (auto &t : randstrobes2)
-//        {
-//            vector_per_ref_chr[omp_get_thread_num()].push_back(t);
-//        }
-//        std::cerr << "Completed thread: " << omp_get_thread_num() << " chr size: " << ref_lengths[i] << " acc map:" << acc_map[i] << std::endl;
-//    }
-
     auto start_sorting = high_resolution_clock::now();
 //    std::cerr << "Reserving flat vector size: " << approx_vec_size << std::endl;
 //    all_mers_vector_tmp.reserve(approx_vec_size); // reserve size corresponding to sum of lengths of all sequences divided by expected sampling
