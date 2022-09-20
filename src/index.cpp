@@ -19,6 +19,9 @@
 
 using std::chrono::high_resolution_clock;
 
+typedef std::vector< uint64_t > hash_vector; //only used during index generation
+
+
 static Logger& logger = Logger::get();
 
 
