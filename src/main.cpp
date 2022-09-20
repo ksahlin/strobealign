@@ -287,9 +287,9 @@ std::pair<mers_vector, kmer_lookup>  create_index(mapping_params& map_param, std
 /*
  * Return formatted SAM header as a string
  */
-std::string sam_header(References& references) {
+std::string sam_header(const References& references) {
     std::stringstream out;
-    for (auto i = 0; i < references.size(); ++i) {
+    for (size_t i = 0; i < references.size(); ++i) {
         out << "@SQ\tSN:" << references.names[i] << "\tLN:" << references.lengths[i] << "\n";
     }
     out << "@PG\tID:strobealign\tPN:strobealign\tVN:" VERSION_STRING "\tCL:strobealign\n";
