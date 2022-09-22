@@ -1810,13 +1810,12 @@ static inline int get_MAPQ(const std::vector<nam> &all_nams, const nam &n_max) {
     if (all_nams.size() <= 1) {
         return 60;
     }
-    // MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
-
     nam n_second = all_nams[1];
     float s2 = n_second.score;
-    float min_matches;
-    min_matches  = (float)n_max.n_hits/10 > 1 ? (float)n_max.n_hits/10 : 1;
-    return 40*(1 - s2/s1)*min_matches*log(s1) < 60 ? 40*(1 - s2/s1)*min_matches*log(s1) : 60 ;
+    // MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
+    float min_matches = std::max(n_max.n_hits / 10.0, 1.0);
+    int uncapped_mapq = 40 * (1 - s2 / s1) * min_matches * log(s1);
+    return std::min(uncapped_mapq, 60);
 }
 
 
