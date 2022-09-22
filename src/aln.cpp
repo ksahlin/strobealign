@@ -839,15 +839,6 @@ inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<n
     float score_dropoff;
     nam n_max = all_nams[0];
     float s1 = n_max.score;
-    // old mapq commented out - it is based only on seeds which is worse than calculating them based on base level alignments (even though heuristic)
-//    if (all_nams.size() > 1) {
-//        nam n_second = all_nams[1];
-//        float s2 = n_second.score;
-//        float min_matches;
-//        min_matches  = (float)n_max.n_hits/10 > 1 ? (float)n_max.n_hits/10 : 1;
-//        mapq = 40*(1 - s2/s1)*min_matches*log(s1) < 60 ? 40*(1 - s2/s1)*min_matches*log(s1) : 60 ;
-//    }
-//    int extra_ref = 50;
     int best_align_dist = ~0U >> 1;
     int best_align_sw_score = -1000;
 
