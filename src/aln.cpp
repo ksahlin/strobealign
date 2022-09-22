@@ -1803,8 +1803,8 @@ static inline int get_MAPQ(const std::vector<nam> &all_nams, const nam &n_max) {
     }
     nam n_second = all_nams[1];
     float s2 = n_second.score;
-    // MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
-    float min_matches = std::max(n_max.n_hits / 10.0, 1.0);
+    // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
+    float min_matches = std::min(n_max.n_hits / 10.0, 1.0);
     int uncapped_mapq = 40 * (1 - s2 / s1) * min_matches * log(s1);
     return std::min(uncapped_mapq, 60);
 }
