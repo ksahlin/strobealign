@@ -839,15 +839,6 @@ inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<n
     float score_dropoff;
     nam n_max = all_nams[0];
     float s1 = n_max.score;
-    // old mapq commented out - it is based only on seeds which is worse than calculating them based on base level alignments (even though heuristic)
-//    if (all_nams.size() > 1) {
-//        nam n_second = all_nams[1];
-//        float s2 = n_second.score;
-//        float min_matches;
-//        min_matches  = (float)n_max.n_hits/10 > 1 ? (float)n_max.n_hits/10 : 1;
-//        mapq = 40*(1 - s2/s1)*min_matches*log(s1) < 60 ? 40*(1 - s2/s1)*min_matches*log(s1) : 60 ;
-//    }
-//    int extra_ref = 50;
     int best_align_dist = ~0U >> 1;
     int best_align_sw_score = -1000;
 
@@ -1805,16 +1796,17 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, const std
 }
 
 
-static inline void get_MAPQ(std::vector<nam> &all_nams, nam &n_max, int &mapq){
+static inline int get_MAPQ(const std::vector<nam> &all_nams, const nam &n_max) {
     float s1 = n_max.score;
-    mapq = 60; // MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
-    if (all_nams.size() > 1) {
-        nam n_second = all_nams[1];
-        float s2 = n_second.score;
-        float min_matches;
-        min_matches  = (float)n_max.n_hits/10 > 1 ? (float)n_max.n_hits/10 : 1;
-        mapq = 40*(1 - s2/s1)*min_matches*log(s1) < 60 ? 40*(1 - s2/s1)*min_matches*log(s1) : 60 ;
+    if (all_nams.size() <= 1) {
+        return 60;
     }
+    nam n_second = all_nams[1];
+    float s2 = n_second.score;
+    // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
+    float min_matches = std::min(n_max.n_hits / 10.0, 1.0);
+    int uncapped_mapq = 40 * (1 - s2 / s1) * min_matches * log(s1);
+    return std::min(uncapped_mapq, 60);
 }
 
 
@@ -2259,8 +2251,8 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
             get_alignment(aln_params, n_max2, ref_len_map, ref_seqs, read2, read2_rc, sam_aln2, k, rc_already_comp2, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
             log_vars.tot_all_tried ++;
 //            std::cerr<< "6" << std::endl;
-            get_MAPQ(all_nams1, n_max1, mapq1);
-            get_MAPQ(all_nams2, n_max2, mapq2);
+            mapq1 = get_MAPQ(all_nams1, n_max1);
+            mapq2 = get_MAPQ(all_nams2, n_max2);
 //            std::cerr<< "7" << std::endl;
             sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc, mapq1, mapq2, mu, sigma, true);
 
