@@ -860,8 +860,8 @@ inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<n
 
         int ref_diff = n.ref_e - n.ref_s;
         int read_diff = n.query_e - n.query_s;
-        int min_diff =  read_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
-        int max_diff = ref_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
+        int min_diff =  std::min(read_diff, ref_diff);
+        int max_diff = std::max(read_diff, ref_diff);
         int diff = max_diff - min_diff;
 
 
@@ -1128,8 +1128,8 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sa
 
         int ref_diff = n.ref_e - n.ref_s;
         int read_diff = n.query_e - n.query_s;
-        int min_diff =  read_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
-        int max_diff = ref_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
+        int min_diff = std::min(read_diff, ref_diff);
+        int max_diff = std::max(read_diff, ref_diff);
         int diff = max_diff - min_diff;
 
         // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
@@ -1427,8 +1427,8 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, const std
     bool aln_did_not_fit = false;
     int ref_diff = n.ref_e - n.ref_s;
     int read_diff = n.query_e - n.query_s;
-    int min_diff =  read_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
-    int max_diff = ref_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
+    int min_diff = std::min(read_diff, ref_diff);
+    int max_diff = std::max(read_diff, ref_diff);
     int diff = max_diff - min_diff;
 //    int max_allowed_mask = aln_params.gap_open/aln_params.match - 1 > 0 ? aln_params.gap_open/aln_params.match - 1 : 1;
 
@@ -1619,8 +1619,8 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, const std
 
 //            int ref_diff = n.ref_e - n.ref_s;
 //            int read_diff = n.query_e - n.query_s;
-//            int min_diff =  read_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
-//            int max_diff = ref_diff ^ ((ref_diff ^ read_diff) & -(ref_diff < read_diff));
+//            int min_diff = std::min(read_diff, ref_diff);
+//            int max_diff = std::max(read_diff, ref_diff);
 //            int diff = max_diff - min_diff;
 
             // Left region align
