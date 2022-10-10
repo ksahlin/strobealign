@@ -637,7 +637,7 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 }
 
 
-inline void output_hits_paf_PE(std::string &paf_output, const nam &n, const std::string &query_name, const ref_names &reference_names, int k, int read_len, const ref_lengths &ref_len_map) {
+inline void output_hits_paf_PE(std::string &paf_output, const nam &n, const std::string &query_name, const References& references, int k, int read_len) {
     if (n.ref_s < 0 ) {
         return;
     }
@@ -651,9 +651,9 @@ inline void output_hits_paf_PE(std::string &paf_output, const nam &n, const std:
     paf_output.append("\t");
     paf_output.append(n.is_rc ? "-" : "+");
     paf_output.append("\t");
-    paf_output.append(reference_names[n.ref_id]);
+    paf_output.append(references.names[n.ref_id]);
     paf_output.append("\t");
-    paf_output.append(std::to_string(ref_len_map[n.ref_id]));
+    paf_output.append(std::to_string(references.lengths[n.ref_id]));
     paf_output.append("\t");
     paf_output.append(std::to_string(n.ref_s));
     paf_output.append("\t");
@@ -666,14 +666,14 @@ inline void output_hits_paf_PE(std::string &paf_output, const nam &n, const std:
 }
 
 
-inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all_nams, const std::string& query_name, const ref_names &reference_names, int k, int read_len, const ref_lengths &ref_len_map) {
+inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all_nams, const std::string& query_name, const References& references, int k, int read_len) {
     // Output results
     if (all_nams.size() == 0) {
         return;
     }
     // Only output single best hit based on: number of randstrobe-matches times span of the merged match.
     nam n = all_nams[0];
-    output_hits_paf_PE(paf_output, n, query_name, reference_names, k, read_len, ref_len_map);
+    output_hits_paf_PE(paf_output, n, query_name, references, k, read_len);
 }
 
 
@@ -2854,13 +2854,13 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, logging
                               nam_read1,
                               nam_read2);
         output_hits_paf_PE(outstring, nam_read1, record1.name,
-                           references.names,
+                           references,
                            map_param.k,
-                           record1.seq.length(), references.lengths);
+                           record1.seq.length());
         output_hits_paf_PE(outstring, nam_read2, record2.name,
-                           references.names,
+                           references,
                            map_param.k,
-                           record2.seq.length(), references.lengths);
+                           record2.seq.length());
         joint_NAM_scores.clear();
     } else {
         Sam sam(outstring, references.names);
@@ -2930,8 +2930,8 @@ void align_SE_read(KSeq &record, std::string &outstring, logging_variables &log_
 
         auto extend_start = std::chrono::high_resolution_clock::now();
         if (!map_param.is_sam_out) {
-            output_hits_paf(outstring, nams, record.name, references.names, map_param.k,
-                            record.seq.length(), references.lengths);
+            output_hits_paf(outstring, nams, record.name, references, map_param.k,
+                            record.seq.length());
         } else {
             Sam sam(outstring, references.names);
             if (map_param.max_secondary > 0){
