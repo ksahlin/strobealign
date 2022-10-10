@@ -57,7 +57,7 @@ void Sam::add(
     sam_string.append("\t");
     sam_string.append(std::to_string(flags));  // FLAG
     sam_string.append("\t");
-    sam_string.append(reference_names[sam_aln.ref_id]);  // RNAME
+    sam_string.append(references.names[sam_aln.ref_id]);  // RNAME
     sam_string.append("\t");
     sam_string.append(std::to_string(sam_aln.ref_start));  // POS
     sam_string.append("\t");
@@ -220,8 +220,8 @@ void Sam::add_pair(
         mate_name1 = "=";
         mate_name2 = "=";
     } else{
-        mate_name1 = reference_names[sam_aln1.ref_id];
-        mate_name2 = reference_names[sam_aln2.ref_id];
+        mate_name1 = references.names[sam_aln1.ref_id];
+        mate_name2 = references.names[sam_aln2.ref_id];
     }
 
 //    if ( (sam_aln1.is_unaligned) && (sam_aln2.is_unaligned) ){
@@ -244,8 +244,8 @@ void Sam::add_pair(
 //        f1 |= MUNMAP;
 //        f1 -= 32;
 //    }
-    std::string ref1 = reference_names[sam_aln1.ref_id];
-    std::string ref2 = reference_names[sam_aln2.ref_id];
+    std::string ref1 = references.names[sam_aln1.ref_id];
+    std::string ref2 = references.names[sam_aln2.ref_id];
     int ed1 = sam_aln1.ed;
     int ed2 = sam_aln2.ed;
 

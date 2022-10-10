@@ -2863,7 +2863,7 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, logging
                            record2.seq.length());
         joint_NAM_scores.clear();
     } else {
-        Sam sam(outstring, references.names);
+        Sam sam(outstring, references);
         align_PE(aln_params, sam, nams1, nams2, record1,
                  record2,
                  map_param.k,
@@ -2933,7 +2933,7 @@ void align_SE_read(KSeq &record, std::string &outstring, logging_variables &log_
             output_hits_paf(outstring, nams, record.name, references, map_param.k,
                             record.seq.length());
         } else {
-            Sam sam(outstring, references.names);
+            Sam sam(outstring, references);
             if (map_param.max_secondary > 0){
                 // I created an entire new function here, duplicating a lot of the code as outputting secondary hits is has some overhead to the
                 // original align_SE function (storing a vector of hits and sorting them)

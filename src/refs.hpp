@@ -7,10 +7,11 @@
 #include <numeric>
 #include <vector>
 
-typedef std::vector<unsigned int> ref_lengths;
-typedef std::vector<std::string> ref_names;
 
 class References {
+    typedef std::vector<unsigned int> ref_lengths;
+    typedef std::vector<std::string> ref_names;
+
 public:
     References() { }
     References(
