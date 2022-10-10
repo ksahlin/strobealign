@@ -820,7 +820,7 @@ static inline bool sort_highest_sw_scores_single(const std::tuple<int, alignment
 }
 
 
-inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, const std::vector<unsigned int> &ref_len_map, const std::vector<std::string> &ref_seqs, logging_variables &log_vars, float dropoff, int max_tries) {
+inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, const References& references, logging_variables &log_vars, float dropoff, int max_tries) {
     auto query_acc = record.name;
     auto read = record.seq;
     auto qual = record.qual;
@@ -891,8 +891,8 @@ inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<n
         std::string read_end_kmer;
         std::string read_rc_start_kmer;
         std::string read_rc_end_kmer;
-        ref_start_kmer = ref_seqs[n.ref_id].substr(n.ref_s, k);
-        ref_end_kmer = ref_seqs[n.ref_id].substr(n.ref_e-k, k);
+        ref_start_kmer = references.sequences[n.ref_id].substr(n.ref_s, k);
+        ref_end_kmer = references.sequences[n.ref_id].substr(n.ref_e-k, k);
 
         if (!n.is_rc) {
             read_start_kmer = read.substr(n.query_s, k);
@@ -962,10 +962,10 @@ inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<n
         // deal with any read hanging of ends of reference not to get 'std::out_of_range' what(): basic_string::substr
         int ref_tmp_start = n.ref_s - n.query_s;
         int ref_tmp_segm_size = read_len + diff;
-        int ref_len = ref_len_map[n.ref_id];
+        int ref_len = references.lengths[n.ref_id];
         int ref_start = std::max(0, ref_tmp_start);
         int ref_segm_size = ref_tmp_segm_size < ref_len - ref_start ? ref_tmp_segm_size : ref_len - 1 - ref_start;
-        std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
+        std::string ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_segm_size);
 
         int soft_left = 50;
         int soft_right = 50;
@@ -1042,9 +1042,9 @@ inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<n
             int a = n.ref_s - n.query_s - extra_ref_left;
             int ref_start = std::max(0, a);
             int b = n.ref_e + (read_len - n.query_e)+ extra_ref_right;
-            int ref_len = ref_len_map[n.ref_id];
+            int ref_len = references.lengths[n.ref_id];
             int ref_end = std::min(ref_len, b);
-            ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
+            ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_end - ref_start);
 //            ksw_extz_t ez;
 //            const char *ref_ptr = ref_segm.c_str();
 //            const char *read_ptr = r_tmp.c_str();
@@ -1085,7 +1085,7 @@ inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<n
 }
 
 
-static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, std::vector<unsigned int> &ref_len_map, std::vector<std::string> &ref_seqs, logging_variables &log_vars, float dropoff, int max_tries, int max_secondary ) {
+static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, const References& references, logging_variables &log_vars, float dropoff, int max_tries, int max_secondary ) {
 
     auto query_acc = record.name;
     auto read = record.seq;
@@ -1139,8 +1139,8 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sa
         std::string read_end_kmer;
         std::string read_rc_start_kmer;
         std::string read_rc_end_kmer;
-        ref_start_kmer = ref_seqs[n.ref_id].substr(n.ref_s, k);
-        ref_end_kmer = ref_seqs[n.ref_id].substr(n.ref_e-k, k);
+        ref_start_kmer = references.sequences[n.ref_id].substr(n.ref_s, k);
+        ref_end_kmer = references.sequences[n.ref_id].substr(n.ref_e-k, k);
 
         if (!n.is_rc) {
             read_start_kmer = read.substr(n.query_s, k);
@@ -1210,11 +1210,11 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sa
         // deal with any read hanging of ends of reference not to get 'std::out_of_range' what(): basic_string::substr
         int ref_tmp_start = n.ref_s - n.query_s;
         int ref_tmp_segm_size = read_len + diff;
-        int ref_len = ref_len_map[n.ref_id];
+        int ref_len = references.lengths[n.ref_id];
         int ref_start = std::max(ref_tmp_start, 0);
         int ref_segm_size = ref_tmp_segm_size < ref_len - ref_start ? ref_tmp_segm_size : ref_len - 1 - ref_start;
 
-        std::string ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
+        std::string ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_segm_size);
 
 //        // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
 //
@@ -1308,9 +1308,9 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sa
             int a = n.ref_s - n.query_s - extra_ref_left;
             int ref_start = std::max(0, a);
             int b = n.ref_e + (read_len - n.query_e)+ extra_ref_right;
-            int ref_len = ref_len_map[n.ref_id];
+            int ref_len = references.lengths[n.ref_id];
             int ref_end = std::min(ref_len, b);
-            ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_end - ref_start);
+            ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_end - ref_start);
 //            ksw_extz_t ez;
 //            const char *ref_ptr = ref_segm.c_str();
 //            const char *read_ptr = r_tmp.c_str();
@@ -2879,7 +2879,7 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, logging
 
 
 void align_SE_read(KSeq &record, std::string &outstring, logging_variables &log_vars, alignment_params &aln_params,
-                   mapping_params &map_param, std::vector<unsigned int> &ref_lengths, std::vector<std::string> &ref_seqs, kmer_lookup &mers_index, mers_vector &flat_vector, ref_names &reference_names ){
+                   mapping_params &map_param, const References& references, kmer_lookup &mers_index, mers_vector &flat_vector) {
 
         std::string seq, seq_rc;
         unsigned int q_id = 0;
@@ -2902,7 +2902,7 @@ void align_SE_read(KSeq &record, std::string &outstring, logging_variables &log_
 
         // Find NAMs
         auto nam_start = std::chrono::high_resolution_clock::now();
-        info = find_nams(nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, ref_seqs, record.seq, map_param.filter_cutoff);
+        info = find_nams(nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, references.sequences, record.seq, map_param.filter_cutoff);
         hits_per_ref.clear();
         auto nam_finish = std::chrono::high_resolution_clock::now();
         log_vars.tot_find_nams += nam_finish - nam_start;
@@ -2912,7 +2912,7 @@ void align_SE_read(KSeq &record, std::string &outstring, logging_variables &log_
             if ((nams.size() == 0) || (info.first < 0.7)) {
                 log_vars.tried_rescue += 1;
                 nams.clear();
-                find_nams_rescue(hits_fw, hits_rc, nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, ref_seqs,
+                find_nams_rescue(hits_fw, hits_rc, nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, references.sequences,
                                         record.seq, map_param.rescue_cutoff);
                 hits_per_ref.clear();
                 hits_fw.clear();
@@ -2930,20 +2930,20 @@ void align_SE_read(KSeq &record, std::string &outstring, logging_variables &log_
 
         auto extend_start = std::chrono::high_resolution_clock::now();
         if (!map_param.is_sam_out) {
-            output_hits_paf(outstring, nams, record.name, reference_names, map_param.k,
-                            record.seq.length(), ref_lengths);
+            output_hits_paf(outstring, nams, record.name, references.names, map_param.k,
+                            record.seq.length(), references.lengths);
         } else {
-            Sam sam(outstring, reference_names);
+            Sam sam(outstring, references.names);
             if (map_param.max_secondary > 0){
                 // I created an entire new function here, duplicating a lot of the code as outputting secondary hits is has some overhead to the
                 // original align_SE function (storing a vector of hits and sorting them)
                 // Such overhead is not present in align_PE - which implements both options in the same function.
 
                 align_SE_secondary_hits(aln_params, sam, nams, record, map_param.k,
-                         ref_lengths, ref_seqs, log_vars, map_param.dropoff_threshold, map_param.maxTries, map_param.max_secondary);
+                         references, log_vars, map_param.dropoff_threshold, map_param.maxTries, map_param.max_secondary);
             } else {
                 align_SE(aln_params, sam, nams, record, map_param.k,
-                         ref_lengths, ref_seqs, log_vars,  map_param.dropoff_threshold, map_param.maxTries);
+                         references, log_vars,  map_param.dropoff_threshold, map_param.maxTries);
             }
         }
         auto extend_finish = std::chrono::high_resolution_clock::now();
