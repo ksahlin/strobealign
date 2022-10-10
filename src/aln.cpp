@@ -8,9 +8,8 @@
 
 using namespace klibpp;
 
-static inline bool score(const nam &a, const nam &b)
-{
-    return ( a.score > b.score );
+static inline bool score(const nam &a, const nam &b) {
+    return a.score > b.score;
 }
 
 inline aln_info ssw_align(const std::string &ref, const std::string &query, int match_score, int mismatch_penalty, int gap_opening_penalty, int gap_extending_penalty) {
@@ -1851,12 +1850,6 @@ static inline bool sort_scores(const std::tuple<double, alignment, alignment> &a
     return (std::get<0>(a) > std::get<0>(b));
 }
 
-static inline bool sort_joint_hits(const std::tuple<int, nam, nam> &a,
-                                   const std::tuple<int, nam, nam> &b)
-{
-    return (std::get<0>(a) > std::get<0>(b));
-}
-
 
 
 
@@ -1993,7 +1986,14 @@ static inline void get_best_scoring_NAM_locations(const std::vector<nam> &all_na
 //    std::cerr << " All scores " << joint_NAM_scores.size() << std::endl;
     added_n1.clear();
     added_n2.clear();
-    std::sort(joint_NAM_scores.begin(), joint_NAM_scores.end(), sort_joint_hits); // Sorting by highest score first
+
+    std::sort(
+        joint_NAM_scores.begin(),
+        joint_NAM_scores.end(),
+        [](const std::tuple<int, nam, nam> &a, const std::tuple<int, nam, nam> &b) -> bool {
+            return std::get<0>(a) > std::get<0>(b);
+        }
+    ); // Sort by highest score first
 
 //    for (auto zz : joint_NAM_scores){
 //        auto score_ = std::get<0>(zz);
