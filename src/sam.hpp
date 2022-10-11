@@ -39,9 +39,9 @@ enum SamFlags {
 class Sam {
 
 public:
-    Sam(std::string& sam_string, const ref_names& reference_names)
+    Sam(std::string& sam_string, const References& references)
         : sam_string(sam_string)
-        , reference_names(reference_names) { }
+        , references(references) { }
 
     /* Add an alignment */
     void add(const alignment& sam_aln, const klibpp::KSeq& record, const std::string& sequence_rc, bool is_secondary = false);
@@ -53,7 +53,7 @@ public:
 
 private:
     std::string& sam_string;
-    const ref_names& reference_names;
+    const References& references;
 };
 
 

@@ -392,8 +392,8 @@ int main (int argc, char **argv)
             for (int i = 0; i < opt.n_threads; ++i) {
                 std::thread consumer(perform_task_SE, std::ref(input_buffer), std::ref(output_buffer),
                     std::ref(log_stats_vec), std::ref(aln_params),
-                    std::ref(map_param), std::ref(references.lengths), std::ref(references.sequences),
-                    std::ref(index.mers_index), std::ref(index.flat_vector), std::ref(references.names));
+                    std::ref(map_param), std::ref(references),
+                    std::ref(index.mers_index), std::ref(index.flat_vector));
                 workers.push_back(std::move(consumer));
             }
 
@@ -422,8 +422,8 @@ int main (int argc, char **argv)
             for (int i = 0; i < opt.n_threads; ++i) {
                 std::thread consumer(perform_task_PE, std::ref(input_buffer), std::ref(output_buffer),
                     std::ref(log_stats_vec), std::ref(isize_est_vec), std::ref(aln_params),
-                    std::ref(map_param), std::ref(references.lengths), std::ref(references.sequences),
-                    std::ref(index.mers_index), std::ref(index.flat_vector), std::ref(references.names));
+                    std::ref(map_param), std::ref(references),
+                    std::ref(index.mers_index), std::ref(index.flat_vector));
                 workers.push_back(std::move(consumer));
             }
 

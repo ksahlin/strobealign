@@ -20,8 +20,6 @@
 #include "randstrobes.hpp"
 
 
-uint64_t hash(const std::string& kmer);
-
 typedef std::vector< std::tuple<uint32_t, int32_t >> mers_vector;
 //typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int>> mers_vector_reduced;
 typedef robin_hood::unordered_map< uint64_t, std::tuple<unsigned int, unsigned int >> kmer_lookup;
