@@ -679,7 +679,7 @@ inline void output_hits_paf_PE(std::string &paf_output, const nam &n, const std:
 
 inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all_nams, const std::string& query_name, const References& references, int k, int read_len) {
     // Output results
-    if (all_nams.size() == 0) {
+    if (all_nams.empty()) {
         return;
     }
     // Only output single best hit based on: number of randstrobe-matches times span of the merged match.
@@ -840,7 +840,7 @@ inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<n
     std::string read_rc;
     bool rc_already_comp = false;
 
-    if (all_nams.size() == 0) {
+    if (all_nams.empty()) {
         sam.add_unmapped(record);
         return;
     }
@@ -1089,7 +1089,7 @@ inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<n
         cnt ++;
     }
 
-    if (all_nams.size() > 0) {
+    if (!all_nams.empty()) {
         sam_aln.mapq = std::min(min_mapq_diff, 60);
         sam.add(sam_aln, record, read_rc);
     }
@@ -1105,7 +1105,7 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sa
     std::string read_rc;
     bool rc_already_comp = false;
 
-    if (all_nams.size() == 0) {
+    if (all_nams.empty()) {
         sam.add_unmapped(record);
         return;
     }
@@ -1363,7 +1363,7 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sa
     }
 
     //
-    if (all_nams.size() > 0) {
+    if (!all_nams.empty()) {
         std::sort(alignments.begin(), alignments.end(), sort_highest_sw_scores_single); // Sorting by highest sw first
         int max_out = alignments.size() < max_secondary ? alignments.size() : max_secondary;
         for (int i = 0; i < max_out; ++i) {
@@ -2238,10 +2238,10 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
     nam n_max2;
     int mapq1, mapq2;
 
-    if ((all_nams1.size() == 0) && (all_nams2.size() == 0)) { // None of the read pairs has any NAMs
+    if (all_nams1.empty() && all_nams2.empty()) { // None of the read pairs has any NAMs
         sam.add_unmapped_pair(record1, record2);
         return;
-    } else if ((all_nams1.size() > 0) && (all_nams2.size() > 0)){
+    } else if (!all_nams1.empty() && !all_nams2.empty()) {
         n_max1 = all_nams1[0];
         n_max2 = all_nams2[0];
         score_dropoff1 = all_nams1.size() > 1 ? (float) all_nams1[1].n_hits / n_max1.n_hits : 0.0;
@@ -2534,7 +2534,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
             }
 
         }
-    } else if (all_nams1.size() > 0 ) { // rescue read 2
+    } else if (!all_nams1.empty()) { // rescue read 2
 //        std::cerr << "Rescue read 2 mode" << std::endl;
         n_max1 = all_nams1[0];
         std::vector<alignment> aln_scores1;
@@ -2615,7 +2615,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
             }
         }
 
-    } else if (all_nams2.size() > 0 ) { // rescue read 1
+    } else if (!all_nams2.empty()) { // rescue read 1
 //        std::cerr << "Rescue read 1 mode" << std::endl;
         n_max2 = all_nams2[0];
         std::vector<alignment> aln_scores1;
@@ -2730,12 +2730,12 @@ inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM
     }
 
     // get individual best scores
-    if (nams1.size() > 0) {
+    if (!nams1.empty()) {
         auto n1_indiv_max = nams1[0];
         score_indiv += n1_indiv_max.score - (n1_indiv_max.score/2.0); //Penalty for being mapped individually
         best_nam1 = n1_indiv_max;
     }
-    if (nams2.size() > 0) {
+    if (!nams2.empty()) {
         auto n2_indiv_max = nams2[0];
         score_indiv += n2_indiv_max.score - (n2_indiv_max.score/2.0); //Penalty for being mapped individually
         best_nam2 = n2_indiv_max;
@@ -2804,7 +2804,7 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, Alignme
         auto rescue_start = std::chrono::high_resolution_clock::now();
         std::vector<Hit> hits_fw;
         std::vector<Hit> hits_rc;
-        if ((nams1.size() == 0) || (info1.first < 0.7)) {
+        if (nams1.empty() || info1.first < 0.7) {
             hits_fw.reserve(5000);
             hits_rc.reserve(5000);
             statistics.tried_rescue += 1;
@@ -2819,7 +2819,7 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, Alignme
 //                    std::cerr << "Found: " << nams.size() <<  std::endl;
         }
 
-        if ((nams2.size() == 0) || (info2.first < 0.7)) {
+        if (nams2.empty() || info2.first < 0.7) {
             hits_fw.reserve(5000);
             hits_rc.reserve(5000);
             statistics.tried_rescue += 1;
@@ -2918,7 +2918,7 @@ void align_SE_read(KSeq &record, std::string &outstring, AlignmentStatistics &st
 
         if (map_param.R > 1) {
             auto rescue_start = std::chrono::high_resolution_clock::now();
-            if ((nams.size() == 0) || (info.first < 0.7)) {
+            if (nams.empty() || info.first < 0.7) {
                 statistics.tried_rescue += 1;
                 nams.clear();
                 find_nams_rescue(hits_fw, hits_rc, nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, references.sequences,
