@@ -726,8 +726,8 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
     int peak_score = 0;
 //    int peak_score_pos = 0;
     int curr_score = 0;
-    int end_softclipp = 0;
-    for(int i=0; i<One.length(); i++) {
+    size_t end_softclipp = 0;
+    for(size_t i = 0; i < One.length(); i++) {
         if (One[i] == Two[i]){
             curr_score += match;
         } else {
@@ -740,35 +740,30 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
             end_softclipp = i;
         }
     }
-//    std::cout << "End softclipp: " << end_softclipp << std::endl;
 
     peak_score = 0;
-//    peak_score_pos = 0;
     curr_score = 0;
-    int start_softclipp = 0;
+    size_t start_softclipp = 0;
     for (int i = One.length() - 1; i >= 0; i--) {
         if (One[i] == Two[i]){
             curr_score += match;
         } else {
             curr_score -= mismatch;
         }
-
-        if (curr_score >= peak_score){
+        if (curr_score >= peak_score) {
             peak_score = curr_score;
-//            peak_score_pos = i;
             start_softclipp = i;
         }
     }
 
-    if (start_softclipp >= end_softclipp){
+    if (start_softclipp >= end_softclipp) {
         aln_score = 0;
         soft_left = 50; //default
         soft_right = 50; //default
         return -1;
     }
-//    std::cout << "Start softclipp: " << start_softclipp << std::endl;
 
-    if (start_softclipp > 0){
+    if (start_softclipp > 0) {
         cigar << start_softclipp << 'S';
     }
 
@@ -776,15 +771,15 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
     bool prev_is_match = One[start_softclipp+1] == Two[start_softclipp+1];
     int hamming_mod = prev_is_match ? 0 : 1;
     bool curr_match = false;
-    for (int i = start_softclipp + 1; i < end_softclipp + 1; i++) {
-        curr_match = (One[i] == Two[i]);
+    for (size_t i = start_softclipp + 1; i < end_softclipp + 1; i++) {
+        curr_match = One[i] == Two[i];
 
-        if ( !curr_match && prev_is_match ){
+        if (!curr_match && prev_is_match) {
             cigar << counter << '=';
             aln_score += counter * match;
             counter = 0;
         }
-        else if ( curr_match && !prev_is_match ){
+        else if (curr_match && !prev_is_match) {
             cigar << counter << 'X';
             aln_score -= counter * mismatch;
             hamming_mod += counter;
@@ -818,7 +813,7 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
 //    }
 
     soft_left = start_softclipp;
-    soft_right = One.length() - end_softclipp - 1 > 0 ? One.length() - end_softclipp - 1 : 0;
+    soft_right = std::max(static_cast<int>(One.length() - end_softclipp - 1), 0);
 
     return hamming_mod;
 }
@@ -1332,13 +1327,14 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sa
 //            info.ed = info.global_ed; // read_len - info.sw_score;
             sw_score = info.sw_score;
             statistics.tot_ksw_aligned ++;
-            int diff_to_best = sw_score < best_align_sw_score ? best_align_sw_score - sw_score : sw_score - best_align_sw_score;
-            min_mapq_diff = min_mapq_diff < diff_to_best ? min_mapq_diff : diff_to_best;
+            int diff_to_best = std::abs(best_align_sw_score - sw_score);
+            min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
 //            if (info.global_ed <= best_align_dist) {
 //                min_mapq_diff = best_align_dist - info.global_ed; // new distance to next best match
 //            }
             if (sw_score >= best_align_sw_score){
-                min_mapq_diff = (sw_score - best_align_sw_score) > 0 ? (sw_score - best_align_sw_score)  : 0 ; // new distance to next best match
+                // new distance to next best match
+                min_mapq_diff = std::max(0, sw_score - best_align_sw_score);
             }
             best_align_dist = info.global_ed;
             sam_aln.global_ed = info.global_ed;
@@ -1543,12 +1539,12 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, const Ref
     std::string read_segm;
 
     if (true){ // currently deactivate partial SSW implementation.. (!fits){ // full alignment
-        ref_tmp_start = n.ref_s - n.query_s > 0 ? n.ref_s - n.query_s : 0;
-        ext_left = ref_tmp_start < 50 ? ref_tmp_start : 50;
+        ref_tmp_start = std::max(0, n.ref_s - n.query_s);
+        ext_left = std::min(50, ref_tmp_start);
         ref_start = ref_tmp_start - ext_left;
 
         ref_tmp_segm_size = read_len + diff;
-        ext_right = ref_len - (n.ref_e +1) < 50 ? ref_len - (n.ref_e +1) : 50;
+        ext_right = std::min(50, ref_len - (n.ref_e + 1));
 
         ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
 //        if (ref_start < 0  ){
@@ -1566,10 +1562,10 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, const Ref
         align_segment(aln_params, r_tmp, ref_segm, read_len, ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln, tot_ksw_aligned);
     } else{
         // test full hamming based alignment first
-        ref_tmp_start = n.ref_s - n.query_s > 0 ? n.ref_s - n.query_s : 0;
-        int ref_start = ref_tmp_start > 0 ? ref_tmp_start : 0;
+        ref_tmp_start = std::max(0, n.ref_s - n.query_s);
+        int ref_start = std::max(0, ref_tmp_start);
         ref_tmp_segm_size = read_len + diff;
-        ref_segm_size = ref_tmp_segm_size < ref_len - ref_start + 1 ? ref_tmp_segm_size : ref_len - ref_start + 1;
+        ref_segm_size = std::min(ref_tmp_segm_size, ref_len - ref_start + 1);
 
         std::string ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_segm_size);
         if ( (ref_segm_size == read_len) && fits ){
@@ -1636,8 +1632,8 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, const Ref
             // Left region align
             alignment sam_aln_segm_left;
             read_segm = r_tmp.substr(0, left_region_bp);
-            ref_tmp_start = n.ref_s - n.query_s > 0 ? n.ref_s - n.query_s : 0;
-            ext_left = ref_tmp_start < 50 ? ref_tmp_start : 50;
+            ref_tmp_start = std::max(0, n.ref_s - n.query_s);
+            ext_left = std::min(50, ref_tmp_start);
             ext_right = 0;
             ref_start = ref_tmp_start - ext_left;
             ref_segm_size = left_region_bp + ext_left + diff;
@@ -1656,7 +1652,7 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, const Ref
             read_segm = r_tmp.substr(right_region_bp, read_len - right_region_bp );
             ref_tmp_segm_size = right_ref_start_bp + (read_len + diff - right_region_bp) < ref_len ? (read_len + diff - right_region_bp) : ref_len - right_ref_start_bp;
             ext_left = 0;
-            ext_right = std::min(ref_len - (right_ref_start_bp + ref_tmp_segm_size), 50);
+            ext_right = std::min(50, ref_len - (right_ref_start_bp + ref_tmp_segm_size));
             ref_segm_size = ref_tmp_segm_size + ext_right;
             ref_segm = references.sequences[n.ref_id].substr(right_ref_start_bp, ref_segm_size);
 //            std::cerr << " "  << std::endl;
@@ -1685,12 +1681,12 @@ static inline void get_alignment(alignment_params &aln_params, nam &n, const Ref
         } else{
 //            std::cerr << "NOOOO MAX BREAKPOINT " << break_point << " candidates: "  <<  n.query_s  << " " << n.query_e - k << std::endl;
             // full align
-            ref_tmp_start = n.ref_s - n.query_s > 0 ? n.ref_s - n.query_s : 0;
-            ext_left = ref_tmp_start < 50 ? ref_tmp_start : 50;
+            ref_tmp_start = std::max(0, n.ref_s - n.query_s);
+            ext_left = std::min(50, ref_tmp_start);
             ref_start = ref_tmp_start - ext_left;
 
             ref_tmp_segm_size = read_len + diff;
-            ext_right = ref_len - (n.ref_e +1) < 50 ? ref_len - (n.ref_e +1) : 50;
+            ext_right = std::min(50, ref_len - (n.ref_e +1));
 
             ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
             ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_segm_size);
@@ -1828,7 +1824,7 @@ static inline void get_joint_MAPQ_from_alingments(float S1, float S2, int &mapq1
         int diff = S1 - S2; // (1.0 - (S1 - S2) / S1);
 //        float log10_p = diff > 6 ? -6.0 : -diff; // Corresponds to: p_error= 0.1^diff // change in sw score times rough illumina error rate. This is highly heauristic, but so seem most computations of mapq scores
         if ((S1 > 0) && (S2 > 0)) {
-            mapq1 = diff <= 60 ? diff : 60;
+            mapq1 = std::min(60, diff);
 //            mapq1 = -10 * log10_p < 60 ? -10 * log10_p : 60;
             mapq2 = mapq1;
         } else if ((S1 > 0) && (S2 <= 0)) {
@@ -1868,12 +1864,10 @@ static inline void get_best_scoring_pair(std::vector<alignment> &aln_scores1, st
 {
     double S;
     float x;
-//            std::cerr << "Scoring" << std::endl;
     for (auto &a1 : aln_scores1) {
         for (auto &a2 : aln_scores2) {
-            x = a1.ref_start > a2.ref_start ? (float) (a1.ref_start - a2.ref_start) : (float)(a2.ref_start - a1.ref_start);
-//                    std::cerr << x << " " << (a1.ref_start - a2.ref_start) << " " << (a2.ref_start - a1.ref_start) << std::endl;
-            if ( (a1.is_rc ^ a2.is_rc) && (x < mu+4*sigma)  ){
+            x = std::abs(a1.ref_start - a2.ref_start);
+            if ((a1.is_rc ^ a2.is_rc) && (x < mu + 4 * sigma)) {
                 // r1.sw_score + r2.sw_score - log P(d(r1,r2)) if -log P(d(r1,r2)) < 3,
 
                 S = (double)a1.sw_score + (double)a2.sw_score + log( normal_pdf(x, mu, sigma ) );  //* (1 - s2 / s1) * min_matches * log(s1);
@@ -1910,8 +1904,8 @@ static inline void get_best_scoring_NAM_locations(const std::vector<nam> &all_na
             }
 
             if ( (n1.is_rc ^ n2.is_rc) && (n1.ref_id == n2.ref_id) ){
-                a = n1.ref_s - n1.query_s  > 0 ? n1.ref_s - n1.query_s : 0;
-                b = n2.ref_s - n2.query_s  > 0 ? n2.ref_s - n2.query_s : 0;
+                a = std::max(0, n1.ref_s - n1.query_s);
+                b = std::max(0, n2.ref_s - n2.query_s);
 //                std::cerr << "LEWL " <<  a << " " << b << std::endl;
                 bool r1_r2 = n2.is_rc && (a < b) && ((b-a) < mu+10*sigma); // r1 ---> <---- r2
                 bool r2_r1 = n1.is_rc && (b < a) && ((a-b) < mu+10*sigma); // r2 ---> <---- r1
@@ -1954,7 +1948,7 @@ static inline void get_best_scoring_NAM_locations(const std::vector<nam> &all_na
 //        std::cerr << z  << std::endl;
 //    }
 
-    if ( !all_nams1.empty() ){
+    if (!all_nams1.empty()) {
         int hjss1 = hjss > 0 ? hjss : all_nams1[0].n_hits;
 //        std::cerr <<" hjss1 " << hjss1 << " " << std::endl;
         //    int hjss1 = all_nams1[0].n_hits;
@@ -2250,8 +2244,8 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
         score_dropoff2 = n_max2.n_hits > 2 ? score_dropoff2 : 1.0;
 //        std::cerr << all_nams1.size() << " " << all_nams2.size() << " " << n_max1.n_hits << " " << n_max2.n_hits << " " << score_dropoff1 << " " << score_dropoff2 << " " << std::endl;
 
-        int a = n_max1.ref_s - n_max1.query_s  > 0 ? n_max1.ref_s - n_max1.query_s : 0;
-        int b = n_max2.ref_s - n_max2.query_s  > 0 ? n_max2.ref_s - n_max2.query_s : 0;
+        int a = std::max(0, n_max1.ref_s - n_max1.query_s);
+        int b = std::max(0, n_max2.ref_s - n_max2.query_s);
         bool r1_r2 = n_max2.is_rc && (a < b) && ((b-a) < 2000); // r1 ---> <---- r2
         bool r2_r1 = n_max1.is_rc && (b < a) && ((a-b) < 2000); // r2 ---> <---- r1
         if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) && ( r1_r2 || r2_r1 ) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
@@ -2269,7 +2263,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
             sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc, mapq1, mapq2, mu, sigma, true);
 
             if ((isize_est.sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && !sam_aln1.not_proper && !sam_aln2.not_proper ){
-                int d = sam_aln1.ref_start > sam_aln2.ref_start ? sam_aln1.ref_start - sam_aln2.ref_start : sam_aln2.ref_start - sam_aln1.ref_start;
+                int d = std::abs(sam_aln1.ref_start - sam_aln2.ref_start);
                 if ( d < 2000){
 //                    std::cerr<< "8 " << sample_size << std::endl;
                     float e;
@@ -2406,7 +2400,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
                 bool r2_r1 = a1.is_rc && (a2.ref_start < a1.ref_start) && ((a1.ref_start - a2.ref_start) < mu+5*sigma); // r2 ---> <---- r1
 
                 if ( r1_r2 || r2_r1){
-                    x = a1.ref_start > a2.ref_start ? (float) (a1.ref_start - a2.ref_start) : (float)(a2.ref_start - a1.ref_start);
+                    x = std::abs(a1.ref_start - a2.ref_start);
                     S = (double)a1.sw_score + (double)a2.sw_score + log( normal_pdf(x, mu, sigma ) );  //* (1 - s2 / s1) * min_matches * log(s1);
 //                    std::cerr << " CASE1: " << S << " " <<  log( normal_pdf(x, mu, sigma ) ) << " " << (double)a1.sw_score << " " << (double)a2.sw_score << std::endl;
                 } else{ // individual score
@@ -2747,7 +2741,7 @@ inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM
     }
 
     if ((isize_est.sample_size < 400) && (score_joint > score_indiv) ){
-        int d = n1_joint_max.ref_s > n2_joint_max.ref_s ? n1_joint_max.ref_s - n2_joint_max.ref_s : n2_joint_max.ref_s - n1_joint_max.ref_s;
+        int d = std::abs(n1_joint_max.ref_s - n2_joint_max.ref_s);
 //            std::cerr << "HERE " << d << " " << mu <<  " " << sigma << " "<< n1_joint_max.ref_s << " " <<  n2_joint_max.ref_s << " "<< n1_joint_max.score << " " <<  n2_joint_max.score << std::endl;
         if ( d < 2000){
             float e;

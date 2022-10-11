@@ -227,20 +227,18 @@ int main (int argc, char **argv)
     adjust_mapping_params_depending_on_read_length(map_param, opt);
 
     if (!opt.max_seed_len_set){
-        map_param.max_dist = map_param.r - 70 > map_param.k ? map_param.r - 70 : map_param.k;
-        if (map_param.max_dist > 255){
-            map_param.max_dist = 255;
-        }
+        map_param.max_dist = std::max(map_param.r - 70, map_param.k);
+        map_param.max_dist = std::min(255, map_param.max_dist);
     } else {
         map_param.max_dist = opt.max_seed_len - map_param.k; //convert to distance in start positions
     }
 
 
     if ( (map_param.c < 64) && (map_param.c > 0)){
-        map_param.q = pow (2, map_param.c) - 1;
+        map_param.q = pow(2, map_param.c) - 1;
     } else{
         logger.warning() << "Warning wrong value for parameter c, setting c=8" << std::endl;
-        map_param.q = pow (2, 8) - 1;
+        map_param.q = pow(2, 8) - 1;
     }
 
     map_param.w_min = std::max(1, map_param.k/(map_param.k-map_param.s+1) + map_param.l);
