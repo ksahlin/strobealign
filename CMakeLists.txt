@@ -30,6 +30,7 @@ add_library(salib STATIC ${SOURCES}
   src/sam.cpp
   src/pc.cpp
   src/aln.cpp
+  src/randstrobes.cpp
   ext/xxhash.c
   ext/ssw_cpp.cpp
   ext/ssw.c

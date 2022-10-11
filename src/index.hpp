@@ -15,21 +15,17 @@
 #include <deque>
 #include <tuple>
 #include "robin_hood.h"
-#include "xxhash.h"
 #include "exceptions.hpp"
 #include "refs.hpp"
+#include "randstrobes.hpp"
+
 
 uint64_t hash(const std::string& kmer);
 
 typedef std::vector< std::tuple<uint32_t, int32_t >> mers_vector;
-typedef std::vector< std::tuple<uint64_t, uint32_t, int32_t >> ind_mers_vector; //only used during index generation
 //typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int>> mers_vector_reduced;
 typedef robin_hood::unordered_map< uint64_t, std::tuple<unsigned int, unsigned int >> kmer_lookup;
-typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool>> mers_vector_read;
 
-
-void seq_to_randstrobes2(ind_mers_vector& flat_vector, int n, int k, int w_min, int w_max, const std::string &seq, int ref_index, int s, int t, uint64_t q, int max_dist);
-mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, const std::string &seq, unsigned int ref_index, int s, int t, uint64_t q, int max_dist);
 
 struct hit {
     int query_s;
@@ -177,6 +173,3 @@ private:
 
 
 #endif /* index_hpp */
-
-
-
