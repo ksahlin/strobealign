@@ -138,7 +138,7 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     //If not generating index, fastq1 is mandatory:
     if (opt.reads_filename1.empty() && !opt.only_gen_index) {
         std::cerr << "Reads file (fastq) must be specified." << std::endl;
-//		exit(1);
+        // exit(1);
     }
 
     return std::make_pair(opt, map_param);
