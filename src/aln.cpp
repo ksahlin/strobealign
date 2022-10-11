@@ -91,15 +91,15 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
 //    std::vector<std::pair<int, int>> repetitive_fw, repetitive_rc;
     for (auto &q : query_mers)
     {
-        auto mer_hashv = std::get<0>(q);
+        auto mer_hashv = q.hash;
         if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
             total_hits ++;
             auto ref_hit = mers_index[mer_hashv];
             auto offset = std::get<0>(ref_hit);
             auto count = std::get<1>(ref_hit);
-            auto query_s = std::get<2>(q);
-            auto query_e = query_s + std::get<3>(q) + k;
-            is_rc = std::get<4>(q);
+            auto query_s = q.position;
+            auto query_e = query_s + q.offset_strobe + k;
+            is_rc = q.is_reverse;
             if (is_rc){
                 std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool> s(count, offset, query_s, query_e, is_rc);
                 hits_rc.push_back(s);
@@ -392,12 +392,12 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //    for (size_t i = 0; i < query_mers.size(); ++i)
     {
 //        std::cerr << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
-        auto mer_hashv = std::get<0>(q);
+        auto mer_hashv = q.hash;
         if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
             total_hits ++;
-            h.query_s = std::get<2>(q);
-            h.query_e = h.query_s + std::get<3>(q) + k; // h.query_s + read_length/2;
-            h.is_rc = std::get<4>(q);
+            h.query_s = q.position;
+            h.query_e = h.query_s + q.offset_strobe + k; // h.query_s + read_length/2;
+            h.is_rc = q.is_reverse;
             auto mer = mers_index[mer_hashv];
             auto offset = std::get<0>(mer);
             auto count = std::get<1>(mer);
