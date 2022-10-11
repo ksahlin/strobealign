@@ -25,8 +25,13 @@ struct ReferenceMer {
 };
 
 typedef std::vector<ReferenceMer> mers_vector;
-//typedef std::vector< std::tuple<uint64_t, unsigned int, unsigned int>> mers_vector_reduced;
-typedef robin_hood::unordered_map< uint64_t, std::tuple<unsigned int, unsigned int >> kmer_lookup;
+
+struct KmerLookupEntry {
+    unsigned int offset;
+    unsigned int count;
+};
+
+typedef robin_hood::unordered_map<uint64_t, KmerLookupEntry> kmer_lookup;
 
 
 struct hit {

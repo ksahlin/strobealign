@@ -95,8 +95,8 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
         if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
             total_hits ++;
             auto ref_hit = mers_index[mer_hashv];
-            auto offset = std::get<0>(ref_hit);
-            auto count = std::get<1>(ref_hit);
+            auto offset = ref_hit.offset;
+            auto count = ref_hit.count;
             auto query_s = q.position;
             auto query_e = query_s + q.offset_strobe + k;
             is_rc = q.is_reverse;
@@ -399,8 +399,8 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
             h.query_e = h.query_s + q.offset_strobe + k; // h.query_s + read_length/2;
             h.is_rc = q.is_reverse;
             auto mer = mers_index[mer_hashv];
-            auto offset = std::get<0>(mer);
-            auto count = std::get<1>(mer);
+            auto offset = mer.offset;
+            auto count = mer.count;
 //            if (count == 1){
 //                auto r = ref_mers[offset];
 //                unsigned int ref_id = std::get<0>(r); //The indexes in this code are not fixed after removal of the 64-bit hash

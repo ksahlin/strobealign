@@ -56,10 +56,8 @@ static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, st
     int seed_length;
     for (auto &it : mers_index) {
         auto ref_mer = it.second;
-
-        auto offset = std::get<0>(ref_mer);
-        auto count = std::get<1>(ref_mer);
-
+        auto offset = ref_mer.offset;
+        auto count = ref_mer.count;
 
         for (size_t j = offset; j < offset + count; ++j) {
             auto r = ref_mers[j];

@@ -64,7 +64,7 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
                 strobemer_counts.push_back(count);
             }
 
-            std::tuple<unsigned int, unsigned int> s(prev_offset, count);
+            KmerLookupEntry s{prev_offset, count};
             mers_index[prev_k] = s;
             count = 1;
             prev_k = curr_k;
@@ -74,7 +74,7 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
     }
 
     // last k-mer
-    std::tuple<unsigned int, unsigned int> s(prev_offset, count);
+    KmerLookupEntry s{prev_offset, count};
     mers_index[curr_k] = s;
     float frac_unique = ((float) tot_occur_once )/ mers_index.size();
     logger.debug()
