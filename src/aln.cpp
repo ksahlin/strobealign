@@ -187,8 +187,8 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
             for(size_t j = offset; j < offset+count; ++j)
             {
                 auto r = ref_mers[j];
-                h.ref_s = std::get<0>(r);
-                auto p = std::get<1>(r);
+                h.ref_s = r.position;
+                auto p = r.packed;
                 int bit_alloc = 8;
                 int r_id = (p >> bit_alloc);
                 int mask=(1<<bit_alloc) - 1;
@@ -236,8 +236,8 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
             for(size_t j = offset; j < offset+count; ++j)
             {
                 auto r = ref_mers[j];
-                h.ref_s = std::get<0>(r);
-                auto p = std::get<1>(r);
+                h.ref_s = r.position;
+                auto p = r.packed;
                 int bit_alloc = 8;
                 int r_id = (p >> bit_alloc);
                 int mask=(1<<bit_alloc) - 1;
@@ -436,8 +436,8 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //                    unsigned int ref_id = std::get<0>(r);//The indexes in this code are not fixed after removal of the 64-bit hash
 //                    unsigned int ref_s = std::get<1>(r);
 //                    unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
-                    h.ref_s = std::get<0>(r);
-                    auto p = std::get<1>(r);
+                    h.ref_s = r.position;
+                    auto p = r.packed;
                     int bit_alloc = 8;
                     int r_id = (p >> bit_alloc);
                     int mask=(1<<bit_alloc) - 1;
