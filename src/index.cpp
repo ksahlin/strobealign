@@ -238,8 +238,8 @@ void StrobemerIndex::populate(const References& references, mapping_params& map_
         flat_vector.reserve(ind_flat_vector.size());
         h_vector.reserve(ind_flat_vector.size());
         for (std::size_t i = 0; i < ind_flat_vector.size(); ++i) {
-            flat_vector.push_back(std::make_tuple(std::get<1>(ind_flat_vector[i]), std::get<2>(ind_flat_vector[i])));
-            h_vector.push_back(std::get<0>(ind_flat_vector[i]));
+            flat_vector.push_back(std::make_tuple(ind_flat_vector[i].position, ind_flat_vector[i].packed));
+            h_vector.push_back(ind_flat_vector[i].hash);
         }
         std::chrono::duration<double> elapsed_copy_flat_vector = high_resolution_clock::now() - start_copy_flat_vector;
         logger.info() << "Time copying flat vector: " << elapsed_copy_flat_vector.count() << " s" << std::endl;

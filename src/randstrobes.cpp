@@ -279,8 +279,7 @@ void seq_to_randstrobes2(ind_mers_vector& flat_vector, int n, int k, int w_min, 
             get_next_strobe_dist_constraint(string_hashes, pos_to_seq_choord, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_pos_strobe1, seq_end, i);
 
         }
-        else{
-//            std::cerr << randstrobes2.size() << " randstrobes generated" << '\n';
+        else {
             return;
         }
 
@@ -293,7 +292,7 @@ void seq_to_randstrobes2(ind_mers_vector& flat_vector, int n, int k, int w_min, 
         int packed = (ref_index << 8);
 //        int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
         packed = packed + (seq_pos_strobe2 - seq_pos_strobe1);
-        std::tuple<uint64_t, uint32_t, int32_t> s(hash_randstrobe2, seq_pos_strobe1, packed);
+        MersIndexEntry s {hash_randstrobe2, seq_pos_strobe1, packed};
         flat_vector.push_back(s);
 //        std::cerr << seq_pos_strobe1 << " " << seq_pos_strobe2 << std::endl;
 //        std::cerr << "FORWARD REF: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
