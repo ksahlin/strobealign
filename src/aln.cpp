@@ -1860,33 +1860,27 @@ static inline bool sort_scores(const std::tuple<double, alignment, alignment> &a
 
 
 
-static inline void get_best_scoring_pair(std::vector<alignment> &aln_scores1, std::vector<alignment> &aln_scores2, std::vector<std::tuple<double,alignment,alignment>> &high_scores, float mu, float sigma)
-{
-    double S;
-    float x;
+static inline void get_best_scoring_pair(
+    const std::vector<alignment> &aln_scores1, const std::vector<alignment> &aln_scores2, std::vector<std::tuple<double,alignment,alignment>> &high_scores, float mu, float sigma
+) {
     for (auto &a1 : aln_scores1) {
         for (auto &a2 : aln_scores2) {
-            x = std::abs(a1.ref_start - a2.ref_start);
-            if ((a1.is_rc ^ a2.is_rc) && (x < mu + 4 * sigma)) {
-                // r1.sw_score + r2.sw_score - log P(d(r1,r2)) if -log P(d(r1,r2)) < 3,
-
-                S = (double)a1.sw_score + (double)a2.sw_score + log( normal_pdf(x, mu, sigma ) );  //* (1 - s2 / s1) * min_matches * log(s1);
-//                        std::cerr << S << " " << x << " " << log(normal_pdf(x, mu, sigma )) << " " << normal_pdf(x, mu, sigma ) << std::endl;
-                std::tuple<double, alignment, alignment> t (S, a1, a2);
-                high_scores.push_back(t);
+            float dist = std::abs(a1.ref_start - a2.ref_start);
+            double score = a1.sw_score + a2.sw_score;
+            if ((a1.is_rc ^ a2.is_rc) && (dist < mu + 4 * sigma)) {
+                score += log(normal_pdf(dist, mu, sigma));
             }
-            else{ // individual score
-                S = (double)a1.sw_score + (double)a2.sw_score - 10; // 10 corresponds to  a value of log( normal_pdf(x, mu, sigma ) ) of more than 4 stddevs away
-//                        std::cerr << S << " individual score " << x << " " << std::endl;
-                std::tuple<double, alignment, alignment> t (S, a1, a2);
-                high_scores.push_back(t);
+            else { // individual score
+                // 10 corresponds to a value of log(normal_pdf(dist, mu, sigma)) of more than 4 stddevs away
+                score -= 10;
             }
+            high_scores.push_back(std::make_tuple(score, a1, a2));
         }
     }
     std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
 }
 
-static inline void get_best_scoring_NAM_locations(const std::vector<nam> &all_nams1, std::vector<nam> &all_nams2, std::vector<std::tuple<int,nam,nam>> &joint_NAM_scores, float mu, float sigma, robin_hood::unordered_set<int> &added_n1, robin_hood::unordered_set<int> &added_n2)
+static inline void get_best_scoring_NAM_locations(const std::vector<nam> &all_nams1, const std::vector<nam> &all_nams2, std::vector<std::tuple<int,nam,nam>> &joint_NAM_scores, float mu, float sigma, robin_hood::unordered_set<int> &added_n1, robin_hood::unordered_set<int> &added_n2)
 {
     if ( all_nams1.empty() && all_nams2.empty() ){
         return;
