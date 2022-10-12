@@ -41,23 +41,15 @@ When developing StrobeAlign, add `-DCMAKE_BUILD_TYPE=RelWithDebInfo` to the
 USAGE
 -------
 
-### Alignment
-
-For alignment to SAM file:
-
 ```
-strobealign ref.fa reads.fa > output.sam
+strobealign ref.fa reads.fq > output.sam                # Single-end reads
+strobealign ref.fa reads1.fq reads2.fq > output.sam     # Paired-end reads
+
+strobealign -x ref.fa reads.fq > output.paf             # Single-end reads mapping only (PAF)
+strobealign -x ref.fa reads1.fq reads2.fq > output.paf  # Paired-end reads mapping only (PAF)
 ```
 
 To report secondary alignments, set parameter `-N [INT]` for maximum of `[INT]` secondary alignments. 
-
-### Mapping
-
-For mapping to PAF file (option -x):
-
-```
-strobealign -x ref.fa reads.fa > output.sam
-```
 
 
 V0.7 PERFORMANCE
