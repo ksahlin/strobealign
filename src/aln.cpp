@@ -8,6 +8,20 @@
 
 using namespace klibpp;
 
+
+struct Hit {
+    unsigned int count;
+    unsigned int offset;
+    unsigned int query_s;
+    unsigned int query_e;
+    bool is_rc;
+
+    bool operator< (const Hit& rhs) {
+        return std::tie(count, offset, query_s, query_e, is_rc)
+            < std::tie(rhs.count, rhs.offset, rhs.query_s, rhs.query_e, rhs.is_rc);
+    }
+};
+
 static inline bool score(const nam &a, const nam &b) {
     return a.score > b.score;
 }
@@ -83,7 +97,7 @@ static inline bool sort_hits(const hit &a, const hit &b)
     return (a.query_s < b.query_s) || ( (a.query_s == b.query_s) && (a.ref_s < b.ref_s) );
 }
 
-static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw, std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc, std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, const mers_vector_read &query_mers, const mers_vector &ref_mers, kmer_lookup &mers_index, int k, const std::vector<std::string> &ref_seqs, const std::string &read, unsigned int filter_cutoff ){
+static inline void find_nams_rescue(std::vector<Hit> hits_fw, std::vector<Hit> hits_rc, std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, const mers_vector_read &query_mers, const mers_vector &ref_mers, kmer_lookup &mers_index, int k, const std::vector<std::string> &ref_seqs, const std::string &read, unsigned int filter_cutoff ){
 //    std::pair<float,int> info (0,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
     bool is_rc = true, no_rep_fw = true, no_rep_rc = true;
@@ -91,17 +105,17 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
 //    std::vector<std::pair<int, int>> repetitive_fw, repetitive_rc;
     for (auto &q : query_mers)
     {
-        auto mer_hashv = std::get<0>(q);
+        auto mer_hashv = q.hash;
         if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
             total_hits ++;
             auto ref_hit = mers_index[mer_hashv];
-            auto offset = std::get<0>(ref_hit);
-            auto count = std::get<1>(ref_hit);
-            auto query_s = std::get<2>(q);
-            auto query_e = query_s + std::get<3>(q) + k;
-            is_rc = std::get<4>(q);
+            auto offset = ref_hit.offset;
+            auto count = ref_hit.count;
+            auto query_s = q.position;
+            auto query_e = query_s + q.offset_strobe + k;
+            is_rc = q.is_reverse;
             if (is_rc){
-                std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool> s(count, offset, query_s, query_e, is_rc);
+                Hit s{count, offset, query_s, query_e, is_rc};
                 hits_rc.push_back(s);
 //                if (count > filter_cutoff){
 //                    if (no_rep_rc){ //initialize
@@ -120,7 +134,7 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
 //                    nr_good_hits ++;
 //                }
             } else{
-                std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool> s(count, offset, query_s, query_e, is_rc);
+                Hit s{count, offset, query_s, query_e, is_rc};
                 hits_fw.push_back(s);
 //                if (count > filter_cutoff){
 //                    if (no_rep_fw){ //initialize
@@ -139,8 +153,6 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
 //                    nr_good_hits ++;
 //                }
             }
-
-
         }
     }
 //    if (!no_rep_fw) {
@@ -164,12 +176,11 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
     for (auto &q : hits_fw)
     {
 //        std::cerr << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
-        auto count = std::get<0>(q);
-        auto offset = std::get<1>(q);
-        h.query_s = std::get<2>(q);
-        h.query_e = std::get<3>(q); // h.query_s + read_length/2;
-        h.is_rc = std::get<4>(q);
-
+        auto count = q.count;
+        auto offset = q.offset;
+        h.query_s = q.query_s;
+        h.query_e = q.query_e; // h.query_s + read_length/2;
+        h.is_rc = q.is_rc;
 
         if ( ((count <= filter_cutoff) || (cnt < 5)) && (count <= 1000) ){
 //            std::cerr << "Found FORWARD: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
@@ -187,8 +198,8 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
             for(size_t j = offset; j < offset+count; ++j)
             {
                 auto r = ref_mers[j];
-                h.ref_s = std::get<0>(r);
-                auto p = std::get<1>(r);
+                h.ref_s = r.position;
+                auto p = r.packed;
                 int bit_alloc = 8;
                 int r_id = (p >> bit_alloc);
                 int mask=(1<<bit_alloc) - 1;
@@ -214,11 +225,11 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
     cnt = 0;
     for (auto &q : hits_rc)
     {
-        auto count = std::get<0>(q);
-        auto offset = std::get<1>(q);
-        h.query_s = std::get<2>(q);
-        h.query_e = std::get<3>(q); // h.query_s + read_length/2;
-        h.is_rc = std::get<4>(q);
+        auto count = q.count;
+        auto offset = q.offset;
+        h.query_s = q.query_s;
+        h.query_e = q.query_e; // h.query_s + read_length/2;
+        h.is_rc = q.is_rc;
 
         if ( ((count <= filter_cutoff) || (cnt < 5)) && (count <= 1000) ){
 //            std::cerr << "Found REVERSE: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
@@ -236,8 +247,8 @@ static inline void find_nams_rescue(std::vector<std::tuple<unsigned int, unsigne
             for(size_t j = offset; j < offset+count; ++j)
             {
                 auto r = ref_mers[j];
-                h.ref_s = std::get<0>(r);
-                auto p = std::get<1>(r);
+                h.ref_s = r.position;
+                auto p = r.packed;
                 int bit_alloc = 8;
                 int r_id = (p >> bit_alloc);
                 int mask=(1<<bit_alloc) - 1;
@@ -392,15 +403,15 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //    for (size_t i = 0; i < query_mers.size(); ++i)
     {
 //        std::cerr << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
-        auto mer_hashv = std::get<0>(q);
+        auto mer_hashv = q.hash;
         if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
             total_hits ++;
-            h.query_s = std::get<2>(q);
-            h.query_e = h.query_s + std::get<3>(q) + k; // h.query_s + read_length/2;
-            h.is_rc = std::get<4>(q);
+            h.query_s = q.position;
+            h.query_e = h.query_s + q.offset_strobe + k; // h.query_s + read_length/2;
+            h.is_rc = q.is_reverse;
             auto mer = mers_index[mer_hashv];
-            auto offset = std::get<0>(mer);
-            auto count = std::get<1>(mer);
+            auto offset = mer.offset;
+            auto count = mer.count;
 //            if (count == 1){
 //                auto r = ref_mers[offset];
 //                unsigned int ref_id = std::get<0>(r); //The indexes in this code are not fixed after removal of the 64-bit hash
@@ -436,8 +447,8 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //                    unsigned int ref_id = std::get<0>(r);//The indexes in this code are not fixed after removal of the 64-bit hash
 //                    unsigned int ref_s = std::get<1>(r);
 //                    unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
-                    h.ref_s = std::get<0>(r);
-                    auto p = std::get<1>(r);
+                    h.ref_s = r.position;
+                    auto p = r.packed;
                     int bit_alloc = 8;
                     int r_id = (p >> bit_alloc);
                     int mask=(1<<bit_alloc) - 1;
@@ -2791,14 +2802,13 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, Alignme
 
     if (map_param.R > 1) {
         auto rescue_start = std::chrono::high_resolution_clock::now();
-        std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw;
-        std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc;
+        std::vector<Hit> hits_fw;
+        std::vector<Hit> hits_rc;
         if ((nams1.size() == 0) || (info1.first < 0.7)) {
             hits_fw.reserve(5000);
             hits_rc.reserve(5000);
             statistics.tried_rescue += 1;
             nams1.clear();
-//                        std::cerr << "Rescue is_sam_out read 1: " << record1.name << info1.first <<  std::endl;
             find_nams_rescue(hits_fw, hits_rc, nams1, hits_per_ref, query_mers1,
                                      flat_vector,
                                      mers_index, map_param.k, references.sequences,
@@ -2827,7 +2837,6 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, Alignme
         auto rescue_finish = std::chrono::high_resolution_clock::now();
         statistics.tot_time_rescue += rescue_finish - rescue_start;
     }
-
 
 
     //Sort hits based on start choordinate on query sequence
@@ -2887,8 +2896,8 @@ void align_SE_read(KSeq &record, std::string &outstring, AlignmentStatistics &st
         mers_vector_read query_mers; // pos, chr_id, kmer hash value
         std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
         robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
-        std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_fw;
-        std::vector<std::tuple<unsigned int, unsigned int, unsigned int, unsigned int, bool>> hits_rc;
+        std::vector<Hit> hits_fw;
+        std::vector<Hit> hits_rc;
         hits_per_ref.reserve(100);
         hits_fw.reserve(5000);
         hits_rc.reserve(5000);

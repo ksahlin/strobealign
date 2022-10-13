@@ -64,7 +64,7 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
                 strobemer_counts.push_back(count);
             }
 
-            std::tuple<unsigned int, unsigned int> s(prev_offset, count);
+            KmerLookupEntry s{prev_offset, count};
             mers_index[prev_k] = s;
             count = 1;
             prev_k = curr_k;
@@ -74,7 +74,7 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
     }
 
     // last k-mer
-    std::tuple<unsigned int, unsigned int> s(prev_offset, count);
+    KmerLookupEntry s{prev_offset, count};
     mers_index[curr_k] = s;
     float frac_unique = ((float) tot_occur_once )/ mers_index.size();
     logger.debug()
@@ -238,8 +238,8 @@ void StrobemerIndex::populate(const References& references, mapping_params& map_
         flat_vector.reserve(ind_flat_vector.size());
         h_vector.reserve(ind_flat_vector.size());
         for (std::size_t i = 0; i < ind_flat_vector.size(); ++i) {
-            flat_vector.push_back(std::make_tuple(std::get<1>(ind_flat_vector[i]), std::get<2>(ind_flat_vector[i])));
-            h_vector.push_back(std::get<0>(ind_flat_vector[i]));
+            flat_vector.push_back(ReferenceMer{ind_flat_vector[i].position, ind_flat_vector[i].packed});
+            h_vector.push_back(ind_flat_vector[i].hash);
         }
         std::chrono::duration<double> elapsed_copy_flat_vector = high_resolution_clock::now() - start_copy_flat_vector;
         logger.info() << "Time copying flat vector: " << elapsed_copy_flat_vector.count() << " s" << std::endl;

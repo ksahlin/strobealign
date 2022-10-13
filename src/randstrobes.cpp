@@ -279,8 +279,7 @@ void seq_to_randstrobes2(ind_mers_vector& flat_vector, int n, int k, int w_min, 
             get_next_strobe_dist_constraint(string_hashes, pos_to_seq_choord, strobe_hash, strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_pos_strobe1, seq_end, i);
 
         }
-        else{
-//            std::cerr << randstrobes2.size() << " randstrobes generated" << '\n';
+        else {
             return;
         }
 
@@ -293,7 +292,7 @@ void seq_to_randstrobes2(ind_mers_vector& flat_vector, int n, int k, int w_min, 
         int packed = (ref_index << 8);
 //        int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
         packed = packed + (seq_pos_strobe2 - seq_pos_strobe1);
-        std::tuple<uint64_t, uint32_t, int32_t> s(hash_randstrobe2, seq_pos_strobe1, packed);
+        MersIndexEntry s {hash_randstrobe2, seq_pos_strobe1, packed};
         flat_vector.push_back(s);
 //        std::cerr << seq_pos_strobe1 << " " << seq_pos_strobe2 << std::endl;
 //        std::cerr << "FORWARD REF: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
@@ -355,10 +354,6 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, co
 
     // create the randstrobes FW direction!
     for (unsigned int i = 0; i < nr_hashes; i++) {
-
-//        if ((i % 1000000) == 0 ){
-//            std::cerr << i << " strobemers created." << std::endl;
-//        }
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
@@ -390,7 +385,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, co
 
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
         unsigned int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
-        std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool> s (hash_randstrobe2, ref_index, seq_pos_strobe1, offset_strobe, false);
+        QueryMer s {hash_randstrobe2, ref_index, seq_pos_strobe1, offset_strobe, false};
         randstrobes2.push_back(s);
 //        std::cerr << "FORWARD: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
 
@@ -412,15 +407,7 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, co
         pos_to_seq_choord[i] = read_length - pos_to_seq_choord[i] - k;
     }
 
-//    for (unsigned int i = 0; i < nr_hashes; i++) {
-//        std::cerr << "REVERSE: " << pos_to_seq_choord[i] <<std::endl;
-//    }
-
     for (unsigned int i = 0; i < nr_hashes; i++) {
-
-//        if ((i % 1000000) == 0 ){
-//            std::cerr << i << " strobemers created." << std::endl;
-//        }
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
@@ -454,9 +441,8 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, co
 
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
         unsigned int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
-        std::tuple<uint64_t, unsigned int, unsigned int, unsigned int, bool> s (hash_randstrobe2, ref_index, seq_pos_strobe1, offset_strobe, true);
+        QueryMer s {hash_randstrobe2, ref_index, seq_pos_strobe1, offset_strobe, true};
         randstrobes2.push_back(s);
-//        std::cerr << "REVERSE: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
 
 //        auto strobe1 = seq.substr(seq_pos_strobe1, k);
 //        unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
@@ -468,6 +454,5 @@ mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, co
 //        std::cerr << i << " " << strobe_pos_next << std::endl;
 
     }
-//    std::cerr << randstrobes2.size() << " randstrobes generated" << '\n';
     return randstrobes2;
 }

@@ -56,20 +56,17 @@ static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, st
     int seed_length;
     for (auto &it : mers_index) {
         auto ref_mer = it.second;
-
-        auto offset = std::get<0>(ref_mer);
-        auto count = std::get<1>(ref_mer);
-
+        auto offset = ref_mer.offset;
+        auto count = ref_mer.count;
 
         for (size_t j = offset; j < offset + count; ++j) {
             auto r = ref_mers[j];
-            auto p = std::get<1>(r);
+            auto p = r.packed;
             int bit_alloc = 8;
             int mask=(1<<bit_alloc) - 1;
             int offset = (p & mask);
             seed_length =  offset + k;
             if (seed_length < max_size){
-
                 log_count[seed_length] ++;
                 log_count_squared[seed_length] += count;
                 tot_seed_count ++;
@@ -83,7 +80,6 @@ static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, st
             } else {
                logger.info() << "Detected seed size over " << max_size << " bp (can happen, e.g., over centromere): " << seed_length << std::endl;
             }
-
         }
 
         if ( (count == 1) & (seed_length < max_size) ) {
