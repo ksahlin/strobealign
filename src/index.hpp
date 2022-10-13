@@ -67,43 +67,6 @@ struct alignment_params {
 };
 
 
-struct logging_variables {
-    std::chrono::duration<double> tot_read_file;
-    std::chrono::duration<double> tot_construct_strobemers;
-    std::chrono::duration<double> tot_find_nams;
-    std::chrono::duration<double> tot_time_rescue;
-    std::chrono::duration<double> tot_find_nams_alt;
-    std::chrono::duration<double> tot_sort_nams;
-    std::chrono::duration<double> tot_extend;
-    std::chrono::duration<double> tot_rc;
-    std::chrono::duration<double> tot_write_file;
-
-    unsigned int tot_ksw_aligned = 0;
-    unsigned int tot_rescued = 0;
-    unsigned int tot_all_tried = 0;
-    unsigned int did_not_fit = 0;
-    unsigned int tried_rescue = 0;
-
-    logging_variables operator+=(const logging_variables& other) {
-        this->tot_read_file += other.tot_read_file;
-        this->tot_construct_strobemers += other.tot_construct_strobemers;
-        this->tot_find_nams += other.tot_find_nams;
-        this->tot_time_rescue += other.tot_time_rescue;
-        this->tot_find_nams_alt += other.tot_find_nams_alt;
-        this->tot_sort_nams += other.tot_sort_nams;
-        this->tot_extend += other.tot_extend;
-        this->tot_rc += other.tot_rc;
-        this->tot_write_file += other.tot_write_file;
-        this->tot_ksw_aligned += other.tot_ksw_aligned;
-        this->tot_rescued += other.tot_rescued;
-        this->tot_all_tried += other.tot_all_tried;
-        this->did_not_fit += other.did_not_fit;
-        this->tried_rescue += other.tried_rescue;
-        return *this;
-    }
-};
-
-
 struct i_dist_est {
     float sample_size = 1;
     float mu = 300;

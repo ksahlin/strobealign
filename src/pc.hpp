@@ -41,8 +41,8 @@ public:
     int buffer_size = 0;
     int chunk_size = 100000;
 
-    void read_records_PE(std::vector<klibpp::KSeq> &records1, std::vector<klibpp::KSeq> &records2, logging_variables &log_vars);
-    void read_records_SE(std::vector<klibpp::KSeq> &records1, logging_variables &log_vars);
+    void read_records_PE(std::vector<klibpp::KSeq> &records1, std::vector<klibpp::KSeq> &records2, AlignmentStatistics &statistics);
+    void read_records_SE(std::vector<klibpp::KSeq> &records1, AlignmentStatistics &statistics);
 };
 
 
@@ -64,10 +64,10 @@ public:
 
 
 void perform_task_PE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
-                  std::unordered_map<std::thread::id, logging_variables> &log_stats_vec, std::unordered_map<std::thread::id, i_dist_est> &isize_est_vec, alignment_params &aln_params,
+                  std::unordered_map<std::thread::id, AlignmentStatistics> &log_stats_vec, std::unordered_map<std::thread::id, i_dist_est> &isize_est_vec, alignment_params &aln_params,
                   mapping_params &map_param, const References& references, kmer_lookup &mers_index, mers_vector &flat_vector);
 
 void perform_task_SE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
-                     std::unordered_map<std::thread::id, logging_variables> &log_stats_vec, alignment_params &aln_params,
+                     std::unordered_map<std::thread::id, AlignmentStatistics> &log_stats_vec, alignment_params &aln_params,
                      mapping_params &map_param, const References& references, kmer_lookup &mers_index, mers_vector &flat_vector);
 #endif // pc_hpp_

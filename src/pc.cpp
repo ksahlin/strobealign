@@ -17,7 +17,7 @@
 using namespace klibpp;
 
 
-void InputBuffer::read_records_PE(std::vector<KSeq> &records1, std::vector<KSeq> &records2, logging_variables &log_vars) {
+void InputBuffer::read_records_PE(std::vector<KSeq> &records1, std::vector<KSeq> &records2, AlignmentStatistics &statistics) {
      auto read_start = std::chrono::high_resolution_clock::now();
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
@@ -33,11 +33,11 @@ void InputBuffer::read_records_PE(std::vector<KSeq> &records1, std::vector<KSeq>
     // Notify a single thread that buffer isn't empty
     not_empty.notify_one();
     auto read_finish = std::chrono::high_resolution_clock::now();
-    log_vars.tot_read_file += read_finish - read_start;
+    statistics.tot_read_file += read_finish - read_start;
 
 }
 
-void InputBuffer::read_records_SE(std::vector<KSeq> &records1, logging_variables &log_vars) {
+void InputBuffer::read_records_SE(std::vector<KSeq> &records1, AlignmentStatistics &statistics) {
     auto read_start = std::chrono::high_resolution_clock::now();
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
@@ -52,7 +52,7 @@ void InputBuffer::read_records_SE(std::vector<KSeq> &records1, logging_variables
     // Notify a single thread that buffer isn't empty
     not_empty.notify_one();
     auto read_finish = std::chrono::high_resolution_clock::now();
-    log_vars.tot_read_file += read_finish - read_start;
+    statistics.tot_read_file += read_finish - read_start;
 
 }
 
@@ -70,7 +70,7 @@ void OutputBuffer::output_records(std::string &sam_alignments) {
 
 
 inline bool align_reads_PE(InputBuffer &input_buffer, OutputBuffer &output_buffer,  std::vector<KSeq> &records1,  std::vector<KSeq> &records2,
-                         logging_variables &log_vars, i_dist_est &isize_est, alignment_params &aln_params,
+                             AlignmentStatistics &statistics, i_dist_est &isize_est, alignment_params &aln_params,
                         mapping_params &map_param, const References& references,
                         kmer_lookup &mers_index, mers_vector &flat_vector) {
 
@@ -85,7 +85,7 @@ inline bool align_reads_PE(InputBuffer &input_buffer, OutputBuffer &output_buffe
         auto record1 = records1[i];
         auto record2 = records2[i];
 
-        align_PE_read(record1, record2, sam_out, log_vars, isize_est, aln_params,
+        align_PE_read(record1, record2, sam_out, statistics, isize_est, aln_params,
                       map_param, references, mers_index, flat_vector);
     }
 //    std::cerr << isize_est_vec[thread_id].mu << " " << isize_est_vec[thread_id].sigma << "\n";
@@ -98,7 +98,7 @@ inline bool align_reads_PE(InputBuffer &input_buffer, OutputBuffer &output_buffe
 
 
 void perform_task_PE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
-                  std::unordered_map<std::thread::id, logging_variables> &log_stats_vec, std::unordered_map<std::thread::id, i_dist_est> &isize_est_vec, alignment_params &aln_params,
+                  std::unordered_map<std::thread::id, AlignmentStatistics> &log_stats_vec, std::unordered_map<std::thread::id, i_dist_est> &isize_est_vec, alignment_params &aln_params,
                   mapping_params &map_param, const References& references,
                   kmer_lookup &mers_index, mers_vector &flat_vector){
     bool eof = false;
@@ -107,8 +107,8 @@ void perform_task_PE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
         std::vector<KSeq> records2;
         auto thread_id = std::this_thread::get_id();
         if (log_stats_vec.find(thread_id) == log_stats_vec.end()) { //  Not initialized
-            logging_variables log_vars;
-            log_stats_vec[thread_id] = log_vars;
+            AlignmentStatistics statistics;
+            log_stats_vec[thread_id] = statistics;
         }
         input_buffer.read_records_PE(records1, records2, log_stats_vec[thread_id]);
         eof = align_reads_PE(input_buffer, output_buffer, records1, records2,
@@ -124,7 +124,7 @@ void perform_task_PE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
 
 
 inline bool align_reads_SE(InputBuffer &input_buffer, OutputBuffer &output_buffer,  std::vector<KSeq> &records,
-                           logging_variables &log_vars, alignment_params &aln_params,
+                             AlignmentStatistics &statistics, alignment_params &aln_params,
                            mapping_params &map_param, const References& references,
                            kmer_lookup &mers_index, mers_vector &flat_vector) {
 
@@ -138,7 +138,7 @@ inline bool align_reads_SE(InputBuffer &input_buffer, OutputBuffer &output_buffe
     for (size_t i = 0; i < records.size(); ++i) {
         auto record1 = records[i];
 
-        align_SE_read(record1, sam_out,  log_vars, aln_params,
+        align_SE_read(record1, sam_out,  statistics, aln_params,
                       map_param, references,
                       mers_index, flat_vector);
     }
@@ -151,7 +151,7 @@ inline bool align_reads_SE(InputBuffer &input_buffer, OutputBuffer &output_buffe
 
 
 void perform_task_SE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
-                     std::unordered_map<std::thread::id, logging_variables> &log_stats_vec, alignment_params &aln_params,
+                     std::unordered_map<std::thread::id, AlignmentStatistics> &log_stats_vec, alignment_params &aln_params,
                      mapping_params &map_param, const References& references,
                      kmer_lookup &mers_index, mers_vector &flat_vector) {
     bool eof = false;
@@ -159,8 +159,8 @@ void perform_task_SE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
         std::vector<KSeq> records1;
         auto thread_id = std::this_thread::get_id();
         if (log_stats_vec.find(thread_id) == log_stats_vec.end()) { //  Not initialized
-            logging_variables log_vars;
-            log_stats_vec[thread_id] = log_vars;
+            AlignmentStatistics statistics;
+            log_stats_vec[thread_id] = statistics;
         }
         input_buffer.read_records_SE(records1, log_stats_vec[thread_id]);
         eof = align_reads_SE(input_buffer, output_buffer, records1,

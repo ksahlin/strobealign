@@ -372,7 +372,7 @@ int main (int argc, char **argv)
             out << sam_header(references);
         }
 
-        std::unordered_map<std::thread::id, logging_variables> log_stats_vec(opt.n_threads);
+        std::unordered_map<std::thread::id, AlignmentStatistics> log_stats_vec(opt.n_threads);
 
 
         logger.info() << "Running in " << (opt.is_SE ? "single-end" : "paired-end") << " mode" << std::endl;
@@ -439,28 +439,28 @@ int main (int argc, char **argv)
         }
         logger.info() << "Done!\n";
 
-        logging_variables tot_log_vars;
+        AlignmentStatistics tot_statistics;
         for (auto& it : log_stats_vec) {
-            tot_log_vars += it.second;
+            tot_statistics += it.second;
         }
         // Record mapping end time
         std::chrono::duration<double> tot_aln_part = high_resolution_clock::now() - start_aln_part;
 
-        logger.info() << "Total mapping sites tried: " << tot_log_vars.tot_all_tried << std::endl
-            << "Total calls to ssw: " << tot_log_vars.tot_ksw_aligned << std::endl
-            << "Calls to ksw (rescue mode): " << tot_log_vars.tot_rescued << std::endl
-            << "Did not fit strobe start site: " << tot_log_vars.did_not_fit << std::endl
-            << "Tried rescue: " << tot_log_vars.tried_rescue << std::endl
+        logger.info() << "Total mapping sites tried: " << tot_statistics.tot_all_tried << std::endl
+            << "Total calls to ssw: " << tot_statistics.tot_ksw_aligned << std::endl
+            << "Calls to ksw (rescue mode): " << tot_statistics.tot_rescued << std::endl
+            << "Did not fit strobe start site: " << tot_statistics.did_not_fit << std::endl
+            << "Tried rescue: " << tot_statistics.tried_rescue << std::endl
             << "Total time mapping: " << tot_aln_part.count() << " s." << std::endl
-            << "Total time reading read-file(s): " << tot_log_vars.tot_read_file.count() / opt.n_threads << " s." << std::endl
-            << "Total time creating strobemers: " << tot_log_vars.tot_construct_strobemers.count() / opt.n_threads << " s." << std::endl
-            << "Total time finding NAMs (non-rescue mode): " << tot_log_vars.tot_find_nams.count() / opt.n_threads << " s." << std::endl
-            << "Total time finding NAMs (rescue mode): " << tot_log_vars.tot_time_rescue.count() / opt.n_threads << " s." << std::endl;
+            << "Total time reading read-file(s): " << tot_statistics.tot_read_file.count() / opt.n_threads << " s." << std::endl
+            << "Total time creating strobemers: " << tot_statistics.tot_construct_strobemers.count() / opt.n_threads << " s." << std::endl
+            << "Total time finding NAMs (non-rescue mode): " << tot_statistics.tot_find_nams.count() / opt.n_threads << " s." << std::endl
+            << "Total time finding NAMs (rescue mode): " << tot_statistics.tot_time_rescue.count() / opt.n_threads << " s." << std::endl;
         //<< "Total time finding NAMs ALTERNATIVE (candidate sites): " << tot_find_nams_alt.count()/opt.n_threads  << " s." <<  std::endl;
-        logger.info() << "Total time sorting NAMs (candidate sites): " << tot_log_vars.tot_sort_nams.count() / opt.n_threads << " s." << std::endl
-            << "Total time reverse compl seq: " << tot_log_vars.tot_rc.count() / opt.n_threads << " s." << std::endl
-            << "Total time base level alignment (ssw): " << tot_log_vars.tot_extend.count() / opt.n_threads << " s." << std::endl
-            << "Total time writing alignment to files: " << tot_log_vars.tot_write_file.count() << " s." << std::endl;
+        logger.info() << "Total time sorting NAMs (candidate sites): " << tot_statistics.tot_sort_nams.count() / opt.n_threads << " s." << std::endl
+            << "Total time reverse compl seq: " << tot_statistics.tot_rc.count() / opt.n_threads << " s." << std::endl
+            << "Total time base level alignment (ssw): " << tot_statistics.tot_extend.count() / opt.n_threads << " s." << std::endl
+            << "Total time writing alignment to files: " << tot_statistics.tot_write_file.count() << " s." << std::endl;
 
         /////////////////////// FIND AND OUTPUT NAMs ///////////////////////////////
     }
