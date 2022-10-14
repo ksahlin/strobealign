@@ -152,8 +152,8 @@ void Sam::add_pair(
     const std::string &read2_rc,
     int &mapq1,
     int &mapq2,
-    float &mu,
-    float &sigma,
+    float mu,
+    float sigma,
     bool is_primary
 ) {
 

@@ -2003,7 +2003,7 @@ static inline void get_best_scoring_NAM_locations(const std::vector<nam> &all_na
 }
 
 
-static inline void rescue_mate(alignment_params &aln_params , nam &n, const References& references, std::string &guide_read, std::string &guide_read_rc, bool &guide_rc_already_comp, std::string &read, std::string &read_rc, alignment &sam_aln, bool &rc_already_comp, unsigned int &tot_ksw_aligned, float &mu, float &sigma, unsigned int &tot_rescued, int k
+static inline void rescue_mate(alignment_params &aln_params , nam &n, const References& references, std::string &guide_read, std::string &guide_read_rc, bool &guide_rc_already_comp, std::string &read, std::string &read_rc, alignment &sam_aln, bool &rc_already_comp, unsigned int &tot_ksw_aligned, float mu, float sigma, unsigned int &tot_rescued, int k
 ) {
     int a, b, ref_start,ref_len,ref_end;
     std::string r_tmp;
@@ -2198,8 +2198,8 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
                      const KSeq &record1, const KSeq &record2, int k,
                      const References& references,
                        AlignmentStatistics &statistics, float dropoff, i_dist_est &isize_est, int max_tries, size_t max_secondary) {
-    auto mu = isize_est.mu;
-    auto sigma = isize_est.sigma;
+    const auto mu = isize_est.mu;
+    const auto sigma = isize_est.sigma;
     std::string read1 = record1.seq;
     std::string read2 = record2.seq;
     std::string query_acc1 = record1.name;
