@@ -1428,7 +1428,34 @@ static inline void align_segment(alignment_params &aln_params, std::string &read
 //    std::cerr << " ALIGN SCORE: " << sam_aln_segm.sw_score << " cigar: " << sam_aln_segm.cigar << std::endl;
 }
 
-static inline void get_alignment(alignment_params &aln_params, nam &n, const References& references, const std::string &read, std::string &read_rc, alignment &sam_aln, int k, bool &rc_already_comp, unsigned int &did_not_fit, unsigned int &tot_ksw_aligned){
+
+/*
+ Only the following fields of the 'nam' struct are used:
+ - is_rc
+ - ref_id
+ - ref_s
+ - ref_e
+ - query_s
+ - query_e
+ This is almost like a 'hit', except for ref_id.
+
+ the nam is sent afterwards int
+ - get_MAPQ, which only uses .score and .n_hits
+ - rescue_mate, which ...?
+*/
+
+static inline void get_alignment(
+    alignment_params &aln_params,
+    nam &n,
+    const References& references,
+    const std::string &read,
+    std::string &read_rc,
+    alignment &sam_aln,
+    int k,
+    bool &rc_already_comp,
+    unsigned int &did_not_fit,
+    unsigned int &tot_ksw_aligned
+) {
     auto read_len = read.size();
     bool aln_did_not_fit = false;
     int ref_diff = n.ref_e - n.ref_s;
@@ -2194,6 +2221,122 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, const Refe
 }
 
 
+
+void rescue_read_2(
+    alignment_params &aln_params, // TODO should be const
+    const References& references,
+    std::string& read2,
+    std::vector<nam> &all_nams1,
+    int max_tries,
+    float dropoff,
+    AlignmentStatistics &statistics,
+    std::string& read1,
+    std::string& read1_rc,
+    int k,
+    bool& rc_already_comp1,
+    bool& rc_already_comp2,
+    float mu,
+    float sigma,
+    size_t max_secondary,
+    double secondary_droppoff,
+    Sam& sam,
+    const klibpp::KSeq& record1,
+    const klibpp::KSeq& record2,
+    bool swap_r1r2  // TODO get rid of this
+) {
+    float score_dropoff1;
+    nam n_max1 = all_nams1[0];
+    int cnt1 = 0;
+
+    std::vector<alignment> aln_scores1;
+    std::vector<alignment> aln_scores2;
+    std::string read2_rc = reverse_complement(read2);
+    for (auto &n : all_nams1) {
+        score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
+        if ( (cnt1 >= max_tries) || score_dropoff1 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
+            break;
+        }
+        //////// the actual testing of base pair alignment part start /////////
+        alignment a1;
+//            std::cerr << query_acc1 << " force rescue"  << std::endl;
+        get_alignment(aln_params, n, references, read1, read1_rc, a1, k, rc_already_comp1, statistics.did_not_fit, statistics.tot_ksw_aligned);
+        aln_scores1.push_back(a1);
+        //////////////////////////////////////////////////////////////////
+
+        //////// Force SW alignment to rescue mate /////////
+        alignment a2;
+//            std::cerr << query_acc2 << " force rescue" << std::endl;
+        rescue_mate(aln_params, n, references, read1, read1_rc, rc_already_comp1, read2, read2_rc, a2, rc_already_comp2, statistics.tot_ksw_aligned, mu, sigma, statistics.tot_rescued, k);
+        aln_scores2.push_back(a2);
+        //////////////////////////////////////////////////////////////////
+
+        cnt1 ++;
+        statistics.tot_all_tried ++;
+    }
+    std::sort(aln_scores1.begin(), aln_scores1.end(), score_sw);
+    std::sort(aln_scores2.begin(), aln_scores2.end(), score_sw);
+
+    // Calculate best combined score here
+    std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
+    get_best_scoring_pair(aln_scores1, aln_scores2, high_scores, mu, sigma );
+
+    // Calculate joint MAPQ score
+    int mapq1, mapq2;
+    if (high_scores.size() > 1) {
+        auto best_aln_pair = high_scores[0];
+        auto S1 = std::get<0>(best_aln_pair);
+        auto second_aln_pair = high_scores[1];
+        auto S2 = std::get<0>(second_aln_pair);
+        get_joint_MAPQ_from_alingments(S1, S2, mapq1, mapq2);
+
+    } else{
+        mapq1 = 60;
+        mapq2 = 60;
+    }
+
+    // append both alignments to string here
+    if (max_secondary == 0){
+        auto best_aln_pair = high_scores[0];
+        alignment sam_aln1 = std::get<1>(best_aln_pair);
+        alignment sam_aln2 = std::get<2>(best_aln_pair);
+//            get_MAPQ(all_nams1, n_max1, mapq1);
+//            mapq2 = 0;
+        if (swap_r1r2) {
+            sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2_rc, read1_rc, mapq2, mapq1, mu, sigma, true);
+        } else {
+            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc, mapq1, mapq2, mu, sigma, true);
+        }
+    } else {
+        int max_out = std::min(high_scores.size(), max_secondary);
+        bool is_primary = true;
+        auto best_aln_pair = high_scores[0];
+        auto s_max = std::get<0>(best_aln_pair);
+//            get_MAPQ(all_nams1, n_max1, mapq1);
+        for (int i = 0; i < max_out; ++i) {
+            if (i > 0) {
+                is_primary = false;
+                mapq1 = 0;
+                mapq2 = 0;
+            }
+            auto aln_pair = high_scores[i];
+            auto s_score = std::get<0>(aln_pair);
+            alignment sam_aln1 = std::get<1>(aln_pair);
+            alignment sam_aln2 = std::get<2>(aln_pair);
+            if ((s_max - s_score) < secondary_droppoff){
+                if (swap_r1r2) {
+                    sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2_rc, read1_rc, mapq2, mapq1, mu, sigma, is_primary);
+                } else {
+                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc, mapq1, mapq2, mu, sigma, is_primary);
+                }
+            } else {
+                break;
+            }
+        }
+    }
+}
+
+
+
 inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2,
                      const KSeq &record1, const KSeq &record2, int k,
                      const References& references,
@@ -2243,7 +2386,6 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
         bool r1_r2 = n_max2.is_rc && (a < b) && ((b-a) < 2000); // r1 ---> <---- r2
         bool r2_r1 = n_max1.is_rc && (b < a) && ((a-b) < 2000); // r2 ---> <---- r1
         if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) && ( r1_r2 || r2_r1 ) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
-//            std::cerr << "I'm here" << std::endl;
 //            std::cerr << query_acc1 << std::endl;
             get_alignment(aln_params, n_max1, references, read1, read1_rc, sam_aln1, k, rc_already_comp1, statistics.did_not_fit, statistics.tot_ksw_aligned);
             statistics.tot_all_tried ++;
@@ -2522,174 +2664,60 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
             }
 
         }
-    } else if (!all_nams1.empty()) { // rescue read 2
-//        std::cerr << "Rescue read 2 mode" << std::endl;
-        n_max1 = all_nams1[0];
-        std::vector<alignment> aln_scores1;
-        std::vector<alignment> aln_scores2;
-        read2_rc = reverse_complement(read2);
-        for (auto &n : all_nams1) {
-            score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
-            if ( (cnt1 >= max_tries) || score_dropoff1 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
-                break;
-            }
-            //////// the actual testing of base pair alignment part start /////////
-            alignment a1;
-//            std::cerr << query_acc1 << " force rescue"  << std::endl;
-            get_alignment(aln_params, n, references, read1, read1_rc, a1, k, rc_already_comp1, statistics.did_not_fit, statistics.tot_ksw_aligned);
-            aln_scores1.push_back(a1);
-            //////////////////////////////////////////////////////////////////
-
-            //////// Force SW alignment to rescue mate /////////
-            alignment a2;
-//            std::cerr << query_acc2 << " force rescue" << std::endl;
-            rescue_mate(aln_params, n, references, read1, read1_rc, rc_already_comp1, read2, read2_rc, a2, rc_already_comp2, statistics.tot_ksw_aligned, mu, sigma, statistics.tot_rescued, k);
-            aln_scores2.push_back(a2);
-            //////////////////////////////////////////////////////////////////
-
-            cnt1 ++;
-            statistics.tot_all_tried ++;
-        }
-        std::sort(aln_scores1.begin(), aln_scores1.end(), score_sw);
-        std::sort(aln_scores2.begin(), aln_scores2.end(), score_sw);
-
-        // Calculate best combined score here
-        std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
-        get_best_scoring_pair(aln_scores1, aln_scores2, high_scores, mu, sigma );
-
-        // Calculate joint MAPQ score
-        if (high_scores.size() > 1) {
-            auto best_aln_pair = high_scores[0];
-            auto S1 = std::get<0>(best_aln_pair);
-            auto second_aln_pair = high_scores[1];
-            auto S2 = std::get<0>(second_aln_pair);
-            get_joint_MAPQ_from_alingments(S1, S2, mapq1, mapq2);
-
-        } else{
-            mapq1 = 60;
-            mapq2 = 60;
-        }
-
-        // append both alignments to string here
-        if (max_secondary == 0){
-            auto best_aln_pair = high_scores[0];
-            sam_aln1 = std::get<1>(best_aln_pair);
-            sam_aln2 = std::get<2>(best_aln_pair);
-//            get_MAPQ(all_nams1, n_max1, mapq1);
-//            mapq2 = 0;
-            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc, mapq1, mapq2, mu, sigma, true);
-        } else {
-            int max_out = std::min(high_scores.size(), max_secondary);
-            bool is_primary = true;
-            auto best_aln_pair = high_scores[0];
-            auto s_max = std::get<0>(best_aln_pair);
-//            get_MAPQ(all_nams1, n_max1, mapq1);
-            for (int i = 0; i < max_out; ++i) {
-                if (i > 0) {
-                    is_primary = false;
-                    mapq1 = 0;
-                    mapq2 = 0;
-                }
-                auto aln_pair = high_scores[i];
-                auto s_score = std::get<0>(aln_pair);
-                sam_aln1 = std::get<1>(aln_pair);
-                sam_aln2 = std::get<2>(aln_pair);
-                if ((s_max - s_score) < secondary_droppoff){
-                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc,
-                                  mapq1, mapq2, mu, sigma, is_primary);
-                } else{
-                    break;
-                }
-            }
-        }
-
-    } else if (!all_nams2.empty()) { // rescue read 1
-//        std::cerr << "Rescue read 1 mode" << std::endl;
-        n_max2 = all_nams2[0];
-        std::vector<alignment> aln_scores1;
-        std::vector<alignment> aln_scores2;
-        read1_rc = reverse_complement(read1);
-        for (auto &n : all_nams2) {
-            score_dropoff2 = (float) n.n_hits / n_max2.n_hits;
-            if ( (cnt2 >= max_tries) || score_dropoff2 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
-                break;
-            }
-//            std::cerr << "here1" << std::endl;
-
-            //////// the actual testing of base pair alignment part start /////////
-            alignment a2;
-            get_alignment(aln_params, n, references, read2, read2_rc, a2, k, rc_already_comp2, statistics.did_not_fit, statistics.tot_ksw_aligned);
-            aln_scores2.push_back(a2);
-            //////////////////////////////////////////////////////////////////
-
-//            std::cerr << "here2" << std::endl;
-
-            //////// Force SW alignment to rescue mate /////////
-            alignment a1;
-            rescue_mate(aln_params, n, references, read2, read2_rc, rc_already_comp2, read1, read1_rc, a1, rc_already_comp1, statistics.tot_ksw_aligned, mu, sigma, statistics.tot_rescued, k);
-            aln_scores1.push_back(a1);
-            //////////////////////////////////////////////////////////////////
-
-            cnt2 ++;
-            statistics.tot_all_tried ++;
-        }
-        std::sort(aln_scores1.begin(), aln_scores1.end(), score_sw);
-        std::sort(aln_scores2.begin(), aln_scores2.end(), score_sw);
-
-        // Calculate best combined score here
-        std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
-        get_best_scoring_pair(aln_scores1, aln_scores2, high_scores, mu, sigma );
-
-        // Calculate joint MAPQ score
-        if (high_scores.size() > 1) {
-            auto best_aln_pair = high_scores[0];
-            auto S1 = std::get<0>(best_aln_pair);
-            auto second_aln_pair = high_scores[1];
-            auto S2 = std::get<0>(second_aln_pair);
-            get_joint_MAPQ_from_alingments(S1, S2, mapq1, mapq2);
-
-        } else{
-            mapq1 = 60;
-            mapq2 = 60;
-        }
-
-        // append both alignments to string here
-        if(max_secondary == 0) {
-            auto best_aln_pair = high_scores[0];
-            sam_aln1 = std::get<1>(best_aln_pair);
-            sam_aln2 = std::get<2>(best_aln_pair);
-//            get_MAPQ(all_nams2, n_max2, mapq2);
-//            mapq1 = 0;
-            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc,
-                          mapq1, mapq2, mu, sigma, true);
-        } else {
-            int max_out = std::min(high_scores.size(), max_secondary);
-            bool is_primary = true;
-            auto best_aln_pair = high_scores[0];
-            auto s_max = std::get<0>(best_aln_pair);
-//            get_MAPQ(all_nams1, n_max1, mapq1);
-            for (int i = 0; i < max_out; ++i) {
-                if (i > 0) {
-                    is_primary = false;
-                    mapq1 = 0;
-                    mapq2 = 0;
-                }
-                auto aln_pair = high_scores[i];
-                auto s_score = std::get<0>(aln_pair);
-                sam_aln1 = std::get<1>(aln_pair);
-                sam_aln2 = std::get<2>(aln_pair);
-                if ((s_max - s_score) < secondary_droppoff){
-                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc,
-                                  mapq1, mapq2, mu, sigma, is_primary);
-                } else{
-                    break;
-                }
-            }
-        }
-
+    } else if (!all_nams1.empty()) {
+        // rescue read 2
+        rescue_read_2(
+            aln_params,
+            references,
+            read2,
+            all_nams1,
+            max_tries,
+            dropoff,
+            statistics,
+            read1,
+            read1_rc,
+            k,
+            rc_already_comp1,
+            rc_already_comp2,
+            mu,
+            sigma,
+            max_secondary,
+            secondary_droppoff,
+            sam,
+            record1,
+            record2,
+            false
+        );
+    } else if (!all_nams2.empty()) {
+        // rescue read 1
+        rescue_read_2(
+            aln_params,
+            references,
+            read1,
+            all_nams2,
+            max_tries,
+            dropoff,
+            statistics,
+            read2,
+            read2_rc,
+            k,
+            rc_already_comp2,
+            rc_already_comp1,
+            mu,
+            sigma,
+            max_secondary,
+            secondary_droppoff,
+            sam,
+            record2,
+            record1,
+            true
+        );
     }
 
 }
+
+
+
 
 
 inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM_scores, std::vector<nam> &nams1, std::vector<nam> &nams2, i_dist_est &isize_est, nam &best_nam1,  nam &best_nam2 ) {
