@@ -850,7 +850,7 @@ static inline bool sort_highest_sw_scores_single(const std::tuple<int, alignment
 }
 
 
-inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, const std::vector<unsigned int> &ref_len_map, const std::vector<std::string> &ref_seqs, logging_variables &log_vars, float dropoff, int max_tries) {
+inline void align_SE_old(const alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, const std::vector<unsigned int> &ref_len_map, const std::vector<std::string> &ref_seqs, logging_variables &log_vars, float dropoff, int max_tries) {
     auto query_acc = record.name;
     auto read = record.seq;
     auto qual = record.qual;
@@ -2229,6 +2229,42 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, const std:
     sam_aln.aln_length = info.length;
     tot_ksw_aligned ++;
     tot_rescued ++;
+}
+
+inline void align_SE(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, const std::vector<unsigned int> &ref_len_map, const std::vector<std::string> &ref_seqs, logging_variables &log_vars, float dropoff, int max_tries) {
+    auto query_acc = record.name;
+    auto read = record.seq;
+    auto qual = record.qual;
+    auto read_len = read.size();
+
+    std::string read_rc;
+    bool rc_already_comp = false;
+
+    if (all_nams.size() == 0) {
+        sam.add_unmapped(record);
+        return;
+    }
+
+    int cnt = 0;
+    float score_dropoff;
+    nam n_max = all_nams[0];
+    float s1 = n_max.score;
+
+    int best_align_dist = ~0U >> 1;
+    int best_align_sw_score = -1000;
+
+    bool aln_did_not_fit;
+    alignment sam_aln;
+    int mapq;
+    int min_mapq_diff = best_align_dist;
+
+    get_MAPQ(all_nams, n_max, mapq);
+    get_alignment(aln_params, n_max, ref_len_map, ref_seqs, read, read_rc, sam_aln, k, rc_already_comp, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
+
+    if (all_nams.size() > 0) {
+        sam_aln.mapq = std::min(mapq, 60);
+        sam.add(sam_aln, record, read_rc);
+    }
 }
 
 
