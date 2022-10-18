@@ -2193,7 +2193,7 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, const Refe
     tot_rescued ++;
 }
 
-inline void align_SE(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, const std::vector<unsigned int> &ref_len_map, const std::vector<std::string> &ref_seqs, logging_variables &log_vars, float dropoff, int max_tries) {
+inline void align_SE(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, const References& references, AlignmentStatistics &log_vars, float dropoff, int max_tries) {
     auto query_acc = record.name;
     auto read = record.seq;
     auto qual = record.qual;
@@ -2220,7 +2220,7 @@ inline void align_SE(alignment_params &aln_params, Sam& sam, std::vector<nam> &a
     int mapq = get_MAPQ(all_nams, n_max);
     int min_mapq_diff = best_align_dist;
    
-    get_alignment(aln_params, n_max, ref_len_map, ref_seqs, read, read_rc, sam_aln, k, rc_already_comp, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
+    get_alignment(aln_params, n_max, references, read, read_rc, sam_aln, k, rc_already_comp, log_vars.did_not_fit, log_vars.tot_ksw_aligned);
 
     if (all_nams.size() > 0) {
         sam_aln.mapq = std::min(mapq, 60);
