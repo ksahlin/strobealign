@@ -3,15 +3,21 @@ name: CI
 on: [push, pull_request]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Check for tab characters
+        run: "! grep -P -R '\\t' src/ tests/*.cpp"
+
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: Build
         run: |
-          mkdir build
+          cmake -B build
           cd build
-          cmake ..
           make
           make install
       - name: Install test dependencies

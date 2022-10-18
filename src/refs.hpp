@@ -7,10 +7,11 @@
 #include <numeric>
 #include <vector>
 
-typedef std::vector<unsigned int> ref_lengths;
-typedef std::vector<std::string> ref_names;
 
 class References {
+    typedef std::vector<unsigned int> ref_lengths;
+    typedef std::vector<std::string> ref_names;
+
 public:
     References() { }
     References(
@@ -25,7 +26,7 @@ public:
         }
     }
 
-    static References from_fasta(std::string path);
+    static References from_fasta(const std::string& filename);
 
     size_t size() const {
         return sequences.size();
