@@ -2238,7 +2238,7 @@ void rescue_read(
     float mu,
     float sigma,
     size_t max_secondary,
-    double secondary_droppoff,
+    double secondary_dropoff,
     Sam& sam,
     const klibpp::KSeq& record1,
     const klibpp::KSeq& record2,
@@ -2321,7 +2321,7 @@ void rescue_read(
             auto s_score = std::get<0>(aln_pair);
             alignment sam_aln1 = std::get<1>(aln_pair);
             alignment sam_aln2 = std::get<2>(aln_pair);
-            if ((s_max - s_score) < secondary_droppoff){
+            if (s_max - s_score < secondary_dropoff) {
                 if (swap_r1r2) {
                     sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2_rc, read1_rc, mapq2, mapq1, mu, sigma, is_primary);
                 } else {
