@@ -1431,15 +1431,15 @@ static inline void align_segment(alignment_params &aln_params, std::string &read
 
 /*
  Only the following fields of the 'nam' struct are used:
- - is_rc
- - ref_id
- - ref_s
- - ref_e
- - query_s
- - query_e
+ - is_rc (r/w)
+ - ref_id (read)
+ - ref_s (read)
+ - ref_e (read)
+ - query_s (r/w)
+ - query_e (r/w)
  This is almost like a 'hit', except for ref_id.
 
- the nam is sent afterwards int
+ the nam is sent afterwards into
  - get_MAPQ, which only uses .score and .n_hits
  - rescue_mate, which ...?
 */
@@ -2432,7 +2432,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
     int b = std::max(0, n_max2.ref_s - n_max2.query_s);
     bool r1_r2 = n_max2.is_rc && (a < b) && ((b-a) < 2000); // r1 ---> <---- r2
     bool r2_r1 = n_max1.is_rc && (b < a) && ((a-b) < 2000); // r2 ---> <---- r1
-    if ( (score_dropoff1 < dropoff) && (score_dropoff2 < dropoff) && (n_max1.is_rc ^ n_max2.is_rc) && ( r1_r2 || r2_r1 ) ){ //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
+    if (score_dropoff1 < dropoff && score_dropoff2 < dropoff && (n_max1.is_rc ^ n_max2.is_rc) && (r1_r2 || r2_r1)) { //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
 //            std::cerr << query_acc1 << std::endl;
         get_alignment(aln_params, n_max1, references, read1, read1_rc, sam_aln1, k, rc_already_comp1, statistics.did_not_fit, statistics.tot_ksw_aligned);
         statistics.tot_all_tried ++;
@@ -2446,28 +2446,10 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
         sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc, mapq1, mapq2, mu, sigma, true);
 
         if ((isize_est.sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && !sam_aln1.not_proper && !sam_aln2.not_proper ){
-            int d = std::abs(sam_aln1.ref_start - sam_aln2.ref_start);
-            if ( d < 2000){
-//                    std::cerr<< "8 " << sample_size << std::endl;
-                float e;
-                e = d - isize_est.mu;
-                isize_est.mu = isize_est.mu + e/isize_est.sample_size; // (1.0/(sample_size +1.0)) * (sample_size*mu + d);
-                isize_est.SSE = isize_est.SSE + e*(d-isize_est.mu);
-                isize_est.V = isize_est.sample_size > 1 ? isize_est.SSE/(isize_est.sample_size -1.0) : isize_est.SSE; //d < 1000 ? ((sample_size +1.0)/sample_size) * ( (V*sample_size/(sample_size +1)) + ((mu-d)*(mu-d))/sample_size ) : V;
-                isize_est.sigma = std::sqrt( isize_est.V );
-                isize_est.sample_size = isize_est.sample_size + 1.0;
-                if (isize_est.mu < 0){
-                    std::cerr<< "mu negative, mu: " << isize_est.mu << " sigma: " << isize_est.sigma << " SSE: " << isize_est.SSE << " sample size: " << isize_est.sample_size << std::endl;
-                }
-                if (isize_est.SSE < 0){
-                    std::cerr<< "SSE negative, mu: " << isize_est.mu << " sigma: " << isize_est.sigma << " SSE: " << isize_est.SSE << " sample size: " << isize_est.sample_size << std::endl;
-                }
-            }
+            isize_est.update(std::abs(sam_aln1.ref_start - sam_aln2.ref_start));
         }
-
         return;
-    }
-    else{ // do full search of highest scoring pair
+    } else { // do full search of highest scoring pair
 //            std::cerr << "Joint search" << std::endl;
 
         //////////////////////////// NEW ////////////////////////////////////
@@ -2577,7 +2559,6 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
                 a2_indv_max = a2;
 //                    cnt = 0;
             }
-            //////////////////////////////////////////////////////////////////
 
             bool r1_r2 = a2.is_rc && (a1.ref_start < a2.ref_start) && ((a2.ref_start - a1.ref_start) < mu+5*sigma); // r1 ---> <---- r2
             bool r2_r1 = a1.is_rc && (a2.ref_start < a1.ref_start) && ((a1.ref_start - a2.ref_start) < mu+5*sigma); // r2 ---> <---- r1
@@ -2751,18 +2732,8 @@ inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM
         best_nam2 = n2_joint_max;
     }
 
-    if ((isize_est.sample_size < 400) && (score_joint > score_indiv) ){
-        int d = std::abs(n1_joint_max.ref_s - n2_joint_max.ref_s);
-//            std::cerr << "HERE " << d << " " << mu <<  " " << sigma << " "<< n1_joint_max.ref_s << " " <<  n2_joint_max.ref_s << " "<< n1_joint_max.score << " " <<  n2_joint_max.score << std::endl;
-        if ( d < 2000){
-            float e;
-            e = d - isize_est.mu;
-            isize_est.mu = isize_est.mu + e/isize_est.sample_size; // (1.0/(sample_size +1.0)) * (sample_size*mu + d);
-            isize_est.SSE = isize_est.SSE + e*(d-isize_est.mu);
-            isize_est.V = isize_est.sample_size > 1 ? isize_est.SSE/(isize_est.sample_size -1.0) : isize_est.SSE; //d < 1000 ? ((sample_size +1.0)/sample_size) * ( (V*sample_size/(sample_size +1)) + ((mu-d)*(mu-d))/sample_size ) : V;
-            isize_est.sigma = std::sqrt( isize_est.V );
-            isize_est.sample_size = isize_est.sample_size + 1.0;
-        }
+    if (isize_est.sample_size < 400 && score_joint > score_indiv) {
+        isize_est.update(std::abs(n1_joint_max.ref_s - n2_joint_max.ref_s));
     }
 }
 
