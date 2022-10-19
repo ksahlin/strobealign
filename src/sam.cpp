@@ -160,10 +160,10 @@ void Sam::add_pair(
     // Commented lines below because we do not longer mark a read as not proper just because of the non-matching hash
     // Proper or non proper reads are further below only decided based on the expected distance and relative orientation they align to
 //    if (sam_aln1.ed < 5){ // Flag alignments previously deemed as 'not proper' (based on matching strobemer hash ) to proper because of small ed
-//        sam_aln1.not_proper = false;
+//        sam_aln1.is_proper = true;
 //    }
 //    if (sam_aln2.ed < 5){ // Flag alignments previously deemed as 'not proper' (based on matching strobemer hash ) to proper because of small ed
-//        sam_aln2.not_proper = false;
+//        sam_aln2.is_proper = true;
 //    }
 
     const int dist = sam_aln2.ref_start - sam_aln1.ref_start;
@@ -181,11 +181,11 @@ void Sam::add_pair(
     bool rel_orientation_good = r1_r2 || r2_r1;
     bool insert_good = std::abs(dist) <= mu + 6 * sigma;
     if (both_aligned && insert_good && rel_orientation_good) {
-        sam_aln1.not_proper = false;
-        sam_aln2.not_proper = false;
+        sam_aln1.is_proper = true;
+        sam_aln2.is_proper = true;
     } else {
-        sam_aln1.not_proper = true;
-        sam_aln2.not_proper = true;
+        sam_aln1.is_proper = false;
+        sam_aln2.is_proper = false;
     }
 
     int f1 = PAIRED | READ1;
@@ -194,7 +194,7 @@ void Sam::add_pair(
         f1 |= SECONDARY;
         f2 |= SECONDARY;
     }
-    if (!sam_aln1.not_proper && !sam_aln2.not_proper) {
+    if (sam_aln1.is_proper && sam_aln2.is_proper) {
         f1 |= PROPER_PAIR;
         f2 |= PROPER_PAIR;
     }
