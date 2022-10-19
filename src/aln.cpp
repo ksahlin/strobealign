@@ -2346,7 +2346,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
     std::string read2 = record2.seq;
     std::string query_acc1 = record1.name;
     std::string query_acc2 = record2.name;
-    double secondary_droppoff = 2 * aln_params.mismatch + aln_params.gap_open;
+    double secondary_dropoff = 2 * aln_params.mismatch + aln_params.gap_open;
     std::string read1_rc;
     std::string read2_rc;
     bool rc_already_comp1 = false;
@@ -2648,7 +2648,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
                         }
                     }
 
-                    if ((s_max - s_score) < secondary_droppoff){
+                    if ((s_max - s_score) < secondary_dropoff ){
                         sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc,
                                       mapq1, mapq2, mu, sigma, is_primary);
                     } else{
@@ -2681,7 +2681,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
             mu,
             sigma,
             max_secondary,
-            secondary_droppoff,
+            secondary_dropoff,
             sam,
             record1,
             record2,
