@@ -150,8 +150,8 @@ void Sam::add_pair(
     const KSeq& record2,
     const std::string &read1_rc,
     const std::string &read2_rc,
-    int &mapq1,
-    int &mapq2,
+    int mapq1,
+    int mapq2,
     float mu,
     float sigma,
     bool is_primary

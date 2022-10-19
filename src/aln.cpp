@@ -2648,7 +2648,7 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
                         }
                     }
 
-                    if ((s_max - s_score) < secondary_dropoff ){
+                    if (s_max - s_score < secondary_dropoff) {
                         sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc,
                                       mapq1, mapq2, mu, sigma, is_primary);
                     } else{
