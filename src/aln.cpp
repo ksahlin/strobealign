@@ -2030,7 +2030,7 @@ static inline void get_best_scoring_NAM_locations(const std::vector<nam> &all_na
 }
 
 
-static inline void rescue_mate(alignment_params &aln_params , nam &n, const References& references, std::string &guide_read, std::string &guide_read_rc, bool &guide_rc_already_comp, std::string &read, std::string &read_rc, alignment &sam_aln, bool &rc_already_comp, unsigned int &tot_ksw_aligned, float mu, float sigma, unsigned int &tot_rescued, int k
+static inline void rescue_mate(const alignment_params &aln_params, nam &n, const References& references, const std::string &guide_read, std::string &guide_read_rc, bool &guide_rc_already_comp, std::string &read, std::string &read_rc, alignment &sam_aln, bool &rc_already_comp, unsigned int &tot_ksw_aligned, float mu, float sigma, unsigned int &tot_rescued, int k
 ) {
     int a, b, ref_start,ref_len,ref_end;
     std::string r_tmp;
@@ -2222,10 +2222,10 @@ static inline void rescue_mate(alignment_params &aln_params , nam &n, const Refe
 
 
 
-void rescue_read_2(
+void rescue_read(
+    std::string& read2, // The read to be rescued
     alignment_params &aln_params, // TODO should be const
     const References& references,
-    std::string& read2,
     std::vector<nam> &all_nams1,
     int max_tries,
     float dropoff,
@@ -2261,7 +2261,6 @@ void rescue_read_2(
 //            std::cerr << query_acc1 << " force rescue"  << std::endl;
         get_alignment(aln_params, n, references, read1, read1_rc, a1, k, rc_already_comp1, statistics.did_not_fit, statistics.tot_ksw_aligned);
         aln_scores1.push_back(a1);
-        //////////////////////////////////////////////////////////////////
 
         //////// Force SW alignment to rescue mate /////////
         alignment a2;
@@ -2666,10 +2665,10 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
         }
     } else if (!all_nams1.empty()) {
         // rescue read 2
-        rescue_read_2(
+        rescue_read(
+            read2,
             aln_params,
             references,
-            read2,
             all_nams1,
             max_tries,
             dropoff,
@@ -2690,10 +2689,10 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
         );
     } else if (!all_nams2.empty()) {
         // rescue read 1
-        rescue_read_2(
+        rescue_read(
+            read1,
             aln_params,
             references,
-            read1,
             all_nams2,
             max_tries,
             dropoff,
@@ -2706,18 +2705,14 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
             mu,
             sigma,
             max_secondary,
-            secondary_droppoff,
+            secondary_dropoff,
             sam,
             record2,
             record1,
             true
         );
     }
-
 }
-
-
-
 
 
 inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM_scores, std::vector<nam> &nams1, std::vector<nam> &nams2, i_dist_est &isize_est, nam &best_nam1,  nam &best_nam2 ) {
