@@ -1830,15 +1830,15 @@ static inline void get_alignment(
 
 
 static inline int get_MAPQ(const std::vector<nam> &all_nams, const nam &n_max) {
-    float s1 = n_max.score;
+    const float s1 = n_max.score;
     if (all_nams.size() <= 1) {
         return 60;
     }
-    nam n_second = all_nams[1];
-    float s2 = n_second.score;
+    const nam n_second = all_nams[1];
+    const float s2 = n_second.score;
     // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
-    float min_matches = std::min(n_max.n_hits / 10.0, 1.0);
-    int uncapped_mapq = 40 * (1 - s2 / s1) * min_matches * log(s1);
+    const float min_matches = std::min(n_max.n_hits / 10.0, 1.0);
+    const int uncapped_mapq = 40 * (1 - s2 / s1) * min_matches * log(s1);
     return std::min(uncapped_mapq, 60);
 }
 
@@ -1868,7 +1868,7 @@ static inline void get_joint_MAPQ_from_alingments(float S1, float S2, int &mapq1
 static inline float normal_pdf(float x, float m, float s)
 {
     static const float inv_sqrt_2pi = 0.3989422804014327;
-    float a = (x - m) / s;
+    const float a = (x - m) / s;
 
     return inv_sqrt_2pi / s * std::exp(-0.5f * a * a);
 }
