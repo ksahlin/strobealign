@@ -1873,13 +1873,13 @@ static inline float normal_pdf(float x, float m, float s)
 
 static inline bool score_sw(const alignment &a, const alignment &b)
 {
-    return ( a.sw_score > b.sw_score );
+    return a.sw_score > b.sw_score;
 }
 
 static inline bool sort_scores(const std::tuple<double, alignment, alignment> &a,
                                const std::tuple<double, alignment, alignment> &b)
 {
-    return (std::get<0>(a) > std::get<0>(b));
+    return std::get<0>(a) > std::get<0>(b);
 }
 
 
