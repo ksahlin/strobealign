@@ -1843,7 +1843,7 @@ static inline int get_MAPQ(const std::vector<nam> &all_nams, const nam &n_max) {
 }
 
 
-static inline std::pair<int, int> get_joint_MAPQ_from_alingments(float S1, float S2) {
+static inline std::pair<int, int> joint_mapq_from_alignment_scores(float S1, float S2) {
     int mapq;
     if (S1 == S2) { // At least two identical placements
         mapq = 0;
@@ -2284,7 +2284,7 @@ void rescue_read(
         auto S1 = std::get<0>(best_aln_pair);
         auto second_aln_pair = high_scores[1];
         auto S2 = std::get<0>(second_aln_pair);
-        std::tie(mapq1, mapq2) = get_joint_MAPQ_from_alingments(S1, S2);
+        std::tie(mapq1, mapq2) = joint_mapq_from_alignment_scores(S1, S2);
     } else {
         mapq1 = 60;
         mapq2 = 60;
@@ -2621,12 +2621,12 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
             bool same_pos = (a1_start_m1 == a2_start_m1) && (a1_start_m2 == a2_start_m2);
             bool same_ref = (a1_ref_id_m1 == a2_ref_id_m1) && (a1_ref_id_m2 == a2_ref_id_m2);
             if ( !same_pos || !same_ref){
-                std::tie(mapq1, mapq2) = get_joint_MAPQ_from_alingments(S1, S2);
+                std::tie(mapq1, mapq2) = joint_mapq_from_alignment_scores(S1, S2);
             } else if (n_mappings > 2){ // individually highest alignment score was the same alignment as the joint highest score - calculate mapq relative to third best
                 auto third_aln_pair = high_scores[2];
                 auto S2 = std::get<0>(third_aln_pair);
 //                    std::cerr << "FOR MAPQ " << S1 << " " << S2 << std::endl;
-                std::tie(mapq1, mapq2) = get_joint_MAPQ_from_alingments(S1, S2);
+                std::tie(mapq1, mapq2) = joint_mapq_from_alignment_scores(S1, S2);
 
             } else { // there was no other alignment
                 mapq1 = 60;
