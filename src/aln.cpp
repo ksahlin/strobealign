@@ -648,6 +648,20 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 }
 
 
+/* PAF columns (see https://github.com/lh3/miniasm/blob/master/PAF.md):
+ * 1 query name
+ * 2 query length
+ * 3 query start (0-based)
+ * 4 query end
+ * 5 relative strand (+ or -)
+ * 6 target name
+ * 7 target length
+ * 8 target start
+ * 9 target end
+ * 10 no. of matches
+ * 11 alignment block length
+ * 12 mapping quality (0-255; 255 for missing)
+ */
 inline void output_hits_paf_PE(std::string &paf_output, const nam &n, const std::string &query_name, const References& references, int k, int read_len) {
     if (n.ref_s < 0 ) {
         return;
