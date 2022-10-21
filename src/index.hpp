@@ -76,12 +76,16 @@ struct alignment_params {
 };
 
 
-struct i_dist_est {
+class i_dist_est {
+public:
     float sample_size = 1;
     float mu = 300;
     float sigma = 100;
     float V = 10000;
     float SSE = 10000;
+
+    // Add a new observation
+    void update(int dist);
 };
 
 struct mapping_params {
