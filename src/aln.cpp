@@ -107,7 +107,7 @@ static inline void find_nams_rescue(
 
     for (auto &q : query_mers) {
         auto mer_hashv = q.hash;
-        if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
+        if (mers_index.find(mer_hashv) != mers_index.end()) {
             auto ref_hit = mers_index[mer_hashv];
             auto query_e = q.position + q.offset_strobe + k;
             Hit s{ref_hit.count, ref_hit.offset, q.position, query_e, q.is_reverse};
@@ -118,13 +118,11 @@ static inline void find_nams_rescue(
             }
         }
     }
-    std::sort(hits_fw.begin(), hits_fw.end());
-    std::sort(hits_rc.begin(), hits_rc.end());
 
     hit h;
     int cnt = 0;
-    for (auto &q : hits_fw)
-    {
+    std::sort(hits_fw.begin(), hits_fw.end());
+    for (auto &q : hits_fw) {
         auto count = q.count;
         auto offset = q.offset;
         h.query_s = q.query_s;
@@ -159,8 +157,8 @@ static inline void find_nams_rescue(
     }
 
     cnt = 0;
-    for (auto &q : hits_rc)
-    {
+    std::sort(hits_rc.begin(), hits_rc.end());
+    for (auto &q : hits_rc) {
         auto count = q.count;
         auto offset = q.offset;
         h.query_s = q.query_s;
