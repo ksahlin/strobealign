@@ -130,28 +130,26 @@ static inline void find_nams_rescue(
         h.query_e = q.query_e; // h.query_s + read_length/2;
         h.is_rc = q.is_rc;
 
-        if ( ((count <= filter_cutoff) || (cnt < 5)) && (count <= 1000) ){
+        if ((count <= filter_cutoff || cnt < 5) && count <= 1000) {
             int min_diff = 1000;
-            for (size_t j = offset; j < offset+count; ++j)
-            {
+            for (size_t j = offset; j < offset + count; ++j) {
                 auto r = ref_mers[j];
                 h.ref_s = r.position;
                 auto p = r.packed;
                 int bit_alloc = 8;
                 int r_id = (p >> bit_alloc);
-                int mask=(1<<bit_alloc) - 1;
+                int mask = (1 << bit_alloc) - 1;
                 int offset = (p & mask);
                 h.ref_e = h.ref_s + offset + k;
 
                 int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
-                if (diff <= min_diff ){
+                if (diff <= min_diff) {
                     hits_per_ref[r_id].push_back(h);
                     min_diff = diff;
                 }
             }
             cnt ++;
-        }
-        else {
+        } else {
             break;
 //            std::cerr << "Found repetitive count FORWARD: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
         }
@@ -191,12 +189,8 @@ static inline void find_nams_rescue(
         }
     }
 
-//    std::cerr << "NUMBER OF HITS GENERATED: " << hit_count_all << std::endl;
-//    info.first = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
-    int max_nam_n_hits = 0;
     std::vector<nam> open_nams;
     int nam_id_cnt = 0;
-//    std::vector<nam> final_nams; // [ref_id] -> vector(struct nam)
 
     for (auto &it : hits_per_ref) {
         auto ref_id = it.first;
@@ -210,13 +204,10 @@ static inline void find_nams_rescue(
         unsigned int prev_q_start = 0;
         for (auto &h : hits){
             bool is_added = false;
-//            std::cerr << "HIT " << h.is_rc << " " << h.query_s <<  ", " << h.query_e << ", " << h.ref_s <<  ", " << h.ref_e << std::endl;
-//            bool local_repeat_worse_fit = false;
             for (auto & o : open_nams) {
-
                 // Extend NAM
-                if (( o.is_rc == h.is_rc) && (o.query_prev_hit_startpos < h.query_s) && (h.query_s <= o.query_e ) && (o.ref_prev_hit_startpos < h.ref_s) && (h.ref_s <= o.ref_e) ){
-                    if ( (h.query_e > o.query_e) && (h.ref_e > o.ref_e) ) {
+                if (o.is_rc == h.is_rc && o.query_prev_hit_startpos < h.query_s && h.query_s <= o.query_e && o.ref_prev_hit_startpos < h.ref_s && h.ref_s <= o.ref_e) {
+                    if (h.query_e > o.query_e && h.ref_e > o.ref_e) {
                         o.query_e = h.query_e;
                         o.ref_e = h.ref_e;
 //                        o.previous_query_start = h.query_s;
@@ -228,7 +219,7 @@ static inline void find_nams_rescue(
                         is_added = true;
                         break;
                     }
-                    else if ((h.query_e <= o.query_e) && (h.ref_e <= o.ref_e)) {
+                    else if (h.query_e <= o.query_e && h.ref_e <= o.ref_e) {
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
                         o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
@@ -238,15 +229,8 @@ static inline void find_nams_rescue(
                         is_added = true;
                         break;
                     }
-//                    else if ( (o.query_e - o.query_s) - (o.ref_e - o.ref_s) > (h.query_e - h.query_s) - (h.ref_e - h.ref_s)  ){
-//                        local_repeat_worse_fit = true;
-//                    }
-
                 }
             }
-//            if (local_repeat_worse_fit){
-//                continue;
-//            }
             // Add the hit to open matches
             if (!is_added){
                 nam n;
@@ -280,7 +264,6 @@ static inline void find_nams_rescue(
 //                        n_score = n.n_hits * (n.query_e - n.query_s);
                         n.score = n_score;
                         final_nams.push_back(n);
-                        max_nam_n_hits = std::max(n.n_hits, max_nam_n_hits);
                     }
                 }
 
@@ -301,7 +284,6 @@ static inline void find_nams_rescue(
 //            n_score = n.n_hits * (n.query_e - n.query_s);
             n.score = n_score;
             final_nams.push_back(n);
-            max_nam_n_hits = std::max(n.n_hits, max_nam_n_hits);
         }
     }
 }
