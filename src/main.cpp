@@ -33,7 +33,7 @@ using std::chrono::high_resolution_clock;
 static Logger& logger = Logger::get();
 
 
-static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, std::string logfile_name, int k, int m) {
+static void print_diagnostics(const StrobemerIndex &index, const std::string& logfile_name, int k) {
     // Prins to csv file the statistics on the number of seeds of a particular length and what fraction of them them are unique in the index:
     // format:
     // seed_length, count, percentage_unique
@@ -54,13 +54,13 @@ static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, st
     uint64_t tot_seed_count_sq_1000_limit = 0;
 
     int seed_length;
-    for (auto &it : mers_index) {
+    for (auto &it : index.mers_index) {
         auto ref_mer = it.second;
         auto offset = ref_mer.offset;
         auto count = ref_mer.count;
 
         for (size_t j = offset; j < offset + count; ++j) {
-            auto r = ref_mers[j];
+            auto r = index.flat_vector[j];
             auto p = r.packed;
             int bit_alloc = 8;
             int mask=(1<<bit_alloc) - 1;
@@ -309,7 +309,7 @@ int main (int argc, char **argv)
         logger.info() << "Total time indexing: " << elapsed.count() << " s" << std::endl;
 
         if (opt.index_log) {
-            print_diagnostics(index.flat_vector, index.mers_index, opt.logfile_name, map_param.k, map_param.max_dist + map_param.k);
+            print_diagnostics(index, opt.logfile_name, map_param.k);
             logger.debug() << "Finished printing log stats" << std::endl;
         }
         
