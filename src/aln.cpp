@@ -125,68 +125,65 @@ static inline void find_nams_rescue(
     std::sort(hits_fw.begin(), hits_fw.end());
     for (auto &q : hits_fw) {
         auto count = q.count;
+        if ((count > filter_cutoff && cnt >= 5) || count >= 1000) {
+            break;
+        }
+
         auto offset = q.offset;
         h.query_s = q.query_s;
         h.query_e = q.query_e; // h.query_s + read_length/2;
         h.is_rc = q.is_rc;
 
-        if ((count <= filter_cutoff || cnt < 5) && count <= 1000) {
-            int min_diff = 1000;
-            for (size_t j = offset; j < offset + count; ++j) {
-                auto r = ref_mers[j];
-                h.ref_s = r.position;
-                auto p = r.packed;
-                int bit_alloc = 8;
-                int r_id = (p >> bit_alloc);
-                int mask = (1 << bit_alloc) - 1;
-                int offset = (p & mask);
-                h.ref_e = h.ref_s + offset + k;
+        int min_diff = 1000;
+        for (size_t j = offset; j < offset + count; ++j) {
+            auto r = ref_mers[j];
+            h.ref_s = r.position;
+            auto p = r.packed;
+            int bit_alloc = 8;
+            int r_id = (p >> bit_alloc);
+            int mask = (1 << bit_alloc) - 1;
+            int offset = (p & mask);
+            h.ref_e = h.ref_s + offset + k;
 
-                int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
-                if (diff <= min_diff) {
-                    hits_per_ref[r_id].push_back(h);
-                    min_diff = diff;
-                }
+            int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
+            if (diff <= min_diff) {
+                hits_per_ref[r_id].push_back(h);
+                min_diff = diff;
             }
-            cnt ++;
-        } else {
-            break;
-//            std::cerr << "Found repetitive count FORWARD: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
         }
+        cnt++;
     }
 
+    // TODO deduplicate, is same as above but on hits_rc instead of hits_fw
     cnt = 0;
     std::sort(hits_rc.begin(), hits_rc.end());
     for (auto &q : hits_rc) {
         auto count = q.count;
+        if ((count > filter_cutoff && cnt >= 5) || count >= 1000) {
+            break;
+        }
         auto offset = q.offset;
         h.query_s = q.query_s;
         h.query_e = q.query_e; // h.query_s + read_length/2;
         h.is_rc = q.is_rc;
 
-        if ( ((count <= filter_cutoff) || (cnt < 5)) && (count <= 1000) ){
-            int min_diff = 1000;
-            for(size_t j = offset; j < offset+count; ++j)
-            {
-                auto r = ref_mers[j];
-                h.ref_s = r.position;
-                auto p = r.packed;
-                int bit_alloc = 8;
-                int r_id = (p >> bit_alloc);
-                int mask=(1<<bit_alloc) - 1;
-                int offset = (p & mask);
-                h.ref_e = h.ref_s + offset + k;
-                int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
-                if (diff <= min_diff ){
-                    hits_per_ref[r_id].push_back(h);
-                    min_diff = diff;
-                }
+        int min_diff = 1000;
+        for (size_t j = offset; j < offset + count; ++j) {
+            auto r = ref_mers[j];
+            h.ref_s = r.position;
+            auto p = r.packed;
+            int bit_alloc = 8;
+            int r_id = (p >> bit_alloc);
+            int mask = (1 << bit_alloc) - 1;
+            int offset = (p & mask);
+            h.ref_e = h.ref_s + offset + k;
+            int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
+            if (diff <= min_diff ) {
+                hits_per_ref[r_id].push_back(h);
+                min_diff = diff;
             }
-            cnt ++;
         }
-        else {
-            break;
-        }
+        cnt++;
     }
 
     std::vector<nam> open_nams;
@@ -303,35 +300,34 @@ static inline std::pair<float,int> find_nams(
     std::pair<float,int> info (0.0f,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
     hit h;
-    for (auto &q : query_mers)
-    {
+    for (auto &q : query_mers) {
         auto mer_hashv = q.hash;
-        if (mers_index.find(mer_hashv) != mers_index.end()) { //  In  index
-            total_hits ++;
+        if (mers_index.find(mer_hashv) != mers_index.end()) {
+            total_hits++;
             h.query_s = q.position;
             h.query_e = h.query_s + q.offset_strobe + k; // h.query_s + read_length/2;
             h.is_rc = q.is_reverse;
             auto mer = mers_index.at(mer_hashv);
             auto offset = mer.offset;
             auto count = mer.count;
-            if (count <= filter_cutoff){
-                nr_good_hits ++;
-                int min_diff = 100000;
-                for(size_t j = offset; j < offset+count; ++j)
-                {
-                    auto r = ref_mers[j];
-                    h.ref_s = r.position;
-                    auto p = r.packed;
-                    int bit_alloc = 8;
-                    int r_id = (p >> bit_alloc);
-                    int mask=(1<<bit_alloc) - 1;
-                    int offset = (p & mask);
-                    h.ref_e = h.ref_s + offset + k;
-                    int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
-                    if (diff <= min_diff ){
-                        hits_per_ref[r_id].push_back(h);
-                        min_diff = diff;
-                    }
+            if (count > filter_cutoff) {
+                break;
+            }
+            nr_good_hits ++;
+            int min_diff = 100000;
+            for (size_t j = offset; j < offset + count; ++j) {
+                auto r = ref_mers[j];
+                h.ref_s = r.position;
+                auto p = r.packed;
+                int bit_alloc = 8;
+                int r_id = (p >> bit_alloc);
+                int mask = (1 << bit_alloc) - 1;
+                int offset = p & mask;
+                h.ref_e = h.ref_s + offset + k;
+                int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
+                if (diff <= min_diff ){
+                    hits_per_ref[r_id].push_back(h);
+                    min_diff = diff;
                 }
             }
         }
@@ -342,8 +338,7 @@ static inline std::pair<float,int> find_nams(
     int nam_id_cnt = 0;
     std::vector<nam> open_nams;
 
-    for (auto &it : hits_per_ref)
-    {
+    for (auto &it : hits_per_ref) {
         auto ref_id = it.first;
         std::vector<hit> hits = it.second;
         open_nams = std::vector<nam> (); // Initialize vector
