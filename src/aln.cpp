@@ -315,14 +315,10 @@ static inline std::pair<float,int> find_nams(
     int k,
     unsigned int filter_cutoff
 ) {
-//    robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref; // [ref_id] -> vector( struct hit)
-//    std::vector<std::vector<hit>> hits_per_ref(10);
-//    int read_length = read.length();
     std::pair<float,int> info (0.0f,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
     hit h;
     for (auto &q : query_mers)
-//    for (size_t i = 0; i < query_mers.size(); ++i)
     {
         auto mer_hashv = q.hash;
         if (mers_index.find(mer_hashv) != mers_index.end()) { //  In  index
@@ -333,41 +329,12 @@ static inline std::pair<float,int> find_nams(
             auto mer = mers_index[mer_hashv];
             auto offset = mer.offset;
             auto count = mer.count;
-//            if (count == 1){
-//                auto r = ref_mers[offset];
-//                unsigned int ref_id = std::get<0>(r); //The indexes in this code are not fixed after removal of the 64-bit hash
-//                unsigned int ref_s = std::get<1>(r);
-//                unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
-//
-//                h.ref_s = ref_s;
-//                h.ref_e = ref_e;
-//                hits_per_ref[ref_id].push_back(h);
-//                h.hit_count = count;
-//                hit_count_all ++;
-//            } else
             if (count <= filter_cutoff){
                 nr_good_hits ++;
-//                bool start_log = false;
                 int min_diff = 100000;
-//                int tries = 0;
-//                int ref_d;
-//                for(size_t j = offset; j < offset+count; ++j) {
-//                    auto r = ref_mers[j];
-//                    ref_d = std::get<3>(r) + k - std::get<2>(r);//The indexes in this code are not fixed after removal of the 64-bit hash
-//                    int diff = (h.query_e - h.query_s) - ref_d > 0 ? (h.query_e - h.query_s) -  ref_d : ref_d - (h.query_e - h.query_s);
-//                    if (diff <= min_diff ){
-//                        min_diff = diff;
-//                    }
-//                }
-//                std::cerr << "Found good count: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
                 for(size_t j = offset; j < offset+count; ++j)
-//                for(auto r = begin(ref_mers) + offset; r != begin(ref_mers) + offset + count; ++r)
                 {
                     auto r = ref_mers[j];
-//                    unsigned int  ref_id,ref_s,ref_e; std::tie(ref_id,ref_s,ref_e) = r;
-//                    unsigned int ref_id = std::get<0>(r);//The indexes in this code are not fixed after removal of the 64-bit hash
-//                    unsigned int ref_s = std::get<1>(r);
-//                    unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
                     h.ref_s = r.position;
                     auto p = r.packed;
                     int bit_alloc = 8;
@@ -375,67 +342,29 @@ static inline std::pair<float,int> find_nams(
                     int mask=(1<<bit_alloc) - 1;
                     int offset = (p & mask);
                     h.ref_e = h.ref_s + offset + k;
-//                    h.count = count;
-//                    hits_per_ref[std::get<1>(r)].push_back(h);
-//                    hits_per_ref[std::get<0>(r)].push_back(h);
-
-
-//                    h.ref_s = ref_s;
-//                    h.ref_e = ref_e;
-//                    hits_per_ref[ref_id].push_back(h);
                     int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
-//                    if ((diff > 0) || start_log ){
-//                        std::cerr << "Found: " <<  count << " " << diff << " " << h.query_e - h.query_s << " " <<  (h.ref_e - h.ref_s) << std::endl;
-//                        start_log = true;
-//                    }
                     if (diff <= min_diff ){
                         hits_per_ref[r_id].push_back(h);
                         min_diff = diff;
-//                        std::cerr << "Found: query: " <<  h.query_s << " " << h.query_e << " ref: " <<  h.ref_s << " " << h.ref_e << " " << h.is_rc << " diff " << diff << std::endl;
-//                        tries ++;
                     }
-//                    if (tries > filter_cutoff){
-//                        break;
-//                    }
-//                    h.hit_count = count;
-//                    if (count > 1){
-//                        int diff = (h.query_e - h.query_s) - (h.ref_e - h.ref_s);
-//                        std::cerr << "Found: " <<  h.query_s << " " << h.query_e << " ref: " <<  h.ref_s << " " << h.ref_e << " " << h.is_rc << " diff " << diff << std::endl;
-//                    }
-//                    hit_count_all ++;
-
                 }
             }
-
-//            else{
-//                std::cerr << "Found repetitive count: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
-//
-//            }
-
         }
     }
 
-//    std::cerr << "NUMBER OF HITS GENERATED: " << hit_count_all << std::endl;
     info.first = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     int max_nam_n_hits = 0;
     int nam_id_cnt = 0;
     std::vector<nam> open_nams;
-//    std::vector<nam> final_nams; // [ref_id] -> vector(struct nam)
 
     for (auto &it : hits_per_ref)
     {
         auto ref_id = it.first;
         std::vector<hit> hits = it.second;
-
-//    for(size_t i = 0; i < hits_per_ref.size(); ++i){
-//        unsigned int ref_id = i;
-//        auto hits = hits_per_ref[i];
         open_nams = std::vector<nam> (); // Initialize vector
         unsigned int prev_q_start = 0;
         for (auto &h : hits){
             bool is_added = false;
-//            std::cerr << "HIT " << h.is_rc << " " << h.query_s <<  ", " << h.query_e << ", " << h.ref_s <<  ", " << h.ref_e << std::endl;
-//            bool local_repeat_worse_fit = false;
             for (auto & o : open_nams) {
 
                 // Extend NAM
@@ -462,38 +391,9 @@ static inline std::pair<float,int> find_nams(
                         is_added = true;
                         break;
                     }
-//                    else if ( (o.query_e - o.query_s) - (o.ref_e - o.ref_s) > (h.query_e - h.query_s) - (h.ref_e - h.ref_s)  ){
-//                        local_repeat_worse_fit = true;
-//                    }
-
                 }
 
-//                // CHECK IF FALSE REVERSE HITS FROM SYM HASHES
-//                if (( o.is_rc == h.is_rc) && (o.query_prev_hit_startpos < h.query_s) && (h.query_s <= o.query_e ) && (o.ref_prev_hit_startpos <= h.ref_e) && (h.ref_e < o.ref_e) ){
-//                    if ( (h.query_e > o.query_e) && (h.ref_s < o.ref_s) ) {
-//                        o.query_e = h.query_e;
-//                        o.ref_s = h.ref_s;
-////                        o.previous_query_start = h.query_s;
-////                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
-//                        o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
-//                        o.ref_prev_hit_startpos = h.ref_s; // log the last strobemer hit in case of outputting paf
-//                        o.n_hits ++;
-////                        o.score += (float)1/ (float)h.count;
-//                        is_added = true;
-//                        break;
-//                    }
-//                    else if ((h.query_e <= o.query_e) && (h.ref_s >= o.ref_s)) {
-//                        o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
-//                        o.ref_prev_hit_startpos = h.ref_s; // log the last strobemer hit in case of outputting paf
-//                        o.n_hits ++;
-//                        is_added = true;
-//                        break;
-//                    }
-//                }
-
             }
-//            if (local_repeat_worse_fit){
-//                continue;
 //            }
             // Add the hit to open matches
             if (!is_added){
@@ -553,10 +453,6 @@ static inline std::pair<float,int> find_nams(
         }
     }
     info.second = max_nam_n_hits;
-//    for (auto &n : final_nams){
-//        int diff = (n.query_e - n.query_s) - (n.ref_e - n.ref_s);
-//        std::cerr << "NAM ORG: nam_id: " << n.nam_id << " ref_id: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << " diff: " << diff << " is_rc: " << n.is_rc << std::endl;
-//    }
     return info;
 }
 
