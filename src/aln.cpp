@@ -1844,58 +1844,56 @@ static inline void get_alignment(
 
 
 static inline int get_MAPQ(const std::vector<nam> &all_nams, const nam &n_max) {
-    float s1 = n_max.score;
+    const float s1 = n_max.score;
     if (all_nams.size() <= 1) {
         return 60;
     }
-    nam n_second = all_nams[1];
-    float s2 = n_second.score;
+    const nam n_second = all_nams[1];
+    const float s2 = n_second.score;
     // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
-    float min_matches = std::min(n_max.n_hits / 10.0, 1.0);
-    int uncapped_mapq = 40 * (1 - s2 / s1) * min_matches * log(s1);
+    const float min_matches = std::min(n_max.n_hits / 10.0, 1.0);
+    const int uncapped_mapq = 40 * (1 - s2 / s1) * min_matches * log(s1);
     return std::min(uncapped_mapq, 60);
 }
 
 
-static inline void get_joint_MAPQ_from_alingments(float S1, float S2, int &mapq1, int &mapq2){
-    if (S1 == S2){ // At least two identical placements
-        mapq1 = 0;
-        mapq2 = mapq1;
+static inline std::pair<int, int> joint_mapq_from_alignment_scores(float S1, float S2) {
+    int mapq;
+    if (S1 == S2) { // At least two identical placements
+        mapq = 0;
     } else {
-        int diff = S1 - S2; // (1.0 - (S1 - S2) / S1);
+        const int diff = S1 - S2; // (1.0 - (S1 - S2) / S1);
 //        float log10_p = diff > 6 ? -6.0 : -diff; // Corresponds to: p_error= 0.1^diff // change in sw score times rough illumina error rate. This is highly heauristic, but so seem most computations of mapq scores
-        if ((S1 > 0) && (S2 > 0)) {
-            mapq1 = std::min(60, diff);
+        if (S1 > 0 && S2 > 0) {
+            mapq = std::min(60, diff);
 //            mapq1 = -10 * log10_p < 60 ? -10 * log10_p : 60;
-            mapq2 = mapq1;
-        } else if ((S1 > 0) && (S2 <= 0)) {
-            mapq1 = 60;
-            mapq2 = mapq1;
+        } else if (S1 > 0 && S2 <= 0) {
+            mapq = 60;
         } else { // both negative SW one is better
-            mapq1 = 1;
-            mapq2 = mapq1;
+            mapq = 1;
         }
     }
+    return std::make_pair(mapq, mapq);
 }
 
 
 static inline float normal_pdf(float x, float m, float s)
 {
     static const float inv_sqrt_2pi = 0.3989422804014327;
-    float a = (x - m) / s;
+    const float a = (x - m) / s;
 
     return inv_sqrt_2pi / s * std::exp(-0.5f * a * a);
 }
 
 static inline bool score_sw(const alignment &a, const alignment &b)
 {
-    return ( a.sw_score > b.sw_score );
+    return a.sw_score > b.sw_score;
 }
 
 static inline bool sort_scores(const std::tuple<double, alignment, alignment> &a,
                                const std::tuple<double, alignment, alignment> &b)
 {
-    return (std::get<0>(a) > std::get<0>(b));
+    return std::get<0>(a) > std::get<0>(b);
 }
 
 
@@ -2300,9 +2298,8 @@ void rescue_read(
         auto S1 = std::get<0>(best_aln_pair);
         auto second_aln_pair = high_scores[1];
         auto S2 = std::get<0>(second_aln_pair);
-        get_joint_MAPQ_from_alingments(S1, S2, mapq1, mapq2);
-
-    } else{
+        std::tie(mapq1, mapq2) = joint_mapq_from_alignment_scores(S1, S2);
+    } else {
         mapq1 = 60;
         mapq2 = 60;
     }
@@ -2634,12 +2631,12 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
             bool same_pos = (a1_start_m1 == a2_start_m1) && (a1_start_m2 == a2_start_m2);
             bool same_ref = (a1_ref_id_m1 == a2_ref_id_m1) && (a1_ref_id_m2 == a2_ref_id_m2);
             if ( !same_pos || !same_ref){
-                get_joint_MAPQ_from_alingments(S1, S2, mapq1, mapq2);
+                std::tie(mapq1, mapq2) = joint_mapq_from_alignment_scores(S1, S2);
             } else if (n_mappings > 2){ // individually highest alignment score was the same alignment as the joint highest score - calculate mapq relative to third best
                 auto third_aln_pair = high_scores[2];
                 auto S2 = std::get<0>(third_aln_pair);
 //                    std::cerr << "FOR MAPQ " << S1 << " " << S2 << std::endl;
-                get_joint_MAPQ_from_alingments(S1, S2, mapq1, mapq2);
+                std::tie(mapq1, mapq2) = joint_mapq_from_alignment_scores(S1, S2);
 
             } else { // there was no other alignment
                 mapq1 = 60;
