@@ -82,11 +82,11 @@ static void print_diagnostics(const StrobemerIndex &index, const std::string& lo
             }
         }
 
-        if ( (count == 1) & (seed_length < max_size) ) {
-            log_unique[seed_length] ++;
+        if (count == 1 && seed_length < max_size) {
+            log_unique[seed_length]++;
         }
-        if ( (count >= 10) & (seed_length < max_size) ) {
-            log_repetitive[seed_length] ++;
+        if (count >= 10 && seed_length < max_size) {
+            log_repetitive[seed_length]++;
         }
     }
 
