@@ -91,13 +91,6 @@ inline aln_info ssw_align(const std::string &ref, const std::string &query, int 
 }
 
 
-static inline bool sort_hits(const hit &a, const hit &b)
-{
-    // first sort on query starts, then on reference starts
-    return (a.query_s < b.query_s) || ( (a.query_s == b.query_s) && (a.ref_s < b.ref_s) );
-}
-
-
 static inline void find_nams_rescue(
     std::vector<nam> &final_nams,
     robin_hood::unordered_map<unsigned int, std::vector<hit>> &hits_per_ref,
@@ -297,7 +290,11 @@ static inline void find_nams_rescue(
     {
         auto ref_id = it.first;
         std::vector<hit> hits = it.second;
-        std::sort(hits.begin(), hits.end(), sort_hits);
+        std::sort(hits.begin(), hits.end(), [](const hit& a, const hit& b) -> bool {
+                // first sort on query starts, then on reference starts
+                return (a.query_s < b.query_s) || ( (a.query_s == b.query_s) && (a.ref_s < b.ref_s) );
+            }
+        );
         open_nams = std::vector<nam> (); // Initialize vector
         unsigned int prev_q_start = 0;
         for (auto &h : hits){
