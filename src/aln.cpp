@@ -107,11 +107,8 @@ static inline void find_nams_rescue(
     hits_fw.reserve(5000);
     hits_rc.reserve(5000);
 
-//    std::pair<float,int> info (0,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
-    int nr_good_hits = 0, total_hits = 0;
-    bool is_rc = true, no_rep_fw = true, no_rep_rc = true;
-//    std::pair<int, int> repeat_fw(0,0), repeat_rc(0,0);
-//    std::vector<std::pair<int, int>> repetitive_fw, repetitive_rc;
+    int total_hits = 0;
+    bool is_rc = true;
     for (auto &q : query_mers)
     {
         auto mer_hashv = q.hash;
@@ -126,65 +123,19 @@ static inline void find_nams_rescue(
             if (is_rc){
                 Hit s{count, offset, query_s, query_e, is_rc};
                 hits_rc.push_back(s);
-//                if (count > filter_cutoff){
-//                    if (no_rep_rc){ //initialize
-//                        repeat_rc.first = query_s;
-//                        repeat_rc.second = query_e;
-//                        no_rep_rc = false;
-//                    }
-//                    else if (query_s >= repeat_rc.second){
-//                        repetitive_rc.push_back(repeat_rc);
-//                        repeat_rc.first = query_s;
-//                        repeat_rc.second = query_e;
-//                    } else{
-//                        repeat_rc.second = std::max(repeat_rc.second, query_e);
-//                    }
-//                } else{
-//                    nr_good_hits ++;
-//                }
-            } else{
+            } else {
                 Hit s{count, offset, query_s, query_e, is_rc};
                 hits_fw.push_back(s);
-//                if (count > filter_cutoff){
-//                    if (no_rep_fw){ //initialize
-//                        repeat_fw.first = query_s;
-//                        repeat_fw.second = query_e;
-//                        no_rep_fw = false;
-//                    }
-//                    else if (query_s >= repeat_fw.second ){
-//                        repetitive_fw.push_back(repeat_fw);
-//                        repeat_fw.first = query_s;
-//                        repeat_fw.second = query_e;
-//                    } else{
-//                        repeat_fw.second = std::max(repeat_fw.second, query_e);
-//                    }
-//                } else{
-//                    nr_good_hits ++;
-//                }
             }
         }
     }
-//    if (!no_rep_fw) {
-//        repetitive_fw.push_back(repeat_fw);
-//    }
-//    if (!no_rep_rc) {
-//        repetitive_rc.push_back(repeat_rc);
-//    }
     std::sort(hits_fw.begin(), hits_fw.end());
     std::sort(hits_rc.begin(), hits_rc.end());
-
-//    for (auto &rf : repetitive_fw){
-//        std::cerr << "REPEAT MASKED FW: (" << rf.first << " " << rf.second << ") " << std::endl;
-//    }
-//    for (auto &rc : repetitive_rc){
-//        std::cerr << "REPEAT MASKED RC: (" << rc.first << " " << rc.second << ") " << std::endl;
-//    }
 
     hit h;
     int cnt = 0;
     for (auto &q : hits_fw)
     {
-//        std::cerr << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
         auto count = q.count;
         auto offset = q.offset;
         h.query_s = q.query_s;
@@ -192,19 +143,8 @@ static inline void find_nams_rescue(
         h.is_rc = q.is_rc;
 
         if ( ((count <= filter_cutoff) || (cnt < 5)) && (count <= 1000) ){
-//            std::cerr << "Found FORWARD: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
             int min_diff = 1000;
-//            int ref_d;
-//            for(size_t j = offset; j < offset+count; ++j) {
-//                auto r = ref_mers[j];
-//                ref_d = std::get<2>(r) + k - std::get<1>(r); //I changed this code from std::get<3>(r) + k - std::get<2>(r); - but it is probably old, 3 should not be possible since we only had 3 members in the tuple
-//                int diff = (h.query_e - h.query_s) - ref_d > 0 ? (h.query_e - h.query_s) -  ref_d : ref_d - (h.query_e - h.query_s);
-//                if (diff <= min_diff ){
-//                    min_diff = diff;
-//                }
-//            }
-
-            for(size_t j = offset; j < offset+count; ++j)
+            for (size_t j = offset; j < offset+count; ++j)
             {
                 auto r = ref_mers[j];
                 h.ref_s = r.position;
@@ -214,8 +154,6 @@ static inline void find_nams_rescue(
                 int mask=(1<<bit_alloc) - 1;
                 int offset = (p & mask);
                 h.ref_e = h.ref_s + offset + k;
-//                h.count = count;
-//                hits_per_ref[std::get<0>(r)].push_back(h);
 
                 int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
                 if (diff <= min_diff ){
@@ -225,7 +163,7 @@ static inline void find_nams_rescue(
             }
             cnt ++;
         }
-        else{
+        else {
             break;
 //            std::cerr << "Found repetitive count FORWARD: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
         }
@@ -241,18 +179,7 @@ static inline void find_nams_rescue(
         h.is_rc = q.is_rc;
 
         if ( ((count <= filter_cutoff) || (cnt < 5)) && (count <= 1000) ){
-//            std::cerr << "Found REVERSE: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
             int min_diff = 1000;
-//            int ref_d;
-//            for(size_t j = offset; j < offset+count; ++j) {
-//                auto r = ref_mers[j];
-//                ref_d = std::get<2>(r) + k - std::get<1>(r); //same problem here, I changed from 3 to 2 etc., but it doesn't seem right
-//                int diff = (h.query_e - h.query_s) - ref_d > 0 ? (h.query_e - h.query_s) -  ref_d : ref_d - (h.query_e - h.query_s);
-//                if (diff <= min_diff ){
-//                    min_diff = diff;
-//                }
-//            }
-
             for(size_t j = offset; j < offset+count; ++j)
             {
                 auto r = ref_mers[j];
@@ -263,8 +190,6 @@ static inline void find_nams_rescue(
                 int mask=(1<<bit_alloc) - 1;
                 int offset = (p & mask);
                 h.ref_e = h.ref_s + offset + k;
-//                h.count = count;
-//                hits_per_ref[std::get<1>(r)].push_back(h);
                 int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
                 if (diff <= min_diff ){
                     hits_per_ref[r_id].push_back(h);
@@ -273,9 +198,8 @@ static inline void find_nams_rescue(
             }
             cnt ++;
         }
-        else{
+        else {
             break;
-//            std::cerr << "Found repetitive count REVERSE: " << count << ", q_start: " <<  h.query_s << ", q_end: " << h.query_e << std::endl;
         }
     }
 
@@ -286,8 +210,7 @@ static inline void find_nams_rescue(
     int nam_id_cnt = 0;
 //    std::vector<nam> final_nams; // [ref_id] -> vector(struct nam)
 
-    for (auto &it : hits_per_ref)
-    {
+    for (auto &it : hits_per_ref) {
         auto ref_id = it.first;
         std::vector<hit> hits = it.second;
         std::sort(hits.begin(), hits.end(), [](const hit& a, const hit& b) -> bool {
@@ -393,11 +316,6 @@ static inline void find_nams_rescue(
             max_nam_n_hits = std::max(n.n_hits, max_nam_n_hits);
         }
     }
-
-//    for (auto &n : final_nams){
-//        std::cerr << "RESCUE NAM: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << " " <<  n.is_rc << std::endl;
-//    }
-//    info.second = max_nam_n_hits;
 }
 
 
