@@ -404,8 +404,8 @@ static inline void find_nams_rescue(
 static inline std::pair<float,int> find_nams(
     std::vector<nam> &final_nams,
     robin_hood::unordered_map<unsigned int, std::vector<hit>> &hits_per_ref,
-    mers_vector_read &query_mers,
-    mers_vector &ref_mers,
+    const mers_vector_read &query_mers,
+    const mers_vector &ref_mers,
     kmer_lookup &mers_index,
     int k,
     const std::vector<std::string> &ref_seqs,
