@@ -62,12 +62,12 @@ public:
 };
 
 
-
 void perform_task_PE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
                   std::unordered_map<std::thread::id, AlignmentStatistics> &log_stats_vec, std::unordered_map<std::thread::id, i_dist_est> &isize_est_vec, alignment_params &aln_params,
-                  mapping_params &map_param, const References& references, kmer_lookup &mers_index, mers_vector &flat_vector);
+                  mapping_params &map_param, const References& references, const StrobemerIndex& index);
 
 void perform_task_SE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
                      std::unordered_map<std::thread::id, AlignmentStatistics> &log_stats_vec, alignment_params &aln_params,
-                     mapping_params &map_param, const References& references, kmer_lookup &mers_index, mers_vector &flat_vector);
-#endif // pc_hpp_
+                     mapping_params &map_param, const References& references, const StrobemerIndex& index);
+
+#endif

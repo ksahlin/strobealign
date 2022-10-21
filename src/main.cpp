@@ -300,9 +300,7 @@ int main (int argc, char **argv)
             return EXIT_FAILURE;
         }
 
-        auto filter_cutoff = index.populate(references, map_param);
-        map_param.filter_cutoff = filter_cutoff;
-        index.filter_cutoff = map_param.filter_cutoff;
+        index.populate(references, map_param);
 
         // Record index creation end time
         std::chrono::duration<double> elapsed = high_resolution_clock::now() - start;
@@ -334,8 +332,6 @@ int main (int argc, char **argv)
     
     if (!(opt.only_gen_index && opt.reads_filename1.empty())) { // If the program was called with the -i flag and the fastqs are not specified, we don't run any alignment
         
-        map_param.filter_cutoff = index.filter_cutoff; //This is calculated when building the filter and needs to be filled in
-
         // Record matching time
         auto start_aln_part = high_resolution_clock::now();
 
@@ -387,7 +383,7 @@ int main (int argc, char **argv)
                 std::thread consumer(perform_task_SE, std::ref(input_buffer), std::ref(output_buffer),
                     std::ref(log_stats_vec), std::ref(aln_params),
                     std::ref(map_param), std::ref(references),
-                    std::ref(index.mers_index), std::ref(index.flat_vector));
+                    std::ref(index));
                 workers.push_back(std::move(consumer));
             }
 
@@ -417,7 +413,7 @@ int main (int argc, char **argv)
                 std::thread consumer(perform_task_PE, std::ref(input_buffer), std::ref(output_buffer),
                     std::ref(log_stats_vec), std::ref(isize_est_vec), std::ref(aln_params),
                     std::ref(map_param), std::ref(references),
-                    std::ref(index.mers_index), std::ref(index.flat_vector));
+                    std::ref(index));
                 workers.push_back(std::move(consumer));
             }
 

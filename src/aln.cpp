@@ -94,8 +94,7 @@ inline aln_info ssw_align(const std::string &ref, const std::string &query, int 
 static inline void find_nams_rescue(
     std::vector<nam> &final_nams,
     const mers_vector_read &query_mers,
-    const mers_vector &ref_mers,
-    const kmer_lookup &mers_index,
+    const StrobemerIndex& index,
     int k,
     unsigned int filter_cutoff
 ) {
@@ -108,8 +107,8 @@ static inline void find_nams_rescue(
 
     for (auto &q : query_mers) {
         auto mer_hashv = q.hash;
-        if (mers_index.find(mer_hashv) != mers_index.end()) {
-            auto ref_hit = mers_index.at(mer_hashv);
+        if (index.mers_index.find(mer_hashv) != index.mers_index.end()) {
+            auto ref_hit = index.mers_index.at(mer_hashv);
             auto query_e = q.position + q.offset_strobe + k;
             Hit s{ref_hit.count, ref_hit.offset, q.position, query_e, q.is_reverse};
             if (q.is_reverse){
@@ -136,7 +135,7 @@ static inline void find_nams_rescue(
 
         int min_diff = 1000;
         for (size_t j = offset; j < offset + count; ++j) {
-            auto r = ref_mers[j];
+            auto r = index.flat_vector[j];
             h.ref_s = r.position;
             auto p = r.packed;
             int bit_alloc = 8;
@@ -169,7 +168,7 @@ static inline void find_nams_rescue(
 
         int min_diff = 1000;
         for (size_t j = offset; j < offset + count; ++j) {
-            auto r = ref_mers[j];
+            auto r = index.flat_vector[j];
             h.ref_s = r.position;
             auto p = r.packed;
             int bit_alloc = 8;
@@ -289,10 +288,8 @@ static inline void find_nams_rescue(
 static inline std::pair<float,int> find_nams(
     std::vector<nam> &final_nams,
     const mers_vector_read &query_mers,
-    const mers_vector &ref_mers,
-    const kmer_lookup &mers_index,
-    int k,
-    unsigned int filter_cutoff
+    const StrobemerIndex& index,
+    int k
 ) {
     robin_hood::unordered_map<unsigned int, std::vector<hit>> hits_per_ref;
     hits_per_ref.reserve(100);
@@ -302,21 +299,21 @@ static inline std::pair<float,int> find_nams(
     hit h;
     for (auto &q : query_mers) {
         auto mer_hashv = q.hash;
-        if (mers_index.find(mer_hashv) != mers_index.end()) {
+        if (index.mers_index.find(mer_hashv) != index.mers_index.end()) {
             total_hits++;
             h.query_s = q.position;
             h.query_e = h.query_s + q.offset_strobe + k; // h.query_s + read_length/2;
             h.is_rc = q.is_reverse;
-            auto mer = mers_index.at(mer_hashv);
+            auto mer = index.mers_index.at(mer_hashv);
             auto offset = mer.offset;
             auto count = mer.count;
-            if (count > filter_cutoff) {
+            if (count > index.filter_cutoff) {
                 break;
             }
             nr_good_hits ++;
             int min_diff = 100000;
             for (size_t j = offset; j < offset + count; ++j) {
-                auto r = ref_mers[j];
+                auto r = index.flat_vector[j];
                 h.ref_s = r.position;
                 auto p = r.packed;
                 int bit_alloc = 8;
@@ -2543,8 +2540,7 @@ void align_PE_read(
     alignment_params &aln_params,
     mapping_params &map_param,
     const References& references,
-    kmer_lookup &mers_index,
-    mers_vector &flat_vector
+    const StrobemerIndex& index
 ) {
     mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
 
@@ -2569,10 +2565,8 @@ void align_PE_read(
     std::vector<nam> nams1;
     std::vector<nam> nams2;
     std::pair<float, int> info1, info2;
-    info1 = find_nams(nams1, query_mers1, flat_vector, mers_index, map_param.k,
-                      map_param.filter_cutoff);
-    info2 = find_nams(nams2, query_mers2, flat_vector, mers_index, map_param.k,
-                      map_param.filter_cutoff);
+    info1 = find_nams(nams1, query_mers1, index, map_param.k);
+    info2 = find_nams(nams2, query_mers2, index, map_param.k);
     auto nam_finish = std::chrono::high_resolution_clock::now();
     statistics.tot_find_nams += nam_finish - nam_start;
 
@@ -2582,15 +2576,15 @@ void align_PE_read(
         if (nams1.empty() || info1.first < 0.7) {
             statistics.tried_rescue += 1;
             nams1.clear();
-            find_nams_rescue(nams1, query_mers1, flat_vector,
-                mers_index, map_param.k, map_param.rescue_cutoff);
+            find_nams_rescue(nams1, query_mers1, index,
+                map_param.k, map_param.rescue_cutoff);
         }
 
         if (nams2.empty() || info2.first < 0.7) {
             statistics.tried_rescue += 1;
             nams2.clear();
-            find_nams_rescue(nams2, query_mers2, flat_vector,
-                mers_index, map_param.k, map_param.rescue_cutoff);
+            find_nams_rescue(nams2, query_mers2, index,
+                map_param.k, map_param.rescue_cutoff);
         }
         auto rescue_finish = std::chrono::high_resolution_clock::now();
         statistics.tot_time_rescue += rescue_finish - rescue_start;
@@ -2652,8 +2646,7 @@ void align_SE_read(
     alignment_params &aln_params,
     mapping_params &map_param,
     const References& references,
-    kmer_lookup &mers_index,
-    mers_vector &flat_vector
+    const StrobemerIndex& index
 ) {
         std::string seq, seq_rc;
         unsigned int q_id = 0;
@@ -2669,7 +2662,7 @@ void align_SE_read(
 
         // Find NAMs
         auto nam_start = std::chrono::high_resolution_clock::now();
-        std::pair<float, int> info = find_nams(nams, query_mers, flat_vector, mers_index, map_param.k, map_param.filter_cutoff);
+        std::pair<float, int> info = find_nams(nams, query_mers, index, map_param.k);
         auto nam_finish = std::chrono::high_resolution_clock::now();
         statistics.tot_find_nams += nam_finish - nam_start;
 
@@ -2678,8 +2671,7 @@ void align_SE_read(
             if (nams.empty() || info.first < 0.7) {
                 statistics.tried_rescue += 1;
                 nams.clear();
-                find_nams_rescue(nams, query_mers, flat_vector,
-                    mers_index, map_param.k, map_param.rescue_cutoff);
+                find_nams_rescue(nams, query_mers, index, map_param.k, map_param.rescue_cutoff);
             }
             auto rescue_finish = std::chrono::high_resolution_clock::now();
             statistics.tot_time_rescue += rescue_finish - rescue_start;

@@ -111,7 +111,6 @@ struct mapping_params {
     int maxTries;
     int max_seed_len;
     int rescue_cutoff;
-    unsigned int filter_cutoff;
     bool is_sam_out;
 
     void verify(){
@@ -139,7 +138,7 @@ struct StrobemerIndex {
 
     void write(const References& references, const std::string& filename) const;
     void read(References& references, const std::string& filename);
-    unsigned int populate(const References& references, const mapping_params& map_param);
+    void populate(const References& references, const mapping_params& map_param);
 private:
     ind_mers_vector generate_seeds(const References& references, const mapping_params& map_param) const;
 
