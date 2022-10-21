@@ -95,7 +95,7 @@ static inline void find_nams_rescue(
     std::vector<nam> &final_nams,
     const mers_vector_read &query_mers,
     const mers_vector &ref_mers,
-    kmer_lookup &mers_index,
+    const kmer_lookup &mers_index,
     int k,
     unsigned int filter_cutoff
 ) {
@@ -109,7 +109,7 @@ static inline void find_nams_rescue(
     for (auto &q : query_mers) {
         auto mer_hashv = q.hash;
         if (mers_index.find(mer_hashv) != mers_index.end()) {
-            auto ref_hit = mers_index[mer_hashv];
+            auto ref_hit = mers_index.at(mer_hashv);
             auto query_e = q.position + q.offset_strobe + k;
             Hit s{ref_hit.count, ref_hit.offset, q.position, query_e, q.is_reverse};
             if (q.is_reverse){
@@ -311,7 +311,7 @@ static inline std::pair<float,int> find_nams(
     std::vector<nam> &final_nams,
     const mers_vector_read &query_mers,
     const mers_vector &ref_mers,
-    kmer_lookup &mers_index,
+    const kmer_lookup &mers_index,
     int k,
     unsigned int filter_cutoff
 ) {
@@ -329,7 +329,7 @@ static inline std::pair<float,int> find_nams(
             h.query_s = q.position;
             h.query_e = h.query_s + q.offset_strobe + k; // h.query_s + read_length/2;
             h.is_rc = q.is_reverse;
-            auto mer = mers_index[mer_hashv];
+            auto mer = mers_index.at(mer_hashv);
             auto offset = mer.offset;
             auto count = mer.count;
             if (count <= filter_cutoff){
