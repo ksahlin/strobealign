@@ -2534,9 +2534,18 @@ inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM
 }
 
 
-void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, AlignmentStatistics &statistics, i_dist_est &isize_est, alignment_params &aln_params,
-        mapping_params &map_param, const References& references, kmer_lookup &mers_index, mers_vector &flat_vector)
-{
+void align_PE_read(
+    KSeq &record1,
+    KSeq &record2,
+    std::string &outstring,
+    AlignmentStatistics &statistics,
+    i_dist_est &isize_est,
+    alignment_params &aln_params,
+    mapping_params &map_param,
+    const References& references,
+    kmer_lookup &mers_index,
+    mers_vector &flat_vector
+) {
     mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
 
     // generate mers here
@@ -2636,9 +2645,16 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, Alignme
 }
 
 
-void align_SE_read(KSeq &record, std::string &outstring, AlignmentStatistics &statistics, alignment_params &aln_params,
-                   mapping_params &map_param, const References& references, kmer_lookup &mers_index, mers_vector &flat_vector) {
-
+void align_SE_read(
+    KSeq &record,
+    std::string &outstring,
+    AlignmentStatistics &statistics,
+    alignment_params &aln_params,
+    mapping_params &map_param,
+    const References& references,
+    kmer_lookup &mers_index,
+    mers_vector &flat_vector
+) {
         std::string seq, seq_rc;
         unsigned int q_id = 0;
         mers_vector_read query_mers; // pos, chr_id, kmer hash value
