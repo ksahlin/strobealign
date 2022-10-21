@@ -170,6 +170,7 @@ int estimate_read_length(std::string filename1, std::string filename2) {
     }
 }
 
+/* Adjust map_param.{k,s,l,u} depending on read length */
 void adjust_mapping_params_depending_on_read_length(mapping_params &map_param, const CommandLineOptions &opt) {
     struct settings {
         int r_threshold;
