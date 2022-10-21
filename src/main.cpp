@@ -233,11 +233,10 @@ int main (int argc, char **argv)
         map_param.max_dist = opt.max_seed_len - map_param.k; //convert to distance in start positions
     }
 
-
-    if ( (map_param.c < 64) && (map_param.c > 0)){
+    if (map_param.c < 64 && map_param.c > 0) {
         map_param.q = pow(2, map_param.c) - 1;
-    } else{
-        logger.warning() << "Warning wrong value for parameter c, setting c=8" << std::endl;
+    } else {
+        logger.warning() << "Parameter c must be greater than 0 and less than 64, setting c=8" << std::endl;
         map_param.q = pow(2, 8) - 1;
     }
 
@@ -301,7 +300,8 @@ int main (int argc, char **argv)
             return EXIT_FAILURE;
         }
 
-        index.populate(references, map_param);
+        auto filter_cutoff = index.populate(references, map_param);
+        map_param.filter_cutoff = filter_cutoff;
         index.filter_cutoff = map_param.filter_cutoff;
 
         // Record index creation end time
@@ -341,7 +341,7 @@ int main (int argc, char **argv)
 
         //    std::ifstream query_file(reads_filename);
 
-        map_param.rescue_cutoff = map_param.R < 100 ? map_param.R * map_param.filter_cutoff : 1000;
+        map_param.rescue_cutoff = map_param.R < 100 ? map_param.R * index.filter_cutoff : 1000;
         logger.debug() << "Using rescue cutoff: " << map_param.rescue_cutoff << std::endl;
 
         std::streambuf* buf;

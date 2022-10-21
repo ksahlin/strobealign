@@ -139,7 +139,7 @@ struct StrobemerIndex {
 
     void write(const References& references, const std::string& filename) const;
     void read(References& references, const std::string& filename);
-    void populate(const References& references, mapping_params& map_param);
+    unsigned int populate(const References& references, const mapping_params& map_param);
 private:
     ind_mers_vector generate_seeds(const References& references, const mapping_params& map_param) const;
 

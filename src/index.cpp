@@ -181,7 +181,7 @@ void StrobemerIndex::write(const References& references, const std::string& file
         ofs.write(reinterpret_cast<const char*>(&p.first), sizeof(p.first));
         ofs.write(reinterpret_cast<const char*>(&p.second), sizeof(p.second));
     }
-};
+}
 
 void StrobemerIndex::read(References& references, const std::string& filename) {
     std::ifstream ifs(filename, std::ios::binary);
@@ -249,10 +249,10 @@ void StrobemerIndex::read(References& references, const std::string& filename) {
         }
         left_to_read -= to_read;
     }
-};
+}
 
 
-void StrobemerIndex::populate(const References& references, mapping_params& map_param) {
+unsigned int StrobemerIndex::populate(const References& references, const mapping_params& map_param) {
     auto start_flat_vector = high_resolution_clock::now();
     hash_vector h_vector;
     {
@@ -284,9 +284,11 @@ void StrobemerIndex::populate(const References& references, mapping_params& map_
 
     mers_index.reserve(unique_mers);
     // construct index over flat array
-    map_param.filter_cutoff = index_vector(h_vector, mers_index, map_param.f);
+    auto filter_cutoff = index_vector(h_vector, mers_index, map_param.f);
     std::chrono::duration<double> elapsed_hash_index = high_resolution_clock::now() - start_hash_index;
     logger.info() << "Total time generating hash table index: " << elapsed_hash_index.count() << " s" <<  std::endl;
+
+    return filter_cutoff;
 }
 
 ind_mers_vector StrobemerIndex::generate_seeds(const References& references, const mapping_params& map_param) const
