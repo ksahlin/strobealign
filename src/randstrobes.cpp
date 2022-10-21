@@ -215,7 +215,7 @@ static inline void get_next_strobe_dist_constraint(const std::vector<uint64_t> &
 
 
 
-void seq_to_randstrobes2(ind_mers_vector& flat_vector, int n, int k, int w_min, int w_max, const std::string &seq, int ref_index, int s, int t, uint64_t q, int max_dist)
+void seq_to_randstrobes2(ind_mers_vector& flat_vector, int k, int w_min, int w_max, const std::string &seq, int ref_index, int s, int t, uint64_t q, int max_dist)
 {
 
     if (seq.length() < w_max) {
@@ -313,7 +313,7 @@ void seq_to_randstrobes2(ind_mers_vector& flat_vector, int n, int k, int w_min, 
 //    std::cerr << randstrobes2.size() << " randstrobes generated" << '\n';
 }
 
-mers_vector_read seq_to_randstrobes2_read(int n, int k, int w_min, int w_max, const std::string& seq, unsigned int ref_index, int s, int t, uint64_t q, int max_dist)
+mers_vector_read seq_to_randstrobes2_read(int k, int w_min, int w_max, const std::string& seq, unsigned int ref_index, int s, int t, uint64_t q, int max_dist)
 {
     // this function differs from  the function seq_to_randstrobes2 which creating randstrobes for the reference.
     // The seq_to_randstrobes2 stores randstobes only in one direction from canonical syncmers.

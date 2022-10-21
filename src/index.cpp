@@ -299,7 +299,7 @@ ind_mers_vector StrobemerIndex::generate_seeds(const References& references, con
     logger.debug() << "ref vector approximate size: " << approx_vec_size << std::endl;
     ind_flat_vector.reserve(approx_vec_size);
     for(size_t i = 0; i < references.size(); ++i) {
-        seq_to_randstrobes2(ind_flat_vector, map_param.n, index_parameters.k, map_param.w_min, map_param.w_max, references.sequences[i], i, index_parameters.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
+        seq_to_randstrobes2(ind_flat_vector, index_parameters.k, map_param.w_min, map_param.w_max, references.sequences[i], i, index_parameters.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
     }
     logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
 

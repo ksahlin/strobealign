@@ -78,7 +78,6 @@ std::tuple<CommandLineOptions, mapping_params, IndexParameters> parse_command_li
     mapping_params map_param;
     IndexParameters index_parameters;
     map_param.max_secondary = 0;
-    map_param.n = 2;
     index_parameters.k = 20;
     index_parameters.s = index_parameters.k - 4;
     map_param.f = 0.0002;

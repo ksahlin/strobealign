@@ -110,7 +110,6 @@ struct IndexParameters {
 
 struct mapping_params {
     uint64_t q;
-    int n;
     int r;
     int t_syncmer;
     int w_min;
