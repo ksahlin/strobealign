@@ -242,10 +242,6 @@ int main (int argc, char **argv)
         map_param.q = pow(2, 8) - 1;
     }
 
-    map_param.w_min = std::max(1, index_parameters.k / (index_parameters.k - index_parameters.s + 1) + index_parameters.l);
-    map_param.w_max = index_parameters.k / (index_parameters.k - index_parameters.s+1) + index_parameters.u;
-    map_param.t_syncmer = (index_parameters.k - index_parameters.s)/2 + 1;
-
     alignment_params aln_params;
     aln_params.match = opt.A;
     aln_params.mismatch = opt.B;
@@ -255,14 +251,14 @@ int main (int argc, char **argv)
     logger.debug() << "Using" << std::endl
         << "k: " << index_parameters.k << std::endl
         << "s: " << index_parameters.s << std::endl
-        << "w_min: " << map_param.w_min << std::endl
-        << "w_max: " << map_param.w_max << std::endl
+        << "w_min: " << index_parameters.w_min() << std::endl
+        << "w_max: " << index_parameters.w_max() << std::endl
         << "Read length (r): " << map_param.r << std::endl
         << "Maximum seed length: " << map_param.max_dist + index_parameters.k << std::endl
         << "Threads: " << opt.n_threads << std::endl
         << "R: " << map_param.R << std::endl
-        << "Expected [w_min, w_max] in #syncmers: [" << map_param.w_min << ", " << map_param.w_max << "]" << std::endl
-        << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.k - index_parameters.s + 1) * map_param.w_min << ", " << (index_parameters.k - index_parameters.s + 1) * map_param.w_max << "]" << std::endl
+        << "Expected [w_min, w_max] in #syncmers: [" << index_parameters.w_min() << ", " << index_parameters.w_max() << "]" << std::endl
+        << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_min() << ", " << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_max() << "]" << std::endl
         << "A: " << opt.A << std::endl
         << "B: " << opt.B << std::endl
         << "O: " << opt.O << std::endl

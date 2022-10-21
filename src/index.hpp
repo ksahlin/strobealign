@@ -106,14 +106,23 @@ struct IndexParameters {
             throw BadParameter("(k - s) should be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
         }
     }
+
+    int t_syncmer() const {
+        return (k - s) / 2 + 1;
+    }
+
+    int w_min() const {
+        return std::max(1, k / (k - s + 1) + l);
+    }
+
+    int w_max() const {
+        return k / (k - s + 1) + u;
+    }
 };
 
 struct mapping_params {
     uint64_t q;
     int r;
-    int t_syncmer;
-    int w_min;
-    int w_max;
     int max_secondary;
     float dropoff_threshold;
     int m;
