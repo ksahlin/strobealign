@@ -126,7 +126,6 @@ struct mapping_params {
     int max_secondary;
     float dropoff_threshold;
     int m;
-    int c;
     float f;
     int S;
     int M;

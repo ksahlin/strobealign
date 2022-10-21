@@ -215,7 +215,7 @@ std::string sam_header(const References& references) {
     return out.str();
 }
 
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
     CommandLineOptions opt;
     mapping_params map_param;
@@ -235,12 +235,11 @@ int main (int argc, char **argv)
         map_param.max_dist = opt.max_seed_len - index_parameters.k; //convert to distance in start positions
     }
 
-    if (map_param.c < 64 && map_param.c > 0) {
-        map_param.q = pow(2, map_param.c) - 1;
-    } else {
-        logger.warning() << "Parameter c must be greater than 0 and less than 64, setting c=8" << std::endl;
-        map_param.q = pow(2, 8) - 1;
+    if (opt.c >= 64 || opt.c <= 0) {
+        logger.error() << "Parameter c must be greater than 0 and less than 64" << std::endl;
+        return EXIT_FAILURE;
     }
+    map_param.q = pow(2, opt.c) - 1;
 
     alignment_params aln_params;
     aln_params.match = opt.A;

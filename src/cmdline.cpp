@@ -86,7 +86,6 @@ std::tuple<CommandLineOptions, mapping_params, IndexParameters> parse_command_li
     map_param.maxTries = 20;
     index_parameters.l = 0;
     index_parameters.u = 7;
-    map_param.c = 8;
     map_param.r = 150;
     map_param.max_dist = std::min(map_param.r - 50, 255);
     map_param.is_sam_out = true;  // true: align, false: map
@@ -108,7 +107,7 @@ std::tuple<CommandLineOptions, mapping_params, IndexParameters> parse_command_li
     if (l) { index_parameters.l = args::get(l); }
     if (u) { index_parameters.u = args::get(u); }
     if (s) { index_parameters.s = args::get(s); opt.s_set = true; }
-    if (c) { map_param.c = args::get(c); }
+    if (c) { opt.c = args::get(c); }
 
     // Alignment
     // if (n) { n = args::get(n); }
