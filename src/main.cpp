@@ -170,8 +170,8 @@ int estimate_read_length(std::string filename1, std::string filename2) {
     }
 }
 
-/* Adjust map_param.{k,s,l,u} depending on read length */
-void adjust_mapping_params_depending_on_read_length(mapping_params &map_param, const CommandLineOptions &opt) {
+/* Adjust parameters.{k,s,l,u} depending on read length */
+void adjust_index_params_depending_on_read_length(int read_length, IndexParameters &parameters, const CommandLineOptions &opt) {
     struct settings {
         int r_threshold;
         int k;
@@ -188,15 +188,15 @@ void adjust_mapping_params_depending_on_read_length(mapping_params &map_param, c
         settings {std::numeric_limits<int>::max(), 23, -6, 2, 12},
     };
     for (const auto& v : d) {
-        if (map_param.r <= v.r_threshold) {
+        if (read_length <= v.r_threshold) {
             if (!opt.k_set) {
-                map_param.k = v.k;
+                parameters.k = v.k;
             }
             if (!opt.s_set) {
-                map_param.s = map_param.k + v.s_offset;
+                parameters.s = parameters.k + v.s_offset;
             }
-            map_param.l = v.l;
-            map_param.u = v.u;
+            parameters.l = v.l;
+            parameters.u = v.u;
             break;
         }
     }
@@ -219,19 +219,20 @@ int main (int argc, char **argv)
 {
     CommandLineOptions opt;
     mapping_params map_param;
-    std::tie(opt, map_param) = parse_command_line_arguments(argc, argv);
+    IndexParameters index_parameters;
+    std::tie(opt, map_param, index_parameters) = parse_command_line_arguments(argc, argv);
 
     logger.set_level(opt.verbose ? LOG_DEBUG : LOG_INFO);
     if (!opt.r_set) {
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
     }
-    adjust_mapping_params_depending_on_read_length(map_param, opt);
+    adjust_index_params_depending_on_read_length(map_param.r, index_parameters, opt);
 
     if (!opt.max_seed_len_set){
-        map_param.max_dist = std::max(map_param.r - 70, map_param.k);
+        map_param.max_dist = std::max(map_param.r - 70, index_parameters.k);
         map_param.max_dist = std::min(255, map_param.max_dist);
     } else {
-        map_param.max_dist = opt.max_seed_len - map_param.k; //convert to distance in start positions
+        map_param.max_dist = opt.max_seed_len - index_parameters.k; //convert to distance in start positions
     }
 
     if (map_param.c < 64 && map_param.c > 0) {
@@ -241,9 +242,9 @@ int main (int argc, char **argv)
         map_param.q = pow(2, 8) - 1;
     }
 
-    map_param.w_min = std::max(1, map_param.k/(map_param.k-map_param.s+1) + map_param.l);
-    map_param.w_max = map_param.k/(map_param.k-map_param.s+1) + map_param.u;
-    map_param.t_syncmer = (map_param.k-map_param.s)/2 + 1;
+    map_param.w_min = std::max(1, index_parameters.k / (index_parameters.k - index_parameters.s + 1) + index_parameters.l);
+    map_param.w_max = index_parameters.k / (index_parameters.k - index_parameters.s+1) + index_parameters.u;
+    map_param.t_syncmer = (index_parameters.k - index_parameters.s)/2 + 1;
 
     alignment_params aln_params;
     aln_params.match = opt.A;
@@ -252,16 +253,16 @@ int main (int argc, char **argv)
     aln_params.gap_extend = opt.E;
 
     logger.debug() << "Using" << std::endl
-        << "k: " << map_param.k << std::endl
-        << "s: " << map_param.s << std::endl
+        << "k: " << index_parameters.k << std::endl
+        << "s: " << index_parameters.s << std::endl
         << "w_min: " << map_param.w_min << std::endl
         << "w_max: " << map_param.w_max << std::endl
         << "Read length (r): " << map_param.r << std::endl
-        << "Maximum seed length: " << map_param.max_dist + map_param.k << std::endl
+        << "Maximum seed length: " << map_param.max_dist + index_parameters.k << std::endl
         << "Threads: " << opt.n_threads << std::endl
         << "R: " << map_param.R << std::endl
         << "Expected [w_min, w_max] in #syncmers: [" << map_param.w_min << ", " << map_param.w_max << "]" << std::endl
-        << "Expected [w_min, w_max] in #nucleotides: [" << (map_param.k-map_param.s+1)*map_param.w_min << ", " << (map_param.k-map_param.s+1)*map_param.w_max << "]" << std::endl
+        << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.k - index_parameters.s + 1) * map_param.w_min << ", " << (index_parameters.k - index_parameters.s + 1) * map_param.w_max << "]" << std::endl
         << "A: " << opt.A << std::endl
         << "B: " << opt.B << std::endl
         << "O: " << opt.O << std::endl
@@ -269,11 +270,13 @@ int main (int argc, char **argv)
 
     try {
         map_param.verify();
+        index_parameters.verify();
     }
-    catch (BadMappingParameter& e) {
-        logger.error() << "A mapping parameter is invalid: " << e.what() << std::endl;
+    catch (BadParameter& e) {
+        logger.error() << "A mapping or seeding parameter is invalid: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
+
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
 
     //////////// CREATE INDEX OF REF SEQUENCES /////////////////
@@ -301,14 +304,14 @@ int main (int argc, char **argv)
             return EXIT_FAILURE;
         }
 
-        index.populate(references, map_param);
+        index.populate(references, map_param, index_parameters);
 
         // Record index creation end time
         std::chrono::duration<double> elapsed = high_resolution_clock::now() - start;
         logger.info() << "Total time indexing: " << elapsed.count() << " s" << std::endl;
 
         if (opt.index_log) {
-            print_diagnostics(index, opt.logfile_name, map_param.k);
+            print_diagnostics(index, opt.logfile_name, index_parameters.k);
             logger.debug() << "Finished printing log stats" << std::endl;
         }
         
@@ -383,7 +386,7 @@ int main (int argc, char **argv)
             for (int i = 0; i < opt.n_threads; ++i) {
                 std::thread consumer(perform_task_SE, std::ref(input_buffer), std::ref(output_buffer),
                     std::ref(log_stats_vec), std::ref(aln_params),
-                    std::ref(map_param), std::ref(references),
+                    std::ref(map_param), std::ref(index_parameters), std::ref(references),
                     std::ref(index));
                 workers.push_back(std::move(consumer));
             }
@@ -413,7 +416,7 @@ int main (int argc, char **argv)
             for (int i = 0; i < opt.n_threads; ++i) {
                 std::thread consumer(perform_task_PE, std::ref(input_buffer), std::ref(output_buffer),
                     std::ref(log_stats_vec), std::ref(isize_est_vec), std::ref(aln_params),
-                    std::ref(map_param), std::ref(references),
+                    std::ref(map_param), std::ref(index_parameters), std::ref(references),
                     std::ref(index));
                 workers.push_back(std::move(consumer));
             }

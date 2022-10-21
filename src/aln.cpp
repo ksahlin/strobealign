@@ -2539,6 +2539,7 @@ void align_PE_read(
     i_dist_est &isize_est,
     alignment_params &aln_params,
     mapping_params &map_param,
+    const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index
 ) {
@@ -2548,12 +2549,12 @@ void align_PE_read(
     auto strobe_start = std::chrono::high_resolution_clock::now();
 
     std::transform(record1.seq.begin(), record1.seq.end(), record1.seq.begin(), ::toupper);
-    query_mers1 = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record1.seq, 0, map_param.s, map_param.t_syncmer,
+    query_mers1 = seq_to_randstrobes2_read(map_param.n, index_parameters.k, map_param.w_min, map_param.w_max, record1.seq, 0, index_parameters.s, map_param.t_syncmer,
                                            map_param.q,
                                            map_param.max_dist);
 
     std::transform(record2.seq.begin(), record2.seq.end(), record2.seq.begin(), ::toupper);
-    query_mers2 = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record2.seq, 0, map_param.s, map_param.t_syncmer,
+    query_mers2 = seq_to_randstrobes2_read(map_param.n, index_parameters.k, map_param.w_min, map_param.w_max, record2.seq, 0, index_parameters.s, map_param.t_syncmer,
                                            map_param.q,
                                            map_param.max_dist);
 
@@ -2565,8 +2566,8 @@ void align_PE_read(
     std::vector<nam> nams1;
     std::vector<nam> nams2;
     std::pair<float, int> info1, info2;
-    info1 = find_nams(nams1, query_mers1, index, map_param.k);
-    info2 = find_nams(nams2, query_mers2, index, map_param.k);
+    info1 = find_nams(nams1, query_mers1, index, index_parameters.k);
+    info2 = find_nams(nams2, query_mers2, index, index_parameters.k);
     auto nam_finish = std::chrono::high_resolution_clock::now();
     statistics.tot_find_nams += nam_finish - nam_start;
 
@@ -2577,14 +2578,14 @@ void align_PE_read(
             statistics.tried_rescue += 1;
             nams1.clear();
             find_nams_rescue(nams1, query_mers1, index,
-                map_param.k, map_param.rescue_cutoff);
+                index_parameters.k, map_param.rescue_cutoff);
         }
 
         if (nams2.empty() || info2.first < 0.7) {
             statistics.tried_rescue += 1;
             nams2.clear();
             find_nams_rescue(nams2, query_mers2, index,
-                map_param.k, map_param.rescue_cutoff);
+                index_parameters.k, map_param.rescue_cutoff);
         }
         auto rescue_finish = std::chrono::high_resolution_clock::now();
         statistics.tot_time_rescue += rescue_finish - rescue_start;
@@ -2616,18 +2617,18 @@ void align_PE_read(
                               nam_read2);
         output_hits_paf_PE(outstring, nam_read1, record1.name,
                            references,
-                           map_param.k,
+                           index_parameters.k,
                            record1.seq.length());
         output_hits_paf_PE(outstring, nam_read2, record2.name,
                            references,
-                           map_param.k,
+                           index_parameters.k,
                            record2.seq.length());
         joint_NAM_scores.clear();
     } else {
         Sam sam(outstring, references);
         align_PE(aln_params, sam, nams1, nams2, record1,
                  record2,
-                 map_param.k,
+                 index_parameters.k,
                  references, statistics,
                  map_param.dropoff_threshold, isize_est, map_param.maxTries, map_param.max_secondary);
     }
@@ -2645,6 +2646,7 @@ void align_SE_read(
     AlignmentStatistics &statistics,
     alignment_params &aln_params,
     mapping_params &map_param,
+    const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index
 ) {
@@ -2656,13 +2658,13 @@ void align_SE_read(
         // generate mers here
         std::transform(record.seq.begin(), record.seq.end(), record.seq.begin(), ::toupper);
         auto strobe_start = std::chrono::high_resolution_clock::now();
-        query_mers = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record.seq, q_id, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
+        query_mers = seq_to_randstrobes2_read(map_param.n, index_parameters.k, map_param.w_min, map_param.w_max, record.seq, q_id, index_parameters.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
         auto strobe_finish = std::chrono::high_resolution_clock::now();
         statistics.tot_construct_strobemers += strobe_finish - strobe_start;
 
         // Find NAMs
         auto nam_start = std::chrono::high_resolution_clock::now();
-        std::pair<float, int> info = find_nams(nams, query_mers, index, map_param.k);
+        std::pair<float, int> info = find_nams(nams, query_mers, index, index_parameters.k);
         auto nam_finish = std::chrono::high_resolution_clock::now();
         statistics.tot_find_nams += nam_finish - nam_start;
 
@@ -2671,7 +2673,7 @@ void align_SE_read(
             if (nams.empty() || info.first < 0.7) {
                 statistics.tried_rescue += 1;
                 nams.clear();
-                find_nams_rescue(nams, query_mers, index, map_param.k, map_param.rescue_cutoff);
+                find_nams_rescue(nams, query_mers, index, index_parameters.k, map_param.rescue_cutoff);
             }
             auto rescue_finish = std::chrono::high_resolution_clock::now();
             statistics.tot_time_rescue += rescue_finish - rescue_start;
@@ -2685,7 +2687,7 @@ void align_SE_read(
 
         auto extend_start = std::chrono::high_resolution_clock::now();
         if (!map_param.is_sam_out) {
-            output_hits_paf(outstring, nams, record.name, references, map_param.k,
+            output_hits_paf(outstring, nams, record.name, references, index_parameters.k,
                             record.seq.length());
         } else {
             Sam sam(outstring, references);
@@ -2694,10 +2696,10 @@ void align_SE_read(
                 // original align_SE function (storing a vector of hits and sorting them)
                 // Such overhead is not present in align_PE - which implements both options in the same function.
 
-                align_SE_secondary_hits(aln_params, sam, nams, record, map_param.k,
+                align_SE_secondary_hits(aln_params, sam, nams, record, index_parameters.k,
                          references, statistics, map_param.dropoff_threshold, map_param.maxTries, map_param.max_secondary);
             } else {
-                align_SE(aln_params, sam, nams, record, map_param.k,
+                align_SE(aln_params, sam, nams, record, index_parameters.k,
                          references, statistics,  map_param.dropoff_threshold, map_param.maxTries);
             }
         }

@@ -4,7 +4,7 @@
 #include "version.hpp"
 
 
-std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int argc, char **argv) {
+std::tuple<CommandLineOptions, mapping_params, IndexParameters> parse_command_line_arguments(int argc, char **argv) {
 
     args::ArgumentParser parser("StrobeAlign " VERSION_STRING);
     parser.helpParams.showTerminator = false;
@@ -76,16 +76,17 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     CommandLineOptions opt;
 
     mapping_params map_param;
+    IndexParameters index_parameters;
     map_param.max_secondary = 0;
     map_param.n = 2;
-    map_param.k = 20;
-    map_param.s = map_param.k - 4;
+    index_parameters.k = 20;
+    index_parameters.s = index_parameters.k - 4;
     map_param.f = 0.0002;
     map_param.R = 2;
     map_param.dropoff_threshold = 0.5;
     map_param.maxTries = 20;
-    map_param.l = 0;
-    map_param.u = 7;
+    index_parameters.l = 0;
+    index_parameters.u = 7;
     map_param.c = 8;
     map_param.r = 150;
     map_param.max_dist = std::min(map_param.r - 50, 255);
@@ -104,11 +105,11 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     // Seeding
     if (r) { map_param.r = args::get(r); opt.r_set = true; }
     if (m) { opt.max_seed_len = args::get(m); opt.max_seed_len_set = true; }
-    if (k) { map_param.k = args::get(k); opt.k_set = true; }
-    if (l) { map_param.l = args::get(l); }
-    if (u) { map_param.u = args::get(u); }
+    if (k) { index_parameters.k = args::get(k); opt.k_set = true; }
+    if (l) { index_parameters.l = args::get(l); }
+    if (u) { index_parameters.u = args::get(u); }
+    if (s) { index_parameters.s = args::get(s); opt.s_set = true; }
     if (c) { map_param.c = args::get(c); }
-    if (s) { map_param.s = args::get(s); opt.s_set = true; }
 
     // Alignment
     // if (n) { n = args::get(n); }
@@ -141,5 +142,5 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
         // exit(1);
     }
 
-    return std::make_pair(opt, map_param);
+    return std::make_tuple(opt, map_param, index_parameters);
 }

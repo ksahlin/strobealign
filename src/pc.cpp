@@ -77,6 +77,7 @@ inline bool align_reads_PE(
     i_dist_est &isize_est,
     alignment_params &aln_params,
     mapping_params &map_param,
+    const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index
 ) {
@@ -93,7 +94,7 @@ inline bool align_reads_PE(
         auto record2 = records2[i];
 
         align_PE_read(record1, record2, sam_out, statistics, isize_est, aln_params,
-                      map_param, references, index);
+                      map_param, index_parameters, references, index);
     }
 //    std::cerr << isize_est_vec[thread_id].mu << " " << isize_est_vec[thread_id].sigma << "\n";
 //    std::cerr << log_stats_vec[thread_id].tot_all_tried << " " << log_stats_vec[thread_id].tot_ksw_aligned << "\n";
@@ -110,6 +111,7 @@ void perform_task_PE(
     std::unordered_map<std::thread::id, i_dist_est> &isize_est_vec,
     alignment_params &aln_params,
     mapping_params &map_param,
+    const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index
 ) {
@@ -125,7 +127,7 @@ void perform_task_PE(
         input_buffer.read_records_PE(records1, records2, log_stats_vec[thread_id]);
         eof = align_reads_PE(input_buffer, output_buffer, records1, records2,
                            log_stats_vec[thread_id], isize_est_vec[thread_id],
-                          aln_params, map_param, references, index);
+                          aln_params, map_param, index_parameters, references, index);
 
         if (eof) {
             break;
@@ -141,6 +143,7 @@ inline bool align_reads_SE(
     AlignmentStatistics &statistics,
     alignment_params &aln_params,
     mapping_params &map_param,
+    const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index
 ) {
@@ -155,7 +158,7 @@ inline bool align_reads_SE(
         auto record1 = records[i];
 
         align_SE_read(record1, sam_out,  statistics, aln_params,
-                      map_param, references, index);
+                      map_param, index_parameters, references, index);
     }
 //    std::cerr << isize_est_vec[thread_id].mu << " " << isize_est_vec[thread_id].sigma << "\n";
 //    std::cerr << log_stats_vec[thread_id].tot_all_tried << " " << log_stats_vec[thread_id].tot_ksw_aligned << "\n";
@@ -172,6 +175,7 @@ void perform_task_SE(
     AlignmentStatistics> &log_stats_vec,
     alignment_params &aln_params,
     mapping_params &map_param,
+    const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index
 ) {
@@ -186,7 +190,7 @@ void perform_task_SE(
         input_buffer.read_records_SE(records1, log_stats_vec[thread_id]);
         eof = align_reads_SE(input_buffer, output_buffer, records1,
                              log_stats_vec[thread_id],
-                             aln_params, map_param, references, index);
+                             aln_params, map_param, index_parameters, references, index);
 
         if (eof){
             break;

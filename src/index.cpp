@@ -252,11 +252,11 @@ void StrobemerIndex::read(References& references, const std::string& filename) {
 }
 
 
-void StrobemerIndex::populate(const References& references, const mapping_params& map_param) {
+void StrobemerIndex::populate(const References& references, const mapping_params& map_param, const IndexParameters& index_parameters) {
     auto start_flat_vector = high_resolution_clock::now();
     hash_vector h_vector;
     {
-        auto ind_flat_vector = generate_seeds(references, map_param);
+        auto ind_flat_vector = generate_seeds(references, map_param, index_parameters);
 
         //Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
         //The hash codes are only needed when generating the index and can be discarded afterwards.
@@ -289,17 +289,17 @@ void StrobemerIndex::populate(const References& references, const mapping_params
     logger.info() << "Total time generating hash table index: " << elapsed_hash_index.count() << " s" <<  std::endl;
 }
 
-ind_mers_vector StrobemerIndex::generate_seeds(const References& references, const mapping_params& map_param) const
+ind_mers_vector StrobemerIndex::generate_seeds(const References& references, const mapping_params& map_param, const IndexParameters& index_parameters) const
 {
     auto start_flat_vector = high_resolution_clock::now();
 
     ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
-    int expected_sampling = map_param.k - map_param.s + 1;
+    int expected_sampling = index_parameters.k - index_parameters.s + 1;
     int approx_vec_size = references.total_length() / expected_sampling;
     logger.debug() << "ref vector approximate size: " << approx_vec_size << std::endl;
     ind_flat_vector.reserve(approx_vec_size);
     for(size_t i = 0; i < references.size(); ++i) {
-        seq_to_randstrobes2(ind_flat_vector, map_param.n, map_param.k, map_param.w_min, map_param.w_max, references.sequences[i], i, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
+        seq_to_randstrobes2(ind_flat_vector, map_param.n, index_parameters.k, map_param.w_min, map_param.w_max, references.sequences[i], i, index_parameters.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
     }
     logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
 

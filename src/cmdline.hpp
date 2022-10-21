@@ -30,6 +30,6 @@ struct CommandLineOptions {
     std::string index_out_filename;
 };
 
-std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int argc, char **argv);
+std::tuple<CommandLineOptions, mapping_params, IndexParameters> parse_command_line_arguments(int argc, char **argv);
 
 #endif
