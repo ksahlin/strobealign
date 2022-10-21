@@ -97,7 +97,20 @@ static inline bool sort_hits(const hit &a, const hit &b)
     return (a.query_s < b.query_s) || ( (a.query_s == b.query_s) && (a.ref_s < b.ref_s) );
 }
 
-static inline void find_nams_rescue(std::vector<Hit> hits_fw, std::vector<Hit> hits_rc, std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, const mers_vector_read &query_mers, const mers_vector &ref_mers, kmer_lookup &mers_index, int k, const std::vector<std::string> &ref_seqs, const std::string &read, unsigned int filter_cutoff ){
+
+static inline void find_nams_rescue(
+    std::vector<Hit> hits_fw,
+    std::vector<Hit> hits_rc,
+    std::vector<nam> &final_nams,
+    robin_hood::unordered_map<unsigned int, std::vector<hit>> &hits_per_ref,
+    const mers_vector_read &query_mers,
+    const mers_vector &ref_mers,
+    kmer_lookup &mers_index,
+    int k,
+    const std::vector<std::string> &ref_seqs,
+    const std::string &read,
+    unsigned int filter_cutoff
+) {
 //    std::pair<float,int> info (0,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
     bool is_rc = true, no_rep_fw = true, no_rep_rc = true;
@@ -385,26 +398,31 @@ static inline void find_nams_rescue(std::vector<Hit> hits_fw, std::vector<Hit> h
 //        std::cerr << "RESCUE NAM: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << " " <<  n.is_rc << std::endl;
 //    }
 //    info.second = max_nam_n_hits;
-    return ;
-
 }
 
 
-static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin_hood::unordered_map< unsigned int, std::vector<hit>> &hits_per_ref, mers_vector_read &query_mers, mers_vector &ref_mers, kmer_lookup &mers_index, int k, const std::vector<std::string> &ref_seqs, std::string &read, unsigned int filter_cutoff ){
-//    std::cerr << "ENTER FIND NAMS " <<  std::endl;
+static inline std::pair<float,int> find_nams(
+    std::vector<nam> &final_nams,
+    robin_hood::unordered_map<unsigned int, std::vector<hit>> &hits_per_ref,
+    mers_vector_read &query_mers,
+    mers_vector &ref_mers,
+    kmer_lookup &mers_index,
+    int k,
+    const std::vector<std::string> &ref_seqs,
+    std::string &read,
+    unsigned int filter_cutoff
+) {
 //    robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref; // [ref_id] -> vector( struct hit)
 //    std::vector<std::vector<hit>> hits_per_ref(10);
 //    int read_length = read.length();
-//    std::cerr << " "  <<  std::endl;
     std::pair<float,int> info (0.0f,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
     hit h;
     for (auto &q : query_mers)
 //    for (size_t i = 0; i < query_mers.size(); ++i)
     {
-//        std::cerr << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
         auto mer_hashv = q.hash;
-        if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
+        if (mers_index.find(mer_hashv) != mers_index.end()) { //  In  index
             total_hits ++;
             h.query_s = q.position;
             h.query_e = h.query_s + q.offset_strobe + k; // h.query_s + read_length/2;
@@ -594,7 +612,6 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
                 open_nams.push_back(n);
             }
 
-
             // Only filter if we have advanced at least k nucleotides
             if (h.query_s > prev_q_start + k) {
 
@@ -618,8 +635,6 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
                 open_nams.erase(std::remove_if(open_nams.begin(), open_nams.end(), predicate), open_nams.end());
                 prev_q_start = h.query_s;
             }
-
-
         }
 
         // Add all current open_matches to final NAMs
@@ -640,11 +655,6 @@ static inline std::pair<float,int> find_nams(std::vector<nam> &final_nams, robin
 //        std::cerr << "NAM ORG: nam_id: " << n.nam_id << " ref_id: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << " diff: " << diff << " is_rc: " << n.is_rc << std::endl;
 //    }
     return info;
-
-//
-//    std::cerr << "DONE" << std::endl;
-
-//    return final_nams;
 }
 
 
@@ -2875,7 +2885,6 @@ void align_SE_read(KSeq &record, std::string &outstring, AlignmentStatistics &st
 
         std::string seq, seq_rc;
         unsigned int q_id = 0;
-        std::pair<float, int> info;
         mers_vector_read query_mers; // pos, chr_id, kmer hash value
         std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
         robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
@@ -2894,7 +2903,7 @@ void align_SE_read(KSeq &record, std::string &outstring, AlignmentStatistics &st
 
         // Find NAMs
         auto nam_start = std::chrono::high_resolution_clock::now();
-        info = find_nams(nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, references.sequences, record.seq, map_param.filter_cutoff);
+        std::pair<float, int> info = find_nams(nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, references.sequences, record.seq, map_param.filter_cutoff);
         hits_per_ref.clear();
         auto nam_finish = std::chrono::high_resolution_clock::now();
         statistics.tot_find_nams += nam_finish - nam_start;
