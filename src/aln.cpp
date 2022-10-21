@@ -93,15 +93,16 @@ inline aln_info ssw_align(const std::string &ref, const std::string &query, int 
 
 static inline void find_nams_rescue(
     std::vector<nam> &final_nams,
-    robin_hood::unordered_map<unsigned int, std::vector<hit>> &hits_per_ref,
     const mers_vector_read &query_mers,
     const mers_vector &ref_mers,
     kmer_lookup &mers_index,
     int k,
     unsigned int filter_cutoff
 ) {
+    robin_hood::unordered_map<unsigned int, std::vector<hit>> hits_per_ref;
     std::vector<Hit> hits_fw;
     std::vector<Hit> hits_rc;
+    hits_per_ref.reserve(100);
     hits_fw.reserve(5000);
     hits_rc.reserve(5000);
 
@@ -308,13 +309,15 @@ static inline void find_nams_rescue(
 
 static inline std::pair<float,int> find_nams(
     std::vector<nam> &final_nams,
-    robin_hood::unordered_map<unsigned int, std::vector<hit>> &hits_per_ref,
     const mers_vector_read &query_mers,
     const mers_vector &ref_mers,
     kmer_lookup &mers_index,
     int k,
     unsigned int filter_cutoff
 ) {
+    robin_hood::unordered_map<unsigned int, std::vector<hit>> hits_per_ref;
+    hits_per_ref.reserve(100);
+
     std::pair<float,int> info (0.0f,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
     hit h;
@@ -2577,17 +2580,13 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, Alignme
 
     // Find NAMs
     auto nam_start = std::chrono::high_resolution_clock::now();
-    robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
-    hits_per_ref.reserve(100);
     std::vector<nam> nams1;
     std::vector<nam> nams2;
     std::pair<float, int> info1, info2;
-    info1 = find_nams(nams1, hits_per_ref, query_mers1, flat_vector, mers_index, map_param.k,
+    info1 = find_nams(nams1, query_mers1, flat_vector, mers_index, map_param.k,
                       map_param.filter_cutoff);
-    hits_per_ref.clear();
-    info2 = find_nams(nams2, hits_per_ref, query_mers2, flat_vector, mers_index, map_param.k,
+    info2 = find_nams(nams2, query_mers2, flat_vector, mers_index, map_param.k,
                       map_param.filter_cutoff);
-    hits_per_ref.clear();
     auto nam_finish = std::chrono::high_resolution_clock::now();
     statistics.tot_find_nams += nam_finish - nam_start;
 
@@ -2597,17 +2596,15 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, Alignme
         if (nams1.empty() || info1.first < 0.7) {
             statistics.tried_rescue += 1;
             nams1.clear();
-            find_nams_rescue(nams1, hits_per_ref, query_mers1, flat_vector,
+            find_nams_rescue(nams1, query_mers1, flat_vector,
                 mers_index, map_param.k, map_param.rescue_cutoff);
-            hits_per_ref.clear();
         }
 
         if (nams2.empty() || info2.first < 0.7) {
             statistics.tried_rescue += 1;
             nams2.clear();
-            find_nams_rescue(nams2, hits_per_ref, query_mers2, flat_vector,
+            find_nams_rescue(nams2, query_mers2, flat_vector,
                 mers_index, map_param.k, map_param.rescue_cutoff);
-            hits_per_ref.clear();
         }
         auto rescue_finish = std::chrono::high_resolution_clock::now();
         statistics.tot_time_rescue += rescue_finish - rescue_start;
@@ -2669,8 +2666,6 @@ void align_SE_read(KSeq &record, std::string &outstring, AlignmentStatistics &st
         unsigned int q_id = 0;
         mers_vector_read query_mers; // pos, chr_id, kmer hash value
         std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
-        robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
-        hits_per_ref.reserve(100);
 
         // generate mers here
         std::transform(record.seq.begin(), record.seq.end(), record.seq.begin(), ::toupper);
@@ -2681,8 +2676,7 @@ void align_SE_read(KSeq &record, std::string &outstring, AlignmentStatistics &st
 
         // Find NAMs
         auto nam_start = std::chrono::high_resolution_clock::now();
-        std::pair<float, int> info = find_nams(nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, map_param.filter_cutoff);
-        hits_per_ref.clear();
+        std::pair<float, int> info = find_nams(nams, query_mers, flat_vector, mers_index, map_param.k, map_param.filter_cutoff);
         auto nam_finish = std::chrono::high_resolution_clock::now();
         statistics.tot_find_nams += nam_finish - nam_start;
 
@@ -2691,9 +2685,8 @@ void align_SE_read(KSeq &record, std::string &outstring, AlignmentStatistics &st
             if (nams.empty() || info.first < 0.7) {
                 statistics.tried_rescue += 1;
                 nams.clear();
-                find_nams_rescue(nams, hits_per_ref, query_mers, flat_vector,
+                find_nams_rescue(nams, query_mers, flat_vector,
                     mers_index, map_param.k, map_param.rescue_cutoff);
-                hits_per_ref.clear();
             }
             auto rescue_finish = std::chrono::high_resolution_clock::now();
             statistics.tot_time_rescue += rescue_finish - rescue_start;
