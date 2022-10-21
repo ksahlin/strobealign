@@ -1556,7 +1556,7 @@ static inline void get_alignment(
     if (!fits) {
         did_not_fit++;
         aln_did_not_fit = true;
-        sam_aln.not_proper = true;
+        sam_aln.is_proper = false;
     }
 
     std::string r_tmp;
@@ -2169,7 +2169,7 @@ static inline void rescue_mate(const alignment_params &aln_params, nam &n, const
         sam_aln.is_rc = n.is_rc;
         sam_aln.ref_id = n.ref_id;
         sam_aln.is_unaligned = true;
-        sam_aln.not_proper = true;
+        sam_aln.is_proper = false;
 //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return;
     }
@@ -2197,7 +2197,7 @@ static inline void rescue_mate(const alignment_params &aln_params, nam &n, const
         sam_aln.is_rc = n.is_rc;
         sam_aln.ref_id = n.ref_id;
         sam_aln.is_unaligned = true;
-        sam_aln.not_proper = true;
+        sam_aln.is_proper = false;
 //        std::cerr << "Avoided!" << std::endl;
         return;
 //        std::cerr << "Aligning anyway at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
@@ -2447,19 +2447,15 @@ inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &a
     bool r1_r2 = n_max2.is_rc && (a < b) && ((b-a) < 2000); // r1 ---> <---- r2
     bool r2_r1 = n_max1.is_rc && (b < a) && ((a-b) < 2000); // r2 ---> <---- r1
     if (score_dropoff1 < dropoff && score_dropoff2 < dropoff && (n_max1.is_rc ^ n_max2.is_rc) && (r1_r2 || r2_r1)) { //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
-//            std::cerr << query_acc1 << std::endl;
         get_alignment(aln_params, n_max1, references, read1, read1_rc, sam_aln1, k, rc_already_comp1, statistics.did_not_fit, statistics.tot_ksw_aligned);
         statistics.tot_all_tried ++;
-//            std::cerr << query_acc2 << std::endl;
         get_alignment(aln_params, n_max2, references, read2, read2_rc, sam_aln2, k, rc_already_comp2, statistics.did_not_fit, statistics.tot_ksw_aligned);
         statistics.tot_all_tried ++;
-//            std::cerr<< "6" << std::endl;
         mapq1 = get_MAPQ(all_nams1, n_max1);
         mapq2 = get_MAPQ(all_nams2, n_max2);
-//            std::cerr<< "7" << std::endl;
         sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc, mapq1, mapq2, mu, sigma, true);
 
-        if ((isize_est.sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && !sam_aln1.not_proper && !sam_aln2.not_proper ){
+        if ((isize_est.sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && sam_aln1.is_proper && sam_aln2.is_proper ){
             isize_est.update(std::abs(sam_aln1.ref_start - sam_aln2.ref_start));
         }
         return;
