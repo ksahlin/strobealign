@@ -99,8 +99,6 @@ static inline bool sort_hits(const hit &a, const hit &b)
 
 
 static inline void find_nams_rescue(
-    std::vector<Hit> hits_fw,
-    std::vector<Hit> hits_rc,
     std::vector<nam> &final_nams,
     robin_hood::unordered_map<unsigned int, std::vector<hit>> &hits_per_ref,
     const mers_vector_read &query_mers,
@@ -111,6 +109,11 @@ static inline void find_nams_rescue(
     const std::string &read,
     unsigned int filter_cutoff
 ) {
+    std::vector<Hit> hits_fw;
+    std::vector<Hit> hits_rc;
+    hits_fw.reserve(5000);
+    hits_rc.reserve(5000);
+
 //    std::pair<float,int> info (0,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
     bool is_rc = true, no_rep_fw = true, no_rep_rc = true;
@@ -2795,37 +2798,24 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, Alignme
 
     if (map_param.R > 1) {
         auto rescue_start = std::chrono::high_resolution_clock::now();
-        std::vector<Hit> hits_fw;
-        std::vector<Hit> hits_rc;
         if (nams1.empty() || info1.first < 0.7) {
-            hits_fw.reserve(5000);
-            hits_rc.reserve(5000);
             statistics.tried_rescue += 1;
             nams1.clear();
-            find_nams_rescue(hits_fw, hits_rc, nams1, hits_per_ref, query_mers1,
+            find_nams_rescue(nams1, hits_per_ref, query_mers1,
                                      flat_vector,
                                      mers_index, map_param.k, references.sequences,
                                      record1.seq, map_param.rescue_cutoff);
             hits_per_ref.clear();
-            hits_fw.clear();
-            hits_rc.clear();
-//                    std::cerr << "Found: " << nams.size() <<  std::endl;
         }
 
         if (nams2.empty() || info2.first < 0.7) {
-            hits_fw.reserve(5000);
-            hits_rc.reserve(5000);
             statistics.tried_rescue += 1;
             nams2.clear();
-//                        std::cerr << "Rescue is_sam_out read 2: " << record2.name << info2.first <<  std::endl;
-            find_nams_rescue(hits_fw, hits_rc, nams2, hits_per_ref, query_mers2,
+            find_nams_rescue(nams2, hits_per_ref, query_mers2,
                                      flat_vector,
                                      mers_index, map_param.k, references.sequences,
                                      record2.seq, map_param.rescue_cutoff);
             hits_per_ref.clear();
-            hits_fw.clear();
-            hits_rc.clear();
-//                    std::cerr << "Found: " << nams.size() <<  std::endl;
         }
         auto rescue_finish = std::chrono::high_resolution_clock::now();
         statistics.tot_time_rescue += rescue_finish - rescue_start;
@@ -2888,11 +2878,7 @@ void align_SE_read(KSeq &record, std::string &outstring, AlignmentStatistics &st
         mers_vector_read query_mers; // pos, chr_id, kmer hash value
         std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
         robin_hood::unordered_map< unsigned int, std::vector<hit>> hits_per_ref;
-        std::vector<Hit> hits_fw;
-        std::vector<Hit> hits_rc;
         hits_per_ref.reserve(100);
-        hits_fw.reserve(5000);
-        hits_rc.reserve(5000);
 
         // generate mers here
         std::transform(record.seq.begin(), record.seq.end(), record.seq.begin(), ::toupper);
@@ -2913,11 +2899,9 @@ void align_SE_read(KSeq &record, std::string &outstring, AlignmentStatistics &st
             if (nams.empty() || info.first < 0.7) {
                 statistics.tried_rescue += 1;
                 nams.clear();
-                find_nams_rescue(hits_fw, hits_rc, nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, references.sequences,
+                find_nams_rescue(nams, hits_per_ref, query_mers, flat_vector, mers_index, map_param.k, references.sequences,
                                         record.seq, map_param.rescue_cutoff);
                 hits_per_ref.clear();
-                hits_fw.clear();
-                hits_rc.clear();
             }
             auto rescue_finish = std::chrono::high_resolution_clock::now();
             statistics.tot_time_rescue += rescue_finish - rescue_start;
