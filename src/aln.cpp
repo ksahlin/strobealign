@@ -107,24 +107,15 @@ static inline void find_nams_rescue(
     hits_fw.reserve(5000);
     hits_rc.reserve(5000);
 
-    int total_hits = 0;
-    bool is_rc = true;
-    for (auto &q : query_mers)
-    {
+    for (auto &q : query_mers) {
         auto mer_hashv = q.hash;
         if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
-            total_hits ++;
             auto ref_hit = mers_index[mer_hashv];
-            auto offset = ref_hit.offset;
-            auto count = ref_hit.count;
-            auto query_s = q.position;
-            auto query_e = query_s + q.offset_strobe + k;
-            is_rc = q.is_reverse;
-            if (is_rc){
-                Hit s{count, offset, query_s, query_e, is_rc};
+            auto query_e = q.position + q.offset_strobe + k;
+            Hit s{ref_hit.count, ref_hit.offset, q.position, query_e, q.is_reverse};
+            if (q.is_reverse){
                 hits_rc.push_back(s);
             } else {
-                Hit s{count, offset, query_s, query_e, is_rc};
                 hits_fw.push_back(s);
             }
         }
