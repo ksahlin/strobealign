@@ -891,8 +891,18 @@ inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<n
 }
 
 
-static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, const References& references, AlignmentStatistics &statistics, float dropoff, int max_tries, int max_secondary ) {
-
+static inline void align_SE_secondary_hits(
+    const alignment_params &aln_params,
+    Sam& sam,
+    std::vector<nam> &all_nams,
+    const KSeq& record,
+    int k,
+    const References& references,
+    AlignmentStatistics &statistics,
+    float dropoff,
+    int max_tries,
+    int max_secondary
+) {
     auto query_acc = record.name;
     auto read = record.seq;
     auto qual = record.qual;
@@ -1182,7 +1192,20 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sa
 }
 
 
-static inline void align_segment(alignment_params &aln_params, std::string &read_segm, std::string &ref_segm, int read_segm_len, int ref_segm_len, int ref_start,  int ext_left, int ext_right, bool aln_did_not_fit, bool is_rc, alignment &sam_aln_segm, unsigned int &tot_ksw_aligned) {
+static inline void align_segment(
+    const alignment_params &aln_params,
+    const std::string &read_segm,
+    const std::string &ref_segm,
+    int read_segm_len,
+    int ref_segm_len,
+    int ref_start,
+    int ext_left,
+    int ext_right,
+    bool aln_did_not_fit,
+    bool is_rc,
+    alignment &sam_aln_segm,
+    unsigned int &tot_ksw_aligned
+) {
     int hamming_dist = -1;
     int soft_left = 50;
     int soft_right = 50;
@@ -1215,7 +1238,7 @@ static inline void align_segment(alignment_params &aln_params, std::string &read
 
     aln_info info;
     info = ssw_align(ref_segm, read_segm, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
-    tot_ksw_aligned ++;
+    tot_ksw_aligned++;
     sam_aln_segm.cigar = info.cigar;
     sam_aln_segm.ed = info.ed;
 //    std::cerr << r_tmp << " " << n.n_hits << " " << n.score << " " <<  diff << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << hamming_dist << " " << sam_aln.cigar << " " << info.sw_score << std::endl;
@@ -1245,7 +1268,7 @@ static inline void align_segment(alignment_params &aln_params, std::string &read
 */
 
 static inline void get_alignment(
-    alignment_params &aln_params,
+    const alignment_params &aln_params,
     nam &n,
     const References& references,
     const std::string &read,
@@ -2022,7 +2045,7 @@ static inline void rescue_mate(const alignment_params &aln_params, nam &n, const
 
 void rescue_read(
     std::string& read2, // The read to be rescued
-    alignment_params &aln_params, // TODO should be const
+    const alignment_params &aln_params,
     const References& references,
     std::vector<nam> &all_nams1,
     int max_tries,
@@ -2133,10 +2156,20 @@ void rescue_read(
 
 
 
-inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2,
-                     const KSeq &record1, const KSeq &record2, int k,
-                     const References& references,
-                       AlignmentStatistics &statistics, float dropoff, i_dist_est &isize_est, int max_tries, size_t max_secondary) {
+inline void align_PE(
+    const alignment_params &aln_params,
+    Sam &sam,
+    std::vector<nam> &all_nams1,
+    std::vector<nam> &all_nams2,
+    const KSeq &record1, const KSeq &record2,
+    int k,
+    const References& references,
+    AlignmentStatistics &statistics,
+    float dropoff,
+    i_dist_est &isize_est,
+    int max_tries,
+    size_t max_secondary
+) {
     const auto mu = isize_est.mu;
     const auto sigma = isize_est.sigma;
     std::string read1 = record1.seq;
@@ -2537,8 +2570,8 @@ void align_PE_read(
     std::string &outstring,
     AlignmentStatistics &statistics,
     i_dist_est &isize_est,
-    alignment_params &aln_params,
-    mapping_params &map_param,
+    const alignment_params &aln_params,
+    const mapping_params &map_param,
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index
@@ -2644,8 +2677,8 @@ void align_SE_read(
     KSeq &record,
     std::string &outstring,
     AlignmentStatistics &statistics,
-    alignment_params &aln_params,
-    mapping_params &map_param,
+    const alignment_params &aln_params,
+    const mapping_params &map_param,
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index
