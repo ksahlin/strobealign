@@ -89,11 +89,12 @@ public:
 };
 
 /* Settings that influence index creation */
-struct IndexParameters {
-    int k;
-    int s;
-    int l;
-    int u;
+class IndexParameters {
+public:
+    int k { 20 };
+    int s { 16 };
+    int u { 7 };
+    int l { 0 };
 
     void verify() const {
         if (k <= 7 || k > 32) {

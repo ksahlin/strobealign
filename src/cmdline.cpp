@@ -78,14 +78,11 @@ std::tuple<CommandLineOptions, mapping_params, IndexParameters> parse_command_li
     mapping_params map_param;
     IndexParameters index_parameters;
     map_param.max_secondary = 0;
-    index_parameters.k = 20;
-    index_parameters.s = index_parameters.k - 4;
+
     map_param.f = 0.0002;
     map_param.R = 2;
     map_param.dropoff_threshold = 0.5;
     map_param.maxTries = 20;
-    index_parameters.l = 0;
-    index_parameters.u = 7;
     map_param.r = 150;
     map_param.max_dist = std::min(map_param.r - 50, 255);
     map_param.is_sam_out = true;  // true: align, false: map
