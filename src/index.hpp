@@ -4,7 +4,6 @@
 //
 //  Created by Kristoffer Sahlin on 4/21/21.
 //
-
 #ifndef index_hpp
 #define index_hpp
 
@@ -91,10 +90,25 @@ public:
 /* Settings that influence index creation */
 class IndexParameters {
 public:
-    int k { 20 };
-    int s { 16 };
-    int u { 7 };
-    int l { 0 };
+    const int k;
+    const int s;
+    const int l;
+    const int u;
+    const int t_syncmer;
+    const int w_min;
+    const int w_max;
+
+    IndexParameters(int k, int s, int l, int u)
+        : k(k)
+        , s(s)
+        , l(l)
+        , u(u)
+        , t_syncmer((k - s) / 2 + 1)
+        , w_min(std::max(1, k / (k - s + 1) + l))
+        , w_max(k / (k - s + 1) + u) {
+    }
+
+    static IndexParameters from_read_length(int read_length, int k = -1, int s = -1);
 
     void verify() const {
         if (k <= 7 || k > 32) {
@@ -107,51 +121,8 @@ public:
             throw BadParameter("(k - s) should be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
         }
     }
-
-    int t_syncmer() const {
-        return (k - s) / 2 + 1;
-    }
-
-    int w_min() const {
-        return std::max(1, k / (k - s + 1) + l);
-    }
-
-    int w_max() const {
-        return k / (k - s + 1) + u;
-    }
-
-    /* Adjust l, u, and optionally k and/or s depending on read length */
-    void adjust_depending_on_read_length(int read_length, bool overwrite_k, bool overwrite_s) {
-        struct settings {
-            int r_threshold;
-            int k;
-            int s_offset;
-            int l;
-            int u;
-        };
-        std::vector<settings> d = {
-            settings {75, 20, -4, -4, 2},
-            settings {125, 20, -4, -2, 2},
-            settings {175, 20, -4, 1, 7},
-            settings {275, 20, -4, 4, 13},
-            settings {375, 22, -4, 2, 12},
-            settings {std::numeric_limits<int>::max(), 23, -6, 2, 12},
-        };
-        for (const auto& v : d) {
-            if (read_length <= v.r_threshold) {
-                if (overwrite_k) {
-                    this->k = v.k;
-                }
-                if (overwrite_s) {
-                    this->s = this->k + v.s_offset;
-                }
-                this->l = v.l;
-                this->u = v.u;
-                break;
-            }
-        }
-    }
 };
+
 
 struct mapping_params {
     uint64_t q;

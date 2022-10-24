@@ -4,7 +4,7 @@
 #include "version.hpp"
 
 
-std::tuple<CommandLineOptions, mapping_params, IndexParameters> parse_command_line_arguments(int argc, char **argv) {
+std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int argc, char **argv) {
 
     args::ArgumentParser parser("StrobeAlign " VERSION_STRING);
     parser.helpParams.showTerminator = false;
@@ -76,7 +76,6 @@ std::tuple<CommandLineOptions, mapping_params, IndexParameters> parse_command_li
     CommandLineOptions opt;
 
     mapping_params map_param;
-    IndexParameters index_parameters;
     map_param.max_secondary = 0;
 
     map_param.f = 0.0002;
@@ -100,10 +99,10 @@ std::tuple<CommandLineOptions, mapping_params, IndexParameters> parse_command_li
     // Seeding
     if (r) { map_param.r = args::get(r); opt.r_set = true; }
     if (m) { opt.max_seed_len = args::get(m); opt.max_seed_len_set = true; }
-    if (k) { index_parameters.k = args::get(k); opt.k_set = true; }
-    if (l) { index_parameters.l = args::get(l); }
-    if (u) { index_parameters.u = args::get(u); }
-    if (s) { index_parameters.s = args::get(s); opt.s_set = true; }
+    if (k) { opt.k = args::get(k); opt.k_set = true; }
+    if (l) { opt.l = args::get(l); }
+    if (u) { opt.u = args::get(u); }
+    if (s) { opt.s = args::get(s); opt.s_set = true; }
     if (c) { opt.c = args::get(c); }
 
     // Alignment
@@ -137,5 +136,5 @@ std::tuple<CommandLineOptions, mapping_params, IndexParameters> parse_command_li
         // exit(1);
     }
 
-    return std::make_tuple(opt, map_param, index_parameters);
+    return std::make_pair(opt, map_param);
 }

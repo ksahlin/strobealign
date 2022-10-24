@@ -187,15 +187,13 @@ int main(int argc, char **argv)
 {
     CommandLineOptions opt;
     mapping_params map_param;
-    IndexParameters index_parameters;
-    std::tie(opt, map_param, index_parameters) = parse_command_line_arguments(argc, argv);
+    std::tie(opt, map_param) = parse_command_line_arguments(argc, argv);
 
     logger.set_level(opt.verbose ? LOG_DEBUG : LOG_INFO);
     if (!opt.r_set) {
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
     }
-    index_parameters.adjust_depending_on_read_length(map_param.r, !opt.k_set, !opt.s_set);
-
+    IndexParameters index_parameters = IndexParameters::from_read_length(map_param.r, opt.k_set ? opt.k : -1, opt.s_set ? opt.s : -1);
     if (!opt.max_seed_len_set){
         map_param.max_dist = std::max(map_param.r - 70, index_parameters.k);
         map_param.max_dist = std::min(255, map_param.max_dist);
@@ -218,14 +216,14 @@ int main(int argc, char **argv)
     logger.debug() << "Using" << std::endl
         << "k: " << index_parameters.k << std::endl
         << "s: " << index_parameters.s << std::endl
-        << "w_min: " << index_parameters.w_min() << std::endl
-        << "w_max: " << index_parameters.w_max() << std::endl
+        << "w_min: " << index_parameters.w_min << std::endl
+        << "w_max: " << index_parameters.w_max << std::endl
         << "Read length (r): " << map_param.r << std::endl
         << "Maximum seed length: " << map_param.max_dist + index_parameters.k << std::endl
         << "Threads: " << opt.n_threads << std::endl
         << "R: " << map_param.R << std::endl
-        << "Expected [w_min, w_max] in #syncmers: [" << index_parameters.w_min() << ", " << index_parameters.w_max() << "]" << std::endl
-        << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_min() << ", " << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_max() << "]" << std::endl
+        << "Expected [w_min, w_max] in #syncmers: [" << index_parameters.w_min << ", " << index_parameters.w_max << "]" << std::endl
+        << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_min << ", " << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_max << "]" << std::endl
         << "A: " << opt.A << std::endl
         << "B: " << opt.B << std::endl
         << "O: " << opt.O << std::endl

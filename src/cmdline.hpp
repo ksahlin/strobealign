@@ -7,6 +7,14 @@
 #include "index.hpp"
 
 struct CommandLineOptions {
+    // Index parameters
+    bool k_set { false };
+    bool s_set{ false };
+    int k { 20 };
+    int s { 16 };
+    int u { 7 };
+    int l { 0 };
+
     int A { 2 };
     int B { 8 };
     int O { 12 };
@@ -21,16 +29,14 @@ struct CommandLineOptions {
     std::string reads_filename1;
     std::string reads_filename2;
     bool is_SE { true };
-    bool k_set { false };
     bool write_to_stdout { true };
     bool index_log { false };
     bool r_set { false };
     bool max_seed_len_set { false };
-    bool s_set{ false };
     bool only_gen_index{ false };
     std::string index_out_filename;
 };
 
-std::tuple<CommandLineOptions, mapping_params, IndexParameters> parse_command_line_arguments(int argc, char **argv);
+std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int argc, char **argv);
 
 #endif

@@ -21,6 +21,44 @@ typedef std::vector< uint64_t > hash_vector; //only used during index generation
 static Logger& logger = Logger::get();
 
 
+/* Create an IndexParameters instance based on a given read length.
+ * k and/or s can be specified explicitly by setting them to a value other than
+ * -1, but otherwise reasonable defaults are used for them as well.
+ */
+IndexParameters IndexParameters::from_read_length(int read_length, int k, int s) {
+    int l, u;
+    struct settings {
+        int r_threshold;
+        int k;
+        int s_offset;
+        int l;
+        int u;
+    };
+    std::vector<settings> d = {
+        settings {75, 20, -4, -4, 2},
+        settings {125, 20, -4, -2, 2},
+        settings {175, 20, -4, 1, 7},
+        settings {275, 20, -4, 4, 13},
+        settings {375, 22, -4, 2, 12},
+        settings {std::numeric_limits<int>::max(), 23, -6, 2, 12},
+    };
+    for (const auto& v : d) {
+        if (read_length <= v.r_threshold) {
+            if (k == -1) {
+                k = v.k;
+            }
+            if (s == -1) {
+                s = k + v.s_offset;
+            }
+            l = v.l;
+            u = v.u;
+            break;
+        }
+    }
+    return IndexParameters(k, s, l, u);
+}
+
+
 /* Add a new observation */
 void i_dist_est::update(int dist)
 {
@@ -299,7 +337,7 @@ ind_mers_vector StrobemerIndex::generate_seeds(const References& references, con
     logger.debug() << "ref vector approximate size: " << approx_vec_size << std::endl;
     ind_flat_vector.reserve(approx_vec_size);
     for(size_t i = 0; i < references.size(); ++i) {
-        seq_to_randstrobes2(ind_flat_vector, index_parameters.k, index_parameters.w_min(), index_parameters.w_max(), references.sequences[i], i, index_parameters.s, index_parameters.t_syncmer(), map_param.q, map_param.max_dist);
+        seq_to_randstrobes2(ind_flat_vector, index_parameters.k, index_parameters.w_min, index_parameters.w_max, references.sequences[i], i, index_parameters.s, index_parameters.t_syncmer, map_param.q, map_param.max_dist);
     }
     logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
 
