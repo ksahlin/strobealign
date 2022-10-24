@@ -170,38 +170,6 @@ int estimate_read_length(std::string filename1, std::string filename2) {
     }
 }
 
-/* Adjust parameters.{k,s,l,u} depending on read length */
-void adjust_index_params_depending_on_read_length(int read_length, IndexParameters &parameters, const CommandLineOptions &opt) {
-    struct settings {
-        int r_threshold;
-        int k;
-        int s_offset;
-        int l;
-        int u;
-    };
-    std::vector<settings> d = {
-        settings {75, 20, -4, -4, 2},
-        settings {125, 20, -4, -2, 2},
-        settings {175, 20, -4, 1, 7},
-        settings {275, 20, -4, 4, 13},
-        settings {375, 22, -4, 2, 12},
-        settings {std::numeric_limits<int>::max(), 23, -6, 2, 12},
-    };
-    for (const auto& v : d) {
-        if (read_length <= v.r_threshold) {
-            if (!opt.k_set) {
-                parameters.k = v.k;
-            }
-            if (!opt.s_set) {
-                parameters.s = parameters.k + v.s_offset;
-            }
-            parameters.l = v.l;
-            parameters.u = v.u;
-            break;
-        }
-    }
-}
-
 
 /*
  * Return formatted SAM header as a string
@@ -226,7 +194,7 @@ int main(int argc, char **argv)
     if (!opt.r_set) {
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
     }
-    adjust_index_params_depending_on_read_length(map_param.r, index_parameters, opt);
+    index_parameters.adjust_depending_on_read_length(map_param.r, !opt.k_set, !opt.s_set);
 
     if (!opt.max_seed_len_set){
         map_param.max_dist = std::max(map_param.r - 70, index_parameters.k);
