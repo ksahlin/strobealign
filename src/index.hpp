@@ -135,12 +135,8 @@ struct mapping_params {
     int r { 150 };
     int max_secondary { 0 };
     float dropoff_threshold { 0.5 };
-    int m;
-    int S;
-    int M;
     int R { 2 };
     int maxTries { 20 };
-    int max_seed_len;
     int rescue_cutoff;
     bool is_sam_out { true };
 
