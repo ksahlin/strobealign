@@ -2187,7 +2187,7 @@ inline void align_PE(
     }
 
     if (!all_nams1.empty() && all_nams2.empty()) {
-        // Only read 2 has NAMs, rescue it
+        // Only read 1 has NAMS: attempt to rescue read 2
         rescue_read(
             read2,
             aln_params,
@@ -2214,7 +2214,7 @@ inline void align_PE(
     }
 
     if (all_nams1.empty() && !all_nams2.empty()) {
-        // Only read 1 has NAMs, rescue it
+        // Only read 2 has NAMS: attempt to rescue read 1
         rescue_read(
             read1,
             aln_params,
