@@ -123,22 +123,21 @@ public:
     }
 };
 
-
 struct mapping_params {
     uint64_t q;
-    int r;
-    int max_secondary;
-    float dropoff_threshold;
+    int r { 150 };
+    int max_secondary { 0 };
+    float dropoff_threshold { 0.5 };
     int m;
-    float f;
+    float f { 0.0002 };
     int S;
     int M;
-    int R;
-    int max_dist;
-    int maxTries;
+    int R { 2 };
+    int max_dist { 100 };
+    int maxTries { 20 };
     int max_seed_len;
     int rescue_cutoff;
-    bool is_sam_out;
+    bool is_sam_out { true };
 
     void verify() const {
         if (max_dist > 255) {
