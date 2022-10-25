@@ -9,7 +9,7 @@ INSTALLATION
 ----------------
 
 ### Conda
-Strobealign [can be installed through conda](https://anaconda.org/bioconda/strobealign). Simply run
+Strobealign can be installed through conda. Simply run
 
 ```
 conda create -n strobealign strobealign
