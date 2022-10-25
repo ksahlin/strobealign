@@ -13,6 +13,7 @@
 #include <vector>
 #include <deque>
 #include <tuple>
+#include <cmath>
 #include "robin_hood.h"
 #include "exceptions.hpp"
 #include "refs.hpp"
@@ -94,23 +95,25 @@ public:
     const int s;
     const int l;
     const int u;
+    uint64_t q;
     const int max_dist;
     const int t_syncmer;
     const int w_min;
     const int w_max;
 
-    IndexParameters(int k, int s, int l, int u, int max_dist)
+    IndexParameters(int k, int s, int l, int u, int q, int max_dist)
         : k(k)
         , s(s)
         , l(l)
         , u(u)
+        , q(q)
         , max_dist(max_dist)
         , t_syncmer((k - s) / 2 + 1)
         , w_min(std::max(1, k / (k - s + 1) + l))
         , w_max(k / (k - s + 1) + u) {
     }
 
-    static IndexParameters from_read_length(int read_length, int k = -1, int s = -1, int max_seed_len = -1);
+    static IndexParameters from_read_length(int read_length, int c, int k = -1, int s = -1, int max_seed_len = -1);
 
     void verify() const {
         if (k <= 7 || k > 32) {
@@ -129,7 +132,6 @@ public:
 };
 
 struct mapping_params {
-    uint64_t q;
     float f { 0.0002 };
     int r { 150 };
     int max_secondary { 0 };
@@ -158,7 +160,7 @@ struct StrobemerIndex {
     void read(References& references, const std::string& filename);
     void populate(const References& references, const mapping_params& map_param, const IndexParameters& index_parameters);
 private:
-    ind_mers_vector generate_seeds(const References& references, const mapping_params& map_param, const IndexParameters& index_parameters) const;
+    ind_mers_vector generate_seeds(const References& references, const IndexParameters& index_parameters) const;
 
 };
 

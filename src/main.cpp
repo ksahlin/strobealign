@@ -193,14 +193,13 @@ int main(int argc, char **argv)
     if (!opt.r_set) {
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
     }
-    IndexParameters index_parameters = IndexParameters::from_read_length(
-        map_param.r, opt.k_set ? opt.k : -1, opt.s_set ? opt.s : -1, opt.max_seed_len_set ? opt.max_seed_len : -1);
-
     if (opt.c >= 64 || opt.c <= 0) {
         logger.error() << "Parameter c must be greater than 0 and less than 64" << std::endl;
         return EXIT_FAILURE;
     }
-    map_param.q = pow(2, opt.c) - 1;
+    IndexParameters index_parameters = IndexParameters::from_read_length(
+        map_param.r, opt.c, opt.k_set ? opt.k : -1, opt.s_set ? opt.s : -1, opt.max_seed_len_set ? opt.max_seed_len : -1);
+
 
     alignment_params aln_params;
     aln_params.match = opt.A;

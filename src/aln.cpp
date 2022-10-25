@@ -2582,14 +2582,14 @@ void align_PE_read(
     auto strobe_start = std::chrono::high_resolution_clock::now();
 
     std::transform(record1.seq.begin(), record1.seq.end(), record1.seq.begin(), ::toupper);
-    query_mers1 = seq_to_randstrobes2_read(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record1.seq, 0, index_parameters.s, index_parameters.t_syncmer,
-                                           map_param.q,
-                                           index_parameters.max_dist);
+    query_mers1 = seq_to_randstrobes2_read(
+        index_parameters.k, index_parameters.w_min, index_parameters.w_max, record1.seq, 0, index_parameters.s, index_parameters.t_syncmer,
+        index_parameters.q, index_parameters.max_dist);
 
     std::transform(record2.seq.begin(), record2.seq.end(), record2.seq.begin(), ::toupper);
-    query_mers2 = seq_to_randstrobes2_read(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record2.seq, 0, index_parameters.s, index_parameters.t_syncmer,
-                                           map_param.q,
-                                           index_parameters.max_dist);
+    query_mers2 = seq_to_randstrobes2_read(
+        index_parameters.k, index_parameters.w_min, index_parameters.w_max, record2.seq, 0, index_parameters.s, index_parameters.t_syncmer,
+        index_parameters.q, index_parameters.max_dist);
 
     auto strobe_finish = std::chrono::high_resolution_clock::now();
     statistics.tot_construct_strobemers += strobe_finish - strobe_start;
@@ -2691,7 +2691,7 @@ void align_SE_read(
         // generate mers here
         std::transform(record.seq.begin(), record.seq.end(), record.seq.begin(), ::toupper);
         auto strobe_start = std::chrono::high_resolution_clock::now();
-        query_mers = seq_to_randstrobes2_read(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, q_id, index_parameters.s, index_parameters.t_syncmer, map_param.q, index_parameters.max_dist);
+        query_mers = seq_to_randstrobes2_read(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, q_id, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
         auto strobe_finish = std::chrono::high_resolution_clock::now();
         statistics.tot_construct_strobemers += strobe_finish - strobe_start;
 
