@@ -53,9 +53,9 @@ struct AlignmentStatistics {
 };
 
 
-void align_PE_read(klibpp::KSeq& record1, klibpp::KSeq& record2, std::string& outstring, AlignmentStatistics& statistics, i_dist_est& isize_est, alignment_params& aln_params, mapping_params& map_param, const References& references, kmer_lookup& mers_index, mers_vector& flat_vector);
+void align_PE_read(klibpp::KSeq& record1, klibpp::KSeq& record2, std::string& outstring, AlignmentStatistics& statistics, i_dist_est& isize_est, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
 
-void align_SE_read(klibpp::KSeq& record, std::string& outstring, AlignmentStatistics& statistics, alignment_params& aln_params, mapping_params& map_param, const References& references, kmer_lookup& mers_index, mers_vector& flat_vector);
+void align_SE_read(klibpp::KSeq& record, std::string& outstring, AlignmentStatistics& statistics, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
 
 
 #endif

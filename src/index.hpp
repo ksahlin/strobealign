@@ -4,7 +4,6 @@
 //
 //  Created by Kristoffer Sahlin on 4/21/21.
 //
-
 #ifndef index_hpp
 #define index_hpp
 
@@ -88,21 +87,49 @@ public:
     void update(int dist);
 };
 
+/* Settings that influence index creation */
+class IndexParameters {
+public:
+    const int k;
+    const int s;
+    const int l;
+    const int u;
+    const int t_syncmer;
+    const int w_min;
+    const int w_max;
+
+    IndexParameters(int k, int s, int l, int u)
+        : k(k)
+        , s(s)
+        , l(l)
+        , u(u)
+        , t_syncmer((k - s) / 2 + 1)
+        , w_min(std::max(1, k / (k - s + 1) + l))
+        , w_max(k / (k - s + 1) + u) {
+    }
+
+    static IndexParameters from_read_length(int read_length, int k = -1, int s = -1);
+
+    void verify() const {
+        if (k <= 7 || k > 32) {
+            throw BadParameter("k not in [8,32]");
+        }
+        if (s > k) {
+            throw BadParameter("s is larger than k");
+        }
+        if ((k - s) % 2 != 0) {
+            throw BadParameter("(k - s) should be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
+        }
+    }
+};
+
+
 struct mapping_params {
     uint64_t q;
-    int n;
-    int k;
-    int s;
-    int t_syncmer;
-    int w_min;
-    int w_max;
+    int r;
     int max_secondary;
     float dropoff_threshold;
-    int r;
     int m;
-    int l;
-    int u;
-    int c;
     float f;
     int S;
     int M;
@@ -111,21 +138,11 @@ struct mapping_params {
     int maxTries;
     int max_seed_len;
     int rescue_cutoff;
-    unsigned int filter_cutoff;
     bool is_sam_out;
 
-    void verify(){
-        if (k <= 7 || k > 32) {
-            throw BadMappingParameter("k not in [8,32]");
-        }
-        if (s > k) {
-            throw BadMappingParameter("s is larger than k");
-        }
-        if ((k - s) % 2 != 0) {
-            throw BadMappingParameter("(k - s) should be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
-        }
+    void verify() const {
         if (max_dist > 255) {
-            throw BadMappingParameter("maximum seed length (-m <max_dist>) is larger than 255");
+            throw BadParameter("maximum seed length (-m <max_dist>) is larger than 255");
         }
     }
 };
@@ -139,11 +156,11 @@ struct StrobemerIndex {
 
     void write(const References& references, const std::string& filename) const;
     void read(References& references, const std::string& filename);
-    void populate(const References& references, mapping_params& map_param);
+    void populate(const References& references, const mapping_params& map_param, const IndexParameters& index_parameters);
 private:
-    ind_mers_vector generate_seeds(const References& references, const mapping_params& map_param) const;
+    ind_mers_vector generate_seeds(const References& references, const mapping_params& map_param, const IndexParameters& index_parameters) const;
 
 };
 
 
-#endif /* index_hpp */
+#endif

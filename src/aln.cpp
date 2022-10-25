@@ -94,8 +94,7 @@ inline aln_info ssw_align(const std::string &ref, const std::string &query, int 
 static inline void find_nams_rescue(
     std::vector<nam> &final_nams,
     const mers_vector_read &query_mers,
-    const mers_vector &ref_mers,
-    const kmer_lookup &mers_index,
+    const StrobemerIndex& index,
     int k,
     unsigned int filter_cutoff
 ) {
@@ -108,8 +107,8 @@ static inline void find_nams_rescue(
 
     for (auto &q : query_mers) {
         auto mer_hashv = q.hash;
-        if (mers_index.find(mer_hashv) != mers_index.end()) {
-            auto ref_hit = mers_index.at(mer_hashv);
+        if (index.mers_index.find(mer_hashv) != index.mers_index.end()) {
+            auto ref_hit = index.mers_index.at(mer_hashv);
             auto query_e = q.position + q.offset_strobe + k;
             Hit s{ref_hit.count, ref_hit.offset, q.position, query_e, q.is_reverse};
             if (q.is_reverse){
@@ -136,7 +135,7 @@ static inline void find_nams_rescue(
 
         int min_diff = 1000;
         for (size_t j = offset; j < offset + count; ++j) {
-            auto r = ref_mers[j];
+            auto r = index.flat_vector[j];
             h.ref_s = r.position;
             auto p = r.packed;
             int bit_alloc = 8;
@@ -169,7 +168,7 @@ static inline void find_nams_rescue(
 
         int min_diff = 1000;
         for (size_t j = offset; j < offset + count; ++j) {
-            auto r = ref_mers[j];
+            auto r = index.flat_vector[j];
             h.ref_s = r.position;
             auto p = r.packed;
             int bit_alloc = 8;
@@ -289,10 +288,8 @@ static inline void find_nams_rescue(
 static inline std::pair<float,int> find_nams(
     std::vector<nam> &final_nams,
     const mers_vector_read &query_mers,
-    const mers_vector &ref_mers,
-    const kmer_lookup &mers_index,
-    int k,
-    unsigned int filter_cutoff
+    const StrobemerIndex& index,
+    int k
 ) {
     robin_hood::unordered_map<unsigned int, std::vector<hit>> hits_per_ref;
     hits_per_ref.reserve(100);
@@ -302,21 +299,21 @@ static inline std::pair<float,int> find_nams(
     hit h;
     for (auto &q : query_mers) {
         auto mer_hashv = q.hash;
-        if (mers_index.find(mer_hashv) != mers_index.end()) {
+        if (index.mers_index.find(mer_hashv) != index.mers_index.end()) {
             total_hits++;
             h.query_s = q.position;
             h.query_e = h.query_s + q.offset_strobe + k; // h.query_s + read_length/2;
             h.is_rc = q.is_reverse;
-            auto mer = mers_index.at(mer_hashv);
+            auto mer = index.mers_index.at(mer_hashv);
             auto offset = mer.offset;
             auto count = mer.count;
-            if (count > filter_cutoff) {
+            if (count > index.filter_cutoff) {
                 break;
             }
             nr_good_hits ++;
             int min_diff = 100000;
             for (size_t j = offset; j < offset + count; ++j) {
-                auto r = ref_mers[j];
+                auto r = index.flat_vector[j];
                 h.ref_s = r.position;
                 auto p = r.packed;
                 int bit_alloc = 8;
@@ -894,8 +891,18 @@ inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<n
 }
 
 
-static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, const References& references, AlignmentStatistics &statistics, float dropoff, int max_tries, int max_secondary ) {
-
+static inline void align_SE_secondary_hits(
+    const alignment_params &aln_params,
+    Sam& sam,
+    std::vector<nam> &all_nams,
+    const KSeq& record,
+    int k,
+    const References& references,
+    AlignmentStatistics &statistics,
+    float dropoff,
+    int max_tries,
+    int max_secondary
+) {
     auto query_acc = record.name;
     auto read = record.seq;
     auto qual = record.qual;
@@ -1185,7 +1192,20 @@ static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sa
 }
 
 
-static inline void align_segment(alignment_params &aln_params, std::string &read_segm, std::string &ref_segm, int read_segm_len, int ref_segm_len, int ref_start,  int ext_left, int ext_right, bool aln_did_not_fit, bool is_rc, alignment &sam_aln_segm, unsigned int &tot_ksw_aligned) {
+static inline void align_segment(
+    const alignment_params &aln_params,
+    const std::string &read_segm,
+    const std::string &ref_segm,
+    int read_segm_len,
+    int ref_segm_len,
+    int ref_start,
+    int ext_left,
+    int ext_right,
+    bool aln_did_not_fit,
+    bool is_rc,
+    alignment &sam_aln_segm,
+    unsigned int &tot_ksw_aligned
+) {
     int hamming_dist = -1;
     int soft_left = 50;
     int soft_right = 50;
@@ -1218,7 +1238,7 @@ static inline void align_segment(alignment_params &aln_params, std::string &read
 
     aln_info info;
     info = ssw_align(ref_segm, read_segm, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
-    tot_ksw_aligned ++;
+    tot_ksw_aligned++;
     sam_aln_segm.cigar = info.cigar;
     sam_aln_segm.ed = info.ed;
 //    std::cerr << r_tmp << " " << n.n_hits << " " << n.score << " " <<  diff << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << hamming_dist << " " << sam_aln.cigar << " " << info.sw_score << std::endl;
@@ -1248,7 +1268,7 @@ static inline void align_segment(alignment_params &aln_params, std::string &read
 */
 
 static inline void get_alignment(
-    alignment_params &aln_params,
+    const alignment_params &aln_params,
     nam &n,
     const References& references,
     const std::string &read,
@@ -2025,7 +2045,7 @@ static inline void rescue_mate(const alignment_params &aln_params, nam &n, const
 
 void rescue_read(
     std::string& read2, // The read to be rescued
-    alignment_params &aln_params, // TODO should be const
+    const alignment_params &aln_params,
     const References& references,
     std::vector<nam> &all_nams1,
     int max_tries,
@@ -2136,10 +2156,20 @@ void rescue_read(
 
 
 
-inline void align_PE(alignment_params &aln_params, Sam &sam, std::vector<nam> &all_nams1, std::vector<nam> &all_nams2,
-                     const KSeq &record1, const KSeq &record2, int k,
-                     const References& references,
-                       AlignmentStatistics &statistics, float dropoff, i_dist_est &isize_est, int max_tries, size_t max_secondary) {
+inline void align_PE(
+    const alignment_params &aln_params,
+    Sam &sam,
+    std::vector<nam> &all_nams1,
+    std::vector<nam> &all_nams2,
+    const KSeq &record1, const KSeq &record2,
+    int k,
+    const References& references,
+    AlignmentStatistics &statistics,
+    float dropoff,
+    i_dist_est &isize_est,
+    int max_tries,
+    size_t max_secondary
+) {
     const auto mu = isize_est.mu;
     const auto sigma = isize_est.sigma;
     std::string read1 = record1.seq;
@@ -2534,21 +2564,30 @@ inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM
 }
 
 
-void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, AlignmentStatistics &statistics, i_dist_est &isize_est, alignment_params &aln_params,
-        mapping_params &map_param, const References& references, kmer_lookup &mers_index, mers_vector &flat_vector)
-{
+void align_PE_read(
+    KSeq &record1,
+    KSeq &record2,
+    std::string &outstring,
+    AlignmentStatistics &statistics,
+    i_dist_est &isize_est,
+    const alignment_params &aln_params,
+    const mapping_params &map_param,
+    const IndexParameters& index_parameters,
+    const References& references,
+    const StrobemerIndex& index
+) {
     mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
 
     // generate mers here
     auto strobe_start = std::chrono::high_resolution_clock::now();
 
     std::transform(record1.seq.begin(), record1.seq.end(), record1.seq.begin(), ::toupper);
-    query_mers1 = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record1.seq, 0, map_param.s, map_param.t_syncmer,
+    query_mers1 = seq_to_randstrobes2_read(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record1.seq, 0, index_parameters.s, index_parameters.t_syncmer,
                                            map_param.q,
                                            map_param.max_dist);
 
     std::transform(record2.seq.begin(), record2.seq.end(), record2.seq.begin(), ::toupper);
-    query_mers2 = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record2.seq, 0, map_param.s, map_param.t_syncmer,
+    query_mers2 = seq_to_randstrobes2_read(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record2.seq, 0, index_parameters.s, index_parameters.t_syncmer,
                                            map_param.q,
                                            map_param.max_dist);
 
@@ -2560,10 +2599,8 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, Alignme
     std::vector<nam> nams1;
     std::vector<nam> nams2;
     std::pair<float, int> info1, info2;
-    info1 = find_nams(nams1, query_mers1, flat_vector, mers_index, map_param.k,
-                      map_param.filter_cutoff);
-    info2 = find_nams(nams2, query_mers2, flat_vector, mers_index, map_param.k,
-                      map_param.filter_cutoff);
+    info1 = find_nams(nams1, query_mers1, index, index_parameters.k);
+    info2 = find_nams(nams2, query_mers2, index, index_parameters.k);
     auto nam_finish = std::chrono::high_resolution_clock::now();
     statistics.tot_find_nams += nam_finish - nam_start;
 
@@ -2573,15 +2610,15 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, Alignme
         if (nams1.empty() || info1.first < 0.7) {
             statistics.tried_rescue += 1;
             nams1.clear();
-            find_nams_rescue(nams1, query_mers1, flat_vector,
-                mers_index, map_param.k, map_param.rescue_cutoff);
+            find_nams_rescue(nams1, query_mers1, index,
+                index_parameters.k, map_param.rescue_cutoff);
         }
 
         if (nams2.empty() || info2.first < 0.7) {
             statistics.tried_rescue += 1;
             nams2.clear();
-            find_nams_rescue(nams2, query_mers2, flat_vector,
-                mers_index, map_param.k, map_param.rescue_cutoff);
+            find_nams_rescue(nams2, query_mers2, index,
+                index_parameters.k, map_param.rescue_cutoff);
         }
         auto rescue_finish = std::chrono::high_resolution_clock::now();
         statistics.tot_time_rescue += rescue_finish - rescue_start;
@@ -2613,18 +2650,18 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, Alignme
                               nam_read2);
         output_hits_paf_PE(outstring, nam_read1, record1.name,
                            references,
-                           map_param.k,
+                           index_parameters.k,
                            record1.seq.length());
         output_hits_paf_PE(outstring, nam_read2, record2.name,
                            references,
-                           map_param.k,
+                           index_parameters.k,
                            record2.seq.length());
         joint_NAM_scores.clear();
     } else {
         Sam sam(outstring, references);
         align_PE(aln_params, sam, nams1, nams2, record1,
                  record2,
-                 map_param.k,
+                 index_parameters.k,
                  references, statistics,
                  map_param.dropoff_threshold, isize_est, map_param.maxTries, map_param.max_secondary);
     }
@@ -2636,9 +2673,16 @@ void align_PE_read(KSeq &record1, KSeq &record2, std::string &outstring, Alignme
 }
 
 
-void align_SE_read(KSeq &record, std::string &outstring, AlignmentStatistics &statistics, alignment_params &aln_params,
-                   mapping_params &map_param, const References& references, kmer_lookup &mers_index, mers_vector &flat_vector) {
-
+void align_SE_read(
+    KSeq &record,
+    std::string &outstring,
+    AlignmentStatistics &statistics,
+    const alignment_params &aln_params,
+    const mapping_params &map_param,
+    const IndexParameters& index_parameters,
+    const References& references,
+    const StrobemerIndex& index
+) {
         std::string seq, seq_rc;
         unsigned int q_id = 0;
         mers_vector_read query_mers; // pos, chr_id, kmer hash value
@@ -2647,13 +2691,13 @@ void align_SE_read(KSeq &record, std::string &outstring, AlignmentStatistics &st
         // generate mers here
         std::transform(record.seq.begin(), record.seq.end(), record.seq.begin(), ::toupper);
         auto strobe_start = std::chrono::high_resolution_clock::now();
-        query_mers = seq_to_randstrobes2_read(map_param.n, map_param.k, map_param.w_min, map_param.w_max, record.seq, q_id, map_param.s, map_param.t_syncmer, map_param.q, map_param.max_dist);
+        query_mers = seq_to_randstrobes2_read(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, q_id, index_parameters.s, index_parameters.t_syncmer, map_param.q, map_param.max_dist);
         auto strobe_finish = std::chrono::high_resolution_clock::now();
         statistics.tot_construct_strobemers += strobe_finish - strobe_start;
 
         // Find NAMs
         auto nam_start = std::chrono::high_resolution_clock::now();
-        std::pair<float, int> info = find_nams(nams, query_mers, flat_vector, mers_index, map_param.k, map_param.filter_cutoff);
+        std::pair<float, int> info = find_nams(nams, query_mers, index, index_parameters.k);
         auto nam_finish = std::chrono::high_resolution_clock::now();
         statistics.tot_find_nams += nam_finish - nam_start;
 
@@ -2662,8 +2706,7 @@ void align_SE_read(KSeq &record, std::string &outstring, AlignmentStatistics &st
             if (nams.empty() || info.first < 0.7) {
                 statistics.tried_rescue += 1;
                 nams.clear();
-                find_nams_rescue(nams, query_mers, flat_vector,
-                    mers_index, map_param.k, map_param.rescue_cutoff);
+                find_nams_rescue(nams, query_mers, index, index_parameters.k, map_param.rescue_cutoff);
             }
             auto rescue_finish = std::chrono::high_resolution_clock::now();
             statistics.tot_time_rescue += rescue_finish - rescue_start;
@@ -2677,7 +2720,7 @@ void align_SE_read(KSeq &record, std::string &outstring, AlignmentStatistics &st
 
         auto extend_start = std::chrono::high_resolution_clock::now();
         if (!map_param.is_sam_out) {
-            output_hits_paf(outstring, nams, record.name, references, map_param.k,
+            output_hits_paf(outstring, nams, record.name, references, index_parameters.k,
                             record.seq.length());
         } else {
             Sam sam(outstring, references);
@@ -2686,10 +2729,10 @@ void align_SE_read(KSeq &record, std::string &outstring, AlignmentStatistics &st
                 // original align_SE function (storing a vector of hits and sorting them)
                 // Such overhead is not present in align_PE - which implements both options in the same function.
 
-                align_SE_secondary_hits(aln_params, sam, nams, record, map_param.k,
+                align_SE_secondary_hits(aln_params, sam, nams, record, index_parameters.k,
                          references, statistics, map_param.dropoff_threshold, map_param.maxTries, map_param.max_secondary);
             } else {
-                align_SE(aln_params, sam, nams, record, map_param.k,
+                align_SE(aln_params, sam, nams, record, index_parameters.k,
                          references, statistics,  map_param.dropoff_threshold, map_param.maxTries);
             }
         }
