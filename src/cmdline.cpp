@@ -103,7 +103,7 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     if (E) { opt.E = args::get(E); }
 
     // Search parameters
-    if (f) { map_param.f = args::get(f); }
+    if (f) { opt.f = args::get(f); }
     if (S) { map_param.dropoff_threshold = args::get(S); }
     if (M) { map_param.maxTries = args::get(M); }
     if (R) { map_param.R = args::get(R); }

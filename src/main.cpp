@@ -200,7 +200,6 @@ int main(int argc, char **argv)
     IndexParameters index_parameters = IndexParameters::from_read_length(
         map_param.r, opt.c, opt.k_set ? opt.k : -1, opt.s_set ? opt.s : -1, opt.max_seed_len_set ? opt.max_seed_len : -1);
 
-
     alignment_params aln_params;
     aln_params.match = opt.A;
     aln_params.mismatch = opt.B;
@@ -259,7 +258,7 @@ int main(int argc, char **argv)
             return EXIT_FAILURE;
         }
 
-        index.populate(references, map_param, index_parameters);
+        index.populate(references, index_parameters, opt.f);
 
         // Record index creation end time
         std::chrono::duration<double> elapsed = high_resolution_clock::now() - start;

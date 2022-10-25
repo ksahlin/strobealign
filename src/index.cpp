@@ -299,7 +299,7 @@ void StrobemerIndex::read(References& references, const std::string& filename) {
 }
 
 
-void StrobemerIndex::populate(const References& references, const mapping_params& map_param, const IndexParameters& index_parameters) {
+void StrobemerIndex::populate(const References& references, const IndexParameters& index_parameters, float f) {
     auto start_flat_vector = high_resolution_clock::now();
     hash_vector h_vector;
     {
@@ -331,7 +331,7 @@ void StrobemerIndex::populate(const References& references, const mapping_params
 
     mers_index.reserve(unique_mers);
     // construct index over flat array
-    filter_cutoff = index_vector(h_vector, mers_index, map_param.f);
+    filter_cutoff = index_vector(h_vector, mers_index, f);
     std::chrono::duration<double> elapsed_hash_index = high_resolution_clock::now() - start_hash_index;
     logger.info() << "Total time generating hash table index: " << elapsed_hash_index.count() << " s" <<  std::endl;
 }

@@ -132,7 +132,6 @@ public:
 };
 
 struct mapping_params {
-    float f { 0.0002 };
     int r { 150 };
     int max_secondary { 0 };
     float dropoff_threshold { 0.5 };
@@ -158,7 +157,7 @@ struct StrobemerIndex {
 
     void write(const References& references, const std::string& filename) const;
     void read(References& references, const std::string& filename);
-    void populate(const References& references, const mapping_params& map_param, const IndexParameters& index_parameters);
+    void populate(const References& references, const IndexParameters& index_parameters, float f);
 private:
     ind_mers_vector generate_seeds(const References& references, const IndexParameters& index_parameters) const;
 
