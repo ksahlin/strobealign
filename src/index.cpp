@@ -25,7 +25,7 @@ static Logger& logger = Logger::get();
  * k and/or s can be specified explicitly by setting them to a value other than
  * -1, but otherwise reasonable defaults are used for them as well.
  */
-IndexParameters IndexParameters::from_read_length(int read_length, int k, int s) {
+IndexParameters IndexParameters::from_read_length(int read_length, int k, int s, int max_seed_len) {
     int l, u;
     struct settings {
         int r_threshold;
@@ -55,7 +55,16 @@ IndexParameters IndexParameters::from_read_length(int read_length, int k, int s)
             break;
         }
     }
-    return IndexParameters(k, s, l, u);
+
+    int max_dist;
+    if (max_seed_len == -1) {
+        max_dist = std::max(read_length - 70, k);
+        max_dist = std::min(255, max_dist);
+    } else {
+        max_dist = max_seed_len - k; // convert to distance in start positions
+    }
+
+    return IndexParameters(k, s, l, u, max_dist);
 }
 
 
@@ -337,7 +346,7 @@ ind_mers_vector StrobemerIndex::generate_seeds(const References& references, con
     logger.debug() << "ref vector approximate size: " << approx_vec_size << std::endl;
     ind_flat_vector.reserve(approx_vec_size);
     for(size_t i = 0; i < references.size(); ++i) {
-        seq_to_randstrobes2(ind_flat_vector, index_parameters.k, index_parameters.w_min, index_parameters.w_max, references.sequences[i], i, index_parameters.s, index_parameters.t_syncmer, map_param.q, map_param.max_dist);
+        seq_to_randstrobes2(ind_flat_vector, index_parameters.k, index_parameters.w_min, index_parameters.w_max, references.sequences[i], i, index_parameters.s, index_parameters.t_syncmer, map_param.q, index_parameters.max_dist);
     }
     logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
 

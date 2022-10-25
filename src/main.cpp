@@ -193,13 +193,8 @@ int main(int argc, char **argv)
     if (!opt.r_set) {
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
     }
-    IndexParameters index_parameters = IndexParameters::from_read_length(map_param.r, opt.k_set ? opt.k : -1, opt.s_set ? opt.s : -1);
-    if (!opt.max_seed_len_set){
-        map_param.max_dist = std::max(map_param.r - 70, index_parameters.k);
-        map_param.max_dist = std::min(255, map_param.max_dist);
-    } else {
-        map_param.max_dist = opt.max_seed_len - index_parameters.k; //convert to distance in start positions
-    }
+    IndexParameters index_parameters = IndexParameters::from_read_length(
+        map_param.r, opt.k_set ? opt.k : -1, opt.s_set ? opt.s : -1, opt.max_seed_len_set ? opt.max_seed_len : -1);
 
     if (opt.c >= 64 || opt.c <= 0) {
         logger.error() << "Parameter c must be greater than 0 and less than 64" << std::endl;
@@ -219,7 +214,7 @@ int main(int argc, char **argv)
         << "w_min: " << index_parameters.w_min << std::endl
         << "w_max: " << index_parameters.w_max << std::endl
         << "Read length (r): " << map_param.r << std::endl
-        << "Maximum seed length: " << map_param.max_dist + index_parameters.k << std::endl
+        << "Maximum seed length: " << index_parameters.max_dist + index_parameters.k << std::endl
         << "Threads: " << opt.n_threads << std::endl
         << "R: " << map_param.R << std::endl
         << "Expected [w_min, w_max] in #syncmers: [" << index_parameters.w_min << ", " << index_parameters.w_max << "]" << std::endl

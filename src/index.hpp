@@ -94,21 +94,23 @@ public:
     const int s;
     const int l;
     const int u;
+    const int max_dist;
     const int t_syncmer;
     const int w_min;
     const int w_max;
 
-    IndexParameters(int k, int s, int l, int u)
+    IndexParameters(int k, int s, int l, int u, int max_dist)
         : k(k)
         , s(s)
         , l(l)
         , u(u)
+        , max_dist(max_dist)
         , t_syncmer((k - s) / 2 + 1)
         , w_min(std::max(1, k / (k - s + 1) + l))
         , w_max(k / (k - s + 1) + u) {
     }
 
-    static IndexParameters from_read_length(int read_length, int k = -1, int s = -1);
+    static IndexParameters from_read_length(int read_length, int k = -1, int s = -1, int max_seed_len = -1);
 
     void verify() const {
         if (k <= 7 || k > 32) {
@@ -120,29 +122,28 @@ public:
         if ((k - s) % 2 != 0) {
             throw BadParameter("(k - s) should be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
         }
+        if (max_dist > 255) {
+            throw BadParameter("maximum seed length (-m <max_dist>) is larger than 255");
+        }
     }
 };
 
 struct mapping_params {
     uint64_t q;
+    float f { 0.0002 };
     int r { 150 };
     int max_secondary { 0 };
     float dropoff_threshold { 0.5 };
     int m;
-    float f { 0.0002 };
     int S;
     int M;
     int R { 2 };
-    int max_dist { 100 };
     int maxTries { 20 };
     int max_seed_len;
     int rescue_cutoff;
     bool is_sam_out { true };
 
     void verify() const {
-        if (max_dist > 255) {
-            throw BadParameter("maximum seed length (-m <max_dist>) is larger than 255");
-        }
     }
 };
 
