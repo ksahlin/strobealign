@@ -19,17 +19,17 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     args::Group io(parser, "Input/output:");
     args::ValueFlag<std::string> o(parser, "PATH", "redirect output to file [stdout]", {'o'});
     args::Flag v(parser, "v", "Verbose output", {'v'});
-    args::Flag x(parser, "x", "Only map reads, no base level alignment (produces paf file)", {'x'});
-    args::ValueFlag<int> N(parser, "INT", "retain at most INT secondary alignments (is upper bounded by -M, and depends on -S) [0]", {'N'});
-    args::ValueFlag<std::string> L(parser, "STR", "Print statistics of indexing to logfile [log.csv]", {'L'});
+    args::Flag x(parser, "x", "Only map reads, no base level alignment (produces PAF file)", {'x'});
+    args::ValueFlag<int> N(parser, "INT", "Retain at most INT secondary alignments (is upper bounded by -M and depends on -S) [0]", {'N'});
+    args::ValueFlag<std::string> L(parser, "PATH", "Print statistics of indexing to PATH", {'L'});
     args::ValueFlag<std::string> i(parser, "PATH", "Generate an index (.sti) file", { 'i' });
 
     args::Group seeding(parser, "Seeding:");
-    //args::ValueFlag<int> n(parser, "INT", "number of strobes [2]", {'n'});
-    args::ValueFlag<int> r(parser, "INT", "Mean read length. This parameter is estimated from first 500 records in each read file. No need to set this explicitly unless you have a reason. [disabled]", {'r'});
+    //args::ValueFlag<int> n(parser, "INT", "Number of strobes [2]", {'n'});
+    args::ValueFlag<int> r(parser, "INT", "Mean read length. This parameter is estimated from first 500 records in each read file. No need to set this explicitly unless you have a reason.", {'r'});
     args::ValueFlag<int> m(parser, "INT", "Maximum seed length. Defaults to r - 50. For reasonable values on -l and -u, the seed length distribution is usually determined by parameters l and u. Then, this parameter is only active in regions where syncmers are very sparse.", {'m'});
 
-    args::ValueFlag<int> k(parser, "INT", "strobe length, has to be below 32. [20]", {'k'});
+    args::ValueFlag<int> k(parser, "INT", "Strobe length, has to be below 32. [20]", {'k'});
     args::ValueFlag<int> l(parser, "INT", "Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]", {'l'});
 
     args::ValueFlag<int> u(parser, "INT", "Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [7]", {'u'});
@@ -37,13 +37,13 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     args::ValueFlag<int> s(parser, "INT", "Submer size used for creating syncmers [k-4]. Only even numbers on k-s allowed. A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. It is recommended not to change this parameter unless you have a good understanding of syncmers as it will drastically change the memory usage and results with non default values.", {'s'});
 
     args::Group alignment(parser, "Alignment:");
-    args::ValueFlag<int> A(parser, "INT", "matching score [2]", {'A'});
-    args::ValueFlag<int> B(parser, "INT", "mismatch penalty [8]", {'B'});
-    args::ValueFlag<int> O(parser, "INT", "gap open penalty [12]", {'O'});
-    args::ValueFlag<int> E(parser, "INT", "gap extension penalty [1]", {'E'});
+    args::ValueFlag<int> A(parser, "INT", "Matching score [2]", {'A'});
+    args::ValueFlag<int> B(parser, "INT", "Mismatch penalty [8]", {'B'});
+    args::ValueFlag<int> O(parser, "INT", "Gap open penalty [12]", {'O'});
+    args::ValueFlag<int> E(parser, "INT", "Gap extension penalty [1]", {'E'});
 
     args::Group search(parser, "Search parameters:");
-    args::ValueFlag<float> f(parser, "FLOAT", "top fraction of repetitive strobemers to filter out from sampling [0.0002]", {'f'});
+    args::ValueFlag<float> f(parser, "FLOAT", "Top fraction of repetitive strobemers to filter out from sampling [0.0002]", {'f'});
     args::ValueFlag<float> S(parser, "FLOAT", "Try candidate sites with mapping score at least S of maximum mapping score [0.5]", {'S'});
     args::ValueFlag<int> M(parser, "INT", "Maximum number of mapping sites to try [20]", {'M'});
     args::ValueFlag<int> R(parser, "INT", "Rescue level. Perform additional search for reads with many repetitive seeds filtered out. This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest.", {'R'});
@@ -52,7 +52,6 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     args::Positional<std::string> ref_filename(parser, "reference", "A pregenerated strobemers index file (.sti) or a reference in FASTA format", args::Options::Required);
     args::Positional<std::string> reads1_filename(parser, "reads1", "Reads 1 in FASTA or FASTQ format, optionally gzip compressed");
     args::Positional<std::string> reads2_filename(parser, "reads2", "Reads 2 in FASTA or FASTQ format, optionally gzip compressed");
-
 
     try {
         parser.ParseCLI(argc, argv);
