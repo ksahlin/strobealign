@@ -14,15 +14,15 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     parser.helpParams.shortSeparator = " ";
 
     args::HelpFlag help(parser, "help", "Print help and exit", {'h', "help"});
-    args::ValueFlag<int> threads(parser, "threads", "Number of threads [3]", {'t', "threads"});
+    args::ValueFlag<int> threads(parser, "INT", "Number of threads [3]", {'t', "threads"});
 
     args::Group io(parser, "Input/output:");
-    args::ValueFlag<std::string> o(parser, "STR", "redirect output to file [stdout]", {'o'});
+    args::ValueFlag<std::string> o(parser, "PATH", "redirect output to file [stdout]", {'o'});
     args::Flag v(parser, "v", "Verbose output", {'v'});
     args::Flag x(parser, "x", "Only map reads, no base level alignment (produces paf file)", {'x'});
     args::ValueFlag<int> N(parser, "INT", "retain at most INT secondary alignments (is upper bounded by -M, and depends on -S) [0]", {'N'});
     args::ValueFlag<std::string> L(parser, "STR", "Print statistics of indexing to logfile [log.csv]", {'L'});
-    args::ValueFlag<std::string> i(parser, "index", "Generates an index (.sti) file", { 'i' });
+    args::ValueFlag<std::string> i(parser, "PATH", "Generate an index (.sti) file", { 'i' });
 
     args::Group seeding(parser, "Seeding:");
     //args::ValueFlag<int> n(parser, "INT", "number of strobes [2]", {'n'});
