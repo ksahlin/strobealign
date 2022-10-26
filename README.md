@@ -9,7 +9,7 @@ INSTALLATION
 ----------------
 
 ### Conda
-Strobealign [can be installed through conda](https://anaconda.org/bioconda/strobealign). Simply run
+Strobealign can be installed through conda. Simply run
 
 ```
 conda create -n strobealign strobealign
@@ -28,6 +28,7 @@ Then do the following:
 git clone https://github.com/ksahlin/StrobeAlign
 cd StrobeAlign
 cmake -B build
+cd build
 make -j8
 ```
 Try `make VERBOSE=1` to get more logging output.

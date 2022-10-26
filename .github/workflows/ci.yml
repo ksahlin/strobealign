@@ -11,7 +11,10 @@ jobs:
         run: "! grep -P -R '\\t' src/ tests/*.cpp"
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v3
       - name: Build
@@ -20,7 +23,5 @@ jobs:
           cd build
           make
           make install
-      - name: Install test dependencies
-        run: sudo apt-get install samtools
       - name: Run
         run: tests/run.sh

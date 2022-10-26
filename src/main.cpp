@@ -33,7 +33,7 @@ using std::chrono::high_resolution_clock;
 static Logger& logger = Logger::get();
 
 
-static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, std::string logfile_name, int k, int m) {
+static void print_diagnostics(const StrobemerIndex &index, const std::string& logfile_name, int k) {
     // Prins to csv file the statistics on the number of seeds of a particular length and what fraction of them them are unique in the index:
     // format:
     // seed_length, count, percentage_unique
@@ -54,13 +54,13 @@ static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, st
     uint64_t tot_seed_count_sq_1000_limit = 0;
 
     int seed_length;
-    for (auto &it : mers_index) {
+    for (auto &it : index.mers_index) {
         auto ref_mer = it.second;
         auto offset = ref_mer.offset;
         auto count = ref_mer.count;
 
         for (size_t j = offset; j < offset + count; ++j) {
-            auto r = ref_mers[j];
+            auto r = index.flat_vector[j];
             auto p = r.packed;
             int bit_alloc = 8;
             int mask=(1<<bit_alloc) - 1;
@@ -82,11 +82,11 @@ static void print_diagnostics(mers_vector &ref_mers, kmer_lookup &mers_index, st
             }
         }
 
-        if ( (count == 1) & (seed_length < max_size) ) {
-            log_unique[seed_length] ++;
+        if (count == 1 && seed_length < max_size) {
+            log_unique[seed_length]++;
         }
-        if ( (count >= 10) & (seed_length < max_size) ) {
-            log_repetitive[seed_length] ++;
+        if (count >= 10 && seed_length < max_size) {
+            log_repetitive[seed_length]++;
         }
     }
 
@@ -170,37 +170,6 @@ int estimate_read_length(std::string filename1, std::string filename2) {
     }
 }
 
-void adjust_mapping_params_depending_on_read_length(mapping_params &map_param, const CommandLineOptions &opt) {
-    struct settings {
-        int r_threshold;
-        int k;
-        int s_offset;
-        int l;
-        int u;
-    };
-    std::vector<settings> d = {
-        settings {75, 20, -4, -4, 2},
-        settings {125, 20, -4, -2, 2},
-        settings {175, 20, -4, 1, 7},
-        settings {275, 20, -4, 4, 13},
-        settings {375, 22, -4, 2, 12},
-        settings {std::numeric_limits<int>::max(), 23, -6, 2, 12},
-    };
-    for (const auto& v : d) {
-        if (map_param.r <= v.r_threshold) {
-            if (!opt.k_set) {
-                map_param.k = v.k;
-            }
-            if (!opt.s_set) {
-                map_param.s = map_param.k + v.s_offset;
-            }
-            map_param.l = v.l;
-            map_param.u = v.u;
-            break;
-        }
-    }
-}
-
 
 /*
  * Return formatted SAM header as a string
@@ -214,7 +183,7 @@ std::string sam_header(const References& references) {
     return out.str();
 }
 
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
     CommandLineOptions opt;
     mapping_params map_param;
@@ -224,26 +193,19 @@ int main (int argc, char **argv)
     if (!opt.r_set) {
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
     }
-    adjust_mapping_params_depending_on_read_length(map_param, opt);
-
+    IndexParameters index_parameters = IndexParameters::from_read_length(map_param.r, opt.k_set ? opt.k : -1, opt.s_set ? opt.s : -1);
     if (!opt.max_seed_len_set){
-        map_param.max_dist = std::max(map_param.r - 70, map_param.k);
+        map_param.max_dist = std::max(map_param.r - 70, index_parameters.k);
         map_param.max_dist = std::min(255, map_param.max_dist);
     } else {
-        map_param.max_dist = opt.max_seed_len - map_param.k; //convert to distance in start positions
+        map_param.max_dist = opt.max_seed_len - index_parameters.k; //convert to distance in start positions
     }
 
-
-    if ( (map_param.c < 64) && (map_param.c > 0)){
-        map_param.q = pow(2, map_param.c) - 1;
-    } else{
-        logger.warning() << "Warning wrong value for parameter c, setting c=8" << std::endl;
-        map_param.q = pow(2, 8) - 1;
+    if (opt.c >= 64 || opt.c <= 0) {
+        logger.error() << "Parameter c must be greater than 0 and less than 64" << std::endl;
+        return EXIT_FAILURE;
     }
-
-    map_param.w_min = std::max(1, map_param.k/(map_param.k-map_param.s+1) + map_param.l);
-    map_param.w_max = map_param.k/(map_param.k-map_param.s+1) + map_param.u;
-    map_param.t_syncmer = (map_param.k-map_param.s)/2 + 1;
+    map_param.q = pow(2, opt.c) - 1;
 
     alignment_params aln_params;
     aln_params.match = opt.A;
@@ -252,16 +214,16 @@ int main (int argc, char **argv)
     aln_params.gap_extend = opt.E;
 
     logger.debug() << "Using" << std::endl
-        << "k: " << map_param.k << std::endl
-        << "s: " << map_param.s << std::endl
-        << "w_min: " << map_param.w_min << std::endl
-        << "w_max: " << map_param.w_max << std::endl
+        << "k: " << index_parameters.k << std::endl
+        << "s: " << index_parameters.s << std::endl
+        << "w_min: " << index_parameters.w_min << std::endl
+        << "w_max: " << index_parameters.w_max << std::endl
         << "Read length (r): " << map_param.r << std::endl
-        << "Maximum seed length: " << map_param.max_dist + map_param.k << std::endl
+        << "Maximum seed length: " << map_param.max_dist + index_parameters.k << std::endl
         << "Threads: " << opt.n_threads << std::endl
         << "R: " << map_param.R << std::endl
-        << "Expected [w_min, w_max] in #syncmers: [" << map_param.w_min << ", " << map_param.w_max << "]" << std::endl
-        << "Expected [w_min, w_max] in #nucleotides: [" << (map_param.k-map_param.s+1)*map_param.w_min << ", " << (map_param.k-map_param.s+1)*map_param.w_max << "]" << std::endl
+        << "Expected [w_min, w_max] in #syncmers: [" << index_parameters.w_min << ", " << index_parameters.w_max << "]" << std::endl
+        << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_min << ", " << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_max << "]" << std::endl
         << "A: " << opt.A << std::endl
         << "B: " << opt.B << std::endl
         << "O: " << opt.O << std::endl
@@ -269,11 +231,13 @@ int main (int argc, char **argv)
 
     try {
         map_param.verify();
+        index_parameters.verify();
     }
-    catch (BadMappingParameter& e) {
-        logger.error() << "A mapping parameter is invalid: " << e.what() << std::endl;
+    catch (BadParameter& e) {
+        logger.error() << "A mapping or seeding parameter is invalid: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
+
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
 
     //////////// CREATE INDEX OF REF SEQUENCES /////////////////
@@ -301,15 +265,14 @@ int main (int argc, char **argv)
             return EXIT_FAILURE;
         }
 
-        index.populate(references, map_param);
-        index.filter_cutoff = map_param.filter_cutoff;
+        index.populate(references, map_param, index_parameters);
 
         // Record index creation end time
         std::chrono::duration<double> elapsed = high_resolution_clock::now() - start;
         logger.info() << "Total time indexing: " << elapsed.count() << " s" << std::endl;
 
         if (opt.index_log) {
-            print_diagnostics(index.flat_vector, index.mers_index, opt.logfile_name, map_param.k, map_param.max_dist + map_param.k);
+            print_diagnostics(index, opt.logfile_name, index_parameters.k);
             logger.debug() << "Finished printing log stats" << std::endl;
         }
         
@@ -334,14 +297,12 @@ int main (int argc, char **argv)
     
     if (!(opt.only_gen_index && opt.reads_filename1.empty())) { // If the program was called with the -i flag and the fastqs are not specified, we don't run any alignment
         
-        map_param.filter_cutoff = index.filter_cutoff; //This is calculated when building the filter and needs to be filled in
-
         // Record matching time
         auto start_aln_part = high_resolution_clock::now();
 
         //    std::ifstream query_file(reads_filename);
 
-        map_param.rescue_cutoff = map_param.R < 100 ? map_param.R * map_param.filter_cutoff : 1000;
+        map_param.rescue_cutoff = map_param.R < 100 ? map_param.R * index.filter_cutoff : 1000;
         logger.debug() << "Using rescue cutoff: " << map_param.rescue_cutoff << std::endl;
 
         std::streambuf* buf;
@@ -386,8 +347,8 @@ int main (int argc, char **argv)
             for (int i = 0; i < opt.n_threads; ++i) {
                 std::thread consumer(perform_task_SE, std::ref(input_buffer), std::ref(output_buffer),
                     std::ref(log_stats_vec), std::ref(aln_params),
-                    std::ref(map_param), std::ref(references),
-                    std::ref(index.mers_index), std::ref(index.flat_vector));
+                    std::ref(map_param), std::ref(index_parameters), std::ref(references),
+                    std::ref(index));
                 workers.push_back(std::move(consumer));
             }
 
@@ -416,8 +377,8 @@ int main (int argc, char **argv)
             for (int i = 0; i < opt.n_threads; ++i) {
                 std::thread consumer(perform_task_PE, std::ref(input_buffer), std::ref(output_buffer),
                     std::ref(log_stats_vec), std::ref(isize_est_vec), std::ref(aln_params),
-                    std::ref(map_param), std::ref(references),
-                    std::ref(index.mers_index), std::ref(index.flat_vector));
+                    std::ref(map_param), std::ref(index_parameters), std::ref(references),
+                    std::ref(index));
                 workers.push_back(std::move(consumer));
             }
 
