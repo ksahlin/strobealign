@@ -82,7 +82,7 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     if (v) { opt.verbose = true; }
     if (x) { map_param.is_sam_out = false; }
     if (N) { map_param.max_secondary = args::get(N); }
-    if (L) { opt.logfile_name = args::get(L); opt.index_log = true; }
+    if (L) { opt.logfile_name = args::get(L); }
     if (i) { opt.only_gen_index = true; opt.index_out_filename = args::get(i); }
 
     // Seeding

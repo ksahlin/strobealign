@@ -264,7 +264,7 @@ int main(int argc, char **argv)
         std::chrono::duration<double> elapsed = high_resolution_clock::now() - start;
         logger.info() << "Total time indexing: " << elapsed.count() << " s" << std::endl;
 
-        if (opt.index_log) {
+        if (!opt.logfile_name.empty()) {
             print_diagnostics(index, opt.logfile_name, index_parameters.k);
             logger.debug() << "Finished printing log stats" << std::endl;
         }
