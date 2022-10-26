@@ -4,7 +4,7 @@
 #include <string>
 #include <utility>
 
-#include "index.hpp"
+#include "aln.hpp"
 
 struct CommandLineOptions {
     // Index parameters

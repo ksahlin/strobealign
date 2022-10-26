@@ -52,6 +52,18 @@ struct AlignmentStatistics {
     }
 };
 
+struct mapping_params {
+    int r { 150 };
+    int max_secondary { 0 };
+    float dropoff_threshold { 0.5 };
+    int R { 2 };
+    int maxTries { 20 };
+    int rescue_cutoff;
+    bool is_sam_out { true };
+
+    void verify() const {
+    }
+};
 
 void align_PE_read(klibpp::KSeq& record1, klibpp::KSeq& record2, std::string& outstring, AlignmentStatistics& statistics, i_dist_est& isize_est, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
 

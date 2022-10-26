@@ -131,19 +131,6 @@ public:
     }
 };
 
-struct mapping_params {
-    int r { 150 };
-    int max_secondary { 0 };
-    float dropoff_threshold { 0.5 };
-    int R { 2 };
-    int maxTries { 20 };
-    int rescue_cutoff;
-    bool is_sam_out { true };
-
-    void verify() const {
-    }
-};
-
 struct StrobemerIndex {
     StrobemerIndex() : filter_cutoff(0) {}
     unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
