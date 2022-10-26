@@ -7,8 +7,11 @@ int est_read_length(klibpp::KStream<gzFile_s*, int (*)(gzFile_s*, void*, unsigne
         auto record1 = records[i];
         tot_read_len += record1.seq.length();
     }
-    int avg_read_len = tot_read_len/n_reads;
-
+    n_reads = records.size();
+    int avg_read_len = 150;
+    if (n_reads > 0) {
+        avg_read_len = tot_read_len / n_reads;
+    }
     return avg_read_len;
 }
 
