@@ -625,7 +625,7 @@ static inline bool sort_highest_sw_scores_single(const std::tuple<int, alignment
     return (std::get<0>(a) > std::get<0>(b));
 }
 
-static inline void align_SE_secondary_hits(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, const References& references, AlignmentStatistics &statistics, float dropoff, int max_tries, int max_secondary ) {
+static inline void align_SE_secondary_hits(const alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, const References& references, AlignmentStatistics &statistics, float dropoff, int max_tries, int max_secondary ) {
 
     auto query_acc = record.name;
     auto read = record.seq;
@@ -1765,7 +1765,7 @@ static inline void rescue_mate(const alignment_params &aln_params, nam &n, const
     tot_rescued ++;
 }
 
-inline void align_SE(alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, const References& references, AlignmentStatistics &statistics, float dropoff, int max_tries) {
+inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, const References& references, AlignmentStatistics &statistics, float dropoff, int max_tries) {
     auto query_acc = record.name;
     auto read = record.seq;
     auto qual = record.qual;
