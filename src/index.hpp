@@ -143,7 +143,6 @@ struct StrobemerIndex {
     void populate(const References& references, const IndexParameters& index_parameters, float f);
 private:
     ind_mers_vector generate_seeds(const References& references, const IndexParameters& index_parameters) const;
-
 };
 
 
