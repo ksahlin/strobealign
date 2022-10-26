@@ -2,7 +2,7 @@
 set -xeuo pipefail
 
 # should fail when unknown command-line option used
-if strobealign -G > /dev/null; then false; fi
+if strobealign -G > /dev/null 2> /dev/null; then false; fi
 
 # should succeed when only printing help
 strobealign -h > /dev/null
@@ -10,7 +10,7 @@ strobealign -h > /dev/null
 d=tests
 
 # Single-end SAM
-strobealign $d/phix.fasta $d/phix.1.fastq > phix.se.sam
+strobealign -v $d/phix.fasta $d/phix.1.fastq > phix.se.sam
 diff -u tests/phix.se.sam phix.se.sam
 rm phix.se.sam
 
