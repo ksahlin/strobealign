@@ -23,7 +23,7 @@ struct CommandLineOptions {
     float f { 0.0002 };
     int max_seed_len;
     std::string output_file_name;
-    std::string logfile_name { "log.csv" };
+    std::string logfile_name { "" };
     bool verbose { false };
     int n_threads { 3 };
     std::string ref_filename; //This is either a fasta file or an index file - if fasta, indexing will be run
@@ -31,7 +31,6 @@ struct CommandLineOptions {
     std::string reads_filename2;
     bool is_SE { true };
     bool write_to_stdout { true };
-    bool index_log { false };
     bool r_set { false };
     bool max_seed_len_set { false };
     bool only_gen_index{ false };
