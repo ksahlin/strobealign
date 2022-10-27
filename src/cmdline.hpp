@@ -4,7 +4,7 @@
 #include <string>
 #include <utility>
 
-#include "index.hpp"
+#include "aln.hpp"
 
 struct CommandLineOptions {
     // Index parameters
@@ -19,7 +19,8 @@ struct CommandLineOptions {
     int B { 8 };
     int O { 12 };
     int E { 1 };
-    int c = 8;
+    int c { 8 };
+    float f { 0.0002 };
     int max_seed_len;
     std::string output_file_name;
     std::string logfile_name { "log.csv" };

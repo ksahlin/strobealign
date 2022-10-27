@@ -25,7 +25,7 @@ static Logger& logger = Logger::get();
  * k and/or s can be specified explicitly by setting them to a value other than
  * -1, but otherwise reasonable defaults are used for them as well.
  */
-IndexParameters IndexParameters::from_read_length(int read_length, int k, int s) {
+IndexParameters IndexParameters::from_read_length(int read_length, int c, int k, int s, int max_seed_len) {
     int l, u;
     struct settings {
         int r_threshold;
@@ -55,7 +55,16 @@ IndexParameters IndexParameters::from_read_length(int read_length, int k, int s)
             break;
         }
     }
-    return IndexParameters(k, s, l, u);
+
+    int max_dist;
+    if (max_seed_len == -1) {
+        max_dist = std::max(read_length - 70, k);
+        max_dist = std::min(255, max_dist);
+    } else {
+        max_dist = max_seed_len - k; // convert to distance in start positions
+    }
+    int q = std::pow(2, c) - 1;
+    return IndexParameters(k, s, l, u, q, max_dist);
 }
 
 
@@ -290,11 +299,11 @@ void StrobemerIndex::read(References& references, const std::string& filename) {
 }
 
 
-void StrobemerIndex::populate(const References& references, const mapping_params& map_param, const IndexParameters& index_parameters) {
+void StrobemerIndex::populate(const References& references, const IndexParameters& index_parameters, float f) {
     auto start_flat_vector = high_resolution_clock::now();
     hash_vector h_vector;
     {
-        auto ind_flat_vector = generate_seeds(references, map_param, index_parameters);
+        auto ind_flat_vector = generate_seeds(references, index_parameters);
 
         //Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
         //The hash codes are only needed when generating the index and can be discarded afterwards.
@@ -322,12 +331,12 @@ void StrobemerIndex::populate(const References& references, const mapping_params
 
     mers_index.reserve(unique_mers);
     // construct index over flat array
-    filter_cutoff = index_vector(h_vector, mers_index, map_param.f);
+    filter_cutoff = index_vector(h_vector, mers_index, f);
     std::chrono::duration<double> elapsed_hash_index = high_resolution_clock::now() - start_hash_index;
     logger.info() << "Total time generating hash table index: " << elapsed_hash_index.count() << " s" <<  std::endl;
 }
 
-ind_mers_vector StrobemerIndex::generate_seeds(const References& references, const mapping_params& map_param, const IndexParameters& index_parameters) const
+ind_mers_vector StrobemerIndex::generate_seeds(const References& references, const IndexParameters& index_parameters) const
 {
     auto start_flat_vector = high_resolution_clock::now();
 
@@ -337,7 +346,7 @@ ind_mers_vector StrobemerIndex::generate_seeds(const References& references, con
     logger.debug() << "ref vector approximate size: " << approx_vec_size << std::endl;
     ind_flat_vector.reserve(approx_vec_size);
     for(size_t i = 0; i < references.size(); ++i) {
-        seq_to_randstrobes2(ind_flat_vector, index_parameters.k, index_parameters.w_min, index_parameters.w_max, references.sequences[i], i, index_parameters.s, index_parameters.t_syncmer, map_param.q, map_param.max_dist);
+        seq_to_randstrobes2(ind_flat_vector, index_parameters.k, index_parameters.w_min, index_parameters.w_max, references.sequences[i], i, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
     }
     logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
 

@@ -13,6 +13,7 @@
 #include <vector>
 #include <deque>
 #include <tuple>
+#include <cmath>
 #include "robin_hood.h"
 #include "exceptions.hpp"
 #include "refs.hpp"
@@ -94,21 +95,25 @@ public:
     const int s;
     const int l;
     const int u;
+    uint64_t q;
+    const int max_dist;
     const int t_syncmer;
     const int w_min;
     const int w_max;
 
-    IndexParameters(int k, int s, int l, int u)
+    IndexParameters(int k, int s, int l, int u, int q, int max_dist)
         : k(k)
         , s(s)
         , l(l)
         , u(u)
+        , q(q)
+        , max_dist(max_dist)
         , t_syncmer((k - s) / 2 + 1)
         , w_min(std::max(1, k / (k - s + 1) + l))
         , w_max(k / (k - s + 1) + u) {
     }
 
-    static IndexParameters from_read_length(int read_length, int k = -1, int s = -1);
+    static IndexParameters from_read_length(int read_length, int c, int k = -1, int s = -1, int max_seed_len = -1);
 
     void verify() const {
         if (k <= 7 || k > 32) {
@@ -120,27 +125,6 @@ public:
         if ((k - s) % 2 != 0) {
             throw BadParameter("(k - s) should be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
         }
-    }
-};
-
-
-struct mapping_params {
-    uint64_t q;
-    int r;
-    int max_secondary;
-    float dropoff_threshold;
-    int m;
-    float f;
-    int S;
-    int M;
-    int R;
-    int max_dist;
-    int maxTries;
-    int max_seed_len;
-    int rescue_cutoff;
-    bool is_sam_out;
-
-    void verify() const {
         if (max_dist > 255) {
             throw BadParameter("maximum seed length (-m <max_dist>) is larger than 255");
         }
@@ -156,9 +140,9 @@ struct StrobemerIndex {
 
     void write(const References& references, const std::string& filename) const;
     void read(References& references, const std::string& filename);
-    void populate(const References& references, const mapping_params& map_param, const IndexParameters& index_parameters);
+    void populate(const References& references, const IndexParameters& index_parameters, float f);
 private:
-    ind_mers_vector generate_seeds(const References& references, const mapping_params& map_param, const IndexParameters& index_parameters) const;
+    ind_mers_vector generate_seeds(const References& references, const IndexParameters& index_parameters) const;
 
 };
 
