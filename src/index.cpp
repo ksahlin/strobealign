@@ -186,6 +186,8 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
 void StrobemerIndex::write(const std::string& filename) const {
     std::ofstream ofs(filename, std::ios::binary);
 
+    ofs.write("STI\1", 4); // magic number
+
     //write filter_cutoff
     ofs.write(reinterpret_cast<const char*>(&filter_cutoff), sizeof(filter_cutoff));
 
@@ -205,6 +207,15 @@ void StrobemerIndex::write(const std::string& filename) const {
 
 void StrobemerIndex::read(const std::string& filename) {
     std::ifstream ifs(filename, std::ios::binary);
+
+    union {
+        char s[4];
+        uint32_t v;
+    } magic;
+    ifs.read(magic.s, 4);
+    if (magic.v != 0x01495453) { // "STI\1"
+        throw InvalidIndexFile("Index file has incorrect format (magic number mismatch)");
+    }
 
     // read filter_cutoff
     ifs.read(reinterpret_cast<char*>(&filter_cutoff), sizeof(filter_cutoff));

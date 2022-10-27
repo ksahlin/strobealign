@@ -13,4 +13,9 @@ public:
     InvalidFasta(std::string message) : runtime_error(message) { }
 };
 
+class InvalidIndexFile : public std::runtime_error {
+public:
+    InvalidIndexFile(std::string message) : runtime_error(message) { }
+};
+
 #endif /* exceptions.hpp */
