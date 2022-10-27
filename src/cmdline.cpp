@@ -22,7 +22,8 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     args::Flag x(parser, "x", "Only map reads, no base level alignment (produces PAF file)", {'x'});
     args::ValueFlag<int> N(parser, "INT", "Retain at most INT secondary alignments (is upper bounded by -M and depends on -S) [0]", {'N'});
     args::ValueFlag<std::string> L(parser, "PATH", "Print statistics of indexing to PATH", {'L'});
-    args::ValueFlag<std::string> i(parser, "PATH", "Generate an index (.sti) file", { 'i' });
+    args::Flag i(parser, "index", "Write the generated index to a file. Do not map reads. If read files are provided, they are used to estimate read length", { 'i' });
+    args::Flag use_index(parser, "use_index", "Use a pre-generated index", { "use-index" });
 
     args::Group seeding(parser, "Seeding:");
     //args::ValueFlag<int> n(parser, "INT", "Number of strobes [2]", {'n'});
@@ -60,16 +61,14 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
         std::cout << e.what();
         exit(0);
     }
-    catch (const args::Help&)
-    {
+    catch (const args::Help&) {
         std::cout << parser;
         exit(0);
     }
-    catch (const args::Error& e)
-    {
+    catch (const args::Error& e) {
         std::cerr << parser;
         std::cerr << "Error: " << e.what() << std::endl;
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     CommandLineOptions opt;
@@ -84,6 +83,7 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     if (N) { map_param.max_secondary = args::get(N); }
     if (L) { opt.logfile_name = args::get(L); }
     if (i) { opt.only_gen_index = true; opt.index_out_filename = args::get(i); }
+    if (use_index) { opt.use_index = true; }
 
     // Seeding
     if (r) { map_param.r = args::get(r); opt.r_set = true; }
@@ -119,10 +119,13 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
         opt.is_SE = true;
     }
 
-    //If not generating index, fastq1 is mandatory:
+    if (opt.use_index && opt.only_gen_index) {
+        std::cerr << "Error: Options -i and --use-index cannot be used at the same time" << std::endl;
+        exit(EXIT_FAILURE);
+    }
     if (opt.reads_filename1.empty() && !opt.only_gen_index) {
-        std::cerr << "Reads file (fastq) must be specified." << std::endl;
-        // exit(1);
+        std::cerr << "At least one file with reads must be specified." << std::endl;
+        exit(EXIT_FAILURE);
     }
 
     return std::make_pair(opt, map_param);

@@ -29,5 +29,12 @@ strobealign -x $d/phix.fasta $d/phix.1.fastq $d/phix.2.fastq | tail > phix.pe.pa
 diff -u tests/phix.pe.paf phix.pe.paf
 rm phix.pe.paf
 
+# Build a separate index
+strobealign -r 150 $d/phix.fasta $d/phix.1.fastq > without-sti.sam
+strobealign -r 150 -i $d/phix.fasta
+strobealign -r 150 --use-index $d/phix.fasta $d/phix.1.fastq > with-sti.sam
+diff -u without-sti.sam with-sti.sam
+rm without-sti.sam with-sti.sam
+
 # Unit tests
 build/test-strobealign
