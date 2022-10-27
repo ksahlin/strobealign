@@ -75,13 +75,12 @@ inline bool align_reads_PE(
     std::vector<KSeq> &records2,
     AlignmentStatistics &statistics,
     i_dist_est &isize_est,
-    alignment_params &aln_params,
-    mapping_params &map_param,
+    const alignment_params &aln_params,
+    const mapping_params &map_param,
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index
 ) {
-
     // If no more reads to align
     if (records1.empty() && input_buffer.finished_reading){
         return true;
@@ -109,8 +108,8 @@ void perform_task_PE(
     OutputBuffer &output_buffer,
     std::unordered_map<std::thread::id, AlignmentStatistics> &log_stats_vec,
     std::unordered_map<std::thread::id, i_dist_est> &isize_est_vec,
-    alignment_params &aln_params,
-    mapping_params &map_param,
+    const alignment_params &aln_params,
+    const mapping_params &map_param,
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index
@@ -141,8 +140,8 @@ inline bool align_reads_SE(
     OutputBuffer &output_buffer,
     std::vector<KSeq> &records,
     AlignmentStatistics &statistics,
-    alignment_params &aln_params,
-    mapping_params &map_param,
+    const alignment_params &aln_params,
+    const mapping_params &map_param,
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index
@@ -171,10 +170,9 @@ inline bool align_reads_SE(
 void perform_task_SE(
     InputBuffer &input_buffer,
     OutputBuffer &output_buffer,
-    std::unordered_map<std::thread::id,
-    AlignmentStatistics> &log_stats_vec,
-    alignment_params &aln_params,
-    mapping_params &map_param,
+    std::unordered_map<std::thread::id, AlignmentStatistics> &log_stats_vec,
+    const alignment_params &aln_params,
+    const mapping_params &map_param,
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index
