@@ -5,6 +5,7 @@
 #include <sstream>
 #include "ssw_cpp.h"
 #include "sam.hpp"
+#include "revcomp.hpp"
 
 using namespace klibpp;
 
@@ -488,18 +489,6 @@ inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all
 }
 
 
-static inline std::string reverse_complement(const std::string &read) {
-    auto read_rev = read;
-    std::reverse(read_rev.begin(), read_rev.end()); // reverse
-    for (size_t j = 0; j < read_rev.length(); ++j) { // complement
-        if (read_rev[j] == 'A') read_rev[j] = 'T';
-        else if (read_rev[j] == 'T') read_rev[j] = 'A';
-        else if (read_rev[j] == 'C') read_rev[j] = 'G';
-        else if (read_rev[j] == 'G') read_rev[j] = 'C';
-    }
-    return read_rev;
-}
-
 inline int HammingDistance(const std::string &One, const std::string &Two)
 {
     if (One.length() != Two.length()){
@@ -626,7 +615,17 @@ static inline bool sort_highest_sw_scores_single(const std::tuple<int, alignment
 }
 
 
-inline void align_SE(const alignment_params &aln_params, Sam& sam, std::vector<nam> &all_nams, const KSeq& record, int k, const References& references, AlignmentStatistics &statistics, float dropoff, int max_tries) {
+inline void align_SE(
+    const alignment_params &aln_params,
+    Sam& sam,
+    std::vector<nam> &all_nams,
+    const KSeq& record,
+    int k,
+    const References& references,
+    AlignmentStatistics &statistics,
+    float dropoff,
+    int max_tries
+) {
     auto query_acc = record.name;
     auto read = record.seq;
     auto qual = record.qual;
@@ -1271,11 +1270,9 @@ static inline void get_alignment(
     const alignment_params &aln_params,
     nam &n,
     const References& references,
-    const std::string &read,
-    std::string &read_rc,
+    const Read& read,
     alignment &sam_aln,
     int k,
-    bool &rc_already_comp,
     unsigned int &did_not_fit,
     unsigned int &tot_ksw_aligned
 ) {
@@ -1302,8 +1299,8 @@ static inline void get_alignment(
     ref_end_kmer = references.sequences[n.ref_id].substr(n.ref_e-k, k);
 
     if (!n.is_rc) {
-        read_start_kmer = read.substr(n.query_s, k);
-        read_end_kmer = read.substr(n.query_e-k, k);
+        read_start_kmer = read.seq.substr(n.query_s, k);
+        read_end_kmer = read.seq.substr(n.query_e-k, k);
         if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)) {
 //            n.is_rc = false;
             fits = true;
@@ -1313,15 +1310,11 @@ static inline void get_alignment(
 
 //              std::cerr << " CHECKING1!! " << std::endl;
             // false reverse hit, change coordinates in nam to forward
-            if (!rc_already_comp){
-                read_rc = reverse_complement(read);
-                rc_already_comp = true;
-            }
 
             int q_start_tmp = read_len - n.query_e;
             int q_end_tmp = read_len - n.query_s;
-            read_start_kmer = read_rc.substr(q_start_tmp, k);
-            read_end_kmer = read_rc.substr(q_end_tmp-k, k);
+            read_start_kmer = read.rc().substr(q_start_tmp, k);
+            read_end_kmer = read.rc().substr(q_end_tmp-k, k);
             if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
                 fits = true;
                 n.is_rc = true;
@@ -1332,12 +1325,8 @@ static inline void get_alignment(
 
         }
     } else {
-        if (!rc_already_comp){
-            read_rc = reverse_complement(read);
-            rc_already_comp = true;
-        }
-        read_rc_start_kmer = read_rc.substr(n.query_s, k);
-        read_rc_end_kmer = read_rc.substr(n.query_e-k, k);
+        read_rc_start_kmer = read.rc().substr(n.query_s, k);
+        read_rc_end_kmer = read.rc().substr(n.query_e-k, k);
         if ( (ref_start_kmer == read_rc_start_kmer) && (ref_end_kmer == read_rc_end_kmer) ) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
             n.is_rc = true;
             fits = true;
@@ -1347,8 +1336,8 @@ static inline void get_alignment(
 
             int q_start_tmp = read_len - n.query_e;
             int q_end_tmp = read_len - n.query_s;
-            read_start_kmer = read.substr(q_start_tmp, k);
-            read_end_kmer = read.substr(q_end_tmp-k, k);
+            read_start_kmer = read.seq.substr(q_start_tmp, k);
+            read_end_kmer = read.seq.substr(q_end_tmp-k, k);
 //            std::cerr << " CHECKING2!! " <<   n.query_s << " " <<   n.query_e << " " << std::endl;
 //            std::cerr << read_start_kmer  << " " <<  ref_start_kmer << " " <<  read_end_kmer << " " << ref_end_kmer << std::endl;
 
@@ -1371,10 +1360,10 @@ static inline void get_alignment(
     std::string r_tmp;
     bool is_rc;
     if (n.is_rc){
-        r_tmp = read_rc;
+        r_tmp = read.rc();
         is_rc = true;
     }else{
-        r_tmp = read;
+        r_tmp = read.seq;
         is_rc = false;
     }
 
@@ -1471,7 +1460,6 @@ static inline void get_alignment(
             } else  {
                 std::cerr << "BUUUUUUG " << std::endl;
             }
-
 
 //            int ref_diff = n.ref_e - n.ref_s;
 //            int read_diff = n.query_e - n.query_s;
@@ -1851,12 +1839,23 @@ static inline void get_best_scoring_NAM_locations(const std::vector<nam> &all_na
 }
 
 
-static inline void rescue_mate(const alignment_params &aln_params, nam &n, const References& references, const std::string &guide_read, std::string &guide_read_rc, bool &guide_rc_already_comp, std::string &read, std::string &read_rc, alignment &sam_aln, bool &rc_already_comp, unsigned int &tot_ksw_aligned, float mu, float sigma, unsigned int &tot_rescued, int k
+static inline void rescue_mate(
+    const alignment_params &aln_params,
+    nam &n,
+    const References& references,
+    const Read& guide,
+    const Read& read,
+    alignment &sam_aln,
+    unsigned int &tot_ksw_aligned,
+    float mu,
+    float sigma,
+    unsigned int &tot_rescued,
+    int k
 ) {
     int a, b, ref_start,ref_len,ref_end;
     std::string r_tmp;
     bool a_is_rc;
-    auto guide_read_len = guide_read.size();
+    auto guide_read_len = guide.size();
     auto read_len = read.size();
 
     // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
@@ -1875,8 +1874,8 @@ static inline void rescue_mate(const alignment_params &aln_params, nam &n, const
     if (!n.is_rc) {
 //        std::cerr << "CHECK1: n.query_s:" << n.query_s << " n.query_e-k: " << n.query_e-k <<  " read_len: " << guide_read.length() << " n.query_e-k+k: " << n.query_e-k+k << std::endl;
 
-        read_start_kmer = guide_read.substr(n.query_s, k);
-        read_end_kmer = guide_read.substr(n.query_e-k, k);
+        read_start_kmer = guide.seq.substr(n.query_s, k);
+        read_end_kmer = guide.seq.substr(n.query_e-k, k);
         if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)) {
 //            n.is_rc = false;
             fits = true;
@@ -1887,15 +1886,11 @@ static inline void rescue_mate(const alignment_params &aln_params, nam &n, const
 //              std::cerr << " CHECKING1!! " << std::endl;
 //            std::cerr << read_start_kmer  << " " <<  ref_start_kmer << " " <<  read_end_kmer << " " << ref_end_kmer << std::endl;
             // false reverse hit, change coordinates in nam to forward
-            if (!guide_rc_already_comp){
-                guide_read_rc = reverse_complement(guide_read);
-                guide_rc_already_comp = true;
-            }
 
             int q_start_tmp = guide_read_len - n.query_e;
             int q_end_tmp = guide_read_len - n.query_s;
-            read_start_kmer = guide_read_rc.substr(q_start_tmp, k);
-            read_end_kmer = guide_read_rc.substr(q_end_tmp-k, k);
+            read_start_kmer = guide.rc().substr(q_start_tmp, k);
+            read_end_kmer = guide.rc().substr(q_end_tmp-k, k);
             if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
                 fits = true;
                 n.is_rc = true;
@@ -1906,14 +1901,8 @@ static inline void rescue_mate(const alignment_params &aln_params, nam &n, const
 
         }
     } else {
-        if (!guide_rc_already_comp){
-            guide_read_rc = reverse_complement(guide_read);
-            guide_rc_already_comp = true;
-        }
-//        std::cerr << "CHECK2: n.query_s:" << n.query_s << " n.query_e-k: " << n.query_e-k <<  " read_len: " << guide_read.length() << " n.query_e-k+k: " << n.query_e-k+k << std::endl;
-
-        read_rc_start_kmer = guide_read_rc.substr(n.query_s, k);
-        read_rc_end_kmer = guide_read_rc.substr(n.query_e-k, k);
+        read_rc_start_kmer = guide.rc().substr(n.query_s, k);
+        read_rc_end_kmer = guide.rc().substr(n.query_e-k, k);
         if ( (ref_start_kmer == read_rc_start_kmer) && (ref_end_kmer == read_rc_end_kmer) ) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
             n.is_rc = true;
             fits = true;
@@ -1923,8 +1912,8 @@ static inline void rescue_mate(const alignment_params &aln_params, nam &n, const
 
             int q_start_tmp = guide_read_len - n.query_e;
             int q_end_tmp = guide_read_len - n.query_s;
-            read_start_kmer = guide_read.substr(q_start_tmp, k);
-            read_end_kmer = guide_read.substr(q_end_tmp-k, k);
+            read_start_kmer = guide.seq.substr(q_start_tmp, k);
+            read_end_kmer = guide.seq.substr(q_end_tmp-k, k);
 //            std::cerr << " CHECKING2!! " <<   n.query_s << " " <<   n.query_e << " " << std::endl;
 //            std::cerr << read_start_kmer  << " " <<  ref_start_kmer << " " <<  read_end_kmer << " " << ref_end_kmer << std::endl;
 
@@ -1939,16 +1928,12 @@ static inline void rescue_mate(const alignment_params &aln_params, nam &n, const
     }
 
     if (n.is_rc){
-        r_tmp = read;
+        r_tmp = read.seq;
         a = n.ref_s - n.query_s - (mu+5*sigma);
         b = n.ref_s - n.query_s + read_len/2; // at most half read overlap
         a_is_rc = false;
-    }else{
-        if (!rc_already_comp){
-            read_rc = reverse_complement(read);
-            rc_already_comp = true;
-        }
-        r_tmp = read_rc; // mate is rc since fr orientation
+    } else {
+        r_tmp = read.rc(); // mate is rc since fr orientation
         a = n.ref_e + (read_len - n.query_e) - read_len/2; // at most half read overlap
         b = n.ref_e + (read_len - n.query_e) + (mu+5*sigma);
         a_is_rc = true;
@@ -2042,20 +2027,16 @@ static inline void rescue_mate(const alignment_params &aln_params, nam &n, const
 }
 
 
-
 void rescue_read(
-    std::string& read2, // The read to be rescued
+    const Read& read2,  // read to be rescued
+    const Read& read1,  // read that has NAMs
     const alignment_params &aln_params,
     const References& references,
     std::vector<nam> &all_nams1,
     int max_tries,
     float dropoff,
     AlignmentStatistics &statistics,
-    std::string& read1,
-    std::string& read1_rc,
     int k,
-    bool& rc_already_comp1,
-    bool& rc_already_comp2,
     float mu,
     float sigma,
     size_t max_secondary,
@@ -2071,7 +2052,6 @@ void rescue_read(
 
     std::vector<alignment> aln_scores1;
     std::vector<alignment> aln_scores2;
-    std::string read2_rc = reverse_complement(read2);
     for (auto &n : all_nams1) {
         score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
         if ( (cnt1 >= max_tries) || score_dropoff1 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
@@ -2080,15 +2060,14 @@ void rescue_read(
         //////// the actual testing of base pair alignment part start /////////
         alignment a1;
 //            std::cerr << query_acc1 << " force rescue"  << std::endl;
-        get_alignment(aln_params, n, references, read1, read1_rc, a1, k, rc_already_comp1, statistics.did_not_fit, statistics.tot_ksw_aligned);
+        get_alignment(aln_params, n, references, read1, a1, k, statistics.did_not_fit, statistics.tot_ksw_aligned);
         aln_scores1.push_back(a1);
 
         //////// Force SW alignment to rescue mate /////////
         alignment a2;
 //            std::cerr << query_acc2 << " force rescue" << std::endl;
-        rescue_mate(aln_params, n, references, read1, read1_rc, rc_already_comp1, read2, read2_rc, a2, rc_already_comp2, statistics.tot_ksw_aligned, mu, sigma, statistics.tot_rescued, k);
+        rescue_mate(aln_params, n, references, read1, read2, a2, statistics.tot_ksw_aligned, mu, sigma, statistics.tot_rescued, k);
         aln_scores2.push_back(a2);
-        //////////////////////////////////////////////////////////////////
 
         cnt1 ++;
         statistics.tot_all_tried ++;
@@ -2121,9 +2100,9 @@ void rescue_read(
 //            get_MAPQ(all_nams1, n_max1, mapq1);
 //            mapq2 = 0;
         if (swap_r1r2) {
-            sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2_rc, read1_rc, mapq2, mapq1, mu, sigma, true);
+            sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc(), read1.rc(), mapq2, mapq1, mu, sigma, true);
         } else {
-            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc, mapq1, mapq2, mu, sigma, true);
+            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(), mapq1, mapq2, mu, sigma, true);
         }
     } else {
         int max_out = std::min(high_scores.size(), max_secondary);
@@ -2143,9 +2122,9 @@ void rescue_read(
             alignment sam_aln2 = std::get<2>(aln_pair);
             if (s_max - s_score < secondary_dropoff) {
                 if (swap_r1r2) {
-                    sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2_rc, read1_rc, mapq2, mapq1, mu, sigma, is_primary);
+                    sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc(), read1.rc(), mapq2, mapq1, mu, sigma, is_primary);
                 } else {
-                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc, mapq1, mapq2, mu, sigma, is_primary);
+                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(), mapq1, mapq2, mu, sigma, is_primary);
                 }
             } else {
                 break;
@@ -2155,13 +2134,13 @@ void rescue_read(
 }
 
 
-
 inline void align_PE(
     const alignment_params &aln_params,
     Sam &sam,
     std::vector<nam> &all_nams1,
     std::vector<nam> &all_nams2,
-    const KSeq &record1, const KSeq &record2,
+    const KSeq &record1,
+    const KSeq &record2,
     int k,
     const References& references,
     AlignmentStatistics &statistics,
@@ -2172,12 +2151,8 @@ inline void align_PE(
 ) {
     const auto mu = isize_est.mu;
     const auto sigma = isize_est.sigma;
-    std::string read1 = record1.seq;
-    std::string read2 = record2.seq;
-    std::string read1_rc;
-    std::string read2_rc;
-    bool rc_already_comp1 = false;
-    bool rc_already_comp2 = false;
+    Read read1(record1.seq);
+    Read read2(record2.seq);
     double secondary_dropoff = 2 * aln_params.mismatch + aln_params.gap_open;
 
     if (all_nams1.empty() && all_nams2.empty()) {
@@ -2190,17 +2165,14 @@ inline void align_PE(
         // Only read 1 has NAMS: attempt to rescue read 2
         rescue_read(
             read2,
+            read1,
             aln_params,
             references,
             all_nams1,
             max_tries,
             dropoff,
             statistics,
-            read1,
-            read1_rc,
             k,
-            rc_already_comp1,
-            rc_already_comp2,
             mu,
             sigma,
             max_secondary,
@@ -2217,17 +2189,14 @@ inline void align_PE(
         // Only read 2 has NAMS: attempt to rescue read 1
         rescue_read(
             read1,
+            read2,
             aln_params,
             references,
             all_nams2,
             max_tries,
             dropoff,
             statistics,
-            read2,
-            read2_rc,
             k,
-            rc_already_comp2,
-            rc_already_comp1,
             mu,
             sigma,
             max_secondary,
@@ -2263,13 +2232,13 @@ inline void align_PE(
     bool r1_r2 = n_max2.is_rc && (a < b) && ((b-a) < 2000); // r1 ---> <---- r2
     bool r2_r1 = n_max1.is_rc && (b < a) && ((a-b) < 2000); // r2 ---> <---- r1
     if (score_dropoff1 < dropoff && score_dropoff2 < dropoff && (n_max1.is_rc ^ n_max2.is_rc) && (r1_r2 || r2_r1)) { //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
-        get_alignment(aln_params, n_max1, references, read1, read1_rc, sam_aln1, k, rc_already_comp1, statistics.did_not_fit, statistics.tot_ksw_aligned);
+        get_alignment(aln_params, n_max1, references, read1, sam_aln1, k, statistics.did_not_fit, statistics.tot_ksw_aligned);
         statistics.tot_all_tried ++;
-        get_alignment(aln_params, n_max2, references, read2, read2_rc, sam_aln2, k, rc_already_comp2, statistics.did_not_fit, statistics.tot_ksw_aligned);
+        get_alignment(aln_params, n_max2, references, read2, sam_aln2, k, statistics.did_not_fit, statistics.tot_ksw_aligned);
         statistics.tot_all_tried ++;
         mapq1 = get_MAPQ(all_nams1, n_max1);
         mapq2 = get_MAPQ(all_nams2, n_max2);
-        sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc, mapq1, mapq2, mu, sigma, true);
+        sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(), mapq1, mapq2, mu, sigma, true);
 
         if ((isize_est.sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && sam_aln1.is_proper && sam_aln2.is_proper ){
             isize_est.update(std::abs(sam_aln1.ref_start - sam_aln2.ref_start));
@@ -2293,14 +2262,14 @@ inline void align_PE(
         alignment a1_indv_max;
 //            a1_indv_max.sw_score = -10000;
         auto n1_max = all_nams1[0];
-        get_alignment(aln_params, n1_max, references, read1, read1_rc, a1_indv_max, k, rc_already_comp1,
+        get_alignment(aln_params, n1_max, references, read1, a1_indv_max, k,
                         statistics.did_not_fit, statistics.tot_ksw_aligned);
         is_aligned1[n1_max.nam_id] = a1_indv_max;
         statistics.tot_all_tried ++;
         alignment a2_indv_max;
 //            a2_indv_max.sw_score = -10000;
         auto n2_max = all_nams2[0];
-        get_alignment(aln_params, n2_max, references, read2, read2_rc, a2_indv_max, k, rc_already_comp2,
+        get_alignment(aln_params, n2_max, references, read2, a2_indv_max, k,
                         statistics.did_not_fit, statistics.tot_ksw_aligned);
         is_aligned2[n2_max.nam_id] = a2_indv_max;
         statistics.tot_all_tried ++;
@@ -2333,8 +2302,7 @@ inline void align_PE(
                     a1 = is_aligned1[n1.nam_id];
                 } else {
 //                    std::cerr << query_acc1 << std::endl;
-                    get_alignment(aln_params, n1, references, read1, read1_rc, a1, k,
-                                    rc_already_comp1,
+                    get_alignment(aln_params, n1, references, read1, a1, k,
                                     statistics.did_not_fit, statistics.tot_ksw_aligned);
                     is_aligned1[n1.nam_id] = a1;
                     statistics.tot_all_tried++;
@@ -2343,7 +2311,7 @@ inline void align_PE(
 //                    std::cerr << "RESCUE HERE1" << std::endl;
                 //////// Force SW alignment to rescue mate /////////
 //                    std::cerr << query_acc2 << " RESCUE MATE 1" << a1.is_rc << " " n1.is_rc << std::endl;
-                rescue_mate(aln_params, n2, references, read2, read2_rc, rc_already_comp2, read1, read1_rc, a1, rc_already_comp1, statistics.tot_ksw_aligned, mu, sigma, statistics.tot_rescued, k);
+                rescue_mate(aln_params, n2, references, read2, read1, a1, statistics.tot_ksw_aligned, mu, sigma, statistics.tot_rescued, k);
 //                    is_aligned1[n1.nam_id] = a1;
                 statistics.tot_all_tried ++;
             }
@@ -2364,8 +2332,7 @@ inline void align_PE(
                     a2 = is_aligned2[n2.nam_id];
                 } else {
 //                    std::cerr << query_acc2 << std::endl;
-                    get_alignment(aln_params, n2, references, read2, read2_rc, a2, k,
-                                    rc_already_comp2,
+                    get_alignment(aln_params, n2, references, read2, a2, k,
                                     statistics.did_not_fit, statistics.tot_ksw_aligned);
                     is_aligned2[n2.nam_id] = a2;
                     statistics.tot_all_tried++;
@@ -2374,7 +2341,7 @@ inline void align_PE(
 //                    std::cerr << "RESCUE HERE2" << std::endl;
                 //////// Force SW alignment to rescue mate /////////
 //                    std::cerr << query_acc1 << " RESCUE MATE 2" << a1.is_rc << " " n1.is_rc << std::endl;
-                rescue_mate(aln_params, n1, references, read1, read1_rc, rc_already_comp1, read2, read2_rc, a2, rc_already_comp2, statistics.tot_ksw_aligned, mu, sigma, statistics.tot_rescued, k);
+                rescue_mate(aln_params, n1, references, read1, read2, a2, statistics.tot_ksw_aligned, mu, sigma, statistics.tot_rescued, k);
 //                    is_aligned2[n2.nam_id] = a2;
                 statistics.tot_all_tried ++;
             }
@@ -2471,7 +2438,7 @@ inline void align_PE(
         sam_aln2 = std::get<2>(best_aln_pair);
         if (max_secondary == 0) {
 //            get_MAPQ_aln(sam_aln1, sam_aln2);
-            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc,
+            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(),
                             mapq1, mapq2, mu, sigma, true);
         } else {
             int max_out = std::min(high_scores.size(), max_secondary);
@@ -2499,7 +2466,7 @@ inline void align_PE(
                 }
 
                 if (s_max - s_score < secondary_dropoff) {
-                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1_rc, read2_rc,
+                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(),
                                     mapq1, mapq2, mu, sigma, is_primary);
                 } else{
                     break;
