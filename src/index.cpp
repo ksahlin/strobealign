@@ -183,41 +183,14 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
 }
 
 
-void StrobemerIndex::write(const References& references, const std::string& filename) const {
+void StrobemerIndex::write(const std::string& filename) const {
     std::ofstream ofs(filename, std::ios::binary);
 
     //write filter_cutoff
     ofs.write(reinterpret_cast<const char*>(&filter_cutoff), sizeof(filter_cutoff));
 
-    //write ref_seqs:
-    uint64_t s1 = uint64_t(references.sequences.size());
-    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
-    //For each string, write length and then the string
-    uint32_t s2 = 0;
-    for (std::size_t i = 0; i < references.sequences.size(); ++i) {
-        s2 = uint32_t(references.sequences[i].length());
-        ofs.write(reinterpret_cast<char*>(&s2), sizeof(s2));
-        ofs.write(references.sequences[i].c_str(), references.sequences[i].length());
-    }
-    
-    //write ref_lengths:
-    //write everything in one large chunk
-    s1 = uint64_t(references.lengths.size());
-    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
-    ofs.write(reinterpret_cast<const char*>(&references.lengths[0]), references.lengths.size()*sizeof(references.lengths[0]));
-
-    //write acc_map:
-    s1 = uint64_t(references.names.size());
-    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
-    //For each string, write length and then the string
-    for (std::size_t i = 0; i < references.names.size(); ++i) {
-        s2 = uint32_t(references.names[i].length());
-        ofs.write(reinterpret_cast<char*>(&s2), sizeof(s2));
-        ofs.write(references.names[i].c_str(), references.names[i].length());
-    }
-
     //write flat_vector:
-    s1 = uint64_t(flat_vector.size());
+    auto s1 = uint64_t(flat_vector.size());
     ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
     ofs.write(reinterpret_cast<const char*>(&flat_vector[0]), flat_vector.size() * sizeof(flat_vector[0]));
 
@@ -230,57 +203,24 @@ void StrobemerIndex::write(const References& references, const std::string& file
     }
 }
 
-void StrobemerIndex::read(References& references, const std::string& filename) {
+void StrobemerIndex::read(const std::string& filename) {
     std::ifstream ifs(filename, std::ios::binary);
-    //read filter_cutoff
+
+    // read filter_cutoff
     ifs.read(reinterpret_cast<char*>(&filter_cutoff), sizeof(filter_cutoff));
 
-    //read ref_seqs:
-    references.sequences.clear();
-    uint64_t sz = 0;
-    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-    references.sequences.reserve(sz);
-    uint32_t sz2 = 0;
-    auto& refseqs = references.sequences;
-    for (uint64_t i = 0; i < sz; ++i) {
-        ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
-        std::unique_ptr<char> buf_ptr(new char[sz2]);//The vector is short with large strings, so allocating this way should be ok.
-        ifs.read(buf_ptr.get(), sz2);
-        //we could potentially use std::move here to avoid reallocation, something like std::string(std::move(buf), sz2), but it has to be investigated more
-        refseqs.push_back(std::string(buf_ptr.get(), sz2));
-    }
-
-    //read ref_lengths
-    ////////////////
-    references.lengths.clear();
-    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-    references.lengths.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but ignore that for now
-    ifs.read(reinterpret_cast<char*>(&references.lengths[0]), sz*sizeof(references.lengths[0]));
-
-    //read acc_map:
-    references.names.clear();
-    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-    references.names.reserve(sz);
-    auto& acc_map = references.names;
-
-    for (int i = 0; i < sz; ++i) {
-        ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
-        std::unique_ptr<char> buf_ptr(new char[sz2]);
-        ifs.read(buf_ptr.get(), sz2);
-        acc_map.push_back(std::string(buf_ptr.get(), sz2));
-    }
-
-    //read flat_vector:
+    // read flat_vector:
+    uint64_t sz;
     flat_vector.clear();
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
     flat_vector.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but let's ignore that for now
     ifs.read(reinterpret_cast<char*>(&flat_vector[0]), sz*sizeof(flat_vector[0]));
 
-    //read mers_index:
+    // read mers_index:
     mers_index.clear();
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
     mers_index.reserve(sz);
-    //read in big chunks
+    // read in big chunks
     const uint64_t chunk_size = pow(2,20);//4 M => chunks of ~10 MB - The chunk size seem not to be that important
     auto buf_size = std::min(sz, chunk_size) * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
     std::unique_ptr<char> buf_ptr(new char[buf_size]);
@@ -298,12 +238,11 @@ void StrobemerIndex::read(References& references, const std::string& filename) {
     }
 }
 
-
-void StrobemerIndex::populate(const References& references, const IndexParameters& index_parameters, float f) {
+void StrobemerIndex::populate(const IndexParameters& index_parameters, float f) {
     auto start_flat_vector = high_resolution_clock::now();
     hash_vector h_vector;
     {
-        auto ind_flat_vector = generate_seeds(references, index_parameters);
+        auto ind_flat_vector = generate_seeds(index_parameters);
 
         //Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
         //The hash codes are only needed when generating the index and can be discarded afterwards.
@@ -336,7 +275,7 @@ void StrobemerIndex::populate(const References& references, const IndexParameter
     logger.info() << "Total time generating hash table index: " << elapsed_hash_index.count() << " s" <<  std::endl;
 }
 
-ind_mers_vector StrobemerIndex::generate_seeds(const References& references, const IndexParameters& index_parameters) const
+ind_mers_vector StrobemerIndex::generate_seeds(const IndexParameters& index_parameters) const
 {
     auto start_flat_vector = high_resolution_clock::now();
 

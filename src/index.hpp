@@ -132,17 +132,18 @@ public:
 };
 
 struct StrobemerIndex {
-    StrobemerIndex() : filter_cutoff(0) {}
+    StrobemerIndex(const References& references) : filter_cutoff(0), references(references) {}
     unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
                                 //therefore stored here since it needs to be saved with the index.
     mers_vector flat_vector;
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
 
-    void write(const References& references, const std::string& filename) const;
-    void read(References& references, const std::string& filename);
-    void populate(const References& references, const IndexParameters& index_parameters, float f);
+    void write(const std::string& filename) const;
+    void read(const std::string& filename);
+    void populate(const IndexParameters& index_parameters, float f);
 private:
-    ind_mers_vector generate_seeds(const References& references, const IndexParameters& index_parameters) const;
+    const References& references;
+    ind_mers_vector generate_seeds(const IndexParameters& index_parameters) const;
 };
 
 
