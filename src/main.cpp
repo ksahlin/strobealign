@@ -156,8 +156,7 @@ int run_strobealign(int argc, char **argv) {
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
     }
     if (opt.c >= 64 || opt.c <= 0) {
-        logger.error() << "Parameter c must be greater than 0 and less than 64" << std::endl;
-        return EXIT_FAILURE;
+        throw BadParameter("c must be greater than 0 and less than 64");
     }
     IndexParameters index_parameters = IndexParameters::from_read_length(
         map_param.r, opt.c, opt.k_set ? opt.k : -1, opt.s_set ? opt.s : -1, opt.max_seed_len_set ? opt.max_seed_len : -1);
@@ -184,33 +183,21 @@ int run_strobealign(int argc, char **argv) {
         << "O: " << opt.O << std::endl
         << "E: " << opt.E << std::endl;
 
-    try {
-        map_param.verify();
-        index_parameters.verify();
-    }
-    catch (BadParameter& e) {
-        logger.error() << "A mapping or seeding parameter is invalid: " << e.what() << std::endl;
-        return EXIT_FAILURE;
-    }
+    map_param.verify();
+    index_parameters.verify();
 
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
 
-    //////////// CREATE INDEX OF REF SEQUENCES /////////////////
+    // Create index
 
     References references;
     auto start_read_refs = high_resolution_clock::now();
-    try {
-        references = References::from_fasta(opt.ref_filename);
-    } catch (const InvalidFasta& e) {
-        logger.error() << "strobealign: " << e.what() << std::endl;
-        return EXIT_FAILURE;
-    }
+    references = References::from_fasta(opt.ref_filename);
     std::chrono::duration<double> elapsed_read_refs = high_resolution_clock::now() - start_read_refs;
     logger.info() << "Time reading references: " << elapsed_read_refs.count() << " s" << std::endl;
 
     if (references.total_length() == 0) {
-        logger.error() << "No reference sequences found, aborting" << std::endl;
-        return EXIT_FAILURE;
+        throw InvalidFasta("No reference sequences found");
     }
 
     StrobemerIndex index(references, index_parameters);
@@ -218,12 +205,7 @@ int run_strobealign(int argc, char **argv) {
         // Read the index from a file
         assert(!opt.only_gen_index);
         auto start_read_index = high_resolution_clock::now();
-        try {
-            index.read(opt.ref_filename + ".sti");
-        } catch (const InvalidIndexFile& e) {
-            logger.error() << "strobealign: " << e.what() << std::endl;
-            return EXIT_FAILURE;
-        }
+        index.read(opt.ref_filename + ".sti");
         std::chrono::duration<double> elapsed_read_index = high_resolution_clock::now() - start_read_index;
         logger.info() << "Total time reading index: " << elapsed_read_index.count() << " s\n" << std::endl;
     } else {
@@ -350,5 +332,12 @@ int run_strobealign(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
-    return run_strobealign(argc, argv);
+    try {
+        return run_strobealign(argc, argv);
+    } catch (BadParameter& e) {
+        logger.error() << "A mapping or seeding parameter is invalid: " << e.what() << std::endl;
+    } catch (const std::runtime_error& e) {
+        logger.error() << "strobealign: " << e.what() << std::endl;
+    }
+    return EXIT_FAILURE;
 }
