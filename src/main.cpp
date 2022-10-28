@@ -146,8 +146,7 @@ std::string sam_header(const References& references) {
     return out.str();
 }
 
-int main(int argc, char **argv)
-{
+int run_strobealign(int argc, char **argv) {
     CommandLineOptions opt;
     mapping_params map_param;
     std::tie(opt, map_param) = parse_command_line_arguments(argc, argv);
@@ -348,4 +347,8 @@ int main(int argc, char **argv)
         << "Total time reverse compl seq: " << tot_statistics.tot_rc.count() / opt.n_threads << " s." << std::endl
         << "Total time base level alignment (ssw): " << tot_statistics.tot_extend.count() / opt.n_threads << " s." << std::endl
         << "Total time writing alignment to files: " << tot_statistics.tot_write_file.count() << " s." << std::endl;
+}
+
+int main(int argc, char **argv) {
+    return run_strobealign(argc, argv);
 }
