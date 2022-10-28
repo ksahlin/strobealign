@@ -12,9 +12,7 @@
 #include <math.h>
 #include <inttypes.h>
 
-#include <zlib.h>
 #include "args.hxx"
-#include "kseq++.hpp"
 #include "robin_hood.h"
 #include "ssw_cpp.h"
 #include "refs.hpp"
@@ -24,9 +22,9 @@
 #include "pc.hpp"
 #include "aln.hpp"
 #include "logger.hpp"
+#include "readlen.hpp"
 #include "version.hpp"
 
-using namespace klibpp;
 using std::chrono::high_resolution_clock;
 
 
@@ -135,41 +133,6 @@ static void print_diagnostics(const StrobemerIndex &index, const std::string& lo
 //    }
 
 }
-
-int est_read_length( klibpp::KStream<gzFile_s*, int (*)(gzFile_s*, void*, unsigned int), klibpp::mode::In_> &ks, int n_reads){
-    auto records = ks.read(n_reads);
-    int tot_read_len = 0;
-    for (size_t i = 0; i < records.size(); ++i) {
-        auto record1 = records[i];
-        tot_read_len += record1.seq.length();
-    }
-    int avg_read_len = tot_read_len/n_reads;
-    return avg_read_len;
-}
-
-/*
- * Return average read length of single-end or paired-end reads.
- * Set filename2 to the empty string if data is single end.
- */
-int estimate_read_length(std::string filename1, std::string filename2) {
-    bool is_paired = filename2 != "";
-
-    gzFile fp1_tmp = gzopen(filename1.c_str(), "r");
-    auto ks1_tmp = make_ikstream(fp1_tmp, gzread);
-    auto r1_tmp = est_read_length(ks1_tmp, 500);
-    gzclose(fp1_tmp);
-
-    if (is_paired) {
-        gzFile fp2_tmp = gzopen(filename2.c_str(), "r");
-        auto ks2_tmp = make_ikstream(fp2_tmp, gzread);
-        auto r2_tmp = est_read_length(ks2_tmp, 500);
-        gzclose(fp2_tmp);
-        return (r1_tmp + r2_tmp) / 2;
-    } else {
-        return r1_tmp;
-    }
-}
-
 
 /*
  * Return formatted SAM header as a string
@@ -327,7 +290,7 @@ int main(int argc, char **argv)
 
         if (opt.is_SE) {
             gzFile fp = gzopen(opt.reads_filename1.c_str(), "r");
-            auto ks = make_ikstream(fp, gzread);
+            auto ks = klibpp::make_ikstream(fp, gzread);
 
             ////////// ALIGNMENT START //////////
 
@@ -353,9 +316,9 @@ int main(int argc, char **argv)
         }
         else {
             gzFile fp1 = gzopen(opt.reads_filename1.c_str(), "r");
-            auto ks1 = make_ikstream(fp1, gzread);
+            auto ks1 = klibpp::make_ikstream(fp1, gzread);
             gzFile fp2 = gzopen(opt.reads_filename2.c_str(), "r");
-            auto ks2 = make_ikstream(fp2, gzread);
+            auto ks2 = klibpp::make_ikstream(fp2, gzread);
             std::unordered_map<std::thread::id, i_dist_est> isize_est_vec(opt.n_threads);
 
             ////////// ALIGNMENT START //////////
