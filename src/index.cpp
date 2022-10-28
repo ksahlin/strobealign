@@ -299,6 +299,9 @@ void StrobemerIndex::read(References& references, const std::string& filename) {
 IndexCreationStatistics StrobemerIndex::populate(const References& references, const IndexParameters& index_parameters, float f) {
     auto start_flat_vector = high_resolution_clock::now();
     hash_vector h_vector;
+
+    std::chrono::duration<double> elapsed_copy_flat_vector;
+
     {
         auto ind_flat_vector = generate_seeds(references, index_parameters);
 
@@ -313,16 +316,12 @@ IndexCreationStatistics StrobemerIndex::populate(const References& references, c
             flat_vector.push_back(ReferenceMer{ind_flat_vector[i].position, ind_flat_vector[i].packed});
             h_vector.push_back(ind_flat_vector[i].hash);
         }
-        std::chrono::duration<double> elapsed_copy_flat_vector = high_resolution_clock::now() - start_copy_flat_vector;
-        logger.info() << "Time copying flat vector: " << elapsed_copy_flat_vector.count() << " s" << std::endl;
+        elapsed_copy_flat_vector = high_resolution_clock::now() - start_copy_flat_vector;
 
         // ind_flat_vector is freed here
     }
     uint64_t unique_mers = count_unique_elements(h_vector);
-    logger.debug() << "Unique strobemers: " << unique_mers << std::endl;
-
     std::chrono::duration<double> elapsed_flat_vector = high_resolution_clock::now() - start_flat_vector;
-    logger.info() << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s" <<  std::endl;
 
     auto start_hash_index = high_resolution_clock::now();
 
@@ -330,7 +329,12 @@ IndexCreationStatistics StrobemerIndex::populate(const References& references, c
     // construct index over flat array
     IndexCreationStatistics index_stats = index_vector(h_vector, mers_index, f);
     std::chrono::duration<double> elapsed_hash_index = high_resolution_clock::now() - start_hash_index;
-    logger.info() << "Total time generating hash table index: " << elapsed_hash_index.count() << " s" <<  std::endl;
+    
+    index_stats.elapsed_copy_flat_vector = elapsed_copy_flat_vector;
+    index_stats.unique_mers = unique_mers;
+    index_stats.elapsed_flat_vector = elapsed_flat_vector;
+    index_stats.elapsed_hash_index = elapsed_hash_index;
+
     return index_stats;
 }
 

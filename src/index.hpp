@@ -143,6 +143,12 @@ struct IndexCreationStatistics {
     unsigned int index_cutoff = 0;
     unsigned int filter_cutoff = 0;
 
+    uint64_t unique_mers = 0;
+
+    std::chrono::duration<double> elapsed_copy_flat_vector;
+    std::chrono::duration<double> elapsed_flat_vector;
+    std::chrono::duration<double> elapsed_hash_index;
+
 };
 
 struct StrobemerIndex {

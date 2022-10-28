@@ -223,7 +223,11 @@ int main(int argc, char **argv)
 
         IndexCreationStatistics index_creation_stats = index.populate(references, index_parameters, opt.f);
 
-        // BEGIN: Logging code moved from index_vector
+        // BEGIN: Logging code moved from index_vector and StrobemerIndex::prune
+
+        logger.info() << "Time copying flat vector: " << index_creation_stats.elapsed_copy_flat_vector.count() << " s" << std::endl;
+        logger.debug() << "Unique strobemers: " << index_creation_stats.unique_mers << std::endl;
+        logger.info() << "Total time generating flat vector: " << index_creation_stats.elapsed_flat_vector.count() << " s" <<  std::endl;
 
         logger.debug()
         << "Total strobemers count: " << index_creation_stats.tot_strobemer_count << std::endl
@@ -241,7 +245,9 @@ int main(int argc, char **argv)
         logger.debug() << "Filtered cutoff index: " << index_creation_stats.index_cutoff << std::endl;
         logger.debug() << "Filtered cutoff count: " << index_creation_stats.filter_cutoff << std::endl << std::endl;
         
-        // END: Logging code moved from index_vector
+        logger.info() << "Total time generating hash table index: " << index_creation_stats.elapsed_hash_index.count() << " s" <<  std::endl;
+
+        // END: Logging code moved from index_vector and StrobemerIndex::prune
 
         // Record index creation end time
         std::chrono::duration<double> elapsed = high_resolution_clock::now() - start;
