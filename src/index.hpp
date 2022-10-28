@@ -131,6 +131,20 @@ public:
     }
 };
 
+struct IndexCreationStatistics {
+
+    unsigned int flat_vector_size = 0;
+    unsigned int tot_strobemer_count = 0;
+    unsigned int tot_occur_once = 0;
+    float frac_unique = 0;
+    unsigned int tot_high_ab = 0;
+    unsigned int tot_mid_ab = 0;
+    unsigned int tot_distinct_strobemer_count = 0;
+    unsigned int index_cutoff = 0;
+    unsigned int filter_cutoff = 0;
+
+};
+
 struct StrobemerIndex {
     StrobemerIndex() : filter_cutoff(0) {}
     unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
@@ -140,7 +154,7 @@ struct StrobemerIndex {
 
     void write(const References& references, const std::string& filename) const;
     void read(References& references, const std::string& filename);
-    void populate(const References& references, const IndexParameters& index_parameters, float f);
+    IndexCreationStatistics populate(const References& references, const IndexParameters& index_parameters, float f);
 private:
     ind_mers_vector generate_seeds(const References& references, const IndexParameters& index_parameters) const;
 };
