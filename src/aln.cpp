@@ -6,6 +6,7 @@
 #include "ssw_cpp.h"
 #include "sam.hpp"
 #include "revcomp.hpp"
+#include "timer.hpp"
 
 using namespace klibpp;
 
@@ -2546,7 +2547,7 @@ void align_PE_read(
     mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
 
     // generate mers here
-    auto strobe_start = std::chrono::high_resolution_clock::now();
+    Timer strobe_timer;
 
     std::transform(record1.seq.begin(), record1.seq.end(), record1.seq.begin(), ::toupper);
     query_mers1 = seq_to_randstrobes2_read(
@@ -2558,22 +2559,19 @@ void align_PE_read(
         index_parameters.k, index_parameters.w_min, index_parameters.w_max, record2.seq, 0, index_parameters.s, index_parameters.t_syncmer,
         index_parameters.q, index_parameters.max_dist);
 
-    auto strobe_finish = std::chrono::high_resolution_clock::now();
-    statistics.tot_construct_strobemers += strobe_finish - strobe_start;
+    statistics.tot_construct_strobemers += strobe_timer.duration();
 
     // Find NAMs
-    auto nam_start = std::chrono::high_resolution_clock::now();
+    Timer nam_timer;
     std::vector<nam> nams1;
     std::vector<nam> nams2;
     std::pair<float, int> info1, info2;
     info1 = find_nams(nams1, query_mers1, index, index_parameters.k);
     info2 = find_nams(nams2, query_mers2, index, index_parameters.k);
-    auto nam_finish = std::chrono::high_resolution_clock::now();
-    statistics.tot_find_nams += nam_finish - nam_start;
-
+    statistics.tot_find_nams += nam_timer.duration();
 
     if (map_param.R > 1) {
-        auto rescue_start = std::chrono::high_resolution_clock::now();
+        Timer rescue_timer;
         if (nams1.empty() || info1.first < 0.7) {
             statistics.tried_rescue += 1;
             nams1.clear();
@@ -2587,27 +2585,16 @@ void align_PE_read(
             find_nams_rescue(nams2, query_mers2, index,
                 index_parameters.k, map_param.rescue_cutoff);
         }
-        auto rescue_finish = std::chrono::high_resolution_clock::now();
-        statistics.tot_time_rescue += rescue_finish - rescue_start;
+        statistics.tot_time_rescue += rescue_timer.duration();
     }
 
-
     //Sort hits based on start choordinate on query sequence
-    auto nam_sort_start = std::chrono::high_resolution_clock::now();
+    Timer nam_sort_timer;
     std::sort(nams1.begin(), nams1.end(), score);
     std::sort(nams2.begin(), nams2.end(), score);
-    auto nam_sort_finish = std::chrono::high_resolution_clock::now();
-    statistics.tot_sort_nams += nam_sort_finish - nam_sort_start;
+    statistics.tot_sort_nams += nam_timer.duration();
 
-//                for (auto &n : nams1){
-//                    std::cerr << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
-//                }
-//                std::cerr << record2.name << std::endl;
-//                for (auto &n : nams2){
-//                    std::cerr << "NAM ORG: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << std::endl;
-//                }
-
-    auto extend_start = std::chrono::high_resolution_clock::now();
+    Timer extend_timer;
     if (!map_param.is_sam_out) {
         nam nam_read1;
         nam nam_read2;
@@ -2632,11 +2619,9 @@ void align_PE_read(
                  references, statistics,
                  map_param.dropoff_threshold, isize_est, map_param.maxTries, map_param.max_secondary);
     }
-    auto extend_finish = std::chrono::high_resolution_clock::now();
-    statistics.tot_extend += extend_finish - extend_start;
+    statistics.tot_extend += extend_timer.duration();
     nams1.clear();
     nams2.clear();
-
 }
 
 
@@ -2657,35 +2642,31 @@ void align_SE_read(
 
         // generate mers here
         std::transform(record.seq.begin(), record.seq.end(), record.seq.begin(), ::toupper);
-        auto strobe_start = std::chrono::high_resolution_clock::now();
+        Timer strobe_timer;
         query_mers = seq_to_randstrobes2_read(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, q_id, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
-        auto strobe_finish = std::chrono::high_resolution_clock::now();
-        statistics.tot_construct_strobemers += strobe_finish - strobe_start;
+        statistics.tot_construct_strobemers += strobe_timer.duration();
 
         // Find NAMs
-        auto nam_start = std::chrono::high_resolution_clock::now();
+        Timer nam_timer;
         std::pair<float, int> info = find_nams(nams, query_mers, index, index_parameters.k);
-        auto nam_finish = std::chrono::high_resolution_clock::now();
-        statistics.tot_find_nams += nam_finish - nam_start;
+        statistics.tot_find_nams += nam_timer.duration();
 
         if (map_param.R > 1) {
-            auto rescue_start = std::chrono::high_resolution_clock::now();
+            Timer rescue_timer;
             if (nams.empty() || info.first < 0.7) {
                 statistics.tried_rescue += 1;
                 nams.clear();
                 find_nams_rescue(nams, query_mers, index, index_parameters.k, map_param.rescue_cutoff);
             }
-            auto rescue_finish = std::chrono::high_resolution_clock::now();
-            statistics.tot_time_rescue += rescue_finish - rescue_start;
+            statistics.tot_time_rescue += rescue_timer.duration();
         }
 
         //Sort hits on score
-        auto nam_sort_start = std::chrono::high_resolution_clock::now();
+        Timer nam_sort_timer;
         std::sort(nams.begin(), nams.end(), score);
-        auto nam_sort_finish = std::chrono::high_resolution_clock::now();
-        statistics.tot_sort_nams += nam_sort_finish - nam_sort_start;
+        statistics.tot_sort_nams += nam_sort_timer.duration();
 
-        auto extend_start = std::chrono::high_resolution_clock::now();
+        Timer extend_timer;
         if (!map_param.is_sam_out) {
             output_hits_paf(outstring, nams, record.name, references, index_parameters.k,
                             record.seq.length());
@@ -2703,8 +2684,7 @@ void align_SE_read(
                          references, statistics,  map_param.dropoff_threshold, map_param.maxTries);
             }
         }
-        auto extend_finish = std::chrono::high_resolution_clock::now();
-        statistics.tot_extend += extend_finish - extend_start;
+        statistics.tot_extend += extend_timer.duration();
         q_id++;
         nams.clear();
 }
