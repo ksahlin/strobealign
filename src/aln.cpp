@@ -10,6 +10,7 @@
 
 using namespace klibpp;
 
+
 struct Hit {
     unsigned int count;
     unsigned int offset;
@@ -733,70 +734,7 @@ inline void align_SE(
         int max_diff = std::max(read_diff, ref_diff);
         int diff = max_diff - min_diff;
 
-
-        // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
-        bool fits = false;
-        std::string ref_start_kmer;
-        std::string ref_end_kmer;
-        std::string read_start_kmer;
-        std::string read_end_kmer;
-        std::string read_rc_start_kmer;
-        std::string read_rc_end_kmer;
-        ref_start_kmer = references.sequences[n.ref_id].substr(n.ref_s, k);
-        ref_end_kmer = references.sequences[n.ref_id].substr(n.ref_e-k, k);
-
-        if (!n.is_rc) {
-            read_start_kmer = read.seq.substr(n.query_s, k);
-            read_end_kmer = read.seq.substr(n.query_e-k, k);
-            if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)) {
-//            n.is_rc = false;
-                fits = true;
-            } else  {
-                //  FALSE FORWARD TAKE CARE OF FALSE HITS HERE - it can be false forwards or false rc because of symmetrical hash values
-                //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
-
-//              std::cerr << " CHECKING1!! " << std::endl;
-                // false reverse hit, change coordinates in nam to forward
-
-                int q_start_tmp = read_len - n.query_e;
-                int q_end_tmp = read_len - n.query_s;
-                read_start_kmer = read.rc().substr(q_start_tmp, k);
-                read_end_kmer = read.rc().substr(q_end_tmp-k, k);
-                if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
-                    fits = true;
-                    n.is_rc = true;
-                    n.query_s = q_start_tmp;
-                    n.query_e = q_end_tmp;
-//                std::cerr << " DETECTED FALSE RC FROM SYMM!! " << std::endl;
-                }
-
-            }
-        } else {
-            read_rc_start_kmer = read.rc().substr(n.query_s, k);
-            read_rc_end_kmer = read.rc().substr(n.query_e-k, k);
-            if ( (ref_start_kmer == read_rc_start_kmer) && (ref_end_kmer == read_rc_end_kmer) ) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
-                n.is_rc = true;
-                fits = true;
-            } else{
-                //  FALSE REVERSE TAKE CARE OF FALSE HITS HERE - it can be false forwards or false rc because of symmetrical hash values
-                //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
-
-                int q_start_tmp = read_len - n.query_e;
-                int q_end_tmp = read_len - n.query_s;
-                read_start_kmer = read.seq.substr(q_start_tmp, k);
-                read_end_kmer = read.seq.substr(q_end_tmp-k, k);
-//            std::cerr << " CHECKING2!! " <<   n.query_s << " " <<   n.query_e << " " << std::endl;
-//            std::cerr << read_start_kmer  << " " <<  ref_start_kmer << " " <<  read_end_kmer << " " << ref_end_kmer << std::endl;
-
-                if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
-                    fits = true;
-                    n.is_rc = false;
-                    n.query_s = q_start_tmp;
-                    n.query_e = q_end_tmp;
-//                std::cerr << " DETECTED FALSE FW FROM SYMM!! " << std::endl;
-                }
-            }
-        }
+        bool fits = revcomp_nam_if_needed(n, read, references, k);
         if (!fits){
             statistics.did_not_fit++;
             aln_did_not_fit = true;
