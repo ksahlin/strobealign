@@ -616,7 +616,7 @@ static inline bool sort_highest_sw_scores_single(const std::tuple<int, alignment
 }
 
 // decide if read should be fw or rc aligned to reference by checking exact match of first and last strobe in the NAM
-bool revcomp_nam_if_needed(nam& n, const Read& read, const References& references, int k) {
+bool reverse_nam_if_needed(nam& n, const Read& read, const References& references, int k) {
     auto read_len = read.size();
     bool fits = false;
     std::string ref_start_kmer = references.sequences[n.ref_id].substr(n.ref_s, k);
@@ -703,7 +703,7 @@ inline void align_SE(
         int max_diff = std::max(read_diff, ref_diff);
         int diff = max_diff - min_diff;
 
-        bool fits = revcomp_nam_if_needed(n, read, references, k);
+        bool fits = reverse_nam_if_needed(n, read, references, k);
         if (!fits){
             statistics.did_not_fit++;
             aln_did_not_fit = true;
@@ -889,7 +889,7 @@ static inline void align_SE_secondary_hits(
         int max_diff = std::max(read_diff, ref_diff);
         int diff = max_diff - min_diff;
 
-        bool fits = revcomp_nam_if_needed(n, read, references, k);
+        bool fits = reverse_nam_if_needed(n, read, references, k);
         if (!fits){
             statistics.did_not_fit++;
             aln_did_not_fit = true;
@@ -1141,7 +1141,7 @@ static inline void get_alignment(
 
     // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
 
-    bool fits = revcomp_nam_if_needed(n, read, references, k);
+    bool fits = reverse_nam_if_needed(n, read, references, k);
 
     if (!fits) {
         did_not_fit++;
@@ -1650,7 +1650,7 @@ static inline void rescue_mate(
     auto guide_read_len = guide.size();
     auto read_len = read.size();
 
-    revcomp_nam_if_needed(n, guide, references, k);
+    reverse_nam_if_needed(n, guide, references, k);
     if (n.is_rc){
         r_tmp = read.seq;
         a = n.ref_s - n.query_s - (mu+5*sigma);
