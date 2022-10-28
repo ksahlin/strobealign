@@ -28,7 +28,7 @@ jobs:
         run: |
           cmake -B build
           cd build
-          make
+          make -j2
           make install
       - name: Run
         run: tests/run.sh
