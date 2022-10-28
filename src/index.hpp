@@ -95,7 +95,7 @@ public:
     const int s;
     const int l;
     const int u;
-    uint64_t q;
+    const uint64_t q;
     const int max_dist;
     const int t_syncmer;
     const int w_min;
@@ -114,6 +114,10 @@ public:
     }
 
     static IndexParameters from_read_length(int read_length, int c, int k = -1, int s = -1, int max_seed_len = -1);
+
+    void write(std::ostream& os) const;
+
+    static IndexParameters read(std::istream& os);
 
     void verify() const {
         if (k <= 7 || k > 32) {

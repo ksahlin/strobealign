@@ -67,6 +67,36 @@ IndexParameters IndexParameters::from_read_length(int read_length, int c, int k,
     return IndexParameters(k, s, l, u, q, max_dist);
 }
 
+void write_int_to_ostream(std::ostream& os, int value) {
+    int val;
+    val = value;
+    os.write(reinterpret_cast<const char*>(&val), sizeof(val));
+}
+
+void IndexParameters::write(std::ostream& os) const {
+    write_int_to_ostream(os, k);
+    write_int_to_ostream(os, s);
+    write_int_to_ostream(os, l);
+    write_int_to_ostream(os, u);
+    write_int_to_ostream(os, q);
+    write_int_to_ostream(os, max_dist);
+}
+
+int read_int_from_istream(std::istream& is) {
+    int val;
+    is.read(reinterpret_cast<char*>(&val), sizeof(val));
+    return val;
+}
+
+IndexParameters IndexParameters::read(std::istream& is) {
+    int k = read_int_from_istream(is);
+    int s = read_int_from_istream(is);
+    int l = read_int_from_istream(is);
+    int u = read_int_from_istream(is);
+    int q = read_int_from_istream(is);
+    int max_dist = read_int_from_istream(is);
+    return IndexParameters(k, s, l, u, q, max_dist);
+}
 
 /* Add a new observation */
 void i_dist_est::update(int dist)
@@ -188,8 +218,7 @@ void StrobemerIndex::write(const std::string& filename) const {
 
     ofs.write("STI\1", 4); // magic number
 
-    //write filter_cutoff
-    ofs.write(reinterpret_cast<const char*>(&filter_cutoff), sizeof(filter_cutoff));
+    write_int_to_ostream(ofs, filter_cutoff);
 
     //write flat_vector:
     auto s1 = uint64_t(flat_vector.size());
@@ -217,8 +246,7 @@ void StrobemerIndex::read(const std::string& filename) {
         throw InvalidIndexFile("Index file has incorrect format (magic number mismatch)");
     }
 
-    // read filter_cutoff
-    ifs.read(reinterpret_cast<char*>(&filter_cutoff), sizeof(filter_cutoff));
+    filter_cutoff = read_int_from_istream(ifs);
 
     // read flat_vector:
     uint64_t sz;
