@@ -695,12 +695,9 @@ inline void align_SE(
     int max_tries
 ) {
     auto query_acc = record.name;
-    auto read = record.seq;
+    Read read(record.seq);
     auto qual = record.qual;
     auto read_len = read.size();
-
-    std::string read_rc;
-    bool rc_already_comp = false;
 
     if (all_nams.empty()) {
         sam.add_unmapped(record);
@@ -737,25 +734,6 @@ inline void align_SE(
         int diff = max_diff - min_diff;
 
 
-//        // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
-//
-//        if ( (ref_segm.substr(n.query_s, k) == read.substr(n.query_s, k) ) ) { //&& (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read.substr(n.query_e - k, k)) ){
-//            n.is_rc = false;
-//        }
-//        else {
-//            if (!rc_already_comp){
-//                read_rc = reverse_complement(read);
-//                rc_already_comp = true;
-//            }
-//
-//            if ((ref_segm.substr(n.query_s, k) == read_rc.substr(n.query_s, k))) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
-//                n.is_rc = true;
-//            } else {
-//                did_not_fit++;
-//                aln_did_not_fit = true;
-//            }
-//        }
-
         // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
         bool fits = false;
         std::string ref_start_kmer;
@@ -768,8 +746,8 @@ inline void align_SE(
         ref_end_kmer = references.sequences[n.ref_id].substr(n.ref_e-k, k);
 
         if (!n.is_rc) {
-            read_start_kmer = read.substr(n.query_s, k);
-            read_end_kmer = read.substr(n.query_e-k, k);
+            read_start_kmer = read.seq.substr(n.query_s, k);
+            read_end_kmer = read.seq.substr(n.query_e-k, k);
             if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)) {
 //            n.is_rc = false;
                 fits = true;
@@ -779,15 +757,11 @@ inline void align_SE(
 
 //              std::cerr << " CHECKING1!! " << std::endl;
                 // false reverse hit, change coordinates in nam to forward
-                if (!rc_already_comp){
-                    read_rc = reverse_complement(read);
-                    rc_already_comp = true;
-                }
 
                 int q_start_tmp = read_len - n.query_e;
                 int q_end_tmp = read_len - n.query_s;
-                read_start_kmer = read_rc.substr(q_start_tmp, k);
-                read_end_kmer = read_rc.substr(q_end_tmp-k, k);
+                read_start_kmer = read.rc().substr(q_start_tmp, k);
+                read_end_kmer = read.rc().substr(q_end_tmp-k, k);
                 if ((ref_start_kmer == read_start_kmer) && (ref_end_kmer == read_end_kmer)){
                     fits = true;
                     n.is_rc = true;
@@ -798,12 +772,8 @@ inline void align_SE(
 
             }
         } else {
-            if (!rc_already_comp){
-                read_rc = reverse_complement(read);
-                rc_already_comp = true;
-            }
-            read_rc_start_kmer = read_rc.substr(n.query_s, k);
-            read_rc_end_kmer = read_rc.substr(n.query_e-k, k);
+            read_rc_start_kmer = read.rc().substr(n.query_s, k);
+            read_rc_end_kmer = read.rc().substr(n.query_e-k, k);
             if ( (ref_start_kmer == read_rc_start_kmer) && (ref_end_kmer == read_rc_end_kmer) ) { // && (ref_segm.substr(n.query_e - k + (ref_diff - read_diff), k) == read_rc.substr(n.query_e - k, k)) ){
                 n.is_rc = true;
                 fits = true;
@@ -813,8 +783,8 @@ inline void align_SE(
 
                 int q_start_tmp = read_len - n.query_e;
                 int q_end_tmp = read_len - n.query_s;
-                read_start_kmer = read.substr(q_start_tmp, k);
-                read_end_kmer = read.substr(q_end_tmp-k, k);
+                read_start_kmer = read.seq.substr(q_start_tmp, k);
+                read_end_kmer = read.seq.substr(q_end_tmp-k, k);
 //            std::cerr << " CHECKING2!! " <<   n.query_s << " " <<   n.query_e << " " << std::endl;
 //            std::cerr << read_start_kmer  << " " <<  ref_start_kmer << " " <<  read_end_kmer << " " << ref_end_kmer << std::endl;
 
@@ -847,10 +817,10 @@ inline void align_SE(
         std::string r_tmp;
         bool is_rc;
         if (n.is_rc){
-            r_tmp = read_rc;
+            r_tmp = read.rc();
             is_rc = true;
         }else{
-            r_tmp = read;
+            r_tmp = read.seq;
             is_rc = false;
         }
 //        std::cout << "DIFF: "  <<  diff << ", " << n.score << ", " << ref_segm.length() << std::endl;
@@ -953,7 +923,7 @@ inline void align_SE(
 
     if (!all_nams.empty()) {
         sam_aln.mapq = std::min(min_mapq_diff, 60);
-        sam.add(sam_aln, record, read_rc);
+        sam.add(sam_aln, record, read.rc());
     }
 }
 
