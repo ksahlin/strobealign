@@ -256,8 +256,7 @@ int run_strobealign(int argc, char **argv) {
     logger.info() << "Running in " << (opt.is_SE ? "single-end" : "paired-end") << " mode" << std::endl;
 
     if (opt.is_SE) {
-        gzFile fp = gzopen(opt.reads_filename1.c_str(), "r");
-        auto ks = klibpp::make_ikstream(fp, gzread);
+        auto ks = open_fastq(opt.reads_filename1);
 
         int input_chunk_size = 100000;
         InputBuffer input_buffer(ks, ks, input_chunk_size);
@@ -275,14 +274,10 @@ int run_strobealign(int argc, char **argv) {
         for (size_t i = 0; i < workers.size(); ++i) {
             workers[i].join();
         }
-
-        gzclose(fp);
     }
     else {
-        gzFile fp1 = gzopen(opt.reads_filename1.c_str(), "r");
-        auto ks1 = klibpp::make_ikstream(fp1, gzread);
-        gzFile fp2 = gzopen(opt.reads_filename2.c_str(), "r");
-        auto ks2 = klibpp::make_ikstream(fp2, gzread);
+        auto ks1 = open_fastq(opt.reads_filename1);
+        auto ks2 = open_fastq(opt.reads_filename2);
         std::unordered_map<std::thread::id, i_dist_est> isize_est_vec(opt.n_threads);
 
         int input_chunk_size = 100000;
@@ -301,9 +296,6 @@ int run_strobealign(int argc, char **argv) {
         for (size_t i = 0; i < workers.size(); ++i) {
             workers[i].join();
         }
-
-        gzclose(fp1);
-        gzclose(fp2);
     }
     logger.info() << "Done!\n";
 
@@ -329,6 +321,7 @@ int run_strobealign(int argc, char **argv) {
         << "Total time reverse compl seq: " << tot_statistics.tot_rc.count() / opt.n_threads << " s." << std::endl
         << "Total time base level alignment (ssw): " << tot_statistics.tot_extend.count() / opt.n_threads << " s." << std::endl
         << "Total time writing alignment to files: " << tot_statistics.tot_write_file.count() << " s." << std::endl;
+    return EXIT_SUCCESS;
 }
 
 int main(int argc, char **argv) {
@@ -337,6 +330,8 @@ int main(int argc, char **argv) {
     } catch (BadParameter& e) {
         logger.error() << "A mapping or seeding parameter is invalid: " << e.what() << std::endl;
     } catch (const std::runtime_error& e) {
+        logger.error() << "strobealign: " << e.what() << std::endl;
+    } catch (const InvalidFile& e) {
         logger.error() << "strobealign: " << e.what() << std::endl;
     }
     return EXIT_FAILURE;

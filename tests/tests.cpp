@@ -5,6 +5,7 @@
 #include "exceptions.hpp"
 #include "readlen.hpp"
 #include "index.hpp"
+#include "fastq.hpp"
 
 
 TEST_CASE("References::from_fasta") {
@@ -48,4 +49,9 @@ TEST_CASE("sti file same parameters") {
 
     REQUIRE_THROWS_AS(other_index.read("tmpindex.sti"), InvalidIndexFile);
     std::remove("tmpindex.sti");
+}
+
+TEST_CASE("Reads file missing") {
+    std::string filename("does-not-exist.fastq");
+    REQUIRE_THROWS_AS(open_fastq(filename), InvalidFile);
 }

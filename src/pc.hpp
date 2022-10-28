@@ -11,19 +11,17 @@
 #include <vector>
 #include <sstream>
 #include <unordered_map>
-#include <zlib.h>
 
 #include "robin_hood.h"
-#include "kseq++.hpp"
 #include "ssw_cpp.h"
 #include "index.hpp"
 #include "aln.hpp"
 #include "refs.hpp"
+#include "fastq.hpp"
 
 class InputBuffer {
 
 public:
-    typedef klibpp::KStream<gzFile_s*, int (*)(gzFile_s*, void*, unsigned int), klibpp::mode::In_> input_stream_t;
 
     InputBuffer(input_stream_t& ks1, input_stream_t& ks2, int chunk_size)
     : ks1(ks1), ks2(ks2), chunk_size(chunk_size) { }

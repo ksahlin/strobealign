@@ -25,6 +25,7 @@ add_compile_options(-Wall -Wextra)
 
 add_library(salib STATIC ${SOURCES}
   src/refs.cpp
+  src/fastq.cpp
   src/cmdline.cpp
   src/index.cpp
   src/sam.cpp
