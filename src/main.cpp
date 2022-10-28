@@ -242,7 +242,7 @@ int main(int argc, char **argv)
         }
     }
 
-    // Map reads
+    // Map/align reads
         
     auto start_aln_part = high_resolution_clock::now();
     map_param.rescue_cutoff = map_param.R < 100 ? map_param.R * index.filter_cutoff : 1000;
@@ -260,11 +260,6 @@ int main(int argc, char **argv)
     }
 
     std::ostream out(buf);
-    //    std::ofstream out;
-    //    out.open(opt.output_file_name);
-
-    //    std::stringstream sam_output;
-    //    std::stringstream paf_output;
 
     if (map_param.is_sam_out) {
         out << sam_header(references);
@@ -272,17 +267,13 @@ int main(int argc, char **argv)
 
     std::unordered_map<std::thread::id, AlignmentStatistics> log_stats_vec(opt.n_threads);
 
-
     logger.info() << "Running in " << (opt.is_SE ? "single-end" : "paired-end") << " mode" << std::endl;
 
     if (opt.is_SE) {
         gzFile fp = gzopen(opt.reads_filename1.c_str(), "r");
         auto ks = klibpp::make_ikstream(fp, gzread);
 
-        ////////// ALIGNMENT START //////////
-
         int input_chunk_size = 100000;
-        // Create Buffers
         InputBuffer input_buffer(ks, ks, input_chunk_size);
         OutputBuffer output_buffer(out);
 
@@ -308,11 +299,7 @@ int main(int argc, char **argv)
         auto ks2 = klibpp::make_ikstream(fp2, gzread);
         std::unordered_map<std::thread::id, i_dist_est> isize_est_vec(opt.n_threads);
 
-        ////////// ALIGNMENT START //////////
-        /////////////////////////////////////
-
         int input_chunk_size = 100000;
-        // Create Buffers
         InputBuffer input_buffer(ks1, ks2, input_chunk_size);
         OutputBuffer output_buffer(out);
 
@@ -328,9 +315,6 @@ int main(int argc, char **argv)
         for (size_t i = 0; i < workers.size(); ++i) {
             workers[i].join();
         }
-
-        /////////////////////////////////////
-        /////////////////////////////////////
 
         gzclose(fp1);
         gzclose(fp2);
