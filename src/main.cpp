@@ -214,18 +214,23 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    StrobemerIndex index(references);
+    StrobemerIndex index(references, index_parameters);
     if (opt.use_index) {
         // Read the index from a file
         assert(!opt.only_gen_index);
         auto start_read_index = high_resolution_clock::now();
-        index.read(opt.ref_filename + ".sti");
+        try {
+            index.read(opt.ref_filename + ".sti");
+        } catch (const InvalidIndexFile& e) {
+            logger.error() << "strobealign: " << e.what() << std::endl;
+            return EXIT_FAILURE;
+        }
         std::chrono::duration<double> elapsed_read_index = high_resolution_clock::now() - start_read_index;
         logger.info() << "Total time reading index: " << elapsed_read_index.count() << " s\n" << std::endl;
     } else {
         // Generate the index
         auto start = high_resolution_clock::now();
-        index.populate(index_parameters, opt.f);
+        index.populate(opt.f);
         std::chrono::duration<double> elapsed = high_resolution_clock::now() - start;
         logger.info() << "Total time indexing: " << elapsed.count() << " s" << std::endl;
 

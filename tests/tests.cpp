@@ -4,6 +4,7 @@
 #include "refs.hpp"
 #include "exceptions.hpp"
 #include "readlen.hpp"
+#include "index.hpp"
 
 
 TEST_CASE("References::from_fasta") {
@@ -23,4 +24,24 @@ TEST_CASE("References::from_fasta parse error") {
 TEST_CASE("estimate_read_length") {
     CHECK(estimate_read_length("tests/phix.1.fastq", "") == 296);
     CHECK(estimate_read_length("tests/phix.1.fastq", "tests/phix.2.fastq") == 296);
+}
+
+TEST_CASE("IndexParameters==") {
+    IndexParameters a = IndexParameters::from_read_length(150, 8);
+    IndexParameters b = IndexParameters::from_read_length(150, 8);
+    CHECK(a == b);
+}
+
+TEST_CASE("sti file same parameters") {
+    auto references = References::from_fasta("tests/phix.fasta");
+    auto parameters = IndexParameters::from_read_length(300, 8);
+    StrobemerIndex index(references, parameters);
+    index.populate(0.0002);
+    index.write("tmpindex.sti");
+
+    auto other_parameters = IndexParameters::from_read_length(30, 8);
+    StrobemerIndex other_index(references, other_parameters);
+
+    REQUIRE_THROWS_AS(other_index.read("tmpindex.sti"), InvalidIndexFile);
+    std::remove("tmpindex.sti");
 }

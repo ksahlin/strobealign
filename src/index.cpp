@@ -98,6 +98,19 @@ IndexParameters IndexParameters::read(std::istream& is) {
     return IndexParameters(k, s, l, u, q, max_dist);
 }
 
+bool IndexParameters::operator==(const IndexParameters& other) const {
+    return
+        this->k == other.k
+        && this->s == other.s
+        && this->l == other.l
+        && this->u == other.u
+        && this->q == other.q
+        && this->max_dist == other.max_dist
+        && this->t_syncmer == other.t_syncmer
+        && this->w_min == other.w_min
+        && this->w_max == other.w_max;
+}
+
 /* Add a new observation */
 void i_dist_est::update(int dist)
 {
@@ -219,6 +232,7 @@ void StrobemerIndex::write(const std::string& filename) const {
     ofs.write("STI\1", 4); // magic number
 
     write_int_to_ostream(ofs, filter_cutoff);
+    parameters.write(ofs);
 
     //write flat_vector:
     auto s1 = uint64_t(flat_vector.size());
@@ -247,6 +261,10 @@ void StrobemerIndex::read(const std::string& filename) {
     }
 
     filter_cutoff = read_int_from_istream(ifs);
+    const IndexParameters sti_parameters = IndexParameters::read(ifs);
+    if (parameters != sti_parameters) {
+        throw InvalidIndexFile("Index parameters in .sti file and those specified on command line differ");
+    }
 
     // read flat_vector:
     uint64_t sz;
@@ -277,11 +295,11 @@ void StrobemerIndex::read(const std::string& filename) {
     }
 }
 
-void StrobemerIndex::populate(const IndexParameters& index_parameters, float f) {
+void StrobemerIndex::populate(float f) {
     auto start_flat_vector = high_resolution_clock::now();
     hash_vector h_vector;
     {
-        auto ind_flat_vector = generate_seeds(index_parameters);
+        auto ind_flat_vector = generate_seeds();
 
         //Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
         //The hash codes are only needed when generating the index and can be discarded afterwards.
@@ -314,17 +332,17 @@ void StrobemerIndex::populate(const IndexParameters& index_parameters, float f) 
     logger.info() << "Total time generating hash table index: " << elapsed_hash_index.count() << " s" <<  std::endl;
 }
 
-ind_mers_vector StrobemerIndex::generate_seeds(const IndexParameters& index_parameters) const
+ind_mers_vector StrobemerIndex::generate_seeds() const
 {
     auto start_flat_vector = high_resolution_clock::now();
 
     ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
-    int expected_sampling = index_parameters.k - index_parameters.s + 1;
+    int expected_sampling = parameters.k - parameters.s + 1;
     int approx_vec_size = references.total_length() / expected_sampling;
     logger.debug() << "ref vector approximate size: " << approx_vec_size << std::endl;
     ind_flat_vector.reserve(approx_vec_size);
     for(size_t i = 0; i < references.size(); ++i) {
-        seq_to_randstrobes2(ind_flat_vector, index_parameters.k, index_parameters.w_min, index_parameters.w_max, references.sequences[i], i, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
+        seq_to_randstrobes2(ind_flat_vector, parameters.k, parameters.w_min, parameters.w_max, references.sequences[i], i, parameters.s, parameters.t_syncmer, parameters.q, parameters.max_dist);
     }
     logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
 

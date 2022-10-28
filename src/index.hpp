@@ -114,10 +114,11 @@ public:
     }
 
     static IndexParameters from_read_length(int read_length, int c, int k = -1, int s = -1, int max_seed_len = -1);
+    static IndexParameters read(std::istream& os);
 
     void write(std::ostream& os) const;
-
-    static IndexParameters read(std::istream& os);
+    bool operator==(const IndexParameters& other) const;
+    bool operator!=(const IndexParameters& other) const { return !(*this == other); }
 
     void verify() const {
         if (k <= 7 || k > 32) {
@@ -136,7 +137,10 @@ public:
 };
 
 struct StrobemerIndex {
-    StrobemerIndex(const References& references) : filter_cutoff(0), references(references) {}
+    StrobemerIndex(const References& references, const IndexParameters& parameters)
+        : filter_cutoff(0)
+        , parameters(parameters)
+        , references(references) {}
     unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
                                 //therefore stored here since it needs to be saved with the index.
     mers_vector flat_vector;
@@ -144,10 +148,11 @@ struct StrobemerIndex {
 
     void write(const std::string& filename) const;
     void read(const std::string& filename);
-    void populate(const IndexParameters& index_parameters, float f);
+    void populate(float f);
 private:
+    const IndexParameters& parameters;
     const References& references;
-    ind_mers_vector generate_seeds(const IndexParameters& index_parameters) const;
+    ind_mers_vector generate_seeds() const;
 };
 
 
