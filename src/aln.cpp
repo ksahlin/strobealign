@@ -121,70 +121,41 @@ static inline void find_nams_rescue(
         }
     }
 
-    hit h;
-    int cnt = 0;
     std::sort(hits_fw.begin(), hits_fw.end());
-    for (auto &q : hits_fw) {
-        auto count = q.count;
-        if ((count > filter_cutoff && cnt >= 5) || count >= 1000) {
-            break;
-        }
-
-        auto offset = q.offset;
-        h.query_s = q.query_s;
-        h.query_e = q.query_e; // h.query_s + read_length/2;
-        h.is_rc = q.is_rc;
-
-        int min_diff = 1000;
-        for (size_t j = offset; j < offset + count; ++j) {
-            auto r = index.flat_vector[j];
-            h.ref_s = r.position;
-            auto p = r.packed;
-            int bit_alloc = 8;
-            int r_id = (p >> bit_alloc);
-            int mask = (1 << bit_alloc) - 1;
-            int offset = (p & mask);
-            h.ref_e = h.ref_s + offset + k;
-
-            int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
-            if (diff <= min_diff) {
-                hits_per_ref[r_id].push_back(h);
-                min_diff = diff;
-            }
-        }
-        cnt++;
-    }
-
-    // TODO deduplicate, is same as above but on hits_rc instead of hits_fw
-    cnt = 0;
     std::sort(hits_rc.begin(), hits_rc.end());
-    for (auto &q : hits_rc) {
-        auto count = q.count;
-        if ((count > filter_cutoff && cnt >= 5) || count >= 1000) {
-            break;
-        }
-        auto offset = q.offset;
-        h.query_s = q.query_s;
-        h.query_e = q.query_e; // h.query_s + read_length/2;
-        h.is_rc = q.is_rc;
-
-        int min_diff = 1000;
-        for (size_t j = offset; j < offset + count; ++j) {
-            auto r = index.flat_vector[j];
-            h.ref_s = r.position;
-            auto p = r.packed;
-            int bit_alloc = 8;
-            int r_id = (p >> bit_alloc);
-            int mask = (1 << bit_alloc) - 1;
-            int offset = (p & mask);
-            h.ref_e = h.ref_s + offset + k;
-            int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
-            if (diff <= min_diff ) {
-                hits_per_ref[r_id].push_back(h);
-                min_diff = diff;
+    for (auto& hits : {hits_fw, hits_rc}) {
+        hit h;
+        int cnt = 0;
+        for (auto &q : hits) {
+            auto count = q.count;
+            if ((count > filter_cutoff && cnt >= 5) || count >= 1000) {
+                break;
             }
+
+            auto offset = q.offset;
+            h.query_s = q.query_s;
+            h.query_e = q.query_e; // h.query_s + read_length/2;
+            h.is_rc = q.is_rc;
+
+            int min_diff = 1000;
+            for (size_t j = offset; j < offset + count; ++j) {
+                auto r = index.flat_vector[j];
+                h.ref_s = r.position;
+                auto p = r.packed;
+                int bit_alloc = 8;
+                int r_id = (p >> bit_alloc);
+                int mask = (1 << bit_alloc) - 1;
+                int offset = (p & mask);
+                h.ref_e = h.ref_s + offset + k;
+
+                int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
+                if (diff <= min_diff) {
+                    hits_per_ref[r_id].push_back(h);
+                    min_diff = diff;
+                }
+            }
+            cnt++;
         }
-        cnt++;
     }
 
     std::vector<nam> open_nams;
