@@ -146,8 +146,7 @@ std::string sam_header(const References& references) {
     return out.str();
 }
 
-int main(int argc, char **argv)
-{
+int run_strobealign(int argc, char **argv) {
     CommandLineOptions opt;
     mapping_params map_param;
     std::tie(opt, map_param) = parse_command_line_arguments(argc, argv);
@@ -157,8 +156,7 @@ int main(int argc, char **argv)
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
     }
     if (opt.c >= 64 || opt.c <= 0) {
-        logger.error() << "Parameter c must be greater than 0 and less than 64" << std::endl;
-        return EXIT_FAILURE;
+        throw BadParameter("c must be greater than 0 and less than 64");
     }
     IndexParameters index_parameters = IndexParameters::from_read_length(
         map_param.r, opt.c, opt.k_set ? opt.k : -1, opt.s_set ? opt.s : -1, opt.max_seed_len_set ? opt.max_seed_len : -1);
@@ -185,33 +183,21 @@ int main(int argc, char **argv)
         << "O: " << opt.O << std::endl
         << "E: " << opt.E << std::endl;
 
-    try {
-        map_param.verify();
-        index_parameters.verify();
-    }
-    catch (BadParameter& e) {
-        logger.error() << "A mapping or seeding parameter is invalid: " << e.what() << std::endl;
-        return EXIT_FAILURE;
-    }
+    map_param.verify();
+    index_parameters.verify();
 
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
 
-    //////////// CREATE INDEX OF REF SEQUENCES /////////////////
+    // Create index
 
     References references;
     auto start_read_refs = high_resolution_clock::now();
-    try {
-        references = References::from_fasta(opt.ref_filename);
-    } catch (const InvalidFasta& e) {
-        logger.error() << "strobealign: " << e.what() << std::endl;
-        return EXIT_FAILURE;
-    }
+    references = References::from_fasta(opt.ref_filename);
     std::chrono::duration<double> elapsed_read_refs = high_resolution_clock::now() - start_read_refs;
     logger.info() << "Time reading references: " << elapsed_read_refs.count() << " s" << std::endl;
 
     if (references.total_length() == 0) {
-        logger.error() << "No reference sequences found, aborting" << std::endl;
-        return EXIT_FAILURE;
+        throw InvalidFasta("No reference sequences found");
     }
 
     StrobemerIndex index(references, index_parameters);
@@ -219,12 +205,7 @@ int main(int argc, char **argv)
         // Read the index from a file
         assert(!opt.only_gen_index);
         auto start_read_index = high_resolution_clock::now();
-        try {
-            index.read(opt.ref_filename + ".sti");
-        } catch (const InvalidIndexFile& e) {
-            logger.error() << "strobealign: " << e.what() << std::endl;
-            return EXIT_FAILURE;
-        }
+        index.read(opt.ref_filename + ".sti");
         std::chrono::duration<double> elapsed_read_index = high_resolution_clock::now() - start_read_index;
         logger.info() << "Total time reading index: " << elapsed_read_index.count() << " s\n" << std::endl;
     } else {
@@ -275,8 +256,7 @@ int main(int argc, char **argv)
     logger.info() << "Running in " << (opt.is_SE ? "single-end" : "paired-end") << " mode" << std::endl;
 
     if (opt.is_SE) {
-        gzFile fp = gzopen(opt.reads_filename1.c_str(), "r");
-        auto ks = klibpp::make_ikstream(fp, gzread);
+        auto ks = open_fastq(opt.reads_filename1);
 
         int input_chunk_size = 100000;
         InputBuffer input_buffer(ks, ks, input_chunk_size);
@@ -294,14 +274,10 @@ int main(int argc, char **argv)
         for (size_t i = 0; i < workers.size(); ++i) {
             workers[i].join();
         }
-
-        gzclose(fp);
     }
     else {
-        gzFile fp1 = gzopen(opt.reads_filename1.c_str(), "r");
-        auto ks1 = klibpp::make_ikstream(fp1, gzread);
-        gzFile fp2 = gzopen(opt.reads_filename2.c_str(), "r");
-        auto ks2 = klibpp::make_ikstream(fp2, gzread);
+        auto ks1 = open_fastq(opt.reads_filename1);
+        auto ks2 = open_fastq(opt.reads_filename2);
         std::unordered_map<std::thread::id, i_dist_est> isize_est_vec(opt.n_threads);
 
         int input_chunk_size = 100000;
@@ -320,9 +296,6 @@ int main(int argc, char **argv)
         for (size_t i = 0; i < workers.size(); ++i) {
             workers[i].join();
         }
-
-        gzclose(fp1);
-        gzclose(fp2);
     }
     logger.info() << "Done!\n";
 
@@ -348,4 +321,18 @@ int main(int argc, char **argv)
         << "Total time reverse compl seq: " << tot_statistics.tot_rc.count() / opt.n_threads << " s." << std::endl
         << "Total time base level alignment (ssw): " << tot_statistics.tot_extend.count() / opt.n_threads << " s." << std::endl
         << "Total time writing alignment to files: " << tot_statistics.tot_write_file.count() << " s." << std::endl;
+    return EXIT_SUCCESS;
+}
+
+int main(int argc, char **argv) {
+    try {
+        return run_strobealign(argc, argv);
+    } catch (BadParameter& e) {
+        logger.error() << "A mapping or seeding parameter is invalid: " << e.what() << std::endl;
+    } catch (const std::runtime_error& e) {
+        logger.error() << "strobealign: " << e.what() << std::endl;
+    } catch (const InvalidFile& e) {
+        logger.error() << "strobealign: " << e.what() << std::endl;
+    }
+    return EXIT_FAILURE;
 }

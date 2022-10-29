@@ -2,6 +2,7 @@
 #define exceptions_hpp
 
 #include <stdexcept>
+#include <string>
 
 class BadParameter: public std::runtime_error {
 public:
@@ -18,4 +19,9 @@ public:
     InvalidIndexFile(std::string message) : runtime_error(message) { }
 };
 
-#endif /* exceptions.hpp */
+class InvalidFile : public std::runtime_error {
+public:
+    InvalidFile(std::string message) : runtime_error(message) { }
+};
+
+#endif
