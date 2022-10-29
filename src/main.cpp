@@ -153,7 +153,7 @@ int main(int argc, char **argv)
     std::tie(opt, map_param) = parse_command_line_arguments(argc, argv);
 
     logger.set_level(opt.verbose ? LOG_DEBUG : LOG_INFO);
-    if (!opt.r_set) {
+    if (!opt.r_set && !opt.reads_filename1.empty()) {
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
     }
     if (opt.c >= 64 || opt.c <= 0) {
@@ -198,32 +198,39 @@ int main(int argc, char **argv)
 
     //////////// CREATE INDEX OF REF SEQUENCES /////////////////
 
-    StrobemerIndex index;
     References references;
-    if (opt.ref_filename.substr(opt.ref_filename.length() - 4) != ".sti") { //assume it is a fasta file if not named ".sti"
-        //Generate index from FASTA
-    
-        // Record index creation start time
-        auto start = high_resolution_clock::now();
-        auto start_read_refs = start;
+    auto start_read_refs = high_resolution_clock::now();
+    try {
+        references = References::from_fasta(opt.ref_filename);
+    } catch (const InvalidFasta& e) {
+        logger.error() << "strobealign: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
+    std::chrono::duration<double> elapsed_read_refs = high_resolution_clock::now() - start_read_refs;
+    logger.info() << "Time reading references: " << elapsed_read_refs.count() << " s" << std::endl;
+
+    if (references.total_length() == 0) {
+        logger.error() << "No reference sequences found, aborting" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    StrobemerIndex index(references, index_parameters);
+    if (opt.use_index) {
+        // Read the index from a file
+        assert(!opt.only_gen_index);
+        auto start_read_index = high_resolution_clock::now();
         try {
-            references = References::from_fasta(opt.ref_filename);
-        } catch (const InvalidFasta& e) {
+            index.read(opt.ref_filename + ".sti");
+        } catch (const InvalidIndexFile& e) {
             logger.error() << "strobealign: " << e.what() << std::endl;
             return EXIT_FAILURE;
         }
-
-        std::chrono::duration<double> elapsed_read_refs = high_resolution_clock::now() - start_read_refs;
-        logger.info() << "Time reading references: " << elapsed_read_refs.count() << " s" << std::endl;
-
-        if (references.total_length() == 0) {
-            logger.error() << "No reference sequences found, aborting" << std::endl;
-            return EXIT_FAILURE;
-        }
-
-        index.populate(references, index_parameters, opt.f);
-
-        // Record index creation end time
+        std::chrono::duration<double> elapsed_read_index = high_resolution_clock::now() - start_read_index;
+        logger.info() << "Total time reading index: " << elapsed_read_index.count() << " s\n" << std::endl;
+    } else {
+        // Generate the index
+        auto start = high_resolution_clock::now();
+        index.populate(opt.f);
         std::chrono::duration<double> elapsed = high_resolution_clock::now() - start;
         logger.info() << "Total time indexing: " << elapsed.count() << " s" << std::endl;
 
@@ -231,148 +238,114 @@ int main(int argc, char **argv)
             print_diagnostics(index, opt.logfile_name, index_parameters.k);
             logger.debug() << "Finished printing log stats" << std::endl;
         }
-        
-        // If the program was called with the -i flag, write the index to file
-        if (opt.only_gen_index) { // If the program was called with the -i flag, we do not do the alignment
+        if (opt.only_gen_index) {
             auto start_write_index = high_resolution_clock::now();
-            index.write(references, opt.index_out_filename);
+            index.write(opt.ref_filename + ".sti");
             std::chrono::duration<double> elapsed_write_index = high_resolution_clock::now() - start_write_index;
             logger.info() << "Total time writing index: " << elapsed_write_index.count() << " s\n" << std::endl;
+            return EXIT_SUCCESS;
         }
+    }
+
+    // Map/align reads
+        
+    auto start_aln_part = high_resolution_clock::now();
+    map_param.rescue_cutoff = map_param.R < 100 ? map_param.R * index.filter_cutoff : 1000;
+    logger.debug() << "Using rescue cutoff: " << map_param.rescue_cutoff << std::endl;
+
+    std::streambuf* buf;
+    std::ofstream of;
+
+    if (!opt.write_to_stdout) {
+        of.open(opt.output_file_name);
+        buf = of.rdbuf();
     }
     else {
-        //load index from file
-        auto start_read_index = high_resolution_clock::now();
-        index.read(references, opt.ref_filename);
-        std::chrono::duration<double> elapsed_read_index = high_resolution_clock::now() - start_read_index;
-        logger.info() << "Total time reading index: " << elapsed_read_index.count() << " s\n" << std::endl;
-
+        buf = std::cout.rdbuf();
     }
 
-    ///////////////////////////// MAP ///////////////////////////////////////
-    
-    if (!(opt.only_gen_index && opt.reads_filename1.empty())) { // If the program was called with the -i flag and the fastqs are not specified, we don't run any alignment
-        
-        // Record matching time
-        auto start_aln_part = high_resolution_clock::now();
+    std::ostream out(buf);
 
-        //    std::ifstream query_file(reads_filename);
-
-        map_param.rescue_cutoff = map_param.R < 100 ? map_param.R * index.filter_cutoff : 1000;
-        logger.debug() << "Using rescue cutoff: " << map_param.rescue_cutoff << std::endl;
-
-        std::streambuf* buf;
-        std::ofstream of;
-
-        if (!opt.write_to_stdout) {
-            of.open(opt.output_file_name);
-            buf = of.rdbuf();
-        }
-        else {
-            buf = std::cout.rdbuf();
-        }
-
-        std::ostream out(buf);
-        //    std::ofstream out;
-        //    out.open(opt.output_file_name);
-
-        //    std::stringstream sam_output;
-        //    std::stringstream paf_output;
-
-        if (map_param.is_sam_out) {
-            out << sam_header(references);
-        }
-
-        std::unordered_map<std::thread::id, AlignmentStatistics> log_stats_vec(opt.n_threads);
-
-
-        logger.info() << "Running in " << (opt.is_SE ? "single-end" : "paired-end") << " mode" << std::endl;
-
-        if (opt.is_SE) {
-            gzFile fp = gzopen(opt.reads_filename1.c_str(), "r");
-            auto ks = klibpp::make_ikstream(fp, gzread);
-
-            ////////// ALIGNMENT START //////////
-
-            int input_chunk_size = 100000;
-            // Create Buffers
-            InputBuffer input_buffer(ks, ks, input_chunk_size);
-            OutputBuffer output_buffer(out);
-
-            std::vector<std::thread> workers;
-            for (int i = 0; i < opt.n_threads; ++i) {
-                std::thread consumer(perform_task_SE, std::ref(input_buffer), std::ref(output_buffer),
-                    std::ref(log_stats_vec), std::ref(aln_params),
-                    std::ref(map_param), std::ref(index_parameters), std::ref(references),
-                    std::ref(index));
-                workers.push_back(std::move(consumer));
-            }
-
-            for (size_t i = 0; i < workers.size(); ++i) {
-                workers[i].join();
-            }
-
-            gzclose(fp);
-        }
-        else {
-            gzFile fp1 = gzopen(opt.reads_filename1.c_str(), "r");
-            auto ks1 = klibpp::make_ikstream(fp1, gzread);
-            gzFile fp2 = gzopen(opt.reads_filename2.c_str(), "r");
-            auto ks2 = klibpp::make_ikstream(fp2, gzread);
-            std::unordered_map<std::thread::id, i_dist_est> isize_est_vec(opt.n_threads);
-
-            ////////// ALIGNMENT START //////////
-            /////////////////////////////////////
-
-            int input_chunk_size = 100000;
-            // Create Buffers
-            InputBuffer input_buffer(ks1, ks2, input_chunk_size);
-            OutputBuffer output_buffer(out);
-
-            std::vector<std::thread> workers;
-            for (int i = 0; i < opt.n_threads; ++i) {
-                std::thread consumer(perform_task_PE, std::ref(input_buffer), std::ref(output_buffer),
-                    std::ref(log_stats_vec), std::ref(isize_est_vec), std::ref(aln_params),
-                    std::ref(map_param), std::ref(index_parameters), std::ref(references),
-                    std::ref(index));
-                workers.push_back(std::move(consumer));
-            }
-
-            for (size_t i = 0; i < workers.size(); ++i) {
-                workers[i].join();
-            }
-
-            /////////////////////////////////////
-            /////////////////////////////////////
-
-            gzclose(fp1);
-            gzclose(fp2);
-        }
-        logger.info() << "Done!\n";
-
-        AlignmentStatistics tot_statistics;
-        for (auto& it : log_stats_vec) {
-            tot_statistics += it.second;
-        }
-        // Record mapping end time
-        std::chrono::duration<double> tot_aln_part = high_resolution_clock::now() - start_aln_part;
-
-        logger.info() << "Total mapping sites tried: " << tot_statistics.tot_all_tried << std::endl
-            << "Total calls to ssw: " << tot_statistics.tot_ksw_aligned << std::endl
-            << "Calls to ksw (rescue mode): " << tot_statistics.tot_rescued << std::endl
-            << "Did not fit strobe start site: " << tot_statistics.did_not_fit << std::endl
-            << "Tried rescue: " << tot_statistics.tried_rescue << std::endl
-            << "Total time mapping: " << tot_aln_part.count() << " s." << std::endl
-            << "Total time reading read-file(s): " << tot_statistics.tot_read_file.count() / opt.n_threads << " s." << std::endl
-            << "Total time creating strobemers: " << tot_statistics.tot_construct_strobemers.count() / opt.n_threads << " s." << std::endl
-            << "Total time finding NAMs (non-rescue mode): " << tot_statistics.tot_find_nams.count() / opt.n_threads << " s." << std::endl
-            << "Total time finding NAMs (rescue mode): " << tot_statistics.tot_time_rescue.count() / opt.n_threads << " s." << std::endl;
-        //<< "Total time finding NAMs ALTERNATIVE (candidate sites): " << tot_find_nams_alt.count()/opt.n_threads  << " s." <<  std::endl;
-        logger.info() << "Total time sorting NAMs (candidate sites): " << tot_statistics.tot_sort_nams.count() / opt.n_threads << " s." << std::endl
-            << "Total time reverse compl seq: " << tot_statistics.tot_rc.count() / opt.n_threads << " s." << std::endl
-            << "Total time base level alignment (ssw): " << tot_statistics.tot_extend.count() / opt.n_threads << " s." << std::endl
-            << "Total time writing alignment to files: " << tot_statistics.tot_write_file.count() << " s." << std::endl;
-
-        /////////////////////// FIND AND OUTPUT NAMs ///////////////////////////////
+    if (map_param.is_sam_out) {
+        out << sam_header(references);
     }
+
+    std::unordered_map<std::thread::id, AlignmentStatistics> log_stats_vec(opt.n_threads);
+
+    logger.info() << "Running in " << (opt.is_SE ? "single-end" : "paired-end") << " mode" << std::endl;
+
+    if (opt.is_SE) {
+        gzFile fp = gzopen(opt.reads_filename1.c_str(), "r");
+        auto ks = klibpp::make_ikstream(fp, gzread);
+
+        int input_chunk_size = 100000;
+        InputBuffer input_buffer(ks, ks, input_chunk_size);
+        OutputBuffer output_buffer(out);
+
+        std::vector<std::thread> workers;
+        for (int i = 0; i < opt.n_threads; ++i) {
+            std::thread consumer(perform_task_SE, std::ref(input_buffer), std::ref(output_buffer),
+                std::ref(log_stats_vec), std::ref(aln_params),
+                std::ref(map_param), std::ref(index_parameters), std::ref(references),
+                std::ref(index));
+            workers.push_back(std::move(consumer));
+        }
+
+        for (size_t i = 0; i < workers.size(); ++i) {
+            workers[i].join();
+        }
+
+        gzclose(fp);
+    }
+    else {
+        gzFile fp1 = gzopen(opt.reads_filename1.c_str(), "r");
+        auto ks1 = klibpp::make_ikstream(fp1, gzread);
+        gzFile fp2 = gzopen(opt.reads_filename2.c_str(), "r");
+        auto ks2 = klibpp::make_ikstream(fp2, gzread);
+        std::unordered_map<std::thread::id, i_dist_est> isize_est_vec(opt.n_threads);
+
+        int input_chunk_size = 100000;
+        InputBuffer input_buffer(ks1, ks2, input_chunk_size);
+        OutputBuffer output_buffer(out);
+
+        std::vector<std::thread> workers;
+        for (int i = 0; i < opt.n_threads; ++i) {
+            std::thread consumer(perform_task_PE, std::ref(input_buffer), std::ref(output_buffer),
+                std::ref(log_stats_vec), std::ref(isize_est_vec), std::ref(aln_params),
+                std::ref(map_param), std::ref(index_parameters), std::ref(references),
+                std::ref(index));
+            workers.push_back(std::move(consumer));
+        }
+
+        for (size_t i = 0; i < workers.size(); ++i) {
+            workers[i].join();
+        }
+
+        gzclose(fp1);
+        gzclose(fp2);
+    }
+    logger.info() << "Done!\n";
+
+    AlignmentStatistics tot_statistics;
+    for (auto& it : log_stats_vec) {
+        tot_statistics += it.second;
+    }
+    // Record mapping end time
+    std::chrono::duration<double> tot_aln_part = high_resolution_clock::now() - start_aln_part;
+
+    logger.info() << "Total mapping sites tried: " << tot_statistics.tot_all_tried << std::endl
+        << "Total calls to ssw: " << tot_statistics.tot_ksw_aligned << std::endl
+        << "Calls to ksw (rescue mode): " << tot_statistics.tot_rescued << std::endl
+        << "Did not fit strobe start site: " << tot_statistics.did_not_fit << std::endl
+        << "Tried rescue: " << tot_statistics.tried_rescue << std::endl
+        << "Total time mapping: " << tot_aln_part.count() << " s." << std::endl
+        << "Total time reading read-file(s): " << tot_statistics.tot_read_file.count() / opt.n_threads << " s." << std::endl
+        << "Total time creating strobemers: " << tot_statistics.tot_construct_strobemers.count() / opt.n_threads << " s." << std::endl
+        << "Total time finding NAMs (non-rescue mode): " << tot_statistics.tot_find_nams.count() / opt.n_threads << " s." << std::endl
+        << "Total time finding NAMs (rescue mode): " << tot_statistics.tot_time_rescue.count() / opt.n_threads << " s." << std::endl;
+    //<< "Total time finding NAMs ALTERNATIVE (candidate sites): " << tot_find_nams_alt.count()/opt.n_threads  << " s." <<  std::endl;
+    logger.info() << "Total time sorting NAMs (candidate sites): " << tot_statistics.tot_sort_nams.count() / opt.n_threads << " s." << std::endl
+        << "Total time reverse compl seq: " << tot_statistics.tot_rc.count() / opt.n_threads << " s." << std::endl
+        << "Total time base level alignment (ssw): " << tot_statistics.tot_extend.count() / opt.n_threads << " s." << std::endl
+        << "Total time writing alignment to files: " << tot_statistics.tot_write_file.count() << " s." << std::endl;
 }

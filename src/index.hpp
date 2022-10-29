@@ -95,7 +95,7 @@ public:
     const int s;
     const int l;
     const int u;
-    uint64_t q;
+    const uint64_t q;
     const int max_dist;
     const int t_syncmer;
     const int w_min;
@@ -114,6 +114,11 @@ public:
     }
 
     static IndexParameters from_read_length(int read_length, int c, int k = -1, int s = -1, int max_seed_len = -1);
+    static IndexParameters read(std::istream& os);
+
+    void write(std::ostream& os) const;
+    bool operator==(const IndexParameters& other) const;
+    bool operator!=(const IndexParameters& other) const { return !(*this == other); }
 
     void verify() const {
         if (k <= 7 || k > 32) {
@@ -132,17 +137,22 @@ public:
 };
 
 struct StrobemerIndex {
-    StrobemerIndex() : filter_cutoff(0) {}
+    StrobemerIndex(const References& references, const IndexParameters& parameters)
+        : filter_cutoff(0)
+        , parameters(parameters)
+        , references(references) {}
     unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
                                 //therefore stored here since it needs to be saved with the index.
     mers_vector flat_vector;
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
 
-    void write(const References& references, const std::string& filename) const;
-    void read(References& references, const std::string& filename);
-    void populate(const References& references, const IndexParameters& index_parameters, float f);
+    void write(const std::string& filename) const;
+    void read(const std::string& filename);
+    void populate(float f);
 private:
-    ind_mers_vector generate_seeds(const References& references, const IndexParameters& index_parameters) const;
+    const IndexParameters& parameters;
+    const References& references;
+    ind_mers_vector generate_seeds() const;
 };
 
 

@@ -67,6 +67,49 @@ IndexParameters IndexParameters::from_read_length(int read_length, int c, int k,
     return IndexParameters(k, s, l, u, q, max_dist);
 }
 
+void write_int_to_ostream(std::ostream& os, int value) {
+    int val;
+    val = value;
+    os.write(reinterpret_cast<const char*>(&val), sizeof(val));
+}
+
+void IndexParameters::write(std::ostream& os) const {
+    write_int_to_ostream(os, k);
+    write_int_to_ostream(os, s);
+    write_int_to_ostream(os, l);
+    write_int_to_ostream(os, u);
+    write_int_to_ostream(os, q);
+    write_int_to_ostream(os, max_dist);
+}
+
+int read_int_from_istream(std::istream& is) {
+    int val;
+    is.read(reinterpret_cast<char*>(&val), sizeof(val));
+    return val;
+}
+
+IndexParameters IndexParameters::read(std::istream& is) {
+    int k = read_int_from_istream(is);
+    int s = read_int_from_istream(is);
+    int l = read_int_from_istream(is);
+    int u = read_int_from_istream(is);
+    int q = read_int_from_istream(is);
+    int max_dist = read_int_from_istream(is);
+    return IndexParameters(k, s, l, u, q, max_dist);
+}
+
+bool IndexParameters::operator==(const IndexParameters& other) const {
+    return
+        this->k == other.k
+        && this->s == other.s
+        && this->l == other.l
+        && this->u == other.u
+        && this->q == other.q
+        && this->max_dist == other.max_dist
+        && this->t_syncmer == other.t_syncmer
+        && this->w_min == other.w_min
+        && this->w_max == other.w_max;
+}
 
 /* Add a new observation */
 void i_dist_est::update(int dist)
@@ -183,41 +226,16 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
 }
 
 
-void StrobemerIndex::write(const References& references, const std::string& filename) const {
+void StrobemerIndex::write(const std::string& filename) const {
     std::ofstream ofs(filename, std::ios::binary);
 
-    //write filter_cutoff
-    ofs.write(reinterpret_cast<const char*>(&filter_cutoff), sizeof(filter_cutoff));
+    ofs.write("STI\1", 4); // magic number
 
-    //write ref_seqs:
-    uint64_t s1 = uint64_t(references.sequences.size());
-    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
-    //For each string, write length and then the string
-    uint32_t s2 = 0;
-    for (std::size_t i = 0; i < references.sequences.size(); ++i) {
-        s2 = uint32_t(references.sequences[i].length());
-        ofs.write(reinterpret_cast<char*>(&s2), sizeof(s2));
-        ofs.write(references.sequences[i].c_str(), references.sequences[i].length());
-    }
-    
-    //write ref_lengths:
-    //write everything in one large chunk
-    s1 = uint64_t(references.lengths.size());
-    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
-    ofs.write(reinterpret_cast<const char*>(&references.lengths[0]), references.lengths.size()*sizeof(references.lengths[0]));
-
-    //write acc_map:
-    s1 = uint64_t(references.names.size());
-    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
-    //For each string, write length and then the string
-    for (std::size_t i = 0; i < references.names.size(); ++i) {
-        s2 = uint32_t(references.names[i].length());
-        ofs.write(reinterpret_cast<char*>(&s2), sizeof(s2));
-        ofs.write(references.names[i].c_str(), references.names[i].length());
-    }
+    write_int_to_ostream(ofs, filter_cutoff);
+    parameters.write(ofs);
 
     //write flat_vector:
-    s1 = uint64_t(flat_vector.size());
+    auto s1 = uint64_t(flat_vector.size());
     ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
     ofs.write(reinterpret_cast<const char*>(&flat_vector[0]), flat_vector.size() * sizeof(flat_vector[0]));
 
@@ -230,57 +248,36 @@ void StrobemerIndex::write(const References& references, const std::string& file
     }
 }
 
-void StrobemerIndex::read(References& references, const std::string& filename) {
+void StrobemerIndex::read(const std::string& filename) {
     std::ifstream ifs(filename, std::ios::binary);
-    //read filter_cutoff
-    ifs.read(reinterpret_cast<char*>(&filter_cutoff), sizeof(filter_cutoff));
 
-    //read ref_seqs:
-    references.sequences.clear();
-    uint64_t sz = 0;
-    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-    references.sequences.reserve(sz);
-    uint32_t sz2 = 0;
-    auto& refseqs = references.sequences;
-    for (uint64_t i = 0; i < sz; ++i) {
-        ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
-        std::unique_ptr<char> buf_ptr(new char[sz2]);//The vector is short with large strings, so allocating this way should be ok.
-        ifs.read(buf_ptr.get(), sz2);
-        //we could potentially use std::move here to avoid reallocation, something like std::string(std::move(buf), sz2), but it has to be investigated more
-        refseqs.push_back(std::string(buf_ptr.get(), sz2));
+    union {
+        char s[4];
+        uint32_t v;
+    } magic;
+    ifs.read(magic.s, 4);
+    if (magic.v != 0x01495453) { // "STI\1"
+        throw InvalidIndexFile("Index file has incorrect format (magic number mismatch)");
     }
 
-    //read ref_lengths
-    ////////////////
-    references.lengths.clear();
-    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-    references.lengths.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but ignore that for now
-    ifs.read(reinterpret_cast<char*>(&references.lengths[0]), sz*sizeof(references.lengths[0]));
-
-    //read acc_map:
-    references.names.clear();
-    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-    references.names.reserve(sz);
-    auto& acc_map = references.names;
-
-    for (int i = 0; i < sz; ++i) {
-        ifs.read(reinterpret_cast<char*>(&sz2), sizeof(sz2));
-        std::unique_ptr<char> buf_ptr(new char[sz2]);
-        ifs.read(buf_ptr.get(), sz2);
-        acc_map.push_back(std::string(buf_ptr.get(), sz2));
+    filter_cutoff = read_int_from_istream(ifs);
+    const IndexParameters sti_parameters = IndexParameters::read(ifs);
+    if (parameters != sti_parameters) {
+        throw InvalidIndexFile("Index parameters in .sti file and those specified on command line differ");
     }
 
-    //read flat_vector:
+    // read flat_vector:
+    uint64_t sz;
     flat_vector.clear();
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
     flat_vector.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but let's ignore that for now
     ifs.read(reinterpret_cast<char*>(&flat_vector[0]), sz*sizeof(flat_vector[0]));
 
-    //read mers_index:
+    // read mers_index:
     mers_index.clear();
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
     mers_index.reserve(sz);
-    //read in big chunks
+    // read in big chunks
     const uint64_t chunk_size = pow(2,20);//4 M => chunks of ~10 MB - The chunk size seem not to be that important
     auto buf_size = std::min(sz, chunk_size) * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
     std::unique_ptr<char> buf_ptr(new char[buf_size]);
@@ -298,12 +295,11 @@ void StrobemerIndex::read(References& references, const std::string& filename) {
     }
 }
 
-
-void StrobemerIndex::populate(const References& references, const IndexParameters& index_parameters, float f) {
+void StrobemerIndex::populate(float f) {
     auto start_flat_vector = high_resolution_clock::now();
     hash_vector h_vector;
     {
-        auto ind_flat_vector = generate_seeds(references, index_parameters);
+        auto ind_flat_vector = generate_seeds();
 
         //Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
         //The hash codes are only needed when generating the index and can be discarded afterwards.
@@ -336,17 +332,17 @@ void StrobemerIndex::populate(const References& references, const IndexParameter
     logger.info() << "Total time generating hash table index: " << elapsed_hash_index.count() << " s" <<  std::endl;
 }
 
-ind_mers_vector StrobemerIndex::generate_seeds(const References& references, const IndexParameters& index_parameters) const
+ind_mers_vector StrobemerIndex::generate_seeds() const
 {
     auto start_flat_vector = high_resolution_clock::now();
 
     ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
-    int expected_sampling = index_parameters.k - index_parameters.s + 1;
+    int expected_sampling = parameters.k - parameters.s + 1;
     int approx_vec_size = references.total_length() / expected_sampling;
     logger.debug() << "ref vector approximate size: " << approx_vec_size << std::endl;
     ind_flat_vector.reserve(approx_vec_size);
     for(size_t i = 0; i < references.size(); ++i) {
-        seq_to_randstrobes2(ind_flat_vector, index_parameters.k, index_parameters.w_min, index_parameters.w_max, references.sequences[i], i, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
+        seq_to_randstrobes2(ind_flat_vector, parameters.k, parameters.w_min, parameters.w_max, references.sequences[i], i, parameters.s, parameters.t_syncmer, parameters.q, parameters.max_dist);
     }
     logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
 
