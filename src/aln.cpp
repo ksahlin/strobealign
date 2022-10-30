@@ -128,7 +128,7 @@ static inline void find_nams_rescue(
         int cnt = 0;
         for (auto &q : hits) {
             auto count = q.count;
-            if ((count > filter_cutoff && cnt >= 5) || count >= 1000) {
+            if ((count > filter_cutoff && cnt >= 5) || count > 1000) {
                 break;
             }
 
