@@ -281,7 +281,7 @@ static inline std::pair<float,int> find_nams(
             auto offset = mer.offset;
             auto count = mer.count;
             if (count > index.filter_cutoff) {
-                break;
+                continue;
             }
             nr_good_hits ++;
             int min_diff = 100000;
