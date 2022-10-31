@@ -128,7 +128,7 @@ static inline void find_nams_rescue(
         int cnt = 0;
         for (auto &q : hits) {
             auto count = q.count;
-            if ((count > filter_cutoff && cnt >= 5) || count >= 1000) {
+            if ((count > filter_cutoff && cnt >= 5) || count > 1000) {
                 break;
             }
 
@@ -281,7 +281,7 @@ static inline std::pair<float,int> find_nams(
             auto offset = mer.offset;
             auto count = mer.count;
             if (count > index.filter_cutoff) {
-                break;
+                continue;
             }
             nr_good_hits ++;
             int min_diff = 100000;
