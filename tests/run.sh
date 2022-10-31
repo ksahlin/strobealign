@@ -31,8 +31,9 @@ rm phix.pe.paf
 
 # Build a separate index
 strobealign -r 150 $d/phix.fasta $d/phix.1.fastq > without-sti.sam
-strobealign -r 150 -i $d/phix.fasta
-strobealign -r 150 --use-index $d/phix.fasta $d/phix.1.fastq > with-sti.sam
+strobealign -r 150 -i $d/phix.150.sti $d/phix.fasta
+test -f $d/phix.150.sti
+strobealign -r 150 --use-index $d/phix.150.sti $d/phix.fasta $d/phix.1.fastq > with-sti.sam
 diff -u without-sti.sam with-sti.sam
 rm without-sti.sam with-sti.sam
 

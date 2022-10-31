@@ -35,7 +35,7 @@ struct CommandLineOptions {
     bool max_seed_len_set { false };
     bool only_gen_index { false };
     bool use_index { false };
-    std::string index_out_filename;
+    std::string index_filename;
 };
 
 std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int argc, char **argv);

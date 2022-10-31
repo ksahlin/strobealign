@@ -22,8 +22,8 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     args::Flag x(parser, "x", "Only map reads, no base level alignment (produces PAF file)", {'x'});
     args::ValueFlag<int> N(parser, "INT", "Retain at most INT secondary alignments (is upper bounded by -M and depends on -S) [0]", {'N'});
     args::ValueFlag<std::string> L(parser, "PATH", "Print statistics of indexing to PATH", {'L'});
-    args::Flag i(parser, "index", "Write the generated index to a file. Do not map reads. If read files are provided, they are used to estimate read length", { 'i' });
-    args::Flag use_index(parser, "use_index", "Use a pre-generated index", { "use-index" });
+    args::ValueFlag<std::string> i(parser, "index", "Write the generated index to a file. Do not map reads. If read files are provided, they are used to estimate read length", { 'i' });
+    args::ValueFlag<std::string> use_index(parser, "use_index", "Use a pre-generated index", { "use-index" });
 
     args::Group seeding(parser, "Seeding:");
     //args::ValueFlag<int> n(parser, "INT", "Number of strobes [2]", {'n'});
@@ -82,8 +82,8 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     if (x) { map_param.is_sam_out = false; }
     if (N) { map_param.max_secondary = args::get(N); }
     if (L) { opt.logfile_name = args::get(L); }
-    if (i) { opt.only_gen_index = true; opt.index_out_filename = args::get(i); }
-    if (use_index) { opt.use_index = true; }
+    if (i) { opt.only_gen_index = true; opt.index_filename = args::get(i); }
+    if (use_index) { opt.use_index = true; opt.index_filename = args::get(use_index); }
 
     // Seeding
     if (r) { map_param.r = args::get(r); opt.r_set = true; }

@@ -205,7 +205,7 @@ int run_strobealign(int argc, char **argv) {
         // Read the index from a file
         assert(!opt.only_gen_index);
         auto start_read_index = high_resolution_clock::now();
-        index.read(opt.ref_filename + ".sti");
+        index.read(opt.index_filename);
         std::chrono::duration<double> elapsed_read_index = high_resolution_clock::now() - start_read_index;
         logger.info() << "Total time reading index: " << elapsed_read_index.count() << " s\n" << std::endl;
     } else {
@@ -244,7 +244,7 @@ int run_strobealign(int argc, char **argv) {
         }
         if (opt.only_gen_index) {
             auto start_write_index = high_resolution_clock::now();
-            index.write(opt.ref_filename + ".sti");
+            index.write(opt.index_filename);
             std::chrono::duration<double> elapsed_write_index = high_resolution_clock::now() - start_write_index;
             logger.info() << "Total time writing index: " << elapsed_write_index.count() << " s\n" << std::endl;
             return EXIT_SUCCESS;
