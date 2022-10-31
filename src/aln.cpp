@@ -580,12 +580,6 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
 }
 
 
-static inline bool sort_highest_sw_scores_single(const std::tuple<int, alignment> &a,
-                                                 const std::tuple<int, alignment> &b)
-{
-    return (std::get<0>(a) > std::get<0>(b));
-}
-
 // decide if read should be fw or rc aligned to reference by checking exact match of first and last strobe in the NAM
 bool reverse_nam_if_needed(nam& n, const Read& read, const References& references, int k) {
     auto read_len = read.size();
@@ -993,7 +987,11 @@ static inline void align_SE_secondary_hits(
 
     //
     if (!all_nams.empty()) {
-        std::sort(alignments.begin(), alignments.end(), sort_highest_sw_scores_single); // Sorting by highest sw first
+        std::sort(alignments.begin(), alignments.end(),
+            [](const std::tuple<int, alignment> &a, const std::tuple<int, alignment> &b) -> bool {
+                return std::get<0>(a) > std::get<0>(b);
+            }
+        ); // Sorting by highest sw first
         int max_out = alignments.size() < max_secondary ? alignments.size() : max_secondary;
         for (int i = 0; i < max_out; ++i) {
             auto aln = alignments[i];
