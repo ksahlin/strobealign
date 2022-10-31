@@ -10,12 +10,12 @@ strobealign -h > /dev/null
 d=tests
 
 # Single-end SAM
-strobealign -v $d/phix.fasta $d/phix.1.fastq > phix.se.sam
+strobealign -v $d/phix.fasta $d/phix.1.fastq | grep -v '^@PG' > phix.se.sam
 diff -u tests/phix.se.sam phix.se.sam
 rm phix.se.sam
 
 # Paired-end SAM
-strobealign $d/phix.fasta $d/phix.1.fastq $d/phix.2.fastq > phix.pe.sam
+strobealign $d/phix.fasta $d/phix.1.fastq $d/phix.2.fastq | grep -v '^@PG' > phix.pe.sam
 diff -u tests/phix.pe.sam phix.pe.sam
 rm phix.pe.sam
 
@@ -30,9 +30,9 @@ diff -u tests/phix.pe.paf phix.pe.paf
 rm phix.pe.paf
 
 # Build a separate index
-strobealign -r 150 $d/phix.fasta $d/phix.1.fastq > without-sti.sam
+strobealign -r 150 $d/phix.fasta $d/phix.1.fastq | grep -v '^@PG' > without-sti.sam
 strobealign -r 150 -i $d/phix.fasta
-strobealign -r 150 --use-index $d/phix.fasta $d/phix.1.fastq > with-sti.sam
+strobealign -r 150 --use-index $d/phix.fasta $d/phix.1.fastq | grep -v '^@PG' > with-sti.sam
 diff -u without-sti.sam with-sti.sam
 rm without-sti.sam with-sti.sam
 

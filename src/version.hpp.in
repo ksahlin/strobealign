@@ -1,6 +1,17 @@
-#ifndef CONFIG_H
-#define CONFIG_H
+#ifndef VERSION_HPP
+#define VERSION_HPP
+
+// Using git.h directly gives us duplicate definitions of the C++ functions, so
+// declare only the two functions we need.
+extern "C" {
+    bool git_IsPopulated();
+    const char* git_Describe();
+}
+
+#include <string>
 
 #define VERSION_STRING "@PROJECT_VERSION@"
+
+std::string version_string();
 
 #endif

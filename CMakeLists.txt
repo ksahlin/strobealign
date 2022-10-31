@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(strobealign VERSION 0.7.1)
+include(FetchContent)
 
 configure_file(
     "${PROJECT_SOURCE_DIR}/src/version.hpp.in"
@@ -21,7 +22,14 @@ if(NOT CMAKE_BUILD_TYPE)
       "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
 endif()
 
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 add_compile_options(-Wall -Wextra)
+
+FetchContent_Declare(cmake_git_version_tracking
+  GIT_REPOSITORY https://github.com/andrew-hardin/cmake-git-version-tracking.git
+  GIT_TAG 904dbda1336ba4b9a1415a68d5f203f576b696bb
+)
+FetchContent_MakeAvailable(cmake_git_version_tracking)
 
 add_library(salib STATIC ${SOURCES}
   src/refs.cpp
@@ -33,6 +41,7 @@ add_library(salib STATIC ${SOURCES}
   src/aln.cpp
   src/randstrobes.cpp
   src/readlen.cpp
+  src/version.cpp
   ext/xxhash.c
   ext/ssw_cpp.cpp
   ext/ssw.c
@@ -44,7 +53,7 @@ IF(ENABLE_AVX)
 ENDIF()
 
 add_executable(strobealign src/main.cpp)
-target_link_libraries(strobealign PUBLIC salib)
+target_link_libraries(strobealign PUBLIC salib cmake_git_version_tracking)
 install(TARGETS strobealign DESTINATION bin)
 
 

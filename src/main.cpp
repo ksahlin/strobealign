@@ -142,7 +142,7 @@ std::string sam_header(const References& references) {
     for (size_t i = 0; i < references.size(); ++i) {
         out << "@SQ\tSN:" << references.names[i] << "\tLN:" << references.lengths[i] << "\n";
     }
-    out << "@PG\tID:strobealign\tPN:strobealign\tVN:" VERSION_STRING "\tCL:strobealign\n";
+    out << "@PG\tID:strobealign\tPN:strobealign\tVN:" << version_string() << "\tCL:strobealign\n";
     return out.str();
 }
 

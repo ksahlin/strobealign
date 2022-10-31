@@ -6,7 +6,7 @@
 
 std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int argc, char **argv) {
 
-    args::ArgumentParser parser("StrobeAlign " VERSION_STRING);
+    args::ArgumentParser parser("StrobeAlign " + version_string());
     parser.helpParams.showTerminator = false;
     parser.helpParams.helpindent = 20;
     parser.helpParams.width = 90;
