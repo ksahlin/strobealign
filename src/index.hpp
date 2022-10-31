@@ -136,6 +136,26 @@ public:
     }
 };
 
+struct IndexCreationStatistics {
+
+    unsigned int flat_vector_size = 0;
+    unsigned int tot_strobemer_count = 0;
+    unsigned int tot_occur_once = 0;
+    float frac_unique = 0;
+    unsigned int tot_high_ab = 0;
+    unsigned int tot_mid_ab = 0;
+    unsigned int tot_distinct_strobemer_count = 0;
+    unsigned int index_cutoff = 0;
+    unsigned int filter_cutoff = 0;
+
+    uint64_t unique_mers = 0;
+
+    std::chrono::duration<double> elapsed_copy_flat_vector;
+    std::chrono::duration<double> elapsed_flat_vector;
+    std::chrono::duration<double> elapsed_hash_index;
+
+};
+
 struct StrobemerIndex {
     StrobemerIndex(const References& references, const IndexParameters& parameters)
         : filter_cutoff(0)
@@ -148,7 +168,7 @@ struct StrobemerIndex {
 
     void write(const std::string& filename) const;
     void read(const std::string& filename);
-    void populate(float f);
+    IndexCreationStatistics populate(float f);
 private:
     const IndexParameters& parameters;
     const References& references;
