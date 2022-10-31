@@ -212,8 +212,7 @@ int run_strobealign(int argc, char **argv) {
         // Generate the index
         auto start = high_resolution_clock::now();
         IndexCreationStatistics index_creation_stats = index.populate(opt.f);
-        // BEGIN: Logging code moved from index_vector and StrobemerIndex::prune
-
+        
         logger.info() << "Time copying flat vector: " << index_creation_stats.elapsed_copy_flat_vector.count() << " s" << std::endl;
         logger.debug() << "Unique strobemers: " << index_creation_stats.unique_mers << std::endl;
         logger.info() << "Total time generating flat vector: " << index_creation_stats.elapsed_flat_vector.count() << " s" <<  std::endl;
@@ -235,8 +234,6 @@ int run_strobealign(int argc, char **argv) {
         logger.debug() << "Filtered cutoff count: " << index_creation_stats.filter_cutoff << std::endl << std::endl;
         
         logger.info() << "Total time generating hash table index: " << index_creation_stats.elapsed_hash_index.count() << " s" <<  std::endl;
-
-        // END: Logging code moved from index_vector and StrobemerIndex::prune
 
         std::chrono::duration<double> elapsed = high_resolution_clock::now() - start;
         logger.info() << "Total time indexing: " << elapsed.count() << " s" << std::endl;
