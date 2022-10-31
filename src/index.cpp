@@ -150,8 +150,10 @@ uint64_t count_unique_elements(const hash_vector& h_vector){
     return unique_elements;
 }
 
-unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, float f) {
-    logger.debug() << "Flat vector size: " << h_vector.size() << std::endl;
+IndexCreationStatistics index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, float f) {
+    IndexCreationStatistics index_stats;
+    index_stats.flat_vector_size = h_vector.size();
+
     unsigned int offset = 0;
     unsigned int prev_offset = 0;
     unsigned int count = 0;
@@ -195,24 +197,18 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
     KmerLookupEntry s{prev_offset, count};
     mers_index[curr_k] = s;
     float frac_unique = ((float) tot_occur_once )/ mers_index.size();
-    logger.debug()
-        << "Total strobemers count: " << offset << std::endl
-        << "Total strobemers occur once: " << tot_occur_once << std::endl
-        << "Fraction Unique: " << frac_unique << std::endl
-        << "Total strobemers highly abundant > 100: " << tot_high_ab << std::endl
-        << "Total strobemers mid abundance (between 2-100): " << tot_mid_ab << std::endl
-        << "Total distinct strobemers stored: " << mers_index.size() << std::endl;
-    if (tot_high_ab >= 1) {
-        logger.debug() << "Ratio distinct to highly abundant: " << mers_index.size() / tot_high_ab << std::endl;
-    }
-    if (tot_mid_ab >= 1) {
-        logger.debug() << "Ratio distinct to non distinct: " << mers_index.size() / (tot_high_ab + tot_mid_ab) << std::endl;
-    }
-    // get count for top -f fraction of strobemer count to filter them out
+
+    index_stats.tot_strobemer_count = offset;
+    index_stats.tot_occur_once = tot_occur_once;
+    index_stats.frac_unique = frac_unique;
+    index_stats.tot_high_ab = tot_high_ab;
+    index_stats.tot_mid_ab = tot_mid_ab;
+    index_stats.tot_distinct_strobemer_count = mers_index.size();
+
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
     unsigned int index_cutoff = mers_index.size()*f;
-    logger.debug() << "Filtered cutoff index: " << index_cutoff << std::endl;
+    index_stats.index_cutoff = index_cutoff;
     unsigned int filter_cutoff;
     if (!strobemer_counts.empty()){
         filter_cutoff = index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back();
@@ -221,8 +217,8 @@ unsigned int index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, 
     } else {
         filter_cutoff = 30;
     }
-    logger.debug() << "Filtered cutoff count: " << filter_cutoff << std::endl << std::endl;
-    return filter_cutoff;
+    index_stats.filter_cutoff = filter_cutoff;
+    return index_stats;
 }
 
 
@@ -295,9 +291,11 @@ void StrobemerIndex::read(const std::string& filename) {
     }
 }
 
-void StrobemerIndex::populate(float f) {
+IndexCreationStatistics StrobemerIndex::populate(float f) {
     auto start_flat_vector = high_resolution_clock::now();
     hash_vector h_vector;
+
+    std::chrono::duration<double> elapsed_copy_flat_vector;
     {
         auto ind_flat_vector = generate_seeds();
 
@@ -312,24 +310,28 @@ void StrobemerIndex::populate(float f) {
             flat_vector.push_back(ReferenceMer{ind_flat_vector[i].position, ind_flat_vector[i].packed});
             h_vector.push_back(ind_flat_vector[i].hash);
         }
-        std::chrono::duration<double> elapsed_copy_flat_vector = high_resolution_clock::now() - start_copy_flat_vector;
-        logger.info() << "Time copying flat vector: " << elapsed_copy_flat_vector.count() << " s" << std::endl;
+        elapsed_copy_flat_vector = high_resolution_clock::now() - start_copy_flat_vector;
 
         // ind_flat_vector is freed here
     }
     uint64_t unique_mers = count_unique_elements(h_vector);
-    logger.debug() << "Unique strobemers: " << unique_mers << std::endl;
 
     std::chrono::duration<double> elapsed_flat_vector = high_resolution_clock::now() - start_flat_vector;
-    logger.info() << "Total time generating flat vector: " << elapsed_flat_vector.count() << " s" <<  std::endl;
 
     auto start_hash_index = high_resolution_clock::now();
 
     mers_index.reserve(unique_mers);
     // construct index over flat array
-    filter_cutoff = index_vector(h_vector, mers_index, f);
+    IndexCreationStatistics index_stats = index_vector(h_vector, mers_index, f);
+    filter_cutoff = index_stats.filter_cutoff;
     std::chrono::duration<double> elapsed_hash_index = high_resolution_clock::now() - start_hash_index;
-    logger.info() << "Total time generating hash table index: " << elapsed_hash_index.count() << " s" <<  std::endl;
+    
+    index_stats.elapsed_copy_flat_vector = elapsed_copy_flat_vector;
+    index_stats.unique_mers = unique_mers;
+    index_stats.elapsed_flat_vector = elapsed_flat_vector;
+    index_stats.elapsed_hash_index = elapsed_hash_index;
+
+    return index_stats;
 }
 
 ind_mers_vector StrobemerIndex::generate_seeds() const

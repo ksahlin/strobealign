@@ -211,7 +211,33 @@ int run_strobealign(int argc, char **argv) {
     } else {
         // Generate the index
         auto start = high_resolution_clock::now();
-        index.populate(opt.f);
+        IndexCreationStatistics index_creation_stats = index.populate(opt.f);
+        // BEGIN: Logging code moved from index_vector and StrobemerIndex::prune
+
+        logger.info() << "Time copying flat vector: " << index_creation_stats.elapsed_copy_flat_vector.count() << " s" << std::endl;
+        logger.debug() << "Unique strobemers: " << index_creation_stats.unique_mers << std::endl;
+        logger.info() << "Total time generating flat vector: " << index_creation_stats.elapsed_flat_vector.count() << " s" <<  std::endl;
+
+        logger.debug()
+        << "Total strobemers count: " << index_creation_stats.tot_strobemer_count << std::endl
+        << "Total strobemers occur once: " << index_creation_stats.tot_occur_once << std::endl
+        << "Fraction Unique: " << index_creation_stats.frac_unique << std::endl
+        << "Total strobemers highly abundant > 100: " << index_creation_stats.tot_high_ab << std::endl
+        << "Total strobemers mid abundance (between 2-100): " << index_creation_stats.tot_mid_ab << std::endl
+        << "Total distinct strobemers stored: " << index_creation_stats.tot_distinct_strobemer_count << std::endl;
+        if (index_creation_stats.tot_high_ab >= 1) {
+            logger.debug() << "Ratio distinct to highly abundant: " << index_creation_stats.tot_distinct_strobemer_count / index_creation_stats.tot_high_ab << std::endl;
+        }
+        if (index_creation_stats.tot_mid_ab >= 1) {
+            logger.debug() << "Ratio distinct to non distinct: " << index_creation_stats.tot_distinct_strobemer_count / (index_creation_stats.tot_high_ab + index_creation_stats.tot_mid_ab) << std::endl;
+        }
+        logger.debug() << "Filtered cutoff index: " << index_creation_stats.index_cutoff << std::endl;
+        logger.debug() << "Filtered cutoff count: " << index_creation_stats.filter_cutoff << std::endl << std::endl;
+        
+        logger.info() << "Total time generating hash table index: " << index_creation_stats.elapsed_hash_index.count() << " s" <<  std::endl;
+
+        // END: Logging code moved from index_vector and StrobemerIndex::prune
+
         std::chrono::duration<double> elapsed = high_resolution_clock::now() - start;
         logger.info() << "Total time indexing: " << elapsed.count() << " s" << std::endl;
 
