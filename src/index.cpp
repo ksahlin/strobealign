@@ -323,6 +323,7 @@ IndexCreationStatistics StrobemerIndex::populate(float f) {
     mers_index.reserve(unique_mers);
     // construct index over flat array
     IndexCreationStatistics index_stats = index_vector(h_vector, mers_index, f);
+    filter_cutoff = index_stats.filter_cutoff;
     std::chrono::duration<double> elapsed_hash_index = high_resolution_clock::now() - start_hash_index;
     
     index_stats.elapsed_copy_flat_vector = elapsed_copy_flat_vector;
