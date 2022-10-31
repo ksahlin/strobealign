@@ -312,7 +312,7 @@ void seq_to_randstrobes2(ind_mers_vector& flat_vector, int k, int w_min, int w_m
 //    std::cerr << randstrobes2.size() << " randstrobes generated" << '\n';
 }
 
-mers_vector_read seq_to_randstrobes2_read(int k, int w_min, int w_max, const std::string& seq, unsigned int ref_index, int s, int t, uint64_t q, int max_dist)
+mers_vector_read seq_to_randstrobes2_read(int k, int w_min, int w_max, const std::string& seq, int s, int t, uint64_t q, int max_dist)
 {
     // this function differs from  the function seq_to_randstrobes2 which creating randstrobes for the reference.
     // The seq_to_randstrobes2 stores randstobes only in one direction from canonical syncmers.
@@ -384,7 +384,7 @@ mers_vector_read seq_to_randstrobes2_read(int k, int w_min, int w_max, const std
 
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
         unsigned int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
-        QueryMer s {hash_randstrobe2, ref_index, seq_pos_strobe1, offset_strobe, false};
+        QueryMer s {hash_randstrobe2, seq_pos_strobe1, offset_strobe, false};
         randstrobes2.push_back(s);
 //        std::cerr << "FORWARD: " << seq_pos_strobe1 << " " << seq_pos_strobe2 << " " << hash_randstrobe2 << std::endl;
 
@@ -440,7 +440,7 @@ mers_vector_read seq_to_randstrobes2_read(int k, int w_min, int w_max, const std
 
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
         unsigned int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
-        QueryMer s {hash_randstrobe2, ref_index, seq_pos_strobe1, offset_strobe, true};
+        QueryMer s {hash_randstrobe2, seq_pos_strobe1, offset_strobe, true};
         randstrobes2.push_back(s);
 
 //        auto strobe1 = seq.substr(seq_pos_strobe1, k);

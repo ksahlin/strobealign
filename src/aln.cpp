@@ -2551,12 +2551,12 @@ void align_PE_read(
 
     std::transform(record1.seq.begin(), record1.seq.end(), record1.seq.begin(), ::toupper);
     query_mers1 = seq_to_randstrobes2_read(
-        index_parameters.k, index_parameters.w_min, index_parameters.w_max, record1.seq, 0, index_parameters.s, index_parameters.t_syncmer,
+        index_parameters.k, index_parameters.w_min, index_parameters.w_max, record1.seq, index_parameters.s, index_parameters.t_syncmer,
         index_parameters.q, index_parameters.max_dist);
 
     std::transform(record2.seq.begin(), record2.seq.end(), record2.seq.begin(), ::toupper);
     query_mers2 = seq_to_randstrobes2_read(
-        index_parameters.k, index_parameters.w_min, index_parameters.w_max, record2.seq, 0, index_parameters.s, index_parameters.t_syncmer,
+        index_parameters.k, index_parameters.w_min, index_parameters.w_max, record2.seq, index_parameters.s, index_parameters.t_syncmer,
         index_parameters.q, index_parameters.max_dist);
 
     statistics.tot_construct_strobemers += strobe_timer.duration();
@@ -2636,14 +2636,13 @@ void align_SE_read(
     const StrobemerIndex& index
 ) {
         std::string seq, seq_rc;
-        unsigned int q_id = 0;
         mers_vector_read query_mers; // pos, chr_id, kmer hash value
         std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
 
         // generate mers here
         std::transform(record.seq.begin(), record.seq.end(), record.seq.begin(), ::toupper);
         Timer strobe_timer;
-        query_mers = seq_to_randstrobes2_read(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, q_id, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
+        query_mers = seq_to_randstrobes2_read(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
         statistics.tot_construct_strobemers += strobe_timer.duration();
 
         // Find NAMs
@@ -2685,7 +2684,6 @@ void align_SE_read(
             }
         }
         statistics.tot_extend += extend_timer.duration();
-        q_id++;
         nams.clear();
 }
 
