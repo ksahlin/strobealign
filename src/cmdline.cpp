@@ -3,6 +3,8 @@
 #include <args.hxx>
 #include "version.hpp"
 
+class Version {};
+
 
 std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int argc, char **argv) {
 
@@ -14,6 +16,7 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     parser.helpParams.shortSeparator = " ";
 
     args::HelpFlag help(parser, "help", "Print help and exit", {'h', "help"});
+    args::ActionFlag version(parser, "version", "Print version and exit", {"version"}, []() { throw Version(); });
     args::ValueFlag<int> threads(parser, "INT", "Number of threads [3]", {'t', "threads"});
 
     args::Group io(parser, "Input/output:");
@@ -59,11 +62,15 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     }
     catch (const args::Completion& e) {
         std::cout << e.what();
-        exit(0);
+        exit(EXIT_SUCCESS);
     }
     catch (const args::Help&) {
         std::cout << parser;
-        exit(0);
+        exit(EXIT_SUCCESS);
+    }
+    catch (const Version& e) {
+        std::cout << version_string() << std::endl;
+        exit(EXIT_SUCCESS);
     }
     catch (const args::Error& e) {
         std::cerr << parser;
