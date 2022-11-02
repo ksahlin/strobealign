@@ -44,6 +44,8 @@ TEST_CASE("Reference uppercase") {
     CHECK(refs.sequences[0] == "ACGT");
     CHECK(refs.sequences[1].size() == 8);
     CHECK(refs.sequences[1] == "AACCGGTT");
+    CHECK(refs.names.size() == 2);
+    CHECK(refs.lengths.size() == 2);
 }
 
 TEST_CASE("estimate_read_length") {

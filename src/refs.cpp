@@ -11,7 +11,6 @@ References References::from_fasta(const std::string& filename) {
     ref_lengths lengths;
 
     std::ifstream file(filename);
-    std::string line, seq;
 
     if (!file.good()) {
         throw InvalidFasta("Cannot read from FASTA file");
@@ -25,25 +24,25 @@ References References::from_fasta(const std::string& filename) {
         throw InvalidFasta(oss.str().c_str());
     }
 
-    while (getline(file, line)) {
-        if (line[0] == '>') {
+    std::string line, seq, name;
+    bool eof = false;
+    do {
+        eof = !bool{getline(file, line)};
+        if (eof || (!line.empty() && line[0] == '>')) {
             if (seq.length() > 0) {
                 std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
                 sequences.push_back(seq);
                 lengths.push_back(seq.length());
+                names.push_back(name);
             }
-            names.push_back(line.substr(1, line.find(' ') - 1)); // cut at first space
+            if (!eof) {
+                name = line.substr(1, line.find(' ') - 1); // cut at first space
+            }
             seq = "";
-        }
-        else {
+        } else {
             seq += line;
         }
-    }
-    if (seq.length() > 0){
-        std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
-        sequences.push_back(seq);
-        lengths.push_back(seq.length());
-    }
+    } while (!eof);
 
     return References(std::move(sequences), std::move(names), std::move(lengths));
 }
