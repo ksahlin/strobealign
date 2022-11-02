@@ -28,6 +28,7 @@ References References::from_fasta(const std::string& filename) {
     while (getline(file, line)) {
         if (line[0] == '>') {
             if (seq.length() > 0) {
+                std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
                 sequences.push_back(seq);
                 lengths.push_back(seq.length());
             }
@@ -40,7 +41,6 @@ References References::from_fasta(const std::string& filename) {
     }
     if (seq.length() > 0){
         std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
-
         sequences.push_back(seq);
         lengths.push_back(seq.length());
     }
