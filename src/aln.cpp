@@ -227,7 +227,7 @@ static inline void find_nams_rescue(
                 for (auto &n : open_nams) {
                     if (n.query_e < h.query_s) {
                         int n_max_span = std::max(n.query_e - n.query_s, n.ref_e - n.ref_s);
-                        int n_min_span = std::max(n.query_e - n.query_s, n.ref_e - n.ref_s);
+                        int n_min_span = std::min(n.query_e - n.query_s, n.ref_e - n.ref_s);
                         float n_score;
                         n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
 //                        n_score = n.n_hits * (n.query_e - n.query_s);
