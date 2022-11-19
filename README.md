@@ -1,9 +1,13 @@
 strobealign
 ==============
 
-Strobealign is a fast short-read aligner. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers. Strobealign is multithreaded, implements alignment (SAM) and mapping (PAF), and benchmarked for SE and PE reads of lengths between 100-300bp. A preprint describing **v0.4** is available [here](https://doi.org/10.1101/2021.06.18.449070). **Current version is 0.7.1**. 
+Strobealign is a fast **short-read aligner**. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers. 
 
-See [INSTALLATION](https://github.com/ksahlin/StrobeAlign#installation) and [USAGE](https://github.com/ksahlin/StrobeAlign#usage) to install and run strobealign. See [v07 PERFORMANCE](https://github.com/ksahlin/StrobeAlign#v07-performance) for the updated accuracy and runtime performance of strobealign and [release notes](https://github.com/ksahlin/StrobeAlign/releases) for all the updates since v0.4 described in the preprint.
+Strobealign is multithreaded, aligns single-end and paired-end reads, and outputs mapped reads either in SAM format (default) or PAF format (extension-free mapping).
+
+Strobealign is benchmarked for read lengths between 100-500bp. A preprint describing v0.7.1 is available [here](https://doi.org/10.1101/2021.06.18.449070).
+
+See [INSTALLATION](https://github.com/ksahlin/StrobeAlign#installation) and [USAGE](https://github.com/ksahlin/StrobeAlign#usage) to install and run strobealign. See [v07 PERFORMANCE](https://github.com/ksahlin/StrobeAlign#v07-performance) for the accuracy and runtime performance of strobealign.
 
 INSTALLATION
 ----------------
