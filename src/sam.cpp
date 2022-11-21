@@ -159,16 +159,6 @@ void Sam::add_pair(
     float sigma,
     bool is_primary
 ) {
-
-    // Commented lines below because we do not longer mark a read as not proper just because of the non-matching hash
-    // Proper or non proper reads are further below only decided based on the expected distance and relative orientation they align to
-//    if (sam_aln1.ed < 5){ // Flag alignments previously deemed as 'not proper' (based on matching strobemer hash ) to proper because of small ed
-//        sam_aln1.is_proper = true;
-//    }
-//    if (sam_aln2.ed < 5){ // Flag alignments previously deemed as 'not proper' (based on matching strobemer hash ) to proper because of small ed
-//        sam_aln2.is_proper = true;
-//    }
-
     const int dist = sam_aln2.ref_start - sam_aln1.ref_start;
     int template_len1;
     if (dist > 0) {
@@ -227,26 +217,6 @@ void Sam::add_pair(
         mate_name2 = references.names[sam_aln2.ref_id];
     }
 
-//    if ( (sam_aln1.is_unaligned) && (sam_aln2.is_unaligned) ){
-//        f1 = PAIRED | UNMAP | MUNMAP;
-//        f2 = PAIRED | UNMAP | MUNMAP;
-//        m1_chr = "*";
-//        m2_chr = "*";
-//        sam_aln1.cigar = "*";
-//        sam_aln2.cigar = "*";
-//    } else if (sam_aln1.is_unaligned){
-//        f1 = PAIRED | UNMAP;
-//        m1_chr = "*";
-//        sam_aln1.cigar = "*";
-//        f2 |= MUNMAP;
-//        f2 -= 32;
-//    } else if (sam_aln2.is_unaligned){
-//        f2 = 5;
-//        m2_chr = "*";
-//        sam_aln2.cigar = "*";
-//        f1 |= MUNMAP;
-//        f1 -= 32;
-//    }
     std::string ref1 = references.names[sam_aln1.ref_id];
     std::string ref2 = references.names[sam_aln2.ref_id];
     int ed1 = sam_aln1.ed;
@@ -262,17 +232,12 @@ void Sam::add_pair(
         template_len1 = 0;
         ref1 = "*";
         ref2 = "*";
-        f1 |= (0u << 4);  // REVERSE
-        f1 |= (0u << 5);  // MREVERSE
-        f2 |= (0u << 4);  // REVERSE
-        f2 |= (0u << 5);  // MREVERSE
         ed1 = 0;
         ed2 = 0;
         mapq1 = SAM_UNMAPPED_MAPQ;
         mapq2 = SAM_UNMAPPED_MAPQ;
     } else if (sam_aln1.is_unaligned){
         f1 |= UNMAP;
-        f1 |= (0u << 4);  // REVERSE
         f2 |= MUNMAP;
         sam_aln1.ref_start = sam_aln2.ref_start;
         template_len1 = 0;
@@ -280,7 +245,6 @@ void Sam::add_pair(
         mapq1 = SAM_UNMAPPED_MAPQ;
     } else if (sam_aln2.is_unaligned){
         f2 |= UNMAP;
-        f2 |= (0u << 4);  // REVERSE
         f1 |= MUNMAP;
         sam_aln2.ref_start = sam_aln1.ref_start;
         template_len1 = 0;
