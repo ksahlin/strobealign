@@ -60,11 +60,12 @@ jobs:
         run: tests/download.sh
       - name: Generate baseline BAM
         run: |
-          baseline/build/strobealign tests/drosophila/ref.fasta tests/drosophila/reads.1.fastq.gz tests/drosophila/reads.2.fastq.gz | samtools view --no-PG -o baseline.bam
+          baseline/build/strobealign tests/drosophila/ref.fasta tests/drosophila/reads.1.fastq.gz tests/drosophila/reads.2.fastq.gz | samtools view -o baseline.bam
       - name: Build HEAD version
         run: |
           cmake -B build
           make -j3 -C build
       - name: Generate HEAD BAM
-        run: |
-          build/strobealign tests/drosophila/ref.fasta tests/drosophila/reads.1.fastq.gz tests/drosophila/reads.2.fastq.gz | samtools view --no-PG -o head.bam
+        run: build/strobealign tests/drosophila/ref.fasta tests/drosophila/reads.1.fastq.gz tests/drosophila/reads.2.fastq.gz | samtools view -o head.bam
+      - name: Compare
+        run: python3 tests/samdiff.py baseline.bam head.bam
