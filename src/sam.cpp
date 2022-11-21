@@ -192,10 +192,8 @@ void Sam::add_pair(
         f2 |= PROPER_PAIR;
     }
 
-    std::string output_read1;
-    output_read1 = record1.seq;
-    std::string output_read2;
-    output_read2 = record2.seq;
+    std::string output_read1 = record1.seq;
+    std::string output_read2 = record2.seq;
     if (sam_aln1.is_rc) {
         f1 |= REVERSE;
         f2 |= MREVERSE;
@@ -209,10 +207,10 @@ void Sam::add_pair(
 
     std::string mate_name1;
     std::string mate_name2;
-    if (sam_aln1.ref_id == sam_aln2.ref_id){
+    if (sam_aln1.ref_id == sam_aln2.ref_id) {
         mate_name1 = "=";
         mate_name2 = "=";
-    } else{
+    } else {
         mate_name1 = references.names[sam_aln1.ref_id];
         mate_name2 = references.names[sam_aln2.ref_id];
     }
@@ -222,34 +220,29 @@ void Sam::add_pair(
     int ed1 = sam_aln1.ed;
     int ed2 = sam_aln2.ed;
 
-    if (sam_aln1.is_unaligned && sam_aln2.is_unaligned){
+    if (sam_aln1.is_unaligned) {
         f1 |= UNMAP;
-        f1 |= MUNMAP;
-        f2 |= UNMAP;
         f2 |= MUNMAP;
+        mapq1 = SAM_UNMAPPED_MAPQ;
+        ed1 = 0;
+        template_len1 = 0;
+    }
+    if (sam_aln2.is_unaligned) {
+        f2 |= UNMAP;
+        f1 |= MUNMAP;
+        mapq2 = SAM_UNMAPPED_MAPQ;
+        ed2 = 0;
+        template_len1 = 0;
+    }
+    if (sam_aln1.is_unaligned && sam_aln2.is_unaligned) {
         sam_aln1.ref_start = 0;
         sam_aln2.ref_start = 0;
-        template_len1 = 0;
         ref1 = "*";
         ref2 = "*";
-        ed1 = 0;
-        ed2 = 0;
-        mapq1 = SAM_UNMAPPED_MAPQ;
-        mapq2 = SAM_UNMAPPED_MAPQ;
-    } else if (sam_aln1.is_unaligned){
-        f1 |= UNMAP;
-        f2 |= MUNMAP;
+    } else if (sam_aln1.is_unaligned) {
         sam_aln1.ref_start = sam_aln2.ref_start;
-        template_len1 = 0;
-        ed1 = 0;
-        mapq1 = SAM_UNMAPPED_MAPQ;
-    } else if (sam_aln2.is_unaligned){
-        f2 |= UNMAP;
-        f1 |= MUNMAP;
+    } else if (sam_aln2.is_unaligned) {
         sam_aln2.ref_start = sam_aln1.ref_start;
-        template_len1 = 0;
-        ed2 = 0;
-        mapq2 = SAM_UNMAPPED_MAPQ;
     }
 
     add_one(record1, f1, ref1, sam_aln1, mapq1, mate_name2, sam_aln2.ref_start, template_len1, output_read1, ed1);
