@@ -52,10 +52,10 @@ jobs:
           make -j3 -C build
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get install samtools python3-pysam
+        run: sudo apt-get install samtools python3-pysam picard-tools
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
-        run: brew install samtools pysam
+        run: brew install samtools pysam picard-tools
       - name: Cache test dataset
         uses: actions/cache@v3
         with:
@@ -74,3 +74,6 @@ jobs:
         run: build/strobealign tests/drosophila/ref.fasta tests/drosophila/reads.1.fastq.gz tests/drosophila/reads.2.fastq.gz | samtools view -o head.bam
       - name: Compare
         run: python3 tests/samdiff.py baseline.bam head.bam
+      - name: Validate with Picard
+        run: |
+          PicardCommandLine ValidateSamFile IGNORE=RECORD_MISSING_READ_GROUP IGNORE=MISSING_READ_GROUP IGNORE=INVALID_ALIGNMENT_START I=head.bam
