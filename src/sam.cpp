@@ -2,8 +2,8 @@
 #include <algorithm>
 #include <ostream>
 
-#define SAM_UNMAPPED_MAPQ 255
-#define SAM_UNMAPPED_MAPQ_STRING "255"
+#define SAM_UNMAPPED_MAPQ 0
+#define SAM_UNMAPPED_MAPQ_STRING "0"
 
 using namespace klibpp;
 

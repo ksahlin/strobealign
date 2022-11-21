@@ -90,5 +90,5 @@ TEST_CASE("unmapped SAM record") {
 
     sam.add_unmapped(kseq);
 
-    CHECK(sam_string == "read1\t4\t*\t0\t255\t*\t*\t0\t0\tACGT\t>#BB\n");
+    CHECK(sam_string == "read1\t4\t*\t0\t0\t*\t*\t0\t0\tACGT\t>#BB\n");
 }
