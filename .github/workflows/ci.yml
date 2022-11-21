@@ -56,6 +56,11 @@ jobs:
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: brew install samtools pysam
+      - name: Cache test dataset
+        uses: actions/cache@v3
+        with:
+          key: test-data-${{ hashFiles('tests/download.sh') }}
+          path: tests/drosophila/
       - name: Download test dataset
         run: tests/download.sh
       - name: Generate baseline BAM
