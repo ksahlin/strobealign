@@ -6,6 +6,7 @@
 #include "readlen.hpp"
 #include "index.hpp"
 #include "fastq.hpp"
+#include "sam.hpp"
 
 
 TEST_CASE("References::from_fasta") {
@@ -76,4 +77,18 @@ TEST_CASE("sti file same parameters") {
 TEST_CASE("Reads file missing") {
     std::string filename("does-not-exist.fastq");
     REQUIRE_THROWS_AS(open_fastq(filename), InvalidFile);
+}
+
+
+TEST_CASE("unmapped SAM record") {
+    klibpp::KSeq kseq;
+    kseq.name = "read1";
+    kseq.seq = "ACGT";
+    kseq.qual = ">#BB";
+    std::string sam_string;
+    Sam sam(sam_string, References());
+
+    sam.add_unmapped(kseq);
+
+    CHECK(sam_string == "read1\t4\t*\t0\t255\t*\t*\t0\t0\tACGT\t>#BB\n");
 }
