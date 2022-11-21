@@ -217,7 +217,7 @@ IndexCreationStatistics index_vector(const hash_vector &h_vector, kmer_lookup &m
     } else {
         filter_cutoff = 30;
     }
-    index_stats.filter_cutoff = filter_cutoff;
+    index_stats.filter_cutoff = filter_cutoff / 2;
     return index_stats;
 }
 
