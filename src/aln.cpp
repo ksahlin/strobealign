@@ -1763,9 +1763,9 @@ void rescue_read(
 //            get_MAPQ(all_nams1, n_max1, mapq1);
 //            mapq2 = 0;
         if (swap_r1r2) {
-            sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc(), read1.rc(), mapq2, mapq1, mu, sigma, true);
+            sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc(), read1.rc(), mapq2, mapq1, is_proper_pair(sam_aln2, sam_aln1, mu, sigma), true);
         } else {
-            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(), mapq1, mapq2, mu, sigma, true);
+            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(), mapq1, mapq2, is_proper_pair(sam_aln1, sam_aln2, mu, sigma), true);
         }
     } else {
         int max_out = std::min(high_scores.size(), max_secondary);
@@ -1785,9 +1785,11 @@ void rescue_read(
             alignment sam_aln2 = std::get<2>(aln_pair);
             if (s_max - s_score < secondary_dropoff) {
                 if (swap_r1r2) {
-                    sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc(), read1.rc(), mapq2, mapq1, mu, sigma, is_primary);
+                    bool is_proper = is_proper_pair(sam_aln2, sam_aln1, mu, sigma);
+                    sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc(), read1.rc(), mapq2, mapq1, is_proper, is_primary);
                 } else {
-                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(), mapq1, mapq2, mu, sigma, is_primary);
+                    bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
+                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(), mapq1, mapq2, is_proper, is_primary);
                 }
             } else {
                 break;
@@ -1937,9 +1939,10 @@ inline void align_PE(
         statistics.tot_all_tried ++;
         int mapq1 = get_MAPQ(all_nams1, n_max1);
         int mapq2 = get_MAPQ(all_nams2, n_max2);
-        sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(), mapq1, mapq2, mu, sigma, true);
+        bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
+        sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(), mapq1, mapq2, is_proper, true);
 
-        if ((isize_est.sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && sam_aln1.is_proper && sam_aln2.is_proper ){
+        if ((isize_est.sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && is_proper) {
             isize_est.update(std::abs(sam_aln1.ref_start - sam_aln2.ref_start));
         }
         return;
@@ -2102,8 +2105,9 @@ inline void align_PE(
     sam_aln2 = std::get<2>(best_aln_pair);
     if (max_secondary == 0) {
 //            get_MAPQ_aln(sam_aln1, sam_aln2);
+        bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
         sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(),
-                        mapq1, mapq2, mu, sigma, true);
+                        mapq1, mapq2, is_proper, true);
     } else {
         int max_out = std::min(high_scores.size(), max_secondary);
         // remove eventual duplicates - comes from, e.g., adding individual best alignments above (if identical to joint best alignment)
@@ -2130,8 +2134,9 @@ inline void align_PE(
             }
 
             if (s_max - s_score < secondary_dropoff) {
+                bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
                 sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(),
-                                mapq1, mapq2, mu, sigma, is_primary);
+                                mapq1, mapq2, is_proper, is_primary);
             } else {
                 break;
             }

@@ -134,8 +134,7 @@ TEST_CASE("pair with one unmapped SAM record") {
 
     int mapq1 = 55;
     int mapq2 = 57;
-    float mu = 100;
-    float sigma = 50;
+    bool is_proper = false;
     bool is_primary = true;
 
     sam.add_pair(
@@ -147,8 +146,7 @@ TEST_CASE("pair with one unmapped SAM record") {
         read2_rc,
         mapq1,
         mapq2,
-        mu,
-        sigma,
+        is_proper,
         is_primary
     );
     // 89: PAIRED,MUNMAP,REVERSE,READ1
@@ -197,8 +195,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
 
     int mapq1 = 55;
     int mapq2 = 57;
-    float mu = 100;
-    float sigma = 50;
+    bool is_proper = false;
     bool is_primary = true;
 
     sam.add_pair(
@@ -210,8 +207,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
         read2_rc,
         mapq1,
         mapq2,
-        mu,
-        sigma,
+        is_proper,
         is_primary
     );
     // 65: PAIRED,READ1
