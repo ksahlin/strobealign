@@ -191,11 +191,12 @@ void Sam::add_pair(
     }
 
     bool both_aligned = !sam_aln1.is_unaligned && !sam_aln2.is_unaligned;
+    bool same_reference = both_aligned && sam_aln1.ref_id == sam_aln2.ref_id;
     bool r1_r2 = !sam_aln1.is_rc && sam_aln2.is_rc && dist >= 0; // r1 ---> <---- r2
     bool r2_r1 = !sam_aln2.is_rc && sam_aln1.is_rc && dist <= 0; // r2 ---> <---- r1
     bool rel_orientation_good = r1_r2 || r2_r1;
     bool insert_good = std::abs(dist) <= mu + 6 * sigma;
-    if (both_aligned && insert_good && rel_orientation_good) {
+    if (same_reference && both_aligned && insert_good && rel_orientation_good) {
         sam_aln1.is_proper = true;
         sam_aln2.is_proper = true;
     } else {
