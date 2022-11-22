@@ -641,17 +641,13 @@ inline void align_SE(
     int cnt = 0;
     float score_dropoff;
     nam n_max = all_nams[0];
-    float s1 = n_max.score;
     int best_align_dist = ~0U >> 1;
     int best_align_sw_score = -1000;
 
-    bool aln_did_not_fit;
     alignment sam_aln;
-    int mapq = 60;
     int min_mapq_diff = best_align_dist;
 
     for (auto &n : all_nams) {
-        aln_did_not_fit = false;
         score_dropoff = (float) n.n_hits / n_max.n_hits;
 //        score_dropoff = (float) n.score / n_max.score;
 
@@ -670,10 +666,9 @@ inline void align_SE(
         bool fits = reverse_nam_if_needed(n, read, references, k);
         if (!fits){
             statistics.did_not_fit++;
-            aln_did_not_fit = true;
         }
 
-        // deal with any read hanging of ends of reference not to get 'std::out_of_range' what(): basic_string::substr
+        // deal with any read hanging off ends of reference not to get 'std::out_of_range' what(): basic_string::substr
         int ref_tmp_start = n.ref_s - n.query_s;
         int ref_tmp_segm_size = read_len + diff;
         int ref_len = references.lengths[n.ref_id];
@@ -770,7 +765,6 @@ inline void align_SE(
             int diff_to_best = std::abs(best_align_sw_score - info.sw_score);
             min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
             statistics.tot_ksw_aligned ++;
-//            if (info.global_ed <= best_align_dist){
             if (info.sw_score >= best_align_sw_score){
                 min_mapq_diff = std::max(0, info.sw_score - best_align_sw_score); // new distance to next best match
                 best_align_dist = info.global_ed;
