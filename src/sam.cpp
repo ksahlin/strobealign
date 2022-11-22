@@ -174,6 +174,13 @@ void Sam::add_pair(
     float sigma,
     bool is_primary
 ) {
+    int f1 = PAIRED | READ1;
+    int f2 = PAIRED | READ2;
+    if (!is_primary) {
+        f1 |= SECONDARY;
+        f2 |= SECONDARY;
+    }
+
     const int dist = sam_aln2.ref_start - sam_aln1.ref_start;
     int template_len1;
     if (dist > 0) {
@@ -196,12 +203,6 @@ void Sam::add_pair(
         sam_aln2.is_proper = false;
     }
 
-    int f1 = PAIRED | READ1;
-    int f2 = PAIRED | READ2;
-    if (!is_primary) {
-        f1 |= SECONDARY;
-        f2 |= SECONDARY;
-    }
     if (sam_aln1.is_proper && sam_aln2.is_proper) {
         f1 |= PROPER_PAIR;
         f2 |= PROPER_PAIR;
@@ -215,7 +216,6 @@ void Sam::add_pair(
         f1 |= UNMAP;
         f2 |= MUNMAP;
         mapq1 = SAM_UNMAPPED_MAPQ;
-        ed1 = 0;
         template_len1 = 0;
         sam_aln1.ref_start = 0;
         ref1 = "*";
@@ -238,7 +238,6 @@ void Sam::add_pair(
         f2 |= UNMAP;
         f1 |= MUNMAP;
         mapq2 = SAM_UNMAPPED_MAPQ;
-        ed2 = 0;
         template_len1 = 0;
         sam_aln2.ref_start = 0;
         ref2 = "*";
