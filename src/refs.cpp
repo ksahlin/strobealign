@@ -8,7 +8,6 @@
 References References::from_fasta(const std::string& filename) {
     std::vector<std::string> sequences;
     ref_names names;
-    ref_lengths lengths;
 
     std::ifstream file(filename);
 
@@ -32,7 +31,6 @@ References References::from_fasta(const std::string& filename) {
             if (seq.length() > 0) {
                 std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
                 sequences.push_back(seq);
-                lengths.push_back(seq.length());
                 names.push_back(name);
             }
             if (!eof) {
@@ -44,7 +42,7 @@ References References::from_fasta(const std::string& filename) {
         }
     } while (!eof);
 
-    return References(std::move(sequences), std::move(names), std::move(lengths));
+    return References(std::move(sequences), std::move(names));
 }
 
 void References::add(std::string&& name, std::string&& sequence) {
