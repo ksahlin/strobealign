@@ -208,16 +208,9 @@ void Sam::add_pair(
     }
 
     std::string output_read1 = record1.seq;
-    std::string output_read2 = record2.seq;
-
     std::string mate_name1;
-    std::string mate_name2;
-
     std::string ref1;
-    std::string ref2;
     int ed1 = sam_aln1.ed;
-    int ed2 = sam_aln2.ed;
-
     if (sam_aln1.is_unaligned) {
         f1 |= UNMAP;
         f2 |= MUNMAP;
@@ -236,6 +229,11 @@ void Sam::add_pair(
         mate_name1 = references.names[sam_aln1.ref_id];
         ref1 = references.names[sam_aln1.ref_id];
     }
+
+    std::string output_read2 = record2.seq;
+    std::string mate_name2;
+    std::string ref2;
+    int ed2 = sam_aln2.ed;
     if (sam_aln2.is_unaligned) {
         f2 |= UNMAP;
         f1 |= MUNMAP;
