@@ -583,7 +583,6 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
 // decide if read should be fw or rc aligned to reference by checking exact match of first and last strobe in the NAM
 bool reverse_nam_if_needed(nam& n, const Read& read, const References& references, int k) {
     auto read_len = read.size();
-    bool fits = false;
     std::string ref_start_kmer = references.sequences[n.ref_id].substr(n.ref_s, k);
     std::string ref_end_kmer = references.sequences[n.ref_id].substr(n.ref_e-k, k);
 
@@ -609,12 +608,12 @@ bool reverse_nam_if_needed(nam& n, const Read& read, const References& reference
     read_start_kmer = seq_rc.substr(q_start_tmp, k);
     read_end_kmer = seq_rc.substr(q_end_tmp - k, k);
     if (ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer) {
-        fits = true;
         n.is_rc = !n.is_rc;
         n.query_s = q_start_tmp;
         n.query_e = q_end_tmp;
+        return true;
     }
-    return fits;
+    return false;
 }
 
 
