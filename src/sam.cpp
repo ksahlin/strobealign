@@ -180,15 +180,17 @@ void Sam::add_pair(
         f2 |= SECONDARY;
     }
 
-    const int dist = sam_aln2.ref_start - sam_aln1.ref_start;
-    int template_len1;
-    if (dist > 0) {
-        template_len1 = dist + sam_aln2.aln_length;
+    int template_len1 = 0;
+    bool both_aligned = !sam_aln1.is_unaligned && !sam_aln2.is_unaligned;
+    if (both_aligned && sam_aln1.ref_id == sam_aln2.ref_id) {
+        const int dist = sam_aln2.ref_start - sam_aln1.ref_start;
+        if (dist > 0) {
+            template_len1 = dist + sam_aln2.aln_length;
+        }
+        else {
+            template_len1 = dist - sam_aln1.aln_length;
+        }
     }
-    else {
-        template_len1 = dist - sam_aln1.aln_length;
-    }
-
     if (is_proper) {
         f1 |= PROPER_PAIR;
         f2 |= PROPER_PAIR;
@@ -202,8 +204,6 @@ void Sam::add_pair(
     if (sam_aln1.is_unaligned) {
         f1 |= UNMAP;
         f2 |= MUNMAP;
-        mapq1 = SAM_UNMAPPED_MAPQ;
-        template_len1 = 0;
         ref1 = "*";
         ref_start1 = 0;
         mate_name1 = "*";
@@ -225,8 +225,6 @@ void Sam::add_pair(
     if (sam_aln2.is_unaligned) {
         f2 |= UNMAP;
         f1 |= MUNMAP;
-        mapq2 = SAM_UNMAPPED_MAPQ;
-        template_len1 = 0;
         ref_start2 = 0;
         ref2 = "*";
         mate_name2 = "*";
