@@ -2,6 +2,9 @@
 #include <algorithm>
 #include <ostream>
 
+#define SAM_UNMAPPED_MAPQ 0
+#define SAM_UNMAPPED_MAPQ_STRING "0"
+
 using namespace klibpp;
 
 /*
@@ -24,7 +27,7 @@ void Sam::add_unmapped(const KSeq& record, int flags) {
     sam_string.append(record.name);
     sam_string.append("\t");
     sam_string.append(std::to_string(flags));
-    sam_string.append("\t*\t0\t255\t*\t*\t0\t0\t");
+    sam_string.append("\t*\t0\t" SAM_UNMAPPED_MAPQ_STRING "\t*\t*\t0\t0\t");
     sam_string.append(record.seq);
     sam_string.append("\t");
     sam_string.append(record.qual);
@@ -265,8 +268,8 @@ void Sam::add_pair(
         f2 |= (0u << 5);  // MREVERSE
         ed1 = 0;
         ed2 = 0;
-        mapq1 = 255;
-        mapq2 = 255;
+        mapq1 = SAM_UNMAPPED_MAPQ;
+        mapq2 = SAM_UNMAPPED_MAPQ;
     } else if (sam_aln1.is_unaligned){
         f1 |= UNMAP;
         f1 |= (0u << 4);  // REVERSE
@@ -274,7 +277,7 @@ void Sam::add_pair(
         sam_aln1.ref_start = sam_aln2.ref_start;
         template_len1 = 0;
         ed1 = 0;
-        mapq1 = 255;
+        mapq1 = SAM_UNMAPPED_MAPQ;
     } else if (sam_aln2.is_unaligned){
         f2 |= UNMAP;
         f2 |= (0u << 4);  // REVERSE
@@ -282,7 +285,7 @@ void Sam::add_pair(
         sam_aln2.ref_start = sam_aln1.ref_start;
         template_len1 = 0;
         ed2 = 0;
-        mapq2 = 255;
+        mapq2 = SAM_UNMAPPED_MAPQ;
     }
 
     add_one(record1, f1, ref1, sam_aln1, mapq1, mate_name2, sam_aln2.ref_start, template_len1, output_read1, ed1);
