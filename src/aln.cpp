@@ -1491,8 +1491,6 @@ static inline std::vector<std::tuple<int,nam,nam>> get_best_scoring_NAM_location
     robin_hood::unordered_set<int> added_n1;
     robin_hood::unordered_set<int> added_n2;
     int joint_hits;
-    nam n;  //dummy nam
-    n.ref_s = -1;
     int hjss = 0; // highest joint score seen
 //            std::cerr << "Scoring" << std::endl;
     int a,b;
@@ -1526,6 +1524,8 @@ static inline std::vector<std::tuple<int,nam,nam>> get_best_scoring_NAM_location
         }
     }
 
+    nam dummy_nan;
+    dummy_nan.ref_s = -1;
     if (!all_nams1.empty()) {
         int hjss1 = hjss > 0 ? hjss : all_nams1[0].n_hits;
         for (auto &n1 : all_nams1) {
@@ -1538,7 +1538,7 @@ static inline std::vector<std::tuple<int,nam,nam>> get_best_scoring_NAM_location
 //            int diff1 = (n1.query_e - n1.query_s) - (n1.ref_e - n1.ref_s);
 //            int  n1_penalty = diff1 > 0 ? diff1 : - diff1;
             joint_hits = n1.n_hits;
-            std::tuple<int, nam, nam> t (joint_hits, n1, n);
+            std::tuple<int, nam, nam> t (joint_hits, n1, dummy_nan);
             joint_NAM_scores.push_back(t);
         }
     }
@@ -1557,7 +1557,7 @@ static inline std::vector<std::tuple<int,nam,nam>> get_best_scoring_NAM_location
 //            int  n2_penalty = diff2 > 0 ? diff2 : - diff2;
             joint_hits = n2.n_hits;
             //                        std::cerr << S << " individual score " << x << " " << std::endl;
-            std::tuple<int, nam, nam> t (joint_hits, n, n2);
+            std::tuple<int, nam, nam> t (joint_hits, dummy_nan, n2);
             joint_NAM_scores.push_back(t);
         }
     }
