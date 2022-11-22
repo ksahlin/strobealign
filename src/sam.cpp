@@ -34,6 +34,21 @@ void Sam::add_unmapped(const KSeq& record, int flags) {
     sam_string.append("\n");
 }
 
+void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& mate_rname, int mate_pos) {
+    sam_string.append(record.name);
+    sam_string.append("\t");
+    sam_string.append(std::to_string(flags));
+    sam_string.append("\t*\t0\t" SAM_UNMAPPED_MAPQ_STRING "\t*\t");
+    sam_string.append(mate_rname);
+    sam_string.append("\t");
+    sam_string.append(std::to_string(mate_pos));
+    sam_string.append("\t0\t");
+    sam_string.append(record.seq);
+    sam_string.append("\t");
+    sam_string.append(record.qual);
+    sam_string.append("\n");
+}
+
 void Sam::add_unmapped_pair(const KSeq& r1, const KSeq& r2) {
     add_unmapped(r1, PAIRED | UNMAP | MUNMAP | READ1);
     add_unmapped(r2, PAIRED | UNMAP | MUNMAP | READ2);
@@ -194,29 +209,12 @@ void Sam::add_pair(
 
     std::string output_read1 = record1.seq;
     std::string output_read2 = record2.seq;
-    if (sam_aln1.is_rc) {
-        f1 |= REVERSE;
-        f2 |= MREVERSE;
-        output_read1 = read1_rc;
-    }
-    if (sam_aln2.is_rc) {
-        f1 |= MREVERSE;
-        f2 |= REVERSE;
-        output_read2 = read2_rc;
-    }
 
     std::string mate_name1;
     std::string mate_name2;
-    if (sam_aln1.ref_id == sam_aln2.ref_id) {
-        mate_name1 = "=";
-        mate_name2 = "=";
-    } else {
-        mate_name1 = references.names[sam_aln1.ref_id];
-        mate_name2 = references.names[sam_aln2.ref_id];
-    }
 
-    std::string ref1 = references.names[sam_aln1.ref_id];
-    std::string ref2 = references.names[sam_aln2.ref_id];
+    std::string ref1;
+    std::string ref2;
     int ed1 = sam_aln1.ed;
     int ed2 = sam_aln2.ed;
 
@@ -226,6 +224,17 @@ void Sam::add_pair(
         mapq1 = SAM_UNMAPPED_MAPQ;
         ed1 = 0;
         template_len1 = 0;
+        sam_aln1.ref_start = 0;
+        ref1 = "*";
+        mate_name1 = "*";
+    } else {
+        if (sam_aln1.is_rc) {
+            f1 |= REVERSE;
+            f2 |= MREVERSE;
+            output_read1 = read1_rc;
+        }
+        mate_name1 = references.names[sam_aln1.ref_id];
+        ref1 = references.names[sam_aln1.ref_id];
     }
     if (sam_aln2.is_unaligned) {
         f2 |= UNMAP;
@@ -233,18 +242,31 @@ void Sam::add_pair(
         mapq2 = SAM_UNMAPPED_MAPQ;
         ed2 = 0;
         template_len1 = 0;
-    }
-    if (sam_aln1.is_unaligned && sam_aln2.is_unaligned) {
-        sam_aln1.ref_start = 0;
         sam_aln2.ref_start = 0;
-        ref1 = "*";
         ref2 = "*";
-    } else if (sam_aln1.is_unaligned) {
-        sam_aln1.ref_start = sam_aln2.ref_start;
-    } else if (sam_aln2.is_unaligned) {
-        sam_aln2.ref_start = sam_aln1.ref_start;
+        mate_name2 = "*";
+    } else {
+        if (sam_aln2.is_rc) {
+            f1 |= MREVERSE;
+            f2 |= REVERSE;
+            output_read2 = read2_rc;
+        }
+        mate_name2 = references.names[sam_aln2.ref_id];
+        ref2 = references.names[sam_aln2.ref_id];
+    }
+    if (both_aligned && sam_aln1.ref_id == sam_aln2.ref_id) {
+        mate_name1 = "=";
+        mate_name2 = "=";
     }
 
-    add_one(record1, f1, ref1, sam_aln1, mapq1, mate_name2, sam_aln2.ref_start, template_len1, output_read1, ed1);
-    add_one(record2, f2, ref2, sam_aln2, mapq2, mate_name1, sam_aln1.ref_start, -template_len1, output_read2, ed2);
+    if (sam_aln1.is_unaligned) {
+        add_unmapped_mate(record1, f1, mate_name2, sam_aln2.ref_start);
+    } else {
+        add_one(record1, f1, ref1, sam_aln1, mapq1, mate_name2, sam_aln2.ref_start, template_len1, output_read1, ed1);
+    }
+    if (sam_aln2.is_unaligned) {
+        add_unmapped_mate(record2, f2, mate_name1, sam_aln1.ref_start);
+    } else {
+        add_one(record2, f2, ref2, sam_aln2, mapq2, mate_name1, sam_aln1.ref_start, -template_len1, output_read2, ed2);
+    }
 }
