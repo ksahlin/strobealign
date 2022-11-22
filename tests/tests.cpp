@@ -9,6 +9,16 @@
 #include "sam.hpp"
 
 
+TEST_CASE("References::add") {
+    References references;
+    references.add(std::string("thename"), std::string("ACGT"));
+
+    CHECK(references.names.size() == 1);
+    CHECK(references.names[0] == "thename");
+    CHECK(references.sequences[0] == "ACGT");
+    CHECK(references.lengths[0] == 4);
+}
+
 TEST_CASE("References::from_fasta") {
     auto references = References::from_fasta("tests/phix.fasta");
     CHECK(references.names.size() == 1);

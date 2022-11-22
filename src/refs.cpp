@@ -46,3 +46,9 @@ References References::from_fasta(const std::string& filename) {
 
     return References(std::move(sequences), std::move(names), std::move(lengths));
 }
+
+void References::add(std::string&& name, std::string&& sequence) {
+    names.push_back(name);
+    sequences.push_back(sequence);
+    lengths.push_back(sequence.size());
+}

@@ -26,6 +26,8 @@ public:
         }
     }
 
+    void add(std::string&& name, std::string&& sequence);
+
     static References from_fasta(const std::string& filename);
 
     size_t size() const {
