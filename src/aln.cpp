@@ -2177,7 +2177,8 @@ inline void align_PE(
 }
 
 
-inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM_scores, std::vector<nam> &nams1, std::vector<nam> &nams2, i_dist_est &isize_est, nam &best_nam1,  nam &best_nam2 ) {
+inline void get_best_map_location(std::vector<nam> &nams1, std::vector<nam> &nams2, i_dist_est &isize_est, nam &best_nam1,  nam &best_nam2 ) {
+    std::vector<std::tuple<int,nam,nam>> joint_NAM_scores;
     robin_hood::unordered_set<int> added_n1;
     robin_hood::unordered_set<int> added_n2;
     get_best_scoring_NAM_locations(nams1, nams2, joint_NAM_scores, isize_est.mu, isize_est.sigma, added_n1, added_n2 );
@@ -2214,7 +2215,6 @@ inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM
         best_nam2 = n2_indiv_max;
     }
     if ( score_joint > score_indiv ){ // joint score is better than individual
-//            std::cerr << "HERE " << score_joint << " " << score_indiv << std::endl;
         best_nam1 = n1_joint_max;
         best_nam2 = n2_joint_max;
     }
@@ -2291,8 +2291,7 @@ void align_PE_read(
     if (!map_param.is_sam_out) {
         nam nam_read1;
         nam nam_read2;
-        std::vector<std::tuple<int, nam, nam>> joint_NAM_scores;
-        get_best_map_location(joint_NAM_scores, nams1, nams2, isize_est,
+        get_best_map_location(nams1, nams2, isize_est,
                               nam_read1,
                               nam_read2);
         output_hits_paf_PE(outstring, nam_read1, record1.name,
@@ -2303,7 +2302,6 @@ void align_PE_read(
                            references,
                            index_parameters.k,
                            record2.seq.length());
-        joint_NAM_scores.clear();
     } else {
         Sam sam(outstring, references);
         align_PE(aln_params, sam, nams1, nams2, record1,
