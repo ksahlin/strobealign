@@ -583,7 +583,6 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
 // decide if read should be fw or rc aligned to reference by checking exact match of first and last strobe in the NAM
 bool reverse_nam_if_needed(nam& n, const Read& read, const References& references, int k) {
     auto read_len = read.size();
-    bool fits = false;
     std::string ref_start_kmer = references.sequences[n.ref_id].substr(n.ref_s, k);
     std::string ref_end_kmer = references.sequences[n.ref_id].substr(n.ref_e-k, k);
 
@@ -609,12 +608,12 @@ bool reverse_nam_if_needed(nam& n, const Read& read, const References& reference
     read_start_kmer = seq_rc.substr(q_start_tmp, k);
     read_end_kmer = seq_rc.substr(q_end_tmp - k, k);
     if (ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer) {
-        fits = true;
         n.is_rc = !n.is_rc;
         n.query_s = q_start_tmp;
         n.query_e = q_end_tmp;
+        return true;
     }
-    return fits;
+    return false;
 }
 
 
@@ -642,17 +641,13 @@ inline void align_SE(
     int cnt = 0;
     float score_dropoff;
     nam n_max = all_nams[0];
-    float s1 = n_max.score;
     int best_align_dist = ~0U >> 1;
     int best_align_sw_score = -1000;
 
-    bool aln_did_not_fit;
     alignment sam_aln;
-    int mapq = 60;
     int min_mapq_diff = best_align_dist;
 
     for (auto &n : all_nams) {
-        aln_did_not_fit = false;
         score_dropoff = (float) n.n_hits / n_max.n_hits;
 //        score_dropoff = (float) n.score / n_max.score;
 
@@ -671,10 +666,9 @@ inline void align_SE(
         bool fits = reverse_nam_if_needed(n, read, references, k);
         if (!fits){
             statistics.did_not_fit++;
-            aln_did_not_fit = true;
         }
 
-        // deal with any read hanging of ends of reference not to get 'std::out_of_range' what(): basic_string::substr
+        // deal with any read hanging off ends of reference not to get 'std::out_of_range' what(): basic_string::substr
         int ref_tmp_start = n.ref_s - n.query_s;
         int ref_tmp_segm_size = read_len + diff;
         int ref_len = references.lengths[n.ref_id];
@@ -771,7 +765,6 @@ inline void align_SE(
             int diff_to_best = std::abs(best_align_sw_score - info.sw_score);
             min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
             statistics.tot_ksw_aligned ++;
-//            if (info.global_ed <= best_align_dist){
             if (info.sw_score >= best_align_sw_score){
                 min_mapq_diff = std::max(0, info.sw_score - best_align_sw_score); // new distance to next best match
                 best_align_dist = info.global_ed;
@@ -1477,14 +1470,20 @@ static inline void get_best_scoring_pair(
     std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
 }
 
-static inline void get_best_scoring_NAM_locations(const std::vector<nam> &all_nams1, const std::vector<nam> &all_nams2, std::vector<std::tuple<int,nam,nam>> &joint_NAM_scores, float mu, float sigma, robin_hood::unordered_set<int> &added_n1, robin_hood::unordered_set<int> &added_n2)
-{
-    if ( all_nams1.empty() && all_nams2.empty() ){
-        return;
+static inline std::vector<std::tuple<int,nam,nam>> get_best_scoring_NAM_locations(
+    const std::vector<nam> &all_nams1,
+    const std::vector<nam> &all_nams2,
+    float mu,
+    float sigma
+) {
+    std::vector<std::tuple<int,nam,nam>> joint_NAM_scores;
+    if (all_nams1.empty() && all_nams2.empty()) {
+        return joint_NAM_scores;
     }
+
+    robin_hood::unordered_set<int> added_n1;
+    robin_hood::unordered_set<int> added_n2;
     int joint_hits;
-    nam n;  //dummy nam
-    n.ref_s = -1;
     int hjss = 0; // highest joint score seen
 //            std::cerr << "Scoring" << std::endl;
     int a,b;
@@ -1494,13 +1493,11 @@ static inline void get_best_scoring_NAM_locations(const std::vector<nam> &all_na
                 break;
             }
 
-            if ( (n1.is_rc ^ n2.is_rc) && (n1.ref_id == n2.ref_id) ){
+            if ((n1.is_rc ^ n2.is_rc) && (n1.ref_id == n2.ref_id)) {
                 a = std::max(0, n1.ref_s - n1.query_s);
                 b = std::max(0, n2.ref_s - n2.query_s);
-//                std::cerr << "LEWL " <<  a << " " << b << std::endl;
                 bool r1_r2 = n2.is_rc && (a < b) && ((b-a) < mu+10*sigma); // r1 ---> <---- r2
                 bool r2_r1 = n1.is_rc && (b < a) && ((a-b) < mu+10*sigma); // r2 ---> <---- r1
-//                std::cerr << r1_r2 << " " << r2_r1 << std::endl;
 
                 if ( r1_r2 || r2_r1 ){
 //                    int diff1 = (n1.query_e - n1.query_s) - (n1.ref_e - n1.ref_s);
@@ -1517,32 +1514,13 @@ static inline void get_best_scoring_NAM_locations(const std::vector<nam> &all_na
                     }
                 }
             }
-
-//            x = n1.ref_s > n2.ref_s ? (float) (n1.ref_s - n2.ref_s) : (float)(n2.ref_s - n1.ref_s);
-////                    std::cerr << x << " " << (n1.ref_s - n2.ref_s) << " " << (n2.ref_s - n1.ref_s) << std::endl;
-//            if ( (n1.is_rc ^ n2.is_rc) && (x < mu+10*sigma) && (n1.ref_id == n2.ref_id) ){
-//                joint_hits = n1.n_hits + n2.n_hits;
-//
-////                        std::cerr << S << " " << x << " " << log(normal_pdf(x, mu, sigma )) << " " << normal_pdf(x, mu, sigma ) << std::endl;
-//                std::tuple<int, nam, nam> t (joint_hits, n1, n2);
-//                joint_NAM_scores.push_back(t);
-//                added_n1.insert(n1.ref_s);
-//                added_n2.insert(n2.ref_s);
-//                if (joint_hits > hjss) {
-//                    hjss = joint_hits;
-//                }
-//            }
         }
     }
-//    std::cerr << "ADDED " << added_n1.size() << " " <<  added_n2.size() << std::endl;
-//    for (auto z : added_n1){
-//        std::cerr << z  << std::endl;
-//    }
 
+    nam dummy_nan;
+    dummy_nan.ref_s = -1;
     if (!all_nams1.empty()) {
         int hjss1 = hjss > 0 ? hjss : all_nams1[0].n_hits;
-//        std::cerr <<" hjss1 " << hjss1 << " " << std::endl;
-        //    int hjss1 = all_nams1[0].n_hits;
         for (auto &n1 : all_nams1) {
             if (n1.n_hits  < hjss1/2){
                 break;
@@ -1553,15 +1531,13 @@ static inline void get_best_scoring_NAM_locations(const std::vector<nam> &all_na
 //            int diff1 = (n1.query_e - n1.query_s) - (n1.ref_e - n1.ref_s);
 //            int  n1_penalty = diff1 > 0 ? diff1 : - diff1;
             joint_hits = n1.n_hits;
-            //                        std::cerr << S << " individual score " << x << " " << std::endl;
-            std::tuple<int, nam, nam> t (joint_hits, n1, n);
+            std::tuple<int, nam, nam> t (joint_hits, n1, dummy_nan);
             joint_NAM_scores.push_back(t);
         }
     }
 
     if ( !all_nams2.empty() ){
         int hjss2 = hjss  > 0 ? hjss : all_nams2[0].n_hits;
-//        std::cerr <<" hjss2 " << hjss2 << " " << std::endl;
         //    int hjss2 = all_nams2[0].n_hits;
         for (auto &n2 : all_nams2) {
             if (n2.n_hits  < hjss2/2){
@@ -1574,12 +1550,11 @@ static inline void get_best_scoring_NAM_locations(const std::vector<nam> &all_na
 //            int  n2_penalty = diff2 > 0 ? diff2 : - diff2;
             joint_hits = n2.n_hits;
             //                        std::cerr << S << " individual score " << x << " " << std::endl;
-            std::tuple<int, nam, nam> t (joint_hits, n, n2);
+            std::tuple<int, nam, nam> t (joint_hits, dummy_nan, n2);
             joint_NAM_scores.push_back(t);
         }
     }
 
-//    std::cerr << " All scores " << joint_NAM_scores.size() << std::endl;
     added_n1.clear();
     added_n2.clear();
 
@@ -1591,12 +1566,7 @@ static inline void get_best_scoring_NAM_locations(const std::vector<nam> &all_na
         }
     ); // Sort by highest score first
 
-//    for (auto zz : joint_NAM_scores){
-//        auto score_ = std::get<0>(zz);
-//        auto n1_tmp = std::get<1>(zz);
-//        auto n2_tmp = std::get<2>(zz);
-//        std::cerr << "joint_NAM_score: " << score_ << " NAM ids: "  << n1_tmp.nam_id  << " " << n2_tmp.nam_id  << " Is RC: "  << n1_tmp.is_rc  << " " << n2_tmp.is_rc  << " Nhits: " << n1_tmp.n_hits  << " " << n2_tmp.n_hits  << " scores: " << n1_tmp.score  << " " << n2_tmp.score  << " ref_starts:" << n1_tmp.ref_s  << " " << n2_tmp.ref_s << " query_starts:" << n1_tmp.query_s  << " " << n2_tmp.query_e  << std::endl;
-//    }
+    return joint_NAM_scores;
 }
 
 
@@ -1946,8 +1916,6 @@ inline void align_PE(
 
     int cnt = 0;
     double S = 0.0;
-    robin_hood::unordered_set<int> added_n1;
-    robin_hood::unordered_set<int> added_n2;
     alignment sam_aln1;
     alignment sam_aln2;
     nam n_max1 = all_nams1[0];
@@ -1985,8 +1953,8 @@ inline void align_PE(
     /////////////////////////////////////////////////////////////////////
     // Get top hit counts for all locations. The joint hit count is the sum of hits of the two mates. Then align as long as score dropoff or cnt < 20
 
-    std::vector<std::tuple<int,nam,nam>> joint_NAM_scores; // (score, aln1, aln2)
-    get_best_scoring_NAM_locations(all_nams1, all_nams2, joint_NAM_scores, mu, sigma, added_n1, added_n2 );
+    // (score, aln1, aln2)
+    std::vector<std::tuple<int,nam,nam>> joint_NAM_scores = get_best_scoring_NAM_locations(all_nams1, all_nams2, mu, sigma);
     auto nam_max = joint_NAM_scores[0];
     auto max_score = std::get<0>(nam_max);
 
@@ -2177,10 +2145,8 @@ inline void align_PE(
 }
 
 
-inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM_scores, std::vector<nam> &nams1, std::vector<nam> &nams2, i_dist_est &isize_est, nam &best_nam1,  nam &best_nam2 ) {
-    robin_hood::unordered_set<int> added_n1;
-    robin_hood::unordered_set<int> added_n2;
-    get_best_scoring_NAM_locations(nams1, nams2, joint_NAM_scores, isize_est.mu, isize_est.sigma, added_n1, added_n2 );
+inline void get_best_map_location(std::vector<nam> &nams1, std::vector<nam> &nams2, i_dist_est &isize_est, nam &best_nam1,  nam &best_nam2 ) {
+    std::vector<std::tuple<int,nam,nam>> joint_NAM_scores = get_best_scoring_NAM_locations(nams1, nams2, isize_est.mu, isize_est.sigma);
     nam n1_joint_max, n2_joint_max, n1_indiv_max, n2_indiv_max;
     float score_joint = 0;
     float score_indiv = 0;
@@ -2214,7 +2180,6 @@ inline void get_best_map_location(std::vector<std::tuple<int,nam,nam>> joint_NAM
         best_nam2 = n2_indiv_max;
     }
     if ( score_joint > score_indiv ){ // joint score is better than individual
-//            std::cerr << "HERE " << score_joint << " " << score_indiv << std::endl;
         best_nam1 = n1_joint_max;
         best_nam2 = n2_joint_max;
     }
@@ -2291,8 +2256,7 @@ void align_PE_read(
     if (!map_param.is_sam_out) {
         nam nam_read1;
         nam nam_read2;
-        std::vector<std::tuple<int, nam, nam>> joint_NAM_scores;
-        get_best_map_location(joint_NAM_scores, nams1, nams2, isize_est,
+        get_best_map_location(nams1, nams2, isize_est,
                               nam_read1,
                               nam_read2);
         output_hits_paf_PE(outstring, nam_read1, record1.name,
@@ -2303,7 +2267,6 @@ void align_PE_read(
                            references,
                            index_parameters.k,
                            record2.seq.length());
-        joint_NAM_scores.clear();
     } else {
         Sam sam(outstring, references);
         align_PE(aln_params, sam, nams1, nams2, record1,
