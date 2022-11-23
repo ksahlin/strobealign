@@ -253,14 +253,9 @@ public:
         return Randstrobe { hash_randstrobe2, seq_pos_strobe1, pos_to_seq_choord[strobe_pos_next] };
     }
 
-    bool has_next(int i) {
-        if (i + w_max < string_hashes.size()) {
-            return true;
-        }
-        if (i + w_min + 1 < string_hashes.size()) {
-            return true;
-        }
-        return false;
+    bool has_next(unsigned int i) {
+        return (i + w_max < string_hashes.size())
+            || (i + w_min + 1 < string_hashes.size());
     }
 
 private:
