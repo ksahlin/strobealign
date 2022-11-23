@@ -109,22 +109,26 @@ def main():
         )
     print()
 
-    def stat(name, value):
-        print(f"{name:>35}: {value:>9}")
+    def stat(description, value, should_be_zero: bool = True):
+        ok = not should_be_zero or value == 0
+        print(f"{'*' if not ok else ' '} {value:>9} times: read {description}")
 
-    stat("total", single_total)
-    stat("unmapped before and after", unmapped_same)
+    print("Before/after comparisons")
+    print()
+    stat("was unmapped before and after", unmapped_same, False)
     stat("became mapped", became_mapped)
     stat("became unmapped", became_unmapped)
-    stat("identical locus", identical)
-    stat("both multimappers, same scores", multimapper_same)
-    stat("both multimappers, score got better", multimapper_better)
+    stat("was mapped to same locus before and after", identical, False)
+    stat("was multimapper before and after, same alignment score (AS)", multimapper_same)
+    stat("was multimapper before and after, better alignment score (AS)", multimapper_better)
     if has_truth:
-        stat("both incorrect", same)
-        stat("became correct", better)
-        stat("became incorrect", worse)
+        stat("was incorrect before and after (relative to truth)", same, False)
+        stat("became correct (relative to truth)", better)
+        stat("became incorrect (relative to truth)", worse)
     else:
-        stat("other changes", changed)
+        stat("changed in another way (shown above if any)", changed)
+
+    print(f"  {single_total:>9} total reads")
 
     if unmapped_same + identical < single_total:
         sys.exit(1)
