@@ -236,6 +236,16 @@ public:
 
     }
 
+    bool has_next(int i) {
+        if (i + w_max < string_hashes.size()) {
+            return true;
+        }
+        if (i + w_min + 1 < string_hashes.size()) {
+            return true;
+        }
+        return false;
+    }
+
 private:
     const std::vector<uint64_t> &string_hashes;
     const std::vector<unsigned int> &pos_to_seq_choord;
@@ -285,6 +295,9 @@ void seq_to_randstrobes2(
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
         unsigned int seq_end = seq_pos_strobe1 + max_dist;
 
+        if (!randstrobe_iter.has_next(i)) {
+            return;
+        }
         if (i + w_max < nr_hashes){
             unsigned int w_end = i+w_max;
             randstrobe_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_end, seq_end, i);
@@ -351,6 +364,10 @@ mers_vector_read seq_to_randstrobes2_read(
     // create the randstrobes FW direction!
     RandstrobeIterator randstrobe_fwd_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q };
     for (unsigned int i = 0; i < nr_hashes; i++) {
+        if (!randstrobe_fwd_iter.has_next(i)) {
+            break;
+        }
+
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
@@ -390,11 +407,18 @@ mers_vector_read seq_to_randstrobes2_read(
 
     RandstrobeIterator randstrobe_rc_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q };
     for (unsigned int i = 0; i < nr_hashes; i++) {
+        if (!randstrobe_rc_iter.has_next(i)) {
+            return randstrobes2;
+        }
+
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
         unsigned int seq_end = seq_pos_strobe1 + max_dist;
 
+        if (!randstrobe_rc_iter.has_next(i)) {
+            return randstrobes2;
+        }
         if (i + w_max < nr_hashes){
             unsigned int w_end = i+w_max;
             randstrobe_rc_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_end, seq_end, i);
