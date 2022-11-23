@@ -83,4 +83,4 @@ jobs:
         run: python3 tests/samdiff.py baseline.bam head.bam
       - name: Validate with Picard
         run: |
-          PicardCommandLine ValidateSamFile IGNORE=RECORD_MISSING_READ_GROUP IGNORE=MISSING_READ_GROUP IGNORE=INVALID_ALIGNMENT_START I=head.bam
+          PicardCommandLine ValidateSamFile IGNORE=RECORD_MISSING_READ_GROUP IGNORE=MISSING_READ_GROUP I=head.bam

@@ -16,15 +16,20 @@ public:
     References() { }
     References(
         std::vector<std::string>&& sequences,
-        ref_names&& names,
-        ref_lengths&& lengths
-    ) : sequences(std::move(sequences)), names(std::move(names)), lengths(std::move(lengths)) {
+        ref_names&& names
+    ) : sequences(sequences), names(names) {
 
-        _total_length = std::accumulate(this->lengths.begin(), this->lengths.end(), (size_t)0);
-        if (sequences.size() != names.size() || names.size() != lengths.size()) {
+        if (sequences.size() != names.size()) {
             throw std::invalid_argument("lengths do not match");
         }
+        lengths.reserve(sequences.size());
+        for (auto& seq : sequences) {
+            lengths.push_back(seq.size());
+        }
+        _total_length = std::accumulate(this->lengths.begin(), this->lengths.end(), (size_t)0);
     }
+
+    void add(std::string&& name, std::string&& sequence);
 
     static References from_fasta(const std::string& filename);
 
