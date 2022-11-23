@@ -57,6 +57,11 @@ strobealign -x ref.fa reads1.fq reads2.fq > output.paf  # Paired-end reads mappi
 To report secondary alignments, set parameter `-N [INT]` for maximum of `[INT]` secondary alignments. 
 
 
+Changelog
+---------
+
+See [Changelog](CHANGES.md).
+
 V0.7 PERFORMANCE
 ---------------
 
