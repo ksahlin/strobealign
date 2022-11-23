@@ -237,8 +237,8 @@ public:
 private:
     const std::vector<uint64_t> &string_hashes;
     const std::vector<unsigned int> &pos_to_seq_choord;
-    int w_min;
-    uint64_t q;
+    const int w_min;
+    const uint64_t q;
 };
 
 
@@ -295,7 +295,6 @@ void seq_to_randstrobes2(
         }
 
         uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
-
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
 
         // UNTIL HERE roughly identical
@@ -368,7 +367,6 @@ mers_vector_read seq_to_randstrobes2_read(
         }
 
         uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
-
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
 
         // UNTIL HERE roughly identical
@@ -402,13 +400,15 @@ mers_vector_read seq_to_randstrobes2_read(
             unsigned int w_end = nr_hashes -1;
             randstrobe_rc_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_end, seq_end, i);
         }
-        else{
+        else {
             return randstrobes2;
         }
 
         uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
-
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
+
+
+
         unsigned int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
         QueryMer s {hash_randstrobe2, seq_pos_strobe1, offset_strobe, true};
         randstrobes2.push_back(s);
