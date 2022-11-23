@@ -191,12 +191,14 @@ public:
         const std::vector<unsigned int> &pos_to_seq_choord,
         int w_min,
         int w_max,
-        uint64_t q
+        uint64_t q,
+        int max_dist
     ) : string_hashes(string_hashes)
       , pos_to_seq_choord(pos_to_seq_choord)
       , w_min(w_min)
       , w_max(w_max)
       , q(q)
+      , max_dist(max_dist)
     {
     }
 
@@ -246,12 +248,15 @@ public:
         return false;
     }
 
+
+
 private:
     const std::vector<uint64_t> &string_hashes;
     const std::vector<unsigned int> &pos_to_seq_choord;
     const int w_min;
     const int w_max;
     const uint64_t q;
+    const unsigned int max_dist;
 };
 
 
@@ -286,18 +291,19 @@ void seq_to_randstrobes2(
         return;
     }
 
-    RandstrobeIterator randstrobe_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q };
+    RandstrobeIterator randstrobe_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q, max_dist };
 
     // create the randstrobes
     for (unsigned int i = 0; i < nr_hashes; i++) {
+        if (!randstrobe_iter.has_next(i)) {
+            return;
+        }
+
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
         unsigned int seq_end = seq_pos_strobe1 + max_dist;
 
-        if (!randstrobe_iter.has_next(i)) {
-            return;
-        }
         if (i + w_max < nr_hashes){
             unsigned int w_end = i+w_max;
             randstrobe_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_end, seq_end, i);
@@ -359,7 +365,7 @@ mers_vector_read seq_to_randstrobes2_read(
     }
 
     // create the randstrobes FW direction!
-    RandstrobeIterator randstrobe_fwd_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q };
+    RandstrobeIterator randstrobe_fwd_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q, max_dist };
     for (unsigned int i = 0; i < nr_hashes; i++) {
         if (!randstrobe_fwd_iter.has_next(i)) {
             break;
@@ -399,7 +405,7 @@ mers_vector_read seq_to_randstrobes2_read(
         pos_to_seq_choord[i] = read_length - pos_to_seq_choord[i] - k;
     }
 
-    RandstrobeIterator randstrobe_rc_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q };
+    RandstrobeIterator randstrobe_rc_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q, max_dist };
     for (unsigned int i = 0; i < nr_hashes; i++) {
         if (!randstrobe_rc_iter.has_next(i)) {
             return randstrobes2;
