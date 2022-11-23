@@ -273,6 +273,10 @@ private:
 };
 
 
+/* Generate randstrobes for a reference sequence. The randstrobes are appended
+ * to the given flat_vector, which allows to call this function repeatedly for
+ * multiple reference sequences (use a different ref_index each time).
+ */
 void randstrobes_reference(
     ind_mers_vector& flat_vector,
     int k,
@@ -315,7 +319,7 @@ void randstrobes_reference(
 }
 
 /*
- * Create randstrobes for a query sequence (read).
+ * Generate randstrobes for a query sequence (read).
  *
  * This function stores randstrobes for both directions created from canonical
  * syncmers. Since creating canonical syncmers is the most time consuming step,
