@@ -187,6 +187,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(const std::
 struct Randstrobe {
     uint64_t hash;
     unsigned int strobe1_pos;
+    unsigned int strobe2_pos;
 };
 
 class RandstrobeIterator {
@@ -250,7 +251,8 @@ public:
     //    std::cerr << "Offset: " <<  strobe_pos_next - w_start << " val: " << min_val <<  ", P exact:" <<  1.0 - pow ( (float) (8-min_val)/9, strobe_pos_next - w_start) << std::endl;
 
         uint64_t hash_randstrobe2 = string_hashes[strobe1_start] + strobe_hashval_next;
-        return Randstrobe { hash_randstrobe2, seq_pos_strobe1 };
+
+        return Randstrobe { hash_randstrobe2, seq_pos_strobe1, pos_to_seq_choord[strobe_pos_next] };
     }
 
     bool has_next(int i) {
@@ -319,12 +321,10 @@ void seq_to_randstrobes2(
 
         auto randstrobe = randstrobe_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, i);
 
-        unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
-
         // UNTIL HERE roughly identical
 
         int packed = (ref_index << 8);
-        packed = packed + (seq_pos_strobe2 - randstrobe.strobe1_pos);
+        packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
         MersIndexEntry s {randstrobe.hash, randstrobe.strobe1_pos, packed};
         flat_vector.push_back(s);
     }
@@ -380,13 +380,11 @@ mers_vector_read seq_to_randstrobes2_read(
         uint64_t strobe_hashval_next;
         auto randstrobe = randstrobe_fwd_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, i);
 
-        unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
-
         // UNTIL HERE roughly identical
 
         // Output: from the above: seq_pos_strobe2, seq_pos_strobe1
 
-        unsigned int offset_strobe =  seq_pos_strobe2 - randstrobe.strobe1_pos;
+        unsigned int offset_strobe =  randstrobe.strobe2_pos - randstrobe.strobe1_pos;
         QueryMer s {randstrobe.hash, randstrobe.strobe1_pos, offset_strobe, false};
         randstrobes2.push_back(s);
     }
@@ -409,9 +407,7 @@ mers_vector_read seq_to_randstrobes2_read(
 
         auto randstrobe = randstrobe_rc_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, i);
 
-        unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
-
-        unsigned int offset_strobe = seq_pos_strobe2 - randstrobe.strobe1_pos;
+        unsigned int offset_strobe = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
         QueryMer s {randstrobe.hash, randstrobe.strobe1_pos, offset_strobe, true};
         randstrobes2.push_back(s);
     }
