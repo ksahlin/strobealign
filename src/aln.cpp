@@ -2213,12 +2213,12 @@ void align_PE_read(
     Timer strobe_timer;
 
     std::transform(record1.seq.begin(), record1.seq.end(), record1.seq.begin(), ::toupper);
-    query_mers1 = seq_to_randstrobes2_read(
+    query_mers1 = randstrobes_query(
         index_parameters.k, index_parameters.w_min, index_parameters.w_max, record1.seq, index_parameters.s, index_parameters.t_syncmer,
         index_parameters.q, index_parameters.max_dist);
 
     std::transform(record2.seq.begin(), record2.seq.end(), record2.seq.begin(), ::toupper);
-    query_mers2 = seq_to_randstrobes2_read(
+    query_mers2 = randstrobes_query(
         index_parameters.k, index_parameters.w_min, index_parameters.w_max, record2.seq, index_parameters.s, index_parameters.t_syncmer,
         index_parameters.q, index_parameters.max_dist);
 
@@ -2303,7 +2303,7 @@ void align_SE_read(
         // generate mers here
         std::transform(record.seq.begin(), record.seq.end(), record.seq.begin(), ::toupper);
         Timer strobe_timer;
-        query_mers = seq_to_randstrobes2_read(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
+        query_mers = randstrobes_query(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
         statistics.tot_construct_strobemers += strobe_timer.duration();
 
         // Find NAMs

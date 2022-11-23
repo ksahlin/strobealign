@@ -273,7 +273,7 @@ private:
 };
 
 
-void seq_to_randstrobes2(
+void randstrobes_reference(
     ind_mers_vector& flat_vector,
     int k,
     int w_min,
@@ -289,14 +289,14 @@ void seq_to_randstrobes2(
         return;
     }
 
-    uint64_t kmask=(1ULL<<2*k) - 1;
+    uint64_t kmask = (1ULL << 2*k) - 1;
     // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
     std::vector<uint64_t> string_hashes;
     std::vector<unsigned int> pos_to_seq_choord;
 //    robin_hood::unordered_map< unsigned int, unsigned int>  pos_to_seq_choord;
 //    make_string_to_hashvalues_random_minimizers(seq, string_hashes, pos_to_seq_choord, k, kmask, w);
 
-    uint64_t smask=(1ULL<<2*s) - 1;
+    uint64_t smask = (1ULL << 2*s) - 1;
     make_string_to_hashvalues_open_syncmers_canonical(seq, string_hashes, pos_to_seq_choord, kmask, k, smask, s, t);
 
     unsigned int nr_hashes = string_hashes.size();
@@ -321,7 +321,7 @@ void seq_to_randstrobes2(
  * syncmers. Since creating canonical syncmers is the most time consuming step,
  * we avoid performing it twice for the read and its reverse complement here.
  */
-mers_vector_read seq_to_randstrobes2_read(
+mers_vector_read randstrobes_query(
     int k,
     int w_min,
     int w_max,
