@@ -209,9 +209,7 @@ public:
     }
 
     Randstrobe next() {
-        Randstrobe r = get(strobe1_start);
-        strobe1_start++;
-        return r;
+        return get(strobe1_start++);
     }
 
     bool has_next() {
