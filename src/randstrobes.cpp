@@ -200,7 +200,6 @@ public:
         unsigned int w_start,
         unsigned int w_end,
         uint64_t q,
-        unsigned int seq_start,
         unsigned int seq_end_constraint,
         unsigned int strobe1_start
     ) {
@@ -298,11 +297,11 @@ void seq_to_randstrobes2(
         unsigned int w_start = i+w_min;
         if (i + w_max < nr_hashes){
             unsigned int w_end = i+w_max;
-            randstrobe_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_pos_strobe1, seq_end,i);
+            randstrobe_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_end, i);
         }
         else if (i + w_min + 1 < nr_hashes) {
             unsigned int w_end = nr_hashes - 1;
-            randstrobe_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_pos_strobe1, seq_end, i);
+            randstrobe_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_end, i);
         }
         else {
             return;
@@ -399,12 +398,12 @@ mers_vector_read seq_to_randstrobes2_read(
         if (i + w_max < nr_hashes){
             unsigned int w_end = i+w_max;
             // writes to strobe_pos_next, strobe_hashval_next
-            randstrobe_fwd_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_pos_strobe1, seq_end, i);
+            randstrobe_fwd_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_end, i);
         }
         else if (i + w_min + 1 < nr_hashes) {
             unsigned int w_end = nr_hashes -1;
             // writes to strobe_pos_next, strobe_hashval_next
-            randstrobe_fwd_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_pos_strobe1, seq_end, i);
+            randstrobe_fwd_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_end, i);
         }
         else {
             break;
@@ -452,12 +451,12 @@ mers_vector_read seq_to_randstrobes2_read(
         unsigned int w_start = i + w_min;
         if (i + w_max < nr_hashes){
             unsigned int w_end = i+w_max;
-            randstrobe_rc_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_pos_strobe1, seq_end, i);
+            randstrobe_rc_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_end, i);
 
         }
         else if ((i + w_min + 1 < nr_hashes) && (nr_hashes <= i + w_max) ){
             unsigned int w_end = nr_hashes -1;
-            randstrobe_rc_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_pos_strobe1, seq_end, i);
+            randstrobe_rc_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, w_start, w_end, q, seq_end, i);
         }
         else{
             return randstrobes2;
