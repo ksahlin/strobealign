@@ -208,11 +208,9 @@ public:
     {
     }
 
-    Randstrobe get_next_strobe_dist_constraint(
-        unsigned int &strobe_pos_next,  // Output
-        uint64_t &strobe_hashval_next,  // Output
-        unsigned int strobe1_start
-    ) {
+    Randstrobe get_next_strobe_dist_constraint(unsigned int strobe1_start) {
+        unsigned int strobe_pos_next;
+        uint64_t strobe_hashval_next;
         unsigned int w_end;
         if (strobe1_start + w_max < string_hashes.size()) {
             w_end = strobe1_start + w_max;
@@ -265,8 +263,6 @@ public:
         return false;
     }
 
-
-
 private:
     const std::vector<uint64_t> &string_hashes;
     const std::vector<unsigned int> &pos_to_seq_choord;
@@ -316,12 +312,7 @@ void seq_to_randstrobes2(
             return;
         }
 
-        unsigned int strobe_pos_next;
-        uint64_t strobe_hashval_next;
-
-        auto randstrobe = randstrobe_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, i);
-
-        // UNTIL HERE roughly identical
+        auto randstrobe = randstrobe_iter.get_next_strobe_dist_constraint(i);
 
         int packed = (ref_index << 8);
         packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
@@ -375,14 +366,7 @@ mers_vector_read seq_to_randstrobes2_read(
         if (!randstrobe_fwd_iter.has_next(i)) {
             break;
         }
-
-        unsigned int strobe_pos_next;
-        uint64_t strobe_hashval_next;
-        auto randstrobe = randstrobe_fwd_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, i);
-
-        // UNTIL HERE roughly identical
-
-        // Output: from the above: seq_pos_strobe2, seq_pos_strobe1
+        auto randstrobe = randstrobe_fwd_iter.get_next_strobe_dist_constraint(i);
 
         unsigned int offset_strobe =  randstrobe.strobe2_pos - randstrobe.strobe1_pos;
         QueryMer s {randstrobe.hash, randstrobe.strobe1_pos, offset_strobe, false};
@@ -401,11 +385,7 @@ mers_vector_read seq_to_randstrobes2_read(
         if (!randstrobe_rc_iter.has_next(i)) {
             return randstrobes2;
         }
-
-        unsigned int strobe_pos_next;
-        uint64_t strobe_hashval_next;
-
-        auto randstrobe = randstrobe_rc_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, i);
+        auto randstrobe = randstrobe_rc_iter.get_next_strobe_dist_constraint(i);
 
         unsigned int offset_strobe = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
         QueryMer s {randstrobe.hash, randstrobe.strobe1_pos, offset_strobe, true};
