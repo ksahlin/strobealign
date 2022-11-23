@@ -190,10 +190,12 @@ public:
         const std::vector<uint64_t> &string_hashes,
         const std::vector<unsigned int> &pos_to_seq_choord,
         int w_min,
+        int w_max,
         uint64_t q
     ) : string_hashes(string_hashes)
       , pos_to_seq_choord(pos_to_seq_choord)
       , w_min(w_min)
+      , w_max(w_max)
       , q(q)
     {
     }
@@ -238,6 +240,7 @@ private:
     const std::vector<uint64_t> &string_hashes;
     const std::vector<unsigned int> &pos_to_seq_choord;
     const int w_min;
+    const int w_max;
     const uint64_t q;
 };
 
@@ -273,7 +276,7 @@ void seq_to_randstrobes2(
         return;
     }
 
-    RandstrobeIterator randstrobe_iter { string_hashes, pos_to_seq_choord, w_min, q };
+    RandstrobeIterator randstrobe_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q };
 
     // create the randstrobes
     for (unsigned int i = 0; i < nr_hashes; i++) {
@@ -346,7 +349,7 @@ mers_vector_read seq_to_randstrobes2_read(
     }
 
     // create the randstrobes FW direction!
-    RandstrobeIterator randstrobe_fwd_iter { string_hashes, pos_to_seq_choord, w_min, q };
+    RandstrobeIterator randstrobe_fwd_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q };
     for (unsigned int i = 0; i < nr_hashes; i++) {
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
@@ -385,7 +388,7 @@ mers_vector_read seq_to_randstrobes2_read(
         pos_to_seq_choord[i] = read_length - pos_to_seq_choord[i] - k;
     }
 
-    RandstrobeIterator randstrobe_rc_iter { string_hashes, pos_to_seq_choord, w_min, q };
+    RandstrobeIterator randstrobe_rc_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q };
     for (unsigned int i = 0; i < nr_hashes; i++) {
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
@@ -409,7 +412,7 @@ mers_vector_read seq_to_randstrobes2_read(
 
 
 
-        unsigned int offset_strobe =  seq_pos_strobe2 - seq_pos_strobe1;
+        unsigned int offset_strobe = seq_pos_strobe2 - seq_pos_strobe1;
         QueryMer s {hash_randstrobe2, seq_pos_strobe1, offset_strobe, true};
         randstrobes2.push_back(s);
     }
