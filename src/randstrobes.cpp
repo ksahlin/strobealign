@@ -208,7 +208,19 @@ public:
     {
     }
 
-    Randstrobe get_next_strobe_dist_constraint(unsigned int strobe1_start) {
+    Randstrobe next() {
+        Randstrobe r = get(strobe1_start);
+        strobe1_start++;
+        return r;
+    }
+
+    bool has_next() {
+        return (strobe1_start + w_max < string_hashes.size())
+            || (strobe1_start + w_min + 1 < string_hashes.size());
+    }
+
+private:
+    Randstrobe get(unsigned int strobe1_start) const {
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
         unsigned int w_end;
@@ -253,18 +265,13 @@ public:
         return Randstrobe { hash_randstrobe2, seq_pos_strobe1, pos_to_seq_choord[strobe_pos_next] };
     }
 
-    bool has_next(unsigned int i) {
-        return (i + w_max < string_hashes.size())
-            || (i + w_min + 1 < string_hashes.size());
-    }
-
-private:
     const std::vector<uint64_t> &string_hashes;
     const std::vector<unsigned int> &pos_to_seq_choord;
     const int w_min;
     const int w_max;
     const uint64_t q;
     const unsigned int max_dist;
+    unsigned int strobe1_start = 0;
 };
 
 
@@ -302,13 +309,8 @@ void seq_to_randstrobes2(
     RandstrobeIterator randstrobe_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q, max_dist };
 
     // create the randstrobes
-    for (unsigned int i = 0; i < nr_hashes; i++) {
-        if (!randstrobe_iter.has_next(i)) {
-            return;
-        }
-
-        auto randstrobe = randstrobe_iter.get_next_strobe_dist_constraint(i);
-
+    while (randstrobe_iter.has_next()) {
+        auto randstrobe = randstrobe_iter.next();
         int packed = (ref_index << 8);
         packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
         MersIndexEntry s {randstrobe.hash, randstrobe.strobe1_pos, packed};
@@ -357,11 +359,8 @@ mers_vector_read seq_to_randstrobes2_read(
 
     // create the randstrobes FW direction!
     RandstrobeIterator randstrobe_fwd_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q, max_dist };
-    for (unsigned int i = 0; i < nr_hashes; i++) {
-        if (!randstrobe_fwd_iter.has_next(i)) {
-            break;
-        }
-        auto randstrobe = randstrobe_fwd_iter.get_next_strobe_dist_constraint(i);
+    while (randstrobe_fwd_iter.has_next()) {
+        auto randstrobe = randstrobe_fwd_iter.next();
 
         unsigned int offset_strobe =  randstrobe.strobe2_pos - randstrobe.strobe1_pos;
         QueryMer s {randstrobe.hash, randstrobe.strobe1_pos, offset_strobe, false};
@@ -376,11 +375,8 @@ mers_vector_read seq_to_randstrobes2_read(
     }
 
     RandstrobeIterator randstrobe_rc_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q, max_dist };
-    for (unsigned int i = 0; i < nr_hashes; i++) {
-        if (!randstrobe_rc_iter.has_next(i)) {
-            return randstrobes2;
-        }
-        auto randstrobe = randstrobe_rc_iter.get_next_strobe_dist_constraint(i);
+    while (randstrobe_rc_iter.has_next()) {
+        auto randstrobe = randstrobe_rc_iter.next();
 
         unsigned int offset_strobe = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
         QueryMer s {randstrobe.hash, randstrobe.strobe1_pos, offset_strobe, true};
