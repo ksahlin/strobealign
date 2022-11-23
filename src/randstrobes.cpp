@@ -311,12 +311,7 @@ void seq_to_randstrobes2(
         uint64_t strobe_hashval_next;
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
 
-        if (i + w_max < nr_hashes){
-            randstrobe_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, i);
-        }
-        else if (i + w_min + 1 < nr_hashes) {
-            randstrobe_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, i);
-        }
+        randstrobe_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, i);
 
         uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
@@ -379,14 +374,8 @@ mers_vector_read seq_to_randstrobes2_read(
         unsigned int strobe_pos_next;
         uint64_t strobe_hashval_next;
         unsigned int seq_pos_strobe1 = pos_to_seq_choord[i];
-        if (i + w_max < nr_hashes){
-            // writes to strobe_pos_next, strobe_hashval_next
-            randstrobe_fwd_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, i);
-        }
-        else if (i + w_min + 1 < string_hashes.size()) {
-            // writes to strobe_pos_next, strobe_hashval_next
-            randstrobe_fwd_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, i);
-        }
+        // writes to strobe_pos_next, strobe_hashval_next
+        randstrobe_fwd_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, i);
 
         uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
@@ -420,12 +409,7 @@ mers_vector_read seq_to_randstrobes2_read(
         if (!randstrobe_rc_iter.has_next(i)) {
             return randstrobes2;
         }
-        if (i + w_max < string_hashes.size()){
-            randstrobe_rc_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, i);
-        }
-        else if (i + w_min + 1 < string_hashes.size()) {
-            randstrobe_rc_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, i);
-        }
+        randstrobe_rc_iter.get_next_strobe_dist_constraint(strobe_pos_next, strobe_hashval_next, i);
 
         uint64_t hash_randstrobe2 = (string_hashes[i]) + (strobe_hashval_next);
         unsigned int seq_pos_strobe2 = pos_to_seq_choord[strobe_pos_next];
