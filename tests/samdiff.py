@@ -43,7 +43,9 @@ def main():
         identical = 0
         multimapper_same = 0
         multimapper_better = 0
+        multimapper_worse = 0
         changed = 0
+        reported = 0
 
         # The following three are only updated if truth is available
         same = 0
@@ -87,6 +89,13 @@ def main():
                     multimapper_better += 1
                     continue
 
+                if b_score > a_score:
+                    multimapper_worse += 1
+                    if reported < limit:
+                        print_comparison(b, a)
+                    reported += 1
+                    continue
+
             if has_truth:
                 t_tup = (t.reference_name, t.reference_start)
                 if a_tup != t_tup and b_tup != t_tup:
@@ -99,32 +108,38 @@ def main():
                 assert b_tup == t_tup
                 worse += 1
             changed += 1
-            if changed <= limit:
+            if reported < limit:
                 print_comparison(b, a)
+            reported += 1
 
     if changed > limit:
         print(
-            f"Reporting limit reached, not showing {changed - limit} "
+            f"Reporting limit reached, not showing {reported - limit} "
             "additional changed records."
         )
     print()
 
-    def stat(name, value):
-        print(f"{name:>35}: {value:>9}")
+    def stat(description, value, should_be_zero: bool = True):
+        ok = not should_be_zero or value == 0
+        print(f"{'*' if not ok else ' '} {value:>9} reads {description}")
 
-    stat("total", single_total)
-    stat("unmapped before and after", unmapped_same)
+    print("Before/after comparisons")
+    print()
+    stat("were unmapped before and after", unmapped_same, False)
     stat("became mapped", became_mapped)
     stat("became unmapped", became_unmapped)
-    stat("identical locus", identical)
-    stat("both multimappers, same scores", multimapper_same)
-    stat("both multimappers, score got better", multimapper_better)
+    stat("were mapped to same locus before and after", identical, False)
+    stat("were multimapper before and after, same alignment score (AS)", multimapper_same)
+    stat("were multimapper before and after, better alignment score (AS)", multimapper_better)
+    stat("were multimapper before and after, worse alignment score (AS)", multimapper_worse)
     if has_truth:
-        stat("both incorrect", same)
-        stat("became correct", better)
-        stat("became incorrect", worse)
+        stat("were incorrect before and after (relative to truth)", same, False)
+        stat("became correct (relative to truth)", better)
+        stat("became incorrect (relative to truth)", worse)
     else:
-        stat("other changes", changed)
+        stat("changed in another way", changed)
+
+    print(f"  {single_total:>9} total reads")
 
     if unmapped_same + identical < single_total:
         sys.exit(1)
