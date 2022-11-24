@@ -3,7 +3,6 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
-#include <chrono>
 #include <sstream>
 #include <algorithm>
 #include <numeric>
@@ -22,10 +21,9 @@
 #include "pc.hpp"
 #include "aln.hpp"
 #include "logger.hpp"
+#include "timer.hpp"
 #include "readlen.hpp"
 #include "version.hpp"
-
-using std::chrono::high_resolution_clock;
 
 
 static Logger& logger = Logger::get();
@@ -194,10 +192,9 @@ int run_strobealign(int argc, char **argv) {
     // Create index
 
     References references;
-    auto start_read_refs = high_resolution_clock::now();
+    Timer read_refs_timer;
     references = References::from_fasta(opt.ref_filename);
-    std::chrono::duration<double> elapsed_read_refs = high_resolution_clock::now() - start_read_refs;
-    logger.info() << "Time reading references: " << elapsed_read_refs.count() << " s" << std::endl;
+    logger.info() << "Time reading references: " << read_refs_timer.elapsed() << " s\n";
 
     if (references.total_length() == 0) {
         throw InvalidFasta("No reference sequences found");
@@ -207,13 +204,12 @@ int run_strobealign(int argc, char **argv) {
     if (opt.use_index) {
         // Read the index from a file
         assert(!opt.only_gen_index);
-        auto start_read_index = high_resolution_clock::now();
+        Timer read_index_timer;
         index.read(opt.ref_filename + ".sti");
-        std::chrono::duration<double> elapsed_read_index = high_resolution_clock::now() - start_read_index;
-        logger.info() << "Total time reading index: " << elapsed_read_index.count() << " s\n" << std::endl;
+        logger.info() << "Total time reading index: " << read_index_timer.elapsed() << " s\n";
     } else {
         // Generate the index
-        auto start = high_resolution_clock::now();
+        Timer index_timer;
         IndexCreationStatistics index_creation_stats = index.populate(opt.f);
         
         logger.info() << "Time copying flat vector: " << index_creation_stats.elapsed_copy_flat_vector.count() << " s" << std::endl;
@@ -234,29 +230,27 @@ int run_strobealign(int argc, char **argv) {
             logger.debug() << "Ratio distinct to non distinct: " << index_creation_stats.tot_distinct_strobemer_count / (index_creation_stats.tot_high_ab + index_creation_stats.tot_mid_ab) << std::endl;
         }
         logger.debug() << "Filtered cutoff index: " << index_creation_stats.index_cutoff << std::endl;
-        logger.debug() << "Filtered cutoff count: " << index_creation_stats.filter_cutoff << std::endl << std::endl;
+        logger.debug() << "Filtered cutoff count: " << index_creation_stats.filter_cutoff << std::endl;
         
         logger.info() << "Total time generating hash table index: " << index_creation_stats.elapsed_hash_index.count() << " s" <<  std::endl;
 
-        std::chrono::duration<double> elapsed = high_resolution_clock::now() - start;
-        logger.info() << "Total time indexing: " << elapsed.count() << " s" << std::endl;
+        logger.info() << "Total time indexing: " << index_timer.elapsed() << " s\n";
 
         if (!opt.logfile_name.empty()) {
             print_diagnostics(index, opt.logfile_name, index_parameters.k);
             logger.debug() << "Finished printing log stats" << std::endl;
         }
         if (opt.only_gen_index) {
-            auto start_write_index = high_resolution_clock::now();
+            Timer index_writing_timer;
             index.write(opt.ref_filename + ".sti");
-            std::chrono::duration<double> elapsed_write_index = high_resolution_clock::now() - start_write_index;
-            logger.info() << "Total time writing index: " << elapsed_write_index.count() << " s\n" << std::endl;
+            logger.info() << "Total time writing index: " << index_writing_timer.elapsed() << " s\n";
             return EXIT_SUCCESS;
         }
     }
 
     // Map/align reads
         
-    auto start_aln_part = high_resolution_clock::now();
+    Timer map_align_timer;
     map_param.rescue_cutoff = map_param.R < 100 ? map_param.R * index.filter_cutoff : 1000;
     logger.debug() << "Using rescue cutoff: " << map_param.rescue_cutoff << std::endl;
 
@@ -329,15 +323,13 @@ int run_strobealign(int argc, char **argv) {
     for (auto& it : log_stats_vec) {
         tot_statistics += it.second;
     }
-    // Record mapping end time
-    std::chrono::duration<double> tot_aln_part = high_resolution_clock::now() - start_aln_part;
 
     logger.info() << "Total mapping sites tried: " << tot_statistics.tot_all_tried << std::endl
         << "Total calls to ssw: " << tot_statistics.tot_ksw_aligned << std::endl
         << "Calls to ksw (rescue mode): " << tot_statistics.tot_rescued << std::endl
         << "Did not fit strobe start site: " << tot_statistics.did_not_fit << std::endl
         << "Tried rescue: " << tot_statistics.tried_rescue << std::endl
-        << "Total time mapping: " << tot_aln_part.count() << " s." << std::endl
+        << "Total time mapping: " << map_align_timer.elapsed() << " s." << std::endl
         << "Total time reading read-file(s): " << tot_statistics.tot_read_file.count() / opt.n_threads << " s." << std::endl
         << "Total time creating strobemers: " << tot_statistics.tot_construct_strobemers.count() / opt.n_threads << " s." << std::endl
         << "Total time finding NAMs (non-rescue mode): " << tot_statistics.tot_find_nams.count() / opt.n_threads << " s." << std::endl
