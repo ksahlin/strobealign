@@ -152,8 +152,11 @@ int run_strobealign(int argc, char **argv) {
     std::tie(opt, map_param) = parse_command_line_arguments(argc, argv);
 
     logger.set_level(opt.verbose ? LOG_DEBUG : LOG_INFO);
+
+    logger.info() << "This is StrobeAlign " << version_string() << '\n';
     if (!opt.r_set && !opt.reads_filename1.empty()) {
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
+        logger.info() << "Estimated read length: " << map_param.r << " bp\n";
     }
     if (opt.c >= 64 || opt.c <= 0) {
         throw BadParameter("c must be greater than 0 and less than 64");
