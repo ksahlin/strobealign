@@ -43,7 +43,9 @@ def main():
         identical = 0
         multimapper_same = 0
         multimapper_better = 0
+        multimapper_worse = 0
         changed = 0
+        reported = 0
 
         # The following three are only updated if truth is available
         same = 0
@@ -87,6 +89,13 @@ def main():
                     multimapper_better += 1
                     continue
 
+                if b_score > a_score:
+                    multimapper_worse += 1
+                    if reported < limit:
+                        print_comparison(b, a)
+                    reported += 1
+                    continue
+
             if has_truth:
                 t_tup = (t.reference_name, t.reference_start)
                 if a_tup != t_tup and b_tup != t_tup:
@@ -99,12 +108,13 @@ def main():
                 assert b_tup == t_tup
                 worse += 1
             changed += 1
-            if changed <= limit:
+            if reported < limit:
                 print_comparison(b, a)
+            reported += 1
 
     if changed > limit:
         print(
-            f"Reporting limit reached, not showing {changed - limit} "
+            f"Reporting limit reached, not showing {reported - limit} "
             "additional changed records."
         )
     print()
@@ -121,6 +131,7 @@ def main():
     stat("was mapped to same locus before and after", identical, False)
     stat("was multimapper before and after, same alignment score (AS)", multimapper_same)
     stat("was multimapper before and after, better alignment score (AS)", multimapper_better)
+    stat("was multimapper before and after, worse alignment score (AS)", multimapper_worse)
     if has_truth:
         stat("was incorrect before and after (relative to truth)", same, False)
         stat("became correct (relative to truth)", better)
