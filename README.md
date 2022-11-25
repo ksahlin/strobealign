@@ -62,8 +62,15 @@ Changelog
 
 See [Changelog](CHANGES.md).
 
+
+Video
+-----
+
+For an introduction, see the [RECOMB-Seq video from 2022: “Flexible seed size enables ultra-fast and accurate read alignment”](https://www.youtube.com/watch?v=cn32telW63w) (12 minutes). For a more detailed presentation of the underlying seeding mechanism in strobealign (strobemers) see [“Efficient sequence similarity searches with strobemers”](https://www.youtube.com/watch?v=DS4tURz1Wio) (73 minutes).
+
+
 V0.7 PERFORMANCE
----------------
+----------------
 
 We have in below three sections investigated accuracy and runtime metrics for v0.7 on SIM3 and REPEATS datasets included in the preprint, as well as performance of SNV and small indel calling for additional simulated and biological (GIAB) datasets.
 
