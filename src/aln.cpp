@@ -1108,7 +1108,6 @@ static inline void get_alignment(
     if (!fits) {
         did_not_fit++;
         aln_did_not_fit = true;
-        sam_aln.is_proper = false;
     }
 
     std::string r_tmp;
@@ -1624,7 +1623,6 @@ static inline void rescue_mate(
         sam_aln.is_rc = n.is_rc;
         sam_aln.ref_id = n.ref_id;
         sam_aln.is_unaligned = true;
-        sam_aln.is_proper = false;
 //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return;
     }
@@ -1652,7 +1650,6 @@ static inline void rescue_mate(
         sam_aln.is_rc = n.is_rc;
         sam_aln.ref_id = n.ref_id;
         sam_aln.is_unaligned = true;
-        sam_aln.is_proper = false;
 //        std::cerr << "Avoided!" << std::endl;
         return;
 //        std::cerr << "Aligning anyway at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
