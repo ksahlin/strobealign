@@ -8,7 +8,7 @@ class Version {};
 
 std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int argc, char **argv) {
 
-    args::ArgumentParser parser("StrobeAlign " + version_string());
+    args::ArgumentParser parser("strobelign " + version_string());
     parser.helpParams.showTerminator = false;
     parser.helpParams.helpindent = 20;
     parser.helpParams.width = 90;
@@ -50,7 +50,7 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     args::ValueFlag<float> f(parser, "FLOAT", "Top fraction of repetitive strobemers to filter out from sampling [0.0002]", {'f'});
     args::ValueFlag<float> S(parser, "FLOAT", "Try candidate sites with mapping score at least S of maximum mapping score [0.5]", {'S'});
     args::ValueFlag<int> M(parser, "INT", "Maximum number of mapping sites to try [20]", {'M'});
-    args::ValueFlag<int> R(parser, "INT", "Rescue level. Perform additional search for reads with many repetitive seeds filtered out. This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes StrobeAlign significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest.", {'R'});
+    args::ValueFlag<int> R(parser, "INT", "Rescue level. Perform additional search for reads with many repetitive seeds filtered out. This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes strobealign significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest.", {'R'});
 
     // <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]
     args::Positional<std::string> ref_filename(parser, "reference", "A pregenerated strobemers index file (.sti) or a reference in FASTA format", args::Options::Required);

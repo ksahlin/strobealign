@@ -151,7 +151,7 @@ int run_strobealign(int argc, char **argv) {
 
     logger.set_level(opt.verbose ? LOG_DEBUG : LOG_INFO);
 
-    logger.info() << "This is StrobeAlign " << version_string() << '\n';
+    logger.info() << "This is strobealign " << version_string() << '\n';
     if (!opt.r_set && !opt.reads_filename1.empty()) {
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
         logger.info() << "Estimated read length: " << map_param.r << " bp\n";

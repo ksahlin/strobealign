@@ -1,13 +1,13 @@
 strobealign
-==============
+===========
 
-Strobealign is a fast **short-read aligner**. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers. 
+strobealign is a fast **short-read aligner**. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers.
 
-Strobealign is multithreaded, aligns single-end and paired-end reads, and outputs mapped reads either in SAM format (default) or PAF format (extension-free mapping).
+strobealign is multithreaded, aligns single-end and paired-end reads, and outputs mapped reads either in SAM format (default) or PAF format (extension-free mapping).
 
-Strobealign is benchmarked for read lengths between 100-500bp. A preprint describing v0.7.1 is available [here](https://doi.org/10.1101/2021.06.18.449070).
+strobealign is benchmarked for read lengths between 100 and 500 bp. A preprint describing v0.7.1 is available [here](https://doi.org/10.1101/2021.06.18.449070).
 
-See [INSTALLATION](https://github.com/ksahlin/StrobeAlign#installation) and [USAGE](https://github.com/ksahlin/StrobeAlign#usage) to install and run strobealign. See [v07 PERFORMANCE](https://github.com/ksahlin/StrobeAlign#v07-performance) for the accuracy and runtime performance of strobealign.
+See [INSTALLATION](https://github.com/ksahlin/strobealign#installation) and [USAGE](https://github.com/ksahlin/strobealign#usage) to install and run strobealign. See [v07 PERFORMANCE](https://github.com/ksahlin/strobealign#v07-performance) for the accuracy and runtime performance of strobealign.
 
 INSTALLATION
 ----------------
@@ -20,17 +20,17 @@ conda create -n strobealign strobealign
 ```
 
 ### Binaries
-You can acquire precompiled binaries for Linux and Mac OSx from the [release page](https://github.com/ksahlin/StrobeAlign/releases) compiled with `-O3 -mavx2`. 
+You can acquire precompiled binaries for Linux and macOS from the [release page](https://github.com/ksahlin/strobealign/releases) compiled with `-O3 -mavx2`.
 
-It has been [reported](https://github.com/ksahlin/StrobeAlign/issues/6) that `strobealign` is even faster if compliled with flag `-march=skylake-avx512` for avx512 supported processors.
+It has been [reported](https://github.com/ksahlin/strobealign/issues/6) that strobealign is even faster if compiled with flag `-march=skylake-avx512` for processors that support AVX512 instructions.
 
 ### From source
 If you want to compile from the source, you need to have CMake, a recent `g++` (tested with version 8) and [zlib](https://zlib.net/) installed.
 Then do the following:
 
 ```
-git clone https://github.com/ksahlin/StrobeAlign
-cd StrobeAlign
+git clone https://github.com/ksahlin/strobealign
+cd strobealign
 cmake -B build
 cd build
 make -j8
@@ -39,7 +39,7 @@ Try `make VERBOSE=1` to get more logging output.
 
 ##### Development installation
 
-When developing StrobeAlign, add `-DCMAKE_BUILD_TYPE=RelWithDebInfo` to the
+When developing strobealign, add `-DCMAKE_BUILD_TYPE=RelWithDebInfo` to the
 `cmake` options to get debug symbols.
 
 
@@ -78,7 +78,7 @@ For the biological SNV and indel experiments, we used GIAB datasets (HG004; Moth
 
 ## Mapping accuracy and runtime
 
-Below shows the accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for the SIM3 (Fig 1) and REPEATS (Fig 2) datasets in the preprint using strobealign v0.7. On all but the 2x100 datasets, strobealign has comparable or higher accuracy than BWA MEM while being substantially faster. On the 2x100 datasets, strobealign has the second highest accuracy after BWA MEM on SIM3 while being substantially faster, and comparable accuracy to minimap2 and BWA MEM on the REPEATS dataset while being twice as fast.
+Below shows the accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for the SIM3 (Fig 1) and REPEATS (Fig 2) datasets in the preprint using strobealign v0.7. On all but the 2x100 datasets, strobealign has comparable or higher accuracy than BWA-MEM while being substantially faster. On the 2x100 datasets, strobealign has the second highest accuracy after BWA-MEM on SIM3 while being substantially faster, and comparable accuracy to minimap2 and BWA-MEM on the REPEATS dataset while being twice as fast.
 
 ![v0 6 1_sim3 001 jpeg 001](https://user-images.githubusercontent.com/1714667/155574282-35bd370c-e7f5-4e59-896d-465473e6a71f.jpeg)
 Figure 1. Accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for the SIM3 dataset
@@ -87,11 +87,11 @@ Figure 1. Accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for
 Figure 2. Accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for the REPEATS dataset
 
 ## Variant calling benchmark (simulated REPEATS)
-A small SNV and INDEL calling benchmark with strobealign v0.7 is provided below. We used `bcftools` to call SNPs and indels on a simulated repetitive genome based on alignments from strobealign, BWA-MEM, and minimap2 (ran with 1 core). The genome is a 16.8Mbp sequence consisting of 500 concatenated copies of a 40kbp sequence which is mutated through substitutions (5%) and removing segments of size 1bp-1kbp (0.5%) along the oringinal 20Mbp string. 
+A small SNV and INDEL calling benchmark with strobealign v0.7 is provided below. We used `bcftools` to call SNPs and indels on a simulated repetitive genome based on alignments from strobealign, BWA-MEM, and minimap2 (ran with 1 core). The genome is a 16.8Mbp sequence consisting of 500 concatenated copies of a 40kbp sequence which is mutated through substitutions (5%) and removing segments of size 1bp-1kbp (0.5%) along the oringinal 20Mbp string.
 
-Then, 2 million paired-end reads (lengths 100, 150, 200, 250, 300) from a related genome with high variation rate: 0.5% SNVs and 0.5% INDELs. The challange is to find the right location of reads in the repetitive genome to predict the SNVs and INDELs in the related genome. In the genome where the reads are simulated from there is about 78k SNVs and INDELS, respectively. Locations of true SNVs and INDELs and provided by the read simulator. The precision (P), recall (R), and [F-score](https://en.wikipedia.org/wiki/F-score) are computed based on the true variants (for details see section [Variant calling benchmark method](https://github.com/ksahlin/StrobeAlign#variant-calling-benchmark-method)). Results in table below. 
+Then, 2 million paired-end reads (lengths 100, 150, 200, 250, 300) from a related genome with high variation rate: 0.5% SNVs and 0.5% INDELs. The challange is to find the right location of reads in the repetitive genome to predict the SNVs and INDELs in the related genome. In the genome where the reads are simulated from there is about 78k SNVs and INDELS, respectively. Locations of true SNVs and INDELs and provided by the read simulator. The precision (P), recall (R), and [F-score](https://en.wikipedia.org/wiki/F-score) are computed based on the true variants (for details see section [Variant calling benchmark method](https://github.com/ksahlin/strobealign#variant-calling-benchmark-method)). Results in table below.
 
-In the experiments strobealign is in general the fastest tool, has the highest SNV precision, and *highest precision, recall, and F-score* for indels. 
+In the experiments strobealign is in general the fastest tool, has the highest SNV precision, and *highest precision, recall, and F-score* for indels.
 
 There are frequent indels in this dataset (every 200th bases on average) requiring calls to base level alignments for most reads. Between 65-85% of strobealign's runtime is spent on base level alignments with third-party SSW alignment module. The longer the reads the higher % of time is spent on base level alignment. Speed improvements to base-level alignment libraries will greatly reduce runtime on this dataset.
 
@@ -133,7 +133,7 @@ Figure 3. Recall precision and F-score for the aligners on 2x150 and 2x250 datas
 
 We used Illumina paired-end reads from the [GIAB datasets](https://github.com/genome-in-a-bottle/giab_data_indexes) HG004 (Mother) with the 2x150bp reads (subsampled to ~26x coverage; using only the reads in `140818_D00360_0047_BHA66FADXX/Project_RM8392`) and 2x250bp reads (~17x coverage). We aligned the reads to hg38 without alternative haplotypes as proposed [here](https://lh3.github.io/2017/11/13/which-human-reference-genome-to-use). We used 16 cores for all aligners. We obtain the "true" SNVs and INDELs from the GIAB gold standard predictions formed from several sequencing technologies. They are provided [here](https://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/release/AshkenazimTrio/HG004_NA24143_mother/latest/GRCh38/).
 
-Results are shown for SNVs and indels separately in Figure 4. For SNVs, predictions with strobealign as the aligner have the highest [F-score](https://en.wikipedia.org/wiki/F-score) of all benchmarked aligners on both datasets. Strobealign's alignments yield the highest precision at the cost of a slightly lower recall. As for indels, predictions have a low recall, precision, and F-score with all aligners. This may be because we benchmarked against all gold standard SVs for HG004 that were not SNVs (see below method for the evaluation). Overall, predictions using Bowtie2 are the most desirable on these datasets. 
+Results are shown for SNVs and indels separately in Figure 4. For SNVs, predictions with strobealign as the aligner have the highest [F-score](https://en.wikipedia.org/wiki/F-score) of all benchmarked aligners on both datasets. Strobealign's alignments yield the highest precision at the cost of a slightly lower recall. As for indels, predictions have a low recall, precision, and F-score with all aligners. This may be because we benchmarked against all gold standard SVs for HG004 that were not SNVs (see below method for the evaluation). Overall, predictions using Bowtie2 are the most desirable on these datasets.
 
 
 ![sv_calling 001](https://user-images.githubusercontent.com/1714667/156128690-266ccfad-14c0-48a7-8fe7-de794d98cc65.jpeg)
@@ -183,11 +183,11 @@ Kristoffer Sahlin. Flexible seed size enables ultra-fast and accurate read align
 VERSION INFO
 ---------------
 
-See [release page](https://github.com/ksahlin/StrobeAlign/releases)
+See [release page](https://github.com/ksahlin/strobealign/releases)
 
 
 LICENCE
 ----------------
 
-MIT license, see [LICENSE](https://github.com/ksahlin/StrobeAlign/blob/main/LICENSE).
+MIT license, see [LICENSE](https://github.com/ksahlin/strobealign/blob/main/LICENSE).
 
