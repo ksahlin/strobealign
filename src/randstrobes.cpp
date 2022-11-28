@@ -41,12 +41,13 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
     const std::string &seq,
     std::vector<uint64_t> &string_hashes,
     std::vector<unsigned int> &pos_to_seq_coordinate,
-    const uint64_t kmask,
     const int k,
-    const uint64_t smask,
     const int s,
     const int t
 ) {
+    const uint64_t kmask = (1ULL << 2*k) - 1;
+    const uint64_t smask = (1ULL << 2*s) - 1;
+
     std::deque<uint64_t> qs;  // s-mer hashes
     int seq_length = seq.length();
     uint64_t qs_min_val = UINT64_MAX;
@@ -229,15 +230,13 @@ void randstrobes_reference(
         return;
     }
 
-    uint64_t kmask = (1ULL << 2*k) - 1;
     // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
     std::vector<uint64_t> string_hashes;
     std::vector<unsigned int> pos_to_seq_coordinate;
 //    robin_hood::unordered_map< unsigned int, unsigned int>  pos_to_seq_choord;
 //    make_string_to_hashvalues_random_minimizers(seq, string_hashes, pos_to_seq_choord, k, kmask, w);
 
-    uint64_t smask = (1ULL << 2*s) - 1;
-    make_string_to_hashvalues_open_syncmers_canonical(seq, string_hashes, pos_to_seq_coordinate, kmask, k, smask, s, t);
+    make_string_to_hashvalues_open_syncmers_canonical(seq, string_hashes, pos_to_seq_coordinate, k, s, t);
 
     unsigned int nr_hashes = string_hashes.size();
     if (nr_hashes == 0) {
@@ -281,13 +280,11 @@ mers_vector_read randstrobes_query(
         return randstrobes2;
     }
 
-    uint64_t kmask = (1ULL << 2*k) - 1;
     // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
     std::vector<uint64_t> string_hashes;
     std::vector<unsigned int> pos_to_seq_coordinate;
 
-    uint64_t smask = (1ULL << 2*s) - 1;
-    make_string_to_hashvalues_open_syncmers_canonical(seq, string_hashes, pos_to_seq_coordinate, kmask, k, smask, s, t);
+    make_string_to_hashvalues_open_syncmers_canonical(seq, string_hashes, pos_to_seq_coordinate, k, s, t);
 
     unsigned int nr_hashes = string_hashes.size();
     if (nr_hashes == 0) {
