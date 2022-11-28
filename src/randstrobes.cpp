@@ -78,8 +78,9 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                     qs.push_back(hash_s);
                     qs_pos.push_back(i - s + 1);
                     qs_size++;
+                    continue;
                 }
-                else if (qs_size == k - s ) { // We are seeing the last s-mer within the first k-mer, need to decide if we add it
+                if (qs_size == k - s ) { // We are seeing the last s-mer within the first k-mer, need to decide if we add it
                     qs.push_back(hash_s);
                     qs_pos.push_back(i - s + 1);
                     qs_size++;
@@ -89,13 +90,8 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                             qs_min_pos = qs_pos[j];
                         }
                     }
-                    if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
-                        uint64_t yk = std::min(xk[0], xk[1]);
-                        string_hashes.push_back(syncmer_kmer_hash(yk));
-                        pos_to_seq_coordinate.push_back(i - k + 1);
-                    }
                 }
-                else{
+                else {
                     // update queue and current minimum and position
                     int i2 = i - s + 1;
 
@@ -119,12 +115,11 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                         qs_min_val = hash_s;
                         qs_min_pos = i2;
                     }
-
-                    if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
-                        uint64_t yk = std::min(xk[0], xk[1]);
-                        string_hashes.push_back(syncmer_kmer_hash(yk));
-                        pos_to_seq_coordinate.push_back(i - k + 1);
-                    }
+                }
+                if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
+                    uint64_t yk = std::min(xk[0], xk[1]);
+                    string_hashes.push_back(syncmer_kmer_hash(yk));
+                    pos_to_seq_coordinate.push_back(i - k + 1);
                 }
             }
         } else {
