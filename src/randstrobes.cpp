@@ -41,11 +41,11 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
     const std::string &seq,
     std::vector<uint64_t> &string_hashes,
     std::vector<unsigned int> &pos_to_seq_coordinate,
-    uint64_t kmask,
-    int k,
-    uint64_t smask,
-    int s,
-    int t
+    const uint64_t kmask,
+    const int k,
+    const uint64_t smask,
+    const int s,
+    const int t
 ) {
     std::deque<uint64_t> qs;  // s-mer hashes
     std::deque<unsigned int> qs_pos; // s-mer start positions
