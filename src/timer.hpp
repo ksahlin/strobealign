@@ -13,6 +13,11 @@ public:
     std::chrono::duration<double> duration() const {
         return std::chrono::high_resolution_clock::now() - start_time;
     }
+
+    std::chrono::duration<double>::rep elapsed() const {
+        return duration().count();
+    }
+
 private:
     std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
 };
