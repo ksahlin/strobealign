@@ -67,7 +67,7 @@ static inline void update_window(
 static inline void make_string_to_hashvalues_open_syncmers_canonical(
     const std::string &seq,
     std::vector<uint64_t> &string_hashes,
-    std::vector<unsigned int> &pos_to_seq_choord,
+    std::vector<unsigned int> &pos_to_seq_coordinate,
     uint64_t kmask,
     int k,
     uint64_t smask,
@@ -129,7 +129,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                         uint64_t hash_k = XXH64(&yk, 8,0);
 //                        uint64_t hash_k =  sahlin_dna_hash(yk, mask);
                         string_hashes.push_back(hash_k);
-                        pos_to_seq_choord.push_back(i - k + 1);
+                        pos_to_seq_coordinate.push_back(i - k + 1);
                         hash_count++;
 //                        std::cerr << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
 //                        std::cerr <<  "Sampled gap: " << gap (k-s+1) << std::endl;
@@ -153,7 +153,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                         uint64_t hash_k = XXH64(&yk, 8, 0);
 //                        uint64_t hash_k =  sahlin_dna_hash(yk, mask);
                         string_hashes.push_back(hash_k);
-                        pos_to_seq_choord.push_back(i - k + 1);
+                        pos_to_seq_coordinate.push_back(i - k + 1);
 //                        std::cerr << i - k + 1 << std::endl;
                         hash_count++;
 //                        std::cerr << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
