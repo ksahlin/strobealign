@@ -48,7 +48,6 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
     const int t
 ) {
     std::deque<uint64_t> qs;  // s-mer hashes
-    std::deque<unsigned int> qs_pos; // s-mer start positions
     int seq_length = seq.length();
     int qs_size = 0;
     uint64_t qs_min_val = UINT64_MAX;
@@ -77,7 +76,6 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
 //          uint64_t hash_s = hash64(ys, mask);
 //          uint64_t hash_s = XXH64(&ys, 8,0);
             qs.push_back(hash_s);
-            qs_pos.push_back(i - s + 1);
             qs_size++;
             // not enough hashes in the queue, yet
             if (qs_size < k - s + 1) {
@@ -87,24 +85,22 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                 for (int j = 0; j < qs_size; j++) {
                     if (qs[j] < qs_min_val) {
                         qs_min_val = qs[j];
-                        qs_min_pos = qs_pos[j];
+                        qs_min_pos = i - k + j + 1;
                     }
                 }
             }
             else {
                 // update queue and current minimum and position
                 qs.pop_front();
-                auto popped_index = qs_pos.front();
-                qs_pos.pop_front();
                 qs_size--;
 
-                if (qs_min_pos == popped_index){ // we popped the previous minimizer, find new brute force
+                if (qs_min_pos == i - k) { // we popped the previous minimizer, find new brute force
                     qs_min_val = UINT64_MAX;
                     qs_min_pos = i - s + 1;
                     for (int j = qs.size() - 1; j >= 0; j--) { //Iterate in reverse to choose the rightmost minimizer in a window
                         if (qs[j] < qs_min_val) {
                             qs_min_val = qs[j];
-                            qs_min_pos = qs_pos[j];
+                            qs_min_pos = i - k + j + 1;
                         }
                     }
                 } else if (hash_s < qs_min_val) { // the new value added to queue is the new minimum
@@ -112,7 +108,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                     qs_min_pos = i - s + 1;
                 }
             }
-            if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
+            if (qs_min_pos == i - k + t) { // occurs at t:th position in k-mer
                 uint64_t yk = std::min(xk[0], xk[1]);
                 string_hashes.push_back(syncmer_kmer_hash(yk));
                 pos_to_seq_coordinate.push_back(i - k + 1);
@@ -124,7 +120,6 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
             l = xs[0] = xs[1] = xk[0] = xk[1] = 0;
             qs_size = 0;
             qs.clear();
-            qs_pos.clear();
         }
     }
 }
