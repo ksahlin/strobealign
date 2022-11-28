@@ -47,9 +47,9 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
 ) {
     const uint64_t kmask = (1ULL << 2*k) - 1;
     const uint64_t smask = (1ULL << 2*s) - 1;
-
+    const uint64_t kshift = (k - 1) * 2;
+    const uint64_t sshift = (s - 1) * 2;
     std::deque<uint64_t> qs;  // s-mer hashes
-    int seq_length = seq.length();
     uint64_t qs_min_val = UINT64_MAX;
     int qs_min_pos = -1;
 
@@ -57,9 +57,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
     int l = 0;
     uint64_t xk[] = {0, 0};
     uint64_t xs[] = {0, 0};
-    uint64_t kshift = (k - 1) * 2;
-    uint64_t sshift = (s - 1) * 2;
-    for (int i = 0; i < seq_length; i++) {
+    for (size_t i = 0; i < seq.length(); i++) {
         int c = seq_nt4_table[(uint8_t) seq[i]];
         if (c < 4) { // not an "N" base
             xk[0] = (xk[0] << 2 | c) & kmask;                  // forward strand
