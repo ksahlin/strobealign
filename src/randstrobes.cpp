@@ -55,12 +55,12 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
     int qs_min_pos = -1;
 
     std::string subseq;
-    int l;
+    int l = 0;
     uint64_t xk[] = {0, 0};
     uint64_t xs[] = {0, 0};
     uint64_t kshift = (k - 1) * 2;
     uint64_t sshift = (s - 1) * 2;
-    for (int i = l = 0; i < seq_length; i++) {
+    for (int i = 0; i < seq_length; i++) {
         int c = seq_nt4_table[(uint8_t) seq[i]];
         if (c < 4) { // not an "N" base
             xk[0] = (xk[0] << 2 | c) & kmask;                  // forward strand
@@ -93,7 +93,6 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
             }
             else {
                 // update queue and current minimum and position
-                int i2 = i - s + 1;
                 qs.pop_front();
                 auto popped_index = qs_pos.front();
                 qs_pos.pop_front();
@@ -101,7 +100,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
 
                 if (qs_min_pos == popped_index){ // we popped the previous minimizer, find new brute force
                     qs_min_val = UINT64_MAX;
-                    qs_min_pos = i2;
+                    qs_min_pos = i - s + 1;
                     for (int j = qs.size() - 1; j >= 0; j--) { //Iterate in reverse to choose the rightmost minimizer in a window
                         if (qs[j] < qs_min_val) {
                             qs_min_val = qs[j];
@@ -110,7 +109,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                     }
                 } else if (hash_s < qs_min_val) { // the new value added to queue is the new minimum
                     qs_min_val = hash_s;
-                    qs_min_pos = i2;
+                    qs_min_pos = i - s + 1;
                 }
             }
             if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
