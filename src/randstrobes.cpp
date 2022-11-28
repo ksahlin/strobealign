@@ -63,6 +63,13 @@ static inline void update_window(
     }
 }
 
+static inline uint64_t syncmer_kmer_hash(uint64_t packed) {
+    // return robin_hash(yk);
+    // return yk;
+    // return hash64(yk, mask);
+    // return sahlin_dna_hash(yk, mask);
+    return XXH64(&packed, sizeof(uint64_t), 0);
+}
 
 static inline void make_string_to_hashvalues_open_syncmers_canonical(
     const std::string &seq,
@@ -118,12 +125,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                     }
                     if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
                         uint64_t yk = std::min(xk[0], xk[1]);
-//                        uint64_t hash_k = robin_hash(yk);
-//                        uint64_t hash_k = yk;
-//                        uint64_t hash_k =  hash64(yk, mask);
-                        uint64_t hash_k = XXH64(&yk, 8,0);
-//                        uint64_t hash_k =  sahlin_dna_hash(yk, mask);
-                        string_hashes.push_back(hash_k);
+                        string_hashes.push_back(syncmer_kmer_hash(yk));
                         pos_to_seq_coordinate.push_back(i - k + 1);
                     }
                 }
@@ -132,12 +134,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                     update_window(qs, qs_pos, qs_min_val, qs_min_pos, hash_s, i - s + 1, new_minimizer );
                     if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
                         uint64_t yk = std::min(xk[0], xk[1]);
-//                        uint64_t hash_k = robin_hash(yk);
-//                        uint64_t hash_k = yk;
-//                        uint64_t hash_k = hash64(yk, mask);
-                        uint64_t hash_k = XXH64(&yk, 8, 0);
-//                        uint64_t hash_k =  sahlin_dna_hash(yk, mask);
-                        string_hashes.push_back(hash_k);
+                        string_hashes.push_back(syncmer_kmer_hash(yk));
                         pos_to_seq_coordinate.push_back(i - k + 1);
                     }
                 }
