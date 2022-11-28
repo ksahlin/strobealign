@@ -85,10 +85,8 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
     std::string subseq;
     unsigned int hash_count = 0;
     int l;
-    uint64_t xk[2];
-    xk[0] = xk[1] = 0;
-    uint64_t xs[2];
-    xs[0] = xs[1] = 0;
+    uint64_t xk[] = {0, 0};
+    uint64_t xs[] = {0, 0};
     uint64_t kshift = (k - 1) * 2;
     uint64_t sshift = (s - 1) * 2;
     for (int i = l = 0; i < seq_length; i++) {
