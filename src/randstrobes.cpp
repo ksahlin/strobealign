@@ -39,8 +39,6 @@ static inline void update_window(
     int i,
     bool &new_minimizer
 ) {
-//    uint64_t popped_val;
-//    popped_val = q.front();
     q.pop_front();
 
     auto popped_index = q_pos.front();
@@ -49,11 +47,9 @@ static inline void update_window(
     q.push_back(new_strobe_hashval);
     q_pos.push_back(i);
     if (q_min_pos == popped_index){ // we popped the previous minimizer, find new brute force
-//    if (popped_val == q_min_val){ // we popped the minimum value, find new brute force
         q_min_val = UINT64_MAX;
         q_min_pos = i;
         for (int j = q.size() - 1; j >= 0; j--) { //Iterate in reverse to choose the rightmost minimizer in a window
-//        for (int j = 0; j <= q.size()-1; j++) {
             if (q[j] < q_min_val) {
                 q_min_val = q[j];
                 q_min_pos = q_pos[j];
@@ -85,11 +81,6 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
     uint64_t qs_min_val = UINT64_MAX;
     int qs_min_pos = -1;
 
-//    robin_hood::hash<uint64_t> robin_hash;
-    uint64_t mask = (1ULL<<2*k) - 1;
-//    std::cerr << mask << std::endl;
-
-//    std::vector<std::tuple<uint64_t, unsigned int, unsigned int> > kmers;
     int gap = 0;
     std::string subseq;
     unsigned int hash_count = 0;
