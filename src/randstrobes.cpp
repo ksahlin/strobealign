@@ -81,7 +81,6 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
     uint64_t qs_min_val = UINT64_MAX;
     int qs_min_pos = -1;
 
-    int gap = 0;
     std::string subseq;
     int l;
     uint64_t xk[] = {0, 0};
@@ -107,7 +106,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                     qs_pos.push_back(i - s + 1);
                     qs_size++;
                 }
-                else if (qs_size == k - s ) { // We are here adding the last s-mer and have filled queue up, need to decide for this k-mer (the first encountered) if we are adding it/
+                else if (qs_size == k - s ) { // We are seeing the last s-mer within the first k-mer, need to decide if we add it
                     qs.push_back(hash_s);
                     qs_pos.push_back(i - s + 1);
                     qs_size++;
@@ -118,7 +117,6 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                         }
                     }
                     if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
-//                    if ( (qs_min_pos == qs_pos[t-1]) || ((gap > 10) && ((qs_min_pos == qs_pos[k - s]) || (qs_min_pos == qs_pos[0]))) ) { // occurs at first or last position in k-mer
                         uint64_t yk = std::min(xk[0], xk[1]);
 //                        uint64_t hash_k = robin_hash(yk);
 //                        uint64_t hash_k = yk;
@@ -127,21 +125,12 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
 //                        uint64_t hash_k =  sahlin_dna_hash(yk, mask);
                         string_hashes.push_back(hash_k);
                         pos_to_seq_coordinate.push_back(i - k + 1);
-//                        std::cerr << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
-//                        std::cerr <<  "Sampled gap: " << gap (k-s+1) << std::endl;
-                        gap = 0;
                     }
                 }
                 else{
                     bool new_minimizer = false;
                     update_window(qs, qs_pos, qs_min_val, qs_min_pos, hash_s, i - s + 1, new_minimizer );
                     if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
-//                    if ( (qs_min_pos == qs_pos[t-1]) || ((gap > 10) && ((qs_min_pos == qs_pos[k - s]) || (qs_min_pos == qs_pos[0]))) ) { // occurs at first or last position in k-mer
-//                        if ( (gap > k) && (gap < 200) ) { // open syncmers no window guarantee, fill in subsequence with closed syncmers
-//                            subseq = seq.substr(i - k + 1 - gap + 1, gap +k);
-//                            make_string_to_hashvalues_closed_syncmers_canonical(subseq, string_hashes, pos_to_seq_choord, kmask, k, smask, s, t, i - k + 1 - gap + 1);
-//                        }
-
                         uint64_t yk = std::min(xk[0], xk[1]);
 //                        uint64_t hash_k = robin_hash(yk);
 //                        uint64_t hash_k = yk;
@@ -150,19 +139,8 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
 //                        uint64_t hash_k =  sahlin_dna_hash(yk, mask);
                         string_hashes.push_back(hash_k);
                         pos_to_seq_coordinate.push_back(i - k + 1);
-//                        std::cerr << i - k + 1 << std::endl;
-//                        std::cerr << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
-//                        std::cerr <<  "Gap: " << gap << " position:" << i - k + 1 << std::endl;
-                        gap = 0;
                     }
-                    gap ++;
                 }
-//                if (gap > 25){
-//                    std::cerr <<  "Gap: " << gap << " position:" << i - k + 1 << std::endl;
-//                    if (gap < 500 ) {
-//                        std::cerr << seq.substr(i - k + 1 - gap + 1, gap +k) << std::endl;
-//                    }
-//                }
             }
         } else {
             // if there is an "N", restart
