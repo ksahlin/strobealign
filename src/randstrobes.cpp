@@ -30,7 +30,15 @@ static unsigned char seq_nt4_table[256] = {
 };
 
 // update queue and current minimum and position
-static inline void update_window(std::deque <uint64_t> &q, std::deque <unsigned int> &q_pos, uint64_t &q_min_val, int &q_min_pos, uint64_t new_strobe_hashval, int i, bool &new_minimizer){
+static inline void update_window(
+    std::deque<uint64_t> &q,
+    std::deque<unsigned int> &q_pos,
+    uint64_t &q_min_val,
+    int &q_min_pos,
+    uint64_t new_strobe_hashval,
+    int i,
+    bool &new_minimizer
+) {
 //    uint64_t popped_val;
 //    popped_val = q.front();
     q.pop_front();
@@ -52,8 +60,7 @@ static inline void update_window(std::deque <uint64_t> &q, std::deque <unsigned 
                 new_minimizer = true;
             }
         }
-    }
-    else if ( new_strobe_hashval < q_min_val ) { // the new value added to queue is the new minimum
+    } else if (new_strobe_hashval < q_min_val) { // the new value added to queue is the new minimum
         q_min_val = new_strobe_hashval;
         q_min_pos = i;
         new_minimizer = true;
@@ -61,15 +68,22 @@ static inline void update_window(std::deque <uint64_t> &q, std::deque <unsigned 
 }
 
 
-static inline void make_string_to_hashvalues_open_syncmers_canonical(const std::string &seq, std::vector<uint64_t> &string_hashes, std::vector<unsigned int> &pos_to_seq_choord, uint64_t kmask, int k, uint64_t smask, int s, int t)
-{
+static inline void make_string_to_hashvalues_open_syncmers_canonical(
+    const std::string &seq,
+    std::vector<uint64_t> &string_hashes,
+    std::vector<unsigned int> &pos_to_seq_choord,
+    uint64_t kmask,
+    int k,
+    uint64_t smask,
+    int s,
+    int t
+) {
     std::deque<uint64_t> qs;
     std::deque<unsigned int> qs_pos;
     int seq_length = seq.length();
     int qs_size = 0;
     uint64_t qs_min_val = UINT64_MAX;
     int qs_min_pos = -1;
-
 
 //    robin_hood::hash<uint64_t> robin_hash;
     uint64_t mask = (1ULL<<2*k) - 1;
