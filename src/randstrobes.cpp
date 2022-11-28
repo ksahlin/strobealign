@@ -29,40 +29,6 @@ static unsigned char seq_nt4_table[256] = {
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
 };
 
-// update queue and current minimum and position
-static inline void update_window(
-    std::deque<uint64_t> &q,
-    std::deque<unsigned int> &q_pos,
-    uint64_t &q_min_val,
-    int &q_min_pos,
-    uint64_t new_strobe_hashval,
-    int i,
-    bool &new_minimizer
-) {
-    q.pop_front();
-
-    auto popped_index = q_pos.front();
-    q_pos.pop_front();
-
-    q.push_back(new_strobe_hashval);
-    q_pos.push_back(i);
-    if (q_min_pos == popped_index){ // we popped the previous minimizer, find new brute force
-        q_min_val = UINT64_MAX;
-        q_min_pos = i;
-        for (int j = q.size() - 1; j >= 0; j--) { //Iterate in reverse to choose the rightmost minimizer in a window
-            if (q[j] < q_min_val) {
-                q_min_val = q[j];
-                q_min_pos = q_pos[j];
-                new_minimizer = true;
-            }
-        }
-    } else if (new_strobe_hashval < q_min_val) { // the new value added to queue is the new minimum
-        q_min_val = new_strobe_hashval;
-        q_min_pos = i;
-        new_minimizer = true;
-    }
-}
-
 static inline uint64_t syncmer_kmer_hash(uint64_t packed) {
     // return robin_hash(yk);
     // return yk;
@@ -130,8 +96,34 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                     }
                 }
                 else{
+                    int i2 = i - s + 1;
                     bool new_minimizer = false;
-                    update_window(qs, qs_pos, qs_min_val, qs_min_pos, hash_s, i - s + 1, new_minimizer );
+
+                    // update queue and current minimum and position
+
+                    qs.pop_front();
+
+                    auto popped_index = qs_pos.front();
+                    qs_pos.pop_front();
+
+                    qs.push_back(hash_s);
+                    qs_pos.push_back(i2);
+                    if (qs_min_pos == popped_index){ // we popped the previous minimizer, find new brute force
+                        qs_min_val = UINT64_MAX;
+                        qs_min_pos = i2;
+                        for (int j = qs.size() - 1; j >= 0; j--) { //Iterate in reverse to choose the rightmost minimizer in a window
+                            if (qs[j] < qs_min_val) {
+                                qs_min_val = qs[j];
+                                qs_min_pos = qs_pos[j];
+                                new_minimizer = true;
+                            }
+                        }
+                    } else if (hash_s < qs_min_val) { // the new value added to queue is the new minimum
+                        qs_min_val = hash_s;
+                        qs_min_pos = i2;
+                        new_minimizer = true;
+                    }
+
                     if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
                         uint64_t yk = std::min(xk[0], xk[1]);
                         string_hashes.push_back(syncmer_kmer_hash(yk));
