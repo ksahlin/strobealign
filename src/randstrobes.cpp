@@ -96,10 +96,8 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                     }
                 }
                 else{
-                    int i2 = i - s + 1;
-                    bool new_minimizer = false;
-
                     // update queue and current minimum and position
+                    int i2 = i - s + 1;
 
                     qs.pop_front();
 
@@ -115,13 +113,11 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                             if (qs[j] < qs_min_val) {
                                 qs_min_val = qs[j];
                                 qs_min_pos = qs_pos[j];
-                                new_minimizer = true;
                             }
                         }
                     } else if (hash_s < qs_min_val) { // the new value added to queue is the new minimum
                         qs_min_val = hash_s;
                         qs_min_pos = i2;
-                        new_minimizer = true;
                     }
 
                     if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
