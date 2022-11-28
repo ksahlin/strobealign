@@ -300,19 +300,19 @@ void randstrobes_reference(
     uint64_t kmask = (1ULL << 2*k) - 1;
     // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
     std::vector<uint64_t> string_hashes;
-    std::vector<unsigned int> pos_to_seq_choord;
+    std::vector<unsigned int> pos_to_seq_coordinate;
 //    robin_hood::unordered_map< unsigned int, unsigned int>  pos_to_seq_choord;
 //    make_string_to_hashvalues_random_minimizers(seq, string_hashes, pos_to_seq_choord, k, kmask, w);
 
     uint64_t smask = (1ULL << 2*s) - 1;
-    make_string_to_hashvalues_open_syncmers_canonical(seq, string_hashes, pos_to_seq_choord, kmask, k, smask, s, t);
+    make_string_to_hashvalues_open_syncmers_canonical(seq, string_hashes, pos_to_seq_coordinate, kmask, k, smask, s, t);
 
     unsigned int nr_hashes = string_hashes.size();
     if (nr_hashes == 0) {
         return;
     }
 
-    RandstrobeIterator randstrobe_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q, max_dist };
+    RandstrobeIterator randstrobe_iter { string_hashes, pos_to_seq_coordinate, w_min, w_max, q, max_dist };
     while (randstrobe_iter.has_next()) {
         auto randstrobe = randstrobe_iter.next();
         int packed = (ref_index << 8);
@@ -352,17 +352,17 @@ mers_vector_read randstrobes_query(
     uint64_t kmask = (1ULL << 2*k) - 1;
     // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
     std::vector<uint64_t> string_hashes;
-    std::vector<unsigned int> pos_to_seq_choord;
+    std::vector<unsigned int> pos_to_seq_coordinate;
 
     uint64_t smask = (1ULL << 2*s) - 1;
-    make_string_to_hashvalues_open_syncmers_canonical(seq, string_hashes, pos_to_seq_choord, kmask, k, smask, s, t);
+    make_string_to_hashvalues_open_syncmers_canonical(seq, string_hashes, pos_to_seq_coordinate, kmask, k, smask, s, t);
 
     unsigned int nr_hashes = string_hashes.size();
     if (nr_hashes == 0) {
         return randstrobes2;
     }
 
-    RandstrobeIterator randstrobe_fwd_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q, max_dist };
+    RandstrobeIterator randstrobe_fwd_iter { string_hashes, pos_to_seq_coordinate, w_min, w_max, q, max_dist };
     while (randstrobe_fwd_iter.has_next()) {
         auto randstrobe = randstrobe_fwd_iter.next();
         unsigned int offset_strobe = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
@@ -371,12 +371,12 @@ mers_vector_read randstrobes_query(
     }
 
     std::reverse(string_hashes.begin(), string_hashes.end());
-    std::reverse(pos_to_seq_choord.begin(), pos_to_seq_choord.end());
+    std::reverse(pos_to_seq_coordinate.begin(), pos_to_seq_coordinate.end());
     for (unsigned int i = 0; i < nr_hashes; i++) {
-        pos_to_seq_choord[i] = read_length - pos_to_seq_choord[i] - k;
+        pos_to_seq_coordinate[i] = read_length - pos_to_seq_coordinate[i] - k;
     }
 
-    RandstrobeIterator randstrobe_rc_iter { string_hashes, pos_to_seq_choord, w_min, w_max, q, max_dist };
+    RandstrobeIterator randstrobe_rc_iter { string_hashes, pos_to_seq_coordinate, w_min, w_max, q, max_dist };
     while (randstrobe_rc_iter.has_next()) {
         auto randstrobe = randstrobe_rc_iter.next();
         unsigned int offset_strobe = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
