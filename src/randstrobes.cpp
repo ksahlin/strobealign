@@ -76,17 +76,14 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
             uint64_t hash_s = ys;
 //          uint64_t hash_s = hash64(ys, mask);
 //          uint64_t hash_s = XXH64(&ys, 8,0);
-            // queue not initialized yet
-            if (qs_size < k - s ) {
-                qs.push_back(hash_s);
-                qs_pos.push_back(i - s + 1);
-                qs_size++;
+            qs.push_back(hash_s);
+            qs_pos.push_back(i - s + 1);
+            qs_size++;
+            // not enough hashes in the queue, yet
+            if (qs_size < k - s + 1) {
                 continue;
             }
-            if (qs_size == k - s ) { // We are seeing the last s-mer within the first k-mer, need to decide if we add it
-                qs.push_back(hash_s);
-                qs_pos.push_back(i - s + 1);
-                qs_size++;
+            if (qs_size == k - s + 1) { // We are at the last s-mer within the first k-mer, need to decide if we add it
                 for (int j = 0; j < qs_size; j++) {
                     if (qs[j] < qs_min_val) {
                         qs_min_val = qs[j];
@@ -97,14 +94,11 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
             else {
                 // update queue and current minimum and position
                 int i2 = i - s + 1;
-
                 qs.pop_front();
-
                 auto popped_index = qs_pos.front();
                 qs_pos.pop_front();
+                qs_size--;
 
-                qs.push_back(hash_s);
-                qs_pos.push_back(i2);
                 if (qs_min_pos == popped_index){ // we popped the previous minimizer, find new brute force
                     qs_min_val = UINT64_MAX;
                     qs_min_pos = i2;
