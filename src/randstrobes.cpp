@@ -37,14 +37,14 @@ static inline uint64_t syncmer_kmer_hash(uint64_t packed) {
     return XXH64(&packed, sizeof(uint64_t), 0);
 }
 
-static inline void make_string_to_hashvalues_open_syncmers_canonical(
+static inline std::pair<std::vector<uint64_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
     const std::string &seq,
-    std::vector<uint64_t> &string_hashes,
-    std::vector<unsigned int> &pos_to_seq_coordinate,
     const size_t k,
     const size_t s,
     const size_t t
 ) {
+    std::vector<uint64_t> string_hashes;
+    std::vector<unsigned int> pos_to_seq_coordinate;
     const uint64_t kmask = (1ULL << 2*k) - 1;
     const uint64_t smask = (1ULL << 2*s) - 1;
     const uint64_t kshift = (k - 1) * 2;
@@ -116,6 +116,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
             qs.clear();
         }
     }
+    return make_pair(string_hashes, pos_to_seq_coordinate);
 }
 
 struct Randstrobe {
@@ -233,8 +234,7 @@ void randstrobes_reference(
     std::vector<unsigned int> pos_to_seq_coordinate;
 //    robin_hood::unordered_map< unsigned int, unsigned int>  pos_to_seq_choord;
 //    make_string_to_hashvalues_random_minimizers(seq, string_hashes, pos_to_seq_choord, k, kmask, w);
-
-    make_string_to_hashvalues_open_syncmers_canonical(seq, string_hashes, pos_to_seq_coordinate, k, s, t);
+    std::tie(string_hashes, pos_to_seq_coordinate) = make_string_to_hashvalues_open_syncmers_canonical(seq, k, s, t);
 
     unsigned int nr_hashes = string_hashes.size();
     if (nr_hashes == 0) {
@@ -282,7 +282,7 @@ mers_vector_read randstrobes_query(
     std::vector<uint64_t> string_hashes;
     std::vector<unsigned int> pos_to_seq_coordinate;
 
-    make_string_to_hashvalues_open_syncmers_canonical(seq, string_hashes, pos_to_seq_coordinate, k, s, t);
+    std::tie(string_hashes, pos_to_seq_coordinate) = make_string_to_hashvalues_open_syncmers_canonical(seq, k, s, t);
 
     unsigned int nr_hashes = string_hashes.size();
     if (nr_hashes == 0) {
