@@ -35,8 +35,7 @@ static inline void update_window(std::deque <uint64_t> &q, std::deque <unsigned 
 //    popped_val = q.front();
     q.pop_front();
 
-    unsigned int popped_index;
-    popped_index=q_pos.front();
+    auto popped_index = q_pos.front();
     q_pos.pop_front();
 
     q.push_back(new_strobe_hashval);
@@ -340,7 +339,7 @@ mers_vector_read randstrobes_query(
     // this function stores randstobes from both directions created from canonical syncmers.
     // Since creating canonical syncmers is the most time consuming step, we avoid perfomring it twice for the read and its RC here
     mers_vector_read randstrobes2;
-    unsigned int read_length = seq.length();
+    auto read_length = seq.length();
     if (read_length < w_max) {
         return randstrobes2;
     }
