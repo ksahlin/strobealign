@@ -41,9 +41,9 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
     const std::string &seq,
     std::vector<uint64_t> &string_hashes,
     std::vector<unsigned int> &pos_to_seq_coordinate,
-    const int k,
-    const int s,
-    const int t
+    const size_t k,
+    const size_t s,
+    const size_t t
 ) {
     const uint64_t kmask = (1ULL << 2*k) - 1;
     const uint64_t smask = (1ULL << 2*s) - 1;
@@ -51,10 +51,9 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
     const uint64_t sshift = (s - 1) * 2;
     std::deque<uint64_t> qs;  // s-mer hashes
     uint64_t qs_min_val = UINT64_MAX;
-    int qs_min_pos = -1;
+    size_t qs_min_pos = -1;
 
-    std::string subseq;
-    int l = 0;
+    size_t l = 0;
     uint64_t xk[] = {0, 0};
     uint64_t xs[] = {0, 0};
     for (size_t i = 0; i < seq.length(); i++) {
@@ -79,7 +78,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                 continue;
             }
             if (qs.size() == k - s + 1) { // We are at the last s-mer within the first k-mer, need to decide if we add it
-                for (int j = 0; j < qs.size(); j++) {
+                for (size_t j = 0; j < qs.size(); j++) {
                     if (qs[j] < qs_min_val) {
                         qs_min_val = qs[j];
                         qs_min_pos = i - k + j + 1;
