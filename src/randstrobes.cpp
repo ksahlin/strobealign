@@ -49,7 +49,6 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
 ) {
     std::deque<uint64_t> qs;  // s-mer hashes
     int seq_length = seq.length();
-    int qs_size = 0;
     uint64_t qs_min_val = UINT64_MAX;
     int qs_min_pos = -1;
 
@@ -76,13 +75,12 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
 //          uint64_t hash_s = hash64(ys, mask);
 //          uint64_t hash_s = XXH64(&ys, 8,0);
             qs.push_back(hash_s);
-            qs_size++;
             // not enough hashes in the queue, yet
-            if (qs_size < k - s + 1) {
+            if (qs.size() < k - s + 1) {
                 continue;
             }
-            if (qs_size == k - s + 1) { // We are at the last s-mer within the first k-mer, need to decide if we add it
-                for (int j = 0; j < qs_size; j++) {
+            if (qs.size() == k - s + 1) { // We are at the last s-mer within the first k-mer, need to decide if we add it
+                for (int j = 0; j < qs.size(); j++) {
                     if (qs[j] < qs_min_val) {
                         qs_min_val = qs[j];
                         qs_min_pos = i - k + j + 1;
@@ -92,7 +90,6 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
             else {
                 // update queue and current minimum and position
                 qs.pop_front();
-                qs_size--;
 
                 if (qs_min_pos == i - k) { // we popped the previous minimizer, find new brute force
                     qs_min_val = UINT64_MAX;
@@ -118,7 +115,6 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
             qs_min_val = UINT64_MAX;
             qs_min_pos = -1;
             l = xs[0] = xs[1] = xk[0] = xk[1] = 0;
-            qs_size = 0;
             qs.clear();
         }
     }
