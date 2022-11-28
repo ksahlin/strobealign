@@ -67,60 +67,62 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
             xk[1] = xk[1] >> 2 | (uint64_t)(3 - c) << kshift;  // reverse strand
             xs[0] = (xs[0] << 2 | c) & smask;                  // forward strand
             xs[1] = xs[1] >> 2 | (uint64_t)(3 - c) << sshift;  // reverse strand
-            if (++l >= s) { // we find an s-mer
-                uint64_t ys = std::min(xs[0], xs[1]);
-//                uint64_t hash_s = robin_hash(ys);
-                uint64_t hash_s = ys;
-//                uint64_t hash_s = hash64(ys, mask);
-//                uint64_t hash_s = XXH64(&ys, 8,0);
-                // queue not initialized yet
-                if (qs_size < k - s ) {
-                    qs.push_back(hash_s);
-                    qs_pos.push_back(i - s + 1);
-                    qs_size++;
-                    continue;
+            if (++l < s) {
+                continue;
+            }
+            // we find an s-mer
+            uint64_t ys = std::min(xs[0], xs[1]);
+//          uint64_t hash_s = robin_hash(ys);
+            uint64_t hash_s = ys;
+//          uint64_t hash_s = hash64(ys, mask);
+//          uint64_t hash_s = XXH64(&ys, 8,0);
+            // queue not initialized yet
+            if (qs_size < k - s ) {
+                qs.push_back(hash_s);
+                qs_pos.push_back(i - s + 1);
+                qs_size++;
+                continue;
+            }
+            if (qs_size == k - s ) { // We are seeing the last s-mer within the first k-mer, need to decide if we add it
+                qs.push_back(hash_s);
+                qs_pos.push_back(i - s + 1);
+                qs_size++;
+                for (int j = 0; j < qs_size; j++) {
+                    if (qs[j] < qs_min_val) {
+                        qs_min_val = qs[j];
+                        qs_min_pos = qs_pos[j];
+                    }
                 }
-                if (qs_size == k - s ) { // We are seeing the last s-mer within the first k-mer, need to decide if we add it
-                    qs.push_back(hash_s);
-                    qs_pos.push_back(i - s + 1);
-                    qs_size++;
-                    for (int j = 0; j < qs_size; j++) {
+            }
+            else {
+                // update queue and current minimum and position
+                int i2 = i - s + 1;
+
+                qs.pop_front();
+
+                auto popped_index = qs_pos.front();
+                qs_pos.pop_front();
+
+                qs.push_back(hash_s);
+                qs_pos.push_back(i2);
+                if (qs_min_pos == popped_index){ // we popped the previous minimizer, find new brute force
+                    qs_min_val = UINT64_MAX;
+                    qs_min_pos = i2;
+                    for (int j = qs.size() - 1; j >= 0; j--) { //Iterate in reverse to choose the rightmost minimizer in a window
                         if (qs[j] < qs_min_val) {
                             qs_min_val = qs[j];
                             qs_min_pos = qs_pos[j];
                         }
                     }
+                } else if (hash_s < qs_min_val) { // the new value added to queue is the new minimum
+                    qs_min_val = hash_s;
+                    qs_min_pos = i2;
                 }
-                else {
-                    // update queue and current minimum and position
-                    int i2 = i - s + 1;
-
-                    qs.pop_front();
-
-                    auto popped_index = qs_pos.front();
-                    qs_pos.pop_front();
-
-                    qs.push_back(hash_s);
-                    qs_pos.push_back(i2);
-                    if (qs_min_pos == popped_index){ // we popped the previous minimizer, find new brute force
-                        qs_min_val = UINT64_MAX;
-                        qs_min_pos = i2;
-                        for (int j = qs.size() - 1; j >= 0; j--) { //Iterate in reverse to choose the rightmost minimizer in a window
-                            if (qs[j] < qs_min_val) {
-                                qs_min_val = qs[j];
-                                qs_min_pos = qs_pos[j];
-                            }
-                        }
-                    } else if (hash_s < qs_min_val) { // the new value added to queue is the new minimum
-                        qs_min_val = hash_s;
-                        qs_min_pos = i2;
-                    }
-                }
-                if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
-                    uint64_t yk = std::min(xk[0], xk[1]);
-                    string_hashes.push_back(syncmer_kmer_hash(yk));
-                    pos_to_seq_coordinate.push_back(i - k + 1);
-                }
+            }
+            if (qs_min_pos == qs_pos[t-1]) { // occurs at t:th position in k-mer
+                uint64_t yk = std::min(xk[0], xk[1]);
+                string_hashes.push_back(syncmer_kmer_hash(yk));
+                pos_to_seq_coordinate.push_back(i - k + 1);
             }
         } else {
             // if there is an "N", restart
