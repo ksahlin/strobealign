@@ -74,8 +74,8 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
     int s,
     int t
 ) {
-    std::deque<uint64_t> qs;
-    std::deque<unsigned int> qs_pos;
+    std::deque<uint64_t> qs;  // s-mer hashes
+    std::deque<unsigned int> qs_pos; // s-mer start positions
     int seq_length = seq.length();
     int qs_size = 0;
     uint64_t qs_min_val = UINT64_MAX;
@@ -83,7 +83,6 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
 
     int gap = 0;
     std::string subseq;
-    unsigned int hash_count = 0;
     int l;
     uint64_t xk[] = {0, 0};
     uint64_t xs[] = {0, 0};
@@ -112,9 +111,7 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                     qs.push_back(hash_s);
                     qs_pos.push_back(i - s + 1);
                     qs_size++;
-//                    std::cerr << qs_size << " "<< i - k + 1 << std::endl;
                     for (int j = 0; j < qs_size; j++) {
-//                        std::cerr << qs_pos[j] << " " << qs[j] << " " << qs_min_val << std::endl;
                         if (qs[j] < qs_min_val) {
                             qs_min_val = qs[j];
                             qs_min_pos = qs_pos[j];
@@ -130,7 +127,6 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
 //                        uint64_t hash_k =  sahlin_dna_hash(yk, mask);
                         string_hashes.push_back(hash_k);
                         pos_to_seq_coordinate.push_back(i - k + 1);
-                        hash_count++;
 //                        std::cerr << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
 //                        std::cerr <<  "Sampled gap: " << gap (k-s+1) << std::endl;
                         gap = 0;
@@ -155,7 +151,6 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
                         string_hashes.push_back(hash_k);
                         pos_to_seq_coordinate.push_back(i - k + 1);
 //                        std::cerr << i - k + 1 << std::endl;
-                        hash_count++;
 //                        std::cerr << i - s + 1 << " " << i - k + 1 << " " << (xk[0] < xk[1]) << std::endl;
 //                        std::cerr <<  "Gap: " << gap << " position:" << i - k + 1 << std::endl;
                         gap = 0;
@@ -179,11 +174,6 @@ static inline void make_string_to_hashvalues_open_syncmers_canonical(
             qs_pos.clear();
         }
     }
-//    std::cerr << hash_count << " values produced from string of length " <<   seq_length << std::endl;
-//    for(auto t: pos_to_seq_choord){
-//        std::cerr << t << " ";
-//    }
-//    std::cerr << " " << std::endl;
 }
 
 struct Randstrobe {
