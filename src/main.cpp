@@ -105,17 +105,14 @@ static void print_diagnostics(const StrobemerIndex &index, const std::string& lo
     for (size_t i = 0; i < log_count.size(); ++i) {
         n += log_count[i];
         if (n >= tot_seed_count/2) {
-            median = i;
             break;
         }
     }
     // Get median 1000 limit
     int n_lim = 0;
-    int median_lim = 0;
     for (size_t i = 0; i < log_count_1000_limit.size(); ++i) {
         n_lim += log_count_1000_limit[i];
         if ( n_lim >= tot_seed_count_1000_limit/2){
-            median_lim = i;
             break;
         }
     }
