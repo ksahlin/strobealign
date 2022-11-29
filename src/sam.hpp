@@ -16,7 +16,6 @@ struct alignment {
     int ref_id;
     int mapq;
     int aln_length;
-    bool is_proper = true;
     bool is_rc;
     bool is_unaligned = false;
 };
