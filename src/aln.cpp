@@ -1594,15 +1594,10 @@ static inline void rescue_mate(
     ref_len = references.lengths[n.ref_id];
     ref_start = std::max(0, std::min(a,ref_len));
     ref_end = std::min(ref_len, std::max(0, b));
-//    if (ref_start == ref_len ){
-//        std::cerr << "Rescue Bug1! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
-//    }
-//    if (ref_end == ref_len ){
-//        std::cerr << "Rescue Bug2! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
-//    }
-//    if (ref_end <= ref_start){
-//        std::cerr << "Rescue Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
-//    }
+
+    assert(ref_start != ref_len);
+    assert(ref_end != ref_len);
+    assert(ref_end != ref_start);
 
     if (ref_end < ref_start + k){
         sam_aln.cigar = "*";
