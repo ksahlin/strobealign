@@ -1,6 +1,9 @@
 #!/bin/bash
 set -xeuo pipefail
 
+# Unit tests
+build/test-strobealign
+
 # should fail when unknown command-line option used
 if strobealign -G > /dev/null 2> /dev/null; then false; fi
 
@@ -36,5 +39,3 @@ strobealign -r 150 --use-index $d/phix.fasta $d/phix.1.fastq | grep -v '^@PG' > 
 diff -u without-sti.sam with-sti.sam
 rm without-sti.sam with-sti.sam
 
-# Unit tests
-build/test-strobealign

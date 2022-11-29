@@ -30,7 +30,7 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
 
     args::Group seeding(parser, "Seeding:");
     //args::ValueFlag<int> n(parser, "INT", "Number of strobes [2]", {'n'});
-    args::ValueFlag<int> r(parser, "INT", "Mean read length. This parameter is estimated from first 500 records in each read file. No need to set this explicitly unless you have a reason.", {'r'});
+    args::ValueFlag<int> r(parser, "INT", "Mean read length. This parameter is estimated from the first 500 records in each read file. No need to set this explicitly unless you have a reason.", {'r'});
     args::ValueFlag<int> m(parser, "INT", "Maximum seed length. Defaults to r - 50. For reasonable values on -l and -u, the seed length distribution is usually determined by parameters l and u. Then, this parameter is only active in regions where syncmers are very sparse.", {'m'});
 
     args::ValueFlag<int> k(parser, "INT", "Strobe length, has to be below 32. [20]", {'k'});
