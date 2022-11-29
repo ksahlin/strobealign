@@ -7,7 +7,7 @@
 #include "xxhash.h"
 #include "index.hpp"
 #include "sam.hpp"
-
+#include "aln.hpp"
 
 int main() {
 }

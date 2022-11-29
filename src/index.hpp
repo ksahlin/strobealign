@@ -34,60 +34,6 @@ struct KmerLookupEntry {
 typedef robin_hood::unordered_map<uint64_t, KmerLookupEntry> kmer_lookup;
 
 
-struct hit {
-    int query_s;
-    int query_e;
-    int ref_s;
-    int ref_e;
-    bool is_rc = false;
-};
-
-// Non-overlapping approximate match
-struct nam {
-    int nam_id;
-    int query_s;
-    int query_e;
-    int query_prev_hit_startpos;
-    int ref_s;
-    int ref_e;
-    int ref_prev_hit_startpos;
-    int n_hits = 0;
-    int ref_id;
-    float score;
-//    unsigned int previous_query_start;
-//    unsigned int previous_ref_start;
-    bool is_rc = false;
-};
-
-//struct aln_info {
-//    std::string cigar;
-//    unsigned int ed;
-//    unsigned int ref_offset;
-//    int sw_score;
-//    int global_ed;
-//    int length;
-//};
-
-struct alignment_params {
-    int match;
-    int mismatch;
-    int gap_open;
-    int gap_extend;
-};
-
-
-class i_dist_est {
-public:
-    float sample_size = 1;
-    float mu = 300;
-    float sigma = 100;
-    float V = 10000;
-    float SSE = 10000;
-
-    // Add a new observation
-    void update(int dist);
-};
-
 /* Settings that influence index creation */
 class IndexParameters {
 public:

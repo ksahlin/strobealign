@@ -7,6 +7,38 @@
 #include "index.hpp"
 #include "refs.hpp"
 
+struct hit {
+    int query_s;
+    int query_e;
+    int ref_s;
+    int ref_e;
+    bool is_rc = false;
+};
+
+// Non-overlapping approximate match
+struct nam {
+    int nam_id;
+    int query_s;
+    int query_e;
+    int query_prev_hit_startpos;
+    int ref_s;
+    int ref_e;
+    int ref_prev_hit_startpos;
+    int n_hits = 0;
+    int ref_id;
+    float score;
+//    unsigned int previous_query_start;
+//    unsigned int previous_ref_start;
+    bool is_rc = false;
+};
+
+struct alignment_params {
+    int match;
+    int mismatch;
+    int gap_open;
+    int gap_extend;
+};
+
 struct aln_info {
     std::string cigar;
     unsigned int ed;
@@ -63,6 +95,18 @@ struct mapping_params {
 
     void verify() const {
     }
+};
+
+class i_dist_est {
+public:
+    float sample_size = 1;
+    float mu = 300;
+    float sigma = 100;
+    float V = 10000;
+    float SSE = 10000;
+
+    // Add a new observation
+    void update(int dist);
 };
 
 void align_PE_read(klibpp::KSeq& record1, klibpp::KSeq& record2, std::string& outstring, AlignmentStatistics& statistics, i_dist_est& isize_est, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
