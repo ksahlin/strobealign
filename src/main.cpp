@@ -348,8 +348,6 @@ int main(int argc, char **argv) {
         logger.error() << "A mapping or seeding parameter is invalid: " << e.what() << std::endl;
     } catch (const std::runtime_error& e) {
         logger.error() << "strobealign: " << e.what() << std::endl;
-    } catch (const InvalidFile& e) {
-        logger.error() << "strobealign: " << e.what() << std::endl;
     }
     return EXIT_FAILURE;
 }
