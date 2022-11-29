@@ -237,7 +237,7 @@ static inline void find_nams_rescue(
                 }
 
                 // Remove all NAMs from open_matches that the current hit have passed
-                unsigned int c = h.query_s;
+                auto c = h.query_s;
                 auto predicate = [c](decltype(open_nams)::value_type const &nam) { return nam.query_e < c; };
                 open_nams.erase(std::remove_if(open_nams.begin(), open_nams.end(), predicate), open_nams.end());
                 prev_q_start = h.query_s;
@@ -383,7 +383,7 @@ static inline std::pair<float,int> find_nams(
                 }
 
                 // Remove all NAMs from open_matches that the current hit have passed
-                unsigned int c = h.query_s;
+                auto c = h.query_s;
                 auto predicate = [c](decltype(open_nams)::value_type const &nam) { return nam.query_e < c; };
                 open_nams.erase(std::remove_if(open_nams.begin(), open_nams.end(), predicate), open_nams.end());
                 prev_q_start = h.query_s;
@@ -819,21 +819,16 @@ static inline void align_SE_secondary_hits(
     int cnt = 0;
     float score_dropoff;
     nam n_max = all_nams[0];
-    float s1 = n_max.score;
 
 //    int extra_ref = 50;
     int best_align_dist = ~0U >> 1;
     int best_align_sw_score = -1000;
 
     int min_mapq_diff = best_align_dist;
-    bool aln_did_not_fit;
-//    int best_align_sw_score = -1000;
     for (auto &n : all_nams) {
         alignment sam_aln;
         sam_aln.ed = 1000; // init
-        aln_did_not_fit = false;
         score_dropoff = (float) n.n_hits / n_max.n_hits;
-//        score_dropoff = (float) n.score / n_max.score;
 
         if ( (cnt >= max_tries) || best_align_dist == 0 || score_dropoff < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
             break;
@@ -850,7 +845,6 @@ static inline void align_SE_secondary_hits(
         bool fits = reverse_nam_if_needed(n, read, references, k);
         if (!fits){
             statistics.did_not_fit++;
-            aln_did_not_fit = true;
         }
 
         // deal with any read hanging of ends of reference not to get 'std::out_of_range' what(): basic_string::substr
@@ -1202,13 +1196,10 @@ static inline void get_alignment(
             int left_region_bp = break_point + k;
             int right_region_bp = break_point;
 //            std::cerr << "left_region_bp " << left_region_bp << " right_region_bp: " << right_region_bp << std::endl;
-            int left_ref_end_bp = -1;
             int right_ref_start_bp = -1;
             if (break_point == n.query_s){
-                left_ref_end_bp = n.ref_s +k;
                 right_ref_start_bp = n.ref_s;
             } else if (break_point == (n.query_e - k)) {
-                left_ref_end_bp = n.ref_e;
                 right_ref_start_bp = n.ref_e-k;
             } else  {
                 std::cerr << "BUUUUUUG " << std::endl;
@@ -1585,7 +1576,6 @@ static inline void rescue_mate(
     int a, b, ref_start,ref_len,ref_end;
     std::string r_tmp;
     bool a_is_rc;
-    auto guide_read_len = guide.size();
     auto read_len = read.size();
 
     reverse_nam_if_needed(n, guide, references, k);
