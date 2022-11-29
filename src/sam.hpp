@@ -49,7 +49,7 @@ public:
     void add_unmapped_pair(const klibpp::KSeq& r1, const klibpp::KSeq& r2);
     void add_unmapped_mate(const klibpp::KSeq& record, int flags, const std::string& mate_rname, int mate_pos);
 
-    void add_one(const klibpp::KSeq& record, int flags, const std::string& ref_name, const alignment& sam_aln, int mapq, const std::string& mate_name, int mate_ref_start, int template_len, const std::string& output_read, int ed);
+    void add_record(const std::string& query_name, int flags, const std::string& reference_name, int pos, int mapq, const std::string& cigar, const std::string& mate_name, int mate_ref_start, int template_len, const std::string& query_sequence, const std::string& query_sequence_rc, const std::string& qual, int ed, int aln_score);
 
 private:
     std::string& sam_string;
