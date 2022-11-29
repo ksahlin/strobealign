@@ -128,13 +128,13 @@ class RandstrobeIterator {
 public:
     RandstrobeIterator(
         const std::vector<uint64_t> &string_hashes,
-        const std::vector<unsigned int> &pos_to_seq_choord,
+        const std::vector<unsigned int> &pos_to_seq_coordinate,
         int w_min,
         int w_max,
         uint64_t q,
         int max_dist
     ) : string_hashes(string_hashes)
-      , pos_to_seq_choord(pos_to_seq_choord)
+      , pos_to_seq_coordinate(pos_to_seq_coordinate)
       , w_min(w_min)
       , w_max(w_max)
       , q(q)
@@ -162,7 +162,7 @@ private:
             w_end = string_hashes.size() - 1;
         }
 
-        unsigned int seq_pos_strobe1 = pos_to_seq_choord[strobe1_start];
+        unsigned int seq_pos_strobe1 = pos_to_seq_coordinate[strobe1_start];
         unsigned int seq_end_constraint = seq_pos_strobe1 + max_dist;
 
         unsigned int w_start = strobe1_start + w_min;
@@ -179,7 +179,7 @@ private:
             b = (strobe_hashval ^ string_hashes[i])  & q;
             uint64_t res = b.count();
 
-            if (pos_to_seq_choord[i] > seq_end_constraint){
+            if (pos_to_seq_coordinate[i] > seq_end_constraint) {
                 break;
             }
 
@@ -194,11 +194,11 @@ private:
 
         uint64_t hash_randstrobe2 = string_hashes[strobe1_start] + strobe_hashval_next;
 
-        return Randstrobe { hash_randstrobe2, seq_pos_strobe1, pos_to_seq_choord[strobe_pos_next] };
+        return Randstrobe { hash_randstrobe2, seq_pos_strobe1, pos_to_seq_coordinate[strobe_pos_next] };
     }
 
     const std::vector<uint64_t> &string_hashes;
-    const std::vector<unsigned int> &pos_to_seq_choord;
+    const std::vector<unsigned int> &pos_to_seq_coordinate;
     const int w_min;
     const int w_max;
     const uint64_t q;
