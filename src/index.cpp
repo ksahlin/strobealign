@@ -246,7 +246,7 @@ void StrobemerIndex::read(const std::string& filename) {
         auto to_read = std::min(left_to_read, chunk_size);
         ifs.read(buf2, to_read * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type)));
         //Add the elements directly from the buffer
-        for (int i = 0; i < to_read; ++i) {
+        for (size_t i = 0; i < to_read; ++i) {
             auto start = buf2 + i * (sizeof(kmer_lookup::key_type) + sizeof(kmer_lookup::mapped_type));
             mers_index[*reinterpret_cast<kmer_lookup::key_type*>(start)] = *reinterpret_cast<kmer_lookup::mapped_type*>(start + sizeof(kmer_lookup::key_type));
         }
