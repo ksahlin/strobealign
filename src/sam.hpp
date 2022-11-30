@@ -5,7 +5,6 @@
 #include "kseq++.hpp"
 #include "refs.hpp"
 
-
 struct alignment {
     std::string cigar;
     int ref_start;
