@@ -300,12 +300,10 @@ ind_mers_vector StrobemerIndex::generate_seeds() const
     ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
     int expected_sampling = parameters.k - parameters.s + 1;
     int approx_vec_size = references.total_length() / expected_sampling;
-    logger.debug() << "ref vector approximate size: " << approx_vec_size << std::endl;
     ind_flat_vector.reserve(approx_vec_size);
     for(size_t i = 0; i < references.size(); ++i) {
         randstrobes_reference(ind_flat_vector, parameters.k, parameters.w_min, parameters.w_max, references.sequences[i], i, parameters.s, parameters.t_syncmer, parameters.q, parameters.max_dist);
     }
-    logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
 
     std::chrono::duration<double> elapsed_generating_seeds = flat_vector_timer.duration();
     logger.info() << "Time generating seeds: " << elapsed_generating_seeds.count() << " s" <<  std::endl;
