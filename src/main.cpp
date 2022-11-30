@@ -212,7 +212,6 @@ int run_strobealign(int argc, char **argv) {
         Timer index_timer;
         IndexCreationStatistics index_creation_stats = index.populate(opt.f);
         
-        logger.info() << "Time copying flat vector: " << index_creation_stats.elapsed_copy_flat_vector.count() << " s" << std::endl;
         logger.debug() << "Unique strobemers: " << index_creation_stats.unique_mers << std::endl;
         logger.info() << "Total time generating flat vector: " << index_creation_stats.elapsed_flat_vector.count() << " s" <<  std::endl;
 

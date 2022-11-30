@@ -268,7 +268,6 @@ IndexCreationStatistics StrobemerIndex::populate(float f) {
     Timer flat_vector_timer;
     hash_vector h_vector;
 
-    Timer copy_timer;
     {
         auto ind_flat_vector = generate_seeds();
 
@@ -284,10 +283,7 @@ IndexCreationStatistics StrobemerIndex::populate(float f) {
         }
         // ind_flat_vector is freed here
     }
-    auto elapsed_copy_flat_vector = copy_timer.duration();
-
     uint64_t unique_mers = count_unique_elements(h_vector);
-
     std::chrono::duration<double> elapsed_flat_vector = flat_vector_timer.duration();
 
     Timer hash_index_timer;
@@ -296,7 +292,6 @@ IndexCreationStatistics StrobemerIndex::populate(float f) {
     IndexCreationStatistics index_stats = index_vector(h_vector, mers_index, f);
     filter_cutoff = index_stats.filter_cutoff;
     index_stats.elapsed_hash_index = hash_index_timer.duration();
-    index_stats.elapsed_copy_flat_vector = elapsed_copy_flat_vector;
     index_stats.unique_mers = unique_mers;
     index_stats.elapsed_flat_vector = elapsed_flat_vector;
 
@@ -321,8 +316,10 @@ ind_mers_vector StrobemerIndex::generate_seeds() const
 
     Timer sorting_timer;
     std::sort(ind_flat_vector.begin(), ind_flat_vector.end());
+
     auto elapsed_sorting_seeds = sorting_timer.duration();
     logger.info() << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s" <<  std::endl;
+
 
     return ind_flat_vector;
 }
