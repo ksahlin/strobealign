@@ -96,6 +96,8 @@ struct IndexCreationStatistics {
 
     std::chrono::duration<double> elapsed_flat_vector;
     std::chrono::duration<double> elapsed_hash_index;
+    std::chrono::duration<double> elapsed_generating_seeds;
+    std::chrono::duration<double> elapsed_sorting_seeds;
 };
 
 struct StrobemerIndex {
@@ -107,7 +109,7 @@ struct StrobemerIndex {
                                 //therefore stored here since it needs to be saved with the index.
     mers_vector flat_vector;
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
-    IndexCreationStatistics stats;
+    mutable IndexCreationStatistics stats;
 
     void write(const std::string& filename) const;
     void read(const std::string& filename);

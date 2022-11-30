@@ -12,12 +12,8 @@
 #include <algorithm>
 
 #include "timer.hpp"
-#include "logger.hpp"
 
 typedef std::vector<uint64_t> hash_vector; //only used during index generation
-
-
-static Logger& logger = Logger::get();
 
 
 /* Create an IndexParameters instance based on a given read length.
@@ -296,7 +292,7 @@ void StrobemerIndex::populate(float f) {
 
 ind_mers_vector StrobemerIndex::generate_and_sort_seeds() const
 {
-    Timer flat_vector_timer;
+    Timer randstrobes_timer;
     ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
     int expected_sampling = parameters.k - parameters.s + 1;
     int approx_vec_size = references.total_length() / expected_sampling;
@@ -304,16 +300,11 @@ ind_mers_vector StrobemerIndex::generate_and_sort_seeds() const
     for(size_t i = 0; i < references.size(); ++i) {
         randstrobes_reference(ind_flat_vector, parameters.k, parameters.w_min, parameters.w_max, references.sequences[i], i, parameters.s, parameters.t_syncmer, parameters.q, parameters.max_dist);
     }
-
-    std::chrono::duration<double> elapsed_generating_seeds = flat_vector_timer.duration();
-    logger.info() << "Time generating seeds: " << elapsed_generating_seeds.count() << " s" <<  std::endl;
+    stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     Timer sorting_timer;
     std::sort(ind_flat_vector.begin(), ind_flat_vector.end());
-
-    auto elapsed_sorting_seeds = sorting_timer.duration();
-    logger.info() << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s" <<  std::endl;
-
+    stats.elapsed_sorting_seeds = sorting_timer.duration();
 
     return ind_flat_vector;
 }

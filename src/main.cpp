@@ -213,6 +213,8 @@ int run_strobealign(int argc, char **argv) {
         index.populate(opt.f);
         
         logger.debug() << "Unique strobemers: " << index.stats.unique_mers << std::endl;
+        logger.info() << "Time generating seeds: " << index.stats.elapsed_generating_seeds.count() << " s" <<  std::endl;
+        logger.info() << "Time sorting seeds: " << index.stats.elapsed_sorting_seeds.count() << " s" <<  std::endl;
         logger.info() << "Total time generating flat vector: " << index.stats.elapsed_flat_vector.count() << " s" <<  std::endl;
 
         logger.debug()
