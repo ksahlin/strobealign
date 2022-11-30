@@ -115,7 +115,7 @@ struct StrobemerIndex {
 private:
     const IndexParameters& parameters;
     const References& references;
-    ind_mers_vector generate_seeds() const;
+    ind_mers_vector generate_and_sort_seeds() const;
 };
 
 

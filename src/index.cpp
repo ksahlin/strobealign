@@ -267,7 +267,7 @@ void StrobemerIndex::populate(float f) {
     Timer flat_vector_timer;
     hash_vector h_vector;
     {
-        auto ind_flat_vector = generate_seeds();
+        auto ind_flat_vector = generate_and_sort_seeds();
 
         //Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
         //The hash codes are only needed when generating the index and can be discarded afterwards.
@@ -294,7 +294,7 @@ void StrobemerIndex::populate(float f) {
     stats.elapsed_flat_vector = elapsed_flat_vector;
 }
 
-ind_mers_vector StrobemerIndex::generate_seeds() const
+ind_mers_vector StrobemerIndex::generate_and_sort_seeds() const
 {
     Timer flat_vector_timer;
     ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
