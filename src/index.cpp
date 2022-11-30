@@ -194,7 +194,6 @@ IndexCreationStatistics index_vector(const hash_vector &h_vector, kmer_lookup &m
     return index_stats;
 }
 
-
 void StrobemerIndex::write(const std::string& filename) const {
     std::ofstream ofs(filename, std::ios::binary);
 
@@ -264,10 +263,9 @@ void StrobemerIndex::read(const std::string& filename) {
     }
 }
 
-IndexCreationStatistics StrobemerIndex::populate(float f) {
+void StrobemerIndex::populate(float f) {
     Timer flat_vector_timer;
     hash_vector h_vector;
-
     {
         auto ind_flat_vector = generate_seeds();
 
@@ -289,13 +287,11 @@ IndexCreationStatistics StrobemerIndex::populate(float f) {
     Timer hash_index_timer;
     mers_index.reserve(unique_mers);
     // construct index over flat array
-    IndexCreationStatistics index_stats = index_vector(h_vector, mers_index, f);
-    filter_cutoff = index_stats.filter_cutoff;
-    index_stats.elapsed_hash_index = hash_index_timer.duration();
-    index_stats.unique_mers = unique_mers;
-    index_stats.elapsed_flat_vector = elapsed_flat_vector;
-
-    return index_stats;
+    stats = index_vector(h_vector, mers_index, f);
+    filter_cutoff = stats.filter_cutoff;
+    stats.elapsed_hash_index = hash_index_timer.duration();
+    stats.unique_mers = unique_mers;
+    stats.elapsed_flat_vector = elapsed_flat_vector;
 }
 
 ind_mers_vector StrobemerIndex::generate_seeds() const

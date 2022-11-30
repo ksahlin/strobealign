@@ -83,7 +83,6 @@ public:
 };
 
 struct IndexCreationStatistics {
-
     unsigned int flat_vector_size = 0;
     unsigned int tot_strobemer_count = 0;
     unsigned int tot_occur_once = 0;
@@ -93,12 +92,10 @@ struct IndexCreationStatistics {
     unsigned int tot_distinct_strobemer_count = 0;
     unsigned int index_cutoff = 0;
     unsigned int filter_cutoff = 0;
-
     uint64_t unique_mers = 0;
 
     std::chrono::duration<double> elapsed_flat_vector;
     std::chrono::duration<double> elapsed_hash_index;
-
 };
 
 struct StrobemerIndex {
@@ -110,10 +107,11 @@ struct StrobemerIndex {
                                 //therefore stored here since it needs to be saved with the index.
     mers_vector flat_vector;
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
+    IndexCreationStatistics stats;
 
     void write(const std::string& filename) const;
     void read(const std::string& filename);
-    IndexCreationStatistics populate(float f);
+    void populate(float f);
 private:
     const IndexParameters& parameters;
     const References& references;
