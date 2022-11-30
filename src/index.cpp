@@ -255,25 +255,25 @@ void StrobemerIndex::read(const std::string& filename) {
 }
 
 void StrobemerIndex::populate(float f) {
-    Timer flat_vector_timer;
     hash_vector h_vector;
     {
         auto ind_flat_vector = generate_and_sort_seeds();
 
-        //Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
-        //The hash codes are only needed when generating the index and can be discarded afterwards.
-        //We want to do this split-up before creating the hash table to avoid a memory peak - the flat_vector is
-        //smaller - doubling that size temporarily will not cause us to go above peak memory.
+        // Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
+        // The hash codes are only needed when generating the index and can be discarded afterwards.
+        // We want to do this split-up before creating the hash table to avoid a memory peak - the flat_vector is
+        // smaller - doubling that size temporarily will not cause us to go above peak memory.
+        Timer flat_vector_timer;
         flat_vector.reserve(ind_flat_vector.size());
         h_vector.reserve(ind_flat_vector.size());
-        for (std::size_t i = 0; i < ind_flat_vector.size(); ++i) {
+        for (size_t i = 0; i < ind_flat_vector.size(); ++i) {
             flat_vector.push_back(ReferenceMer{ind_flat_vector[i].position, ind_flat_vector[i].packed});
             h_vector.push_back(ind_flat_vector[i].hash);
         }
+        stats.elapsed_flat_vector = flat_vector_timer.duration();
         // ind_flat_vector is freed here
     }
-    uint64_t unique_mers = count_unique_elements(h_vector);
-    std::chrono::duration<double> elapsed_flat_vector = flat_vector_timer.duration();
+    auto unique_mers = count_unique_elements(h_vector);
 
     Timer hash_index_timer;
     mers_index.reserve(unique_mers);
@@ -282,7 +282,6 @@ void StrobemerIndex::populate(float f) {
     filter_cutoff = stats.filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
     stats.unique_mers = unique_mers;
-    stats.elapsed_flat_vector = elapsed_flat_vector;
 }
 
 ind_mers_vector StrobemerIndex::generate_and_sort_seeds() const
