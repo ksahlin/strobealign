@@ -208,16 +208,18 @@ int run_strobealign(int argc, char **argv) {
         index.read(opt.ref_filename + ".sti");
         logger.info() << "Total time reading index: " << read_index_timer.elapsed() << " s\n";
     } else {
-        // Generate the index
+        logger.info() << "Indexing ...\n";
         Timer index_timer;
         index.populate(opt.f);
         
-        logger.debug() << "Unique strobemers: " << index.stats.unique_mers << std::endl;
-        logger.info() << "Time generating seeds: " << index.stats.elapsed_generating_seeds.count() << " s" <<  std::endl;
-        logger.info() << "Time sorting seeds: " << index.stats.elapsed_sorting_seeds.count() << " s" <<  std::endl;
-        logger.info() << "Total time generating flat vector: " << index.stats.elapsed_flat_vector.count() << " s" <<  std::endl;
+        logger.info() << "  Time generating seeds: " << index.stats.elapsed_generating_seeds.count() << " s" <<  std::endl;
+        logger.info() << "  Time sorting seeds: " << index.stats.elapsed_sorting_seeds.count() << " s" <<  std::endl;
+        logger.info() << "  Time generating flat vector: " << index.stats.elapsed_flat_vector.count() << " s" <<  std::endl;
+        logger.info() << "  Time generating hash table index: " << index.stats.elapsed_hash_index.count() << " s" <<  std::endl;
+        logger.info() << "Total time indexing: " << index_timer.elapsed() << " s\n";
 
         logger.debug()
+        << "Unique strobemers: " << index.stats.unique_mers << std::endl
         << "Total strobemers count: " << index.stats.tot_strobemer_count << std::endl
         << "Total strobemers occur once: " << index.stats.tot_occur_once << std::endl
         << "Fraction Unique: " << index.stats.frac_unique << std::endl
@@ -233,10 +235,6 @@ int run_strobealign(int argc, char **argv) {
         logger.debug() << "Filtered cutoff index: " << index.stats.index_cutoff << std::endl;
         logger.debug() << "Filtered cutoff count: " << index.stats.filter_cutoff << std::endl;
         
-        logger.info() << "Total time generating hash table index: " << index.stats.elapsed_hash_index.count() << " s" <<  std::endl;
-
-        logger.info() << "Total time indexing: " << index_timer.elapsed() << " s\n";
-
         if (!opt.logfile_name.empty()) {
             print_diagnostics(index, opt.logfile_name, index_parameters.k);
             logger.debug() << "Finished printing log stats" << std::endl;
