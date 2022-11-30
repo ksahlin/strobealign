@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <math.h>
 #include <inttypes.h>
+#include <iomanip>
 
 #include "args.hxx"
 #include "robin_hood.h"
@@ -150,8 +151,9 @@ int run_strobealign(int argc, char **argv) {
     std::tie(opt, map_param) = parse_command_line_arguments(argc, argv);
 
     logger.set_level(opt.verbose ? LOG_DEBUG : LOG_INFO);
-
+    logger.info() << std::setprecision(2) << std::fixed;
     logger.info() << "This is StrobeAlign " << version_string() << '\n';
+
     if (!opt.r_set && !opt.reads_filename1.empty()) {
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
         logger.info() << "Estimated read length: " << map_param.r << " bp\n";
@@ -190,7 +192,6 @@ int run_strobealign(int argc, char **argv) {
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
 
     // Create index
-
     References references;
     Timer read_refs_timer;
     references = References::from_fasta(opt.ref_filename);
