@@ -33,6 +33,7 @@ struct KmerLookupEntry {
 
 typedef robin_hood::unordered_map<uint64_t, KmerLookupEntry> kmer_lookup;
 
+typedef std::vector<uint64_t> hash_vector; //only used during index generation
 
 /* Settings that influence index creation */
 class IndexParameters {
@@ -117,6 +118,7 @@ struct StrobemerIndex {
 private:
     const IndexParameters& parameters;
     const References& references;
+    void index_vector(const hash_vector& h_vector, kmer_lookup& mers_index, float f);
     ind_mers_vector generate_and_sort_seeds() const;
 };
 

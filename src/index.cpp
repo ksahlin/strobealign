@@ -13,9 +13,6 @@
 
 #include "timer.hpp"
 
-typedef std::vector<uint64_t> hash_vector; //only used during index generation
-
-
 /* Create an IndexParameters instance based on a given read length.
  * k and/or s can be specified explicitly by setting them to a value other than
  * -1, but otherwise reasonable defaults are used for them as well.
@@ -119,9 +116,8 @@ uint64_t count_unique_elements(const hash_vector& h_vector){
     return unique_elements;
 }
 
-IndexCreationStatistics index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, float f) {
-    IndexCreationStatistics index_stats;
-    index_stats.flat_vector_size = h_vector.size();
+void StrobemerIndex::index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, float f) {
+    stats.flat_vector_size = h_vector.size();
 
     unsigned int offset = 0;
     unsigned int prev_offset = 0;
@@ -167,17 +163,17 @@ IndexCreationStatistics index_vector(const hash_vector &h_vector, kmer_lookup &m
     mers_index[curr_k] = s;
     float frac_unique = ((float) tot_occur_once )/ mers_index.size();
 
-    index_stats.tot_strobemer_count = offset;
-    index_stats.tot_occur_once = tot_occur_once;
-    index_stats.frac_unique = frac_unique;
-    index_stats.tot_high_ab = tot_high_ab;
-    index_stats.tot_mid_ab = tot_mid_ab;
-    index_stats.tot_distinct_strobemer_count = mers_index.size();
+    stats.tot_strobemer_count = offset;
+    stats.tot_occur_once = tot_occur_once;
+    stats.frac_unique = frac_unique;
+    stats.tot_high_ab = tot_high_ab;
+    stats.tot_mid_ab = tot_mid_ab;
+    stats.tot_distinct_strobemer_count = mers_index.size();
 
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
     unsigned int index_cutoff = mers_index.size()*f;
-    index_stats.index_cutoff = index_cutoff;
+    stats.index_cutoff = index_cutoff;
     unsigned int filter_cutoff;
     if (!strobemer_counts.empty()){
         filter_cutoff = index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back();
@@ -186,8 +182,7 @@ IndexCreationStatistics index_vector(const hash_vector &h_vector, kmer_lookup &m
     } else {
         filter_cutoff = 30;
     }
-    index_stats.filter_cutoff = filter_cutoff;
-    return index_stats;
+    stats.filter_cutoff = filter_cutoff;
 }
 
 void StrobemerIndex::write(const std::string& filename) const {
@@ -283,7 +278,7 @@ void StrobemerIndex::populate(float f) {
     Timer hash_index_timer;
     mers_index.reserve(unique_mers);
     // construct index over flat array
-    stats = index_vector(h_vector, mers_index, f);
+    index_vector(h_vector, mers_index, f);
     filter_cutoff = stats.filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
     stats.unique_mers = unique_mers;
