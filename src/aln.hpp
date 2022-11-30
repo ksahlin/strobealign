@@ -56,7 +56,6 @@ struct AlignmentStatistics {
     std::chrono::duration<double> tot_find_nams_alt;
     std::chrono::duration<double> tot_sort_nams;
     std::chrono::duration<double> tot_extend;
-    std::chrono::duration<double> tot_rc;
     std::chrono::duration<double> tot_write_file;
 
     unsigned int tot_ksw_aligned = 0;
@@ -73,7 +72,6 @@ struct AlignmentStatistics {
         this->tot_find_nams_alt += other.tot_find_nams_alt;
         this->tot_sort_nams += other.tot_sort_nams;
         this->tot_extend += other.tot_extend;
-        this->tot_rc += other.tot_rc;
         this->tot_write_file += other.tot_write_file;
         this->tot_ksw_aligned += other.tot_ksw_aligned;
         this->tot_rescued += other.tot_rescued;

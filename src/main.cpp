@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <math.h>
 #include <inttypes.h>
+#include <iomanip>
 
 #include "args.hxx"
 #include "robin_hood.h"
@@ -150,8 +151,9 @@ int run_strobealign(int argc, char **argv) {
     std::tie(opt, map_param) = parse_command_line_arguments(argc, argv);
 
     logger.set_level(opt.verbose ? LOG_DEBUG : LOG_INFO);
-
+    logger.info() << std::setprecision(2) << std::fixed;
     logger.info() << "This is strobealign " << version_string() << '\n';
+
     if (!opt.r_set && !opt.reads_filename1.empty()) {
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
         logger.info() << "Estimated read length: " << map_param.r << " bp\n";
@@ -190,7 +192,6 @@ int run_strobealign(int argc, char **argv) {
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
 
     // Create index
-
     References references;
     Timer read_refs_timer;
     references = References::from_fasta(opt.ref_filename);
@@ -208,34 +209,33 @@ int run_strobealign(int argc, char **argv) {
         index.read(opt.ref_filename + ".sti");
         logger.info() << "Total time reading index: " << read_index_timer.elapsed() << " s\n";
     } else {
-        // Generate the index
+        logger.info() << "Indexing ...\n";
         Timer index_timer;
-        IndexCreationStatistics index_creation_stats = index.populate(opt.f);
+        index.populate(opt.f);
         
-        logger.info() << "Time copying flat vector: " << index_creation_stats.elapsed_copy_flat_vector.count() << " s" << std::endl;
-        logger.debug() << "Unique strobemers: " << index_creation_stats.unique_mers << std::endl;
-        logger.info() << "Total time generating flat vector: " << index_creation_stats.elapsed_flat_vector.count() << " s" <<  std::endl;
-
-        logger.debug()
-        << "Total strobemers count: " << index_creation_stats.tot_strobemer_count << std::endl
-        << "Total strobemers occur once: " << index_creation_stats.tot_occur_once << std::endl
-        << "Fraction Unique: " << index_creation_stats.frac_unique << std::endl
-        << "Total strobemers highly abundant > 100: " << index_creation_stats.tot_high_ab << std::endl
-        << "Total strobemers mid abundance (between 2-100): " << index_creation_stats.tot_mid_ab << std::endl
-        << "Total distinct strobemers stored: " << index_creation_stats.tot_distinct_strobemer_count << std::endl;
-        if (index_creation_stats.tot_high_ab >= 1) {
-            logger.debug() << "Ratio distinct to highly abundant: " << index_creation_stats.tot_distinct_strobemer_count / index_creation_stats.tot_high_ab << std::endl;
-        }
-        if (index_creation_stats.tot_mid_ab >= 1) {
-            logger.debug() << "Ratio distinct to non distinct: " << index_creation_stats.tot_distinct_strobemer_count / (index_creation_stats.tot_high_ab + index_creation_stats.tot_mid_ab) << std::endl;
-        }
-        logger.debug() << "Filtered cutoff index: " << index_creation_stats.index_cutoff << std::endl;
-        logger.debug() << "Filtered cutoff count: " << index_creation_stats.filter_cutoff << std::endl;
-        
-        logger.info() << "Total time generating hash table index: " << index_creation_stats.elapsed_hash_index.count() << " s" <<  std::endl;
-
+        logger.info() << "  Time generating seeds: " << index.stats.elapsed_generating_seeds.count() << " s" <<  std::endl;
+        logger.info() << "  Time sorting seeds: " << index.stats.elapsed_sorting_seeds.count() << " s" <<  std::endl;
+        logger.info() << "  Time generating flat vector: " << index.stats.elapsed_flat_vector.count() << " s" <<  std::endl;
+        logger.info() << "  Time generating hash table index: " << index.stats.elapsed_hash_index.count() << " s" <<  std::endl;
         logger.info() << "Total time indexing: " << index_timer.elapsed() << " s\n";
 
+        logger.debug()
+        << "Unique strobemers: " << index.stats.unique_mers << std::endl
+        << "Total strobemers count: " << index.stats.tot_strobemer_count << std::endl
+        << "Total strobemers occur once: " << index.stats.tot_occur_once << std::endl
+        << "Fraction Unique: " << index.stats.frac_unique << std::endl
+        << "Total strobemers highly abundant > 100: " << index.stats.tot_high_ab << std::endl
+        << "Total strobemers mid abundance (between 2-100): " << index.stats.tot_mid_ab << std::endl
+        << "Total distinct strobemers stored: " << index.stats.tot_distinct_strobemer_count << std::endl;
+        if (index.stats.tot_high_ab >= 1) {
+            logger.debug() << "Ratio distinct to highly abundant: " << index.stats.tot_distinct_strobemer_count / index.stats.tot_high_ab << std::endl;
+        }
+        if (index.stats.tot_mid_ab >= 1) {
+            logger.debug() << "Ratio distinct to non distinct: " << index.stats.tot_distinct_strobemer_count / (index.stats.tot_high_ab + index.stats.tot_mid_ab) << std::endl;
+        }
+        logger.debug() << "Filtered cutoff index: " << index.stats.index_cutoff << std::endl;
+        logger.debug() << "Filtered cutoff count: " << index.stats.filter_cutoff << std::endl;
+        
         if (!opt.logfile_name.empty()) {
             print_diagnostics(index, opt.logfile_name, index_parameters.k);
             logger.debug() << "Finished printing log stats" << std::endl;
@@ -336,7 +336,6 @@ int run_strobealign(int argc, char **argv) {
         << "Total time finding NAMs (rescue mode): " << tot_statistics.tot_time_rescue.count() / opt.n_threads << " s." << std::endl;
     //<< "Total time finding NAMs ALTERNATIVE (candidate sites): " << tot_find_nams_alt.count()/opt.n_threads  << " s." <<  std::endl;
     logger.info() << "Total time sorting NAMs (candidate sites): " << tot_statistics.tot_sort_nams.count() / opt.n_threads << " s." << std::endl
-        << "Total time reverse compl seq: " << tot_statistics.tot_rc.count() / opt.n_threads << " s." << std::endl
         << "Total time base level alignment (ssw): " << tot_statistics.tot_extend.count() / opt.n_threads << " s." << std::endl
         << "Total time writing alignment to files: " << tot_statistics.tot_write_file.count() << " s." << std::endl;
     return EXIT_SUCCESS;

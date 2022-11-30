@@ -11,15 +11,7 @@
 #include <cassert>
 #include <algorithm>
 
-#include "logger.hpp"
-
-using std::chrono::high_resolution_clock;
-
-typedef std::vector< uint64_t > hash_vector; //only used during index generation
-
-
-static Logger& logger = Logger::get();
-
+#include "timer.hpp"
 
 /* Create an IndexParameters instance based on a given read length.
  * k and/or s can be specified explicitly by setting them to a value other than
@@ -124,9 +116,8 @@ uint64_t count_unique_elements(const hash_vector& h_vector){
     return unique_elements;
 }
 
-IndexCreationStatistics index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, float f) {
-    IndexCreationStatistics index_stats;
-    index_stats.flat_vector_size = h_vector.size();
+void StrobemerIndex::index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, float f) {
+    stats.flat_vector_size = h_vector.size();
 
     unsigned int offset = 0;
     unsigned int prev_offset = 0;
@@ -172,17 +163,17 @@ IndexCreationStatistics index_vector(const hash_vector &h_vector, kmer_lookup &m
     mers_index[curr_k] = s;
     float frac_unique = ((float) tot_occur_once )/ mers_index.size();
 
-    index_stats.tot_strobemer_count = offset;
-    index_stats.tot_occur_once = tot_occur_once;
-    index_stats.frac_unique = frac_unique;
-    index_stats.tot_high_ab = tot_high_ab;
-    index_stats.tot_mid_ab = tot_mid_ab;
-    index_stats.tot_distinct_strobemer_count = mers_index.size();
+    stats.tot_strobemer_count = offset;
+    stats.tot_occur_once = tot_occur_once;
+    stats.frac_unique = frac_unique;
+    stats.tot_high_ab = tot_high_ab;
+    stats.tot_mid_ab = tot_mid_ab;
+    stats.tot_distinct_strobemer_count = mers_index.size();
 
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
     unsigned int index_cutoff = mers_index.size()*f;
-    index_stats.index_cutoff = index_cutoff;
+    stats.index_cutoff = index_cutoff;
     unsigned int filter_cutoff;
     if (!strobemer_counts.empty()){
         filter_cutoff = index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back();
@@ -191,10 +182,8 @@ IndexCreationStatistics index_vector(const hash_vector &h_vector, kmer_lookup &m
     } else {
         filter_cutoff = 30;
     }
-    index_stats.filter_cutoff = filter_cutoff;
-    return index_stats;
+    stats.filter_cutoff = filter_cutoff;
 }
-
 
 void StrobemerIndex::write(const std::string& filename) const {
     std::ofstream ofs(filename, std::ios::binary);
@@ -265,70 +254,51 @@ void StrobemerIndex::read(const std::string& filename) {
     }
 }
 
-IndexCreationStatistics StrobemerIndex::populate(float f) {
-    auto start_flat_vector = high_resolution_clock::now();
+void StrobemerIndex::populate(float f) {
     hash_vector h_vector;
-
-    std::chrono::duration<double> elapsed_copy_flat_vector;
     {
-        auto ind_flat_vector = generate_seeds();
+        auto ind_flat_vector = generate_and_sort_seeds();
 
-        //Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
-        //The hash codes are only needed when generating the index and can be discarded afterwards.
-        //We want to do this split-up before creating the hash table to avoid a memory peak - the flat_vector is
-        //smaller - doubling that size temporarily will not cause us to go above peak memory.
-        auto start_copy_flat_vector = high_resolution_clock::now();
+        // Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
+        // The hash codes are only needed when generating the index and can be discarded afterwards.
+        // We want to do this split-up before creating the hash table to avoid a memory peak - the flat_vector is
+        // smaller - doubling that size temporarily will not cause us to go above peak memory.
+        Timer flat_vector_timer;
         flat_vector.reserve(ind_flat_vector.size());
         h_vector.reserve(ind_flat_vector.size());
-        for (std::size_t i = 0; i < ind_flat_vector.size(); ++i) {
+        for (size_t i = 0; i < ind_flat_vector.size(); ++i) {
             flat_vector.push_back(ReferenceMer{ind_flat_vector[i].position, ind_flat_vector[i].packed});
             h_vector.push_back(ind_flat_vector[i].hash);
         }
-        elapsed_copy_flat_vector = high_resolution_clock::now() - start_copy_flat_vector;
-
+        stats.elapsed_flat_vector = flat_vector_timer.duration();
         // ind_flat_vector is freed here
     }
-    uint64_t unique_mers = count_unique_elements(h_vector);
+    auto unique_mers = count_unique_elements(h_vector);
 
-    std::chrono::duration<double> elapsed_flat_vector = high_resolution_clock::now() - start_flat_vector;
-
-    auto start_hash_index = high_resolution_clock::now();
-
+    Timer hash_index_timer;
     mers_index.reserve(unique_mers);
     // construct index over flat array
-    IndexCreationStatistics index_stats = index_vector(h_vector, mers_index, f);
-    filter_cutoff = index_stats.filter_cutoff;
-    std::chrono::duration<double> elapsed_hash_index = high_resolution_clock::now() - start_hash_index;
-    
-    index_stats.elapsed_copy_flat_vector = elapsed_copy_flat_vector;
-    index_stats.unique_mers = unique_mers;
-    index_stats.elapsed_flat_vector = elapsed_flat_vector;
-    index_stats.elapsed_hash_index = elapsed_hash_index;
-
-    return index_stats;
+    index_vector(h_vector, mers_index, f);
+    filter_cutoff = stats.filter_cutoff;
+    stats.elapsed_hash_index = hash_index_timer.duration();
+    stats.unique_mers = unique_mers;
 }
 
-ind_mers_vector StrobemerIndex::generate_seeds() const
+ind_mers_vector StrobemerIndex::generate_and_sort_seeds() const
 {
-    auto start_flat_vector = high_resolution_clock::now();
-
+    Timer randstrobes_timer;
     ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
     int expected_sampling = parameters.k - parameters.s + 1;
     int approx_vec_size = references.total_length() / expected_sampling;
-    logger.debug() << "ref vector approximate size: " << approx_vec_size << std::endl;
     ind_flat_vector.reserve(approx_vec_size);
     for(size_t i = 0; i < references.size(); ++i) {
         randstrobes_reference(ind_flat_vector, parameters.k, parameters.w_min, parameters.w_max, references.sequences[i], i, parameters.s, parameters.t_syncmer, parameters.q, parameters.max_dist);
     }
-    logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
+    stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
-    std::chrono::duration<double> elapsed_generating_seeds = high_resolution_clock::now() - start_flat_vector;
-    logger.info() << "Time generating seeds: " << elapsed_generating_seeds.count() << " s" <<  std::endl;
-
-    auto start_sorting = high_resolution_clock::now();
+    Timer sorting_timer;
     std::sort(ind_flat_vector.begin(), ind_flat_vector.end());
-    std::chrono::duration<double> elapsed_sorting_seeds = high_resolution_clock::now() - start_sorting;
-    logger.info() << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s" <<  std::endl;
+    stats.elapsed_sorting_seeds = sorting_timer.duration();
 
     return ind_flat_vector;
 }

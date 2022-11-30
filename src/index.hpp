@@ -7,7 +7,7 @@
 #ifndef index_hpp
 #define index_hpp
 
-#include <chrono>  // for high_resolution_clock
+#include <chrono>
 #include <stdio.h>
 #include <string>
 #include <vector>
@@ -33,6 +33,7 @@ struct KmerLookupEntry {
 
 typedef robin_hood::unordered_map<uint64_t, KmerLookupEntry> kmer_lookup;
 
+typedef std::vector<uint64_t> hash_vector; //only used during index generation
 
 /* Settings that influence index creation */
 class IndexParameters {
@@ -83,7 +84,6 @@ public:
 };
 
 struct IndexCreationStatistics {
-
     unsigned int flat_vector_size = 0;
     unsigned int tot_strobemer_count = 0;
     unsigned int tot_occur_once = 0;
@@ -93,13 +93,12 @@ struct IndexCreationStatistics {
     unsigned int tot_distinct_strobemer_count = 0;
     unsigned int index_cutoff = 0;
     unsigned int filter_cutoff = 0;
-
     uint64_t unique_mers = 0;
 
-    std::chrono::duration<double> elapsed_copy_flat_vector;
     std::chrono::duration<double> elapsed_flat_vector;
     std::chrono::duration<double> elapsed_hash_index;
-
+    std::chrono::duration<double> elapsed_generating_seeds;
+    std::chrono::duration<double> elapsed_sorting_seeds;
 };
 
 struct StrobemerIndex {
@@ -111,14 +110,16 @@ struct StrobemerIndex {
                                 //therefore stored here since it needs to be saved with the index.
     mers_vector flat_vector;
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
+    mutable IndexCreationStatistics stats;
 
     void write(const std::string& filename) const;
     void read(const std::string& filename);
-    IndexCreationStatistics populate(float f);
+    void populate(float f);
 private:
     const IndexParameters& parameters;
     const References& references;
-    ind_mers_vector generate_seeds() const;
+    void index_vector(const hash_vector& h_vector, kmer_lookup& mers_index, float f);
+    ind_mers_vector generate_and_sort_seeds() const;
 };
 
 
