@@ -335,7 +335,6 @@ int run_strobealign(int argc, char **argv) {
         << "Total time finding NAMs (rescue mode): " << tot_statistics.tot_time_rescue.count() / opt.n_threads << " s." << std::endl;
     //<< "Total time finding NAMs ALTERNATIVE (candidate sites): " << tot_find_nams_alt.count()/opt.n_threads  << " s." <<  std::endl;
     logger.info() << "Total time sorting NAMs (candidate sites): " << tot_statistics.tot_sort_nams.count() / opt.n_threads << " s." << std::endl
-        << "Total time reverse compl seq: " << tot_statistics.tot_rc.count() / opt.n_threads << " s." << std::endl
         << "Total time base level alignment (ssw): " << tot_statistics.tot_extend.count() / opt.n_threads << " s." << std::endl
         << "Total time writing alignment to files: " << tot_statistics.tot_write_file.count() << " s." << std::endl;
     return EXIT_SUCCESS;
