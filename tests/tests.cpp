@@ -90,17 +90,26 @@ TEST_CASE("Reads file missing") {
     REQUIRE_THROWS_AS(open_fastq(filename), InvalidFile);
 }
 
-TEST_CASE("unmapped SAM record") {
+TEST_CASE("Formatting unmapped SAM record") {
     klibpp::KSeq kseq;
     kseq.name = "read1";
     kseq.seq = "ACGT";
     kseq.qual = ">#BB";
     std::string sam_string;
-    Sam sam(sam_string, References());
 
-    sam.add_unmapped(kseq);
+    SUBCASE("without RG") {
+        Sam sam(sam_string, References());
+        sam.add_unmapped(kseq);
 
-    CHECK(sam_string == "read1\t4\t*\t0\t0\t*\t*\t0\t0\tACGT\t>#BB\n");
+        CHECK(sam_string == "read1\t4\t*\t0\t0\t*\t*\t0\t0\tACGT\t>#BB\n");
+    }
+
+    SUBCASE("with RG") {
+        Sam sam(sam_string, References(), "rg1");
+        sam.add_unmapped(kseq);
+
+        CHECK(sam_string == "read1\t4\t*\t0\t0\t*\t*\t0\t0\tACGT\t>#BB\tRG:Z:rg1\n");
+    }
 }
 
 TEST_CASE("pair with one unmapped SAM record") {
@@ -162,7 +171,6 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     references.add("contig1", "ACGT");
     references.add("contig2", "GGAA");
     std::string sam_string;
-    Sam sam(sam_string, references);
 
     alignment aln1;
     aln1.ref_id = 0;
@@ -198,6 +206,8 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     bool is_proper = false;
     bool is_primary = true;
 
+    Sam sam(sam_string, references);
+
     sam.add_pair(
         aln1,
         aln2,
@@ -213,7 +223,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     // 65: PAIRED,READ1
     // 129: PAIRED,READ2
     CHECK(sam_string ==
-      "readname\t65\tcontig1\t2\t55\t2M\tcontig2\t3\t0\tAACC\t#!B<\tNM:i:17\tAS:i:9\n"
-      "readname\t129\tcontig2\t3\t57\t3M\tcontig1\t2\t0\tGGTT\tIHB#\tNM:i:2\tAS:i:4\n"
+    "readname\t65\tcontig1\t2\t55\t2M\tcontig2\t3\t0\tAACC\t#!B<\tNM:i:17\tAS:i:9\n"
+    "readname\t129\tcontig2\t3\t57\t3M\tcontig1\t2\t0\tGGTT\tIHB#\tNM:i:2\tAS:i:4\n"
     );
 }

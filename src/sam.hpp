@@ -37,9 +37,15 @@ enum SamFlags {
 class Sam {
 
 public:
-    Sam(std::string& sam_string, const References& references)
+    Sam(std::string& sam_string, const References& references, const std::string& read_group_id = "")
         : sam_string(sam_string)
-        , references(references) { }
+        , references(references) {
+            if (read_group_id.empty()) {
+                tail = "\n";
+            } else {
+                tail = "\tRG:Z:" + read_group_id + "\n";
+            }
+        }
 
     /* Add an alignment */
     void add(const alignment& sam_aln, const klibpp::KSeq& record, const std::string& sequence_rc, bool is_secondary = false);
@@ -51,8 +57,10 @@ public:
     void add_record(const std::string& query_name, int flags, const std::string& reference_name, int pos, int mapq, const std::string& cigar, const std::string& mate_name, int mate_ref_start, int template_len, const std::string& query_sequence, const std::string& query_sequence_rc, const std::string& qual, int ed, int aln_score);
 
 private:
+    void append_tail();
     std::string& sam_string;
     const References& references;
+    std::string tail;
 };
 
 bool is_proper_pair(const alignment& sam_aln1, const alignment& sam_aln2, float mu, float sigma);

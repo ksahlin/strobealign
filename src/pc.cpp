@@ -77,7 +77,8 @@ inline bool align_reads_PE(
     const mapping_params &map_param,
     const IndexParameters& index_parameters,
     const References& references,
-    const StrobemerIndex& index
+    const StrobemerIndex& index,
+    const std::string& read_group_id
 ) {
     // If no more reads to align
     if (records1.empty() && input_buffer.finished_reading){
@@ -86,7 +87,7 @@ inline bool align_reads_PE(
 
     std::string sam_out;
     sam_out.reserve(7*map_param.r *records1.size());
-    Sam sam{sam_out, references};
+    Sam sam{sam_out, references, read_group_id};
     for (size_t i = 0; i < records1.size(); ++i) {
         auto record1 = records1[i];
         auto record2 = records2[i];
@@ -111,7 +112,8 @@ void perform_task_PE(
     const mapping_params &map_param,
     const IndexParameters& index_parameters,
     const References& references,
-    const StrobemerIndex& index
+    const StrobemerIndex& index,
+    const std::string& read_group_id
 ) {
     bool eof = false;
     while (true){
@@ -125,7 +127,7 @@ void perform_task_PE(
         input_buffer.read_records_PE(records1, records2, log_stats_vec[thread_id]);
         eof = align_reads_PE(input_buffer, output_buffer, records1, records2,
                            log_stats_vec[thread_id], isize_est_vec[thread_id],
-                          aln_params, map_param, index_parameters, references, index);
+                          aln_params, map_param, index_parameters, references, index, read_group_id);
 
         if (eof) {
             break;
@@ -143,7 +145,8 @@ inline bool align_reads_SE(
     const mapping_params &map_param,
     const IndexParameters& index_parameters,
     const References& references,
-    const StrobemerIndex& index
+    const StrobemerIndex& index,
+    const std::string& read_group_id
 ) {
     // If no more reads to align
     if (records.empty() && input_buffer.finished_reading){
@@ -152,7 +155,7 @@ inline bool align_reads_SE(
 
     std::string sam_out;
     sam_out.reserve(7*map_param.r *records.size());
-    Sam sam{sam_out, references};
+    Sam sam{sam_out, references, read_group_id};
     for (size_t i = 0; i < records.size(); ++i) {
         auto record1 = records[i];
 
@@ -165,7 +168,6 @@ inline bool align_reads_SE(
     return false;
 }
 
-
 void perform_task_SE(
     InputBuffer &input_buffer,
     OutputBuffer &output_buffer,
@@ -174,7 +176,8 @@ void perform_task_SE(
     const mapping_params &map_param,
     const IndexParameters& index_parameters,
     const References& references,
-    const StrobemerIndex& index
+    const StrobemerIndex& index,
+    const std::string& read_group_id
 ) {
     bool eof = false;
     while (true){
@@ -187,7 +190,7 @@ void perform_task_SE(
         input_buffer.read_records_SE(records1, log_stats_vec[thread_id]);
         eof = align_reads_SE(input_buffer, output_buffer, records1,
                              log_stats_vec[thread_id],
-                             aln_params, map_param, index_parameters, references, index);
+                             aln_params, map_param, index_parameters, references, index, read_group_id);
 
         if (eof){
             break;

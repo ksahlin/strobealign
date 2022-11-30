@@ -121,10 +121,14 @@ static void print_diagnostics(const StrobemerIndex &index, const std::string& lo
 /*
  * Return formatted SAM header as a string
  */
-std::string sam_header(const References& references) {
+std::string sam_header(const References& references, const std::string& read_group_id) {
     std::stringstream out;
     for (size_t i = 0; i < references.size(); ++i) {
         out << "@SQ\tSN:" << references.names[i] << "\tLN:" << references.lengths[i] << "\n";
+    }
+    if (!read_group_id.empty()) {
+        out << "@RG\tID:" << read_group_id << '\n';
+
     }
     out << "@PG\tID:strobealign\tPN:strobealign\tVN:" << version_string() << "\tCL:strobealign\n";
     return out.str();
@@ -253,7 +257,7 @@ int run_strobealign(int argc, char **argv) {
     std::ostream out(buf);
 
     if (map_param.is_sam_out) {
-        out << sam_header(references);
+        out << sam_header(references, opt.read_group_id);
     }
 
     std::unordered_map<std::thread::id, AlignmentStatistics> log_stats_vec(opt.n_threads);
@@ -272,7 +276,7 @@ int run_strobealign(int argc, char **argv) {
             std::thread consumer(perform_task_SE, std::ref(input_buffer), std::ref(output_buffer),
                 std::ref(log_stats_vec), std::ref(aln_params),
                 std::ref(map_param), std::ref(index_parameters), std::ref(references),
-                std::ref(index));
+                std::ref(index), std::ref(opt.read_group_id));
             workers.push_back(std::move(consumer));
         }
 
@@ -294,7 +298,7 @@ int run_strobealign(int argc, char **argv) {
             std::thread consumer(perform_task_PE, std::ref(input_buffer), std::ref(output_buffer),
                 std::ref(log_stats_vec), std::ref(isize_est_vec), std::ref(aln_params),
                 std::ref(map_param), std::ref(index_parameters), std::ref(references),
-                std::ref(index));
+                std::ref(index), std::ref(opt.read_group_id));
             workers.push_back(std::move(consumer));
         }
 

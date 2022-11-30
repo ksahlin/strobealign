@@ -13,6 +13,7 @@ struct CommandLineOptions {
     std::string output_file_name;
     bool write_to_stdout { true };
     bool verbose { false };
+    std::string read_group_id { "" };
     std::string logfile_name { "" };
     bool only_gen_index { false };
     bool use_index { false };

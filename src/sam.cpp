@@ -24,6 +24,10 @@ using namespace klibpp;
  * 12 optional fields
 */
 
+void Sam::append_tail() {
+    sam_string.append(tail);
+}
+
 void Sam::add_unmapped(const KSeq& record, int flags) {
     assert((flags & ~(UNMAP|PAIRED|MUNMAP|READ1|READ2)) == 0);
     assert(flags & UNMAP);
@@ -34,7 +38,7 @@ void Sam::add_unmapped(const KSeq& record, int flags) {
     sam_string.append(record.seq);
     sam_string.append("\t");
     sam_string.append(record.qual);
-    sam_string.append("\n");
+    append_tail();
 }
 
 void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& mate_rname, int mate_pos) {
@@ -50,7 +54,7 @@ void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& ma
     sam_string.append(record.seq);
     sam_string.append("\t");
     sam_string.append(record.qual);
-    sam_string.append("\n");
+    append_tail();
 }
 
 void Sam::add_unmapped_pair(const KSeq& r1, const KSeq& r2) {
@@ -137,7 +141,7 @@ void Sam::add_record(
     } else {
         sam_string.append(qual);
     }
-    sam_string.append("\n");
+    append_tail();
 }
 
 void Sam::add_pair(
