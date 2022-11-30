@@ -7,7 +7,7 @@
 #ifndef index_hpp
 #define index_hpp
 
-#include <chrono>  // for high_resolution_clock
+#include <chrono>
 #include <stdio.h>
 #include <string>
 #include <vector>

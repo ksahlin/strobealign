@@ -10,6 +10,7 @@
 #include <chrono>
 #include <queue>
 
+#include "timer.hpp"
 #include "robin_hood.h"
 #include "index.hpp"
 #include "kseq++.hpp"
@@ -18,7 +19,7 @@ using namespace klibpp;
 
 
 void InputBuffer::read_records_PE(std::vector<KSeq> &records1, std::vector<KSeq> &records2, AlignmentStatistics &statistics) {
-     auto read_start = std::chrono::high_resolution_clock::now();
+    Timer timer;
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
     records1 = ks1.read(chunk_size);
@@ -32,13 +33,11 @@ void InputBuffer::read_records_PE(std::vector<KSeq> &records1, std::vector<KSeq>
     unique_lock.unlock();
     // Notify a single thread that buffer isn't empty
     not_empty.notify_one();
-    auto read_finish = std::chrono::high_resolution_clock::now();
-    statistics.tot_read_file += read_finish - read_start;
-
+    statistics.tot_read_file += timer.duration();
 }
 
 void InputBuffer::read_records_SE(std::vector<KSeq> &records1, AlignmentStatistics &statistics) {
-    auto read_start = std::chrono::high_resolution_clock::now();
+    Timer timer;
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
     records1 = ks1.read(chunk_size);
@@ -51,9 +50,7 @@ void InputBuffer::read_records_SE(std::vector<KSeq> &records1, AlignmentStatisti
     unique_lock.unlock();
     // Notify a single thread that buffer isn't empty
     not_empty.notify_one();
-    auto read_finish = std::chrono::high_resolution_clock::now();
-    statistics.tot_read_file += read_finish - read_start;
-
+    statistics.tot_read_file += timer.duration();
 }
 
 void OutputBuffer::output_records(std::string &sam_alignments) {
@@ -194,5 +191,4 @@ void perform_task_SE(
             break;
         }
     }
-
 }

@@ -11,11 +11,10 @@
 #include <cassert>
 #include <algorithm>
 
+#include "timer.hpp"
 #include "logger.hpp"
 
-using std::chrono::high_resolution_clock;
-
-typedef std::vector< uint64_t > hash_vector; //only used during index generation
+typedef std::vector<uint64_t> hash_vector; //only used during index generation
 
 
 static Logger& logger = Logger::get();
@@ -266,10 +265,10 @@ void StrobemerIndex::read(const std::string& filename) {
 }
 
 IndexCreationStatistics StrobemerIndex::populate(float f) {
-    auto start_flat_vector = high_resolution_clock::now();
+    Timer flat_vector_timer;
     hash_vector h_vector;
 
-    std::chrono::duration<double> elapsed_copy_flat_vector;
+    Timer copy_timer;
     {
         auto ind_flat_vector = generate_seeds();
 
@@ -277,41 +276,36 @@ IndexCreationStatistics StrobemerIndex::populate(float f) {
         //The hash codes are only needed when generating the index and can be discarded afterwards.
         //We want to do this split-up before creating the hash table to avoid a memory peak - the flat_vector is
         //smaller - doubling that size temporarily will not cause us to go above peak memory.
-        auto start_copy_flat_vector = high_resolution_clock::now();
         flat_vector.reserve(ind_flat_vector.size());
         h_vector.reserve(ind_flat_vector.size());
         for (std::size_t i = 0; i < ind_flat_vector.size(); ++i) {
             flat_vector.push_back(ReferenceMer{ind_flat_vector[i].position, ind_flat_vector[i].packed});
             h_vector.push_back(ind_flat_vector[i].hash);
         }
-        elapsed_copy_flat_vector = high_resolution_clock::now() - start_copy_flat_vector;
-
         // ind_flat_vector is freed here
     }
+    auto elapsed_copy_flat_vector = copy_timer.duration();
+
     uint64_t unique_mers = count_unique_elements(h_vector);
 
-    std::chrono::duration<double> elapsed_flat_vector = high_resolution_clock::now() - start_flat_vector;
+    std::chrono::duration<double> elapsed_flat_vector = flat_vector_timer.duration();
 
-    auto start_hash_index = high_resolution_clock::now();
-
+    Timer hash_index_timer;
     mers_index.reserve(unique_mers);
     // construct index over flat array
     IndexCreationStatistics index_stats = index_vector(h_vector, mers_index, f);
     filter_cutoff = index_stats.filter_cutoff;
-    std::chrono::duration<double> elapsed_hash_index = high_resolution_clock::now() - start_hash_index;
-    
+    index_stats.elapsed_hash_index = hash_index_timer.duration();
     index_stats.elapsed_copy_flat_vector = elapsed_copy_flat_vector;
     index_stats.unique_mers = unique_mers;
     index_stats.elapsed_flat_vector = elapsed_flat_vector;
-    index_stats.elapsed_hash_index = elapsed_hash_index;
 
     return index_stats;
 }
 
 ind_mers_vector StrobemerIndex::generate_seeds() const
 {
-    auto start_flat_vector = high_resolution_clock::now();
-
+    Timer flat_vector_timer;
     ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
     int expected_sampling = parameters.k - parameters.s + 1;
     int approx_vec_size = references.total_length() / expected_sampling;
@@ -322,12 +316,12 @@ ind_mers_vector StrobemerIndex::generate_seeds() const
     }
     logger.debug() << "Ref vector actual size: " << ind_flat_vector.size() << std::endl;
 
-    std::chrono::duration<double> elapsed_generating_seeds = high_resolution_clock::now() - start_flat_vector;
+    std::chrono::duration<double> elapsed_generating_seeds = flat_vector_timer.duration();
     logger.info() << "Time generating seeds: " << elapsed_generating_seeds.count() << " s" <<  std::endl;
 
-    auto start_sorting = high_resolution_clock::now();
+    Timer sorting_timer;
     std::sort(ind_flat_vector.begin(), ind_flat_vector.end());
-    std::chrono::duration<double> elapsed_sorting_seeds = high_resolution_clock::now() - start_sorting;
+    auto elapsed_sorting_seeds = sorting_timer.duration();
     logger.info() << "Time sorting seeds: " << elapsed_sorting_seeds.count() << " s" <<  std::endl;
 
     return ind_flat_vector;
