@@ -14,6 +14,7 @@ struct CommandLineOptions {
     bool write_to_stdout { true };
     bool verbose { false };
     std::string read_group_id { "" };
+    std::vector<std::string> read_group_fields;
     std::string logfile_name { "" };
     bool only_gen_index { false };
     bool use_index { false };

@@ -24,6 +24,8 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     args::Flag v(parser, "v", "Verbose output", {'v'});
     args::Flag x(parser, "x", "Only map reads, no base level alignment (produces PAF file)", {'x'});
     args::ValueFlag<std::string> rgid(parser, "ID", "Read group ID", {"rg-id"});
+    args::ValueFlagList<std::string> rg(parser, "TAG:VALUE", "Add read group metadata to SAM header (can be specified multiple times). Example: SM:samplename", {"rg"});
+
     args::ValueFlag<int> N(parser, "INT", "Retain at most INT secondary alignments (is upper bounded by -M and depends on -S) [0]", {'N'});
     args::ValueFlag<std::string> L(parser, "PATH", "Print statistics of indexing to PATH", {'L'});
     args::Flag i(parser, "index", "Write the generated index to a file. Do not map reads. If read files are provided, they are used to estimate read length", { 'i' });
@@ -89,6 +91,7 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     if (v) { opt.verbose = true; }
     if (x) { map_param.is_sam_out = false; }
     if (rgid) { opt.read_group_id = args::get(rgid); }
+    if (rg) { opt.read_group_fields = args::get(rg); }
     if (N) { map_param.max_secondary = args::get(N); }
     if (L) { opt.logfile_name = args::get(L); }
     if (i) { opt.only_gen_index = true; opt.index_out_filename = args::get(i); }

@@ -121,14 +121,17 @@ static void print_diagnostics(const StrobemerIndex &index, const std::string& lo
 /*
  * Return formatted SAM header as a string
  */
-std::string sam_header(const References& references, const std::string& read_group_id) {
+std::string sam_header(const References& references, const std::string& read_group_id, const std::vector<std::string>& read_group_fields) {
     std::stringstream out;
     for (size_t i = 0; i < references.size(); ++i) {
         out << "@SQ\tSN:" << references.names[i] << "\tLN:" << references.lengths[i] << "\n";
     }
     if (!read_group_id.empty()) {
-        out << "@RG\tID:" << read_group_id << '\n';
-
+        out << "@RG\tID:" << read_group_id;
+        for (const auto& field : read_group_fields) {
+           out << '\t' << field;
+        }
+        out << '\n';
     }
     out << "@PG\tID:strobealign\tPN:strobealign\tVN:" << version_string() << "\tCL:strobealign\n";
     return out.str();
@@ -257,7 +260,7 @@ int run_strobealign(int argc, char **argv) {
     std::ostream out(buf);
 
     if (map_param.is_sam_out) {
-        out << sam_header(references, opt.read_group_id);
+        out << sam_header(references, opt.read_group_id, opt.read_group_fields);
     }
 
     std::unordered_map<std::thread::id, AlignmentStatistics> log_stats_vec(opt.n_threads);
