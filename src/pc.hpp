@@ -32,9 +32,10 @@ public:
     input_stream_t &ks2;
     bool finished_reading{false};
     int chunk_size;
+    size_t chunk_index{0};
 
-    void read_records_PE(std::vector<klibpp::KSeq> &records1, std::vector<klibpp::KSeq> &records2, AlignmentStatistics &statistics);
-    void read_records_SE(std::vector<klibpp::KSeq> &records1, AlignmentStatistics &statistics);
+    size_t read_records_PE(std::vector<klibpp::KSeq> &records1, std::vector<klibpp::KSeq> &records2, AlignmentStatistics &statistics);
+    size_t read_records_SE(std::vector<klibpp::KSeq> &records1, AlignmentStatistics &statistics);
 };
 
 

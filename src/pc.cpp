@@ -17,26 +17,32 @@
 #include "sam.hpp"
 
 
-void InputBuffer::read_records_PE(std::vector<klibpp::KSeq> &records1, std::vector<klibpp::KSeq> &records2, AlignmentStatistics &statistics) {
+size_t InputBuffer::read_records_PE(std::vector<klibpp::KSeq> &records1, std::vector<klibpp::KSeq> &records2, AlignmentStatistics &statistics) {
     Timer timer;
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
     records1 = ks1.read(chunk_size);
     records2 = ks2.read(chunk_size);
+    size_t current_chunk_index = chunk_index;
+    chunk_index++;
 
-    if (records1.empty()){
+    if (records1.empty()) {
         finished_reading = true;
     }
 
     unique_lock.unlock();
     statistics.tot_read_file += timer.duration();
+
+    return current_chunk_index;
 }
 
-void InputBuffer::read_records_SE(std::vector<klibpp::KSeq> &records1, AlignmentStatistics &statistics) {
+size_t InputBuffer::read_records_SE(std::vector<klibpp::KSeq> &records1, AlignmentStatistics &statistics) {
     Timer timer;
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
     records1 = ks1.read(chunk_size);
+    size_t current_chunk_index = chunk_index;
+    chunk_index++;
 
     if (records1.empty()){
         finished_reading = true;
@@ -44,6 +50,8 @@ void InputBuffer::read_records_SE(std::vector<klibpp::KSeq> &records1, Alignment
 
     unique_lock.unlock();
     statistics.tot_read_file += timer.duration();
+
+    return current_chunk_index;
 }
 
 void OutputBuffer::output_records(std::string &sam_alignments) {
