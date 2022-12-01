@@ -16,10 +16,8 @@
 #include "kseq++.hpp"
 #include "sam.hpp"
 
-using namespace klibpp;
 
-
-void InputBuffer::read_records_PE(std::vector<KSeq> &records1, std::vector<KSeq> &records2, AlignmentStatistics &statistics) {
+void InputBuffer::read_records_PE(std::vector<klibpp::KSeq> &records1, std::vector<klibpp::KSeq> &records2, AlignmentStatistics &statistics) {
     Timer timer;
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
@@ -37,7 +35,7 @@ void InputBuffer::read_records_PE(std::vector<KSeq> &records1, std::vector<KSeq>
     statistics.tot_read_file += timer.duration();
 }
 
-void InputBuffer::read_records_SE(std::vector<KSeq> &records1, AlignmentStatistics &statistics) {
+void InputBuffer::read_records_SE(std::vector<klibpp::KSeq> &records1, AlignmentStatistics &statistics) {
     Timer timer;
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
@@ -69,8 +67,8 @@ void OutputBuffer::output_records(std::string &sam_alignments) {
 inline bool align_reads_PE(
     InputBuffer &input_buffer,
     OutputBuffer &output_buffer,
-    std::vector<KSeq> &records1,
-    std::vector<KSeq> &records2,
+    std::vector<klibpp::KSeq> &records1,
+    std::vector<klibpp::KSeq> &records2,
     AlignmentStatistics &statistics,
     i_dist_est &isize_est,
     const alignment_params &aln_params,
@@ -117,8 +115,8 @@ void perform_task_PE(
 ) {
     bool eof = false;
     while (true){
-        std::vector<KSeq> records1;
-        std::vector<KSeq> records2;
+        std::vector<klibpp::KSeq> records1;
+        std::vector<klibpp::KSeq> records2;
         auto thread_id = std::this_thread::get_id();
         if (log_stats_vec.find(thread_id) == log_stats_vec.end()) { //  Not initialized
             AlignmentStatistics statistics;
@@ -139,7 +137,7 @@ void perform_task_PE(
 inline bool align_reads_SE(
     InputBuffer &input_buffer,
     OutputBuffer &output_buffer,
-    std::vector<KSeq> &records,
+    std::vector<klibpp::KSeq> &records,
     AlignmentStatistics &statistics,
     const alignment_params &aln_params,
     const mapping_params &map_param,
@@ -181,7 +179,7 @@ void perform_task_SE(
 ) {
     bool eof = false;
     while (true){
-        std::vector<KSeq> records1;
+        std::vector<klibpp::KSeq> records1;
         auto thread_id = std::this_thread::get_id();
         if (log_stats_vec.find(thread_id) == log_stats_vec.end()) { //  Not initialized
             AlignmentStatistics statistics;
