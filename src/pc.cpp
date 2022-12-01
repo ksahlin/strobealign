@@ -53,7 +53,7 @@ void OutputBuffer::output_records(std::string &sam_alignments) {
 }
 
 
-inline bool align_reads_PE(
+bool align_reads_PE(
     InputBuffer &input_buffer,
     OutputBuffer &output_buffer,
     std::vector<klibpp::KSeq> &records1,
@@ -103,7 +103,7 @@ void perform_task_PE(
     const std::string& read_group_id
 ) {
     bool eof = false;
-    while (true){
+    while (!eof) {
         std::vector<klibpp::KSeq> records1;
         std::vector<klibpp::KSeq> records2;
         auto thread_id = std::this_thread::get_id();
@@ -115,15 +115,11 @@ void perform_task_PE(
         eof = align_reads_PE(input_buffer, output_buffer, records1, records2,
                            log_stats_vec[thread_id], isize_est_vec[thread_id],
                           aln_params, map_param, index_parameters, references, index, read_group_id);
-
-        if (eof) {
-            break;
-        }
     }
 }
 
 
-inline bool align_reads_SE(
+bool align_reads_SE(
     InputBuffer &input_buffer,
     OutputBuffer &output_buffer,
     std::vector<klibpp::KSeq> &records,
@@ -167,7 +163,7 @@ void perform_task_SE(
     const std::string& read_group_id
 ) {
     bool eof = false;
-    while (true){
+    while (!eof){
         std::vector<klibpp::KSeq> records1;
         auto thread_id = std::this_thread::get_id();
         if (log_stats_vec.find(thread_id) == log_stats_vec.end()) { //  Not initialized
@@ -178,9 +174,5 @@ void perform_task_SE(
         eof = align_reads_SE(input_buffer, output_buffer, records1,
                              log_stats_vec[thread_id],
                              aln_params, map_param, index_parameters, references, index, read_group_id);
-
-        if (eof){
-            break;
-        }
     }
 }
