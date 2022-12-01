@@ -26,18 +26,12 @@ public:
     InputBuffer(input_stream_t& ks1, input_stream_t& ks2, int chunk_size)
     : ks1(ks1), ks2(ks2), chunk_size(chunk_size) { }
 
-    // Fields for concurrency input
     std::mutex mtx;
-    std::condition_variable not_empty;
-    std::condition_variable not_full;
 
-    std::queue<std::vector<klibpp::KSeq>> q1;
-    std::queue<std::vector<klibpp::KSeq>> q2;
     input_stream_t &ks1;
     input_stream_t &ks2;
-    bool finished_reading = false;
-    int buffer_size = 0;
-    int chunk_size = 100000;
+    bool finished_reading{false};
+    int chunk_size;
 
     void read_records_PE(std::vector<klibpp::KSeq> &records1, std::vector<klibpp::KSeq> &records2, AlignmentStatistics &statistics);
     void read_records_SE(std::vector<klibpp::KSeq> &records1, AlignmentStatistics &statistics);
@@ -50,10 +44,6 @@ public:
     OutputBuffer(std::ostream& out) : out(out) { }
 
     std::mutex mtx;
-    std::condition_variable not_empty;
-    std::condition_variable not_full;
-
-    int buffer_size = 0;
     std::ostream &out;
 
     void output_records(std::string &sam_alignments);

@@ -28,10 +28,7 @@ void InputBuffer::read_records_PE(std::vector<klibpp::KSeq> &records1, std::vect
         finished_reading = true;
     }
 
-    // Unlock unique lock
     unique_lock.unlock();
-    // Notify a single thread that buffer isn't empty
-    not_empty.notify_one();
     statistics.tot_read_file += timer.duration();
 }
 
@@ -45,22 +42,14 @@ void InputBuffer::read_records_SE(std::vector<klibpp::KSeq> &records1, Alignment
         finished_reading = true;
     }
 
-    // Unlock unique lock
     unique_lock.unlock();
-    // Notify a single thread that buffer isn't empty
-    not_empty.notify_one();
     statistics.tot_read_file += timer.duration();
 }
 
 void OutputBuffer::output_records(std::string &sam_alignments) {
-    // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
     out << sam_alignments;
-    // Update appropriate fields
-    buffer_size = 0;
-    // Unlock unique lock
     unique_lock.unlock();
-    not_full.notify_one();
 }
 
 
