@@ -4,7 +4,6 @@
 #include <math.h>
 #include <sstream>
 #include "ssw_cpp.h"
-#include "sam.hpp"
 #include "revcomp.hpp"
 #include "timer.hpp"
 
@@ -2205,7 +2204,8 @@ void i_dist_est::update(int dist)
 void align_PE_read(
     KSeq &record1,
     KSeq &record2,
-    std::string &outstring,
+    Sam& sam,
+    std::string& outstring,
     AlignmentStatistics &statistics,
     i_dist_est &isize_est,
     const alignment_params &aln_params,
@@ -2280,7 +2280,6 @@ void align_PE_read(
                            index_parameters.k,
                            record2.seq.length());
     } else {
-        Sam sam(outstring, references);
         align_PE(aln_params, sam, nams1, nams2, record1,
                  record2,
                  index_parameters.k,
@@ -2295,6 +2294,7 @@ void align_PE_read(
 
 void align_SE_read(
     KSeq &record,
+    Sam& sam,
     std::string &outstring,
     AlignmentStatistics &statistics,
     const alignment_params &aln_params,
@@ -2338,7 +2338,6 @@ void align_SE_read(
             output_hits_paf(outstring, nams, record.name, references, index_parameters.k,
                             record.seq.length());
         } else {
-            Sam sam(outstring, references);
             if (map_param.max_secondary > 0){
                 // I created an entire new function here, duplicating a lot of the code as outputting secondary hits is has some overhead to the
                 // original align_SE function (storing a vector of hits and sorting them)

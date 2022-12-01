@@ -22,6 +22,10 @@
 * Invalid or missing input files no longer lead to a crash.
 * Added `-h`/`--help` options.
 * Added `--version` option.
+* Added `--rg-id` option for adding read group IDs to each SAM record.
+* Added `--rg` option for adding read group metadata (sample, library etc.)
+  to the SAM header (example: `--rg 1 --rg SM:mysample` sets read group id to
+  "1" and the sample name to "mysample").
 * Suppress some logging output by default.
 * Added option `-v` for showing full logging output.
 

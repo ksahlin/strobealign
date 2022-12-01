@@ -23,7 +23,14 @@ using namespace klibpp;
  * 11 QUAL
  * 12 optional fields
 */
+
+void Sam::append_tail() {
+    sam_string.append(tail);
+}
+
 void Sam::add_unmapped(const KSeq& record, int flags) {
+    assert((flags & ~(UNMAP|PAIRED|MUNMAP|READ1|READ2)) == 0);
+    assert(flags & UNMAP);
     sam_string.append(record.name);
     sam_string.append("\t");
     sam_string.append(std::to_string(flags));
@@ -31,10 +38,11 @@ void Sam::add_unmapped(const KSeq& record, int flags) {
     sam_string.append(record.seq);
     sam_string.append("\t");
     sam_string.append(record.qual);
-    sam_string.append("\n");
+    append_tail();
 }
 
 void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& mate_rname, int mate_pos) {
+    assert(flags & (UNMAP|PAIRED));
     sam_string.append(record.name);
     sam_string.append("\t");
     sam_string.append(std::to_string(flags));
@@ -46,7 +54,7 @@ void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& ma
     sam_string.append(record.seq);
     sam_string.append("\t");
     sam_string.append(record.qual);
-    sam_string.append("\n");
+    append_tail();
 }
 
 void Sam::add_unmapped_pair(const KSeq& r1, const KSeq& r2) {
@@ -54,111 +62,86 @@ void Sam::add_unmapped_pair(const KSeq& r1, const KSeq& r2) {
     add_unmapped(r2, PAIRED | UNMAP | MUNMAP | READ2);
 }
 
+// Add single-end alignment
 void Sam::add(
     const alignment& sam_aln,
     const KSeq& record,
     const std::string& sequence_rc,
     bool is_secondary
 ) {
+    assert(!sam_aln.is_unaligned);
     int flags = 0;
-    const std::string* output_read;
     if (!sam_aln.is_unaligned && sam_aln.is_rc) {
         flags |= REVERSE;
-        output_read = &sequence_rc;
-    } else {
-        output_read = &record.seq;
     }
     if (is_secondary) {
         flags |= SECONDARY;
     }
-    sam_string.append(record.name);  // QNAME
-    sam_string.append("\t");
-    sam_string.append(std::to_string(flags));  // FLAG
-    sam_string.append("\t");
-    sam_string.append(references.names[sam_aln.ref_id]);  // RNAME
-    sam_string.append("\t");
-    sam_string.append(std::to_string(sam_aln.ref_start));  // POS
-    sam_string.append("\t");
-    sam_string.append(std::to_string(sam_aln.mapq));  // MAPQ
-    sam_string.append("\t");
-    sam_string.append(sam_aln.cigar);  // CIGAR
-    sam_string.append("\t*\t0\t0\t");  // RNEXT, PNEXT, TLEN
-    sam_string.append(*output_read);  // SEQ
-    sam_string.append("\t");
-    if (!sam_aln.is_unaligned) {
-        if (sam_aln.is_rc){
-            auto qual_rev = record.qual;
-            std::reverse(qual_rev.begin(), qual_rev.end());
-            sam_string.append(qual_rev);  // QUAL
-        } else {
-            sam_string.append(record.qual);
-        }
-        sam_string.append("\t");
-        sam_string.append("NM:i:");
-        sam_string.append(std::to_string(sam_aln.ed));
-        sam_string.append("\t");
-        sam_string.append("AS:i:");
-        sam_string.append(std::to_string((int) sam_aln.aln_score));
-    } else {
-        sam_string.append(record.qual);  // QUAL
-    }
-    sam_string.append("\n");
+    add_record(record.name, flags, references.names[sam_aln.ref_id], sam_aln.ref_start, sam_aln.mapq, sam_aln.cigar, "*", 0, 0, record.seq, sequence_rc, record.qual, sam_aln.ed, sam_aln.aln_score);
 }
 
-
-// Used by add_pair() to add one individual record
-void Sam::add_one(
-    const KSeq& record,
+// Add one individual record
+void Sam::add_record(
+    const std::string& query_name,
     int flags,
-    const std::string& ref_name,
-    const alignment& sam_aln,
+    const std::string& reference_name,
+    int pos,
     int mapq,
+    const std::string& cigar,
     const std::string& mate_name,
     int mate_ref_start,
     int template_len,
-    const std::string& output_read,
-    int ed
+    const std::string& query_sequence,
+    const std::string& query_sequence_rc,
+    const std::string& qual,
+    int ed,
+    int aln_score
 ) {
-    sam_string.append(record.name);
+    sam_string.append(query_name);
     sam_string.append("\t");
     sam_string.append(std::to_string(flags));
     sam_string.append("\t");
-    sam_string.append(ref_name);
+    sam_string.append(reference_name);
     sam_string.append("\t");
-    sam_string.append(std::to_string(sam_aln.ref_start));
+    sam_string.append(std::to_string(pos));
     sam_string.append("\t");
     sam_string.append(std::to_string(mapq));
     sam_string.append("\t");
-    sam_string.append(sam_aln.cigar);
+    sam_string.append(cigar);
     sam_string.append("\t");
+
     sam_string.append(mate_name);
     sam_string.append("\t");
     sam_string.append(std::to_string(mate_ref_start));
     sam_string.append("\t");
     sam_string.append(std::to_string(template_len));
     sam_string.append("\t");
-    if (!sam_aln.is_unaligned) {
-        sam_string.append(output_read);
-        sam_string.append("\t");
-        if (sam_aln.is_rc){
-            auto qual_rev = record.qual;
+
+    if (flags & REVERSE) {
+        sam_string.append(query_sequence_rc);
+    } else {
+        sam_string.append(query_sequence);
+    }
+    sam_string.append("\t");
+
+    if (!(flags & UNMAP)) {
+        if (flags & REVERSE) {
+            auto qual_rev = qual;
             std::reverse(qual_rev.begin(), qual_rev.end());
             sam_string.append(qual_rev);
         } else {
-            sam_string.append(record.qual);
+            sam_string.append(qual);
         }
         sam_string.append("\t");
         sam_string.append("NM:i:");
         sam_string.append(std::to_string(ed));
         sam_string.append("\t");
         sam_string.append("AS:i:");
-        sam_string.append(std::to_string((int) sam_aln.aln_score));
+        sam_string.append(std::to_string(aln_score));
     } else {
-        sam_string.append(record.seq);
-        sam_string.append("\t");
-        sam_string.append(record.qual);
+        sam_string.append(qual);
     }
-    sam_string.append("\n");
+    append_tail();
 }
 
 void Sam::add_pair(
@@ -196,7 +179,6 @@ void Sam::add_pair(
         f2 |= PROPER_PAIR;
     }
 
-    std::string output_read1 = record1.seq;
     std::string mate_name1;
     std::string ref1;
     int ref_start1 = sam_aln1.ref_start;
@@ -211,13 +193,11 @@ void Sam::add_pair(
         if (sam_aln1.is_rc) {
             f1 |= REVERSE;
             f2 |= MREVERSE;
-            output_read1 = read1_rc;
         }
         mate_name1 = references.names[sam_aln1.ref_id];
         ref1 = references.names[sam_aln1.ref_id];
     }
 
-    std::string output_read2 = record2.seq;
     std::string mate_name2;
     std::string ref2;
     int ref_start2 = sam_aln2.ref_start;
@@ -232,7 +212,6 @@ void Sam::add_pair(
         if (sam_aln2.is_rc) {
             f1 |= MREVERSE;
             f2 |= REVERSE;
-            output_read2 = read2_rc;
         }
         mate_name2 = references.names[sam_aln2.ref_id];
         ref2 = references.names[sam_aln2.ref_id];
@@ -245,12 +224,12 @@ void Sam::add_pair(
     if (sam_aln1.is_unaligned) {
         add_unmapped_mate(record1, f1, mate_name2, ref_start2);
     } else {
-        add_one(record1, f1, ref1, sam_aln1, mapq1, mate_name2, ref_start2, template_len1, output_read1, ed1);
+        add_record(record1.name, f1, ref1, sam_aln1.ref_start, mapq1, sam_aln1.cigar, mate_name2, ref_start2, template_len1, record1.seq, read1_rc, record1.qual, ed1, sam_aln1.aln_score);
     }
     if (sam_aln2.is_unaligned) {
         add_unmapped_mate(record2, f2, mate_name1, ref_start1);
     } else {
-        add_one(record2, f2, ref2, sam_aln2, mapq2, mate_name1, ref_start1, -template_len1, output_read2, ed2);
+        add_record(record2.name, f2, ref2, sam_aln2.ref_start, mapq2, sam_aln2.cigar, mate_name1, ref_start1, -template_len1, record2.seq, read2_rc, record2.qual, ed2, sam_aln2.aln_score);
     }
 }
 

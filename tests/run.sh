@@ -13,12 +13,12 @@ strobealign -h > /dev/null
 d=tests
 
 # Single-end SAM
-strobealign -v $d/phix.fasta $d/phix.1.fastq | grep -v '^@PG' > phix.se.sam
+strobealign -v --rg-id 1 --rg SM:sample --rg LB:library $d/phix.fasta $d/phix.1.fastq | grep -v '^@PG' > phix.se.sam
 diff -u tests/phix.se.sam phix.se.sam
 rm phix.se.sam
 
 # Paired-end SAM
-strobealign $d/phix.fasta $d/phix.1.fastq $d/phix.2.fastq | grep -v '^@PG' > phix.pe.sam
+strobealign --rg-id 1 --rg SM:sample --rg LB:library $d/phix.fasta $d/phix.1.fastq $d/phix.2.fastq | grep -v '^@PG' > phix.pe.sam
 diff -u tests/phix.pe.sam phix.pe.sam
 rm phix.pe.sam
 
