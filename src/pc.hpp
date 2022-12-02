@@ -46,8 +46,10 @@ public:
 
     std::mutex mtx;
     std::ostream &out;
+    std::unordered_map<size_t, std::string> chunks;
+    size_t next_chunk_index{0};
 
-    void output_records(std::string &sam_alignments);
+    void output_records(std::string sam_alignments, size_t chunk_index);
 };
 
 

@@ -4,6 +4,8 @@
 
 ### Bug fixes
 
+* Issue #121: When more than one thread is used, changed behavior so that
+  alignments are output in the order that the reads had in the input file.
 * PR #114: Fix read-length estimate on input files with few reads.
 * PR #78: Fixed incorrect template length (TLEN) sign.
 * Issue #56: Unmapped reads did not have quality values in the SAM output.

@@ -54,9 +54,20 @@ size_t InputBuffer::read_records_SE(std::vector<klibpp::KSeq> &records1, Alignme
     return current_chunk_index;
 }
 
-void OutputBuffer::output_records(std::string &sam_alignments) {
+void OutputBuffer::output_records(std::string chunk, size_t chunk_index) {
     std::unique_lock<std::mutex> unique_lock(mtx);
-    out << sam_alignments;
+
+    // Ensure we print the chunks in the order in which they were read
+    assert(chunks.count(chunk_index) == 0);
+    chunks.emplace(std::make_pair(chunk_index, chunk));
+    while (true) {
+        const auto& item = chunks.find(next_chunk_index);
+        if (item == chunks.end()) {
+            break;
+        }
+        out << item->second;
+        next_chunk_index++;
+    }
     unique_lock.unlock();
 }
 
@@ -81,7 +92,7 @@ void perform_task_PE(
             AlignmentStatistics statistics;
             log_stats_vec[thread_id] = statistics;
         }
-        input_buffer.read_records_PE(records1, records2, log_stats_vec[thread_id]);
+        auto chunk_index = input_buffer.read_records_PE(records1, records2, log_stats_vec[thread_id]);
         if (records1.empty() && input_buffer.finished_reading){
             break;
         }
@@ -98,10 +109,8 @@ void perform_task_PE(
             align_PE_read(record1, record2, sam, sam_out, statistics, isize_est, aln_params,
                         map_param, index_parameters, references, index);
         }
-        // std::cerr << isize_est_vec[thread_id].mu << " " << isize_est_vec[thread_id].sigma << "\n";
-        // std::cerr << log_stats_vec[thread_id].tot_all_tried << " " << log_stats_vec[thread_id].tot_ksw_aligned << "\n";
-        // IMMEDIATELY PRINT TO STDOUT/FILE HERE
-        output_buffer.output_records(sam_out);
+        output_buffer.output_records(std::move(sam_out), chunk_index);
+        assert(sam_out == "");
     }
 }
 
@@ -125,7 +134,7 @@ void perform_task_SE(
             AlignmentStatistics statistics;
             log_stats_vec[thread_id] = statistics;
         }
-        input_buffer.read_records_SE(records, log_stats_vec[thread_id]);
+        auto chunk_index = input_buffer.read_records_SE(records, log_stats_vec[thread_id]);
 
         if (records.empty() && input_buffer.finished_reading){
             break;
@@ -140,9 +149,7 @@ void perform_task_SE(
 
             align_SE_read(record, sam, sam_out, statistics, aln_params, map_param, index_parameters, references, index);
         }
-    //    std::cerr << isize_est_vec[thread_id].mu << " " << isize_est_vec[thread_id].sigma << "\n";
-    //    std::cerr << log_stats_vec[thread_id].tot_all_tried << " " << log_stats_vec[thread_id].tot_ksw_aligned << "\n";
-    //    IMMEDIATELY PRINT TO STDOUT/FILE HERE
-        output_buffer.output_records(sam_out);
+        output_buffer.output_records(std::move(sam_out), chunk_index);
+        assert(sam_out == "");
     }
 }
