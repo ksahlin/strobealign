@@ -49,12 +49,12 @@ public:
     std::unordered_map<size_t, std::string> chunks;
     size_t next_chunk_index{0};
 
-    void output_records(std::string sam_alignments, size_t chunk_index);
+    void output_records(std::string chunk, size_t chunk_index);
 };
 
 
 void perform_task_PE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
-                  AlignmentStatistics& statistics, i_dist_est &isize_est_vec, const alignment_params &aln_params,
+                  AlignmentStatistics& statistics, const alignment_params &aln_params,
                   const mapping_params &map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index, const std::string& read_group_id);
 
 void perform_task_SE(InputBuffer &input_buffer, OutputBuffer &output_buffer,

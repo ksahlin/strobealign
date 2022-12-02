@@ -289,7 +289,6 @@ int run_strobealign(int argc, char **argv) {
     else {
         auto ks1 = open_fastq(opt.reads_filename1);
         auto ks2 = open_fastq(opt.reads_filename2);
-        std::vector<i_dist_est> isize_est_vec(opt.n_threads);
 
         InputBuffer input_buffer(ks1, ks2, opt.chunk_size);
         OutputBuffer output_buffer(out);
@@ -297,7 +296,7 @@ int run_strobealign(int argc, char **argv) {
         std::vector<std::thread> workers;
         for (int i = 0; i < opt.n_threads; ++i) {
             std::thread consumer(perform_task_PE, std::ref(input_buffer), std::ref(output_buffer),
-                std::ref(log_stats_vec[i]), std::ref(isize_est_vec[i]), std::ref(aln_params),
+                std::ref(log_stats_vec[i]), std::ref(aln_params),
                 std::ref(map_param), std::ref(index_parameters), std::ref(references),
                 std::ref(index), std::ref(opt.read_group_id));
             workers.push_back(std::move(consumer));

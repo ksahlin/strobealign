@@ -75,7 +75,6 @@ void perform_task_PE(
     InputBuffer &input_buffer,
     OutputBuffer &output_buffer,
     AlignmentStatistics& statistics,
-    i_dist_est &isize_est,
     const alignment_params &aln_params,
     const mapping_params &map_param,
     const IndexParameters& index_parameters,
@@ -88,6 +87,7 @@ void perform_task_PE(
         std::vector<klibpp::KSeq> records1;
         std::vector<klibpp::KSeq> records2;
         auto chunk_index = input_buffer.read_records_PE(records1, records2, statistics);
+        i_dist_est isize_est;
         if (records1.empty() && input_buffer.finished_reading){
             break;
         }
