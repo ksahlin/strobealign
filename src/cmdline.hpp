@@ -8,6 +8,7 @@
 
 struct CommandLineOptions {
     int n_threads { 3 };
+    int chunk_size { 10000 };
 
     // Input/output
     std::string output_file_name;

@@ -267,11 +267,10 @@ int run_strobealign(int argc, char **argv) {
 
     logger.info() << "Running in " << (opt.is_SE ? "single-end" : "paired-end") << " mode" << std::endl;
 
-    int input_chunk_size = 10000;
     if (opt.is_SE) {
         auto ks = open_fastq(opt.reads_filename1);
 
-        InputBuffer input_buffer(ks, ks, input_chunk_size);
+        InputBuffer input_buffer(ks, ks, opt.chunk_size);
         OutputBuffer output_buffer(out);
 
         std::vector<std::thread> workers;
@@ -292,7 +291,7 @@ int run_strobealign(int argc, char **argv) {
         auto ks2 = open_fastq(opt.reads_filename2);
         std::unordered_map<std::thread::id, i_dist_est> isize_est_vec(opt.n_threads);
 
-        InputBuffer input_buffer(ks1, ks2, input_chunk_size);
+        InputBuffer input_buffer(ks1, ks2, opt.chunk_size);
         OutputBuffer output_buffer(out);
 
         std::vector<std::thread> workers;

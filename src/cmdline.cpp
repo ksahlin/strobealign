@@ -17,7 +17,10 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
 
     args::HelpFlag help(parser, "help", "Print help and exit", {'h', "help"});
     args::ActionFlag version(parser, "version", "Print version and exit", {"version"}, []() { throw Version(); });
+
+    // Threading
     args::ValueFlag<int> threads(parser, "INT", "Number of threads [3]", {'t', "threads"});
+    args::ValueFlag<int> chunk_size(parser, "INT", "Number of reads processed by a worker thread at once [10000]", {"chunk-size"}, args::Options::Hidden);
 
     args::Group io(parser, "Input/output:");
     args::ValueFlag<std::string> o(parser, "PATH", "redirect output to file [stdout]", {'o'});
@@ -84,7 +87,9 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     CommandLineOptions opt;
     mapping_params map_param;
 
+    // Threading
     if (threads) { opt.n_threads = args::get(threads); }
+    if (chunk_size) { opt.chunk_size = args::get(chunk_size); }
 
     // Input/output
     if (o) { opt.output_file_name = args::get(o); opt.write_to_stdout = false; }
