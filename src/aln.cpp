@@ -1664,7 +1664,7 @@ static inline void rescue_mate(
     sam_aln.ref_start =  ref_start + info.ref_offset +1; // +1 because SAM is 1-based!
     sam_aln.is_rc = a_is_rc;
     sam_aln.ref_id = n.ref_id;
-    sam_aln.is_unaligned = false;
+    sam_aln.is_unaligned = info.cigar == "*";
     sam_aln.aln_length = info.length;
     tot_ksw_aligned ++;
     tot_rescued ++;
