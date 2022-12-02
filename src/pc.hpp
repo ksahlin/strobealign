@@ -54,11 +54,11 @@ public:
 
 
 void perform_task_PE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
-                  std::unordered_map<std::thread::id, AlignmentStatistics> &log_stats_vec, std::unordered_map<std::thread::id, i_dist_est> &isize_est_vec, const alignment_params &aln_params,
+                  AlignmentStatistics& statistics, i_dist_est &isize_est_vec, const alignment_params &aln_params,
                   const mapping_params &map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index, const std::string& read_group_id);
 
 void perform_task_SE(InputBuffer &input_buffer, OutputBuffer &output_buffer,
-                     std::unordered_map<std::thread::id, AlignmentStatistics> &log_stats_vec, const alignment_params &aln_params,
+                     AlignmentStatistics& statistics, const alignment_params &aln_params,
                      const mapping_params &map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index, const std::string& read_group_id);
 
 #endif

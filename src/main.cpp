@@ -263,7 +263,7 @@ int run_strobealign(int argc, char **argv) {
         out << sam_header(references, opt.read_group_id, opt.read_group_fields);
     }
 
-    std::unordered_map<std::thread::id, AlignmentStatistics> log_stats_vec(opt.n_threads);
+    std::vector<AlignmentStatistics> log_stats_vec(opt.n_threads);
 
     logger.info() << "Running in " << (opt.is_SE ? "single-end" : "paired-end") << " mode" << std::endl;
 
@@ -276,7 +276,7 @@ int run_strobealign(int argc, char **argv) {
         std::vector<std::thread> workers;
         for (int i = 0; i < opt.n_threads; ++i) {
             std::thread consumer(perform_task_SE, std::ref(input_buffer), std::ref(output_buffer),
-                std::ref(log_stats_vec), std::ref(aln_params),
+                std::ref(log_stats_vec[i]), std::ref(aln_params),
                 std::ref(map_param), std::ref(index_parameters), std::ref(references),
                 std::ref(index), std::ref(opt.read_group_id));
             workers.push_back(std::move(consumer));
@@ -289,7 +289,7 @@ int run_strobealign(int argc, char **argv) {
     else {
         auto ks1 = open_fastq(opt.reads_filename1);
         auto ks2 = open_fastq(opt.reads_filename2);
-        std::unordered_map<std::thread::id, i_dist_est> isize_est_vec(opt.n_threads);
+        std::vector<i_dist_est> isize_est_vec(opt.n_threads);
 
         InputBuffer input_buffer(ks1, ks2, opt.chunk_size);
         OutputBuffer output_buffer(out);
@@ -297,7 +297,7 @@ int run_strobealign(int argc, char **argv) {
         std::vector<std::thread> workers;
         for (int i = 0; i < opt.n_threads; ++i) {
             std::thread consumer(perform_task_PE, std::ref(input_buffer), std::ref(output_buffer),
-                std::ref(log_stats_vec), std::ref(isize_est_vec), std::ref(aln_params),
+                std::ref(log_stats_vec[i]), std::ref(isize_est_vec[i]), std::ref(aln_params),
                 std::ref(map_param), std::ref(index_parameters), std::ref(references),
                 std::ref(index), std::ref(opt.read_group_id));
             workers.push_back(std::move(consumer));
@@ -311,7 +311,7 @@ int run_strobealign(int argc, char **argv) {
 
     AlignmentStatistics tot_statistics;
     for (auto& it : log_stats_vec) {
-        tot_statistics += it.second;
+        tot_statistics += it;
     }
 
     logger.info() << "Total mapping sites tried: " << tot_statistics.tot_all_tried << std::endl
