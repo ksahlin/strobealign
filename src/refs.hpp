@@ -15,9 +15,9 @@ class References {
 public:
     References() { }
     References(
-        std::vector<std::string>&& sequences,
-        ref_names&& names
-    ) : sequences(sequences), names(names) {
+        std::vector<std::string> sequences_,
+        ref_names names_
+    ) : sequences(std::move(sequences_)), names(std::move(names_)) {
 
         if (sequences.size() != names.size()) {
             throw std::invalid_argument("lengths do not match");
