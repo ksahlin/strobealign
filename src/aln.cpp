@@ -93,7 +93,9 @@ inline aln_info ssw_align(const std::string &ref, const std::string &query, int 
 
 void add_to_hits_per_ref(
     robin_hood::unordered_map<unsigned int, std::vector<hit>>& hits_per_ref,
-    hit& h,
+    int query_s,
+    int query_e,
+    bool is_rc,
     const StrobemerIndex& index,
     int k,
     int offset,
@@ -102,12 +104,12 @@ void add_to_hits_per_ref(
 ) {
     for (int j = offset; j < offset + count; ++j) {
         auto r = index.flat_vector[j];
-        h.ref_s = r.position;
-        h.ref_e = h.ref_s + r.strobe2_offset() + k;
+        int ref_s = r.position;
+        int ref_e = ref_s + r.strobe2_offset() + k;
 
-        int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
+        int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
         if (diff <= min_diff) {
-            hits_per_ref[r.reference_index()].push_back(h);
+            hits_per_ref[r.reference_index()].push_back(hit{query_s, query_e, ref_s, ref_e, is_rc});
             min_diff = diff;
         }
     }
@@ -144,20 +146,13 @@ static inline void find_nams_rescue(
     std::sort(hits_fw.begin(), hits_fw.end());
     std::sort(hits_rc.begin(), hits_rc.end());
     for (auto& hits : {hits_fw, hits_rc}) {
-        hit h;
         int cnt = 0;
         for (auto &q : hits) {
             auto count = q.count;
             if ((count > filter_cutoff && cnt >= 5) || count > 1000) {
                 break;
             }
-
-            auto offset = q.offset;
-            h.query_s = q.query_s;
-            h.query_e = q.query_e; // h.query_s + read_length/2;
-            h.is_rc = q.is_rc;
-
-            add_to_hits_per_ref(hits_per_ref, h, index, k, offset, count, 1000);
+            add_to_hits_per_ref(hits_per_ref, q.query_s, q.query_e, q.is_rc, index, k, q.offset, count, 1000);
             cnt++;
         }
     }
@@ -273,22 +268,19 @@ static inline std::pair<float,int> find_nams(
 
     std::pair<float,int> info (0.0f,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
-    hit h;
     for (auto &q : query_mers) {
         auto mer_hashv = q.hash;
         auto ref_hit = index.find(mer_hashv);
         if (ref_hit != index.end()) {
             total_hits++;
-            h.query_s = q.position;
-            h.query_e = h.query_s + q.strobe_offset + k; // h.query_s + read_length/2;
-            h.is_rc = q.is_reverse;
             auto offset = ref_hit->second.offset;
             auto count = ref_hit->second.count;
             if (count > index.filter_cutoff) {
                 continue;
             }
             nr_good_hits++;
-            add_to_hits_per_ref(hits_per_ref, h, index, k, offset, count, 100000);
+            int query_e = q.position + q.strobe_offset + k; // h.query_s + read_length/2;
+            add_to_hits_per_ref(hits_per_ref, q.position, query_e, q.is_reverse, index, k, offset, count, 100000);
         }
     }
 
