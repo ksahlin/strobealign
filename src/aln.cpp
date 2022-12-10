@@ -91,6 +91,32 @@ inline aln_info ssw_align(const std::string &ref, const std::string &query, int 
     return aln;
 }
 
+void add_to_hits_per_ref(
+    robin_hood::unordered_map<unsigned int, std::vector<hit>>& hits_per_ref,
+    hit& h,
+    const StrobemerIndex& index,
+    int k,
+    int offset,
+    int count,
+    int min_diff
+) {
+    for (int j = offset; j < offset + count; ++j) {
+        auto r = index.flat_vector[j];
+        h.ref_s = r.position;
+        auto p = r.packed;
+        int bit_alloc = 8;
+        int r_id = (p >> bit_alloc);
+        int mask = (1 << bit_alloc) - 1;
+        int offset = (p & mask);
+        h.ref_e = h.ref_s + offset + k;
+
+        int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
+        if (diff <= min_diff) {
+            hits_per_ref[r_id].push_back(h);
+            min_diff = diff;
+        }
+    }
+}
 
 static inline void find_nams_rescue(
     std::vector<nam> &final_nams,
@@ -136,23 +162,7 @@ static inline void find_nams_rescue(
             h.query_e = q.query_e; // h.query_s + read_length/2;
             h.is_rc = q.is_rc;
 
-            int min_diff = 1000;
-            for (size_t j = offset; j < offset + count; ++j) {
-                auto r = index.flat_vector[j];
-                h.ref_s = r.position;
-                auto p = r.packed;
-                int bit_alloc = 8;
-                int r_id = (p >> bit_alloc);
-                int mask = (1 << bit_alloc) - 1;
-                int offset = (p & mask);
-                h.ref_e = h.ref_s + offset + k;
-
-                int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
-                if (diff <= min_diff) {
-                    hits_per_ref[r_id].push_back(h);
-                    min_diff = diff;
-                }
-            }
+            add_to_hits_per_ref(hits_per_ref, h, index, k, offset, count, 1000);
             cnt++;
         }
     }
@@ -282,23 +292,8 @@ static inline std::pair<float,int> find_nams(
             if (count > index.filter_cutoff) {
                 continue;
             }
-            nr_good_hits ++;
-            int min_diff = 100000;
-            for (size_t j = offset; j < offset + count; ++j) {
-                auto r = index.flat_vector[j];
-                h.ref_s = r.position;
-                auto p = r.packed;
-                int bit_alloc = 8;
-                int r_id = (p >> bit_alloc);
-                int mask = (1 << bit_alloc) - 1;
-                int offset = p & mask;
-                h.ref_e = h.ref_s + offset + k;
-                int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
-                if (diff <= min_diff ){
-                    hits_per_ref[r_id].push_back(h);
-                    min_diff = diff;
-                }
-            }
+            nr_good_hits++;
+            add_to_hits_per_ref(hits_per_ref, h, index, k, offset, count, 100000);
         }
     }
 
