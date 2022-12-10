@@ -22,8 +22,8 @@ typedef std::vector<MersIndexEntry> ind_mers_vector;
 
 struct QueryMer {
     uint64_t hash;
-    unsigned int position;
-    unsigned int strobe_offset;
+    unsigned int start;
+    unsigned int end;
     bool is_reverse;
 };
 
