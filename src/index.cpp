@@ -148,9 +148,7 @@ void StrobemerIndex::index_vector(const hash_vector &h_vector, float f) {
                 tot_mid_ab ++;
                 strobemer_counts.push_back(count);
             }
-
-            KmerLookupEntry s{prev_offset, count};
-            mers_index[prev_k] = s;
+            add_entry(prev_k, prev_offset, count);
             count = 1;
             prev_k = curr_k;
             prev_offset = offset;
@@ -159,10 +157,9 @@ void StrobemerIndex::index_vector(const hash_vector &h_vector, float f) {
     }
 
     // last k-mer
-    KmerLookupEntry s{prev_offset, count};
-    mers_index[curr_k] = s;
-    float frac_unique = ((float) tot_occur_once )/ mers_index.size();
+    add_entry(curr_k, prev_offset, count);
 
+    float frac_unique = ((float) tot_occur_once )/ mers_index.size();
     stats.tot_strobemer_count = offset;
     stats.tot_occur_once = tot_occur_once;
     stats.frac_unique = frac_unique;

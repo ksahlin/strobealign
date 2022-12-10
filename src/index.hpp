@@ -124,6 +124,11 @@ struct StrobemerIndex {
         return mers_index.cend();
     }
 
+    void add_entry(uint64_t key, unsigned int offset, unsigned int count) {
+        KmerLookupEntry s{offset, count};
+        mers_index[key] = s;
+    }
+
 private:
     const IndexParameters& parameters;
     const References& references;
