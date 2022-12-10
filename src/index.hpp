@@ -129,7 +129,7 @@ private:
     const References& references;
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
 
-    void index_vector(const hash_vector& h_vector, kmer_lookup& mers_index, float f);
+    void index_vector(const hash_vector& h_vector, float f);
     ind_mers_vector generate_and_sort_seeds() const;
 };
 

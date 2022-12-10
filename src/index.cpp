@@ -116,7 +116,7 @@ uint64_t count_unique_elements(const hash_vector& h_vector){
     return unique_elements;
 }
 
-void StrobemerIndex::index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, float f) {
+void StrobemerIndex::index_vector(const hash_vector &h_vector, float f) {
     stats.flat_vector_size = h_vector.size();
 
     unsigned int offset = 0;
@@ -278,7 +278,7 @@ void StrobemerIndex::populate(float f) {
     Timer hash_index_timer;
     mers_index.reserve(unique_mers);
     // construct index over flat array
-    index_vector(h_vector, mers_index, f);
+    index_vector(h_vector, f);
     filter_cutoff = stats.filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
     stats.unique_mers = unique_mers;
