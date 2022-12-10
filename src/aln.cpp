@@ -132,7 +132,7 @@ static inline void find_nams_rescue(
     for (auto &q : query_mers) {
         auto ref_hit = index.find(q.hash);
         if (ref_hit != index.end()) {
-            Hit s{ref_hit->second.count, ref_hit->second.offset, q.start, q.end, q.is_reverse};
+            Hit s{ref_hit->second.count(), ref_hit->second.offset, q.start, q.end, q.is_reverse};
             if (q.is_reverse){
                 hits_rc.push_back(s);
             } else {
@@ -269,7 +269,7 @@ static inline std::pair<float,int> find_nams(
         auto ref_hit = index.find(q.hash);
         if (ref_hit != index.end()) {
             total_hits++;
-            auto count = ref_hit->second.count;
+            auto count = ref_hit->second.count();
             if (count > index.filter_cutoff) {
                 continue;
             }

@@ -1205,7 +1205,7 @@ static inline void find_nams_rescue(
             total_hits ++;
             auto ref_hit = mers_index[mer_hashv];
             auto offset = ref_hit.offset;
-            auto count = ref_hit.count;
+            auto count = ref_hit.count();
             auto query_s = q.start;
             auto query_e = q.end;
             is_rc = q.is_reverse;
@@ -1500,7 +1500,7 @@ static inline std::pair<float,int> find_nams(
             h.is_rc = q.is_reverse;
             auto mer = mers_index[mer_hashv];
             auto offset = mer.offset;
-            auto count = mer.count;
+            auto count = mer.count();
 //            if (count == 1){
 //                auto r = ref_mers[offset];
 //                unsigned int ref_id = std::get<0>(r); //The indexes in this code are not fixed after removal of the 64-bit hash

@@ -42,9 +42,17 @@ private:
 
 typedef std::vector<ReferenceMer> mers_vector;
 
-struct KmerLookupEntry {
+class KmerLookupEntry {
+public:
+    KmerLookupEntry() { }
+    KmerLookupEntry(unsigned int offset, unsigned int count) : offset(offset), m_count(count) { }
     unsigned int offset;
-    unsigned int count;
+
+    unsigned int count() const {
+        return m_count;
+    }
+private:
+    unsigned int m_count;
 };
 
 typedef robin_hood::unordered_map<uint64_t, KmerLookupEntry> kmer_lookup;
