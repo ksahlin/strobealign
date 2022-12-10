@@ -109,7 +109,6 @@ struct StrobemerIndex {
     unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
                                 //therefore stored here since it needs to be saved with the index.
     mers_vector flat_vector;
-    kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
     mutable IndexCreationStatistics stats;
 
     void write(const std::string& filename) const;
@@ -117,9 +116,19 @@ struct StrobemerIndex {
     void populate(float f);
     void print_diagnostics(const std::string& logfile_name, int k) const;
 
+    kmer_lookup::const_iterator find(uint64_t key) const {
+        return mers_index.find(key);
+    }
+
+    kmer_lookup::const_iterator end() const {
+        return mers_index.cend();
+    }
+
 private:
     const IndexParameters& parameters;
     const References& references;
+    kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
+
     void index_vector(const hash_vector& h_vector, kmer_lookup& mers_index, float f);
     ind_mers_vector generate_and_sort_seeds() const;
 };
