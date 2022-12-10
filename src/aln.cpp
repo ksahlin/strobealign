@@ -105,7 +105,7 @@ void add_to_hits_per_ref(
     for (int j = offset; j < offset + count; ++j) {
         auto r = index.flat_vector[j];
         int ref_s = r.position;
-        int ref_e = ref_s + r.strobe2_offset() + k;
+        int ref_e = r.position + r.strobe2_offset() + k;
 
         int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
         if (diff <= min_diff) {
@@ -130,8 +130,7 @@ static inline void find_nams_rescue(
     hits_rc.reserve(5000);
 
     for (auto &q : query_mers) {
-        auto mer_hashv = q.hash;
-        auto ref_hit = index.find(mer_hashv);
+        auto ref_hit = index.find(q.hash);
         if (ref_hit != index.end()) {
             auto query_e = q.position + q.strobe_offset + k;
             Hit s{ref_hit->second.count, ref_hit->second.offset, q.position, query_e, q.is_reverse};
@@ -266,24 +265,22 @@ static inline std::pair<float,int> find_nams(
     robin_hood::unordered_map<unsigned int, std::vector<hit>> hits_per_ref;
     hits_per_ref.reserve(100);
 
-    std::pair<float,int> info (0.0f,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
     for (auto &q : query_mers) {
-        auto mer_hashv = q.hash;
-        auto ref_hit = index.find(mer_hashv);
+        auto ref_hit = index.find(q.hash);
         if (ref_hit != index.end()) {
             total_hits++;
-            auto offset = ref_hit->second.offset;
             auto count = ref_hit->second.count;
             if (count > index.filter_cutoff) {
                 continue;
             }
             nr_good_hits++;
             int query_e = q.position + q.strobe_offset + k; // h.query_s + read_length/2;
-            add_to_hits_per_ref(hits_per_ref, q.position, query_e, q.is_reverse, index, k, offset, count, 100000);
+            add_to_hits_per_ref(hits_per_ref, q.position, query_e, q.is_reverse, index, k, ref_hit->second.offset, count, 100000);
         }
     }
 
+    std::pair<float,int> info (0.0f,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     info.first = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     int max_nam_n_hits = 0;
     int nam_id_cnt = 0;
