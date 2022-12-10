@@ -160,7 +160,7 @@ static inline void find_nams_rescue(
 
     for (auto &it : hits_per_ref) {
         auto ref_id = it.first;
-        std::vector<hit> hits = it.second;
+        std::vector<hit>& hits = it.second;
         std::sort(hits.begin(), hits.end(), [](const hit& a, const hit& b) -> bool {
                 // first sort on query starts, then on reference starts
                 return (a.query_s < b.query_s) || ( (a.query_s == b.query_s) && (a.ref_s < b.ref_s) );
@@ -286,7 +286,7 @@ static inline std::pair<float,int> find_nams(
 
     for (auto &it : hits_per_ref) {
         auto ref_id = it.first;
-        std::vector<hit> hits = it.second;
+        const std::vector<hit>& hits = it.second;
         open_nams = std::vector<nam> (); // Initialize vector
         unsigned int prev_q_start = 0;
         for (auto &h : hits){
