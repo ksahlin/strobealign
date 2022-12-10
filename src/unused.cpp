@@ -1294,18 +1294,13 @@ static inline void find_nams_rescue(
             {
                 auto r = ref_mers[j];
                 h.ref_s = r.position;
-                auto p = r.packed;
-                int bit_alloc = 8;
-                int r_id = (p >> bit_alloc);
-                int mask=(1<<bit_alloc) - 1;
-                int offset = (p & mask);
-                h.ref_e = h.ref_s + offset + k;
+                h.ref_e = h.ref_s + r.strobe2_offset() + k;
 //                h.count = count;
 //                hits_per_ref[std::get<0>(r)].push_back(h);
 
                 int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
                 if (diff <= min_diff ){
-                    hits_per_ref[r_id].push_back(h);
+                    hits_per_ref[r.reference_index()].push_back(h);
                     min_diff = diff;
                 }
             }
@@ -1343,17 +1338,12 @@ static inline void find_nams_rescue(
             {
                 auto r = ref_mers[j];
                 h.ref_s = r.position;
-                auto p = r.packed;
-                int bit_alloc = 8;
-                int r_id = (p >> bit_alloc);
-                int mask=(1<<bit_alloc) - 1;
-                int offset = (p & mask);
-                h.ref_e = h.ref_s + offset + k;
+                h.ref_e = h.ref_s + r.strobe2_offset() + k;
 //                h.count = count;
 //                hits_per_ref[std::get<1>(r)].push_back(h);
                 int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
                 if (diff <= min_diff ){
-                    hits_per_ref[r_id].push_back(h);
+                    hits_per_ref[r.reference_index()].push_back(h);
                     min_diff = diff;
                 }
             }
@@ -1547,12 +1537,7 @@ static inline std::pair<float,int> find_nams(
 //                    unsigned int ref_s = std::get<1>(r);
 //                    unsigned int ref_e = std::get<2>(r) + k; //ref_s + read_length/2;
                     h.ref_s = r.position;
-                    auto p = r.packed;
-                    int bit_alloc = 8;
-                    int r_id = (p >> bit_alloc);
-                    int mask=(1<<bit_alloc) - 1;
-                    int offset = (p & mask);
-                    h.ref_e = h.ref_s + offset + k;
+                    h.ref_e = h.ref_s + r.strobe2_offset() + k;
 //                    h.count = count;
 //                    hits_per_ref[std::get<1>(r)].push_back(h);
 //                    hits_per_ref[std::get<0>(r)].push_back(h);
@@ -1567,7 +1552,7 @@ static inline std::pair<float,int> find_nams(
 //                        start_log = true;
 //                    }
                     if (diff <= min_diff ){
-                        hits_per_ref[r_id].push_back(h);
+                        hits_per_ref[r.reference_index()].push_back(h);
                         min_diff = diff;
 //                        std::cerr << "Found: query: " <<  h.query_s << " " << h.query_e << " ref: " <<  h.ref_s << " " << h.ref_e << " " << h.is_rc << " diff " << diff << std::endl;
 //                        tries ++;

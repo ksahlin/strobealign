@@ -327,11 +327,7 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
 
         for (size_t j = offset; j < offset + count; ++j) {
             auto r = flat_vector[j];
-            auto p = r.packed;
-            const uint8_t bit_alloc = 8;
-            const int mask = (1 << bit_alloc) - 1;
-            const int offset = p & mask;
-            seed_length =  offset + k;
+            seed_length = r.strobe2_offset() + k;
             if (seed_length < max_size){
                 log_count[seed_length] ++;
                 log_count_squared[seed_length] += count;

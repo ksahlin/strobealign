@@ -103,16 +103,11 @@ void add_to_hits_per_ref(
     for (int j = offset; j < offset + count; ++j) {
         auto r = index.flat_vector[j];
         h.ref_s = r.position;
-        auto p = r.packed;
-        int bit_alloc = 8;
-        int r_id = (p >> bit_alloc);
-        int mask = (1 << bit_alloc) - 1;
-        int offset = (p & mask);
-        h.ref_e = h.ref_s + offset + k;
+        h.ref_e = h.ref_s + r.strobe2_offset() + k;
 
         int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
         if (diff <= min_diff) {
-            hits_per_ref[r_id].push_back(h);
+            hits_per_ref[r.reference_index()].push_back(h);
             min_diff = diff;
         }
     }

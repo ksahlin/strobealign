@@ -19,8 +19,24 @@
 #include "refs.hpp"
 #include "randstrobes.hpp"
 
-struct ReferenceMer {
+class ReferenceMer {
+public:
+    ReferenceMer() { }  // TODO should not be needed
+    ReferenceMer(uint32_t position, int32_t packed) : position(position), packed(packed) {
+    }
     uint32_t position;
+
+    int reference_index() const {
+        return packed >> bit_alloc;
+    }
+
+    int strobe2_offset() const {
+        return packed & mask;
+    }
+
+private:
+    const int bit_alloc = 8;
+    const int mask = (1 << bit_alloc) - 1;
     int32_t packed;
 };
 
