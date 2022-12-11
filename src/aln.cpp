@@ -101,15 +101,29 @@ void add_to_hits_per_ref(
     KmerLookupEntry lookup_entry,
     int min_diff
 ) {
-    for (size_t j = lookup_entry.offset(); j < lookup_entry.offset() + lookup_entry.count(); ++j) {
-        auto r = index.flat_vector[j];
+    // Determine whether the hash table’s value directly represents a
+    // ReferenceMer (this is the case if count==1) or an offset/count
+    // pair that refers to entries in the flat_vector.
+    if (lookup_entry.is_reference_mer()) {
+        auto r = lookup_entry.as_reference_mer();
         int ref_s = r.position;
         int ref_e = r.position + r.strobe2_offset() + k;
-
         int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
         if (diff <= min_diff) {
             hits_per_ref[r.reference_index()].push_back(hit{query_s, query_e, ref_s, ref_e, is_rc});
             min_diff = diff;
+        }
+    } else {
+        for (size_t j = lookup_entry.offset(); j < lookup_entry.offset() + lookup_entry.count(); ++j) {
+            auto r = index.flat_vector[j];
+            int ref_s = r.position;
+            int ref_e = r.position + r.strobe2_offset() + k;
+
+            int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
+            if (diff <= min_diff) {
+                hits_per_ref[r.reference_index()].push_back(hit{query_s, query_e, ref_s, ref_e, is_rc});
+                min_diff = diff;
+            }
         }
     }
 }

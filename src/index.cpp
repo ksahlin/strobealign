@@ -127,6 +127,7 @@ void StrobemerIndex::index_vector(const ind_mers_vector &mers, float f) {
     unsigned int tot_mid_ab = 0;
     std::vector<unsigned int> strobemer_counts;
 
+    auto prev_mer = mers[0];
     uint64_t prev_hash = mers[0].hash;
     uint64_t curr_hash;
 
@@ -149,10 +150,17 @@ void StrobemerIndex::index_vector(const ind_mers_vector &mers, float f) {
                 tot_mid_ab++;
                 strobemer_counts.push_back(count);
             }
-            add_entry(prev_hash, prev_offset, count);
+
+            if (count == 1) {
+                add_entry(prev_hash, prev_mer.position, prev_mer.packed | 0x8000'0000);
+                flat_vector[flat_vector.size() - 2] = ReferenceMer{0, 0};  // should never be used
+            } else {
+                add_entry(prev_hash, prev_offset, count);
+            }
             count = 1;
             prev_hash = curr_hash;
             prev_offset = offset;
+            prev_mer = mer;
         }
         offset++;
     }
