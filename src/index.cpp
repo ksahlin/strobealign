@@ -103,21 +103,20 @@ bool IndexParameters::operator==(const IndexParameters& other) const {
         && this->w_max == other.w_max;
 }
 
-uint64_t count_unique_elements(const hash_vector& h_vector){
-    assert(h_vector.size() > 0);
-    uint64_t prev_k = h_vector[0];
+uint64_t count_unique_hashes(const ind_mers_vector& mers){
+    uint64_t prev_k = mers.at(0).hash;
     uint64_t unique_elements = 1;
-    for (auto &curr_k : h_vector) {
-        if (curr_k != prev_k) {
+    for (auto &curr_k : mers) {
+        if (curr_k.hash != prev_k) {
             unique_elements ++;
         }
-        prev_k = curr_k;
+        prev_k = curr_k.hash;
     }
     return unique_elements;
 }
 
-void StrobemerIndex::index_vector(const hash_vector &h_vector, float f) {
-    stats.flat_vector_size = h_vector.size();
+void StrobemerIndex::index_vector(const ind_mers_vector &mers, float f) {
+    stats.flat_vector_size = mers.size();
 
     unsigned int offset = 0;
     unsigned int prev_offset = 0;
@@ -128,11 +127,13 @@ void StrobemerIndex::index_vector(const hash_vector &h_vector, float f) {
     unsigned int tot_mid_ab = 0;
     std::vector<unsigned int> strobemer_counts;
 
-    uint64_t prev_hash = h_vector[0];
+    uint64_t prev_hash = mers[0].hash;
     uint64_t curr_hash;
 
-    for (auto &hash : h_vector) {
-        curr_hash = hash;
+    for (auto &mer : mers) {
+        flat_vector.push_back(ReferenceMer{mer.position, mer.packed});
+
+        curr_hash = mer.hash;
         if (curr_hash == prev_hash){
             count++;
         }
@@ -245,33 +246,18 @@ void StrobemerIndex::read(const std::string& filename) {
 }
 
 void StrobemerIndex::populate(float f) {
-    hash_vector h_vector;
-    {
-        auto ind_flat_vector = generate_and_sort_seeds();
-
-        // Split up the sorted vector into a vector with the hash codes and the flat vector to keep in the index.
-        // The hash codes are only needed when generating the index and can be discarded afterwards.
-        // We want to do this split-up before creating the hash table to avoid a memory peak - the flat_vector is
-        // smaller - doubling that size temporarily will not cause us to go above peak memory.
-        Timer flat_vector_timer;
-        flat_vector.reserve(ind_flat_vector.size());
-        h_vector.reserve(ind_flat_vector.size());
-        for (size_t i = 0; i < ind_flat_vector.size(); ++i) {
-            flat_vector.push_back(ReferenceMer{ind_flat_vector[i].position, ind_flat_vector[i].packed});
-            h_vector.push_back(ind_flat_vector[i].hash);
-        }
-        stats.elapsed_flat_vector = flat_vector_timer.duration();
-        // ind_flat_vector is freed here
-    }
-    auto unique_mers = count_unique_elements(h_vector);
+    auto ind_flat_vector = generate_and_sort_seeds();
+    Timer flat_vector_timer;
+    flat_vector.reserve(ind_flat_vector.size());
+    stats.elapsed_flat_vector = flat_vector_timer.duration();
 
     Timer hash_index_timer;
-    mers_index.reserve(unique_mers);
+    mers_index.reserve(count_unique_hashes(ind_flat_vector));
     // construct index over flat array
-    index_vector(h_vector, f);
+    index_vector(ind_flat_vector, f);
     filter_cutoff = stats.filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
-    stats.unique_mers = unique_mers;
+    stats.unique_mers = mers_index.size();
 }
 
 ind_mers_vector StrobemerIndex::generate_and_sort_seeds() const
