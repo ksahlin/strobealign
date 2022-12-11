@@ -8,9 +8,11 @@
 
 // only used during index generation
 struct MersIndexEntry {
+
+    using packed_t = uint32_t;
     uint64_t hash;
     uint32_t position;
-    int32_t packed; // packed representation of ref_index and strobe offset
+    packed_t packed; // packed representation of ref_index and strobe offset
 
     bool operator< (const MersIndexEntry& other) const {
         return hash < other.hash;

@@ -244,7 +244,7 @@ void randstrobes_reference(
     RandstrobeIterator randstrobe_iter { string_hashes, pos_to_seq_coordinate, w_min, w_max, q, max_dist };
     while (randstrobe_iter.has_next()) {
         auto randstrobe = randstrobe_iter.next();
-        int packed = (ref_index << 8);
+        MersIndexEntry::packed_t packed = (ref_index << 8);
         packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
         MersIndexEntry s {randstrobe.hash, randstrobe.strobe1_pos, packed};
         flat_vector.push_back(s);

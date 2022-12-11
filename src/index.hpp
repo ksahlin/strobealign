@@ -23,22 +23,26 @@
 class ReferenceMer {
 public:
     ReferenceMer() { }  // TODO should not be needed
-    ReferenceMer(uint32_t position, int32_t packed) : position(position), packed(packed) {
+    ReferenceMer(uint32_t position, uint32_t packed) : position(position), m_packed(packed) {
     }
     uint32_t position;
 
     int reference_index() const {
-        return packed >> bit_alloc;
+        return m_packed >> bit_alloc;
     }
 
     int strobe2_offset() const {
-        return packed & mask;
+        return m_packed & mask;
+    }
+
+    MersIndexEntry::packed_t packed() const {
+        return m_packed;
     }
 
 private:
     static const int bit_alloc = 8;
     static const int mask = (1 << bit_alloc) - 1;
-    int32_t packed;
+    MersIndexEntry::packed_t m_packed;
 };
 
 typedef std::vector<ReferenceMer> mers_vector;
