@@ -128,36 +128,36 @@ void StrobemerIndex::index_vector(const hash_vector &h_vector, float f) {
     unsigned int tot_mid_ab = 0;
     std::vector<unsigned int> strobemer_counts;
 
-    uint64_t prev_k = h_vector[0];
-    uint64_t curr_k;
+    uint64_t prev_hash = h_vector[0];
+    uint64_t curr_hash;
 
-    for ( auto &t : h_vector) {
-        curr_k = t;
-        if (curr_k == prev_k){
-            count ++;
+    for (auto &hash : h_vector) {
+        curr_hash = hash;
+        if (curr_hash == prev_hash){
+            count++;
         }
         else {
-            if (count == 1){
-                tot_occur_once ++;
+            if (count == 1) {
+                tot_occur_once++;
             }
             else if (count > 100){
-                tot_high_ab ++;
+                tot_high_ab++;
                 strobemer_counts.push_back(count);
             }
             else{
-                tot_mid_ab ++;
+                tot_mid_ab++;
                 strobemer_counts.push_back(count);
             }
-            add_entry(prev_k, prev_offset, count);
+            add_entry(prev_hash, prev_offset, count);
             count = 1;
-            prev_k = curr_k;
+            prev_hash = curr_hash;
             prev_offset = offset;
         }
-        offset ++;
+        offset++;
     }
 
     // last k-mer
-    add_entry(curr_k, prev_offset, count);
+    add_entry(curr_hash, prev_offset, count);
 
     float frac_unique = ((float) tot_occur_once )/ mers_index.size();
     stats.tot_strobemer_count = offset;
