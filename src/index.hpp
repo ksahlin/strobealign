@@ -15,6 +15,7 @@
 #include <tuple>
 #include <cmath>
 #include <iostream>
+#include <cassert>
 #include "robin_hood.h"
 #include "exceptions.hpp"
 #include "refs.hpp"
@@ -53,11 +54,25 @@ public:
     KmerLookupEntry(unsigned int offset, unsigned int count) : m_offset(offset), m_count(count) { }
 
     unsigned int count() const {
-        return m_count;
+        if (is_reference_mer()) {
+            return 1;
+        } else {
+            return m_count;
+        }
     }
 
     unsigned int offset() const{
+        assert(!is_reference_mer());
         return m_offset;
+    }
+
+    bool is_reference_mer() const {
+        return m_count & 0x8000'0000;
+    }
+
+    ReferenceMer as_reference_mer() const {
+        assert(is_reference_mer());
+        return ReferenceMer{m_offset, m_count & 0x7fff'ffff};
     }
 
 private:
