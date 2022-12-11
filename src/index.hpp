@@ -45,13 +45,18 @@ typedef std::vector<ReferenceMer> mers_vector;
 class KmerLookupEntry {
 public:
     KmerLookupEntry() { }
-    KmerLookupEntry(unsigned int offset, unsigned int count) : offset(offset), m_count(count) { }
-    unsigned int offset;
+    KmerLookupEntry(unsigned int offset, unsigned int count) : m_offset(offset), m_count(count) { }
 
     unsigned int count() const {
         return m_count;
     }
+
+    unsigned int offset() const{
+        return m_offset;
+    }
+
 private:
+    unsigned int m_offset;
     unsigned int m_count;
 };
 

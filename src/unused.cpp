@@ -1204,7 +1204,7 @@ static inline void find_nams_rescue(
         if (mers_index.find(mer_hashv) != mers_index.end()){ //  In  index
             total_hits ++;
             auto ref_hit = mers_index[mer_hashv];
-            auto offset = ref_hit.offset;
+            auto offset = ref_hit.offset();
             auto count = ref_hit.count();
             auto query_s = q.start;
             auto query_e = q.end;
@@ -1499,7 +1499,7 @@ static inline std::pair<float,int> find_nams(
             h.query_e = q.end; // h.query_s + read_length/2;
             h.is_rc = q.is_reverse;
             auto mer = mers_index[mer_hashv];
-            auto offset = mer.offset;
+            auto offset = mer.offset();
             auto count = mer.count();
 //            if (count == 1){
 //                auto r = ref_mers[offset];

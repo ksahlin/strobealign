@@ -322,7 +322,7 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
     size_t seed_length;
     for (auto &it : mers_index) {
         auto ref_mer = it.second;
-        auto offset = ref_mer.offset;
+        auto offset = ref_mer.offset();
         auto count = ref_mer.count();
 
         for (size_t j = offset; j < offset + count; ++j) {
