@@ -18,8 +18,8 @@ struct Hit {
     bool is_rc;
 
     bool operator< (const Hit& rhs) const {
-        return std::tie(count, offset, query_s, query_e, is_rc)
-            < std::tie(rhs.count, rhs.offset, rhs.query_s, rhs.query_e, rhs.is_rc);
+        return std::tie(count, query_s, query_e, is_rc)
+            < std::tie(rhs.count, rhs.query_s, rhs.query_e, rhs.is_rc);
     }
 };
 
