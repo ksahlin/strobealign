@@ -12,7 +12,7 @@ using namespace klibpp;
 
 struct Hit {
     unsigned int count;
-    unsigned int offset;
+    KmerLookupEntry lookup_entry;
     unsigned int query_s;
     unsigned int query_e;
     bool is_rc;
@@ -98,11 +98,10 @@ void add_to_hits_per_ref(
     bool is_rc,
     const StrobemerIndex& index,
     int k,
-    int offset,
-    int count,
+    KmerLookupEntry lookup_entry,
     int min_diff
 ) {
-    for (int j = offset; j < offset + count; ++j) {
+    for (size_t j = lookup_entry.offset(); j < lookup_entry.offset() + lookup_entry.count(); ++j) {
         auto r = index.flat_vector[j];
         int ref_s = r.position;
         int ref_e = r.position + r.strobe2_offset() + k;
@@ -132,7 +131,7 @@ static inline void find_nams_rescue(
     for (auto &q : query_mers) {
         auto ref_hit = index.find(q.hash);
         if (ref_hit != index.end()) {
-            Hit s{ref_hit->second.count(), ref_hit->second.offset(), q.start, q.end, q.is_reverse};
+            Hit s{ref_hit->second.count(), ref_hit->second, q.start, q.end, q.is_reverse};
             if (q.is_reverse){
                 hits_rc.push_back(s);
             } else {
@@ -150,7 +149,7 @@ static inline void find_nams_rescue(
             if ((count > filter_cutoff && cnt >= 5) || count > 1000) {
                 break;
             }
-            add_to_hits_per_ref(hits_per_ref, q.query_s, q.query_e, q.is_rc, index, k, q.offset, count, 1000);
+            add_to_hits_per_ref(hits_per_ref, q.query_s, q.query_e, q.is_rc, index, k, q.lookup_entry, 1000);
             cnt++;
         }
     }
@@ -269,12 +268,11 @@ static inline std::pair<float,int> find_nams(
         auto ref_hit = index.find(q.hash);
         if (ref_hit != index.end()) {
             total_hits++;
-            auto count = ref_hit->second.count();
-            if (count > index.filter_cutoff) {
+            if (ref_hit->second.count() > index.filter_cutoff) {
                 continue;
             }
             nr_good_hits++;
-            add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, k, ref_hit->second.offset(), count, 100000);
+            add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, k, ref_hit->second, 100000);
         }
     }
 
