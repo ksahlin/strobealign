@@ -187,6 +187,9 @@ void StrobemerIndex::populate(float f) {
     int expected_sampling = parameters.k - parameters.s + 1;
     int approx_vec_size = references.total_length() / expected_sampling;
     ind_flat_vector.reserve(approx_vec_size);
+    unsigned int tot_occur_once;
+    stats.tot_strobemer_count = 0;
+
     for(size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
         auto seq = references.sequences[ref_index];
         if (seq.length() < parameters.w_max) {
@@ -195,10 +198,29 @@ void StrobemerIndex::populate(float f) {
         auto randstrobe_iter = RandstrobeIterator2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
         Randstrobe randstrobe;
         while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
+            ++stats.tot_strobemer_count;
             MersIndexEntry::packed_t packed = (ref_index << 8);
             packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
             MersIndexEntry s {randstrobe.hash, randstrobe.strobe1_pos, packed};
-            ind_flat_vector.push_back(s);
+
+            auto existing = mers_index.find(randstrobe.hash);
+            if (existing == mers_index.end()) {
+                // No previous occurrence found, insert this into hash table as direct entry
+                tot_occur_once += 1;
+                add_entry(randstrobe.hash, randstrobe.strobe1_pos, packed | 0x8000'0000);
+            } else {
+                // already exists in hash table
+                auto existing_count = existing->second.count();
+                if (existing_count == 1) {
+                    // current entry is a direct one, convert to an indirect one
+                    auto refmer = existing->second.as_reference_mer();
+                    ind_flat_vector.push_back(MersIndexEntry{randstrobe.hash, refmer.position, refmer.packed()});
+                    tot_occur_once -= 1;
+                }
+                // offset is adjusted later after sorting
+                existing->second.set_count(existing_count + 1);
+                ind_flat_vector.push_back(s);
+            }
         }
     }
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
@@ -211,64 +233,38 @@ void StrobemerIndex::populate(float f) {
     stats.elapsed_flat_vector = flat_vector_timer.duration();
 
     Timer hash_index_timer;
-    mers_index.reserve(count_unique_hashes(ind_flat_vector));
-
     stats.flat_vector_size = ind_flat_vector.size();
 
     unsigned int offset = 0;
-    unsigned int prev_offset = 0;
-    unsigned int count = 0;
 
-    unsigned int tot_occur_once = 0;
     unsigned int tot_high_ab = 0;
     unsigned int tot_mid_ab = 0;
     std::vector<unsigned int> strobemer_counts;
 
-    auto prev_mer = ind_flat_vector[0];
-    uint64_t prev_hash = ind_flat_vector[0].hash;
-    uint64_t curr_hash;
+    uint64_t prev_hash = -1;
 
     for (auto &mer : ind_flat_vector) {
         flat_vector.push_back(ReferenceMer{mer.position, mer.packed});
+        if (mer.hash != prev_hash) {
+            auto mer_index_entry = mers_index.find(mer.hash);
+            assert(mer_index_entry != mers_index.end());
+            auto count = mer_index_entry->second.count();
+            assert(count > 1);
 
-        curr_hash = mer.hash;
-        if (curr_hash == prev_hash){
-            count++;
-        }
-        else {
-            if (count == 1) {
-                tot_occur_once++;
-            }
-            else if (count > 100){
+            mer_index_entry->second.set_offset(offset);
+            if (count > 100){
                 tot_high_ab++;
                 strobemer_counts.push_back(count);
-            }
-            else{
+            } else {
                 tot_mid_ab++;
                 strobemer_counts.push_back(count);
             }
-
-            if (count == 1) {
-                add_entry(prev_hash, prev_mer.position, prev_mer.packed | 0x8000'0000);
-                flat_vector[flat_vector.size() - 2] = flat_vector[flat_vector.size() - 1];
-                flat_vector.pop_back();
-                offset--;
-            } else {
-                add_entry(prev_hash, prev_offset, count);
-            }
             count = 1;
-            prev_hash = curr_hash;
-            prev_offset = offset;
-            prev_mer = mer;
         }
+        prev_hash = mer.hash;
         offset++;
     }
-
-    // last k-mer
-    add_entry(curr_hash, prev_offset, count);
-
     float frac_unique = ((float) tot_occur_once )/ mers_index.size();
-    stats.tot_strobemer_count = offset;
     stats.tot_occur_once = tot_occur_once;
     stats.frac_unique = frac_unique;
     stats.tot_high_ab = tot_high_ab;

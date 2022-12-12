@@ -75,6 +75,15 @@ public:
         return ReferenceMer{m_offset, m_count & 0x7fff'ffff};
     }
 
+    void set_count(unsigned int count) {
+        m_count = count;
+    }
+
+    void set_offset(unsigned int offset) {
+        assert(!is_reference_mer());
+        m_offset = offset;
+    }
+
 private:
     unsigned int m_offset;
     unsigned int m_count;
