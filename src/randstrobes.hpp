@@ -36,7 +36,6 @@ struct QueryMer {
 
 typedef std::vector<QueryMer> mers_vector_read;
 
-void randstrobes_reference(ind_mers_vector& flat_vector, int k, int w_min, int w_max, const std::string &seq, int ref_index, int s, int t, uint64_t q, int max_dist);
 mers_vector_read randstrobes_query(int k, int w_min, int w_max, const std::string &seq, int s, int t, uint64_t q, int max_dist);
 
 struct Randstrobe {

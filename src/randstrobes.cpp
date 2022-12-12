@@ -173,36 +173,6 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_start) const {
     return Randstrobe { hash_randstrobe2, seq_pos_strobe1, pos_to_seq_coordinate[strobe_pos_next] };
 }
 
-/* Generate randstrobes for a reference sequence. The randstrobes are appended
- * to the given flat_vector, which allows to call this function repeatedly for
- * multiple reference sequences (use a different ref_index each time).
- */
-void randstrobes_reference(
-    ind_mers_vector& flat_vector,
-    int k,
-    int w_min,
-    int w_max,
-    const std::string &seq,
-    int ref_index,
-    int s,
-    int t,
-    uint64_t q,
-    int max_dist
-) {
-    if (seq.length() < w_max) {
-        return;
-    }
-
-    auto randstrobe_iter = RandstrobeIterator2(seq, k, s, t, w_min, w_max, q, max_dist);
-    Randstrobe randstrobe;
-    while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
-        MersIndexEntry::packed_t packed = (ref_index << 8);
-        packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
-        MersIndexEntry s {randstrobe.hash, randstrobe.strobe1_pos, packed};
-        flat_vector.push_back(s);
-    }
-}
-
 Randstrobe RandstrobeIterator2::next() {
     while (syncmers.size() <= w_max) {
         Syncmer syncmer = syncmer_iterator.next();

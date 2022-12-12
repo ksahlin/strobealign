@@ -184,8 +184,19 @@ void StrobemerIndex::populate(float f) {
     int expected_sampling = parameters.k - parameters.s + 1;
     int approx_vec_size = references.total_length() / expected_sampling;
     ind_flat_vector.reserve(approx_vec_size);
-    for(size_t i = 0; i < references.size(); ++i) {
-        randstrobes_reference(ind_flat_vector, parameters.k, parameters.w_min, parameters.w_max, references.sequences[i], i, parameters.s, parameters.t_syncmer, parameters.q, parameters.max_dist);
+    for(size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
+        auto seq = references.sequences[ref_index];
+        if (seq.length() < parameters.w_max) {
+            continue;
+        }
+        auto randstrobe_iter = RandstrobeIterator2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
+        Randstrobe randstrobe;
+        while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
+            MersIndexEntry::packed_t packed = (ref_index << 8);
+            packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
+            MersIndexEntry s {randstrobe.hash, randstrobe.strobe1_pos, packed};
+            ind_flat_vector.push_back(s);
+        }
     }
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
