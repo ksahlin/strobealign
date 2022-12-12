@@ -257,22 +257,8 @@ void StrobemerIndex::read(const std::string& filename) {
 }
 
 void StrobemerIndex::populate(float f) {
-    auto ind_flat_vector = generate_and_sort_seeds();
-    Timer flat_vector_timer;
-    stats.elapsed_flat_vector = flat_vector_timer.duration();
-
-    Timer hash_index_timer;
-    mers_index.reserve(count_unique_hashes(ind_flat_vector));
-    index_vector(ind_flat_vector, f);
-    filter_cutoff = stats.filter_cutoff;
-    stats.elapsed_hash_index = hash_index_timer.duration();
-    stats.unique_mers = mers_index.size();
-}
-
-ind_mers_vector StrobemerIndex::generate_and_sort_seeds() const
-{
-    Timer randstrobes_timer;
     ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
+    Timer randstrobes_timer;
     int expected_sampling = parameters.k - parameters.s + 1;
     int approx_vec_size = references.total_length() / expected_sampling;
     ind_flat_vector.reserve(approx_vec_size);
@@ -285,9 +271,16 @@ ind_mers_vector StrobemerIndex::generate_and_sort_seeds() const
     pdqsort_branchless(ind_flat_vector.begin(), ind_flat_vector.end());
     stats.elapsed_sorting_seeds = sorting_timer.duration();
 
-    return ind_flat_vector;
-}
+    Timer flat_vector_timer;
+    stats.elapsed_flat_vector = flat_vector_timer.duration();
 
+    Timer hash_index_timer;
+    mers_index.reserve(count_unique_hashes(ind_flat_vector));
+    index_vector(ind_flat_vector, f);
+    filter_cutoff = stats.filter_cutoff;
+    stats.elapsed_hash_index = hash_index_timer.duration();
+    stats.unique_mers = mers_index.size();
+}
 
 void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) const {
     // Prins to csv file the statistics on the number of seeds of a particular length and what fraction of them them are unique in the index:
