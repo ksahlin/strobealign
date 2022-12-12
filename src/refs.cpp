@@ -29,7 +29,11 @@ References References::from_fasta(const std::string& filename) {
         eof = !bool{getline(file, line)};
         if (eof || (!line.empty() && line[0] == '>')) {
             if (seq.length() > 0) {
-                std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
+                std::transform(seq.begin(), seq.end(), seq.begin(),
+                    [](unsigned char c) {
+                        return c & ~32;  // convert to uppercase
+                    }
+                );
                 sequences.push_back(seq);
                 names.push_back(name);
             }
