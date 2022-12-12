@@ -153,7 +153,9 @@ void StrobemerIndex::index_vector(const ind_mers_vector &mers, float f) {
 
             if (count == 1) {
                 add_entry(prev_hash, prev_mer.position, prev_mer.packed | 0x8000'0000);
-                flat_vector[flat_vector.size() - 2] = ReferenceMer{0, 0};  // should never be used
+                flat_vector[flat_vector.size() - 2] = flat_vector[flat_vector.size() - 1];
+                flat_vector.pop_back();
+                offset--;
             } else {
                 add_entry(prev_hash, prev_offset, count);
             }
@@ -256,12 +258,10 @@ void StrobemerIndex::read(const std::string& filename) {
 void StrobemerIndex::populate(float f) {
     auto ind_flat_vector = generate_and_sort_seeds();
     Timer flat_vector_timer;
-    flat_vector.reserve(ind_flat_vector.size());
     stats.elapsed_flat_vector = flat_vector_timer.duration();
 
     Timer hash_index_timer;
     mers_index.reserve(count_unique_hashes(ind_flat_vector));
-    // construct index over flat array
     index_vector(ind_flat_vector, f);
     filter_cutoff = stats.filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
