@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Build
         run: |
-          cmake -B build
+          cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
           cd build
           make -j3
           make install
@@ -75,7 +75,7 @@ jobs:
 
       - name: Build HEAD version
         run: |
-          cmake -B build
+          cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
           make -j3 -C build
       - name: Generate HEAD BAM
         run: build/strobealign tests/drosophila/ref.fasta tests/drosophila/reads.1.fastq.gz tests/drosophila/reads.2.fastq.gz | samtools view -o head.bam
