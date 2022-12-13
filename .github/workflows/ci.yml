@@ -2,6 +2,10 @@ name: CI
 
 on: [push, pull_request]
 
+defaults:
+  run:
+    shell: bash  # For -o pipefail
+
 jobs:
   lint:
     # Run for PRs only if they come from a forked repo (avoids duplicate runs)
