@@ -6,6 +6,7 @@
 #include <tuple>
 #include <deque>
 #include <algorithm>
+#include <iostream>
 #include <inttypes.h>
 
 // only used during index generation
@@ -42,6 +43,8 @@ struct Randstrobe {
     unsigned int strobe1_pos;
     unsigned int strobe2_pos;
 };
+
+std::ostream& operator<<(std::ostream& os, const Randstrobe& randstrobe);
 
 class RandstrobeIterator {
 public:
@@ -88,6 +91,8 @@ struct Syncmer {
         return hash == 0 && position == 0;
     }
 };
+
+std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer);
 
 class SyncmerIterator {
 public:

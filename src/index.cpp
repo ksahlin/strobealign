@@ -11,6 +11,7 @@
 #include <cassert>
 #include <algorithm>
 #include "pdqsort/pdqsort.h"
+#include <iostream>
 #include "timer.hpp"
 
 /* Create an IndexParameters instance based on a given read length.

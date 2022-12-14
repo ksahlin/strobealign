@@ -37,6 +37,11 @@ static inline uint64_t syncmer_kmer_hash(uint64_t packed) {
     return XXH64(&packed, sizeof(uint64_t), 0);
 }
 
+std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
+    os << "Syncmer(hash=" << syncmer.hash << ", position=" << syncmer.position << ")";
+    return os;
+}
+
 Syncmer SyncmerIterator::next() {
     for ( ; i < seq.length(); ++i) {
 //    for (size_t i = 0; i < seq.length(); i++) {
@@ -118,6 +123,11 @@ std::pair<std::vector<uint64_t>, std::vector<unsigned int>> make_string_to_hashv
         pos_to_seq_coordinate.push_back(syncmer.position);
     }
     return make_pair(string_hashes, pos_to_seq_coordinate);
+}
+
+std::ostream& operator<<(std::ostream& os, const Randstrobe& randstrobe) {
+    os << "Randstrobe(hash=" << randstrobe.hash << ", strobe1_pos=" << randstrobe.strobe1_pos << ", strobe2_pos=" << randstrobe.strobe2_pos << ")";
+    return os;
 }
 
 Randstrobe RandstrobeIterator::get(unsigned int strobe1_start) const {
