@@ -116,7 +116,7 @@ uint64_t count_unique_elements(const hash_vector& h_vector){
     return unique_elements;
 }
 
-void StrobemerIndex::index_vector(const hash_vector &h_vector, kmer_lookup &mers_index, float f) {
+void StrobemerIndex::index_vector(const hash_vector &h_vector, float f) {
     stats.flat_vector_size = h_vector.size();
 
     unsigned int offset = 0;
@@ -148,9 +148,7 @@ void StrobemerIndex::index_vector(const hash_vector &h_vector, kmer_lookup &mers
                 tot_mid_ab ++;
                 strobemer_counts.push_back(count);
             }
-
-            KmerLookupEntry s{prev_offset, count};
-            mers_index[prev_k] = s;
+            add_entry(prev_k, prev_offset, count);
             count = 1;
             prev_k = curr_k;
             prev_offset = offset;
@@ -159,10 +157,9 @@ void StrobemerIndex::index_vector(const hash_vector &h_vector, kmer_lookup &mers
     }
 
     // last k-mer
-    KmerLookupEntry s{prev_offset, count};
-    mers_index[curr_k] = s;
-    float frac_unique = ((float) tot_occur_once )/ mers_index.size();
+    add_entry(curr_k, prev_offset, count);
 
+    float frac_unique = ((float) tot_occur_once )/ mers_index.size();
     stats.tot_strobemer_count = offset;
     stats.tot_occur_once = tot_occur_once;
     stats.frac_unique = frac_unique;
@@ -278,7 +275,7 @@ void StrobemerIndex::populate(float f) {
     Timer hash_index_timer;
     mers_index.reserve(unique_mers);
     // construct index over flat array
-    index_vector(h_vector, mers_index, f);
+    index_vector(h_vector, f);
     filter_cutoff = stats.filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
     stats.unique_mers = unique_mers;
@@ -301,4 +298,90 @@ ind_mers_vector StrobemerIndex::generate_and_sort_seeds() const
     stats.elapsed_sorting_seeds = sorting_timer.duration();
 
     return ind_flat_vector;
+}
+
+
+void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) const {
+    // Prins to csv file the statistics on the number of seeds of a particular length and what fraction of them them are unique in the index:
+    // format:
+    // seed_length, count, percentage_unique
+
+    size_t max_size = 100000;
+    std::vector<int> log_count(max_size, 0);  // stores count and each index represents the length
+    std::vector<int> log_unique(max_size, 0);  // stores count unique and each index represents the length
+    std::vector<int> log_repetitive(max_size, 0);  // stores count unique and each index represents the length
+
+
+    std::vector<uint64_t> log_count_squared(max_size,0);
+    uint64_t tot_seed_count = 0;
+    uint64_t tot_seed_count_sq = 0;
+
+    std::vector<uint64_t> log_count_1000_limit(max_size, 0);  // stores count and each index represents the length
+    uint64_t tot_seed_count_1000_limit = 0;
+
+    size_t seed_length;
+    for (auto &it : mers_index) {
+        auto ref_mer = it.second;
+        auto offset = ref_mer.offset();
+        auto count = ref_mer.count();
+
+        for (size_t j = offset; j < offset + count; ++j) {
+            auto r = flat_vector[j];
+            seed_length = r.strobe2_offset() + k;
+            if (seed_length < max_size){
+                log_count[seed_length] ++;
+                log_count_squared[seed_length] += count;
+                tot_seed_count ++;
+                tot_seed_count_sq += count;
+                if (count <= 1000){
+                    log_count_1000_limit[seed_length] ++;
+                    tot_seed_count_1000_limit ++;
+                }
+            } else {
+               // TODO This function should not log anything
+               // logger.info() << "Detected seed size over " << max_size << " bp (can happen, e.g., over centromere): " << seed_length << std::endl;
+            }
+        }
+
+        if (count == 1 && seed_length < max_size) {
+            log_unique[seed_length]++;
+        }
+        if (count >= 10 && seed_length < max_size) {
+            log_repetitive[seed_length]++;
+        }
+    }
+
+    // printing
+    std::ofstream log_file;
+    log_file.open(logfile_name);
+
+    for (size_t i = 0; i < log_count.size(); ++i) {
+        if (log_count[i] > 0) {
+            double e_count = log_count_squared[i] / log_count[i];
+            log_file << i << ',' << log_count[i] << ',' << e_count << std::endl;
+        }
+    }
+
+    // Get median
+    size_t n = 0;
+    int median = 0;
+    for (size_t i = 0; i < log_count.size(); ++i) {
+        n += log_count[i];
+        if (n >= tot_seed_count/2) {
+            break;
+        }
+    }
+    // Get median 1000 limit
+    size_t n_lim = 0;
+    for (size_t i = 0; i < log_count_1000_limit.size(); ++i) {
+        n_lim += log_count_1000_limit[i];
+        if (n_lim >= tot_seed_count_1000_limit/2) {
+            break;
+        }
+    }
+
+    log_file << "E_size for total seeding wih max seed size m below (m, tot_seeds, E_hits)" << std::endl;
+    double e_hits = (double) tot_seed_count_sq/ (double) tot_seed_count;
+    double fraction_masked = 1.0 - (double) tot_seed_count_1000_limit/ (double) tot_seed_count;
+    log_file << median << ',' << tot_seed_count << ',' << e_hits << ',' << 100*fraction_masked << std::endl;
 }

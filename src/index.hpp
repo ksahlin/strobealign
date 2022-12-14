@@ -19,16 +19,45 @@
 #include "refs.hpp"
 #include "randstrobes.hpp"
 
-struct ReferenceMer {
+class ReferenceMer {
+public:
+    ReferenceMer() { }  // TODO should not be needed
+    ReferenceMer(uint32_t position, int32_t packed) : position(position), packed(packed) {
+    }
     uint32_t position;
+
+    int reference_index() const {
+        return packed >> bit_alloc;
+    }
+
+    int strobe2_offset() const {
+        return packed & mask;
+    }
+
+private:
+    const int bit_alloc = 8;
+    const int mask = (1 << bit_alloc) - 1;
     int32_t packed;
 };
 
 typedef std::vector<ReferenceMer> mers_vector;
 
-struct KmerLookupEntry {
-    unsigned int offset;
-    unsigned int count;
+class KmerLookupEntry {
+public:
+    KmerLookupEntry() { }
+    KmerLookupEntry(unsigned int offset, unsigned int count) : m_offset(offset), m_count(count) { }
+
+    unsigned int count() const {
+        return m_count;
+    }
+
+    unsigned int offset() const{
+        return m_offset;
+    }
+
+private:
+    unsigned int m_offset;
+    unsigned int m_count;
 };
 
 typedef robin_hood::unordered_map<uint64_t, KmerLookupEntry> kmer_lookup;
@@ -109,16 +138,32 @@ struct StrobemerIndex {
     unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
                                 //therefore stored here since it needs to be saved with the index.
     mers_vector flat_vector;
-    kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
     mutable IndexCreationStatistics stats;
 
     void write(const std::string& filename) const;
     void read(const std::string& filename);
     void populate(float f);
+    void print_diagnostics(const std::string& logfile_name, int k) const;
+
+    kmer_lookup::const_iterator find(uint64_t key) const {
+        return mers_index.find(key);
+    }
+
+    kmer_lookup::const_iterator end() const {
+        return mers_index.cend();
+    }
+
+    void add_entry(uint64_t key, unsigned int offset, unsigned int count) {
+        KmerLookupEntry s{offset, count};
+        mers_index[key] = s;
+    }
+
 private:
     const IndexParameters& parameters;
     const References& references;
-    void index_vector(const hash_vector& h_vector, kmer_lookup& mers_index, float f);
+    kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
+
+    void index_vector(const hash_vector& h_vector, float f);
     ind_mers_vector generate_and_sort_seeds() const;
 };
 

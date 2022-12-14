@@ -18,8 +18,8 @@ struct Hit {
     bool is_rc;
 
     bool operator< (const Hit& rhs) const {
-        return std::tie(count, offset, query_s, query_e, is_rc)
-            < std::tie(rhs.count, rhs.offset, rhs.query_s, rhs.query_e, rhs.is_rc);
+        return std::tie(count, query_s, query_e, is_rc)
+            < std::tie(rhs.count, rhs.query_s, rhs.query_e, rhs.is_rc);
     }
 };
 
@@ -91,6 +91,29 @@ inline aln_info ssw_align(const std::string &ref, const std::string &query, int 
     return aln;
 }
 
+void add_to_hits_per_ref(
+    robin_hood::unordered_map<unsigned int, std::vector<hit>>& hits_per_ref,
+    int query_s,
+    int query_e,
+    bool is_rc,
+    const StrobemerIndex& index,
+    int k,
+    int offset,
+    int count,
+    int min_diff
+) {
+    for (int j = offset; j < offset + count; ++j) {
+        auto r = index.flat_vector[j];
+        int ref_s = r.position;
+        int ref_e = r.position + r.strobe2_offset() + k;
+
+        int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
+        if (diff <= min_diff) {
+            hits_per_ref[r.reference_index()].push_back(hit{query_s, query_e, ref_s, ref_e, is_rc});
+            min_diff = diff;
+        }
+    }
+}
 
 static inline void find_nams_rescue(
     std::vector<nam> &final_nams,
@@ -107,11 +130,9 @@ static inline void find_nams_rescue(
     hits_rc.reserve(5000);
 
     for (auto &q : query_mers) {
-        auto mer_hashv = q.hash;
-        if (index.mers_index.find(mer_hashv) != index.mers_index.end()) {
-            auto ref_hit = index.mers_index.at(mer_hashv);
-            auto query_e = q.position + q.offset_strobe + k;
-            Hit s{ref_hit.count, ref_hit.offset, q.position, query_e, q.is_reverse};
+        auto ref_hit = index.find(q.hash);
+        if (ref_hit != index.end()) {
+            Hit s{ref_hit->second.count(), ref_hit->second.offset(), q.start, q.end, q.is_reverse};
             if (q.is_reverse){
                 hits_rc.push_back(s);
             } else {
@@ -123,36 +144,13 @@ static inline void find_nams_rescue(
     std::sort(hits_fw.begin(), hits_fw.end());
     std::sort(hits_rc.begin(), hits_rc.end());
     for (auto& hits : {hits_fw, hits_rc}) {
-        hit h;
         int cnt = 0;
         for (auto &q : hits) {
             auto count = q.count;
             if ((count > filter_cutoff && cnt >= 5) || count > 1000) {
                 break;
             }
-
-            auto offset = q.offset;
-            h.query_s = q.query_s;
-            h.query_e = q.query_e; // h.query_s + read_length/2;
-            h.is_rc = q.is_rc;
-
-            int min_diff = 1000;
-            for (size_t j = offset; j < offset + count; ++j) {
-                auto r = index.flat_vector[j];
-                h.ref_s = r.position;
-                auto p = r.packed;
-                int bit_alloc = 8;
-                int r_id = (p >> bit_alloc);
-                int mask = (1 << bit_alloc) - 1;
-                int offset = (p & mask);
-                h.ref_e = h.ref_s + offset + k;
-
-                int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
-                if (diff <= min_diff) {
-                    hits_per_ref[r_id].push_back(h);
-                    min_diff = diff;
-                }
-            }
+            add_to_hits_per_ref(hits_per_ref, q.query_s, q.query_e, q.is_rc, index, k, q.offset, count, 1000);
             cnt++;
         }
     }
@@ -162,7 +160,7 @@ static inline void find_nams_rescue(
 
     for (auto &it : hits_per_ref) {
         auto ref_id = it.first;
-        std::vector<hit> hits = it.second;
+        std::vector<hit>& hits = it.second;
         std::sort(hits.begin(), hits.end(), [](const hit& a, const hit& b) -> bool {
                 // first sort on query starts, then on reference starts
                 return (a.query_s < b.query_s) || ( (a.query_s == b.query_s) && (a.ref_s < b.ref_s) );
@@ -266,42 +264,21 @@ static inline std::pair<float,int> find_nams(
     robin_hood::unordered_map<unsigned int, std::vector<hit>> hits_per_ref;
     hits_per_ref.reserve(100);
 
-    std::pair<float,int> info (0.0f,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     int nr_good_hits = 0, total_hits = 0;
-    hit h;
     for (auto &q : query_mers) {
-        auto mer_hashv = q.hash;
-        if (index.mers_index.find(mer_hashv) != index.mers_index.end()) {
+        auto ref_hit = index.find(q.hash);
+        if (ref_hit != index.end()) {
             total_hits++;
-            h.query_s = q.position;
-            h.query_e = h.query_s + q.offset_strobe + k; // h.query_s + read_length/2;
-            h.is_rc = q.is_reverse;
-            auto mer = index.mers_index.at(mer_hashv);
-            auto offset = mer.offset;
-            auto count = mer.count;
+            auto count = ref_hit->second.count();
             if (count > index.filter_cutoff) {
                 continue;
             }
-            nr_good_hits ++;
-            int min_diff = 100000;
-            for (size_t j = offset; j < offset + count; ++j) {
-                auto r = index.flat_vector[j];
-                h.ref_s = r.position;
-                auto p = r.packed;
-                int bit_alloc = 8;
-                int r_id = (p >> bit_alloc);
-                int mask = (1 << bit_alloc) - 1;
-                int offset = p & mask;
-                h.ref_e = h.ref_s + offset + k;
-                int diff = std::abs((h.query_e - h.query_s) - (h.ref_e - h.ref_s));
-                if (diff <= min_diff ){
-                    hits_per_ref[r_id].push_back(h);
-                    min_diff = diff;
-                }
-            }
+            nr_good_hits++;
+            add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, k, ref_hit->second.offset(), count, 100000);
         }
     }
 
+    std::pair<float,int> info (0.0f,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     info.first = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     int max_nam_n_hits = 0;
     int nam_id_cnt = 0;
@@ -309,7 +286,7 @@ static inline std::pair<float,int> find_nams(
 
     for (auto &it : hits_per_ref) {
         auto ref_id = it.first;
-        std::vector<hit> hits = it.second;
+        const std::vector<hit>& hits = it.second;
         open_nams = std::vector<nam> (); // Initialize vector
         unsigned int prev_q_start = 0;
         for (auto &h : hits){
