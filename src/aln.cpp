@@ -1594,10 +1594,6 @@ static inline void rescue_mate(
     ref_start = std::max(0, std::min(a,ref_len));
     ref_end = std::min(ref_len, std::max(0, b));
 
-    assert(ref_start != ref_len);
-    assert(ref_end != ref_len);
-    assert(ref_end != ref_start);
-
     if (ref_end < ref_start + k){
         sam_aln.cigar = "*";
         sam_aln.ed = read_len;

@@ -12,7 +12,7 @@ RNEXT, PNEXT, TLEN) are ignored.
 import sys
 from argparse import ArgumentParser
 from contextlib import ExitStack
-from itertools import repeat
+from itertools import repeat, zip_longest
 
 from pysam import AlignmentFile, AlignedSegment
 
@@ -52,7 +52,11 @@ def main():
         better = 0
         worse = 0
 
-        for b, a, t in zip(before, after, truth):
+        for b, a, t in zip_longest(before, after, truth):
+            if (b is None and a is None) and not has_truth:
+                break
+            if b is None or a is None:
+                sys.exit("Input files have different lengths")
             assert b.query_name[:-2] == a.query_name[:-2]
             if has_truth:
                 assert a.query_name[:-2] == t.query_name

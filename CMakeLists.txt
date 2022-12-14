@@ -16,12 +16,13 @@ find_package(OpenMP)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g")
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING
-      "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
+      "Choose the type of build, options are: RelWithDebInfo Debug Release" FORCE)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-    "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+    "RelWithDebInfo" "Debug" "Release")
 endif()
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
