@@ -4,6 +4,7 @@
 #include <deque>
 #include <bitset>
 #include <algorithm>
+#include <cassert>
 #include <xxhash.h>
 
 // a, A -> 0
@@ -131,8 +132,6 @@ std::ostream& operator<<(std::ostream& os, const Randstrobe& randstrobe) {
 }
 
 Randstrobe RandstrobeIterator::get(unsigned int strobe1_start) const {
-    unsigned int strobe_pos_next;
-    uint64_t strobe_hashval_next;
     unsigned int w_end;
     if (strobe1_start + w_max < string_hashes.size()) {
         w_end = strobe1_start + w_max;
@@ -145,14 +144,13 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_start) const {
 
     unsigned int w_start = strobe1_start + w_min;
     uint64_t strobe_hashval = string_hashes[strobe1_start];
-
     uint64_t min_val = UINT64_MAX;
-    strobe_pos_next = strobe1_start; // Defaults if no nearby syncmer
-    strobe_hashval_next = string_hashes[strobe1_start];
+    unsigned int strobe_pos_next = strobe1_start; // Defaults if no nearby syncmer
+    uint64_t strobe_hashval_next = string_hashes[strobe1_start];
     std::bitset<64> b;
 
     for (auto i = w_start; i <= w_end; i++) {
-
+        assert(i < string_hashes.size());
         // Method 3' skew sample more for prob exact matching
         b = (strobe_hashval ^ string_hashes[i])  & q;
         uint64_t res = b.count();
