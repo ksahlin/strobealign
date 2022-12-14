@@ -184,9 +184,6 @@ void StrobemerIndex::read(const std::string& filename) {
 void StrobemerIndex::populate(float f) {
     ind_mers_vector ind_flat_vector; //includes hash - for sorting, will be discarded later
     Timer randstrobes_timer;
-    int expected_sampling = parameters.k - parameters.s + 1;
-    int approx_vec_size = references.total_length() / expected_sampling;
-    ind_flat_vector.reserve(approx_vec_size);
     unsigned int tot_occur_once;
     stats.tot_strobemer_count = 0;
 
