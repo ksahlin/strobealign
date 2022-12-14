@@ -43,6 +43,14 @@ struct Randstrobe {
     uint64_t hash;
     unsigned int strobe1_pos;
     unsigned int strobe2_pos;
+
+    bool operator==(const Randstrobe& other) const {
+        return hash == other.hash && strobe1_pos == other.strobe1_pos && strobe2_pos == other.strobe2_pos;
+    }
+
+    bool operator!=(const Randstrobe& other) const {
+        return !(*this == other);
+    }
 };
 
 std::ostream& operator<<(std::ostream& os, const Randstrobe& randstrobe);
@@ -122,6 +130,35 @@ private:
     uint64_t xs[2] = {0, 0};
     size_t i = 0;
 };
+
+class RandstrobeIterator2 {
+public:
+    RandstrobeIterator2(
+        const std::string& seq, size_t k, size_t s, size_t t,
+        int w_min,
+        int w_max,
+        uint64_t q,
+        int max_dist
+    ) : syncmer_iterator(SyncmerIterator(seq, k, s, t))
+      , w_min(w_min)
+      , w_max(w_max)
+      , q(q)
+      , max_dist(max_dist)
+    { }
+
+    Randstrobe next();
+    Randstrobe end() const { return Randstrobe{0, 0, 0}; }
+
+private:
+    SyncmerIterator syncmer_iterator;
+    const int w_min;
+    const int w_max;
+    const uint64_t q;
+    const unsigned int max_dist;
+    unsigned int strobe1_index = 0;
+    std::deque<Syncmer> syncmers;
+};
+
 
 std::pair<std::vector<uint64_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
     const std::string &seq,

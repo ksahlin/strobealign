@@ -215,6 +215,40 @@ void randstrobes_reference(
     }
 }
 
+Randstrobe RandstrobeIterator2::next() {
+    while (syncmers.size() <= w_max) {
+        Syncmer syncmer = syncmer_iterator.next();
+        if (syncmer.is_end()) {
+            break;
+        }
+        syncmers.push_back(syncmer);
+    }
+    if (syncmers.size() <= w_min) {
+        return RandstrobeIterator2::end();
+    }
+    auto strobe1 = syncmers[0];
+    auto max_position = strobe1.position + max_dist;
+    uint64_t min_val = UINT64_MAX;
+    Syncmer strobe2 = syncmers[0]; // Defaults if no nearby syncmer
+
+    for (auto i = w_min; i < syncmers.size(); i++) {
+        assert(i <= w_max);
+        // Method 3' skew sample more for prob exact matching
+        std::bitset<64> b;
+        b = (strobe1.hash ^ syncmers[i].hash) & q;
+        uint64_t res = b.count();
+        if (syncmers[i].position > max_position) {
+            break;
+        }
+        if (res < min_val) {
+            min_val = res;
+            strobe2 = syncmers[i];
+        }
+    }
+    syncmers.pop_front();
+    return Randstrobe{strobe1.hash + strobe2.hash, static_cast<unsigned int>(strobe1.position), static_cast<unsigned int>(strobe2.position)};
+}
+
 /*
  * Generate randstrobes for a query sequence (read).
  *
