@@ -35,8 +35,8 @@ public:
     }
 
 private:
-    const int bit_alloc = 8;
-    const int mask = (1 << bit_alloc) - 1;
+    static const int bit_alloc = 8;
+    static const int mask = (1 << bit_alloc) - 1;
     int32_t packed;
 };
 
