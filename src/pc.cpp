@@ -66,6 +66,7 @@ void OutputBuffer::output_records(std::string chunk, size_t chunk_index) {
             break;
         }
         out << item->second;
+        chunks.erase(item);
         next_chunk_index++;
     }
     unique_lock.unlock();
