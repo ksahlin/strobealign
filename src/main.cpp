@@ -49,6 +49,12 @@ std::string sam_header(const References& references, const std::string& read_gro
     return out.str();
 }
 
+void warn_if_no_optimizations() {
+    if (std::string(CMAKE_BUILD_TYPE) == "Debug") {
+        logger.info() << "\n    ***** Binary was compiled without optimizations - this will be very slow *****\n\n";
+    }
+}
+
 int run_strobealign(int argc, char **argv) {
     CommandLineOptions opt;
     mapping_params map_param;
@@ -57,6 +63,8 @@ int run_strobealign(int argc, char **argv) {
     logger.set_level(opt.verbose ? LOG_DEBUG : LOG_INFO);
     logger.info() << std::setprecision(2) << std::fixed;
     logger.info() << "This is strobealign " << version_string() << '\n';
+    logger.debug() << "Build type: " << CMAKE_BUILD_TYPE << '\n';
+    warn_if_no_optimizations();
 
     if (!opt.r_set && !opt.reads_filename1.empty()) {
         map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
