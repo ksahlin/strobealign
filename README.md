@@ -57,6 +57,31 @@ strobealign -x ref.fa reads1.fq reads2.fq > output.paf  # Paired-end reads mappi
 To report secondary alignments, set parameter `-N [INT]` for maximum of `[INT]` secondary alignments. 
 
 
+Index files
+-----------
+
+Every time you run strobealign, the program by default computes an index of the
+provided reference FASTA. This is done because the indexing parameters vary
+according to read length. This is relatively fast: Depending on CPU, indexing a
+human-sized genome takes 2-5 minutes, but when you work with multiple libraries
+that all (roughly) have the same read length, you can save time by letting
+strobealign precompute an index file with the `-i` option.
+
+Since strobealign needs to know the read length, either provide it with the
+reads file as if you wanted to map them:
+
+    strobalign -i ref.fa reads.1.fastq.gz reads.2.fastq.gz
+
+Or set the read length explicitly with `-r`:
+
+    strobealign -i ref.fa -r 150
+
+This creates a file named `ref.fa.sti` containing the strobemer index. To use
+it, provide option `--use-index` when doing the actual mapping:
+
+    strobealign --use-index ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools ...
+
+
 Changelog
 ---------
 
