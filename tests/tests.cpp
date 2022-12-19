@@ -61,8 +61,8 @@ TEST_CASE("Reference uppercase") {
 }
 
 TEST_CASE("estimate_read_length") {
-    CHECK(estimate_read_length("tests/phix.1.fastq", "") == 296);
-    CHECK(estimate_read_length("tests/phix.1.fastq", "tests/phix.2.fastq") == 296);
+    CHECK(estimate_read_length("tests/phix.1.fastq", "") == 289);
+    CHECK(estimate_read_length("tests/phix.1.fastq", "tests/phix.2.fastq") == 289);
 }
 
 TEST_CASE("IndexParameters==") {
