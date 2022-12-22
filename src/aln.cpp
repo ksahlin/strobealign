@@ -1535,6 +1535,22 @@ static inline std::vector<std::tuple<int,nam,nam>> get_best_scoring_NAM_location
     return joint_NAM_scores;
 }
 
+/*
+ * Determine (roughly) whether the read sequence has some l-mer (with l = k*2/3)
+ * in common with the reference sequence
+ */
+bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k) {
+    int sub_size = 2 * k / 3;
+    int step_size = k / 3;
+    std::string submer;
+    for (size_t i = 0; i + k <= read_seq.size(); i += step_size) {
+        submer = read_seq.substr(i, sub_size);
+        if (ref_seq.find(submer) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
 
 static inline void rescue_mate(
     const alignment_params &aln_params,
@@ -1586,19 +1602,7 @@ static inline void rescue_mate(
     std::string ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_end - ref_start);
     aln_info info;
 
-    // check that read shares at least some segment with ref otherwise abort
-    int sub_size = 2*k/3;
-    int step_size = k/3;
-    std::string submer;
-    bool found = false;
-    for (size_t i = 0; i <= r_tmp.size()-k; i+=step_size) {
-        submer = r_tmp.substr(i, sub_size);
-        if (ref_segm.find( submer ) != std::string::npos) {
-            found = true;
-            break;
-        }
-    }
-    if (!found){
+    if (!has_shared_substring(r_tmp, ref_segm, k)){
         sam_aln.cigar = "*";
         sam_aln.ed = read_len;
         sam_aln.sw_score = 0;

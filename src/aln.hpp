@@ -112,5 +112,6 @@ void align_PE_read(klibpp::KSeq& record1, klibpp::KSeq& record2, Sam& sam, std::
 
 void align_SE_read(klibpp::KSeq& record, Sam& sam, std::string& outstring, AlignmentStatistics& statistics, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
 
+bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k);
 
 #endif

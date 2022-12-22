@@ -8,6 +8,7 @@
 #include "index.hpp"
 #include "fastq.hpp"
 #include "sam.hpp"
+#include "aln.hpp"
 
 
 TEST_CASE("References::add") {
@@ -226,4 +227,10 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     "readname\t65\tcontig1\t2\t55\t2M\tcontig2\t3\t0\tAACC\t#!B<\tNM:i:17\tAS:i:9\n"
     "readname\t129\tcontig2\t3\t57\t3M\tcontig1\t2\t0\tGGTT\tIHB#\tNM:i:2\tAS:i:4\n"
     );
+}
+
+TEST_CASE("has_shared_substring") {
+    std::string ref{"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"};
+    std::string read{"GGGGGGGGGGGGGGGGG"};
+    CHECK(!has_shared_substring(read, ref, 20));
 }
