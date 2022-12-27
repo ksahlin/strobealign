@@ -1,12 +1,12 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
-
 #include "refs.hpp"
 #include "exceptions.hpp"
 #include "readlen.hpp"
 #include "index.hpp"
 #include "fastq.hpp"
 #include "aln.hpp"
+#include "tmpdir.hpp"
 
 
 TEST_CASE("estimate_read_length") {
@@ -46,7 +46,8 @@ TEST_CASE("has_shared_substring") {
 }
 
 TEST_CASE("read_/write_vector") {
-    std::string filename{"tmp-vector"};
+    TemporaryDirectory tmp_dir;
+    std::string filename = tmp_dir.path() / "vector";
     const std::vector<int> expected{2, 3, 5, 7, 11};
     {
         std::ofstream ofs{filename, std::ios::binary};
