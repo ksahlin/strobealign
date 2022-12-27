@@ -44,3 +44,18 @@ TEST_CASE("has_shared_substring") {
     std::string read{"GGGGGGGGGGGGGGGGG"};
     CHECK(!has_shared_substring(read, ref, 20));
 }
+
+TEST_CASE("read_/write_vector") {
+    std::string filename{"tmp-vector"};
+    const std::vector<int> expected{2, 3, 5, 7, 11};
+    {
+        std::ofstream ofs{filename, std::ios::binary};
+        write_vector(ofs, expected);
+    }
+    std::vector<int> y;
+    {
+        std::ifstream ifs{filename, std::ios::binary};
+        read_vector(ifs, y);
+    }
+    CHECK(y == expected);
+}
