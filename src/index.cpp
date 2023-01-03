@@ -10,7 +10,7 @@
 #include <fstream>
 #include <cassert>
 #include <algorithm>
-
+#include "pdqsort/pdqsort.h"
 #include "timer.hpp"
 
 /* Create an IndexParameters instance based on a given read length.
@@ -294,7 +294,7 @@ ind_mers_vector StrobemerIndex::generate_and_sort_seeds() const
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     Timer sorting_timer;
-    std::sort(ind_flat_vector.begin(), ind_flat_vector.end());
+    pdqsort_branchless(ind_flat_vector.begin(), ind_flat_vector.end());
     stats.elapsed_sorting_seeds = sorting_timer.duration();
 
     return ind_flat_vector;
