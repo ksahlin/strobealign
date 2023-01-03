@@ -3,7 +3,6 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
-#include "exceptions.hpp"
 
 References References::from_fasta(const std::string& filename) {
     std::vector<std::string> sequences;

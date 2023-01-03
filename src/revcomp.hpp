@@ -2,7 +2,7 @@
 #define REVCOMP_HPP
 
 #include <string>
-
+#include <algorithm>
 
 static inline std::string reverse_complement(const std::string &read) {
     auto read_rev = read;

@@ -190,14 +190,11 @@ void StrobemerIndex::write(const std::string& filename) const {
     write_int_to_ostream(ofs, filter_cutoff);
     parameters.write(ofs);
 
-    //write flat_vector:
-    auto s1 = uint64_t(flat_vector.size());
-    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
-    ofs.write(reinterpret_cast<const char*>(&flat_vector[0]), flat_vector.size() * sizeof(flat_vector[0]));
+    write_vector(ofs, flat_vector);
 
     //write mers_index:
-    s1 = uint64_t(mers_index.size());
-    ofs.write(reinterpret_cast<char*>(&s1), sizeof(s1));
+    auto size = uint64_t(mers_index.size());
+    ofs.write(reinterpret_cast<char*>(&size), sizeof(size));
     for (auto& p : mers_index) {
         ofs.write(reinterpret_cast<const char*>(&p.first), sizeof(p.first));
         ofs.write(reinterpret_cast<const char*>(&p.second), sizeof(p.second));
@@ -222,13 +219,9 @@ void StrobemerIndex::read(const std::string& filename) {
         throw InvalidIndexFile("Index parameters in .sti file and those specified on command line differ");
     }
 
-    // read flat_vector:
-    uint64_t sz;
-    flat_vector.clear();
-    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-    flat_vector.resize(sz); //annoyingly, this initializes the memory to zero (which is a waste of performance), but let's ignore that for now
-    ifs.read(reinterpret_cast<char*>(&flat_vector[0]), sz*sizeof(flat_vector[0]));
+    read_vector(ifs, flat_vector);
 
+    uint64_t sz;
     // read mers_index:
     mers_index.clear();
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));

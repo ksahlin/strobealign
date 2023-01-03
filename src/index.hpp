@@ -14,6 +14,7 @@
 #include <deque>
 #include <tuple>
 #include <cmath>
+#include <iostream>
 #include "robin_hood.h"
 #include "exceptions.hpp"
 #include "refs.hpp"
@@ -166,6 +167,23 @@ private:
     void index_vector(const hash_vector& h_vector, float f);
     ind_mers_vector generate_and_sort_seeds() const;
 };
+
+/* Write a vector to an output stream, preceded by its length */
+template <typename T>
+void write_vector(std::ostream& os, const std::vector<T>& v) {
+    auto size = uint64_t(v.size());
+    os.write(reinterpret_cast<char*>(&size), sizeof(size));
+    os.write(reinterpret_cast<const char*>(v.data()), v.size() * sizeof(T));
+}
+
+template <typename T>
+void read_vector(std::istream& is, std::vector<T>& v) {
+    uint64_t size;
+    v.clear();
+    is.read(reinterpret_cast<char*>(&size), sizeof(size));
+    v.resize(size);
+    is.read(reinterpret_cast<char*>(v.data()), size * sizeof(T));
+}
 
 
 #endif

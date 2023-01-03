@@ -1,12 +1,12 @@
-#ifndef FASTA_HPP
-#define FASTA_HPP
+#ifndef REFS_HPP
+#define REFS_HPP
 
 #include <cstdint>
 #include <string>
 #include <stdexcept>
 #include <numeric>
 #include <vector>
-
+#include "exceptions.hpp"
 
 class References {
     typedef std::vector<unsigned int> ref_lengths;
