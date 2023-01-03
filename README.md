@@ -1,11 +1,9 @@
 strobealign
 ===========
 
-strobealign is a fast **short-read aligner**. It achieves the speedup by using a dynamic seed size obtained from syncmer-thinned strobemers.
+Strobealign is a fast **short-read aligner**. It achieves the speedup by using a dynamic seed size obtained from [syncmer](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7869670/)-thinned [strobemers](https://github.com/ksahlin/strobemers#what-is-a-strobemer).
 
-strobealign is multithreaded, aligns single-end and paired-end reads, and outputs mapped reads either in SAM format (default) or PAF format (extension-free mapping).
-
-strobealign is benchmarked for read lengths between 100 and 500 bp. A preprint describing v0.7.1 is available [here](https://doi.org/10.1101/2021.06.18.449070).
+Strobealign is multithreaded, aligns single-end and paired-end reads, and outputs mapped reads either in SAM format (default) or PAF format (extension-free mapping). A paper describing version 0.7.1 is available [here](https://doi.org/10.1186/s13059-022-02831-7). Strobealign is benchmarked for read lengths between 100 and 500 bp. 
 
 See [INSTALLATION](https://github.com/ksahlin/strobealign#installation) and [USAGE](https://github.com/ksahlin/strobealign#usage) to install and run strobealign. See [v07 PERFORMANCE](https://github.com/ksahlin/strobealign#v07-performance) for the accuracy and runtime performance of strobealign.
 
@@ -112,7 +110,7 @@ Figure 1. Accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for
 Figure 2. Accuracy (panel A) runtime (panel B) and %-aligned reads (panel C) for the REPEATS dataset
 
 ## Variant calling benchmark (simulated REPEATS)
-A small SNV and INDEL calling benchmark with strobealign v0.7 is provided below. We used `bcftools` to call SNPs and indels on a simulated repetitive genome based on alignments from strobealign, BWA-MEM, and minimap2 (ran with 1 core). The genome is a 16.8Mbp sequence consisting of 500 concatenated copies of a 40kbp sequence which is mutated through substitutions (5%) and removing segments of size 1bp-1kbp (0.5%) along the oringinal 20Mbp string.
+A small SNV and INDEL calling benchmark with strobealign v0.7 is provided below. We used `bcftools` to call SNPs and indels on a simulated repetitive genome based on alignments from strobealign, BWA-MEM, and minimap2 (using one core). The genome is a 16.8Mbp sequence consisting of 500 concatenated copies of a 40kbp sequence which is mutated through substitutions (5%) and removing segments of size 1bp-1kbp (0.5%) along the oringinal 20Mbp string.
 
 Then, 2 million paired-end reads (lengths 100, 150, 200, 250, 300) from a related genome with high variation rate: 0.5% SNVs and 0.5% INDELs. The challange is to find the right location of reads in the repetitive genome to predict the SNVs and INDELs in the related genome. In the genome where the reads are simulated from there is about 78k SNVs and INDELS, respectively. Locations of true SNVs and INDELs and provided by the read simulator. The precision (P), recall (R), and [F-score](https://en.wikipedia.org/wiki/F-score) are computed based on the true variants (for details see section [Variant calling benchmark method](https://github.com/ksahlin/strobealign#variant-calling-benchmark-method)). Results in table below.
 
