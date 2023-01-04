@@ -37,26 +37,9 @@ static inline uint64_t syncmer_kmer_hash(uint64_t packed) {
     return XXH64(&packed, sizeof(uint64_t), 0);
 }
 
-static inline std::pair<std::vector<uint64_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
-    const std::string &seq,
-    const size_t k,
-    const size_t s,
-    const size_t t
-) {
-    std::vector<uint64_t> string_hashes;
-    std::vector<unsigned int> pos_to_seq_coordinate;
-    const uint64_t kmask = (1ULL << 2*k) - 1;
-    const uint64_t smask = (1ULL << 2*s) - 1;
-    const uint64_t kshift = (k - 1) * 2;
-    const uint64_t sshift = (s - 1) * 2;
-    std::deque<uint64_t> qs;  // s-mer hashes
-    uint64_t qs_min_val = UINT64_MAX;
-    size_t qs_min_pos = -1;
-
-    size_t l = 0;
-    uint64_t xk[] = {0, 0};
-    uint64_t xs[] = {0, 0};
-    for (size_t i = 0; i < seq.length(); i++) {
+Syncmer SyncmerIterator::next() {
+    for ( ; i < seq.length(); ++i) {
+//    for (size_t i = 0; i < seq.length(); i++) {
         int c = seq_nt4_table[(uint8_t) seq[i]];
         if (c < 4) { // not an "N" base
             xk[0] = (xk[0] << 2 | c) & kmask;                  // forward strand
@@ -105,8 +88,9 @@ static inline std::pair<std::vector<uint64_t>, std::vector<unsigned int>> make_s
             }
             if (qs_min_pos == i - k + t) { // occurs at t:th position in k-mer
                 uint64_t yk = std::min(xk[0], xk[1]);
-                string_hashes.push_back(syncmer_kmer_hash(yk));
-                pos_to_seq_coordinate.push_back(i - k + 1);
+                auto syncmer = Syncmer{syncmer_kmer_hash(yk), i - k + 1};
+                i++;
+                return syncmer;
             }
         } else {
             // if there is an "N", restart
@@ -116,52 +100,25 @@ static inline std::pair<std::vector<uint64_t>, std::vector<unsigned int>> make_s
             qs.clear();
         }
     }
-    return make_pair(string_hashes, pos_to_seq_coordinate);
+    return Syncmer{0, 0}; // end marker
 }
 
-struct Randstrobe {
-    uint64_t hash;
-    unsigned int strobe1_pos;
-    unsigned int strobe2_pos;
-};
-
-class RandstrobeIterator {
-public:
-    RandstrobeIterator(
-        const std::vector<uint64_t> &string_hashes,
-        const std::vector<unsigned int> &pos_to_seq_coordinate,
-        int w_min,
-        int w_max,
-        uint64_t q,
-        int max_dist
-    ) : string_hashes(string_hashes)
-      , pos_to_seq_coordinate(pos_to_seq_coordinate)
-      , w_min(w_min)
-      , w_max(w_max)
-      , q(q)
-      , max_dist(max_dist)
-    {
+std::pair<std::vector<uint64_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
+    const std::string &seq,
+    const size_t k,
+    const size_t s,
+    const size_t t
+) {
+    std::vector<uint64_t> string_hashes;
+    std::vector<unsigned int> pos_to_seq_coordinate;
+    SyncmerIterator syncmer_iterator{seq, k, s, t};
+    Syncmer syncmer;
+    while (!(syncmer = syncmer_iterator.next()).is_end()) {
+        string_hashes.push_back(syncmer.hash);
+        pos_to_seq_coordinate.push_back(syncmer.position);
     }
-
-    Randstrobe next() {
-        return get(strobe1_start++);
-    }
-
-    bool has_next() {
-        return (strobe1_start + w_max < string_hashes.size())
-            || (strobe1_start + w_min + 1 < string_hashes.size());
-    }
-
-private:
-    Randstrobe get(unsigned int strobe1_start) const;
-    const std::vector<uint64_t> &string_hashes;
-    const std::vector<unsigned int> &pos_to_seq_coordinate;
-    const int w_min;
-    const int w_max;
-    const uint64_t q;
-    const unsigned int max_dist;
-    unsigned int strobe1_start = 0;
-};
+    return make_pair(string_hashes, pos_to_seq_coordinate);
+}
 
 Randstrobe RandstrobeIterator::get(unsigned int strobe1_start) const {
     unsigned int strobe_pos_next;
@@ -207,7 +164,6 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_start) const {
 
     return Randstrobe { hash_randstrobe2, seq_pos_strobe1, pos_to_seq_coordinate[strobe_pos_next] };
 }
-
 
 /* Generate randstrobes for a reference sequence. The randstrobes are appended
  * to the given flat_vector, which allows to call this function repeatedly for
