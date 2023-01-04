@@ -116,84 +116,6 @@ uint64_t count_unique_hashes(const ind_mers_vector& mers){
     return unique_elements;
 }
 
-void StrobemerIndex::index_vector(const ind_mers_vector &mers, float f) {
-    stats.flat_vector_size = mers.size();
-
-    unsigned int offset = 0;
-    unsigned int prev_offset = 0;
-    unsigned int count = 0;
-
-    unsigned int tot_occur_once = 0;
-    unsigned int tot_high_ab = 0;
-    unsigned int tot_mid_ab = 0;
-    std::vector<unsigned int> strobemer_counts;
-
-    auto prev_mer = mers[0];
-    uint64_t prev_hash = mers[0].hash;
-    uint64_t curr_hash;
-
-    for (auto &mer : mers) {
-        flat_vector.push_back(ReferenceMer{mer.position, mer.packed});
-
-        curr_hash = mer.hash;
-        if (curr_hash == prev_hash){
-            count++;
-        }
-        else {
-            if (count == 1) {
-                tot_occur_once++;
-            }
-            else if (count > 100){
-                tot_high_ab++;
-                strobemer_counts.push_back(count);
-            }
-            else{
-                tot_mid_ab++;
-                strobemer_counts.push_back(count);
-            }
-
-            if (count == 1) {
-                add_entry(prev_hash, prev_mer.position, prev_mer.packed | 0x8000'0000);
-                flat_vector[flat_vector.size() - 2] = flat_vector[flat_vector.size() - 1];
-                flat_vector.pop_back();
-                offset--;
-            } else {
-                add_entry(prev_hash, prev_offset, count);
-            }
-            count = 1;
-            prev_hash = curr_hash;
-            prev_offset = offset;
-            prev_mer = mer;
-        }
-        offset++;
-    }
-
-    // last k-mer
-    add_entry(curr_hash, prev_offset, count);
-
-    float frac_unique = ((float) tot_occur_once )/ mers_index.size();
-    stats.tot_strobemer_count = offset;
-    stats.tot_occur_once = tot_occur_once;
-    stats.frac_unique = frac_unique;
-    stats.tot_high_ab = tot_high_ab;
-    stats.tot_mid_ab = tot_mid_ab;
-    stats.tot_distinct_strobemer_count = mers_index.size();
-
-    std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
-
-    unsigned int index_cutoff = mers_index.size()*f;
-    stats.index_cutoff = index_cutoff;
-    unsigned int filter_cutoff;
-    if (!strobemer_counts.empty()){
-        filter_cutoff = index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back();
-        filter_cutoff = std::max(30U, filter_cutoff); // cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
-        filter_cutoff = std::min(100U, filter_cutoff); // limit upper cutoff for normal NAM finding - use rescue mode instead
-    } else {
-        filter_cutoff = 30;
-    }
-    stats.filter_cutoff = filter_cutoff;
-}
-
 void StrobemerIndex::write(const std::string& filename) const {
     std::ofstream ofs(filename, std::ios::binary);
 
@@ -276,8 +198,81 @@ void StrobemerIndex::populate(float f) {
 
     Timer hash_index_timer;
     mers_index.reserve(count_unique_hashes(ind_flat_vector));
-    index_vector(ind_flat_vector, f);
-    filter_cutoff = stats.filter_cutoff;
+
+    stats.flat_vector_size = ind_flat_vector.size();
+
+    unsigned int offset = 0;
+    unsigned int prev_offset = 0;
+    unsigned int count = 0;
+
+    unsigned int tot_occur_once = 0;
+    unsigned int tot_high_ab = 0;
+    unsigned int tot_mid_ab = 0;
+    std::vector<unsigned int> strobemer_counts;
+
+    auto prev_mer = ind_flat_vector[0];
+    uint64_t prev_hash = ind_flat_vector[0].hash;
+    uint64_t curr_hash;
+
+    for (auto &mer : ind_flat_vector) {
+        flat_vector.push_back(ReferenceMer{mer.position, mer.packed});
+
+        curr_hash = mer.hash;
+        if (curr_hash == prev_hash){
+            count++;
+        }
+        else {
+            if (count == 1) {
+                tot_occur_once++;
+            }
+            else if (count > 100){
+                tot_high_ab++;
+                strobemer_counts.push_back(count);
+            }
+            else{
+                tot_mid_ab++;
+                strobemer_counts.push_back(count);
+            }
+
+            if (count == 1) {
+                add_entry(prev_hash, prev_mer.position, prev_mer.packed | 0x8000'0000);
+                flat_vector[flat_vector.size() - 2] = flat_vector[flat_vector.size() - 1];
+                flat_vector.pop_back();
+                offset--;
+            } else {
+                add_entry(prev_hash, prev_offset, count);
+            }
+            count = 1;
+            prev_hash = curr_hash;
+            prev_offset = offset;
+            prev_mer = mer;
+        }
+        offset++;
+    }
+
+    // last k-mer
+    add_entry(curr_hash, prev_offset, count);
+
+    float frac_unique = ((float) tot_occur_once )/ mers_index.size();
+    stats.tot_strobemer_count = offset;
+    stats.tot_occur_once = tot_occur_once;
+    stats.frac_unique = frac_unique;
+    stats.tot_high_ab = tot_high_ab;
+    stats.tot_mid_ab = tot_mid_ab;
+    stats.tot_distinct_strobemer_count = mers_index.size();
+
+    std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
+
+    unsigned int index_cutoff = mers_index.size()*f;
+    stats.index_cutoff = index_cutoff;
+    if (!strobemer_counts.empty()){
+        filter_cutoff = index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back();
+        filter_cutoff = std::max(30U, filter_cutoff); // cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
+        filter_cutoff = std::min(100U, filter_cutoff); // limit upper cutoff for normal NAM finding - use rescue mode instead
+    } else {
+        filter_cutoff = 30;
+    }
+    stats.filter_cutoff = filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
     stats.unique_mers = mers_index.size();
 }

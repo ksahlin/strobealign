@@ -182,8 +182,6 @@ private:
     const IndexParameters& parameters;
     const References& references;
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
-
-    void index_vector(const ind_mers_vector &mers, float f);
 };
 
 /* Write a vector to an output stream, preceded by its length */
