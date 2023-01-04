@@ -193,21 +193,9 @@ void randstrobes_reference(
         return;
     }
 
-    // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
-    std::vector<uint64_t> string_hashes;
-    std::vector<unsigned int> pos_to_seq_coordinate;
-//    robin_hood::unordered_map< unsigned int, unsigned int>  pos_to_seq_choord;
-//    make_string_to_hashvalues_random_minimizers(seq, string_hashes, pos_to_seq_choord, k, kmask, w);
-    std::tie(string_hashes, pos_to_seq_coordinate) = make_string_to_hashvalues_open_syncmers_canonical(seq, k, s, t);
-
-    unsigned int nr_hashes = string_hashes.size();
-    if (nr_hashes == 0) {
-        return;
-    }
-
-    RandstrobeIterator randstrobe_iter { string_hashes, pos_to_seq_coordinate, w_min, w_max, q, max_dist };
-    while (randstrobe_iter.has_next()) {
-        auto randstrobe = randstrobe_iter.next();
+    auto randstrobe_iter = RandstrobeIterator2(seq, k, s, t, w_min, w_max, q, max_dist);
+    Randstrobe randstrobe;
+    while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
         MersIndexEntry::packed_t packed = (ref_index << 8);
         packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
         MersIndexEntry s {randstrobe.hash, randstrobe.strobe1_pos, packed};
