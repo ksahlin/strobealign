@@ -13,7 +13,7 @@ struct MersIndexEntry {
     int32_t packed; // packed representation of ref_index and strobe offset
 
     bool operator< (const MersIndexEntry& other) const {
-        return std::tie(hash, position, packed) < std::tie(other.hash, other.position, other.packed);
+        return hash < other.hash;
     }
 };
 
