@@ -105,6 +105,9 @@ bool IndexParameters::operator==(const IndexParameters& other) const {
 }
 
 uint64_t count_unique_hashes(const ind_mers_vector& mers){
+    if (mers.empty()) {
+        return 0;
+    }
     uint64_t prev_k = mers.at(0).hash;
     uint64_t unique_elements = 1;
     for (auto &curr_k : mers) {
