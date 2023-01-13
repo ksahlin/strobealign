@@ -172,7 +172,7 @@ struct StrobemerIndex {
 
     void write(const std::string& filename) const;
     void read(const std::string& filename);
-    void populate(float f);
+    void populate(float f, size_t n_threads);
     void print_diagnostics(const std::string& logfile_name, int k) const;
 
     kmer_lookup::const_iterator find(uint64_t key) const {

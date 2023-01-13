@@ -123,7 +123,7 @@ int run_strobealign(int argc, char **argv) {
     } else {
         logger.info() << "Indexing ...\n";
         Timer index_timer;
-        index.populate(opt.f);
+        index.populate(opt.f, opt.n_threads);
         
         logger.info() << "  Time generating seeds: " << index.stats.elapsed_generating_seeds.count() << " s" <<  std::endl;
         logger.info() << "  Time estimating number of unique hashes: " << index.stats.elapsed_unique_hashes.count() << " s" <<  std::endl;

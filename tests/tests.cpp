@@ -24,7 +24,7 @@ TEST_CASE("sti file same parameters") {
     auto references = References::from_fasta("tests/phix.fasta");
     auto parameters = IndexParameters::from_read_length(300, 8);
     StrobemerIndex index(references, parameters);
-    index.populate(0.0002);
+    index.populate(0.0002, 1);
     index.write("tmpindex.sti");
 
     auto other_parameters = IndexParameters::from_read_length(30, 8);

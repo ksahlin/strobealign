@@ -12,6 +12,8 @@
 #include <algorithm>
 #include "pdqsort/pdqsort.h"
 #include <iostream>
+#include <thread>
+#include <atomic>
 #include <hyperloglog/hyperloglog.hpp>
 #include "timer.hpp"
 
@@ -231,13 +233,42 @@ size_t estimate_unique_randstrobe_hashes(const References& references, IndexPara
     return hll.estimate();
 }
 
-void StrobemerIndex::populate(float f) {
+size_t estimate_unique_randstrobe_hashes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
+    std::vector<std::thread> workers;
+    std::vector<hll::HyperLogLog> estimators;
+    for (size_t i = 0; i < n_threads; ++i) {
+        estimators.push_back(hll::HyperLogLog(10));
+    }
+    std::atomic_size_t ref_index = 0;
+    for (size_t i = 0; i < n_threads; ++i) {
+        workers.push_back(std::thread([&ref_index](const References& references, const IndexParameters& parameters, hll::HyperLogLog& estimator) {
+            while (true) {
+                size_t j = ref_index.fetch_add(1);
+                if (j >= references.size()) {
+                    break;
+                }
+                estimator.merge(hll_randstrobe_hashes(references.sequences[j], parameters));
+            }
+        }, std::ref(references), std::ref(parameters), std::ref(estimators[i])));
+    }
+    for (auto& worker : workers) {
+        worker.join();
+    }
+
+    hll::HyperLogLog hll(10);
+    for (auto& estimator : estimators) {
+        hll.merge(estimator);
+    }
+    return hll.estimate();
+}
+
+void StrobemerIndex::populate(float f, size_t n_threads) {
     ind_mers_vector ind_flat_vector;
     unsigned int tot_occur_once;
     stats.tot_strobemer_count = 0;
 
     Timer estimate_unique;
-    auto randstrobe_hashes = estimate_unique_randstrobe_hashes(references, parameters);
+    auto randstrobe_hashes = estimate_unique_randstrobe_hashes_parallel(references, parameters, n_threads);
     stats.elapsed_unique_hashes = estimate_unique.duration();
 
     Timer randstrobes_timer;
