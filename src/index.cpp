@@ -290,22 +290,22 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
             packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
             MersIndexEntry s {randstrobe.hash, randstrobe.strobe1_pos, packed};
 
-            auto existing = mers_index.find(randstrobe.hash);
-            if (existing == mers_index.end()) {
-                // No previous occurrence found, insert this into hash table as direct entry
-                tot_occur_once += 1;
-                add_entry(randstrobe.hash, randstrobe.strobe1_pos, packed | 0x8000'0000);
+            // Try to insert as direct entry
+            KmerLookupEntry kle{randstrobe.strobe1_pos, packed | 0x8000'0000};
+            auto result = mers_index.insert({randstrobe.hash, kle});
+            if (result.second) {
+                tot_occur_once++;
             } else {
                 // already exists in hash table
-                auto existing_count = existing->second.count();
+                auto existing_count = result.first->second.count();
                 if (existing_count == 1) {
                     // current entry is a direct one, convert to an indirect one
-                    auto refmer = existing->second.as_reference_mer();
+                    auto refmer = result.first->second.as_reference_mer();
                     ind_flat_vector.push_back(MersIndexEntry{randstrobe.hash, refmer.position, refmer.packed()});
                     tot_occur_once -= 1;
                 }
                 // offset is adjusted later after sorting
-                existing->second.set_count(existing_count + 1);
+                result.first->second.set_count(existing_count + 1);
                 ind_flat_vector.push_back(s);
             }
         }
