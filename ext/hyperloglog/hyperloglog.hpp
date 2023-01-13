@@ -146,9 +146,7 @@ public:
             throw std::invalid_argument(ss.str().c_str());
         }
         for (uint32_t r = 0; r < m_; ++r) {
-            if (M_[r] < other.M_[r]) {
-                M_[r] |= other.M_[r];
-            }
+            M_[r] = std::max(M_[r], other.M_[r]);
         }
     }
 
