@@ -330,6 +330,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
 
     uint64_t prev_hash = -1;
 
+    flat_vector.reserve(ind_flat_vector.size());
     for (auto &mer : ind_flat_vector) {
         flat_vector.push_back(ReferenceMer{mer.position, mer.packed});
         if (mer.hash != prev_hash) {
