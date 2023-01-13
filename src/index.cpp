@@ -207,27 +207,26 @@ size_t count_unique_randstrobe_hashes(const References& references, IndexParamet
     return hashes.size();
 }
 
-size_t estimate_unique_randstrobe_hashes(const References& references, IndexParameters parameters) {
-    auto k = parameters.k;
-    auto s = parameters.s;
-    auto t = parameters.t_syncmer;
-    auto q = parameters.q;
-    auto w_min = parameters.w_min;
-    auto w_max = parameters.w_max;
-    auto max_dist = parameters.max_dist;
-
+hll::HyperLogLog hll_randstrobe_hashes(const std::string& seq, IndexParameters parameters) {
     hll::HyperLogLog hll(10);
-    for(size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
+
+    auto randstrobe_iter = RandstrobeIterator2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
+    Randstrobe randstrobe;
+
+    while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
+        hll.add(reinterpret_cast<char*>(&randstrobe.hash), sizeof(randstrobe.hash));
+    }
+    return hll;
+}
+
+size_t estimate_unique_randstrobe_hashes(const References& references, IndexParameters parameters) {
+    hll::HyperLogLog hll(10);
+    for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
         auto& seq = references.sequences[ref_index];
         if (seq.length() < parameters.w_max) {
             continue;
         }
-        auto randstrobe_iter = RandstrobeIterator2(seq, k, s, t, w_min, w_max, q, max_dist);
-        Randstrobe randstrobe;
-
-        while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
-            hll.add(reinterpret_cast<char*>(&randstrobe.hash), sizeof(randstrobe.hash));
-        }
+        hll.merge(hll_randstrobe_hashes(seq, parameters));
     }
     return hll.estimate();
 }
