@@ -283,31 +283,48 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
             continue;
         }
         auto randstrobe_iter = RandstrobeIterator2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
-        Randstrobe randstrobe;
-        while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
-            ++stats.tot_strobemer_count;
-            MersIndexEntry::packed_t packed = (ref_index << 8);
-            packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
-            MersIndexEntry s {randstrobe.hash, randstrobe.strobe1_pos, packed};
+        std::vector<Randstrobe> chunk;
+        const size_t chunk_size = 4;
+        chunk.reserve(chunk_size);
 
-            // Try to insert as direct entry
-            KmerLookupEntry kle{randstrobe.strobe1_pos, packed | 0x8000'0000};
-            auto result = mers_index.insert({randstrobe.hash, kle});
-            if (result.second) {
-                tot_occur_once++;
-            } else {
-                // already exists in hash table
-                auto existing_count = result.first->second.count();
-                if (existing_count == 1) {
-                    // current entry is a direct one, convert to an indirect one
-                    auto refmer = result.first->second.as_reference_mer();
-                    ind_flat_vector.push_back(MersIndexEntry{randstrobe.hash, refmer.position, refmer.packed()});
-                    tot_occur_once -= 1;
+        bool end = false;
+        while (!end) {
+            // fill chunk
+            Randstrobe randstrobe;
+            while (chunk.size() < chunk_size) {
+                randstrobe = randstrobe_iter.next();
+                if (randstrobe == randstrobe_iter.end()) {
+                    end = true;
+                    break;
                 }
-                // offset is adjusted later after sorting
-                result.first->second.set_count(existing_count + 1);
-                ind_flat_vector.push_back(s);
+                chunk.push_back(randstrobe);
             }
+            stats.tot_strobemer_count += chunk.size();
+            for (auto randstrobe : chunk) {
+                MersIndexEntry::packed_t packed = ref_index << 8;
+                packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
+                MersIndexEntry s {randstrobe.hash, randstrobe.strobe1_pos, packed};
+
+                // Try to insert as direct entry
+                KmerLookupEntry kle{randstrobe.strobe1_pos, packed | 0x8000'0000};
+                auto result = mers_index.insert({randstrobe.hash, kle});
+                if (result.second) {
+                    tot_occur_once++;
+                } else {
+                    // already exists in hash table
+                    auto existing_count = result.first->second.count();
+                    if (existing_count == 1) {
+                        // current entry is a direct one, convert to an indirect one
+                        auto refmer = result.first->second.as_reference_mer();
+                        ind_flat_vector.push_back(MersIndexEntry{randstrobe.hash, refmer.position, refmer.packed()});
+                        tot_occur_once -= 1;
+                    }
+                    // offset is adjusted later after sorting
+                    result.first->second.set_count(existing_count + 1);
+                    ind_flat_vector.push_back(s);
+                }
+            }
+            chunk.clear();
         }
     }
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
