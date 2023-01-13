@@ -16,6 +16,9 @@
 #include <atomic>
 #include <hyperloglog/hyperloglog.hpp>
 #include "timer.hpp"
+#include "logger.hpp"
+
+static Logger& logger = Logger::get();
 
 /* Create an IndexParameters instance based on a given read length.
  * k and/or s can be specified explicitly by setting them to a value other than
@@ -270,6 +273,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     Timer estimate_unique;
     auto randstrobe_hashes = estimate_unique_randstrobe_hashes_parallel(references, parameters, n_threads);
     stats.elapsed_unique_hashes = estimate_unique.duration();
+    logger.debug() << "Estimated number of unique randstrobe hashes: " << randstrobe_hashes << '\n';
 
     Timer randstrobes_timer;
     mers_index.reserve(randstrobe_hashes);
