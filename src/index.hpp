@@ -188,6 +188,8 @@ struct StrobemerIndex {
     }
 
 private:
+    ind_mers_vector add_randstrobes_to_hash_table();
+
     const IndexParameters& parameters;
     const References& references;
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )

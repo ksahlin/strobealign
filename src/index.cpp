@@ -231,7 +231,6 @@ size_t estimate_unique_randstrobe_hashes_parallel(const References& references, 
 }
 
 void StrobemerIndex::populate(float f, size_t n_threads) {
-    ind_mers_vector ind_flat_vector;
     unsigned int tot_occur_once;
     stats.tot_strobemer_count = 0;
 
@@ -239,64 +238,14 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     auto randstrobe_hashes = estimate_unique_randstrobe_hashes_parallel(references, parameters, n_threads);
     stats.elapsed_unique_hashes = estimate_unique.duration();
     logger.debug() << "Estimated number of unique randstrobe hashes: " << randstrobe_hashes << '\n';
+    mers_index.reserve(randstrobe_hashes);
 
     Timer randstrobes_timer;
-    mers_index.reserve(randstrobe_hashes);
-    for(size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
-        auto seq = references.sequences[ref_index];
-        if (seq.length() < parameters.w_max) {
-            continue;
-        }
-        auto randstrobe_iter = RandstrobeIterator2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
-        std::vector<Randstrobe> chunk;
-        const size_t chunk_size = 4;
-        chunk.reserve(chunk_size);
-
-        bool end = false;
-        while (!end) {
-            // fill chunk
-            Randstrobe randstrobe;
-            while (chunk.size() < chunk_size) {
-                randstrobe = randstrobe_iter.next();
-                if (randstrobe == randstrobe_iter.end()) {
-                    end = true;
-                    break;
-                }
-                chunk.push_back(randstrobe);
-            }
-            stats.tot_strobemer_count += chunk.size();
-            for (auto randstrobe : chunk) {
-                MersIndexEntry::packed_t packed = ref_index << 8;
-                packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
-
-                // Try to insert as direct entry
-                KmerLookupEntry kle{randstrobe.strobe1_pos, packed | 0x8000'0000};
-                auto result = mers_index.insert({randstrobe.hash, kle});
-                if (result.second) {
-                    tot_occur_once++;
-                } else {
-                    // already exists in hash table
-                    auto& existing = result.first;
-                    auto existing_count = existing->second.count();
-                    if (existing_count == 1) {
-                        // current entry is a direct one, convert to an indirect one
-                        auto refmer = existing->second.as_reference_mer();
-                        ind_flat_vector.push_back(MersIndexEntry{randstrobe.hash, refmer.position, refmer.packed()});
-                        tot_occur_once--;
-                    }
-                    // offset is adjusted later after sorting
-                    existing->second.set_count(existing_count + 1);
-
-                    MersIndexEntry s {randstrobe.hash, randstrobe.strobe1_pos, packed};
-                    ind_flat_vector.push_back(s);
-                }
-            }
-            chunk.clear();
-        }
-    }
+    auto ind_flat_vector = add_randstrobes_to_hash_table();
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     Timer sorting_timer;
+    // sort by hash values
     pdqsort_branchless(ind_flat_vector.begin(), ind_flat_vector.end());
     stats.elapsed_sorting_seeds = sorting_timer.duration();
 
@@ -304,13 +253,11 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.flat_vector_size = ind_flat_vector.size();
 
     unsigned int offset = 0;
-
     unsigned int tot_high_ab = 0;
     unsigned int tot_mid_ab = 0;
     std::vector<unsigned int> strobemer_counts;
 
     uint64_t prev_hash = -1;
-
     flat_vector.reserve(ind_flat_vector.size());
     for (auto &mer : ind_flat_vector) {
         flat_vector.push_back(ReferenceMer{mer.position, mer.packed});
@@ -354,6 +301,78 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.filter_cutoff = filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
     stats.unique_mers = mers_index.size();
+}
+
+/*
+ * Generate randstrobes for all reference sequences and add them to the hash
+ * table. Only those randstrobes which occur only once have correct, fully
+ * filled-in entries in the hash table. For the others (with multiple
+ * occurrences), only their count is correct. The offset needs to be filled in
+ * later.
+ *
+ * Fills in
+ * - stats.tot_occur_once
+ * - stats.tot_strobemer_count
+ */
+ind_mers_vector StrobemerIndex::add_randstrobes_to_hash_table() {
+    ind_mers_vector ind_flat_vector;
+    size_t tot_occur_once = 0;
+    for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
+        auto seq = references.sequences[ref_index];
+        if (seq.length() < parameters.w_max) {
+            continue;
+        }
+        auto randstrobe_iter = RandstrobeIterator2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
+        std::vector<Randstrobe> chunk;
+        // TODO
+        // Chunking makes this function faster, but the speedup is achieved even
+        // with a chunk size of 1.
+        const size_t chunk_size = 4;
+        chunk.reserve(chunk_size);
+
+        bool end = false;
+        while (!end) {
+            // fill chunk
+            Randstrobe randstrobe;
+            while (chunk.size() < chunk_size) {
+                randstrobe = randstrobe_iter.next();
+                if (randstrobe == randstrobe_iter.end()) {
+                    end = true;
+                    break;
+                }
+                chunk.push_back(randstrobe);
+            }
+            stats.tot_strobemer_count += chunk.size();
+            for (auto randstrobe : chunk) {
+                MersIndexEntry::packed_t packed = ref_index << 8;
+                packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
+
+                // try to insert as direct entry
+                KmerLookupEntry kle{randstrobe.strobe1_pos, packed | 0x8000'0000};
+                auto result = mers_index.insert({randstrobe.hash, kle});
+                if (result.second) {
+                    tot_occur_once++;
+                } else {
+                    // already exists in hash table
+                    auto existing = result.first;
+                    auto existing_count = existing->second.count();
+                    if (existing_count == 1) {
+                        // current entry is a direct one, convert to an indirect one
+                        auto refmer = existing->second.as_reference_mer();
+                        ind_flat_vector.push_back(MersIndexEntry{randstrobe.hash, refmer.position, refmer.packed()});
+                        tot_occur_once--;
+                    }
+                    // offset is adjusted later after sorting
+                    existing->second.set_count(existing_count + 1);
+
+                    ind_flat_vector.push_back(MersIndexEntry{randstrobe.hash, randstrobe.strobe1_pos, packed});
+                }
+            }
+            chunk.clear();
+        }
+    }
+    stats.tot_occur_once = tot_occur_once;
+    return ind_flat_vector;
 }
 
 void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) const {
