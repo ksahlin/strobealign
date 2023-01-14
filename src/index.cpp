@@ -187,53 +187,15 @@ void StrobemerIndex::read(const std::string& filename) {
     }
 }
 
-size_t count_unique_randstrobe_hashes(const References& references, IndexParameters parameters) {
-    auto k = parameters.k;
-    auto s = parameters.s;
-    auto t = parameters.t_syncmer;
-    auto q = parameters.q;
-    auto w_min = parameters.w_min;
-    auto w_max = parameters.w_max;
-    auto max_dist = parameters.max_dist;
-
-    robin_hood::unordered_flat_set<uint64_t> hashes;
-    for(size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
-        auto& seq = references.sequences[ref_index];
-        if (seq.length() < parameters.w_max) {
-            continue;
-        }
-        auto randstrobe_iter = RandstrobeIterator2(seq, k, s, t, w_min, w_max, q, max_dist);
-        Randstrobe randstrobe;
-
-        while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
-            hashes.insert(randstrobe.hash);
-        }
-    }
-    return hashes.size();
-}
-
-hll::HyperLogLog hll_randstrobe_hashes(const std::string& seq, IndexParameters parameters) {
+hll::HyperLogLog estimate_unique_randstrobe_hashes(const std::string& seq, const IndexParameters& parameters) {
     hll::HyperLogLog hll(10);
 
     auto randstrobe_iter = RandstrobeIterator2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
     Randstrobe randstrobe;
-
     while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
         hll.add(reinterpret_cast<char*>(&randstrobe.hash), sizeof(randstrobe.hash));
     }
     return hll;
-}
-
-size_t estimate_unique_randstrobe_hashes(const References& references, IndexParameters parameters) {
-    hll::HyperLogLog hll(10);
-    for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
-        auto& seq = references.sequences[ref_index];
-        if (seq.length() < parameters.w_max) {
-            continue;
-        }
-        hll.merge(hll_randstrobe_hashes(seq, parameters));
-    }
-    return hll.estimate();
 }
 
 size_t estimate_unique_randstrobe_hashes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
@@ -244,15 +206,18 @@ size_t estimate_unique_randstrobe_hashes_parallel(const References& references, 
     }
     std::atomic_size_t ref_index = 0;
     for (size_t i = 0; i < n_threads; ++i) {
-        workers.push_back(std::thread([&ref_index](const References& references, const IndexParameters& parameters, hll::HyperLogLog& estimator) {
-            while (true) {
-                size_t j = ref_index.fetch_add(1);
-                if (j >= references.size()) {
-                    break;
-                }
-                estimator.merge(hll_randstrobe_hashes(references.sequences[j], parameters));
-            }
-        }, std::ref(references), std::ref(parameters), std::ref(estimators[i])));
+        workers.push_back(
+            std::thread(
+                [&ref_index](const References& references, const IndexParameters& parameters, hll::HyperLogLog& estimator) {
+                    while (true) {
+                        size_t j = ref_index.fetch_add(1);
+                        if (j >= references.size()) {
+                            break;
+                        }
+                        estimator.merge(estimate_unique_randstrobe_hashes(references.sequences[j], parameters));
+                    }
+                }, std::ref(references), std::ref(parameters), std::ref(estimators[i]))
+        );
     }
     for (auto& worker : workers) {
         worker.join();
@@ -303,7 +268,6 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
             for (auto randstrobe : chunk) {
                 MersIndexEntry::packed_t packed = ref_index << 8;
                 packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
-                MersIndexEntry s {randstrobe.hash, randstrobe.strobe1_pos, packed};
 
                 // Try to insert as direct entry
                 KmerLookupEntry kle{randstrobe.strobe1_pos, packed | 0x8000'0000};
@@ -312,15 +276,18 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
                     tot_occur_once++;
                 } else {
                     // already exists in hash table
-                    auto existing_count = result.first->second.count();
+                    auto& existing = result.first;
+                    auto existing_count = existing->second.count();
                     if (existing_count == 1) {
                         // current entry is a direct one, convert to an indirect one
-                        auto refmer = result.first->second.as_reference_mer();
+                        auto refmer = existing->second.as_reference_mer();
                         ind_flat_vector.push_back(MersIndexEntry{randstrobe.hash, refmer.position, refmer.packed()});
-                        tot_occur_once -= 1;
+                        tot_occur_once--;
                     }
                     // offset is adjusted later after sorting
-                    result.first->second.set_count(existing_count + 1);
+                    existing->second.set_count(existing_count + 1);
+
+                    MersIndexEntry s {randstrobe.hash, randstrobe.strobe1_pos, packed};
                     ind_flat_vector.push_back(s);
                 }
             }
