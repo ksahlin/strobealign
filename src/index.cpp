@@ -300,9 +300,6 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     pdqsort_branchless(ind_flat_vector.begin(), ind_flat_vector.end());
     stats.elapsed_sorting_seeds = sorting_timer.duration();
 
-    Timer flat_vector_timer;
-    stats.elapsed_flat_vector = flat_vector_timer.duration();
-
     Timer hash_index_timer;
     stats.flat_vector_size = ind_flat_vector.size();
 
