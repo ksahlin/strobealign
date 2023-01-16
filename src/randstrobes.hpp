@@ -7,6 +7,7 @@
 #include <deque>
 #include <algorithm>
 #include <iostream>
+#include <stdexcept>
 #include <inttypes.h>
 
 // only used during index generation
@@ -62,6 +63,9 @@ public:
       , q(q)
       , max_dist(max_dist)
     {
+        if (w_min > w_max) {
+            throw std::invalid_argument("w_min is greater than w_max");
+        }
     }
 
     Randstrobe next() {
@@ -69,8 +73,7 @@ public:
     }
 
     bool has_next() {
-        return (strobe1_start + w_max < string_hashes.size())
-            || (strobe1_start + w_min < string_hashes.size());
+        return strobe1_start + w_min < string_hashes.size();
     }
 
 private:
