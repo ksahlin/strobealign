@@ -70,7 +70,7 @@ public:
 
     bool has_next() {
         return (strobe1_start + w_max < string_hashes.size())
-            || (strobe1_start + w_min + 1 < string_hashes.size());
+            || (strobe1_start + w_min < string_hashes.size());
     }
 
 private:

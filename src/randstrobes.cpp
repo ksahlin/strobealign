@@ -135,7 +135,7 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_start) const {
     unsigned int w_end;
     if (strobe1_start + w_max < string_hashes.size()) {
         w_end = strobe1_start + w_max;
-    } else if (strobe1_start + w_min + 1 < string_hashes.size()) {
+    } else if (strobe1_start + w_min < string_hashes.size()) {
         w_end = string_hashes.size() - 1;
     }
 
