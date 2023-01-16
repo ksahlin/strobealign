@@ -4,6 +4,7 @@
 #include <deque>
 #include <bitset>
 #include <algorithm>
+#include <cassert>
 #include <xxhash.h>
 
 // a, A -> 0
@@ -37,26 +38,14 @@ static inline uint64_t syncmer_kmer_hash(uint64_t packed) {
     return XXH64(&packed, sizeof(uint64_t), 0);
 }
 
-static inline std::pair<std::vector<uint64_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
-    const std::string &seq,
-    const size_t k,
-    const size_t s,
-    const size_t t
-) {
-    std::vector<uint64_t> string_hashes;
-    std::vector<unsigned int> pos_to_seq_coordinate;
-    const uint64_t kmask = (1ULL << 2*k) - 1;
-    const uint64_t smask = (1ULL << 2*s) - 1;
-    const uint64_t kshift = (k - 1) * 2;
-    const uint64_t sshift = (s - 1) * 2;
-    std::deque<uint64_t> qs;  // s-mer hashes
-    uint64_t qs_min_val = UINT64_MAX;
-    size_t qs_min_pos = -1;
+std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
+    os << "Syncmer(hash=" << syncmer.hash << ", position=" << syncmer.position << ")";
+    return os;
+}
 
-    size_t l = 0;
-    uint64_t xk[] = {0, 0};
-    uint64_t xs[] = {0, 0};
-    for (size_t i = 0; i < seq.length(); i++) {
+Syncmer SyncmerIterator::next() {
+    for ( ; i < seq.length(); ++i) {
+//    for (size_t i = 0; i < seq.length(); i++) {
         int c = seq_nt4_table[(uint8_t) seq[i]];
         if (c < 4) { // not an "N" base
             xk[0] = (xk[0] << 2 | c) & kmask;                  // forward strand
@@ -105,8 +94,9 @@ static inline std::pair<std::vector<uint64_t>, std::vector<unsigned int>> make_s
             }
             if (qs_min_pos == i - k + t) { // occurs at t:th position in k-mer
                 uint64_t yk = std::min(xk[0], xk[1]);
-                string_hashes.push_back(syncmer_kmer_hash(yk));
-                pos_to_seq_coordinate.push_back(i - k + 1);
+                auto syncmer = Syncmer{syncmer_kmer_hash(yk), i - k + 1};
+                i++;
+                return syncmer;
             }
         } else {
             // if there is an "N", restart
@@ -116,60 +106,36 @@ static inline std::pair<std::vector<uint64_t>, std::vector<unsigned int>> make_s
             qs.clear();
         }
     }
+    return Syncmer{0, 0}; // end marker
+}
+
+std::pair<std::vector<uint64_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
+    const std::string &seq,
+    const size_t k,
+    const size_t s,
+    const size_t t
+) {
+    std::vector<uint64_t> string_hashes;
+    std::vector<unsigned int> pos_to_seq_coordinate;
+    SyncmerIterator syncmer_iterator{seq, k, s, t};
+    Syncmer syncmer;
+    while (!(syncmer = syncmer_iterator.next()).is_end()) {
+        string_hashes.push_back(syncmer.hash);
+        pos_to_seq_coordinate.push_back(syncmer.position);
+    }
     return make_pair(string_hashes, pos_to_seq_coordinate);
 }
 
-struct Randstrobe {
-    uint64_t hash;
-    unsigned int strobe1_pos;
-    unsigned int strobe2_pos;
-};
-
-class RandstrobeIterator {
-public:
-    RandstrobeIterator(
-        const std::vector<uint64_t> &string_hashes,
-        const std::vector<unsigned int> &pos_to_seq_coordinate,
-        int w_min,
-        int w_max,
-        uint64_t q,
-        int max_dist
-    ) : string_hashes(string_hashes)
-      , pos_to_seq_coordinate(pos_to_seq_coordinate)
-      , w_min(w_min)
-      , w_max(w_max)
-      , q(q)
-      , max_dist(max_dist)
-    {
-    }
-
-    Randstrobe next() {
-        return get(strobe1_start++);
-    }
-
-    bool has_next() {
-        return (strobe1_start + w_max < string_hashes.size())
-            || (strobe1_start + w_min + 1 < string_hashes.size());
-    }
-
-private:
-    Randstrobe get(unsigned int strobe1_start) const;
-    const std::vector<uint64_t> &string_hashes;
-    const std::vector<unsigned int> &pos_to_seq_coordinate;
-    const int w_min;
-    const int w_max;
-    const uint64_t q;
-    const unsigned int max_dist;
-    unsigned int strobe1_start = 0;
-};
+std::ostream& operator<<(std::ostream& os, const Randstrobe& randstrobe) {
+    os << "Randstrobe(hash=" << randstrobe.hash << ", strobe1_pos=" << randstrobe.strobe1_pos << ", strobe2_pos=" << randstrobe.strobe2_pos << ")";
+    return os;
+}
 
 Randstrobe RandstrobeIterator::get(unsigned int strobe1_start) const {
-    unsigned int strobe_pos_next;
-    uint64_t strobe_hashval_next;
     unsigned int w_end;
     if (strobe1_start + w_max < string_hashes.size()) {
         w_end = strobe1_start + w_max;
-    } else if (strobe1_start + w_min + 1 < string_hashes.size()) {
+    } else if (strobe1_start + w_min < string_hashes.size()) {
         w_end = string_hashes.size() - 1;
     }
 
@@ -178,14 +144,13 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_start) const {
 
     unsigned int w_start = strobe1_start + w_min;
     uint64_t strobe_hashval = string_hashes[strobe1_start];
-
     uint64_t min_val = UINT64_MAX;
-    strobe_pos_next = strobe1_start; // Defaults if no nearby syncmer
-    strobe_hashval_next = string_hashes[strobe1_start];
+    unsigned int strobe_pos_next = strobe1_start; // Defaults if no nearby syncmer
+    uint64_t strobe_hashval_next = string_hashes[strobe1_start];
     std::bitset<64> b;
 
     for (auto i = w_start; i <= w_end; i++) {
-
+        assert(i < string_hashes.size());
         // Method 3' skew sample more for prob exact matching
         b = (strobe_hashval ^ string_hashes[i])  & q;
         uint64_t res = b.count();
@@ -208,47 +173,38 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_start) const {
     return Randstrobe { hash_randstrobe2, seq_pos_strobe1, pos_to_seq_coordinate[strobe_pos_next] };
 }
 
-
-/* Generate randstrobes for a reference sequence. The randstrobes are appended
- * to the given flat_vector, which allows to call this function repeatedly for
- * multiple reference sequences (use a different ref_index each time).
- */
-void randstrobes_reference(
-    ind_mers_vector& flat_vector,
-    int k,
-    int w_min,
-    int w_max,
-    const std::string &seq,
-    int ref_index,
-    int s,
-    int t,
-    uint64_t q,
-    int max_dist
-) {
-    if (seq.length() < w_max) {
-        return;
+Randstrobe RandstrobeIterator2::next() {
+    while (syncmers.size() <= w_max) {
+        Syncmer syncmer = syncmer_iterator.next();
+        if (syncmer.is_end()) {
+            break;
+        }
+        syncmers.push_back(syncmer);
     }
-
-    // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
-    std::vector<uint64_t> string_hashes;
-    std::vector<unsigned int> pos_to_seq_coordinate;
-//    robin_hood::unordered_map< unsigned int, unsigned int>  pos_to_seq_choord;
-//    make_string_to_hashvalues_random_minimizers(seq, string_hashes, pos_to_seq_choord, k, kmask, w);
-    std::tie(string_hashes, pos_to_seq_coordinate) = make_string_to_hashvalues_open_syncmers_canonical(seq, k, s, t);
-
-    unsigned int nr_hashes = string_hashes.size();
-    if (nr_hashes == 0) {
-        return;
+    if (syncmers.size() <= w_min) {
+        return RandstrobeIterator2::end();
     }
+    auto strobe1 = syncmers[0];
+    auto max_position = strobe1.position + max_dist;
+    uint64_t min_val = UINT64_MAX;
+    Syncmer strobe2 = syncmers[0]; // Defaults if no nearby syncmer
 
-    RandstrobeIterator randstrobe_iter { string_hashes, pos_to_seq_coordinate, w_min, w_max, q, max_dist };
-    while (randstrobe_iter.has_next()) {
-        auto randstrobe = randstrobe_iter.next();
-        int packed = (ref_index << 8);
-        packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
-        MersIndexEntry s {randstrobe.hash, randstrobe.strobe1_pos, packed};
-        flat_vector.push_back(s);
+    for (auto i = w_min; i < syncmers.size(); i++) {
+        assert(i <= w_max);
+        // Method 3' skew sample more for prob exact matching
+        std::bitset<64> b;
+        b = (strobe1.hash ^ syncmers[i].hash) & q;
+        uint64_t res = b.count();
+        if (syncmers[i].position > max_position) {
+            break;
+        }
+        if (res < min_val) {
+            min_val = res;
+            strobe2 = syncmers[i];
+        }
     }
+    syncmers.pop_front();
+    return Randstrobe{strobe1.hash + strobe2.hash, static_cast<unsigned int>(strobe1.position), static_cast<unsigned int>(strobe2.position)};
 }
 
 /*

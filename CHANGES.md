@@ -19,6 +19,9 @@
 
 ### Features
 
+* PR #191 and PR #192: RAM usage has been decreased significantly. For the
+  human genome, for example, it went from from 28 GiB to 21 GiB. (Mapping
+  runtime is unaffected.)
 * There is now a Conda package for StrobeAlign on Bioconda.
 * The index can now be pre-generated and safed to disk.
 * Invalid or missing input files no longer lead to a crash.

@@ -15,6 +15,7 @@
 #include <tuple>
 #include <cmath>
 #include <iostream>
+#include <cassert>
 #include "robin_hood.h"
 #include "exceptions.hpp"
 #include "refs.hpp"
@@ -23,22 +24,26 @@
 class ReferenceMer {
 public:
     ReferenceMer() { }  // TODO should not be needed
-    ReferenceMer(uint32_t position, int32_t packed) : position(position), packed(packed) {
+    ReferenceMer(uint32_t position, uint32_t packed) : position(position), m_packed(packed) {
     }
     uint32_t position;
 
     int reference_index() const {
-        return packed >> bit_alloc;
+        return m_packed >> bit_alloc;
     }
 
     int strobe2_offset() const {
-        return packed & mask;
+        return m_packed & mask;
+    }
+
+    MersIndexEntry::packed_t packed() const {
+        return m_packed;
     }
 
 private:
     static const int bit_alloc = 8;
     static const int mask = (1 << bit_alloc) - 1;
-    int32_t packed;
+    MersIndexEntry::packed_t m_packed;
 };
 
 typedef std::vector<ReferenceMer> mers_vector;
@@ -49,11 +54,34 @@ public:
     KmerLookupEntry(unsigned int offset, unsigned int count) : m_offset(offset), m_count(count) { }
 
     unsigned int count() const {
-        return m_count;
+        if (is_reference_mer()) {
+            return 1;
+        } else {
+            return m_count;
+        }
     }
 
     unsigned int offset() const{
+        assert(!is_reference_mer());
         return m_offset;
+    }
+
+    bool is_reference_mer() const {
+        return m_count & 0x8000'0000;
+    }
+
+    ReferenceMer as_reference_mer() const {
+        assert(is_reference_mer());
+        return ReferenceMer{m_offset, m_count & 0x7fff'ffff};
+    }
+
+    void set_count(unsigned int count) {
+        m_count = count;
+    }
+
+    void set_offset(unsigned int offset) {
+        assert(!is_reference_mer());
+        m_offset = offset;
     }
 
 private:
@@ -125,9 +153,9 @@ struct IndexCreationStatistics {
     unsigned int filter_cutoff = 0;
     uint64_t unique_mers = 0;
 
-    std::chrono::duration<double> elapsed_flat_vector;
     std::chrono::duration<double> elapsed_hash_index;
     std::chrono::duration<double> elapsed_generating_seeds;
+    std::chrono::duration<double> elapsed_unique_hashes;
     std::chrono::duration<double> elapsed_sorting_seeds;
 };
 
@@ -143,7 +171,7 @@ struct StrobemerIndex {
 
     void write(const std::string& filename) const;
     void read(const std::string& filename);
-    void populate(float f);
+    void populate(float f, size_t n_threads);
     void print_diagnostics(const std::string& logfile_name, int k) const;
 
     kmer_lookup::const_iterator find(uint64_t key) const {
@@ -160,12 +188,11 @@ struct StrobemerIndex {
     }
 
 private:
+    ind_mers_vector add_randstrobes_to_hash_table();
+
     const IndexParameters& parameters;
     const References& references;
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
-
-    void index_vector(const hash_vector& h_vector, float f);
-    ind_mers_vector generate_and_sort_seeds() const;
 };
 
 /* Write a vector to an output stream, preceded by its length */
