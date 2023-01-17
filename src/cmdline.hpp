@@ -51,7 +51,6 @@ struct CommandLineOptions {
     std::string ref_filename; // This is either a fasta file or an index file - if fasta, indexing will be run
     std::string reads_filename1;
     std::string reads_filename2;
-    std::string index_out_filename;
     bool is_SE { true };
 };
 

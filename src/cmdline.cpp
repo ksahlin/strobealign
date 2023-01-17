@@ -98,7 +98,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (rg) { opt.read_group_fields = args::get(rg); }
     if (N) { opt.max_secondary = args::get(N); }
     if (L) { opt.logfile_name = args::get(L); }
-    if (i) { opt.only_gen_index = true; opt.index_out_filename = args::get(i); }
+    if (i) { opt.only_gen_index = true; }
     if (use_index) { opt.use_index = true; }
 
     // Seeding
