@@ -118,8 +118,12 @@ int run_strobealign(int argc, char **argv) {
     References references;
     Timer read_refs_timer;
     references = References::from_fasta(opt.ref_filename);
-    logger.info() << "Time reading references: " << read_refs_timer.elapsed() << " s\n";
+    logger.info() << "Time reading reference: " << read_refs_timer.elapsed() << " s\n";
 
+    logger.info() << "Reference size: " << references.total_length() / 1E6 << " Mbp ("
+        << references.size() << " contig" << (references.size() == 1 ? "" : "s")
+        << "; largest: "
+        << (*std::max_element(references.lengths.begin(), references.lengths.end()) / 1E6) << " Mbp)\n";
     if (references.total_length() == 0) {
         throw InvalidFasta("No reference sequences found");
     }
