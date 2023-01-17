@@ -120,7 +120,7 @@ public:
 
     static IndexParameters from_read_length(int read_length, int c = -1, int k = -1, int s = -1, int max_seed_len = -1);
     static IndexParameters read(std::istream& os);
-
+    std::string filename_extension() const;
     void write(std::ostream& os) const;
     bool operator==(const IndexParameters& other) const;
     bool operator!=(const IndexParameters& other) const { return !(*this == other); }

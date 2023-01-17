@@ -133,7 +133,9 @@ int run_strobealign(int argc, char **argv) {
         // Read the index from a file
         assert(!opt.only_gen_index);
         Timer read_index_timer;
-        index.read(opt.ref_filename + ".sti");
+        std::string sti_path = opt.ref_filename + index_parameters.filename_extension();
+        logger.info() << "Reading index from " << sti_path << '\n';
+        index.read(sti_path);
         logger.info() << "Total time reading index: " << read_index_timer.elapsed() << " s\n";
     } else {
         logger.info() << "Indexing ...\n";
@@ -169,7 +171,9 @@ int run_strobealign(int argc, char **argv) {
         }
         if (opt.only_gen_index) {
             Timer index_writing_timer;
-            index.write(opt.ref_filename + ".sti");
+            std::string sti_path = opt.ref_filename + index_parameters.filename_extension();
+            logger.info() << "Writing index to " << sti_path << '\n';
+            index.write(opt.ref_filename + index_parameters.filename_extension());
             logger.info() << "Total time writing index: " << index_writing_timer.elapsed() << " s\n";
             return EXIT_SUCCESS;
         }

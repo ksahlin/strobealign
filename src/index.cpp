@@ -111,6 +111,11 @@ bool IndexParameters::operator==(const IndexParameters& other) const {
         && this->w_max == other.w_max;
 }
 
+// Return a parameter-specific filename extension. Example: ".r100.sti"
+std::string IndexParameters::filename_extension() const {
+    return ".sti";
+}
+
 uint64_t count_unique_hashes(const ind_mers_vector& mers){
     if (mers.empty()) {
         return 0;
