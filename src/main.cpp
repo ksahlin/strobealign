@@ -55,6 +55,23 @@ void warn_if_no_optimizations() {
     }
 }
 
+void log_parameters(const IndexParameters& index_parameters, const mapping_params& map_param, const alignment_params& aln_params) {
+    logger.debug() << "Using" << std::endl
+        << "k: " << index_parameters.k << std::endl
+        << "s: " << index_parameters.s << std::endl
+        << "w_min: " << index_parameters.w_min << std::endl
+        << "w_max: " << index_parameters.w_max << std::endl
+        << "Read length (r): " << map_param.r << std::endl
+        << "Maximum seed length: " << index_parameters.max_dist + index_parameters.k << std::endl
+        << "R: " << map_param.R << std::endl
+        << "Expected [w_min, w_max] in #syncmers: [" << index_parameters.w_min << ", " << index_parameters.w_max << "]" << std::endl
+        << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_min << ", " << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_max << "]" << std::endl
+        << "A: " << aln_params.match << std::endl
+        << "B: " << aln_params.mismatch << std::endl
+        << "O: " << aln_params.gap_open << std::endl
+        << "E: " << aln_params.gap_extend << std::endl;
+}
+
 int run_strobealign(int argc, char **argv) {
     CommandLineOptions opt;
     opt = parse_command_line_arguments(argc, argv);
@@ -89,21 +106,8 @@ int run_strobealign(int argc, char **argv) {
     map_param.maxTries = opt.maxTries;
     map_param.is_sam_out = opt.is_sam_out;
 
-    logger.debug() << "Using" << std::endl
-        << "k: " << index_parameters.k << std::endl
-        << "s: " << index_parameters.s << std::endl
-        << "w_min: " << index_parameters.w_min << std::endl
-        << "w_max: " << index_parameters.w_max << std::endl
-        << "Read length (r): " << map_param.r << std::endl
-        << "Maximum seed length: " << index_parameters.max_dist + index_parameters.k << std::endl
-        << "Threads: " << opt.n_threads << std::endl
-        << "R: " << map_param.R << std::endl
-        << "Expected [w_min, w_max] in #syncmers: [" << index_parameters.w_min << ", " << index_parameters.w_max << "]" << std::endl
-        << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_min << ", " << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_max << "]" << std::endl
-        << "A: " << aln_params.match << std::endl
-        << "B: " << aln_params.mismatch << std::endl
-        << "O: " << aln_params.gap_open << std::endl
-        << "E: " << aln_params.gap_extend << std::endl;
+    log_parameters(index_parameters, map_param, aln_params);
+    logger.debug() << "Threads: " << opt.n_threads << std::endl;
 
     map_param.verify();
     index_parameters.verify();
