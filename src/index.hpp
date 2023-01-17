@@ -118,7 +118,7 @@ public:
         , w_max(k / (k - s + 1) + u) {
     }
 
-    static IndexParameters from_read_length(int read_length, int c, int k = -1, int s = -1, int max_seed_len = -1);
+    static IndexParameters from_read_length(int read_length, int c = -1, int k = -1, int s = -1, int max_seed_len = -1);
     static IndexParameters read(std::istream& os);
 
     void write(std::ostream& os) const;

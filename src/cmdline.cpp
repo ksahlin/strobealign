@@ -108,7 +108,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (l) { opt.l = args::get(l); }
     if (u) { opt.u = args::get(u); }
     if (s) { opt.s = args::get(s); opt.s_set = true; }
-    if (c) { opt.c = args::get(c); }
+    if (c) { opt.c = args::get(c); opt.c_set = true; }
 
     // Alignment
     // if (n) { n = args::get(n); }
