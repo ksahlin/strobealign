@@ -31,8 +31,8 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
 
     args::ValueFlag<int> N(parser, "INT", "Retain at most INT secondary alignments (is upper bounded by -M and depends on -S) [0]", {'N'});
     args::ValueFlag<std::string> L(parser, "PATH", "Print statistics of indexing to PATH", {'L'});
-    args::Flag i(parser, "index", "Write the generated index to a file. Do not map reads. If read files are provided, they are used to estimate read length", { 'i' });
-    args::Flag use_index(parser, "use_index", "Use a pre-generated index", { "use-index" });
+    args::Flag i(parser, "index", "Do not map reads; only generate the strobemer index and write it to disk. If read files are provided, they are used to estimate read length", {"create-index", 'i'});
+    args::Flag use_index(parser, "use_index", "Use a pre-generated index previously written with --create-index.", { "use-index" });
 
     args::Group seeding(parser, "Seeding:");
     //args::ValueFlag<int> n(parser, "INT", "Number of strobes [2]", {'n'});
