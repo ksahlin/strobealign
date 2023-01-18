@@ -33,7 +33,7 @@ static std::vector<Profile> profiles = {
  */
 IndexParameters IndexParameters::from_read_length(int read_length, int c, int k, int s, int l, int u, int max_seed_len) {
     const int default_c = 8;
-    size_t canonical_read_length;
+    size_t canonical_read_length = 50;
     for (const auto& p : profiles) {
         if (read_length <= p.r_threshold) {
             if (k == DEFAULT) {
@@ -55,7 +55,7 @@ IndexParameters IndexParameters::from_read_length(int read_length, int c, int k,
 
     int max_dist;
     if (max_seed_len == DEFAULT) {
-        max_dist = std::max(read_length - 70, k);
+        max_dist = std::max(static_cast<int>(canonical_read_length) - 70, k);
         max_dist = std::min(255, max_dist);
     } else {
         max_dist = max_seed_len - k; // convert to distance in start positions

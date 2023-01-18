@@ -20,7 +20,15 @@ TEST_CASE("IndexParameters==") {
     CHECK(a == b);
 }
 
-TEST_CASE("parameters in sti file do not match") {
+TEST_CASE("IndexParameters identical for slight read-length differences") {
+    IndexParameters a = IndexParameters::from_read_length(150);
+    IndexParameters b = IndexParameters::from_read_length(151);
+    IndexParameters c = IndexParameters::from_read_length(149);
+    CHECK(a == b);
+    CHECK(a == c);
+}
+
+TEST_CASE("Parameters in sti file do not match") {
     TemporaryDirectory tmp_dir;
     std::string ref_path = tmp_dir.path() / "ref.fasta";
     std::filesystem::copy("tests/phix.fasta", ref_path);
