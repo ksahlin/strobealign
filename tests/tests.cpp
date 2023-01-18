@@ -15,8 +15,8 @@ TEST_CASE("estimate_read_length") {
 }
 
 TEST_CASE("IndexParameters==") {
-    IndexParameters a = IndexParameters::from_read_length(150, 8);
-    IndexParameters b = IndexParameters::from_read_length(150, 8);
+    IndexParameters a = IndexParameters::from_read_length(150);
+    IndexParameters b = IndexParameters::from_read_length(150);
     CHECK(a == b);
 }
 
@@ -25,13 +25,13 @@ TEST_CASE("parameters in sti file do not match") {
     std::string ref_path = tmp_dir.path() / "ref.fasta";
     std::filesystem::copy("tests/phix.fasta", ref_path);
     auto references = References::from_fasta(ref_path);
-    auto parameters = IndexParameters::from_read_length(300, 8);
+    auto parameters = IndexParameters::from_read_length(300);
     StrobemerIndex index(references, parameters);
     index.populate(0.0002, 1);
     std::string sti_path = tmp_dir.path() / "index.sti";
     index.write(sti_path);
 
-    auto other_parameters = IndexParameters::from_read_length(30, 8);
+    auto other_parameters = IndexParameters::from_read_length(50);
     StrobemerIndex other_index(references, other_parameters);
 
     REQUIRE_THROWS_AS(other_index.read(sti_path), InvalidIndexFile);
