@@ -37,6 +37,14 @@ TEST_CASE("parameters in sti file do not match") {
     REQUIRE_THROWS_AS(other_index.read(sti_path), InvalidIndexFile);
 }
 
+TEST_CASE("Missing sti file") {
+    TemporaryDirectory tmp_dir;
+    auto references = References::from_fasta("tests/phix.fasta");
+    auto parameters = IndexParameters::from_read_length(300);
+    StrobemerIndex index(references, parameters);
+    REQUIRE_THROWS_AS(index.read(tmp_dir.path() / "index.sti"), InvalidIndexFile);
+}
+
 TEST_CASE("Reads file missing") {
     std::string filename("does-not-exist.fastq");
     REQUIRE_THROWS_AS(open_fastq(filename), InvalidFile);
