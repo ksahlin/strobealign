@@ -1,10 +1,9 @@
 #ifndef CMDLINE_HPP
 #define CMDLINE_HPP
 
+#include <vector>
 #include <string>
 #include <utility>
-
-#include "aln.hpp"
 
 struct CommandLineOptions {
     int n_threads { 3 };
@@ -19,12 +18,16 @@ struct CommandLineOptions {
     std::string logfile_name { "" };
     bool only_gen_index { false };
     bool use_index { false };
+    bool is_sam_out { true };
+    int max_secondary { 0 };
 
     // Seeding
+    int r { 150 };
     bool r_set { false };
     bool max_seed_len_set { false };
     bool k_set { false };
     bool s_set { false };
+    bool c_set { false };
     int max_seed_len;
     int k { 20 };
     int l { 0 };
@@ -40,15 +43,17 @@ struct CommandLineOptions {
 
     // Search parameters
     float f { 0.0002 };
+    float dropoff_threshold { 0.5 };
+    int maxTries { 20 };
+    int R { 2 };
 
     // Reference and read files
     std::string ref_filename; // This is either a fasta file or an index file - if fasta, indexing will be run
     std::string reads_filename1;
     std::string reads_filename2;
-    std::string index_out_filename;
     bool is_SE { true };
 };
 
-std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int argc, char **argv);
+CommandLineOptions parse_command_line_arguments(int argc, char **argv);
 
 #endif

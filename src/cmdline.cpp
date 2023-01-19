@@ -6,7 +6,7 @@
 class Version {};
 
 
-std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int argc, char **argv) {
+CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
 
     args::ArgumentParser parser("strobelign " + version_string());
     parser.helpParams.showTerminator = false;
@@ -31,8 +31,8 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
 
     args::ValueFlag<int> N(parser, "INT", "Retain at most INT secondary alignments (is upper bounded by -M and depends on -S) [0]", {'N'});
     args::ValueFlag<std::string> L(parser, "PATH", "Print statistics of indexing to PATH", {'L'});
-    args::Flag i(parser, "index", "Write the generated index to a file. Do not map reads. If read files are provided, they are used to estimate read length", { 'i' });
-    args::Flag use_index(parser, "use_index", "Use a pre-generated index", { "use-index" });
+    args::Flag i(parser, "index", "Do not map reads; only generate the strobemer index and write it to disk. If read files are provided, they are used to estimate read length", {"create-index", 'i'});
+    args::Flag use_index(parser, "use_index", "Use a pre-generated index previously written with --create-index.", { "use-index" });
 
     args::Group seeding(parser, "Seeding:");
     //args::ValueFlag<int> n(parser, "INT", "Number of strobes [2]", {'n'});
@@ -58,8 +58,7 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     args::ValueFlag<int> M(parser, "INT", "Maximum number of mapping sites to try [20]", {'M'});
     args::ValueFlag<int> R(parser, "INT", "Rescue level. Perform additional search for reads with many repetitive seeds filtered out. This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes strobealign significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest.", {'R'});
 
-    // <ref.fa> <reads1.fast[a/q.gz]> [reads2.fast[a/q.gz]]
-    args::Positional<std::string> ref_filename(parser, "reference", "A pregenerated strobemers index file (.sti) or a reference in FASTA format", args::Options::Required);
+    args::Positional<std::string> ref_filename(parser, "reference", "Reference in FASTA format", args::Options::Required);
     args::Positional<std::string> reads1_filename(parser, "reads1", "Reads 1 in FASTA or FASTQ format, optionally gzip compressed");
     args::Positional<std::string> reads2_filename(parser, "reads2", "Reads 2 in FASTA or FASTQ format, optionally gzip compressed");
 
@@ -85,7 +84,6 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     }
 
     CommandLineOptions opt;
-    mapping_params map_param;
 
     // Threading
     if (threads) { opt.n_threads = args::get(threads); }
@@ -94,22 +92,22 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
     // Input/output
     if (o) { opt.output_file_name = args::get(o); opt.write_to_stdout = false; }
     if (v) { opt.verbose = true; }
-    if (x) { map_param.is_sam_out = false; }
+    if (x) { opt.is_sam_out = false; }
     if (rgid) { opt.read_group_id = args::get(rgid); }
     if (rg) { opt.read_group_fields = args::get(rg); }
-    if (N) { map_param.max_secondary = args::get(N); }
+    if (N) { opt.max_secondary = args::get(N); }
     if (L) { opt.logfile_name = args::get(L); }
-    if (i) { opt.only_gen_index = true; opt.index_out_filename = args::get(i); }
+    if (i) { opt.only_gen_index = true; }
     if (use_index) { opt.use_index = true; }
 
     // Seeding
-    if (r) { map_param.r = args::get(r); opt.r_set = true; }
+    if (r) { opt.r = args::get(r); opt.r_set = true; }
     if (m) { opt.max_seed_len = args::get(m); opt.max_seed_len_set = true; }
     if (k) { opt.k = args::get(k); opt.k_set = true; }
     if (l) { opt.l = args::get(l); }
     if (u) { opt.u = args::get(u); }
     if (s) { opt.s = args::get(s); opt.s_set = true; }
-    if (c) { opt.c = args::get(c); }
+    if (c) { opt.c = args::get(c); opt.c_set = true; }
 
     // Alignment
     // if (n) { n = args::get(n); }
@@ -120,9 +118,9 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
 
     // Search parameters
     if (f) { opt.f = args::get(f); }
-    if (S) { map_param.dropoff_threshold = args::get(S); }
-    if (M) { map_param.maxTries = args::get(M); }
-    if (R) { map_param.R = args::get(R); }
+    if (S) { opt.dropoff_threshold = args::get(S); }
+    if (M) { opt.maxTries = args::get(M); }
+    if (R) { opt.R = args::get(R); }
 
     // Reference and read files
     opt.ref_filename = args::get(ref_filename);
@@ -145,5 +143,5 @@ std::pair<CommandLineOptions, mapping_params> parse_command_line_arguments(int a
         exit(EXIT_FAILURE);
     }
 
-    return std::make_pair(opt, map_param);
+    return opt;
 }

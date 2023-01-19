@@ -55,10 +55,26 @@ void warn_if_no_optimizations() {
     }
 }
 
+void log_parameters(const IndexParameters& index_parameters, const mapping_params& map_param, const alignment_params& aln_params) {
+    logger.debug() << "Using" << std::endl
+        << "k: " << index_parameters.k << std::endl
+        << "s: " << index_parameters.s << std::endl
+        << "w_min: " << index_parameters.w_min << std::endl
+        << "w_max: " << index_parameters.w_max << std::endl
+        << "Read length (r): " << map_param.r << std::endl
+        << "Maximum seed length: " << index_parameters.max_dist + index_parameters.k << std::endl
+        << "R: " << map_param.R << std::endl
+        << "Expected [w_min, w_max] in #syncmers: [" << index_parameters.w_min << ", " << index_parameters.w_max << "]" << std::endl
+        << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_min << ", " << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_max << "]" << std::endl
+        << "A: " << aln_params.match << std::endl
+        << "B: " << aln_params.mismatch << std::endl
+        << "O: " << aln_params.gap_open << std::endl
+        << "E: " << aln_params.gap_extend << std::endl;
+}
+
 int run_strobealign(int argc, char **argv) {
     CommandLineOptions opt;
-    mapping_params map_param;
-    std::tie(opt, map_param) = parse_command_line_arguments(argc, argv);
+    opt = parse_command_line_arguments(argc, argv);
 
     logger.set_level(opt.verbose ? LOG_DEBUG : LOG_INFO);
     logger.info() << std::setprecision(2) << std::fixed;
@@ -67,14 +83,14 @@ int run_strobealign(int argc, char **argv) {
     warn_if_no_optimizations();
 
     if (!opt.r_set && !opt.reads_filename1.empty()) {
-        map_param.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
-        logger.info() << "Estimated read length: " << map_param.r << " bp\n";
+        opt.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
+        logger.info() << "Estimated read length: " << opt.r << " bp\n";
     }
     if (opt.c >= 64 || opt.c <= 0) {
         throw BadParameter("c must be greater than 0 and less than 64");
     }
     IndexParameters index_parameters = IndexParameters::from_read_length(
-        map_param.r, opt.c, opt.k_set ? opt.k : -1, opt.s_set ? opt.s : -1, opt.max_seed_len_set ? opt.max_seed_len : -1);
+        opt.r, opt.c_set ? opt.c : -1, opt.k_set ? opt.k : -1, opt.s_set ? opt.s : -1, opt.max_seed_len_set ? opt.max_seed_len : -1);
 
     alignment_params aln_params;
     aln_params.match = opt.A;
@@ -82,21 +98,16 @@ int run_strobealign(int argc, char **argv) {
     aln_params.gap_open = opt.O;
     aln_params.gap_extend = opt.E;
 
-    logger.debug() << "Using" << std::endl
-        << "k: " << index_parameters.k << std::endl
-        << "s: " << index_parameters.s << std::endl
-        << "w_min: " << index_parameters.w_min << std::endl
-        << "w_max: " << index_parameters.w_max << std::endl
-        << "Read length (r): " << map_param.r << std::endl
-        << "Maximum seed length: " << index_parameters.max_dist + index_parameters.k << std::endl
-        << "Threads: " << opt.n_threads << std::endl
-        << "R: " << map_param.R << std::endl
-        << "Expected [w_min, w_max] in #syncmers: [" << index_parameters.w_min << ", " << index_parameters.w_max << "]" << std::endl
-        << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_min << ", " << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_max << "]" << std::endl
-        << "A: " << opt.A << std::endl
-        << "B: " << opt.B << std::endl
-        << "O: " << opt.O << std::endl
-        << "E: " << opt.E << std::endl;
+    mapping_params map_param;
+    map_param.r = opt.r;
+    map_param.max_secondary = opt.max_secondary;
+    map_param.dropoff_threshold = opt.dropoff_threshold;
+    map_param.R = opt.R;
+    map_param.maxTries = opt.maxTries;
+    map_param.is_sam_out = opt.is_sam_out;
+
+    log_parameters(index_parameters, map_param, aln_params);
+    logger.debug() << "Threads: " << opt.n_threads << std::endl;
 
     map_param.verify();
     index_parameters.verify();
@@ -107,8 +118,12 @@ int run_strobealign(int argc, char **argv) {
     References references;
     Timer read_refs_timer;
     references = References::from_fasta(opt.ref_filename);
-    logger.info() << "Time reading references: " << read_refs_timer.elapsed() << " s\n";
+    logger.info() << "Time reading reference: " << read_refs_timer.elapsed() << " s\n";
 
+    logger.info() << "Reference size: " << references.total_length() / 1E6 << " Mbp ("
+        << references.size() << " contig" << (references.size() == 1 ? "" : "s")
+        << "; largest: "
+        << (*std::max_element(references.lengths.begin(), references.lengths.end()) / 1E6) << " Mbp)\n";
     if (references.total_length() == 0) {
         throw InvalidFasta("No reference sequences found");
     }
@@ -118,7 +133,9 @@ int run_strobealign(int argc, char **argv) {
         // Read the index from a file
         assert(!opt.only_gen_index);
         Timer read_index_timer;
-        index.read(opt.ref_filename + ".sti");
+        std::string sti_path = opt.ref_filename + index_parameters.filename_extension();
+        logger.info() << "Reading index from " << sti_path << '\n';
+        index.read(sti_path);
         logger.info() << "Total time reading index: " << read_index_timer.elapsed() << " s\n";
     } else {
         logger.info() << "Indexing ...\n";
@@ -154,7 +171,9 @@ int run_strobealign(int argc, char **argv) {
         }
         if (opt.only_gen_index) {
             Timer index_writing_timer;
-            index.write(opt.ref_filename + ".sti");
+            std::string sti_path = opt.ref_filename + index_parameters.filename_extension();
+            logger.info() << "Writing index to " << sti_path << '\n';
+            index.write(opt.ref_filename + index_parameters.filename_extension());
             logger.info() << "Total time writing index: " << index_writing_timer.elapsed() << " s\n";
             return EXIT_SUCCESS;
         }
