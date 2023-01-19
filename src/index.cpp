@@ -237,7 +237,6 @@ size_t estimate_unique_randstrobe_hashes_parallel(const References& references, 
 }
 
 void StrobemerIndex::populate(float f, size_t n_threads) {
-    unsigned int tot_occur_once;
     stats.tot_strobemer_count = 0;
 
     Timer estimate_unique;
@@ -286,9 +285,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
         prev_hash = mer.hash;
         offset++;
     }
-    float frac_unique = ((float) tot_occur_once )/ mers_index.size();
-    stats.tot_occur_once = tot_occur_once;
-    stats.frac_unique = frac_unique;
+    stats.frac_unique = 1.0 * stats.tot_occur_once / mers_index.size();
     stats.tot_high_ab = tot_high_ab;
     stats.tot_mid_ab = tot_mid_ab;
     stats.tot_distinct_strobemer_count = mers_index.size();
