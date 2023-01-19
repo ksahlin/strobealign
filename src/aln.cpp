@@ -457,7 +457,7 @@ inline int HammingDistance(const std::string &One, const std::string &Two)
 
     int counter = 0;
 
-    for(int i=0; i<One.length(); i++) {
+    for (size_t i=0; i < One.length(); i++) {
         if (One[i] != Two[i]) counter++;
     }
 
