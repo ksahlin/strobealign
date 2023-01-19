@@ -20,6 +20,8 @@
 
 static Logger& logger = Logger::get();
 
+static const uint32_t STI_FILE_FORMAT_VERSION = 1;
+
 /* Create an IndexParameters instance based on a given read length.
  * c, k, s and max_seed_len can be used to override determined parameters
  * by setting them to a value other than -1.
@@ -134,14 +136,19 @@ uint64_t count_unique_hashes(const ind_mers_vector& mers){
 void StrobemerIndex::write(const std::string& filename) const {
     std::ofstream ofs(filename, std::ios::binary);
 
-    ofs.write("STI\1", 4); // magic number
+    ofs.write("STI\1", 4); // Magic number
+    write_int_to_ostream(ofs, STI_FILE_FORMAT_VERSION);
+
+    // Variable-length chunk reserved for future use
+    std::vector<char> reserved_chunk{0, 0, 0, 0, 0, 0, 0, 0};
+    write_vector(ofs, reserved_chunk);
 
     write_int_to_ostream(ofs, filter_cutoff);
     parameters.write(ofs);
 
     write_vector(ofs, flat_vector);
 
-    //write mers_index:
+    // write mers_index
     auto size = uint64_t(mers_index.size());
     ofs.write(reinterpret_cast<char*>(&size), sizeof(size));
     for (auto& p : mers_index) {
@@ -161,6 +168,19 @@ void StrobemerIndex::read(const std::string& filename) {
     if (magic.v != 0x01495453) { // "STI\1"
         throw InvalidIndexFile("Index file has incorrect format (magic number mismatch)");
     }
+
+    uint32_t file_format_version = read_int_from_istream(ifs);
+    if (file_format_version != STI_FILE_FORMAT_VERSION) {
+        std::stringstream s;
+        s << "Can only read index file format version " << STI_FILE_FORMAT_VERSION
+            << ", but found version " << file_format_version;
+        throw InvalidIndexFile(s.str());
+    }
+
+    // Skip over variable-length chunk reserved for future use
+    uint64_t reserved_chunk_size;
+    ifs.read(reinterpret_cast<char*>(&reserved_chunk_size), sizeof(reserved_chunk_size));
+    ifs.seekg(reserved_chunk_size, std::ios_base::cur);
 
     filter_cutoff = read_int_from_istream(ifs);
     const IndexParameters sti_parameters = IndexParameters::read(ifs);
