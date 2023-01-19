@@ -132,12 +132,7 @@ std::ostream& operator<<(std::ostream& os, const Randstrobe& randstrobe) {
 }
 
 Randstrobe RandstrobeIterator::get(unsigned int strobe1_start) const {
-    unsigned int w_end;
-    if (strobe1_start + w_max < string_hashes.size()) {
-        w_end = strobe1_start + w_max;
-    } else if (strobe1_start + w_min < string_hashes.size()) {
-        w_end = string_hashes.size() - 1;
-    }
+    unsigned int w_end = std::min(static_cast<size_t>(strobe1_start + w_max), string_hashes.size() - 1);
 
     unsigned int seq_pos_strobe1 = pos_to_seq_coordinate[strobe1_start];
     unsigned int seq_end_constraint = seq_pos_strobe1 + max_dist;
@@ -162,12 +157,9 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_start) const {
         if (res < min_val){
             min_val = res;
             strobe_pos_next = i;
-//            std::cerr << strobe_pos_next << " " << min_val << std::endl;
             strobe_hashval_next = string_hashes[i];
         }
     }
-//    std::cerr << "Offset: " <<  strobe_pos_next - w_start << " val: " << min_val <<  ", P exact:" <<  1.0 - pow ( (float) (8-min_val)/9, strobe_pos_next - w_start) << std::endl;
-
     uint64_t hash_randstrobe2 = string_hashes[strobe1_start] + strobe_hashval_next;
 
     return Randstrobe { hash_randstrobe2, seq_pos_strobe1, pos_to_seq_coordinate[strobe_pos_next] };
