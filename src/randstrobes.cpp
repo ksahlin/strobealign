@@ -216,8 +216,8 @@ Randstrobe RandstrobeIterator2::next() {
  */
 mers_vector_read randstrobes_query(
     int k,
-    int w_min,
-    int w_max,
+    unsigned w_min,
+    unsigned w_max,
     const std::string& seq,
     int s,
     int t,

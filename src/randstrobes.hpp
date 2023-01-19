@@ -36,7 +36,7 @@ struct QueryMer {
 
 typedef std::vector<QueryMer> mers_vector_read;
 
-mers_vector_read randstrobes_query(int k, int w_min, int w_max, const std::string &seq, int s, int t, uint64_t q, int max_dist);
+mers_vector_read randstrobes_query(int k, unsigned w_min, unsigned w_max, const std::string &seq, int s, int t, uint64_t q, int max_dist);
 
 struct Randstrobe {
     uint64_t hash;
@@ -59,8 +59,8 @@ public:
     RandstrobeIterator(
         const std::vector<uint64_t> &string_hashes,
         const std::vector<unsigned int> &pos_to_seq_coordinate,
-        int w_min,
-        int w_max,
+        unsigned w_min,
+        unsigned w_max,
         uint64_t q,
         int max_dist
     ) : string_hashes(string_hashes)
@@ -87,8 +87,8 @@ private:
     Randstrobe get(unsigned int strobe1_start) const;
     const std::vector<uint64_t> &string_hashes;
     const std::vector<unsigned int> &pos_to_seq_coordinate;
-    const int w_min;
-    const int w_max;
+    const unsigned w_min;
+    const unsigned w_max;
     const uint64_t q;
     const unsigned int max_dist;
     unsigned int strobe1_start = 0;
@@ -134,8 +134,8 @@ class RandstrobeIterator2 {
 public:
     RandstrobeIterator2(
         const std::string& seq, size_t k, size_t s, size_t t,
-        int w_min,
-        int w_max,
+        unsigned w_min,
+        unsigned w_max,
         uint64_t q,
         int max_dist
     ) : syncmer_iterator(SyncmerIterator(seq, k, s, t))
@@ -150,8 +150,8 @@ public:
 
 private:
     SyncmerIterator syncmer_iterator;
-    const int w_min;
-    const int w_max;
+    const unsigned w_min;
+    const unsigned w_max;
     const uint64_t q;
     const unsigned int max_dist;
     unsigned int strobe1_index = 0;
