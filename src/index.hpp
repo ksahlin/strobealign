@@ -103,8 +103,8 @@ public:
     const uint64_t q;
     const int max_dist;
     const int t_syncmer;
-    const int w_min;
-    const int w_max;
+    const unsigned w_min;
+    const unsigned w_max;
 
     IndexParameters(int k, int s, int l, int u, int q, int max_dist)
         : k(k)
@@ -115,7 +115,8 @@ public:
         , max_dist(max_dist)
         , t_syncmer((k - s) / 2 + 1)
         , w_min(std::max(1, k / (k - s + 1) + l))
-        , w_max(k / (k - s + 1) + u) {
+        , w_max(k / (k - s + 1) + u)
+    {
     }
 
     static IndexParameters from_read_length(int read_length, int c = -1, int k = -1, int s = -1, int max_seed_len = -1);
