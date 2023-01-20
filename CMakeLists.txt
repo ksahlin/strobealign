@@ -68,6 +68,10 @@ add_executable(test-strobealign
 target_link_libraries(test-strobealign salib)
 target_include_directories(test-strobealign PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 
+add_executable(dumprandstrobes src/dumprandstrobes.cpp)
+target_link_libraries(dumprandstrobes salib)
+target_include_directories(dumprandstrobes PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
+
 # Currently unused code for which we only want to ensure that it still compiles
 add_executable(unused-code src/unused.cpp)
 target_link_libraries(unused-code salib)

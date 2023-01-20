@@ -118,6 +118,21 @@ std::string IndexParameters::filename_extension() const {
     return ".sti";
 }
 
+std::ostream& operator<<(std::ostream& os, const IndexParameters& parameters) {
+    os << "IndexParameters("
+        << "k=" << parameters.k
+        << ", s=" << parameters.s
+        << ", l=" << parameters.l
+        << ", u=" << parameters.u
+        << ", q=" << parameters.q
+        << ", max_dist=" << parameters.max_dist
+        << ", t_syncmer=" << parameters.t_syncmer
+        << ", w_min=" << parameters.w_min
+        << ", w_max=" << parameters.w_max
+        << ")";
+    return os;
+}
+
 uint64_t count_unique_hashes(const ind_mers_vector& mers){
     if (mers.empty()) {
         return 0;
