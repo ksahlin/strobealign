@@ -1,10 +1,10 @@
 #include "cmdline.hpp"
 
 #include <args.hxx>
+#include "arguments.hpp"
 #include "version.hpp"
 
 class Version {};
-
 
 CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
 
@@ -34,17 +34,8 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::Flag i(parser, "index", "Do not map reads; only generate the strobemer index and write it to disk. If read files are provided, they are used to estimate read length", {"create-index", 'i'});
     args::Flag use_index(parser, "use_index", "Use a pre-generated index previously written with --create-index.", { "use-index" });
 
-    args::Group seeding(parser, "Seeding:");
-    //args::ValueFlag<int> n(parser, "INT", "Number of strobes [2]", {'n'});
-    args::ValueFlag<int> r(parser, "INT", "Mean read length. This parameter is estimated from the first 500 records in each read file. No need to set this explicitly unless you have a reason.", {'r'});
-    args::ValueFlag<int> m(parser, "INT", "Maximum seed length. Defaults to r - 50. For reasonable values on -l and -u, the seed length distribution is usually determined by parameters l and u. Then, this parameter is only active in regions where syncmers are very sparse.", {'m'});
-
-    args::ValueFlag<int> k(parser, "INT", "Strobe length, has to be below 32. [20]", {'k'});
-    args::ValueFlag<int> l(parser, "INT", "Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]", {'l'});
-
-    args::ValueFlag<int> u(parser, "INT", "Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [7]", {'u'});
-    args::ValueFlag<int> c(parser, "INT", "Bitcount length between 2 and 63. [8]", {'c'});
-    args::ValueFlag<int> s(parser, "INT", "Submer size used for creating syncmers [k-4]. Only even numbers on k-s allowed. A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. It is recommended not to change this parameter unless you have a good understanding of syncmers as it will drastically change the memory usage and results with non default values.", {'s'});
+    args::Group seeding_group(parser, "Seeding:");
+    auto seeding = SeedingArguments{parser};
 
     args::Group alignment(parser, "Alignment:");
     args::ValueFlag<int> A(parser, "INT", "Matching score [2]", {'A'});
@@ -101,13 +92,13 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (use_index) { opt.use_index = true; }
 
     // Seeding
-    if (r) { opt.r = args::get(r); opt.r_set = true; }
-    if (m) { opt.max_seed_len = args::get(m); opt.max_seed_len_set = true; }
-    if (k) { opt.k = args::get(k); opt.k_set = true; }
-    if (l) { opt.l = args::get(l); }
-    if (u) { opt.u = args::get(u); }
-    if (s) { opt.s = args::get(s); opt.s_set = true; }
-    if (c) { opt.c = args::get(c); opt.c_set = true; }
+    if (seeding.r) { opt.r = args::get(seeding.r); opt.r_set = true; }
+    if (seeding.m) { opt.max_seed_len = args::get(seeding.m); opt.max_seed_len_set = true; }
+    if (seeding.k) { opt.k = args::get(seeding.k); opt.k_set = true; }
+    if (seeding.l) { opt.l = args::get(seeding.l); }
+    if (seeding.u) { opt.u = args::get(seeding.u); }
+    if (seeding.s) { opt.s = args::get(seeding.s); opt.s_set = true; }
+    if (seeding.c) { opt.c = args::get(seeding.c); opt.c_set = true; }
 
     // Alignment
     // if (n) { n = args::get(n); }
