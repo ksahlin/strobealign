@@ -1,5 +1,5 @@
 /*
- * Generate randstrobes for a reference and output them in BED format
+ * Generate syncmers or randstrobes for a reference and output them in BED format
  */
 #include <iostream>
 #include <args.hxx>
@@ -49,6 +49,14 @@ void dump_randstrobes2(std::ostream& os, const std::string& name, const std::str
     }
 }
 
+void dump_syncmers(std::ostream& os, const std::string& name, const std::string& sequence, const IndexParameters& parameters) {
+    SyncmerIterator syncmer_iterator(sequence, parameters.k, parameters.s, parameters.t_syncmer);
+    Syncmer syncmer;
+    while (!(syncmer = syncmer_iterator.next()).is_end()) {
+        os << BedRecord{name, syncmer.position, syncmer.position + parameters.k};
+    }
+}
+
 int run_dumprandstrobes(int argc, char **argv) {
     args::ArgumentParser parser("dumprandstrobes");
     parser.helpParams.showTerminator = false;
@@ -58,6 +66,7 @@ int run_dumprandstrobes(int argc, char **argv) {
     parser.helpParams.shortSeparator = " ";
 
     args::HelpFlag help(parser, "help", "Print help and exit", {'h', "help"});
+    args::Flag syncmers(parser, "syncmers", "Dump syncmers instead of randstrobes", {"syncmers"});
     auto seeding = SeedingArguments{parser};
     args::Positional<std::string> ref_filename(parser, "reference", "Reference in FASTA format", args::Options::Required);
 
@@ -109,7 +118,12 @@ int run_dumprandstrobes(int argc, char **argv) {
 
     for (size_t i = 0; i < references.size(); ++i) {
         auto& seq = references.sequences[i];
-        dump_randstrobes2(std::cout, references.names[i], seq, index_parameters);
+        auto& name = references.names[i];
+        if (syncmers) {
+            dump_syncmers(std::cout, name, seq, index_parameters);
+        } else {
+            dump_randstrobes2(std::cout, name, seq, index_parameters);
+        }
     }
 
     return EXIT_SUCCESS;
