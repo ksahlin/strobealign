@@ -11,41 +11,41 @@
 
 static Logger& logger = Logger::get();
 
-void dump_randstrobes(const References& references, const IndexParameters& parameters) {
-    for (size_t i = 0; i < references.size(); ++i) {
-        auto& seq = references.sequences[i];
+struct BedRecord {
+    const std::string& contig;
+    size_t start;
+    size_t end;
+};
 
-        std::vector<uint64_t> string_hashes;
-        std::vector<unsigned int> pos_to_seq_coordinate;
-        std::tie(string_hashes, pos_to_seq_coordinate) = make_string_to_hashvalues_open_syncmers_canonical(seq, parameters.k, parameters.s, parameters.t_syncmer);
+std::ostream& operator<<(std::ostream& os, const BedRecord& record) {
+    os << record.contig << '\t' << record.start << '\t' << record.end << '\n';
+    return os;
+}
 
-        unsigned int nr_hashes = string_hashes.size();
-        if (nr_hashes == 0) {
-            continue;
-        }
+void dump_randstrobes(std::ostream& os, const std::string& name, const std::string& sequence, const IndexParameters& parameters) {
+    std::vector<uint64_t> string_hashes;
+    std::vector<unsigned int> pos_to_seq_coordinate;
+    std::tie(string_hashes, pos_to_seq_coordinate) = make_string_to_hashvalues_open_syncmers_canonical(
+        sequence, parameters.k, parameters.s, parameters.t_syncmer);
 
-        RandstrobeIterator randstrobe_iter { string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist };
-        while (randstrobe_iter.has_next()) {
-            auto randstrobe = randstrobe_iter.next();
-            std::cout
-                << references.names[i] << '\t'
-                << randstrobe.strobe1_pos << '\t'
-                << randstrobe.strobe2_pos + parameters.k << '\n';
-        }
+    unsigned int nr_hashes = string_hashes.size();
+    if (nr_hashes == 0) {
+        return;
+    }
+
+    RandstrobeIterator randstrobe_iter { string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist };
+    while (randstrobe_iter.has_next()) {
+        auto randstrobe = randstrobe_iter.next();
+        os << BedRecord{name, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.k};
     }
 }
 
-void dump_randstrobes2(const References& references, const IndexParameters& parameters) {
-    for (size_t i = 0; i < references.size(); ++i) {
-        auto& seq = references.sequences[i];
-        auto randstrobe_iter = RandstrobeIterator2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
-        Randstrobe randstrobe;
-        while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
-            std::cout
-                << references.names[i] << '\t'
-                << randstrobe.strobe1_pos << '\t'
-                << randstrobe.strobe2_pos + parameters.k << '\n';
-        }
+void dump_randstrobes2(std::ostream& os, const std::string& name, const std::string& sequence, const IndexParameters& parameters) {
+    auto randstrobe_iter = RandstrobeIterator2(
+        sequence, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
+    Randstrobe randstrobe;
+    while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
+        os << BedRecord{name, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.k};
     }
 }
 
@@ -107,7 +107,10 @@ int run_dumprandstrobes(int argc, char **argv) {
         throw InvalidFasta("No reference sequences found");
     }
 
-    dump_randstrobes2(references, index_parameters);
+    for (size_t i = 0; i < references.size(); ++i) {
+        auto& seq = references.sequences[i];
+        dump_randstrobes2(std::cout, references.names[i], seq, index_parameters);
+    }
 
     return EXIT_SUCCESS;
 }
