@@ -198,10 +198,11 @@ fn main() -> Result<(), Error> {
     let f = File::open(path)?;
     let mut reader = BufReader::new(f);
     let records = read_fasta(&mut reader).unwrap();
+    let k = 20usize;
+    let s = 16usize;
     for record in &records {
-        println!(">{} {} bp", record.name, record.sequence.len());
-        for syncmer in SyncmerIterator::new(&record.sequence, 20, 16, 3) {
-            println!("syncmer {:?}", syncmer);
+        for syncmer in SyncmerIterator::new(&record.sequence, k, s, 3) {
+            println!("{}\t{}\t{}", record.name, syncmer.position, syncmer.position + k);
         }
     }
     Ok(())
