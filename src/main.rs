@@ -27,6 +27,9 @@ fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<FastaRecord>, Error> {
                 records.push(FastaRecord{name, sequence});
             }
             name = String::from_utf8(line[1..].to_vec()).unwrap();
+            if let Some(i) = name.find(|c: char| c.is_ascii_whitespace()) {
+                name = name[..i].to_string();
+            }
             sequence = Vec::new();
             has_record = true;
         } else {
