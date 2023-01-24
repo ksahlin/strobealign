@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
     } catch (BadParameter& e) {
         logger.error() << "A seeding parameter is invalid: " << e.what() << std::endl;
     } catch (const std::runtime_error& e) {
-        logger.error() << "dumprandstrobes: " << e.what() << std::endl;
+        logger.error() << "dumpstrobes: " << e.what() << std::endl;
     }
     return EXIT_FAILURE;
 }
