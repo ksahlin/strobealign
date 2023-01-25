@@ -1,20 +1,14 @@
 #include <iostream>
 #include <fstream>
-#include <unordered_map>
 #include <vector>
 #include <string>
 #include <sstream>
 #include <algorithm>
 #include <numeric>
 #include <thread>
-#include <assert.h>
-#include <math.h>
-#include <inttypes.h>
+#include <cassert>
 #include <iomanip>
 
-#include "args.hxx"
-#include "robin_hood.h"
-#include "ssw_cpp.h"
 #include "refs.hpp"
 #include "exceptions.hpp"
 #include "cmdline.hpp"
@@ -25,7 +19,6 @@
 #include "timer.hpp"
 #include "readlen.hpp"
 #include "version.hpp"
-
 
 static Logger& logger = Logger::get();
 

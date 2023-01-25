@@ -59,7 +59,6 @@ add_executable(strobealign src/main.cpp)
 target_link_libraries(strobealign PUBLIC salib cmake_git_version_tracking)
 install(TARGETS strobealign DESTINATION bin)
 
-
 add_executable(test-strobealign
   tests/tests.cpp
   tests/test_refs.cpp
@@ -67,6 +66,10 @@ add_executable(test-strobealign
 )
 target_link_libraries(test-strobealign salib)
 target_include_directories(test-strobealign PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
+
+add_executable(dumpstrobes src/dumpstrobes.cpp)
+target_link_libraries(dumpstrobes salib)
+target_include_directories(dumpstrobes PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 
 # Currently unused code for which we only want to ensure that it still compiles
 add_executable(unused-code src/unused.cpp)

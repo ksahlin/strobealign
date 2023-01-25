@@ -142,6 +142,8 @@ public:
     }
 };
 
+std::ostream& operator<<(std::ostream& os, const IndexParameters& parameters);
+
 struct IndexCreationStatistics {
     unsigned int flat_vector_size = 0;
     unsigned int tot_strobemer_count = 0;
