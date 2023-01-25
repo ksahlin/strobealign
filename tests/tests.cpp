@@ -7,7 +7,7 @@
 #include "fastq.hpp"
 #include "aln.hpp"
 #include "tmpdir.hpp"
-
+#include "io.hpp"
 
 TEST_CASE("estimate_read_length") {
     CHECK(estimate_read_length("tests/phix.1.fastq", "") == 289);

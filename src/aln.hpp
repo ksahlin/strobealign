@@ -91,9 +91,6 @@ struct mapping_params {
     int maxTries { 20 };
     int rescue_cutoff;
     bool is_sam_out { true };
-
-    void verify() const {
-    }
 };
 
 class i_dist_est {

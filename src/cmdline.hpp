@@ -27,6 +27,8 @@ struct CommandLineOptions {
     bool max_seed_len_set { false };
     bool k_set { false };
     bool s_set { false };
+    bool l_set { false };
+    bool u_set { false };
     bool c_set { false };
     int max_seed_len;
     int k { 20 };
