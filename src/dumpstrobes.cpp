@@ -57,12 +57,12 @@ void dump_syncmers(std::ostream& os, const std::string& name, const std::string&
     }
 }
 
-int run_dumprandstrobes(int argc, char **argv) {
-    args::ArgumentParser parser("dumprandstrobes");
+int run_dumpstrobes(int argc, char **argv) {
+    args::ArgumentParser parser("dumpstrobes");
     parser.helpParams.showTerminator = false;
     parser.helpParams.helpindent = 20;
     parser.helpParams.width = 90;
-    parser.helpParams.programName = "dumprandstrobes";
+    parser.helpParams.programName = "dumpstrobes";
     parser.helpParams.shortSeparator = " ";
 
     args::HelpFlag help(parser, "help", "Print help and exit", {'h', "help"});
@@ -130,7 +130,7 @@ int run_dumprandstrobes(int argc, char **argv) {
 
 int main(int argc, char **argv) {
     try {
-        return run_dumprandstrobes(argc, argv);
+        return run_dumpstrobes(argc, argv);
     } catch (BadParameter& e) {
         logger.error() << "A seeding parameter is invalid: " << e.what() << std::endl;
     } catch (const std::runtime_error& e) {
