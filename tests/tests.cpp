@@ -8,6 +8,7 @@
 #include "aln.hpp"
 #include "tmpdir.hpp"
 #include "io.hpp"
+#include "revcomp.hpp"
 
 TEST_CASE("estimate_read_length") {
     CHECK(estimate_read_length("tests/phix.1.fastq", "") == 289);
@@ -78,4 +79,16 @@ TEST_CASE("both randstrobes iterator implementations give same results") {
         CHECK(randstrobe2 != iter2.end());
         CHECK(randstrobe1 == randstrobe2);
     }
+}
+
+TEST_CASE("reverse complement") {
+    CHECK(reverse_complement("") == "");
+    CHECK(reverse_complement("A") == "T");
+    CHECK(reverse_complement("C") == "G");
+    CHECK(reverse_complement("G") == "C");
+    CHECK(reverse_complement("T") == "A");
+    CHECK(reverse_complement("TG") == "CA");
+    CHECK(reverse_complement("AC") == "GT");
+    CHECK(reverse_complement("ACG") == "CGT");
+    CHECK(reverse_complement("AACGT") == "ACGTT");
 }

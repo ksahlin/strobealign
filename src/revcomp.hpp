@@ -4,18 +4,38 @@
 #include <string>
 #include <algorithm>
 
-static inline std::string reverse_complement(const std::string &read) {
-    auto read_rev = read;
-    std::reverse(read_rev.begin(), read_rev.end()); // reverse
-    for (size_t j = 0; j < read_rev.length(); ++j) { // complement
-        if (read_rev[j] == 'A') read_rev[j] = 'T';
-        else if (read_rev[j] == 'T') read_rev[j] = 'A';
-        else if (read_rev[j] == 'C') read_rev[j] = 'G';
-        else if (read_rev[j] == 'G') read_rev[j] = 'C';
-    }
-    return read_rev;
-}
+// a, A -> T
+// c, C -> G
+// g, G -> C
+// t, T, u, U -> A
+static unsigned char revcomp_table[256] = {
+    'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',
+    'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',
+    'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',
+    'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',
+    'N', 'T', 'N', 'G',  'N', 'N', 'N', 'C',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',
+    'N', 'N', 'N', 'N',  'A', 'A', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',
+    'N', 'T', 'N', 'G',  'N', 'N', 'N', 'C',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',
+    'N', 'N', 'N', 'N',  'A', 'A', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',
+    'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',
+    'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',
+    'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',
+    'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',
+    'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',
+    'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',
+    'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',
+    'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N'
+};
 
+static inline std::string reverse_complement(const std::string &sequence) {
+    std::string result;
+    result.reserve(sequence.size());
+    for (size_t i = 0; i < sequence.length(); ++i) {
+        auto ch = sequence[sequence.length() - i - 1];
+        result.push_back(revcomp_table[static_cast<int>(ch)]);
+    }
+    return result;
+}
 
 /* A (nucleotide) sequence and its reverse complement.
  * The reverse complement is computed on first access only
