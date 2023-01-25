@@ -1,8 +1,8 @@
 use std::cmp::min;
 use std::collections::VecDeque;
-use std::env;
+use std::{env, io};
 use std::fs::File;
-use std::io::{BufReader, BufRead, Error};
+use std::io::{BufReader, BufWriter, BufRead, Error, Write};
 use std::path::Path;
 
 #[derive(Debug)]
@@ -121,6 +121,9 @@ impl<'a> Iterator for SyncmerIterator<'a> {
     type Item = Syncmer;
 
     fn next(&mut self) -> Option<Self::Item> {
+
+
+
         while self.i < self.seq.len() {
             let ch = self.seq[self.i];
             let c = NUCLEOTIDES[ch as usize];
@@ -136,13 +139,10 @@ impl<'a> Iterator for SyncmerIterator<'a> {
                 }
                 // we find an s-mer
                 let ys = min(self.xs[0], self.xs[1]);
-                //          uint64_t hash_s = robin_hash(ys);
                 let hash_s = ys;
-                //          uint64_t hash_s = hash64(ys, mask);
-                //          uint64_t hash_s = XXH64(&ys, 8,0);
                 self.qs.push_back(hash_s);
                 // not enough hashes in the queue, yet
-                if self.qs.len() < (self.k - self.s + 1) {
+                if self.qs.len() < self.k - self.s + 1 {
                     self.i += 1;
                     continue;
                 }
@@ -200,9 +200,12 @@ fn main() -> Result<(), Error> {
     let records = read_fasta(&mut reader).unwrap();
     let k = 20usize;
     let s = 16usize;
+
+    let mut writer = BufWriter::new(io::stdout());
     for record in &records {
+        let name = &record.name;
         for syncmer in SyncmerIterator::new(&record.sequence, k, s, 3) {
-            println!("{}\t{}\t{}", record.name, syncmer.position, syncmer.position + k);
+            writeln!(writer, "{}\t{}\t{}", name, syncmer.position, syncmer.position + k)?;
         }
     }
     Ok(())
