@@ -37,33 +37,21 @@ static inline std::string reverse_complement(const std::string &sequence) {
     return result;
 }
 
-/* A (nucleotide) sequence and its reverse complement.
- * The reverse complement is computed on first access only
- * (and cached).
- */
+/* A (nucleotide) sequence and its reverse complement. */
 class Read {
 public:
     const std::string& seq;
+    const std::string rc;
 
-    Read(const std::string& s) : seq(s) {
-    }
-
-    /* Return reverse complemented sequence */
-    std::string rc() const {
-        if (!has_reverse_complement) {
-            rc_sequence = reverse_complement(seq);
-            has_reverse_complement = true;
-        }
-        return rc_sequence;
+    Read(const std::string& s)
+      : seq(s)
+      , rc(reverse_complement(s))
+    {
     }
 
     std::string::size_type size() const {
         return seq.size();
     }
-
-private:
-    mutable std::string rc_sequence;
-    mutable bool has_reverse_complement = false;
 };
 
 #endif

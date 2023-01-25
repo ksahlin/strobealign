@@ -576,11 +576,11 @@ bool reverse_nam_if_needed(nam& n, const Read& read, const References& reference
 
     std::string seq, seq_rc;
     if (n.is_rc) {
-        seq = read.rc();
+        seq = read.rc;
         seq_rc = read.seq;
     } else {
         seq = read.seq;
-        seq_rc = read.rc();
+        seq_rc = read.rc;
     }
     std::string read_start_kmer = seq.substr(n.query_s, k);
     std::string read_end_kmer = seq.substr(n.query_e-k, k);
@@ -671,7 +671,7 @@ inline void align_SE(
         std::string r_tmp;
         bool is_rc;
         if (n.is_rc){
-            r_tmp = read.rc();
+            r_tmp = read.rc;
             is_rc = true;
         }else{
             r_tmp = read.seq;
@@ -776,7 +776,7 @@ inline void align_SE(
 
     if (!all_nams.empty()) {
         sam_aln.mapq = std::min(min_mapq_diff, 60);
-        sam.add(sam_aln, record, read.rc());
+        sam.add(sam_aln, record, read.rc);
     }
 }
 
@@ -853,7 +853,7 @@ static inline void align_SE_secondary_hits(
         std::string r_tmp;
         bool is_rc;
         if (n.is_rc){
-            r_tmp = read.rc();
+            r_tmp = read.rc;
             is_rc = true;
         }else{
             r_tmp = read.seq;
@@ -982,7 +982,7 @@ static inline void align_SE_secondary_hits(
             } else {
                 sam_aln.mapq = std::min(min_mapq_diff, 60);
             }
-            sam.add(sam_aln, record, read.rc(), is_secondary);
+            sam.add(sam_aln, record, read.rc, is_secondary);
         }
     }
 }
@@ -1095,7 +1095,7 @@ static inline void get_alignment(
     std::string r_tmp;
     bool is_rc;
     if (n.is_rc){
-        r_tmp = read.rc();
+        r_tmp = read.rc;
         is_rc = true;
     }else{
         r_tmp = read.seq;
@@ -1589,7 +1589,7 @@ static inline void rescue_mate(
         b = n.ref_s - n.query_s + read_len/2; // at most half read overlap
         a_is_rc = false;
     } else {
-        r_tmp = read.rc(); // mate is rc since fr orientation
+        r_tmp = read.rc; // mate is rc since fr orientation
         a = n.ref_e + (read_len - n.query_e) - read_len/2; // at most half read overlap
         b = n.ref_e + (read_len - n.query_e) + (mu+5*sigma);
         a_is_rc = true;
@@ -1733,9 +1733,9 @@ void rescue_read(
 //            get_MAPQ(all_nams1, n_max1, mapq1);
 //            mapq2 = 0;
         if (swap_r1r2) {
-            sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc(), read1.rc(), mapq2, mapq1, is_proper_pair(sam_aln2, sam_aln1, mu, sigma), true);
+            sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper_pair(sam_aln2, sam_aln1, mu, sigma), true);
         } else {
-            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(), mapq1, mapq2, is_proper_pair(sam_aln1, sam_aln2, mu, sigma), true);
+            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper_pair(sam_aln1, sam_aln2, mu, sigma), true);
         }
     } else {
         int max_out = std::min(high_scores.size(), max_secondary);
@@ -1756,10 +1756,10 @@ void rescue_read(
             if (s_max - s_score < secondary_dropoff) {
                 if (swap_r1r2) {
                     bool is_proper = is_proper_pair(sam_aln2, sam_aln1, mu, sigma);
-                    sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc(), read1.rc(), mapq2, mapq1, is_proper, is_primary);
+                    sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper, is_primary);
                 } else {
                     bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
-                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(), mapq1, mapq2, is_proper, is_primary);
+                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary);
                 }
             } else {
                 break;
@@ -1910,7 +1910,7 @@ inline void align_PE(
         int mapq1 = get_MAPQ(all_nams1, n_max1);
         int mapq2 = get_MAPQ(all_nams2, n_max2);
         bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
-        sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(), mapq1, mapq2, is_proper, true);
+        sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, true);
 
         if ((isize_est.sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && is_proper) {
             isize_est.update(std::abs(sam_aln1.ref_start - sam_aln2.ref_start));
@@ -2076,7 +2076,7 @@ inline void align_PE(
     if (max_secondary == 0) {
 //            get_MAPQ_aln(sam_aln1, sam_aln2);
         bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
-        sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(),
+        sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc,
                         mapq1, mapq2, is_proper, true);
     } else {
         int max_out = std::min(high_scores.size(), max_secondary);
@@ -2105,7 +2105,7 @@ inline void align_PE(
 
             if (s_max - s_score < secondary_dropoff) {
                 bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
-                sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc(), read2.rc(),
+                sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc,
                                 mapq1, mapq2, is_proper, is_primary);
             } else {
                 break;
