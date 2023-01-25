@@ -101,7 +101,6 @@ int run_dumprandstrobes(int argc, char **argv) {
     }
     IndexParameters index_parameters = IndexParameters::from_read_length(
         r, c_set ? c : -1, k_set ? k : -1, s_set ? s : -1, max_seed_len_set ? max_seed_len : -1);
-    index_parameters.verify();
 
     logger.info() << index_parameters << '\n';
     logger.info() << "Reading reference ...\n";

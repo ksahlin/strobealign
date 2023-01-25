@@ -117,6 +117,7 @@ public:
         , w_min(std::max(1, k / (k - s + 1) + l))
         , w_max(k / (k - s + 1) + u)
     {
+        verify();
     }
 
     static IndexParameters from_read_length(int read_length, int c = -1, int k = -1, int s = -1, int max_seed_len = -1);
@@ -126,6 +127,7 @@ public:
     bool operator==(const IndexParameters& other) const;
     bool operator!=(const IndexParameters& other) const { return !(*this == other); }
 
+private:
     void verify() const {
         if (k <= 7 || k > 32) {
             throw BadParameter("k not in [8,32]");
@@ -134,7 +136,7 @@ public:
             throw BadParameter("s is larger than k");
         }
         if ((k - s) % 2 != 0) {
-            throw BadParameter("(k - s) should be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
+            throw BadParameter("(k - s) must be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
         }
         if (max_dist > 255) {
             throw BadParameter("maximum seed length (-m <max_dist>) is larger than 255");

@@ -102,9 +102,6 @@ int run_strobealign(int argc, char **argv) {
     log_parameters(index_parameters, map_param, aln_params);
     logger.debug() << "Threads: " << opt.n_threads << std::endl;
 
-    map_param.verify();
-    index_parameters.verify();
-
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
 
     // Create index
