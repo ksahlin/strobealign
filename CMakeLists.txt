@@ -39,12 +39,14 @@ add_library(salib STATIC ${SOURCES}
   src/fastq.cpp
   src/cmdline.cpp
   src/index.cpp
+  src/indexparameters.cpp
   src/sam.cpp
   src/pc.cpp
   src/aln.cpp
   src/randstrobes.cpp
   src/readlen.cpp
   src/version.cpp
+  src/io.cpp
   ext/xxhash.c
   ext/ssw_cpp.cpp
   ext/ssw.c

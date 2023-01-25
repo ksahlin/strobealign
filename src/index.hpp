@@ -20,6 +20,7 @@
 #include "exceptions.hpp"
 #include "refs.hpp"
 #include "randstrobes.hpp"
+#include "indexparameters.hpp"
 
 class ReferenceMer {
 public:
@@ -93,58 +94,6 @@ typedef robin_hood::unordered_map<uint64_t, KmerLookupEntry> kmer_lookup;
 
 typedef std::vector<uint64_t> hash_vector; //only used during index generation
 
-/* Settings that influence index creation */
-class IndexParameters {
-public:
-    const int k;
-    const int s;
-    const int l;
-    const int u;
-    const uint64_t q;
-    const int max_dist;
-    const int t_syncmer;
-    const unsigned w_min;
-    const unsigned w_max;
-
-    IndexParameters(int k, int s, int l, int u, int q, int max_dist)
-        : k(k)
-        , s(s)
-        , l(l)
-        , u(u)
-        , q(q)
-        , max_dist(max_dist)
-        , t_syncmer((k - s) / 2 + 1)
-        , w_min(std::max(1, k / (k - s + 1) + l))
-        , w_max(k / (k - s + 1) + u)
-    {
-        verify();
-    }
-
-    static IndexParameters from_read_length(int read_length, int c = -1, int k = -1, int s = -1, int max_seed_len = -1);
-    static IndexParameters read(std::istream& os);
-    std::string filename_extension() const;
-    void write(std::ostream& os) const;
-    bool operator==(const IndexParameters& other) const;
-    bool operator!=(const IndexParameters& other) const { return !(*this == other); }
-
-private:
-    void verify() const {
-        if (k <= 7 || k > 32) {
-            throw BadParameter("k not in [8,32]");
-        }
-        if (s > k) {
-            throw BadParameter("s is larger than k");
-        }
-        if ((k - s) % 2 != 0) {
-            throw BadParameter("(k - s) must be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
-        }
-        if (max_dist > 255) {
-            throw BadParameter("maximum seed length (-m <max_dist>) is larger than 255");
-        }
-    }
-};
-
-std::ostream& operator<<(std::ostream& os, const IndexParameters& parameters);
 
 struct IndexCreationStatistics {
     unsigned int flat_vector_size = 0;
@@ -199,23 +148,5 @@ private:
     const References& references;
     kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
 };
-
-/* Write a vector to an output stream, preceded by its length */
-template <typename T>
-void write_vector(std::ostream& os, const std::vector<T>& v) {
-    auto size = uint64_t(v.size());
-    os.write(reinterpret_cast<char*>(&size), sizeof(size));
-    os.write(reinterpret_cast<const char*>(v.data()), v.size() * sizeof(T));
-}
-
-template <typename T>
-void read_vector(std::istream& is, std::vector<T>& v) {
-    uint64_t size;
-    v.clear();
-    is.read(reinterpret_cast<char*>(&size), sizeof(size));
-    v.resize(size);
-    is.read(reinterpret_cast<char*>(v.data()), size * sizeof(T));
-}
-
 
 #endif
