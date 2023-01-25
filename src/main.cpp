@@ -82,8 +82,15 @@ int run_strobealign(int argc, char **argv) {
         throw BadParameter("c must be greater than 0 and less than 64");
     }
     IndexParameters index_parameters = IndexParameters::from_read_length(
-        opt.r, opt.c_set ? opt.c : -1, opt.k_set ? opt.k : -1, opt.s_set ? opt.s : -1, opt.max_seed_len_set ? opt.max_seed_len : -1);
-
+        opt.r,
+        opt.c_set ? opt.c : IndexParameters::DEFAULT,
+        opt.k_set ? opt.k : IndexParameters::DEFAULT,
+        opt.s_set ? opt.s : IndexParameters::DEFAULT,
+        opt.l_set ? opt.l : IndexParameters::DEFAULT,
+        opt.u_set ? opt.u : IndexParameters::DEFAULT,
+        opt.max_seed_len_set ? opt.max_seed_len : IndexParameters::DEFAULT
+    );
+    logger.debug() << index_parameters << '\n';
     alignment_params aln_params;
     aln_params.match = opt.A;
     aln_params.mismatch = opt.B;

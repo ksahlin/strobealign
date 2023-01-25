@@ -1,54 +1,62 @@
 #include "indexparameters.hpp"
 #include <vector>
-#include <limits>
 #include <cmath>
 #include <iostream>
 #include "io.hpp"
 
+
+/* Pre-defined index parameters */
+struct Profile {
+    int r_threshold;
+    int k;
+    int s_offset;
+    int l;
+    int u;
+};
+
+static auto max{std::numeric_limits<int>::max()};
+
+static std::vector<Profile> profiles = {
+        Profile{75, 20, -4, -4, 2},
+        Profile{125, 20, -4, -2, 2},
+        Profile{175, 20, -4, 1, 7},
+        Profile{275, 20, -4, 4, 13},
+        Profile{375, 22, -4, 2, 12},
+        Profile{max, 23, -6, 2, 12},
+    };
+
 /* Create an IndexParameters instance based on a given read length.
- * c, k, s and max_seed_len can be used to override determined parameters
- * by setting them to a value other than -1.
+ * c, k, s, l, u and max_seed_len can be used to override determined parameters
+ * by setting them to a value other than IndexParameters::DEFAULT.
  */
-IndexParameters IndexParameters::from_read_length(int read_length, int c, int k, int s, int max_seed_len) {
-    int l, u;
+IndexParameters IndexParameters::from_read_length(int read_length, int c, int k, int s, int l, int u, int max_seed_len) {
     const int default_c = 8;
-    struct settings {
-        int r_threshold;
-        int k;
-        int s_offset;
-        int l;
-        int u;
-    };
-    std::vector<settings> d = {
-        settings {75, 20, -4, -4, 2},
-        settings {125, 20, -4, -2, 2},
-        settings {175, 20, -4, 1, 7},
-        settings {275, 20, -4, 4, 13},
-        settings {375, 22, -4, 2, 12},
-        settings {std::numeric_limits<int>::max(), 23, -6, 2, 12},
-    };
-    for (const auto& v : d) {
-        if (read_length <= v.r_threshold) {
-            if (k == -1) {
-                k = v.k;
+    for (const auto& p : profiles) {
+        if (read_length <= p.r_threshold) {
+            if (k == DEFAULT) {
+                k = p.k;
             }
-            if (s == -1) {
-                s = k + v.s_offset;
+            if (s == DEFAULT) {
+                s = k + p.s_offset;
             }
-            l = v.l;
-            u = v.u;
+            if (l == DEFAULT) {
+                l = p.l;
+            }
+            if (u == DEFAULT) {
+                u = p.u;
+            }
             break;
         }
     }
 
     int max_dist;
-    if (max_seed_len == -1) {
+    if (max_seed_len == DEFAULT) {
         max_dist = std::max(read_length - 70, k);
         max_dist = std::min(255, max_dist);
     } else {
         max_dist = max_seed_len - k; // convert to distance in start positions
     }
-    int q = std::pow(2, c == -1 ? default_c : c) - 1;
+    int q = std::pow(2, c == DEFAULT ? default_c : c) - 1;
     return IndexParameters(k, s, l, u, q, max_dist);
 }
 

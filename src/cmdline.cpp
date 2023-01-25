@@ -95,8 +95,8 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (seeding.r) { opt.r = args::get(seeding.r); opt.r_set = true; }
     if (seeding.m) { opt.max_seed_len = args::get(seeding.m); opt.max_seed_len_set = true; }
     if (seeding.k) { opt.k = args::get(seeding.k); opt.k_set = true; }
-    if (seeding.l) { opt.l = args::get(seeding.l); }
-    if (seeding.u) { opt.u = args::get(seeding.u); }
+    if (seeding.l) { opt.l = args::get(seeding.l); opt.l_set = true; }
+    if (seeding.u) { opt.u = args::get(seeding.u); opt.u_set = true; }
     if (seeding.s) { opt.s = args::get(seeding.s); opt.s_set = true; }
     if (seeding.c) { opt.c = args::get(seeding.c); opt.c_set = true; }
 

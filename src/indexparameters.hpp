@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <iostream>
+#include <limits>
 #include "exceptions.hpp"
 
 /* Settings that influence index creation */
@@ -19,6 +20,7 @@ public:
     const unsigned w_min;
     const unsigned w_max;
 
+    static const int DEFAULT = std::numeric_limits<int>::min();
     IndexParameters(int k, int s, int l, int u, int q, int max_dist)
         : k(k)
         , s(s)
@@ -33,7 +35,7 @@ public:
         verify();
     }
 
-    static IndexParameters from_read_length(int read_length, int c = -1, int k = -1, int s = -1, int max_seed_len = -1);
+    static IndexParameters from_read_length(int read_length, int c = DEFAULT, int k = DEFAULT, int s = DEFAULT, int l = DEFAULT, int u = DEFAULT, int max_seed_len = DEFAULT);
     static IndexParameters read(std::istream& os);
     std::string filename_extension() const;
     void write(std::ostream& os) const;
