@@ -2191,8 +2191,8 @@ void i_dist_est::update(int dist)
 
 
 void align_PE_read(
-    KSeq &record1,
-    KSeq &record2,
+    const KSeq &record1,
+    const KSeq &record2,
     Sam& sam,
     std::string& outstring,
     AlignmentStatistics &statistics,
@@ -2208,12 +2208,10 @@ void align_PE_read(
     // generate mers here
     Timer strobe_timer;
 
-    std::transform(record1.seq.begin(), record1.seq.end(), record1.seq.begin(), ::toupper);
     query_mers1 = randstrobes_query(
         index_parameters.k, index_parameters.w_min, index_parameters.w_max, record1.seq, index_parameters.s, index_parameters.t_syncmer,
         index_parameters.q, index_parameters.max_dist);
 
-    std::transform(record2.seq.begin(), record2.seq.end(), record2.seq.begin(), ::toupper);
     query_mers2 = randstrobes_query(
         index_parameters.k, index_parameters.w_min, index_parameters.w_max, record2.seq, index_parameters.s, index_parameters.t_syncmer,
         index_parameters.q, index_parameters.max_dist);
@@ -2282,7 +2280,7 @@ void align_PE_read(
 
 
 void align_SE_read(
-    KSeq &record,
+    const KSeq &record,
     Sam& sam,
     std::string &outstring,
     AlignmentStatistics &statistics,
@@ -2297,7 +2295,6 @@ void align_SE_read(
         std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
 
         // generate mers here
-        std::transform(record.seq.begin(), record.seq.end(), record.seq.begin(), ::toupper);
         Timer strobe_timer;
         query_mers = randstrobes_query(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
         statistics.tot_construct_strobemers += strobe_timer.duration();

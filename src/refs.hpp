@@ -48,4 +48,6 @@ private:
     size_t _total_length;
 };
 
+void to_uppercase(std::string& s);
+
 #endif
