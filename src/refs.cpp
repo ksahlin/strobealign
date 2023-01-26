@@ -4,6 +4,15 @@
 #include <sstream>
 #include <algorithm>
 
+/* Convert string to uppercase in-place */
+void to_uppercase(std::string& s) {
+        std::transform(s.begin(), s.end(), s.begin(),
+        [](unsigned char c) {
+            return c & ~32;
+        }
+    );
+}
+
 References References::from_fasta(const std::string& filename) {
     std::vector<std::string> sequences;
     ref_names names;
@@ -28,11 +37,7 @@ References References::from_fasta(const std::string& filename) {
         eof = !bool{getline(file, line)};
         if (eof || (!line.empty() && line[0] == '>')) {
             if (seq.length() > 0) {
-                std::transform(seq.begin(), seq.end(), seq.begin(),
-                    [](unsigned char c) {
-                        return c & ~32;  // convert to uppercase
-                    }
-                );
+                to_uppercase(seq);
                 sequences.push_back(seq);
                 names.push_back(name);
             }

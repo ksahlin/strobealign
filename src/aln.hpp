@@ -105,9 +105,9 @@ public:
     void update(int dist);
 };
 
-void align_PE_read(klibpp::KSeq& record1, klibpp::KSeq& record2, Sam& sam, std::string& outstring, AlignmentStatistics& statistics, i_dist_est& isize_est, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
+void align_PE_read(const klibpp::KSeq& record1, const klibpp::KSeq& record2, Sam& sam, std::string& outstring, AlignmentStatistics& statistics, i_dist_est& isize_est, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
 
-void align_SE_read(klibpp::KSeq& record, Sam& sam, std::string& outstring, AlignmentStatistics& statistics, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
+void align_SE_read(const klibpp::KSeq& record, Sam& sam, std::string& outstring, AlignmentStatistics& statistics, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
 
 bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k);
 

@@ -99,7 +99,8 @@ void perform_task_PE(
         for (size_t i = 0; i < records1.size(); ++i) {
             auto record1 = records1[i];
             auto record2 = records2[i];
-
+            to_uppercase(record1.seq);
+            to_uppercase(record2.seq);
             align_PE_read(record1, record2, sam, sam_out, statistics, isize_est, aln_params,
                         map_param, index_parameters, references, index);
         }
@@ -134,7 +135,7 @@ void perform_task_SE(
         Sam sam{sam_out, references, read_group_id};
         for (size_t i = 0; i < records.size(); ++i) {
             auto record = records[i];
-
+            to_uppercase(record.seq);
             align_SE_read(record, sam, sam_out, statistics, aln_params, map_param, index_parameters, references, index);
         }
         output_buffer.output_records(std::move(sam_out), chunk_index);
