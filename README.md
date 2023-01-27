@@ -30,19 +30,19 @@ Then do the following:
 git clone https://github.com/ksahlin/strobealign
 cd strobealign
 cmake -B build
-cd build
-make -j8
+make -j -C build
 ```
-Try `make VERBOSE=1` to get more logging output.
 
-##### Development installation
+### Development installation
 
-When developing strobealign, add `-DCMAKE_BUILD_TYPE=RelWithDebInfo` to the
+You can add `-DCMAKE_BUILD_TYPE=RelWithDebInfo` to the
 `cmake` options to get debug symbols.
+
+Run `make` with `VERBOSE=1` to get more logging output.
 
 
 USAGE
--------
+-----
 
 ```
 strobealign ref.fa reads.fq > output.sam                # Single-end reads
