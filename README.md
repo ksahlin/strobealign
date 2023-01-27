@@ -93,6 +93,13 @@ strobealign -x ref.fa reads.fq > output.paf             # Single-end reads mappi
 strobealign -x ref.fa reads1.fq reads2.fq > output.paf  # Paired-end reads mapping only (PAF)
 ```
 
+To use interleaved files, use the `--interleaved` flag:
+
+```
+strobealign ref.fa reads.fq --interleaved > output.sam  # Single and/or paired-end reads
+```
+
+
 To report secondary alignments, set parameter `-N [INT]` for a maximum of `[INT]` secondary alignments.
 
 The above commands are suitable for interactive use and test runs.

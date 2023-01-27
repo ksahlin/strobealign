@@ -35,6 +35,7 @@
 * Suppress some logging output by default.
 * Added option `-v` for showing full logging output.
 * Issue #206: Added option `-U` for suppressing output of unaligned reads. Thanks @sjaenick.
+* Add support for interleaved reads
 
 ### Developer-oriented changes
 

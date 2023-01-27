@@ -27,6 +27,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::Flag v(parser, "v", "Verbose output", {'v'});
     args::Flag x(parser, "x", "Only map reads, no base level alignment (produces PAF file)", {'x'});
     args::Flag U(parser, "U", "Suppress output of unmapped reads", {'U'});
+    args::Flag interleaved(parser, "interleaved", "Interleaved input", {"interleaved"});
     args::ValueFlag<std::string> rgid(parser, "ID", "Read group ID", {"rg-id"});
     args::ValueFlagList<std::string> rg(parser, "TAG:VALUE", "Add read group metadata to SAM header (can be specified multiple times). Example: SM:samplename", {"rg"});
 
@@ -118,9 +119,12 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     // Reference and read files
     opt.ref_filename = args::get(ref_filename);
     opt.reads_filename1 = args::get(reads1_filename);
+    opt.is_interleaved = bool(interleaved);
 
     if (reads2_filename) {
         opt.reads_filename2 = args::get(reads2_filename);
+        opt.is_SE = false;
+    } else if (interleaved) {
         opt.is_SE = false;
     } else {
         opt.reads_filename2 = std::string();
