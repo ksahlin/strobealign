@@ -130,7 +130,12 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
     if (opt.reads_filename1.empty() && !opt.only_gen_index) {
-        std::cerr << "At least one file with reads must be specified." << std::endl;
+        std::cerr << "Error: At least one file with reads must be specified." << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    if (opt.only_gen_index && !(opt.r_set || !opt.reads_filename1.empty())) {
+        std::cerr << "Error: The target read length needs to be known when generating an index.\n"
+            "Use -r to set it explicitly or let the program estimate it by providing at least one read file.\n";
         exit(EXIT_FAILURE);
     }
 
