@@ -10,6 +10,7 @@
 * PR #78: Fixed incorrect template length (TLEN) sign.
 * Issue #56: Unmapped reads did not have quality values in the SAM output.
 * PR #65: Fixed a logic error. This changes some mapping qualites.
+* Issue #141: Remove `/1` and `/2` suffixes from read names if they exist.
 * Issue #142: Template length (TLEN) should be zero when the two reads in a pair
   map to different contigs.
 * Issue #149: Changed mapping quality for unmapped reads to 0 for compatibility
