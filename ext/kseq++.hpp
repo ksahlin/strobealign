@@ -505,6 +505,7 @@ namespace klibpp {
           this->f = std::move( other.f );
           this->func = std::move( other.func );
           this->close = other.close;
+          other.close = nullptr;
         }
 
         KStream& operator=( KStream&& other ) noexcept
@@ -524,6 +525,7 @@ namespace klibpp {
           this->f = std::move( other.f );
           this->func = std::move( other.func );
           this->close = other.close;
+          other.close = nullptr;
           return *this;
         }
 
