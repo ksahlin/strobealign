@@ -1,4 +1,4 @@
-# StrobeAlign Changelog
+# Strobealign Changelog
 
 ## development version
 

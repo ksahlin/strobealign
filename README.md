@@ -29,9 +29,11 @@ Then do the following:
 ```
 git clone https://github.com/ksahlin/strobealign
 cd strobealign
-cmake -B build
+cmake -B build -DENABLE_AVX=ON
 make -j -C build
 ```
+If your CPU does not support AVX2, omit `-DENABLE_AVX=ON` from the `cmake` command.
+
 The resulting binary is `build/strobealign`.
 
 ### Development installation
