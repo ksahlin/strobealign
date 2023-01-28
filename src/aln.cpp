@@ -614,18 +614,14 @@ inline void align_SE(
     const References& references,
     AlignmentStatistics &statistics,
     float dropoff,
-    int max_tries,
-    bool output_unmapped
-) {
+    int max_tries) {
     auto query_acc = record.name;
     Read read(record.seq);
     auto qual = record.qual;
     auto read_len = read.size();
 
     if (all_nams.empty()) {
-        if (output_unmapped) {
-            sam.add_unmapped(record);
-        }
+        sam.add_unmapped(record);
         return;
     }
 
@@ -794,18 +790,14 @@ static inline void align_SE_secondary_hits(
     AlignmentStatistics &statistics,
     float dropoff,
     int max_tries,
-    int max_secondary,
-    bool output_unmapped
-) {
+    int max_secondary) {
     auto query_acc = record.name;
     Read read(record.seq);
     auto qual = record.qual;
     auto read_len = read.size();
 
     if (all_nams.empty()) {
-        if (output_unmapped) {
-            sam.add_unmapped(record);
-        }
+        sam.add_unmapped(record);
         return;
     }
 
@@ -1827,8 +1819,7 @@ inline void align_PE(
     float dropoff,
     i_dist_est &isize_est,
     int max_tries,
-    size_t max_secondary,
-    bool output_unmapped
+    size_t max_secondary
 ) {
     const auto mu = isize_est.mu;
     const auto sigma = isize_est.sigma;
@@ -1838,9 +1829,7 @@ inline void align_PE(
 
     if (all_nams1.empty() && all_nams2.empty()) {
          // None of the reads have any NAMs
-        if (output_unmapped) {
-            sam.add_unmapped_pair(record1, record2);
-        }
+        sam.add_unmapped_pair(record1, record2);
         return;
     }
 
@@ -2280,8 +2269,7 @@ void align_PE_read(
                  record2,
                  index_parameters.k,
                  references, statistics,
-                 map_param.dropoff_threshold, isize_est, map_param.maxTries, map_param.max_secondary,
-                 map_param.output_unmapped);
+                 map_param.dropoff_threshold, isize_est, map_param.maxTries, map_param.max_secondary);
     }
     statistics.tot_extend += extend_timer.duration();
     nams1.clear();
@@ -2341,11 +2329,10 @@ void align_SE_read(
 
                 align_SE_secondary_hits(aln_params, sam, nams, record, index_parameters.k,
                          references, statistics, map_param.dropoff_threshold, map_param.maxTries,
-                         map_param.max_secondary, map_param.output_unmapped);
+                         map_param.max_secondary);
             } else {
                 align_SE(aln_params, sam, nams, record, index_parameters.k,
-                         references, statistics,  map_param.dropoff_threshold, map_param.maxTries,
-                         map_param.output_unmapped);
+                         references, statistics,  map_param.dropoff_threshold, map_param.maxTries);
             }
         }
         statistics.tot_extend += extend_timer.duration();

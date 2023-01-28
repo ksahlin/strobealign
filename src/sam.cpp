@@ -29,6 +29,9 @@ void Sam::append_tail() {
 }
 
 void Sam::add_unmapped(const KSeq& record, int flags) {
+    if (!output_unmapped) {
+        return;
+    }
     assert((flags & ~(UNMAP|PAIRED|MUNMAP|READ1|READ2)) == 0);
     assert(flags & UNMAP);
     sam_string.append(record.name);

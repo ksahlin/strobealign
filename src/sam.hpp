@@ -37,9 +37,10 @@ enum SamFlags {
 class Sam {
 
 public:
-    Sam(std::string& sam_string, const References& references, const std::string& read_group_id = "")
+    Sam(std::string& sam_string, const References& references, const std::string& read_group_id = "", bool output_unmapped = true)
         : sam_string(sam_string)
-        , references(references) {
+        , references(references)
+        , output_unmapped(output_unmapped) {
             if (read_group_id.empty()) {
                 tail = "\n";
             } else {
@@ -61,6 +62,7 @@ private:
     std::string& sam_string;
     const References& references;
     std::string tail;
+    bool output_unmapped;
 };
 
 bool is_proper_pair(const alignment& sam_aln1, const alignment& sam_aln2, float mu, float sigma);
