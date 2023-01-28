@@ -19,6 +19,7 @@ struct CommandLineOptions {
     bool only_gen_index { false };
     bool use_index { false };
     bool is_sam_out { true };
+    bool output_unmapped { true };
     int max_secondary { 0 };
 
     // Seeding
