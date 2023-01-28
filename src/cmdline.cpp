@@ -26,6 +26,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlag<std::string> o(parser, "PATH", "redirect output to file [stdout]", {'o'});
     args::Flag v(parser, "v", "Verbose output", {'v'});
     args::Flag x(parser, "x", "Only map reads, no base level alignment (produces PAF file)", {'x'});
+    args::Flag U(parser, "U", "Suppress output of unmapped reads", {'U'});
     args::ValueFlag<std::string> rgid(parser, "ID", "Read group ID", {"rg-id"});
     args::ValueFlagList<std::string> rg(parser, "TAG:VALUE", "Add read group metadata to SAM header (can be specified multiple times). Example: SM:samplename", {"rg"});
 
@@ -84,6 +85,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (o) { opt.output_file_name = args::get(o); opt.write_to_stdout = false; }
     if (v) { opt.verbose = true; }
     if (x) { opt.is_sam_out = false; }
+    if (U) { opt.output_unmapped = false; }
     if (rgid) { opt.read_group_id = args::get(rgid); }
     if (rg) { opt.read_group_fields = args::get(rg); }
     if (N) { opt.max_secondary = args::get(N); }

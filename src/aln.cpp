@@ -614,8 +614,7 @@ inline void align_SE(
     const References& references,
     AlignmentStatistics &statistics,
     float dropoff,
-    int max_tries
-) {
+    int max_tries) {
     auto query_acc = record.name;
     Read read(record.seq);
     auto qual = record.qual;
@@ -791,8 +790,7 @@ static inline void align_SE_secondary_hits(
     AlignmentStatistics &statistics,
     float dropoff,
     int max_tries,
-    int max_secondary
-) {
+    int max_secondary) {
     auto query_acc = record.name;
     Read read(record.seq);
     auto qual = record.qual;
@@ -2330,7 +2328,8 @@ void align_SE_read(
                 // Such overhead is not present in align_PE - which implements both options in the same function.
 
                 align_SE_secondary_hits(aln_params, sam, nams, record, index_parameters.k,
-                         references, statistics, map_param.dropoff_threshold, map_param.maxTries, map_param.max_secondary);
+                         references, statistics, map_param.dropoff_threshold, map_param.maxTries,
+                         map_param.max_secondary);
             } else {
                 align_SE(aln_params, sam, nams, record, index_parameters.k,
                          references, statistics,  map_param.dropoff_threshold, map_param.maxTries);

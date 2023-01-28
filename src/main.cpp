@@ -112,6 +112,7 @@ int run_strobealign(int argc, char **argv) {
     map_param.R = opt.R;
     map_param.maxTries = opt.maxTries;
     map_param.is_sam_out = opt.is_sam_out;
+    map_param.output_unmapped = opt.output_unmapped;
 
     log_parameters(index_parameters, map_param, aln_params);
     logger.debug() << "Threads: " << opt.n_threads << std::endl;

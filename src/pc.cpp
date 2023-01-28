@@ -95,7 +95,7 @@ void perform_task_PE(
 
         std::string sam_out;
         sam_out.reserve(7*map_param.r *records1.size());
-        Sam sam{sam_out, references, read_group_id};
+        Sam sam{sam_out, references, read_group_id, map_param.output_unmapped};
         for (size_t i = 0; i < records1.size(); ++i) {
             auto record1 = records1[i];
             auto record2 = records2[i];
@@ -132,7 +132,7 @@ void perform_task_SE(
 
         std::string sam_out;
         sam_out.reserve(7*map_param.r *records.size());
-        Sam sam{sam_out, references, read_group_id};
+        Sam sam{sam_out, references, read_group_id, map_param.output_unmapped};
         for (size_t i = 0; i < records.size(); ++i) {
             auto record = records[i];
             to_uppercase(record.seq);
