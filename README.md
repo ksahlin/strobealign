@@ -66,11 +66,46 @@ strobealign -x ref.fa reads.fq > output.paf             # Single-end reads mappi
 strobealign -x ref.fa reads1.fq reads2.fq > output.paf  # Paired-end reads mapping only (PAF)
 ```
 
-To report secondary alignments, set parameter `-N [INT]` for maximum of `[INT]` secondary alignments. 
+To report secondary alignments, set parameter `-N [INT]` for a maximum of `[INT]` secondary alignments.
 
 The above commands are suitable for interactive use and test runs.
-In a production, avoid creating SAM files on disk as
+For normal use, avoid creating SAM files on disk as they get very large compared
+to their compressed BAM counterparts. Instead, either pipe strobealign’s output
+into `samtools view` to create unsorted BAM files:
+```
+strobealign ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools view -o mapped.bam
+```
+Or use `samtools sort` to create a sorted BAM file:
+```
+strobealign ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools sort -o sorted.bam
+```
+This is usually faster than doing the two steps separately because fewer
+intermediate files are created.
 
+
+Command-line options
+--------------------
+
+Please run `strobealign --help` to see the most up-to-date list of command-line
+options. Some important ones are:
+
+* `-r`: Mean read length. If given, this overrides the read length estimated
+  from the input file(s). This is usually only required in combination with
+  `--create-index`, see [index files](#index-files).
+* `-t N`, `--threads=N`: Use N threads. This mainly applies to the mapping step
+  as the indexing step is only partially parallelized.
+* `-x`: Only map reads, do not do no base-level alignment. This switches the
+  output format from SAM to [PAF](https://github.com/lh3/miniasm/blob/master/PAF.md).
+* `--rg-id=ID`: Add RG tag to each SAM record.
+* `--rg=TAG:VALUE`: Add read group metadata to the SAM header. This can be
+  specified multiple times. Example: `--rg-id=1 --rg=SM:mysamle --rg=LB:mylibrary`.
+* `-N INT`: Output up to INT secondary alignments. By default, no secondary
+  alignments are output.
+* `-U`: Suppress output of unmapped reads.
+* `--use-index`: Use a pre-generated index instead of generating a new one.
+* `--create-index`, `-i`: Generate a strobemer index file (`.sti`) and write it
+  to disk next to the input reference FASTA. Do not map reads. If read files are
+  provided, they are used to estimate read length. See [index files](#index-files).
 
 Index files
 -----------
@@ -106,7 +141,7 @@ read file(s) as if you wanted to map them:
 
 Or set the read length explicitly with `-r`:
 
-    strobealign -i ref.fa -r 150
+    strobealign --create-index ref.fa -r 150
 
 This creates a file named `ref.fa.rX.sti` containing the strobemer index,
 where `X` is the canonical read length that the index is optimized for (see
