@@ -65,6 +65,14 @@ void log_parameters(const IndexParameters& index_parameters, const mapping_param
         << "E: " << aln_params.gap_extend << std::endl;
 }
 
+bool avx2_enabled() {
+#ifdef __AVX2__
+    return true;
+#else
+    return false;
+#endif
+}
+
 int run_strobealign(int argc, char **argv) {
     auto opt = parse_command_line_arguments(argc, argv);
 
@@ -73,7 +81,7 @@ int run_strobealign(int argc, char **argv) {
     logger.info() << "This is strobealign " << version_string() << '\n';
     logger.debug() << "Build type: " << CMAKE_BUILD_TYPE << '\n';
     warn_if_no_optimizations();
-
+    logger.debug() << "AVX2 enabled: " << (avx2_enabled() ? "yes" : "no") << '\n';
     if (!opt.r_set && !opt.reads_filename1.empty()) {
         opt.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
         logger.info() << "Estimated read length: " << opt.r << " bp\n";
