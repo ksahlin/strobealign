@@ -1,6 +1,7 @@
 use std::cmp::min;
 use std::collections::VecDeque;
 use std::{env, io};
+use std::collections::hash_map::RandomState;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, BufRead, Error, Write};
 use std::path::Path;
@@ -44,7 +45,7 @@ fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<FastaRecord>, Error> {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 struct Syncmer {
     hash: u64,
     position: usize,
@@ -189,6 +190,77 @@ impl<'a> Iterator for SyncmerIterator<'a> {
             self.i += 1;
         }
         None
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct Randstrobe {
+    hash: u64,
+    strobe1_pos: usize,
+    strobe2_pos: usize,
+}
+
+struct RandstrobeParameters {
+    w_min: usize,
+    w_max: usize,
+    q: u64,
+    max_dist: usize,
+}
+
+struct RandstrobeIterator<'a> {
+    parameters: &'a RandstrobeParameters,
+    syncmers: VecDeque<Syncmer>,
+    syncmer_iterator: &'a mut SyncmerIterator<'a>,
+    strobe1_index: usize,
+}
+
+impl<'a> RandstrobeIterator<'a> {
+    pub fn new(syncmer_iterator: &'a mut SyncmerIterator<'a>, parameters: &'a RandstrobeParameters) -> RandstrobeIterator<'a> {
+        RandstrobeIterator {
+            parameters,
+            syncmers: VecDeque::<Syncmer>::new(),
+            syncmer_iterator,
+            strobe1_index: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for RandstrobeIterator<'a> {
+    type Item = Randstrobe;
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.syncmers.len() <= self.parameters.w_max {
+            if let Some(syncmer) = self.syncmer_iterator.next() {
+                self.syncmers.push_back(syncmer);
+            } else {
+                break;
+            }
+        }
+        if self.syncmers.len() <= self.parameters.w_min {
+            return None;
+        }
+        let strobe1 = self.syncmers[0];
+        let max_position = strobe1.position + self.parameters.max_dist;
+        let mut min_val = u64::MAX;
+        let mut strobe2 = self.syncmers[0]; // Defaults if no nearby syncmer
+
+        for i in self.parameters.w_min .. self.syncmers.len() {
+            debug_assert!(i <= self.parameters.w_max);
+            if self.syncmers[i].position > max_position {
+                break;
+            }
+            let b = (strobe1.hash ^ self.syncmers[i].hash) & self.parameters.q;
+            let ones = b.count_ones() as u64;
+            if ones < min_val {
+                min_val = ones;
+                strobe2 = self.syncmers[i];
+            }
+        }
+        self.syncmers.pop_front();
+        return Some(Randstrobe {
+            hash: strobe1.hash + strobe2.hash,
+            strobe1_pos: strobe1.position,
+            strobe2_pos: strobe2.position,
+        })
     }
 }
 
