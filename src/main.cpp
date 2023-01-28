@@ -95,13 +95,17 @@ int run_strobealign(int argc, char **argv) {
     logger.debug() << "Build type: " << CMAKE_BUILD_TYPE << '\n';
     warn_if_no_optimizations();
     logger.debug() << "AVX2 enabled: " << (avx2_enabled() ? "yes" : "no") << '\n';
-    if (!opt.r_set && !opt.reads_filename1.empty()) {
-        opt.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
-        logger.info() << "Estimated read length: " << opt.r << " bp\n";
-    }
+
     if (opt.c >= 64 || opt.c <= 0) {
         throw BadParameter("c must be greater than 0 and less than 64");
     }
+
+    InputBuffer input_buffer = get_input_buffer(opt);
+    if (!opt.r_set && !opt.reads_filename1.empty()) {
+        opt.r = estimate_read_length(input_buffer);
+        logger.info() << "Estimated read length: " << opt.r << " bp\n";
+    }
+    input_buffer.rewind_reset();
     IndexParameters index_parameters = IndexParameters::from_read_length(
         opt.r,
         opt.c_set ? opt.c : IndexParameters::DEFAULT,
@@ -224,7 +228,6 @@ int run_strobealign(int argc, char **argv) {
 
     logger.info() << "Running in " << (opt.is_SE ? "single-end" : "paired-end") << " mode" << std::endl;
 
-    InputBuffer input_buffer = get_input_buffer(opt);
     OutputBuffer output_buffer(out);
 
     std::vector<std::thread> workers;

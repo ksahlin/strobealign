@@ -39,7 +39,8 @@ void distribute_interleaved(
     std::vector<klibpp::KSeq>& records1,
     std::vector<klibpp::KSeq>& records2,
     std::vector<klibpp::KSeq>& records3,
-    std::optional<klibpp::KSeq>& lookahead1) {
+    std::optional<klibpp::KSeq>& lookahead1
+) {
     auto it = records.begin();
     if (lookahead1) {
         if (it != records.end() && lookahead1->name == it->name) {
@@ -69,21 +70,25 @@ void distribute_interleaved(
 size_t InputBuffer::read_records(std::vector<klibpp::KSeq> &records1,
         std::vector<klibpp::KSeq> &records2,
         std::vector<klibpp::KSeq> &records3,
-        AlignmentStatistics &statistics) {
+        AlignmentStatistics &statistics,
+        int to_read) {
     Timer timer;
     records1.clear();
     records2.clear();
     records3.clear();
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
+    if (to_read == -1) {
+        to_read = chunk_size;
+    }
     if (this->is_interleaved) {
-        auto records = ks1.read(chunk_size*2);
+        auto records = ks1->stream().read(to_read*2);
         distribute_interleaved(records, records1, records2, records3, lookahead1);
     } else if (!ks2) {
-        records3 = ks1.read(chunk_size);
+        records3 = ks1->stream().read(to_read);
     } else {
-        records1 = ks1.read(chunk_size);
-        records2 = ks2->read(chunk_size);
+        records1 = ks1->stream().read(to_read);
+        records2 = ks2->stream().read(to_read);
     }
     size_t current_chunk_index = chunk_index;
     chunk_index++;
@@ -96,6 +101,16 @@ size_t InputBuffer::read_records(std::vector<klibpp::KSeq> &records1,
     statistics.tot_read_file += timer.duration();
 
     return current_chunk_index;
+}
+
+void InputBuffer::rewind_reset() {
+    std::unique_lock<std::mutex> unique_lock(mtx);
+    ks1->rewind();
+    if (ks2) {
+        ks2->rewind();
+    }
+    finished_reading = false;
+    chunk_index = 0;
 }
 
 void OutputBuffer::output_records(std::string chunk, size_t chunk_index) {
