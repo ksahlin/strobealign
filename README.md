@@ -11,13 +11,24 @@ INSTALLATION
 ----------------
 
 ### Conda
-Strobealign can be installed through conda. Simply run
 
-```
-conda create -n strobealign strobealign
-```
+Strobealign is available from [Bioconda](https://bioconda.github.io/).
+1. Follow the [Bioconda installation instructions](https://bioconda.github.io/user/install.html)
+2. Install strobealign into a new Conda environment:
+   ```
+   conda create -n strobealign strobealign
+   ```
+3. Activate the environment that was just created:
+   ```
+   conda activate strobealign
+   ```
+4. Run strobealign:
+   ```
+   strobealign --version
+   ```
 
 ### Binaries
+
 You can acquire precompiled binaries for Linux and macOS from the [release page](https://github.com/ksahlin/strobealign/releases) compiled with `-O3 -mavx2`.
 
 It has been [reported](https://github.com/ksahlin/strobealign/issues/6) that strobealign is even faster if compiled with flag `-march=skylake-avx512` for processors that support AVX512 instructions.
