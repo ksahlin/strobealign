@@ -5,7 +5,9 @@
 #include <bitset>
 #include <algorithm>
 #include <cassert>
-#include <xxhash.h>
+
+#include <cstring>
+#include <wy.hpp>
 
 // a, A -> 0
 // c, C -> 1
@@ -35,7 +37,8 @@ static inline uint64_t syncmer_kmer_hash(uint64_t packed) {
     // return yk;
     // return hash64(yk, mask);
     // return sahlin_dna_hash(yk, mask);
-    return XXH64(&packed, sizeof(uint64_t), 0);
+    //return XXH64(&packed, sizeof(uint64_t), 0);
+    return wy::hash<uint64_t>()(packed);
 }
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
