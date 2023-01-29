@@ -5,6 +5,19 @@ use std::collections::hash_map::RandomState;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, BufRead, Error, Write};
 use std::path::Path;
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(long_about = None)]
+struct Args {
+
+   /// Print syncmers instead of randstrobes
+   #[arg(long, default_value_t = false)]
+   syncmers: bool,
+
+   /// Path to input FASTA
+   path: String,
+}
 
 #[derive(Debug)]
 struct FastaRecord {
@@ -265,8 +278,8 @@ impl<'a> Iterator for RandstrobeIterator<'a> {
 }
 
 fn main() -> Result<(), Error> {
-    let args = &env::args().collect::<Vec<_>>();
-    let path = Path::new(&args[1]);
+    let args = Args::parse();
+    let path = Path::new(&args.path);
     let f = File::open(path)?;
     let mut reader = BufReader::new(f);
     let records = read_fasta(&mut reader).unwrap();
@@ -274,11 +287,36 @@ fn main() -> Result<(), Error> {
     let s = 16usize;
 
     let mut writer = BufWriter::new(io::stdout());
-    for record in &records {
-        let name = &record.name;
-        for syncmer in SyncmerIterator::new(&record.sequence, k, s, 3) {
-            writeln!(writer, "{}\t{}\t{}", name, syncmer.position, syncmer.position + k)?;
+
+    // IndexParameters(r=150, k=20, s=16, l=1, u=7, q=255, max_dist=80, t_syncmer=3, w_min=5, w_max=11)
+    let parameters = RandstrobeParameters {
+        w_min: 5,
+        w_max: 11,
+        q: 255,
+        max_dist: 80,
+    };
+    if args.syncmers {
+        for record in &records {
+            let name = &record.name;
+            for syncmer in SyncmerIterator::new(&record.sequence, k, s, 3) {
+                writeln!(writer, "{}\t{}\t{}", name, syncmer.position, syncmer.position + k)?;
+            }
+        }
+    } else {
+        for record in &records {
+            let name = &record.name;
+            let mut syncmers = SyncmerIterator::new(&record.sequence, k, s, 3);
+            for randstrobe in RandstrobeIterator::new(&mut syncmers, &parameters) {
+                writeln!(writer, "{}\t{}\t{}", name, randstrobe.strobe1_pos, randstrobe.strobe2_pos + k)?;
+            }
         }
     }
     Ok(())
+}
+
+
+#[test]
+fn verify_cli() {
+    use clap::CommandFactory;
+    Args::command().debug_assert()
 }
