@@ -90,7 +90,7 @@ private:
     unsigned int m_count;
 };
 
-typedef robin_hood::unordered_map<uint64_t, KmerLookupEntry> kmer_lookup;
+using RandstrobeMap = robin_hood::unordered_map<uint64_t, KmerLookupEntry>;
 
 typedef std::vector<uint64_t> hash_vector; //only used during index generation
 
@@ -127,11 +127,11 @@ struct StrobemerIndex {
     void populate(float f, size_t n_threads);
     void print_diagnostics(const std::string& logfile_name, int k) const;
 
-    kmer_lookup::const_iterator find(uint64_t key) const {
+    RandstrobeMap::const_iterator find(uint64_t key) const {
         return mers_index.find(key);
     }
 
-    kmer_lookup::const_iterator end() const {
+    RandstrobeMap::const_iterator end() const {
         return mers_index.cend();
     }
 
@@ -145,7 +145,7 @@ private:
 
     const IndexParameters& parameters;
     const References& references;
-    kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
+    RandstrobeMap mers_index; // k-mer -> (offset in flat_vector, occurence count )
 };
 
 #endif
