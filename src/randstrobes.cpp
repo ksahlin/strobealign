@@ -8,6 +8,7 @@
 
 #include <cstring>
 #include <wy.hpp>
+#include <xxhash.h>
 
 // a, A -> 0
 // c, C -> 1
@@ -38,7 +39,8 @@ static inline uint64_t syncmer_kmer_hash(uint64_t packed) {
     // return hash64(yk, mask);
     // return sahlin_dna_hash(yk, mask);
     //return XXH64(&packed, sizeof(uint64_t), 0);
-    return wy::hash<uint64_t>()(packed);
+    //return wy::hash<uint64_t>()(packed);
+    return XXH3_64bits(&packed, sizeof(uint64_t));
 }
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
