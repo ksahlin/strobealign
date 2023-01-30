@@ -277,7 +277,7 @@ ind_mers_vector StrobemerIndex::add_randstrobes_to_hash_table() {
             }
             stats.tot_strobemer_count += chunk.size();
             for (auto randstrobe : chunk) {
-                MersIndexEntry::packed_t packed = ref_index << 8;
+                RefRandstrobeWithHash::packed_t packed = ref_index << 8;
                 packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
 
                 // try to insert as direct entry
@@ -292,13 +292,13 @@ ind_mers_vector StrobemerIndex::add_randstrobes_to_hash_table() {
                     if (existing_count == 1) {
                         // current entry is a direct one, convert to an indirect one
                         auto existing_randstrobe = existing->second.as_ref_randstrobe();
-                        ind_flat_vector.push_back(MersIndexEntry{randstrobe.hash, existing_randstrobe.position, existing_randstrobe.packed()});
+                        ind_flat_vector.push_back(RefRandstrobeWithHash{randstrobe.hash, existing_randstrobe.position, existing_randstrobe.packed()});
                         tot_occur_once--;
                     }
                     // offset is adjusted later after sorting
                     existing->second.set_count(existing_count + 1);
 
-                    ind_flat_vector.push_back(MersIndexEntry{randstrobe.hash, randstrobe.strobe1_pos, packed});
+                    ind_flat_vector.push_back(RefRandstrobeWithHash{randstrobe.hash, randstrobe.strobe1_pos, packed});
                 }
             }
             chunk.clear();

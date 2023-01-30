@@ -11,19 +11,19 @@
 #include <inttypes.h>
 
 // only used during index generation
-struct MersIndexEntry {
+struct RefRandstrobeWithHash {
 
     using packed_t = uint32_t;
     uint64_t hash;
     uint32_t position;
     packed_t packed; // packed representation of ref_index and strobe offset
 
-    bool operator< (const MersIndexEntry& other) const {
+    bool operator< (const RefRandstrobeWithHash& other) const {
         return hash < other.hash;
     }
 };
 
-typedef std::vector<MersIndexEntry> ind_mers_vector;
+typedef std::vector<RefRandstrobeWithHash> ind_mers_vector;
 
 
 struct QueryMer {

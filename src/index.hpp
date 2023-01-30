@@ -37,14 +37,14 @@ public:
         return m_packed & mask;
     }
 
-    MersIndexEntry::packed_t packed() const {
+    RefRandstrobeWithHash::packed_t packed() const {
         return m_packed;
     }
 
 private:
     static const int bit_alloc = 8;
     static const int mask = (1 << bit_alloc) - 1;
-    MersIndexEntry::packed_t m_packed;
+    RefRandstrobeWithHash::packed_t m_packed;
 };
 
 typedef std::vector<RefRandstrobe> mers_vector;
