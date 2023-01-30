@@ -33,6 +33,10 @@ static unsigned char seq_nt4_table[256] = {
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
 };
 
+static inline uint64_t fxhash(uint64_t value) {
+    return 0x517cc1b727220a95 * value;
+}
+
 static inline uint64_t syncmer_kmer_hash(uint64_t packed) {
     // return robin_hash(yk);
     // return yk;
@@ -40,7 +44,8 @@ static inline uint64_t syncmer_kmer_hash(uint64_t packed) {
     // return sahlin_dna_hash(yk, mask);
     //return XXH64(&packed, sizeof(uint64_t), 0);
     //return wy::hash<uint64_t>()(packed);
-    return XXH3_64bits(&packed, sizeof(uint64_t));
+    //return XXH3_64bits(&packed, sizeof(uint64_t));
+    return fxhash(packed);
 }
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
