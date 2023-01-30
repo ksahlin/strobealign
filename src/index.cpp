@@ -281,8 +281,8 @@ ind_mers_vector StrobemerIndex::add_randstrobes_to_hash_table() {
                 packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
 
                 // try to insert as direct entry
-                KmerLookupEntry kle{randstrobe.strobe1_pos, packed | 0x8000'0000};
-                auto result = randstrobe_map.insert({randstrobe.hash, kle});
+                RandstrobeMapEntry entry{randstrobe.strobe1_pos, packed | 0x8000'0000};
+                auto result = randstrobe_map.insert({randstrobe.hash, entry});
                 if (result.second) {
                     tot_occur_once++;
                 } else {

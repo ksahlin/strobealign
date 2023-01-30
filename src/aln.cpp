@@ -12,7 +12,7 @@ using namespace klibpp;
 
 struct Hit {
     unsigned int count;
-    KmerLookupEntry lookup_entry;
+    RandstrobeMapEntry randstrobe_map_entry;
     unsigned int query_s;
     unsigned int query_e;
     bool is_rc;
@@ -98,14 +98,14 @@ void add_to_hits_per_ref(
     bool is_rc,
     const StrobemerIndex& index,
     int k,
-    KmerLookupEntry lookup_entry,
+    RandstrobeMapEntry randstrobe_map_entry,
     int min_diff
 ) {
     // Determine whether the hash table’s value directly represents a
     // ReferenceMer (this is the case if count==1) or an offset/count
     // pair that refers to entries in the flat_vector.
-    if (lookup_entry.is_reference_mer()) {
-        auto r = lookup_entry.as_reference_mer();
+    if (randstrobe_map_entry.is_reference_mer()) {
+        auto r = randstrobe_map_entry.as_reference_mer();
         int ref_s = r.position;
         int ref_e = r.position + r.strobe2_offset() + k;
         int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
@@ -114,7 +114,7 @@ void add_to_hits_per_ref(
             min_diff = diff;
         }
     } else {
-        for (size_t j = lookup_entry.offset(); j < lookup_entry.offset() + lookup_entry.count(); ++j) {
+        for (size_t j = randstrobe_map_entry.offset(); j < randstrobe_map_entry.offset() + randstrobe_map_entry.count(); ++j) {
             auto r = index.flat_vector[j];
             int ref_s = r.position;
             int ref_e = r.position + r.strobe2_offset() + k;
@@ -163,7 +163,7 @@ static inline void find_nams_rescue(
             if ((count > filter_cutoff && cnt >= 5) || count > 1000) {
                 break;
             }
-            add_to_hits_per_ref(hits_per_ref, q.query_s, q.query_e, q.is_rc, index, k, q.lookup_entry, 1000);
+            add_to_hits_per_ref(hits_per_ref, q.query_s, q.query_e, q.is_rc, index, k, q.randstrobe_map_entry, 1000);
             cnt++;
         }
     }

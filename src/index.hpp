@@ -49,10 +49,10 @@ private:
 
 typedef std::vector<ReferenceMer> mers_vector;
 
-class KmerLookupEntry {
+class RandstrobeMapEntry {
 public:
-    KmerLookupEntry() { }
-    KmerLookupEntry(unsigned int offset, unsigned int count) : m_offset(offset), m_count(count) { }
+    RandstrobeMapEntry() { }
+    RandstrobeMapEntry(unsigned int offset, unsigned int count) : m_offset(offset), m_count(count) { }
 
     unsigned int count() const {
         if (is_reference_mer()) {
@@ -90,7 +90,7 @@ private:
     unsigned int m_count;
 };
 
-using RandstrobeMap = robin_hood::unordered_map<uint64_t, KmerLookupEntry>;
+using RandstrobeMap = robin_hood::unordered_map<uint64_t, RandstrobeMapEntry>;
 
 typedef std::vector<uint64_t> hash_vector; //only used during index generation
 
@@ -136,8 +136,7 @@ struct StrobemerIndex {
     }
 
     void add_entry(uint64_t key, unsigned int offset, unsigned int count) {
-        KmerLookupEntry s{offset, count};
-        randstrobe_map[key] = s;
+        randstrobe_map[key] = RandstrobeMapEntry{offset, count};
     }
 
 private:
