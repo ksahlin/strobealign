@@ -1,5 +1,7 @@
-strobealign
-===========
+![CI](https://github.com/ksahlin/strobealign/workflows/CI/badge.svg)
+[![install with Bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg)](http://bioconda.github.io/recipes/strobealign/README.html)
+
+# strobealign
 
 Strobealign is a fast **short-read aligner**. It achieves the speedup by using a dynamic seed size obtained from [syncmer](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7869670/)-thinned [strobemers](https://github.com/ksahlin/strobemers#what-is-a-strobemer).
 
