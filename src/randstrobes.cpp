@@ -37,6 +37,18 @@ static inline uint64_t fxhash(uint64_t value) {
     return 0x517cc1b727220a95 * value;
 }
 
+static inline uint64_t fnv1a(void* text, size_t n)
+{
+    char* txt = (char*)text;
+    uint64_t hash = 14695981039346656037u;
+    for (size_t i = 0; i < n; i++)
+    {
+        hash ^= txt[i];
+        hash *= 1099511628211u;
+    }
+    return hash;
+}
+
 static inline uint64_t syncmer_kmer_hash(uint64_t packed) {
     // return robin_hash(yk);
     // return yk;
@@ -45,7 +57,8 @@ static inline uint64_t syncmer_kmer_hash(uint64_t packed) {
     //return XXH64(&packed, sizeof(uint64_t), 0);
     //return wy::hash<uint64_t>()(packed);
     //return XXH3_64bits(&packed, sizeof(uint64_t));
-    return fxhash(packed);
+    //return fxhash(packed);
+    return fnv1a(&packed, sizeof(uint64_t));
 }
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
