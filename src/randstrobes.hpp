@@ -26,7 +26,7 @@ struct RefRandstrobeWithHash {
 typedef std::vector<RefRandstrobeWithHash> ind_mers_vector;
 
 
-struct QueryMer {
+struct QueryRandstrobe {
     uint64_t hash;
     unsigned int start;
     unsigned int end;
@@ -34,7 +34,7 @@ struct QueryMer {
 };
 
 
-typedef std::vector<QueryMer> mers_vector_read;
+typedef std::vector<QueryRandstrobe> mers_vector_read;
 
 mers_vector_read randstrobes_query(int k, unsigned w_min, unsigned w_max, const std::string &seq, int s, int t, uint64_t q, int max_dist);
 

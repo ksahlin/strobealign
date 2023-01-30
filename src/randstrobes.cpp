@@ -237,8 +237,9 @@ mers_vector_read randstrobes_query(
     RandstrobeIterator randstrobe_fwd_iter { string_hashes, pos_to_seq_coordinate, w_min, w_max, q, max_dist };
     while (randstrobe_fwd_iter.has_next()) {
         auto randstrobe = randstrobe_fwd_iter.next();
-        QueryMer query_mer{randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + k, false};
-        randstrobes2.push_back(query_mer);
+        randstrobes2.push_back(
+            QueryRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + k, false}
+        );
     }
 
     std::reverse(string_hashes.begin(), string_hashes.end());
@@ -250,8 +251,9 @@ mers_vector_read randstrobes_query(
     RandstrobeIterator randstrobe_rc_iter { string_hashes, pos_to_seq_coordinate, w_min, w_max, q, max_dist };
     while (randstrobe_rc_iter.has_next()) {
         auto randstrobe = randstrobe_rc_iter.next();
-        QueryMer query_mer{randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + k, true};
-        randstrobes2.push_back(query_mer);
+        randstrobes2.push_back(
+            QueryRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + k, true}
+        );
     }
     return randstrobes2;
 }
