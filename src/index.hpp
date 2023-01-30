@@ -47,7 +47,7 @@ private:
     RefRandstrobeWithHash::packed_t m_packed;
 };
 
-typedef std::vector<RefRandstrobe> mers_vector;
+using RefRandstrobeVector = std::vector<RefRandstrobe>;
 
 class RandstrobeMapEntry {
 public:
@@ -119,7 +119,7 @@ struct StrobemerIndex {
         , references(references) {}
     unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
                                 //therefore stored here since it needs to be saved with the index.
-    mers_vector flat_vector;
+    RefRandstrobeVector flat_vector;
     mutable IndexCreationStatistics stats;
 
     void write(const std::string& filename) const;
