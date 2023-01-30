@@ -55,9 +55,9 @@ void StrobemerIndex::write(const std::string& filename) const {
     write_vector(ofs, flat_vector);
 
     // write mers_index
-    auto size = uint64_t(mers_index.size());
+    auto size = uint64_t(randstrobe_map.size());
     ofs.write(reinterpret_cast<char*>(&size), sizeof(size));
-    for (auto& p : mers_index) {
+    for (auto& p : randstrobe_map) {
         ofs.write(reinterpret_cast<const char*>(&p.first), sizeof(p.first));
         ofs.write(reinterpret_cast<const char*>(&p.second), sizeof(p.second));
     }
@@ -102,9 +102,9 @@ void StrobemerIndex::read(const std::string& filename) {
 
     uint64_t sz;
     // read mers_index:
-    mers_index.clear();
+    randstrobe_map.clear();
     ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-    mers_index.reserve(sz);
+    randstrobe_map.reserve(sz);
     // read in big chunks
     const uint64_t chunk_size = pow(2,20);//4 M => chunks of ~10 MB - The chunk size seem not to be that important
     auto buf_size = std::min(sz, chunk_size) * (sizeof(RandstrobeMap::key_type) + sizeof(RandstrobeMap::mapped_type));
@@ -117,7 +117,7 @@ void StrobemerIndex::read(const std::string& filename) {
         //Add the elements directly from the buffer
         for (size_t i = 0; i < to_read; ++i) {
             auto start = buf2 + i * (sizeof(RandstrobeMap::key_type) + sizeof(RandstrobeMap::mapped_type));
-            mers_index[*reinterpret_cast<RandstrobeMap::key_type*>(start)] = *reinterpret_cast<RandstrobeMap::mapped_type*>(start + sizeof(RandstrobeMap::key_type));
+            randstrobe_map[*reinterpret_cast<RandstrobeMap::key_type*>(start)] = *reinterpret_cast<RandstrobeMap::mapped_type*>(start + sizeof(RandstrobeMap::key_type));
         }
         left_to_read -= to_read;
     }
@@ -173,7 +173,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     auto randstrobe_hashes = estimate_unique_randstrobe_hashes_parallel(references, parameters, n_threads);
     stats.elapsed_unique_hashes = estimate_unique.duration();
     logger.debug() << "Estimated number of unique randstrobe hashes: " << randstrobe_hashes << '\n';
-    mers_index.reserve(randstrobe_hashes);
+    randstrobe_map.reserve(randstrobe_hashes);
 
     Timer randstrobes_timer;
     auto ind_flat_vector = add_randstrobes_to_hash_table();
@@ -197,8 +197,8 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     for (auto &mer : ind_flat_vector) {
         flat_vector.push_back(ReferenceMer{mer.position, mer.packed});
         if (mer.hash != prev_hash) {
-            auto mer_index_entry = mers_index.find(mer.hash);
-            assert(mer_index_entry != mers_index.end());
+            auto mer_index_entry = randstrobe_map.find(mer.hash);
+            assert(mer_index_entry != randstrobe_map.end());
             auto count = mer_index_entry->second.count();
             assert(count > 1);
 
@@ -215,14 +215,14 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
         prev_hash = mer.hash;
         offset++;
     }
-    stats.frac_unique = 1.0 * stats.tot_occur_once / mers_index.size();
+    stats.frac_unique = 1.0 * stats.tot_occur_once / randstrobe_map.size();
     stats.tot_high_ab = tot_high_ab;
     stats.tot_mid_ab = tot_mid_ab;
-    stats.tot_distinct_strobemer_count = mers_index.size();
+    stats.tot_distinct_strobemer_count = randstrobe_map.size();
 
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
-    unsigned int index_cutoff = mers_index.size()*f;
+    unsigned int index_cutoff = randstrobe_map.size()*f;
     stats.index_cutoff = index_cutoff;
     if (!strobemer_counts.empty()){
         filter_cutoff = index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back();
@@ -233,7 +233,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     }
     stats.filter_cutoff = filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
-    stats.unique_mers = mers_index.size();
+    stats.unique_mers = randstrobe_map.size();
 }
 
 /*
@@ -282,7 +282,7 @@ ind_mers_vector StrobemerIndex::add_randstrobes_to_hash_table() {
 
                 // try to insert as direct entry
                 KmerLookupEntry kle{randstrobe.strobe1_pos, packed | 0x8000'0000};
-                auto result = mers_index.insert({randstrobe.hash, kle});
+                auto result = randstrobe_map.insert({randstrobe.hash, kle});
                 if (result.second) {
                     tot_occur_once++;
                 } else {
@@ -327,7 +327,7 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
     uint64_t tot_seed_count_1000_limit = 0;
 
     size_t seed_length;
-    for (auto &it : mers_index) {
+    for (auto &it : randstrobe_map) {
         auto ref_mer = it.second;
         auto offset = ref_mer.offset();
         auto count = ref_mer.count();

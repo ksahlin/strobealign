@@ -128,16 +128,16 @@ struct StrobemerIndex {
     void print_diagnostics(const std::string& logfile_name, int k) const;
 
     RandstrobeMap::const_iterator find(uint64_t key) const {
-        return mers_index.find(key);
+        return randstrobe_map.find(key);
     }
 
     RandstrobeMap::const_iterator end() const {
-        return mers_index.cend();
+        return randstrobe_map.cend();
     }
 
     void add_entry(uint64_t key, unsigned int offset, unsigned int count) {
         KmerLookupEntry s{offset, count};
-        mers_index[key] = s;
+        randstrobe_map[key] = s;
     }
 
 private:
@@ -145,7 +145,7 @@ private:
 
     const IndexParameters& parameters;
     const References& references;
-    RandstrobeMap mers_index; // k-mer -> (offset in flat_vector, occurence count )
+    RandstrobeMap randstrobe_map; // k-mer -> (offset in flat_vector, occurence count )
 };
 
 #endif
