@@ -203,7 +203,7 @@ Randstrobe RandstrobeIterator2::next() {
  * syncmers. Since creating canonical syncmers is the most time consuming step,
  * we avoid performing it twice for the read and its reverse complement here.
  */
-mers_vector_read randstrobes_query(
+QueryRandstrobeVector randstrobes_query(
     int k,
     unsigned w_min,
     unsigned w_max,
@@ -217,7 +217,7 @@ mers_vector_read randstrobes_query(
     // The seq_to_randstrobes2 stores randstobes only in one direction from canonical syncmers.
     // this function stores randstobes from both directions created from canonical syncmers.
     // Since creating canonical syncmers is the most time consuming step, we avoid perfomring it twice for the read and its RC here
-    mers_vector_read randstrobes2;
+    QueryRandstrobeVector randstrobes2;
     auto read_length = seq.length();
     if (read_length < w_max) {
         return randstrobes2;
