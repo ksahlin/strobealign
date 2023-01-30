@@ -94,7 +94,6 @@ typedef robin_hood::unordered_map<uint64_t, KmerLookupEntry> kmer_lookup;
 
 typedef std::vector<uint64_t> hash_vector; //only used during index generation
 
-
 struct IndexCreationStatistics {
     unsigned int flat_vector_size = 0;
     unsigned int tot_strobemer_count = 0;

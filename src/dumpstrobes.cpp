@@ -84,13 +84,15 @@ int run_dumpstrobes(int argc, char **argv) {
     }
 
     // Seeding
-    int r{150}, k{20}, s{16}, c{8};
+    int r{150}, k{20}, s{16}, c{8}, l{1}, u{7};
     int max_seed_len{};
 
-    bool k_set{false}, s_set{false}, c_set{false}, max_seed_len_set{false};
+    bool k_set{false}, s_set{false}, c_set{false}, max_seed_len_set{false}, l_set{false}, u_set{false};
     if (seeding.r) { r = args::get(seeding.r); }
     if (seeding.m) { max_seed_len = args::get(seeding.m); max_seed_len_set = true; }
     if (seeding.k) { k = args::get(seeding.k); k_set = true; }
+    if (seeding.l) { l = args::get(seeding.l); l_set = true; }
+    if (seeding.u) { u = args::get(seeding.u); u_set = true; }
     if (seeding.s) { s = args::get(seeding.s); s_set = true; }
     if (seeding.c) { c = args::get(seeding.c); c_set = true; }
 
@@ -100,7 +102,14 @@ int run_dumpstrobes(int argc, char **argv) {
         throw BadParameter("c must be greater than 0 and less than 64");
     }
     IndexParameters index_parameters = IndexParameters::from_read_length(
-        r, c_set ? c : -1, k_set ? k : -1, s_set ? s : -1, max_seed_len_set ? max_seed_len : -1);
+        r,
+        c_set ? c : IndexParameters::DEFAULT,
+        k_set ? k : IndexParameters::DEFAULT,
+        s_set ? s : IndexParameters::DEFAULT,
+        l_set ? l : IndexParameters::DEFAULT,
+        u_set ? u : IndexParameters::DEFAULT,
+        max_seed_len_set ? max_seed_len : IndexParameters::DEFAULT
+    );
 
     logger.info() << index_parameters << '\n';
     logger.info() << "Reading reference ...\n";

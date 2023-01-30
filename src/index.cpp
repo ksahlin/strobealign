@@ -64,7 +64,11 @@ void StrobemerIndex::write(const std::string& filename) const {
 }
 
 void StrobemerIndex::read(const std::string& filename) {
+    errno = 0;
     std::ifstream ifs(filename, std::ios::binary);
+    if (!ifs.is_open()) {
+        throw InvalidIndexFile(filename + ": " + strerror(errno));
+    }
 
     union {
         char s[4];

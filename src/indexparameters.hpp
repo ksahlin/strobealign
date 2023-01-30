@@ -10,6 +10,7 @@
 /* Settings that influence index creation */
 class IndexParameters {
 public:
+    const size_t canonical_read_length;
     const int k;
     const int s;
     const int l;
@@ -21,8 +22,9 @@ public:
     const unsigned w_max;
 
     static const int DEFAULT = std::numeric_limits<int>::min();
-    IndexParameters(int k, int s, int l, int u, int q, int max_dist)
-        : k(k)
+    IndexParameters(size_t canonical_read_length, int k, int s, int l, int u, int q, int max_dist)
+        : canonical_read_length(canonical_read_length)
+        , k(k)
         , s(s)
         , l(l)
         , u(u)
