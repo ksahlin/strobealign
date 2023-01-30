@@ -22,10 +22,10 @@
 #include "randstrobes.hpp"
 #include "indexparameters.hpp"
 
-class ReferenceMer {
+class RefRandstrobe {
 public:
-    ReferenceMer() { }  // TODO should not be needed
-    ReferenceMer(uint32_t position, uint32_t packed) : position(position), m_packed(packed) {
+    RefRandstrobe() { }  // TODO should not be needed
+    RefRandstrobe(uint32_t position, uint32_t packed) : position(position), m_packed(packed) {
     }
     uint32_t position;
 
@@ -47,7 +47,7 @@ private:
     MersIndexEntry::packed_t m_packed;
 };
 
-typedef std::vector<ReferenceMer> mers_vector;
+typedef std::vector<RefRandstrobe> mers_vector;
 
 class RandstrobeMapEntry {
 public:
@@ -55,7 +55,7 @@ public:
     RandstrobeMapEntry(unsigned int offset, unsigned int count) : m_offset(offset), m_count(count) { }
 
     unsigned int count() const {
-        if (is_reference_mer()) {
+        if (is_direct()) {
             return 1;
         } else {
             return m_count;
@@ -63,17 +63,17 @@ public:
     }
 
     unsigned int offset() const{
-        assert(!is_reference_mer());
+        assert(!is_direct());
         return m_offset;
     }
 
-    bool is_reference_mer() const {
+    bool is_direct() const {
         return m_count & 0x8000'0000;
     }
 
-    ReferenceMer as_reference_mer() const {
-        assert(is_reference_mer());
-        return ReferenceMer{m_offset, m_count & 0x7fff'ffff};
+    RefRandstrobe as_ref_randstrobe() const {
+        assert(is_direct());
+        return RefRandstrobe{m_offset, m_count & 0x7fff'ffff};
     }
 
     void set_count(unsigned int count) {
@@ -81,7 +81,7 @@ public:
     }
 
     void set_offset(unsigned int offset) {
-        assert(!is_reference_mer());
+        assert(!is_direct());
         m_offset = offset;
     }
 

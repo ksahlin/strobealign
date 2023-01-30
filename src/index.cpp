@@ -195,7 +195,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     uint64_t prev_hash = -1;
     flat_vector.reserve(ind_flat_vector.size());
     for (auto &mer : ind_flat_vector) {
-        flat_vector.push_back(ReferenceMer{mer.position, mer.packed});
+        flat_vector.push_back(RefRandstrobe{mer.position, mer.packed});
         if (mer.hash != prev_hash) {
             auto mer_index_entry = randstrobe_map.find(mer.hash);
             assert(mer_index_entry != randstrobe_map.end());
@@ -291,8 +291,8 @@ ind_mers_vector StrobemerIndex::add_randstrobes_to_hash_table() {
                     auto existing_count = existing->second.count();
                     if (existing_count == 1) {
                         // current entry is a direct one, convert to an indirect one
-                        auto refmer = existing->second.as_reference_mer();
-                        ind_flat_vector.push_back(MersIndexEntry{randstrobe.hash, refmer.position, refmer.packed()});
+                        auto existing_randstrobe = existing->second.as_ref_randstrobe();
+                        ind_flat_vector.push_back(MersIndexEntry{randstrobe.hash, existing_randstrobe.position, existing_randstrobe.packed()});
                         tot_occur_once--;
                     }
                     // offset is adjusted later after sorting

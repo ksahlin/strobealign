@@ -104,8 +104,8 @@ void add_to_hits_per_ref(
     // Determine whether the hash table’s value directly represents a
     // ReferenceMer (this is the case if count==1) or an offset/count
     // pair that refers to entries in the flat_vector.
-    if (randstrobe_map_entry.is_reference_mer()) {
-        auto r = randstrobe_map_entry.as_reference_mer();
+    if (randstrobe_map_entry.is_direct()) {
+        auto r = randstrobe_map_entry.as_ref_randstrobe();
         int ref_s = r.position;
         int ref_e = r.position + r.strobe2_offset() + k;
         int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
