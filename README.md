@@ -1,16 +1,40 @@
 ![CI](https://github.com/ksahlin/strobealign/workflows/CI/badge.svg)
 [![install with Bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg)](http://bioconda.github.io/recipes/strobealign/README.html)
 
-# strobealign
+# strobealign: A fast short-read aligner
 
-Strobealign is a fast **short-read aligner**. It achieves the speedup by using a dynamic seed size obtained from [syncmer](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7869670/)-thinned [strobemers](https://github.com/ksahlin/strobemers#what-is-a-strobemer).
+Strobealign is a read mapper that is typically significantly faster than other read mappers while achieving comparable or better accuracy, see the [performance evaluation](#v07-performance).
 
-Strobealign is multithreaded, aligns single-end and paired-end reads, and outputs mapped reads either in SAM format (default) or PAF format (extension-free mapping). A paper describing version 0.7.1 is available [here](https://doi.org/10.1186/s13059-022-02831-7). Strobealign is benchmarked for read lengths between 100 and 500 bp. 
+## Features
 
-See [INSTALLATION](https://github.com/ksahlin/strobealign#installation) and [USAGE](https://github.com/ksahlin/strobealign#usage) to install and run strobealign. See [v07 PERFORMANCE](https://github.com/ksahlin/strobealign#v07-performance) for the accuracy and runtime performance of strobealign.
+- Map single-end and paired-end reads
+- Multithreading support
+- Fast indexing (2-5 minutes for a human-sized reference genome)
+- On-the-fly indexing by default. Optionally create an on-disk index.
+- Output in standard SAM format or produce even faster results by writing PAF (without alignments)
+- Strobealign is most suited for read lengths between 100 and 500 bp
 
-INSTALLATION
-----------------
+## Background
+
+Strobealign achieves its speedup by using a dynamic seed size obtained from [syncmer](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7869670/)-thinned [strobemers](https://github.com/ksahlin/strobemers#what-is-a-strobemer).
+
+For details, refer to [Strobealign: flexible seed size enables ultra-fast and accurate read alignment](https://doi.org/10.1186/s13059-022-02831-7). The paper describes v0.7.1 of the program.
+
+For an introduction, see also the [RECOMB-Seq video from 2022: “Flexible seed size enables ultra-fast and accurate read alignment”](https://www.youtube.com/watch?v=cn32telW63w) (12 minutes). For a more detailed presentation of the underlying seeding mechanism in strobealign (strobemers) see [“Efficient sequence similarity searches with strobemers”](https://www.youtube.com/watch?v=DS4tURz1Wio) (73 minutes).
+
+## Table of contents
+
+1. [Installation](#installation)
+2. [Usage](#usage)
+3. [Command-line options](#command-line-options)
+4. [Index file](#index-files)
+5. [Changelog](#changelog)
+6. [Performance](#v07-performance)
+7. [Credits](#credits)
+8. [Version info](#version-info)
+9. [License](#licence)
+
+## Installation
 
 ### Conda
 
@@ -59,8 +83,7 @@ You can add `-DCMAKE_BUILD_TYPE=RelWithDebInfo` to the
 Run `make` with `VERBOSE=1` to get more logging output.
 
 
-USAGE
------
+## Usage
 
 ```
 strobealign ref.fa reads.fq > output.sam                # Single-end reads
@@ -87,8 +110,7 @@ This is usually faster than doing the two steps separately because fewer
 intermediate files are created.
 
 
-Command-line options
---------------------
+## Command-line options
 
 Please run `strobealign --help` to see the most up-to-date list of command-line
 options. Some important ones are:
@@ -162,13 +184,7 @@ Changelog
 See [Changelog](CHANGES.md).
 
 
-Video
------
-
-For an introduction, see the [RECOMB-Seq video from 2022: “Flexible seed size enables ultra-fast and accurate read alignment”](https://www.youtube.com/watch?v=cn32telW63w) (12 minutes). For a more detailed presentation of the underlying seeding mechanism in strobealign (strobemers) see [“Efficient sequence similarity searches with strobemers”](https://www.youtube.com/watch?v=DS4tURz1Wio) (73 minutes).
-
-
-V0.7 PERFORMANCE
+V0.7 Performance
 ----------------
 
 We have in below three sections investigated accuracy and runtime metrics for v0.7 on SIM3 and REPEATS datasets included in the preprint, as well as performance of SNV and small indel calling for additional simulated and biological (GIAB) datasets.
