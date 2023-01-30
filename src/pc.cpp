@@ -16,6 +16,20 @@
 #include "kseq++.hpp"
 #include "sam.hpp"
 
+/* Strip the /1 or /2 suffix from a read name */
+void strip_suffix(std::string& name) {
+    auto len = name.length();
+    if (
+        len >= 2
+        && name[len - 2] == '/'
+        && (name[len - 1] == '1' || name[len - 1] == '2')
+    ) {
+        name.pop_back();
+        name.pop_back();
+        // C++20 would allow this:
+        // name.resize(len - 2);
+    }
+}
 
 size_t InputBuffer::read_records_PE(std::vector<klibpp::KSeq> &records1, std::vector<klibpp::KSeq> &records2, AlignmentStatistics &statistics) {
     Timer timer;
@@ -101,6 +115,8 @@ void perform_task_PE(
             auto record2 = records2[i];
             to_uppercase(record1.seq);
             to_uppercase(record2.seq);
+            strip_suffix(record1.name);
+            strip_suffix(record2.name);
             align_PE_read(record1, record2, sam, sam_out, statistics, isize_est, aln_params,
                         map_param, index_parameters, references, index);
         }
@@ -136,6 +152,7 @@ void perform_task_SE(
         for (size_t i = 0; i < records.size(); ++i) {
             auto record = records[i];
             to_uppercase(record.seq);
+            strip_suffix(record.name);
             align_SE_read(record, sam, sam_out, statistics, aln_params, map_param, index_parameters, references, index);
         }
         output_buffer.output_records(std::move(sam_out), chunk_index);
