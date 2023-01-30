@@ -31,21 +31,23 @@ Strobealign is available from [Bioconda](https://bioconda.github.io/).
 
 You can acquire precompiled binaries for Linux and macOS from the [release page](https://github.com/ksahlin/strobealign/releases) compiled with `-O3 -mavx2`.
 
-It has been [reported](https://github.com/ksahlin/strobealign/issues/6) that strobealign is even faster if compiled with flag `-march=skylake-avx512` for processors that support AVX512 instructions.
-
 ### From source
+
 If you want to compile from the source, you need to have CMake, a recent `g++` (tested with version 8) and [zlib](https://zlib.net/) installed.
 Then do the following:
-
 ```
 git clone https://github.com/ksahlin/strobealign
 cd strobealign
-cmake -B build -DENABLE_AVX=ON
+cmake -B build -DCMAKE_C_FLAGS="-march=native" -DCMAKE_CXX_FLAGS="-march=native"
 make -j -C build
 ```
-If your CPU does not support AVX2, omit `-DENABLE_AVX=ON` from the `cmake` command.
-
 The resulting binary is `build/strobealign`.
+
+The binary is tailored to the CPU the compiler runs on.
+If it needs to run on other machines, use this instead for compatibility with most x86-64 CPUs in use today:
+```
+cmake -B build -DCMAKE_C_FLAGS="-msse4.2" -DCMAKE_CXX_FLAGS="-msse4.2"
+```
 
 ### Development installation
 
