@@ -108,7 +108,7 @@ private:
     unsigned int m_count;
 };
 
-using RandstrobeMap = robin_hood::unordered_map<uint64_t, RandstrobeMapEntry>;
+using RandstrobeMap = robin_hood::unordered_map<randstrobe_hash_t, RandstrobeMapEntry>;
 
 typedef std::vector<uint64_t> hash_vector; //only used during index generation
 

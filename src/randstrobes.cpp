@@ -30,7 +30,7 @@ static unsigned char seq_nt4_table[256] = {
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
 };
 
-static inline uint64_t syncmer_kmer_hash(uint64_t packed) {
+static inline syncmer_hash_t syncmer_kmer_hash(uint64_t packed) {
     // return robin_hash(yk);
     // return yk;
     // return hash64(yk, mask);
@@ -109,13 +109,13 @@ Syncmer SyncmerIterator::next() {
     return Syncmer{0, 0}; // end marker
 }
 
-std::pair<std::vector<uint64_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
+std::pair<std::vector<syncmer_hash_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
     const std::string &seq,
     const size_t k,
     const size_t s,
     const size_t t
 ) {
-    std::vector<uint64_t> string_hashes;
+    std::vector<syncmer_hash_t> string_hashes;
     std::vector<unsigned int> pos_to_seq_coordinate;
     SyncmerIterator syncmer_iterator{seq, k, s, t};
     Syncmer syncmer;

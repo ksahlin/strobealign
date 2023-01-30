@@ -10,11 +10,13 @@
 #include <stdexcept>
 #include <inttypes.h>
 
+using syncmer_hash_t = uint64_t;
+using randstrobe_hash_t = uint64_t;
+
 // only used during index generation
 struct RefRandstrobeWithHash {
-
     using packed_t = uint32_t;
-    uint64_t hash;
+    randstrobe_hash_t hash;
     uint32_t position;
     packed_t packed; // packed representation of ref_index and strobe offset
 
@@ -24,19 +26,18 @@ struct RefRandstrobeWithHash {
 };
 
 struct QueryRandstrobe {
-    uint64_t hash;
+    randstrobe_hash_t hash;
     unsigned int start;
     unsigned int end;
     bool is_reverse;
 };
-
 
 using QueryRandstrobeVector = std::vector<QueryRandstrobe>;
 
 QueryRandstrobeVector randstrobes_query(int k, unsigned w_min, unsigned w_max, const std::string &seq, int s, int t, uint64_t q, int max_dist);
 
 struct Randstrobe {
-    uint64_t hash;
+    randstrobe_hash_t hash;
     unsigned int strobe1_pos;
     unsigned int strobe2_pos;
 
@@ -92,7 +93,7 @@ private:
 };
 
 struct Syncmer {
-    uint64_t hash;
+    syncmer_hash_t hash;
     size_t position;
     bool is_end() const {
         return hash == 0 && position == 0;
@@ -156,7 +157,7 @@ private:
 };
 
 
-std::pair<std::vector<uint64_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
+std::pair<std::vector<syncmer_hash_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
     const std::string &seq,
     const size_t k,
     const size_t s,
