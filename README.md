@@ -1,48 +1,89 @@
-strobealign
-===========
+![CI](https://github.com/ksahlin/strobealign/workflows/CI/badge.svg)
+[![install with Bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg)](http://bioconda.github.io/recipes/strobealign/README.html)
 
-Strobealign is a fast **short-read aligner**. It achieves the speedup by using a dynamic seed size obtained from [syncmer](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7869670/)-thinned [strobemers](https://github.com/ksahlin/strobemers#what-is-a-strobemer).
+# strobealign: A fast short-read aligner
 
-Strobealign is multithreaded, aligns single-end and paired-end reads, and outputs mapped reads either in SAM format (default) or PAF format (extension-free mapping). A paper describing version 0.7.1 is available [here](https://doi.org/10.1186/s13059-022-02831-7). Strobealign is benchmarked for read lengths between 100 and 500 bp. 
+Strobealign is a read mapper that is typically significantly faster than other read mappers while achieving comparable or better accuracy, see the [performance evaluation](#v07-performance).
 
-See [INSTALLATION](https://github.com/ksahlin/strobealign#installation) and [USAGE](https://github.com/ksahlin/strobealign#usage) to install and run strobealign. See [v07 PERFORMANCE](https://github.com/ksahlin/strobealign#v07-performance) for the accuracy and runtime performance of strobealign.
+## Features
 
-INSTALLATION
-----------------
+- Map single-end and paired-end reads
+- Multithreading support
+- Fast indexing (2-5 minutes for a human-sized reference genome)
+- On-the-fly indexing by default. Optionally create an on-disk index.
+- Output in standard SAM format or produce even faster results by writing PAF (without alignments)
+- Strobealign is most suited for read lengths between 100 and 500 bp
+
+## Background
+
+Strobealign achieves its speedup by using a dynamic seed size obtained from [syncmer](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7869670/)-thinned [strobemers](https://github.com/ksahlin/strobemers#what-is-a-strobemer).
+
+For details, refer to [Strobealign: flexible seed size enables ultra-fast and accurate read alignment](https://doi.org/10.1186/s13059-022-02831-7). The paper describes v0.7.1 of the program.
+
+For an introduction, see also the 📺 [RECOMB-Seq video from 2022: “Flexible seed size enables ultra-fast and accurate read alignment”](https://www.youtube.com/watch?v=cn32telW63w) (12 minutes). For a more detailed presentation of the underlying seeding mechanism in strobealign (strobemers) see 📺 [“Efficient sequence similarity searches with strobemers”](https://www.youtube.com/watch?v=DS4tURz1Wio) (73 minutes).
+
+## Table of contents
+
+1. [Installation](#installation)
+2. [Usage](#usage)
+3. [Command-line options](#command-line-options)
+4. [Index file](#index-files)
+5. [Changelog](#changelog)
+6. [Performance](#v07-performance)
+7. [Credits](#credits)
+8. [Version info](#version-info)
+9. [License](#licence)
+
+## Installation
 
 ### Conda
-Strobealign can be installed through conda. Simply run
 
-```
-conda create -n strobealign strobealign
-```
+Strobealign is available from [Bioconda](https://bioconda.github.io/).
+1. Follow the [Bioconda installation instructions](https://bioconda.github.io/user/install.html)
+2. Install strobealign into a new Conda environment:
+   ```
+   conda create -n strobealign strobealign
+   ```
+3. Activate the environment that was just created:
+   ```
+   conda activate strobealign
+   ```
+4. Run strobealign:
+   ```
+   strobealign --version
+   ```
 
 ### Binaries
+
 You can acquire precompiled binaries for Linux and macOS from the [release page](https://github.com/ksahlin/strobealign/releases) compiled with `-O3 -mavx2`.
 
-It has been [reported](https://github.com/ksahlin/strobealign/issues/6) that strobealign is even faster if compiled with flag `-march=skylake-avx512` for processors that support AVX512 instructions.
-
 ### From source
+
 If you want to compile from the source, you need to have CMake, a recent `g++` (tested with version 8) and [zlib](https://zlib.net/) installed.
 Then do the following:
-
 ```
 git clone https://github.com/ksahlin/strobealign
 cd strobealign
-cmake -B build
-cd build
-make -j8
+cmake -B build -DCMAKE_C_FLAGS="-march=native" -DCMAKE_CXX_FLAGS="-march=native"
+make -j -C build
 ```
-Try `make VERBOSE=1` to get more logging output.
+The resulting binary is `build/strobealign`.
 
-##### Development installation
+The binary is tailored to the CPU the compiler runs on.
+If it needs to run on other machines, use this instead for compatibility with most x86-64 CPUs in use today:
+```
+cmake -B build -DCMAKE_C_FLAGS="-msse4.2" -DCMAKE_CXX_FLAGS="-msse4.2"
+```
 
-When developing strobealign, add `-DCMAKE_BUILD_TYPE=RelWithDebInfo` to the
+### Development installation
+
+You can add `-DCMAKE_BUILD_TYPE=RelWithDebInfo` to the
 `cmake` options to get debug symbols.
 
+Run `make` with `VERBOSE=1` to get more logging output.
 
-USAGE
--------
+
+## Usage
 
 ```
 strobealign ref.fa reads.fq > output.sam                # Single-end reads
@@ -52,30 +93,87 @@ strobealign -x ref.fa reads.fq > output.paf             # Single-end reads mappi
 strobealign -x ref.fa reads1.fq reads2.fq > output.paf  # Paired-end reads mapping only (PAF)
 ```
 
-To report secondary alignments, set parameter `-N [INT]` for maximum of `[INT]` secondary alignments. 
+To report secondary alignments, set parameter `-N [INT]` for a maximum of `[INT]` secondary alignments.
 
+The above commands are suitable for interactive use and test runs.
+For normal use, avoid creating SAM files on disk as they get very large compared
+to their compressed BAM counterparts. Instead, either pipe strobealign’s output
+into `samtools view` to create unsorted BAM files:
+```
+strobealign ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools view -o mapped.bam
+```
+Or use `samtools sort` to create a sorted BAM file:
+```
+strobealign ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools sort -o sorted.bam
+```
+This is usually faster than doing the two steps separately because fewer
+intermediate files are created.
+
+
+## Command-line options
+
+Please run `strobealign --help` to see the most up-to-date list of command-line
+options. Some important ones are:
+
+* `-r`: Mean read length. If given, this overrides the read length estimated
+  from the input file(s). This is usually only required in combination with
+  `--create-index`, see [index files](#index-files).
+* `-t N`, `--threads=N`: Use N threads. This mainly applies to the mapping step
+  as the indexing step is only partially parallelized.
+* `-x`: Only map reads, do not do no base-level alignment. This switches the
+  output format from SAM to [PAF](https://github.com/lh3/miniasm/blob/master/PAF.md).
+* `--rg-id=ID`: Add RG tag to each SAM record.
+* `--rg=TAG:VALUE`: Add read group metadata to the SAM header. This can be
+  specified multiple times. Example: `--rg-id=1 --rg=SM:mysamle --rg=LB:mylibrary`.
+* `-N INT`: Output up to INT secondary alignments. By default, no secondary
+  alignments are output.
+* `-U`: Suppress output of unmapped reads.
+* `--use-index`: Use a pre-generated index instead of generating a new one.
+* `--create-index`, `-i`: Generate a strobemer index file (`.sti`) and write it
+  to disk next to the input reference FASTA. Do not map reads. If read files are
+  provided, they are used to estimate read length. See [index files](#index-files).
 
 Index files
 -----------
 
-Every time you run strobealign, the program by default computes an index of the
-provided reference FASTA. This is done because the indexing parameters vary
-according to read length. This is relatively fast: Depending on CPU, indexing a
-human-sized genome takes 2-5 minutes, but when you work with multiple libraries
-that all (roughly) have the same read length, you can save time by letting
-strobealign precompute an index file with the `-i` option.
+### Background
 
-Since strobealign needs to know the read length, either provide it with the
-reads file as if you wanted to map them:
+Strobealign needs to build an index (strobemer index) of the reference before
+it can map reads to it.
+The optimal indexing parameters depend on the length of the input reads.
+There are currently seven different pre-defined sets of parameters that are
+optimized for different read lengths. These *canonical read lengths* are
+50, 100, 125, 150, 250, 300 and 400. When deciding which of the pre-defined
+indexing parameter sets to use, strobealign chooses one whose canonical
+read length is close to the average read length of the input.
 
-    strobalign -i ref.fa reads.1.fastq.gz reads.2.fastq.gz
+The average read length of the input is normally estimated from the first
+500 reads, but can also be explicitly set with `-r`.
+
+### Pre-computing an index
+
+By default, strobealign creates a new index every time the program is run.
+Depending on CPU, indexing a human-sized genome takes
+2 to 5 minutes, which is fast compared to mapping many millions of reads.
+However, for repeatedly mapping small libraries, it is faster to pre-generate
+an index on disk and use that. Keep in mind though that an index file can become
+large (8 GiB for the human genome) and reading it from disk also takes time.
+
+To create an index, use the `--create-index` option.
+Since strobealign needs to know the read length, either provide it with
+read file(s) as if you wanted to map them:
+
+    strobealign --create-index ref.fa reads.1.fastq.gz reads.2.fastq.gz
 
 Or set the read length explicitly with `-r`:
 
-    strobealign -i ref.fa -r 150
+    strobealign --create-index ref.fa -r 150
 
-This creates a file named `ref.fa.sti` containing the strobemer index. To use
-it, provide option `--use-index` when doing the actual mapping:
+This creates a file named `ref.fa.rX.sti` containing the strobemer index,
+where `X` is the canonical read length that the index is optimized for (see
+above).
+To use the index when mapping, provide option `--use-index` when doing the
+actual mapping:
 
     strobealign --use-index ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools ...
 
@@ -86,13 +184,7 @@ Changelog
 See [Changelog](CHANGES.md).
 
 
-Video
------
-
-For an introduction, see the [RECOMB-Seq video from 2022: “Flexible seed size enables ultra-fast and accurate read alignment”](https://www.youtube.com/watch?v=cn32telW63w) (12 minutes). For a more detailed presentation of the underlying seeding mechanism in strobealign (strobemers) see [“Efficient sequence similarity searches with strobemers”](https://www.youtube.com/watch?v=DS4tURz1Wio) (73 minutes).
-
-
-V0.7 PERFORMANCE
+V0.7 Performance
 ----------------
 
 We have in below three sections investigated accuracy and runtime metrics for v0.7 on SIM3 and REPEATS datasets included in the preprint, as well as performance of SNV and small indel calling for additional simulated and biological (GIAB) datasets.

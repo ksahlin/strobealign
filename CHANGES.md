@@ -1,4 +1,4 @@
-# StrobeAlign Changelog
+# Strobealign Changelog
 
 ## development version
 
@@ -24,7 +24,7 @@
   human genome, for example, it went from from 28 GiB to 21 GiB. (Mapping
   runtime is unaffected.)
 * There is now a Conda package for StrobeAlign on Bioconda.
-* The index can now be pre-generated and safed to disk.
+* PR #48, PR #195: The index can now be pre-generated and saved to disk.
 * Invalid or missing input files no longer lead to a crash.
 * Added `-h`/`--help` options.
 * Added `--version` option.
@@ -34,6 +34,7 @@
   "1" and the sample name to "mysample").
 * Suppress some logging output by default.
 * Added option `-v` for showing full logging output.
+* Issue #206: Added option `-U` for suppressing output of unaligned reads. Thanks @sjaenick.
 
 ### Developer-oriented changes
 
@@ -46,7 +47,8 @@
 
 ### Other changes
 
-* Issue #34: Disabled AVX2 CPU instructions by default.
+* Issue #34: Disabled AVX2 CPU instructions by default as they are sometimes not
+  available. Re-enable by running `cmake` with `-DENABLE_AVX=ON`.
 
 
 ## v0.7.1 (2022-04-17)
