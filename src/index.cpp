@@ -24,7 +24,7 @@ static Logger& logger = Logger::get();
 static const uint32_t STI_FILE_FORMAT_VERSION = 1;
 
 
-uint64_t count_unique_hashes(const ind_mers_vector& mers){
+uint64_t count_unique_hashes(const std::vector<RefRandstrobeWithHash>& mers){
     if (mers.empty()) {
         return 0;
     }
@@ -247,8 +247,8 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
  * - stats.tot_occur_once
  * - stats.tot_strobemer_count
  */
-ind_mers_vector StrobemerIndex::add_randstrobes_to_hash_table() {
-    ind_mers_vector ind_flat_vector;
+std::vector<RefRandstrobeWithHash> StrobemerIndex::add_randstrobes_to_hash_table() {
+    std::vector<RefRandstrobeWithHash> randstrobes_with_hash;
     size_t tot_occur_once = 0;
     for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
         auto seq = references.sequences[ref_index];
@@ -292,20 +292,20 @@ ind_mers_vector StrobemerIndex::add_randstrobes_to_hash_table() {
                     if (existing_count == 1) {
                         // current entry is a direct one, convert to an indirect one
                         auto existing_randstrobe = existing->second.as_ref_randstrobe();
-                        ind_flat_vector.push_back(RefRandstrobeWithHash{randstrobe.hash, existing_randstrobe.position, existing_randstrobe.packed()});
+                        randstrobes_with_hash.push_back(RefRandstrobeWithHash{randstrobe.hash, existing_randstrobe.position, existing_randstrobe.packed()});
                         tot_occur_once--;
                     }
                     // offset is adjusted later after sorting
                     existing->second.set_count(existing_count + 1);
 
-                    ind_flat_vector.push_back(RefRandstrobeWithHash{randstrobe.hash, randstrobe.strobe1_pos, packed});
+                    randstrobes_with_hash.push_back(RefRandstrobeWithHash{randstrobe.hash, randstrobe.strobe1_pos, packed});
                 }
             }
             chunk.clear();
         }
     }
     stats.tot_occur_once = tot_occur_once;
-    return ind_flat_vector;
+    return randstrobes_with_hash;
 }
 
 void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) const {

@@ -23,8 +23,6 @@ struct RefRandstrobeWithHash {
     }
 };
 
-typedef std::vector<RefRandstrobeWithHash> ind_mers_vector;
-
 struct QueryRandstrobe {
     uint64_t hash;
     unsigned int start;

@@ -22,6 +22,12 @@
 #include "randstrobes.hpp"
 #include "indexparameters.hpp"
 
+/*
+ * This describes where a randstrobe occurs. Info stored:
+ * - reference index
+ * - position of the first strobe
+ * - offset of the second strobe
+*/
 class RefRandstrobe {
 public:
     RefRandstrobe() { }  // TODO should not be needed
@@ -49,6 +55,18 @@ private:
 
 using RefRandstrobeVector = std::vector<RefRandstrobe>;
 
+/*
+ * An entry in the randstrobe map that allows retrieval of randstrobe
+ * occurrences. To save memory, the entry is either a "direct" or an
+ * "indirect" one.
+ *
+ * - A direct entry is used if the randstrobe occurs only once in the reference.
+ *   Then that single occurrence itself is stored and can be retrieved by the
+ *   as_ref_randstrobe() method.
+ * - An indirect entry is used if the randstrobe has multiple occurrences.
+ *   In that case, offset() and count() point to an interval within a second
+ *   table (RandstrobeVector).
+ */
 class RandstrobeMapEntry {
 public:
     RandstrobeMapEntry() { }
@@ -140,7 +158,7 @@ struct StrobemerIndex {
     }
 
 private:
-    ind_mers_vector add_randstrobes_to_hash_table();
+    std::vector<RefRandstrobeWithHash> add_randstrobes_to_hash_table();
 
     const IndexParameters& parameters;
     const References& references;
