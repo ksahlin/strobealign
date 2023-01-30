@@ -58,7 +58,8 @@ static inline uint64_t syncmer_kmer_hash(uint64_t packed) {
     //return wy::hash<uint64_t>()(packed);
     //return XXH3_64bits(&packed, sizeof(uint64_t));
     //return fxhash(packed);
-    return fnv1a(&packed, sizeof(uint64_t));
+    //return fnv1a(&packed, sizeof(uint64_t));
+    return packed;
 }
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
