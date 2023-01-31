@@ -25,6 +25,11 @@ strobealign -x tests/phix.fasta tests/phix.1.fastq | tail > phix.se.paf
 diff -u tests/phix.se.paf phix.se.paf
 rm phix.se.paf
 
+# Single-end PAF (stdin input)
+cat tests/phix.1.fastq | strobealign -x tests/phix.fasta - | tail > phix.se.paf
+diff -u tests/phix.se.paf phix.se.paf
+rm phix.se.paf
+
 # Paired-end PAF
 strobealign -x tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq | tail > phix.pe.paf
 diff -u tests/phix.pe.paf phix.pe.paf

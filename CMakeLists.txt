@@ -63,6 +63,7 @@ install(TARGETS strobealign DESTINATION bin)
 
 add_executable(test-strobealign
   tests/tests.cpp
+  tests/test_input.cpp
   tests/test_refs.cpp
   tests/test_sam.cpp
 )

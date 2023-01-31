@@ -55,6 +55,7 @@ struct CommandLineOptions {
     std::string reads_filename1;
     std::string reads_filename2;
     bool is_SE { true };
+    bool is_interleaved { false };
 };
 
 CommandLineOptions parse_command_line_arguments(int argc, char **argv);

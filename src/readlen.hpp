@@ -3,7 +3,8 @@
 
 #include "kseq++.hpp"
 #include <zlib.h>
+#include "pc.hpp"
 
-int estimate_read_length(const std::string& filename1, const std::string& filename2);
+int estimate_read_length(InputBuffer& input_buffer);
 
 #endif

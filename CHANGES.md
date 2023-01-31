@@ -35,6 +35,8 @@
 * Suppress some logging output by default.
 * Added option `-v` for showing full logging output.
 * Issue #206: Added option `-U` for suppressing output of unaligned reads. Thanks @sjaenick.
+* PR #213: Add support for interleaved reads. Thanks @luispedro.
+* PR #213: Add support for reading from a pipe (including stdin). Thanks @luispedro.
 
 ### Developer-oriented changes
 

@@ -73,6 +73,19 @@ bool avx2_enabled() {
 #endif
 }
 
+InputBuffer get_input_buffer(const CommandLineOptions& opt) {
+    if (opt.is_SE) {
+        return InputBuffer(opt.reads_filename1, "", opt.chunk_size, false);
+    } else if (opt.is_interleaved) {
+        if (opt.reads_filename2 != "") {
+            throw BadParameter("Cannot specify both --interleaved and specify two read files");
+        }
+        return InputBuffer(opt.reads_filename1, "", opt.chunk_size, true);
+    } else {
+        return InputBuffer(opt.reads_filename1, opt.reads_filename2, opt.chunk_size, false);
+    }
+}
+
 int run_strobealign(int argc, char **argv) {
     auto opt = parse_command_line_arguments(argc, argv);
 
@@ -82,13 +95,17 @@ int run_strobealign(int argc, char **argv) {
     logger.debug() << "Build type: " << CMAKE_BUILD_TYPE << '\n';
     warn_if_no_optimizations();
     logger.debug() << "AVX2 enabled: " << (avx2_enabled() ? "yes" : "no") << '\n';
-    if (!opt.r_set && !opt.reads_filename1.empty()) {
-        opt.r = estimate_read_length(opt.reads_filename1, opt.reads_filename2);
-        logger.info() << "Estimated read length: " << opt.r << " bp\n";
-    }
+
     if (opt.c >= 64 || opt.c <= 0) {
         throw BadParameter("c must be greater than 0 and less than 64");
     }
+
+    InputBuffer input_buffer = get_input_buffer(opt);
+    if (!opt.r_set && !opt.reads_filename1.empty()) {
+        opt.r = estimate_read_length(input_buffer);
+        logger.info() << "Estimated read length: " << opt.r << " bp\n";
+    }
+    input_buffer.rewind_reset();
     IndexParameters index_parameters = IndexParameters::from_read_length(
         opt.r,
         opt.c_set ? opt.c : IndexParameters::DEFAULT,
@@ -211,44 +228,19 @@ int run_strobealign(int argc, char **argv) {
 
     logger.info() << "Running in " << (opt.is_SE ? "single-end" : "paired-end") << " mode" << std::endl;
 
-    if (opt.is_SE) {
-        auto ks = open_fastq(opt.reads_filename1);
+    OutputBuffer output_buffer(out);
 
-        InputBuffer input_buffer(ks, ks, opt.chunk_size);
-        OutputBuffer output_buffer(out);
-
-        std::vector<std::thread> workers;
-        for (int i = 0; i < opt.n_threads; ++i) {
-            std::thread consumer(perform_task_SE, std::ref(input_buffer), std::ref(output_buffer),
-                std::ref(log_stats_vec[i]), std::ref(aln_params),
-                std::ref(map_param), std::ref(index_parameters), std::ref(references),
-                std::ref(index), std::ref(opt.read_group_id));
-            workers.push_back(std::move(consumer));
-        }
-
-        for (size_t i = 0; i < workers.size(); ++i) {
-            workers[i].join();
-        }
+    std::vector<std::thread> workers;
+    for (int i = 0; i < opt.n_threads; ++i) {
+        std::thread consumer(perform_task, std::ref(input_buffer), std::ref(output_buffer),
+            std::ref(log_stats_vec[i]), std::ref(aln_params),
+            std::ref(map_param), std::ref(index_parameters), std::ref(references),
+            std::ref(index), std::ref(opt.read_group_id));
+        workers.push_back(std::move(consumer));
     }
-    else {
-        auto ks1 = open_fastq(opt.reads_filename1);
-        auto ks2 = open_fastq(opt.reads_filename2);
 
-        InputBuffer input_buffer(ks1, ks2, opt.chunk_size);
-        OutputBuffer output_buffer(out);
-
-        std::vector<std::thread> workers;
-        for (int i = 0; i < opt.n_threads; ++i) {
-            std::thread consumer(perform_task_PE, std::ref(input_buffer), std::ref(output_buffer),
-                std::ref(log_stats_vec[i]), std::ref(aln_params),
-                std::ref(map_param), std::ref(index_parameters), std::ref(references),
-                std::ref(index), std::ref(opt.read_group_id));
-            workers.push_back(std::move(consumer));
-        }
-
-        for (size_t i = 0; i < workers.size(); ++i) {
-            workers[i].join();
-        }
+    for (size_t i = 0; i < workers.size(); ++i) {
+        workers[i].join();
     }
     logger.info() << "Done!\n";
 
