@@ -28,6 +28,7 @@ static Logger& logger = Logger::get();
  */
 std::string sam_header(const References& references, const std::string& read_group_id, const std::vector<std::string>& read_group_fields) {
     std::stringstream out;
+    out << "@HD\tVN:1.6\tSO:unsorted\n";
     for (size_t i = 0; i < references.size(); ++i) {
         out << "@SQ\tSN:" << references.names[i] << "\tLN:" << references.lengths[i] << "\n";
     }
