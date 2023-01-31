@@ -22,10 +22,16 @@
 #include "randstrobes.hpp"
 #include "indexparameters.hpp"
 
-class ReferenceMer {
+/*
+ * This describes where a randstrobe occurs. Info stored:
+ * - reference index
+ * - position of the first strobe
+ * - offset of the second strobe
+*/
+class RefRandstrobe {
 public:
-    ReferenceMer() { }  // TODO should not be needed
-    ReferenceMer(uint32_t position, uint32_t packed) : position(position), m_packed(packed) {
+    RefRandstrobe() { }  // TODO should not be needed
+    RefRandstrobe(uint32_t position, uint32_t packed) : position(position), m_packed(packed) {
     }
     uint32_t position;
 
@@ -37,25 +43,37 @@ public:
         return m_packed & mask;
     }
 
-    MersIndexEntry::packed_t packed() const {
+    RefRandstrobeWithHash::packed_t packed() const {
         return m_packed;
     }
 
 private:
     static const int bit_alloc = 8;
     static const int mask = (1 << bit_alloc) - 1;
-    MersIndexEntry::packed_t m_packed;
+    RefRandstrobeWithHash::packed_t m_packed;
 };
 
-typedef std::vector<ReferenceMer> mers_vector;
+using RefRandstrobeVector = std::vector<RefRandstrobe>;
 
-class KmerLookupEntry {
+/*
+ * An entry in the randstrobe map that allows retrieval of randstrobe
+ * occurrences. To save memory, the entry is either a "direct" or an
+ * "indirect" one.
+ *
+ * - A direct entry is used if the randstrobe occurs only once in the reference.
+ *   Then that single occurrence itself is stored and can be retrieved by the
+ *   as_ref_randstrobe() method.
+ * - An indirect entry is used if the randstrobe has multiple occurrences.
+ *   In that case, offset() and count() point to an interval within a second
+ *   table (RandstrobeVector).
+ */
+class RandstrobeMapEntry {
 public:
-    KmerLookupEntry() { }
-    KmerLookupEntry(unsigned int offset, unsigned int count) : m_offset(offset), m_count(count) { }
+    RandstrobeMapEntry() { }
+    RandstrobeMapEntry(unsigned int offset, unsigned int count) : m_offset(offset), m_count(count) { }
 
     unsigned int count() const {
-        if (is_reference_mer()) {
+        if (is_direct()) {
             return 1;
         } else {
             return m_count;
@@ -63,17 +81,17 @@ public:
     }
 
     unsigned int offset() const{
-        assert(!is_reference_mer());
+        assert(!is_direct());
         return m_offset;
     }
 
-    bool is_reference_mer() const {
+    bool is_direct() const {
         return m_count & 0x8000'0000;
     }
 
-    ReferenceMer as_reference_mer() const {
-        assert(is_reference_mer());
-        return ReferenceMer{m_offset, m_count & 0x7fff'ffff};
+    RefRandstrobe as_ref_randstrobe() const {
+        assert(is_direct());
+        return RefRandstrobe{m_offset, m_count & 0x7fff'ffff};
     }
 
     void set_count(unsigned int count) {
@@ -81,7 +99,7 @@ public:
     }
 
     void set_offset(unsigned int offset) {
-        assert(!is_reference_mer());
+        assert(!is_direct());
         m_offset = offset;
     }
 
@@ -90,7 +108,7 @@ private:
     unsigned int m_count;
 };
 
-typedef robin_hood::unordered_map<uint64_t, KmerLookupEntry> kmer_lookup;
+using RandstrobeMap = robin_hood::unordered_map<randstrobe_hash_t, RandstrobeMapEntry>;
 
 typedef std::vector<uint64_t> hash_vector; //only used during index generation
 
@@ -119,7 +137,7 @@ struct StrobemerIndex {
         , references(references) {}
     unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
                                 //therefore stored here since it needs to be saved with the index.
-    mers_vector flat_vector;
+    RefRandstrobeVector flat_vector;
     mutable IndexCreationStatistics stats;
 
     void write(const std::string& filename) const;
@@ -127,25 +145,24 @@ struct StrobemerIndex {
     void populate(float f, size_t n_threads);
     void print_diagnostics(const std::string& logfile_name, int k) const;
 
-    kmer_lookup::const_iterator find(uint64_t key) const {
-        return mers_index.find(key);
+    RandstrobeMap::const_iterator find(uint64_t key) const {
+        return randstrobe_map.find(key);
     }
 
-    kmer_lookup::const_iterator end() const {
-        return mers_index.cend();
+    RandstrobeMap::const_iterator end() const {
+        return randstrobe_map.cend();
     }
 
     void add_entry(uint64_t key, unsigned int offset, unsigned int count) {
-        KmerLookupEntry s{offset, count};
-        mers_index[key] = s;
+        randstrobe_map[key] = RandstrobeMapEntry{offset, count};
     }
 
 private:
-    ind_mers_vector add_randstrobes_to_hash_table();
+    std::vector<RefRandstrobeWithHash> add_randstrobes_to_hash_table();
 
     const IndexParameters& parameters;
     const References& references;
-    kmer_lookup mers_index; // k-mer -> (offset in flat_vector, occurence count )
+    RandstrobeMap randstrobe_map; // k-mer -> (offset in flat_vector, occurence count )
 };
 
 #endif

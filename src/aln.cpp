@@ -12,7 +12,7 @@ using namespace klibpp;
 
 struct Hit {
     unsigned int count;
-    KmerLookupEntry lookup_entry;
+    RandstrobeMapEntry randstrobe_map_entry;
     unsigned int query_s;
     unsigned int query_e;
     bool is_rc;
@@ -98,14 +98,14 @@ void add_to_hits_per_ref(
     bool is_rc,
     const StrobemerIndex& index,
     int k,
-    KmerLookupEntry lookup_entry,
+    RandstrobeMapEntry randstrobe_map_entry,
     int min_diff
 ) {
     // Determine whether the hash table’s value directly represents a
     // ReferenceMer (this is the case if count==1) or an offset/count
     // pair that refers to entries in the flat_vector.
-    if (lookup_entry.is_reference_mer()) {
-        auto r = lookup_entry.as_reference_mer();
+    if (randstrobe_map_entry.is_direct()) {
+        auto r = randstrobe_map_entry.as_ref_randstrobe();
         int ref_s = r.position;
         int ref_e = r.position + r.strobe2_offset() + k;
         int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
@@ -114,7 +114,7 @@ void add_to_hits_per_ref(
             min_diff = diff;
         }
     } else {
-        for (size_t j = lookup_entry.offset(); j < lookup_entry.offset() + lookup_entry.count(); ++j) {
+        for (size_t j = randstrobe_map_entry.offset(); j < randstrobe_map_entry.offset() + randstrobe_map_entry.count(); ++j) {
             auto r = index.flat_vector[j];
             int ref_s = r.position;
             int ref_e = r.position + r.strobe2_offset() + k;
@@ -130,7 +130,7 @@ void add_to_hits_per_ref(
 
 static inline void find_nams_rescue(
     std::vector<nam> &final_nams,
-    const mers_vector_read &query_mers,
+    const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index,
     int k,
     unsigned int filter_cutoff
@@ -142,7 +142,7 @@ static inline void find_nams_rescue(
     hits_fw.reserve(5000);
     hits_rc.reserve(5000);
 
-    for (auto &q : query_mers) {
+    for (auto &q : query_randstrobes) {
         auto ref_hit = index.find(q.hash);
         if (ref_hit != index.end()) {
             Hit s{ref_hit->second.count(), ref_hit->second, q.start, q.end, q.is_reverse};
@@ -163,7 +163,7 @@ static inline void find_nams_rescue(
             if ((count > filter_cutoff && cnt >= 5) || count > 1000) {
                 break;
             }
-            add_to_hits_per_ref(hits_per_ref, q.query_s, q.query_e, q.is_rc, index, k, q.lookup_entry, 1000);
+            add_to_hits_per_ref(hits_per_ref, q.query_s, q.query_e, q.is_rc, index, k, q.randstrobe_map_entry, 1000);
             cnt++;
         }
     }
@@ -270,7 +270,7 @@ static inline void find_nams_rescue(
 
 static inline std::pair<float,int> find_nams(
     std::vector<nam> &final_nams,
-    const mers_vector_read &query_mers,
+    const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index,
     int k
 ) {
@@ -278,7 +278,7 @@ static inline std::pair<float,int> find_nams(
     hits_per_ref.reserve(100);
 
     int nr_good_hits = 0, total_hits = 0;
-    for (auto &q : query_mers) {
+    for (auto &q : query_randstrobes) {
         auto ref_hit = index.find(q.hash);
         if (ref_hit != index.end()) {
             total_hits++;
@@ -2201,16 +2201,16 @@ void align_PE_read(
     const References& references,
     const StrobemerIndex& index
 ) {
-    mers_vector_read query_mers1, query_mers2; // pos, chr_id, kmer hash value
+    QueryRandstrobeVector query_randstrobes1, query_randstrobes2;
 
     // generate mers here
     Timer strobe_timer;
 
-    query_mers1 = randstrobes_query(
+    query_randstrobes1 = randstrobes_query(
         index_parameters.k, index_parameters.w_min, index_parameters.w_max, record1.seq, index_parameters.s, index_parameters.t_syncmer,
         index_parameters.q, index_parameters.max_dist);
 
-    query_mers2 = randstrobes_query(
+    query_randstrobes2 = randstrobes_query(
         index_parameters.k, index_parameters.w_min, index_parameters.w_max, record2.seq, index_parameters.s, index_parameters.t_syncmer,
         index_parameters.q, index_parameters.max_dist);
 
@@ -2221,8 +2221,8 @@ void align_PE_read(
     std::vector<nam> nams1;
     std::vector<nam> nams2;
     std::pair<float, int> info1, info2;
-    info1 = find_nams(nams1, query_mers1, index, index_parameters.k);
-    info2 = find_nams(nams2, query_mers2, index, index_parameters.k);
+    info1 = find_nams(nams1, query_randstrobes1, index, index_parameters.k);
+    info2 = find_nams(nams2, query_randstrobes2, index, index_parameters.k);
     statistics.tot_find_nams += nam_timer.duration();
 
     if (map_param.R > 1) {
@@ -2230,14 +2230,14 @@ void align_PE_read(
         if (nams1.empty() || info1.first < 0.7) {
             statistics.tried_rescue += 1;
             nams1.clear();
-            find_nams_rescue(nams1, query_mers1, index,
+            find_nams_rescue(nams1, query_randstrobes1, index,
                 index_parameters.k, map_param.rescue_cutoff);
         }
 
         if (nams2.empty() || info2.first < 0.7) {
             statistics.tried_rescue += 1;
             nams2.clear();
-            find_nams_rescue(nams2, query_mers2, index,
+            find_nams_rescue(nams2, query_randstrobes2, index,
                 index_parameters.k, map_param.rescue_cutoff);
         }
         statistics.tot_time_rescue += rescue_timer.duration();
@@ -2289,17 +2289,17 @@ void align_SE_read(
     const StrobemerIndex& index
 ) {
         std::string seq, seq_rc;
-        mers_vector_read query_mers; // pos, chr_id, kmer hash value
+        QueryRandstrobeVector query_randstrobes;
         std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
 
         // generate mers here
         Timer strobe_timer;
-        query_mers = randstrobes_query(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
+        query_randstrobes = randstrobes_query(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
         statistics.tot_construct_strobemers += strobe_timer.duration();
 
         // Find NAMs
         Timer nam_timer;
-        std::pair<float, int> info = find_nams(nams, query_mers, index, index_parameters.k);
+        std::pair<float, int> info = find_nams(nams, query_randstrobes, index, index_parameters.k);
         statistics.tot_find_nams += nam_timer.duration();
 
         if (map_param.R > 1) {
@@ -2307,7 +2307,7 @@ void align_SE_read(
             if (nams.empty() || info.first < 0.7) {
                 statistics.tried_rescue += 1;
                 nams.clear();
-                find_nams_rescue(nams, query_mers, index, index_parameters.k, map_param.rescue_cutoff);
+                find_nams_rescue(nams, query_randstrobes, index, index_parameters.k, map_param.rescue_cutoff);
             }
             statistics.tot_time_rescue += rescue_timer.duration();
         }

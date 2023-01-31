@@ -30,7 +30,7 @@ static unsigned char seq_nt4_table[256] = {
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
 };
 
-static inline uint64_t syncmer_kmer_hash(uint64_t packed) {
+static inline syncmer_hash_t syncmer_kmer_hash(uint64_t packed) {
     // return robin_hash(yk);
     // return yk;
     // return hash64(yk, mask);
@@ -109,13 +109,13 @@ Syncmer SyncmerIterator::next() {
     return Syncmer{0, 0}; // end marker
 }
 
-std::pair<std::vector<uint64_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
+std::pair<std::vector<syncmer_hash_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
     const std::string &seq,
     const size_t k,
     const size_t s,
     const size_t t
 ) {
-    std::vector<uint64_t> string_hashes;
+    std::vector<syncmer_hash_t> string_hashes;
     std::vector<unsigned int> pos_to_seq_coordinate;
     SyncmerIterator syncmer_iterator{seq, k, s, t};
     Syncmer syncmer;
@@ -203,7 +203,7 @@ Randstrobe RandstrobeIterator2::next() {
  * syncmers. Since creating canonical syncmers is the most time consuming step,
  * we avoid performing it twice for the read and its reverse complement here.
  */
-mers_vector_read randstrobes_query(
+QueryRandstrobeVector randstrobes_query(
     int k,
     unsigned w_min,
     unsigned w_max,
@@ -217,7 +217,7 @@ mers_vector_read randstrobes_query(
     // The seq_to_randstrobes2 stores randstobes only in one direction from canonical syncmers.
     // this function stores randstobes from both directions created from canonical syncmers.
     // Since creating canonical syncmers is the most time consuming step, we avoid perfomring it twice for the read and its RC here
-    mers_vector_read randstrobes2;
+    QueryRandstrobeVector randstrobes2;
     auto read_length = seq.length();
     if (read_length < w_max) {
         return randstrobes2;
@@ -237,8 +237,9 @@ mers_vector_read randstrobes_query(
     RandstrobeIterator randstrobe_fwd_iter { string_hashes, pos_to_seq_coordinate, w_min, w_max, q, max_dist };
     while (randstrobe_fwd_iter.has_next()) {
         auto randstrobe = randstrobe_fwd_iter.next();
-        QueryMer query_mer{randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + k, false};
-        randstrobes2.push_back(query_mer);
+        randstrobes2.push_back(
+            QueryRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + k, false}
+        );
     }
 
     std::reverse(string_hashes.begin(), string_hashes.end());
@@ -250,8 +251,9 @@ mers_vector_read randstrobes_query(
     RandstrobeIterator randstrobe_rc_iter { string_hashes, pos_to_seq_coordinate, w_min, w_max, q, max_dist };
     while (randstrobe_rc_iter.has_next()) {
         auto randstrobe = randstrobe_rc_iter.next();
-        QueryMer query_mer{randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + k, true};
-        randstrobes2.push_back(query_mer);
+        randstrobes2.push_back(
+            QueryRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + k, true}
+        );
     }
     return randstrobes2;
 }

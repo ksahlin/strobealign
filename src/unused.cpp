@@ -1180,9 +1180,9 @@ static inline bool sort_hits(const hit &a, const hit &b)
 static inline void find_nams_rescue(
     std::vector<nam> &final_nams,
     robin_hood::unordered_map<unsigned int, std::vector<hit>> &hits_per_ref,
-    const mers_vector_read &query_mers,
-    const mers_vector &ref_mers,
-    kmer_lookup &mers_index,
+    const QueryRandstrobeVector &query_mers,
+    const RefRandstrobeVector &ref_mers,
+    RandstrobeMap &mers_index,
     int k,
     const std::vector<std::string> &ref_seqs,
     const std::string &read,
@@ -1477,9 +1477,9 @@ static inline void find_nams_rescue(
 static inline std::pair<float,int> find_nams(
     std::vector<nam> &final_nams,
     robin_hood::unordered_map<unsigned int, std::vector<hit>> &hits_per_ref,
-    const mers_vector_read &query_mers,
-    const mers_vector &ref_mers,
-    kmer_lookup &mers_index,
+    const QueryRandstrobeVector &query_mers,
+    const RefRandstrobeVector &ref_mers,
+    RandstrobeMap &mers_index,
     int k,
     unsigned int filter_cutoff
 ) {
