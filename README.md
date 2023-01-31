@@ -53,13 +53,9 @@ Strobealign is available from [Bioconda](https://bioconda.github.io/).
    strobealign --version
    ```
 
-### Binaries
-
-You can acquire precompiled binaries for Linux and macOS from the [release page](https://github.com/ksahlin/strobealign/releases) compiled with `-O3 -mavx2`.
-
 ### From source
 
-If you want to compile from the source, you need to have CMake, a recent `g++` (tested with version 8) and [zlib](https://zlib.net/) installed.
+To compile from the source, you need to have CMake, a recent `g++` (tested with version 8) and [zlib](https://zlib.net/) installed.
 Then do the following:
 ```
 git clone https://github.com/ksahlin/strobealign
@@ -70,7 +66,7 @@ make -j -C build
 The resulting binary is `build/strobealign`.
 
 The binary is tailored to the CPU the compiler runs on.
-If it needs to run on other machines, use this instead for compatibility with most x86-64 CPUs in use today:
+If it needs to run on other machines, use this `cmake` command instead for compatibility with most x86-64 CPUs in use today:
 ```
 cmake -B build -DCMAKE_C_FLAGS="-msse4.2" -DCMAKE_CXX_FLAGS="-msse4.2"
 ```
