@@ -1,6 +1,6 @@
 # Strobealign Changelog
 
-## v0.8.0 (not released)
+## v0.8.0 (2023-02-01)
 
 ### Summary
 
