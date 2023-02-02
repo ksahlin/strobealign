@@ -59,6 +59,7 @@ struct AlignmentStatistics {
     std::chrono::duration<double> tot_extend;
     std::chrono::duration<double> tot_write_file;
 
+    unsigned int n_reads = 0;
     unsigned int tot_ksw_aligned = 0;
     unsigned int tot_rescued = 0;
     unsigned int tot_all_tried = 0;
@@ -74,6 +75,7 @@ struct AlignmentStatistics {
         this->tot_sort_nams += other.tot_sort_nams;
         this->tot_extend += other.tot_extend;
         this->tot_write_file += other.tot_write_file;
+        this->n_reads += other.n_reads;
         this->tot_ksw_aligned += other.tot_ksw_aligned;
         this->tot_rescued += other.tot_rescued;
         this->tot_all_tried += other.tot_all_tried;
