@@ -39,7 +39,7 @@ For an introduction, see also the 📺 [RECOMB-Seq video from 2022: “Flexible 
 ### Conda
 
 Strobealign is available from [Bioconda](https://bioconda.github.io/).
-1. Follow the [Bioconda installation instructions](https://bioconda.github.io/user/install.html)
+1. Follow the [Bioconda setup instructions](http://bioconda.github.io/#usage)
 2. Install strobealign into a new Conda environment:
    ```
    conda create -n strobealign strobealign
