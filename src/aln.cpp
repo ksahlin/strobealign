@@ -27,7 +27,7 @@ static inline bool score(const nam &a, const nam &b) {
     return a.score > b.score;
 }
 
-inline aln_info ssw_align(const std::string &ref, const std::string &query, int match_score, int mismatch_penalty, int gap_opening_penalty, int gap_extending_penalty) {
+inline aln_info ssw_align(const std::string &ref, const std::string &query, alignment_params parameters) {
 
     aln_info aln;
     int32_t maskLen = strlen(query.c_str())/2;
@@ -42,7 +42,7 @@ inline aln_info ssw_align(const std::string &ref, const std::string &query, int 
         return aln;
     }
 
-    StripedSmithWaterman::Aligner aligner(match_score, mismatch_penalty, gap_opening_penalty, gap_extending_penalty);
+    StripedSmithWaterman::Aligner aligner(parameters.match, parameters.mismatch, parameters.gap_open, parameters.gap_extend);
     // Declares a default filter
     StripedSmithWaterman::Filter filter;
     // Declares an alignment that stores the result
@@ -744,7 +744,7 @@ inline void align_SE(
             aln_info info;
 //            std::cout << "Extra ref: " << extra_ref << " " << read_diff << " " << ref_diff << " " << ref_start << " " << ref_end << std::endl;
 //            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
-            info = ssw_align(ref_segm, r_tmp, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+            info = ssw_align(ref_segm, r_tmp, aln_params);
 //            info.ed = info.global_ed; // read_len - info.sw_score;
             int diff_to_best = std::abs(best_align_sw_score - info.sw_score);
             min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
@@ -916,7 +916,7 @@ static inline void align_SE_secondary_hits(
             aln_info info;
 //            std::cout << "Extra ref: " << extra_ref << " " << read_diff << " " << ref_diff << " " << ref_start << " " << ref_end << std::endl;
 //            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
-            info = ssw_align(ref_segm, r_tmp, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+            info = ssw_align(ref_segm, r_tmp, aln_params);
 //            info.ed = info.global_ed; // read_len - info.sw_score;
             sw_score = info.sw_score;
             statistics.tot_ksw_aligned ++;
@@ -1023,7 +1023,7 @@ static inline void align_segment(
     }
 
     aln_info info;
-    info = ssw_align(ref_segm, read_segm, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+    info = ssw_align(ref_segm, read_segm, aln_params);
     tot_ksw_aligned++;
     sam_aln_segm.cigar = info.cigar;
     sam_aln_segm.ed = info.ed;
@@ -1610,7 +1610,7 @@ static inline void rescue_mate(
 //        std::cerr << "Aligning anyway at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
     }
 
-    info = ssw_align(ref_segm, r_tmp, aln_params.match, aln_params.mismatch, aln_params.gap_open, aln_params.gap_extend);
+    info = ssw_align(ref_segm, r_tmp, aln_params);
 
 //    if (info.ed == 100000){
 //        std::cerr<< "________________________________________" << std::endl;
