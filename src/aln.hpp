@@ -31,6 +31,14 @@ struct nam {
 //    unsigned int previous_query_start;
 //    unsigned int previous_ref_start;
     bool is_rc = false;
+
+    int ref_span() const {
+        return ref_e - ref_s;
+    }
+
+    int query_span() const {
+        return query_e - query_s;
+    }
 };
 
 struct alignment_params {

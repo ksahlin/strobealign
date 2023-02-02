@@ -614,7 +614,8 @@ inline void align_SE(
     const References& references,
     AlignmentStatistics &statistics,
     float dropoff,
-    int max_tries) {
+    int max_tries
+) {
     auto query_acc = record.name;
     Read read(record.seq);
     auto qual = record.qual;
@@ -644,11 +645,7 @@ inline void align_SE(
 
         statistics.tot_all_tried ++;
 
-        int ref_diff = n.ref_e - n.ref_s;
-        int read_diff = n.query_e - n.query_s;
-        int min_diff =  std::min(read_diff, ref_diff);
-        int max_diff = std::max(read_diff, ref_diff);
-        int diff = max_diff - min_diff;
+        int diff = std::abs(n.ref_span() - n.query_span());
 
         bool fits = reverse_nam_if_needed(n, read, references, k);
         if (!fits){
@@ -822,11 +819,7 @@ static inline void align_SE_secondary_hits(
 
         statistics.tot_all_tried ++;
 
-        int ref_diff = n.ref_e - n.ref_s;
-        int read_diff = n.query_e - n.query_s;
-        int min_diff = std::min(read_diff, ref_diff);
-        int max_diff = std::max(read_diff, ref_diff);
-        int diff = max_diff - min_diff;
+        int diff = std::abs(n.ref_span() - n.query_span());
 
         bool fits = reverse_nam_if_needed(n, read, references, k);
         if (!fits){
@@ -1072,11 +1065,8 @@ static inline void get_alignment(
 ) {
     auto read_len = read.size();
     bool aln_did_not_fit = false;
-    int ref_diff = n.ref_e - n.ref_s;
-    int read_diff = n.query_e - n.query_s;
-    int min_diff = std::min(read_diff, ref_diff);
-    int max_diff = std::max(read_diff, ref_diff);
-    int diff = max_diff - min_diff;
+    int diff = std::abs(n.ref_span() - n.query_span());
+
 //    int max_allowed_mask = aln_params.gap_open/aln_params.match - 1 > 0 ? aln_params.gap_open/aln_params.match - 1 : 1;
 
 //    std::cerr << "n.ID " << n.nam_id  << " n.n_hits " << n.n_hits << " n.ref_s " <<  n.ref_s <<  " n.ref_e " << n.ref_e << " read " << read << std::endl;
@@ -1190,12 +1180,6 @@ static inline void get_alignment(
             } else  {
                 std::cerr << "BUUUUUUG " << std::endl;
             }
-
-//            int ref_diff = n.ref_e - n.ref_s;
-//            int read_diff = n.query_e - n.query_s;
-//            int min_diff = std::min(read_diff, ref_diff);
-//            int max_diff = std::max(read_diff, ref_diff);
-//            int diff = max_diff - min_diff;
 
             // Left region align
             alignment sam_aln_segm_left;
