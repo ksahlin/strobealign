@@ -770,10 +770,8 @@ inline void align_SE(
         cnt ++;
     }
 
-    if (!all_nams.empty()) {
-        sam_aln.mapq = std::min(min_mapq_diff, 60);
-        sam.add(sam_aln, record, read.rc);
-    }
+    sam_aln.mapq = std::min(min_mapq_diff, 60);
+    sam.add(sam_aln, record, read.rc);
 }
 
 
@@ -787,7 +785,7 @@ static inline void align_SE_secondary_hits(
     AlignmentStatistics &statistics,
     float dropoff,
     int max_tries,
-    int max_secondary) {
+    unsigned max_secondary) {
     auto query_acc = record.name;
     Read read(record.seq);
     auto qual = record.qual;
@@ -951,30 +949,27 @@ static inline void align_SE_secondary_hits(
         cnt ++;
     }
 
-    //
-    if (!all_nams.empty()) {
-        std::sort(alignments.begin(), alignments.end(),
-            [](const std::tuple<int, alignment> &a, const std::tuple<int, alignment> &b) -> bool {
-                return std::get<0>(a) > std::get<0>(b);
-            }
-        ); // Sorting by highest sw first
-        int max_out = alignments.size() < max_secondary ? alignments.size() : max_secondary;
-        for (int i = 0; i < max_out; ++i) {
-            auto aln = alignments[i];
-            auto sam_aln = std::get<1>(aln);
-            if ((sam_aln.sw_score - best_align_sw_score) > (2*aln_params.mismatch + aln_params.gap_open) ){
-                break;
-            }
-            bool is_secondary = false;
-
-            if (i > 0) {
-                is_secondary = true;
-                sam_aln.mapq = 255;
-            } else {
-                sam_aln.mapq = std::min(min_mapq_diff, 60);
-            }
-            sam.add(sam_aln, record, read.rc, is_secondary);
+    // Sort alignments by score, highest first
+    std::sort(alignments.begin(), alignments.end(),
+        [](const std::tuple<int, alignment> &a, const std::tuple<int, alignment> &b) -> bool {
+            return std::get<0>(a) > std::get<0>(b);
         }
+    );
+
+    auto max_out = std::min(alignments.size(), static_cast<size_t>(max_secondary));
+    bool is_secondary = false;
+    for (size_t i = 0; i < max_out; ++i) {
+        auto sam_aln = std::get<1>(alignments[i]);
+        if ((sam_aln.sw_score - best_align_sw_score) > (2*aln_params.mismatch + aln_params.gap_open) ){
+            break;
+        }
+        if (is_secondary) {
+            sam_aln.mapq = 255;
+        } else {
+            sam_aln.mapq = std::min(min_mapq_diff, 60);
+        }
+        sam.add(sam_aln, record, read.rc, is_secondary);
+        is_secondary = true;
     }
 }
 
