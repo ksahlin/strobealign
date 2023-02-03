@@ -448,7 +448,6 @@ inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all
     output_hits_paf_PE(paf_output, n, query_name, references, k, read_len);
 }
 
-
 inline int hamming_distance(const std::string &s, const std::string &t) {
     if (s.length() != t.length()){
         return -1;
@@ -464,20 +463,19 @@ inline int hamming_distance(const std::string &s, const std::string &t) {
     return mismatches;
 }
 
-
-inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, std::stringstream &cigar, int match, int mismatch, int &aln_score, int &soft_left, int &soft_right)
-{
-    if (One.length() != Two.length()){
-        return -1;
+aln_info hamming_align(const std::string &query, const std::string &ref, int match, int mismatch, int &soft_left, int &soft_right) {
+    aln_info aln;
+    std::stringstream cigar;
+    if (query.length() != ref.length()){
+        return aln;
     }
 
     // Decide softclipps
     int peak_score = 0;
-//    int peak_score_pos = 0;
     int curr_score = 0;
     size_t end_softclipp = 0;
-    for(size_t i = 0; i < One.length(); i++) {
-        if (One[i] == Two[i]){
+    for (size_t i = 0; i < query.length(); i++) {
+        if (query[i] == ref[i]){
             curr_score += match;
         } else {
             curr_score -= mismatch;
@@ -485,7 +483,6 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
 
         if (curr_score >= peak_score){
             peak_score = curr_score;
-//            peak_score_pos = i;
             end_softclipp = i;
         }
     }
@@ -493,8 +490,8 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
     peak_score = 0;
     curr_score = 0;
     size_t start_softclipp = 0;
-    for (int i = One.length() - 1; i >= 0; i--) {
-        if (One[i] == Two[i]){
+    for (int i = query.length() - 1; i >= 0; i--) {
+        if (query[i] == ref[i]){
             curr_score += match;
         } else {
             curr_score -= mismatch;
@@ -506,22 +503,24 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
     }
 
     if (start_softclipp >= end_softclipp) {
-        aln_score = 0;
+        aln.sw_score = 0;
         soft_left = 50; //default
         soft_right = 50; //default
-        return -1;
+
+        return aln;
     }
 
     if (start_softclipp > 0) {
         cigar << start_softclipp << 'S';
     }
 
+    int aln_score = 0;
     int counter = 1;
-    bool prev_is_match = One[start_softclipp+1] == Two[start_softclipp+1];
+    bool prev_is_match = query[start_softclipp+1] == ref[start_softclipp+1];
     int hamming_mod = prev_is_match ? 0 : 1;
     bool curr_match = false;
     for (size_t i = start_softclipp + 1; i < end_softclipp + 1; i++) {
-        curr_match = One[i] == Two[i];
+        curr_match = query[i] == ref[i];
 
         if (!curr_match && prev_is_match) {
             cigar << counter << '=';
@@ -532,10 +531,6 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
             cigar << counter << 'X';
             aln_score -= counter * mismatch;
             hamming_mod += counter;
-//            std::cout << "Added1: " << counter << " current: " << hamming_mod << std::endl;
-//            if (beginning){
-//                needs_aln = counter > 2;
-//            }
             counter = 0;
         }
         prev_is_match = curr_match;
@@ -549,22 +544,19 @@ inline int HammingToCigarEQX2(const std::string &One, const std::string &Two, st
     } else {
         cigar << counter << 'X';
         hamming_mod += counter;
-//        std::cout << "Added2: " << counter << " current: " << hamming_mod << std::endl;
-//        needs_aln = counter > 2;
     }
 
-    if (One.length() - end_softclipp - 1 > 0){
-        cigar << One.length() - end_softclipp - 1 << 'S';
+    if (query.length() - end_softclipp - 1 > 0){
+        cigar << query.length() - end_softclipp - 1 << 'S';
     }
-
-//    if (aln_score < 0){
-//            std::cout << "NEGATIVE SCORE: " << aln_score << std::endl;
-//    }
 
     soft_left = start_softclipp;
-    soft_right = std::max(static_cast<int>(One.length() - end_softclipp - 1), 0);
+    soft_right = std::max(static_cast<int>(query.length() - end_softclipp - 1), 0);
 
-    return hamming_mod;
+    aln.cigar = cigar.str();
+    aln.sw_score = aln_score;
+    aln.ed = hamming_mod;
+    return aln;
 }
 
 
@@ -662,14 +654,13 @@ inline void align_SE(
 
         int soft_left = 50;
         int soft_right = 50;
-        int hamming_mod;
         int hamming_dist = -1;
         std::string r_tmp;
         bool is_rc;
         if (n.is_rc){
             r_tmp = read.rc;
             is_rc = true;
-        }else{
+        } else {
             r_tmp = read.seq;
             is_rc = false;
         }
@@ -679,10 +670,8 @@ inline void align_SE(
                 int sw_score = aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
                 int diff_to_best = std::abs(best_align_sw_score - sw_score);
                 min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
-                std::stringstream cigar_string;
-                int aln_score = 0;
-                hamming_mod = HammingToCigarEQX2(r_tmp, ref_segm, cigar_string, aln_params.match, aln_params.mismatch, aln_score, soft_left, soft_right);
-                if (aln_score > best_align_sw_score){
+                auto info = hamming_align(r_tmp, ref_segm, aln_params.match, aln_params.mismatch, soft_left, soft_right);
+                if (info.sw_score > best_align_sw_score){
                     min_mapq_diff = std::max(0, sw_score - best_align_sw_score); // new distance to next best match
 
 //                    min_mapq_diff = best_align_dist - hamming_dist; // new distance to next best match
@@ -690,16 +679,15 @@ inline void align_SE(
 
 //                    sw_score = aln_params.match*(read_len-hamming_mod) - aln_params.mismatch*hamming_mod;
 
-                    sam_aln.cigar = cigar_string.str();
+                    sam_aln.cigar = info.cigar;
                     best_align_dist = hamming_dist;
-                    //                sam_aln.cigar = std::to_string(read_len) + "M";
-                    sam_aln.ed = hamming_mod;
+                    sam_aln.ed = info.ed;
                     sam_aln.ref_start = ref_start + soft_left;
                     sam_aln.is_rc = is_rc;
                     sam_aln.ref_id = n.ref_id;
-                    sam_aln.sw_score = aln_score;
-                    best_align_sw_score = aln_score;
-                    sam_aln.aln_score = aln_score;
+                    sam_aln.sw_score = info.sw_score;
+                    best_align_sw_score = info.sw_score;
+                    sam_aln.aln_score = info.sw_score;
                     sam_aln.aln_length = read_len;
                 }
             }
@@ -822,7 +810,6 @@ static inline void align_SE_secondary_hits(
 
         std::string ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_segm_size);
 
-        int hamming_mod;
         int soft_left = 50;
         int soft_right = 50;
 //        bool needs_aln = false;
@@ -837,13 +824,11 @@ static inline void align_SE_secondary_hits(
             r_tmp = read.seq;
             is_rc = false;
         }
-//        std::cout << "DIFF: "  <<  diff << ", " << n.score << ", " << ref_segm.length() << std::endl;
 
-        if (ref_segm.length() == read_len){
+        if (ref_segm.length() == read_len) {
             hamming_dist = hamming_distance(r_tmp, ref_segm);
-//            std::cout << "Hammingdist: " << n.score << ", "  <<  n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ") hd:" << hamming_dist << ", best ed so far: " << best_align_dist  << std::endl;
-            if ( (hamming_dist >=0)){
-                sw_score =  aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
+            if (hamming_dist >= 0) {
+                sw_score = aln_params.match * (read_len - hamming_dist) - aln_params.mismatch * hamming_dist;
                 int diff_to_best = std::abs(best_align_sw_score - sw_score);
                 min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
 //                if (hamming_dist < best_align_dist) {
@@ -852,29 +837,25 @@ static inline void align_SE_secondary_hits(
                 if (sw_score > best_align_sw_score){
                     min_mapq_diff = std::max(0, sw_score - best_align_sw_score); // new distance to next best match
                 }
-                std::stringstream cigar_string;
 //                needs_aln = HammingToCigarEQX(r_tmp, ref_segm, cigar_string);
-                int aln_score = 0;
-                hamming_mod = HammingToCigarEQX2(r_tmp, ref_segm, cigar_string, aln_params.match, aln_params.mismatch, aln_score, soft_left, soft_right);
+                auto info = hamming_align(r_tmp, ref_segm, aln_params.match, aln_params.mismatch, soft_left, soft_right);
 //                sw_score =  aln_params.match*(read_len-hamming_mod) - aln_params.mismatch*hamming_mod;
 
-                sam_aln.cigar = cigar_string.str();
+                sam_aln.cigar = info.cigar;
                 best_align_dist = hamming_dist;
-                //                sam_aln.cigar = std::to_string(read_len) + "M";
                 sam_aln.global_ed = hamming_dist;
-                sam_aln.ed = hamming_mod;
+                sam_aln.ed = info.ed;
                 sam_aln.ref_start = ref_start + soft_left;
                 sam_aln.is_rc = is_rc;
                 sam_aln.ref_id = n.ref_id;
                 sam_aln.sw_score = sw_score;
-                sam_aln.aln_score = aln_score;
+                sam_aln.aln_score = info.sw_score;
                 sam_aln.aln_length = read_len;
 
 //                best_align_sw_score = sam_aln.sw_score;
             }
         }
-        if ( (hamming_dist >=0) && (diff == 0) && (((float) hamming_dist / (float) read_len) < 0.05) ) { // Likely substitutions only (within NAM region) no need to call ksw alingment
-            ;
+        if (hamming_dist >=0 && diff == 0 && (((float) hamming_dist / (float) read_len) < 0.05) ) { // Likely substitutions only (within NAM region) no need to call ksw alingment
 //            if (hamming_dist < best_align_dist){
 //                ;
 ////                best_align_dist = hamming_dist;
@@ -900,10 +881,9 @@ static inline void align_SE_secondary_hits(
 //            ksw_extz_t ez;
 //            const char *ref_ptr = ref_segm.c_str();
 //            const char *read_ptr = r_tmp.c_str();
-            aln_info info;
+            auto info = ssw_align(ref_segm, r_tmp, aln_params);
 //            std::cout << "Extra ref: " << extra_ref << " " << read_diff << " " << ref_diff << " " << ref_start << " " << ref_end << std::endl;
 //            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
-            info = ssw_align(ref_segm, r_tmp, aln_params);
 //            info.ed = info.global_ed; // read_len - info.sw_score;
             sw_score = info.sw_score;
             statistics.tot_ksw_aligned ++;
@@ -976,32 +956,25 @@ static inline void align_segment(
     alignment &sam_aln_segm,
     unsigned int &tot_ksw_aligned
 ) {
-    int hamming_dist = -1;
     int soft_left = 50;
     int soft_right = 50;
-    int hamming_mod;
     int ref_segm_len_ham = ref_segm_len - ext_left - ext_right; // we send in the already extended ref segment to save time. This is not true in center alignment if merged match have diff length
-//    std::cerr << "ref_segm_len_ham: " << ref_segm_len_ham << " read_segm_len: " << read_segm_len << std::endl;
-    if ( (ref_segm_len_ham == read_segm_len) && (!aln_did_not_fit) ){
+    if ( (ref_segm_len_ham == read_segm_len) && !aln_did_not_fit) {
         std::string ref_segm_ham = ref_segm.substr(ext_left, read_segm_len);
 //        std::cout << "ref_segm_ham " << ref_segm_ham << std::endl;
 
-        hamming_dist = hamming_distance(read_segm, ref_segm_ham);
-//        std::cout << "hamming_dist " << hamming_dist << std::endl;
+        auto hamming_dist = hamming_distance(read_segm, ref_segm_ham);
 
-        if ( (hamming_dist >= 0) && (((float) hamming_dist / read_segm_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-            std::stringstream cigar_string;
-            int aln_score = 0;
-            hamming_mod = HammingToCigarEQX2(read_segm, ref_segm_ham, cigar_string, aln_params.match, aln_params.mismatch, aln_score, soft_left, soft_right);
-            sam_aln_segm.cigar = cigar_string.str();
-            sam_aln_segm.ed = hamming_mod;
-            sam_aln_segm.sw_score = aln_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
+        if (hamming_dist >= 0 && (((float) hamming_dist / read_segm_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
+            auto info = hamming_align(read_segm, ref_segm_ham, aln_params.match, aln_params.mismatch, soft_left, soft_right);
+            sam_aln_segm.cigar = info.cigar;
+            sam_aln_segm.ed = info.ed;
+            sam_aln_segm.sw_score = info.sw_score;
             sam_aln_segm.ref_start = ref_start + ext_left + soft_left;
             sam_aln_segm.is_rc = is_rc;
             sam_aln_segm.is_unaligned = false;
-            sam_aln_segm.aln_score = aln_score;
+            sam_aln_segm.aln_score = info.sw_score;
             sam_aln_segm.aln_length = read_segm_len;
-//            std::cerr << "HAMMING WORKED " << sam_aln_segm.cigar << " sam_aln_segm.ref_start " << sam_aln_segm.ref_start << std::endl;
             return;
         }
     }
@@ -1011,14 +984,12 @@ static inline void align_segment(
     tot_ksw_aligned++;
     sam_aln_segm.cigar = info.cigar;
     sam_aln_segm.ed = info.ed;
-//    std::cerr << r_tmp << " " << n.n_hits << " " << n.score << " " <<  diff << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << hamming_dist << " " << sam_aln.cigar << " " << info.sw_score << std::endl;
     sam_aln_segm.sw_score = info.sw_score;
     sam_aln_segm.ref_start = ref_start + info.ref_offset;
     sam_aln_segm.is_rc = is_rc;
     sam_aln_segm.is_unaligned = false;
     sam_aln_segm.aln_score = info.sw_score;
     sam_aln_segm.aln_length = info.length;
-//    std::cerr << " ALIGN SCORE: " << sam_aln_segm.sw_score << " cigar: " << sam_aln_segm.cigar << std::endl;
 }
 
 
@@ -1114,31 +1085,24 @@ static inline void get_alignment(
         ref_segm_size = std::min(ref_tmp_segm_size, ref_len - ref_start + 1);
 
         std::string ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_segm_size);
-        if ( (ref_segm_size == read_len) && fits ){
-
+        if (ref_segm_size == read_len && fits) {
             int hamming_dist = hamming_distance(r_tmp, ref_segm);
 
-            if ( (hamming_dist >= 0) && (((float) hamming_dist / ref_segm_size) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-                std::stringstream cigar_string;
-                int aln_score = 0;
+            if (hamming_dist >= 0 && (((float) hamming_dist / ref_segm_size) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
                 int soft_left = 0;
                 int soft_right = 0;
-                int hamming_mod = HammingToCigarEQX2(r_tmp, ref_segm, cigar_string, aln_params.match, aln_params.mismatch, aln_score, soft_left, soft_right);
-                sam_aln.cigar = cigar_string.str();
-                sam_aln.ed = hamming_mod;
-                sam_aln.sw_score = aln_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
+                auto info = hamming_align(r_tmp, ref_segm, aln_params.match, aln_params.mismatch, soft_left, soft_right);
+                sam_aln.cigar = info.cigar;
+                sam_aln.ed = info.ed;
+                sam_aln.sw_score = info.sw_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
                 sam_aln.ref_start = ref_start + ext_left + soft_left;
                 sam_aln.is_rc = is_rc;
                 sam_aln.is_unaligned = false;
-                sam_aln.aln_score = aln_score;
+                sam_aln.aln_score = info.sw_score;
 //                std::cerr << "FULL HAMMING , returning " << sam_aln.cigar << " sam_aln_segm.ref_start " << sam_aln.ref_start << std::endl;
                 return;
             }
         }
-//        std::cerr << " GOING HERE!!!!!" << std::endl;
-//        std::cerr << " " << std::endl;
-
-//        std::cerr << diff << " " << ref_segm_size << "  " << read_len << std::endl;
 
         //// Didn't work with global Hamming - split into parts
 
