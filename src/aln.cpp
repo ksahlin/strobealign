@@ -449,19 +449,19 @@ inline void output_hits_paf(std::string &paf_output, const std::vector<nam> &all
 }
 
 
-inline int HammingDistance(const std::string &One, const std::string &Two)
-{
-    if (One.length() != Two.length()){
+inline int hamming_distance(const std::string &s, const std::string &t) {
+    if (s.length() != t.length()){
         return -1;
     }
 
-    int counter = 0;
-
-    for (size_t i=0; i < One.length(); i++) {
-        if (One[i] != Two[i]) counter++;
+    int mismatches = 0;
+    for (size_t i = 0; i < s.length(); i++) {
+        if (s[i] != t[i]) {
+            mismatches++;
+        }
     }
 
-    return counter;
+    return mismatches;
 }
 
 
@@ -674,7 +674,7 @@ inline void align_SE(
             is_rc = false;
         }
         if (ref_segm.length() == read_len){
-            hamming_dist = HammingDistance(r_tmp, ref_segm);
+            hamming_dist = hamming_distance(r_tmp, ref_segm);
             if (hamming_dist >= 0) {
                 int sw_score = aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
                 int diff_to_best = std::abs(best_align_sw_score - sw_score);
@@ -840,7 +840,7 @@ static inline void align_SE_secondary_hits(
 //        std::cout << "DIFF: "  <<  diff << ", " << n.score << ", " << ref_segm.length() << std::endl;
 
         if (ref_segm.length() == read_len){
-            hamming_dist = HammingDistance(r_tmp, ref_segm);
+            hamming_dist = hamming_distance(r_tmp, ref_segm);
 //            std::cout << "Hammingdist: " << n.score << ", "  <<  n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ") hd:" << hamming_dist << ", best ed so far: " << best_align_dist  << std::endl;
             if ( (hamming_dist >=0)){
                 sw_score =  aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
@@ -986,7 +986,7 @@ static inline void align_segment(
         std::string ref_segm_ham = ref_segm.substr(ext_left, read_segm_len);
 //        std::cout << "ref_segm_ham " << ref_segm_ham << std::endl;
 
-        hamming_dist = HammingDistance(read_segm, ref_segm_ham);
+        hamming_dist = hamming_distance(read_segm, ref_segm_ham);
 //        std::cout << "hamming_dist " << hamming_dist << std::endl;
 
         if ( (hamming_dist >= 0) && (((float) hamming_dist / read_segm_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
@@ -1116,7 +1116,7 @@ static inline void get_alignment(
         std::string ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_segm_size);
         if ( (ref_segm_size == read_len) && fits ){
 
-            int hamming_dist = HammingDistance(r_tmp, ref_segm);
+            int hamming_dist = hamming_distance(r_tmp, ref_segm);
 
             if ( (hamming_dist >= 0) && (((float) hamming_dist / ref_segm_size) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
                 std::stringstream cigar_string;
