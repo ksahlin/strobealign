@@ -157,6 +157,10 @@ struct StrobemerIndex {
         randstrobe_map[key] = RandstrobeMapEntry{offset, count};
     }
 
+    int k() const {
+        return parameters.k;
+    }
+
 private:
     std::vector<RefRandstrobeWithHash> add_randstrobes_to_hash_table();
 
