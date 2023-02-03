@@ -698,7 +698,7 @@ inline void align_SE(
                     best_align_dist = hamming_dist;
                     //                sam_aln.cigar = std::to_string(read_len) + "M";
                     sam_aln.ed = hamming_mod;
-                    sam_aln.ref_start = ref_start + soft_left +1; // +1 because SAM is 1-based!
+                    sam_aln.ref_start = ref_start + soft_left;
                     sam_aln.is_rc = is_rc;
                     sam_aln.ref_id = n.ref_id;
                     sam_aln.sw_score = aln_score;
@@ -719,7 +719,7 @@ inline void align_SE(
 ////                best_align_dist = hamming_dist;
 //////                sam_aln.cigar = std::to_string(read_len) + "M";
 ////                sam_aln.ed = hamming_mod;
-////                sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
+////                sam_aln.ref_start = ref_start;
 ////                sam_aln.is_rc = is_rc;
 ////                sam_aln.ref_id = n.ref_id;
 //            }
@@ -754,7 +754,7 @@ inline void align_SE(
                 best_align_dist = info.global_ed;
                 sam_aln.cigar = info.cigar;
                 sam_aln.ed = info.ed;
-                sam_aln.ref_start =  ref_start + info.ref_offset +1; // +1 because SAM is 1-based!
+                sam_aln.ref_start = ref_start + info.ref_offset;
                 sam_aln.is_rc = is_rc;
                 sam_aln.ref_id = n.ref_id;
                 sam_aln.sw_score = info.sw_score;
@@ -874,7 +874,7 @@ static inline void align_SE_secondary_hits(
                 //                sam_aln.cigar = std::to_string(read_len) + "M";
                 sam_aln.global_ed = hamming_dist;
                 sam_aln.ed = hamming_mod;
-                sam_aln.ref_start = ref_start + soft_left +1; // +1 because SAM is 1-based!
+                sam_aln.ref_start = ref_start + soft_left;
                 sam_aln.is_rc = is_rc;
                 sam_aln.ref_id = n.ref_id;
                 sam_aln.sw_score = sw_score;
@@ -891,7 +891,7 @@ static inline void align_SE_secondary_hits(
 ////                best_align_dist = hamming_dist;
 //////                sam_aln.cigar = std::to_string(read_len) + "M";
 ////                sam_aln.ed = hamming_mod;
-////                sam_aln.ref_start = ref_start +1; // +1 because SAM is 1-based!
+////                sam_aln.ref_start = ref_start;
 ////                sam_aln.is_rc = is_rc;
 ////                sam_aln.ref_id = n.ref_id;
 ////                sam_aln.sw_score = aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
@@ -931,7 +931,7 @@ static inline void align_SE_secondary_hits(
             sam_aln.global_ed = info.global_ed;
             sam_aln.cigar = info.cigar;
             sam_aln.ed = info.ed;
-            sam_aln.ref_start =  ref_start + info.ref_offset +1; // +1 because SAM is 1-based!
+            sam_aln.ref_start =  ref_start + info.ref_offset;
             sam_aln.is_rc = is_rc;
             sam_aln.ref_id = n.ref_id;
             sam_aln.sw_score = info.sw_score;
@@ -1007,7 +1007,7 @@ static inline void align_segment(
             sam_aln_segm.cigar = cigar_string.str();
             sam_aln_segm.ed = hamming_mod;
             sam_aln_segm.sw_score = aln_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
-            sam_aln_segm.ref_start = ref_start + ext_left + soft_left+1; // +1 because SAM is 1-based!
+            sam_aln_segm.ref_start = ref_start + ext_left + soft_left;
             sam_aln_segm.is_rc = is_rc;
             sam_aln_segm.is_unaligned = false;
             sam_aln_segm.aln_score = aln_score;
@@ -1024,7 +1024,7 @@ static inline void align_segment(
     sam_aln_segm.ed = info.ed;
 //    std::cerr << r_tmp << " " << n.n_hits << " " << n.score << " " <<  diff << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << hamming_dist << " " << sam_aln.cigar << " " << info.sw_score << std::endl;
     sam_aln_segm.sw_score = info.sw_score;
-    sam_aln_segm.ref_start =  ref_start + info.ref_offset +1; // +1 because SAM is 1-based!
+    sam_aln_segm.ref_start = ref_start + info.ref_offset;
     sam_aln_segm.is_rc = is_rc;
     sam_aln_segm.is_unaligned = false;
     sam_aln_segm.aln_score = info.sw_score;
@@ -1138,7 +1138,7 @@ static inline void get_alignment(
                 sam_aln.cigar = cigar_string.str();
                 sam_aln.ed = hamming_mod;
                 sam_aln.sw_score = aln_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
-                sam_aln.ref_start = ref_start + ext_left + soft_left+1; // +1 because SAM is 1-based!
+                sam_aln.ref_start = ref_start + ext_left + soft_left;
                 sam_aln.is_rc = is_rc;
                 sam_aln.is_unaligned = false;
                 sam_aln.aln_score = aln_score;
@@ -1627,7 +1627,7 @@ static inline void rescue_mate(
     sam_aln.ed = info.ed;
     sam_aln.sw_score = info.sw_score;
     sam_aln.aln_score = sam_aln.sw_score;
-    sam_aln.ref_start =  ref_start + info.ref_offset +1; // +1 because SAM is 1-based!
+    sam_aln.ref_start =  ref_start + info.ref_offset;
     sam_aln.is_rc = a_is_rc;
     sam_aln.ref_id = n.ref_id;
     sam_aln.is_unaligned = info.cigar == "*";

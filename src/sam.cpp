@@ -52,7 +52,7 @@ void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& ma
     sam_string.append("\t*\t0\t" SAM_UNMAPPED_MAPQ_STRING "\t*\t");
     sam_string.append(mate_rname);
     sam_string.append("\t");
-    sam_string.append(std::to_string(mate_pos));
+    sam_string.append(std::to_string(mate_pos + 1));
     sam_string.append("\t0\t");
     sam_string.append(record.seq);
     sam_string.append("\t");
@@ -80,7 +80,7 @@ void Sam::add(
     if (is_secondary) {
         flags |= SECONDARY;
     }
-    add_record(record.name, flags, references.names[sam_aln.ref_id], sam_aln.ref_start, sam_aln.mapq, sam_aln.cigar, "*", 0, 0, record.seq, sequence_rc, record.qual, sam_aln.ed, sam_aln.aln_score);
+    add_record(record.name, flags, references.names[sam_aln.ref_id], sam_aln.ref_start, sam_aln.mapq, sam_aln.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, sam_aln.ed, sam_aln.aln_score);
 }
 
 // Add one individual record
@@ -106,7 +106,7 @@ void Sam::add_record(
     sam_string.append("\t");
     sam_string.append(reference_name);
     sam_string.append("\t");
-    sam_string.append(std::to_string(pos));
+    sam_string.append(std::to_string(pos + 1));  // convert to 1-based coordinate
     sam_string.append("\t");
     sam_string.append(std::to_string(mapq));
     sam_string.append("\t");
@@ -115,7 +115,7 @@ void Sam::add_record(
 
     sam_string.append(mate_name);
     sam_string.append("\t");
-    sam_string.append(std::to_string(mate_ref_start));
+    sam_string.append(std::to_string(mate_ref_start + 1));
     sam_string.append("\t");
     sam_string.append(std::to_string(template_len));
     sam_string.append("\t");
@@ -190,7 +190,7 @@ void Sam::add_pair(
         f1 |= UNMAP;
         f2 |= MUNMAP;
         ref1 = "*";
-        ref_start1 = 0;
+        ref_start1 = -1;
         mate_name1 = "*";
     } else {
         if (sam_aln1.is_rc) {
@@ -208,7 +208,7 @@ void Sam::add_pair(
     if (sam_aln2.is_unaligned) {
         f2 |= UNMAP;
         f1 |= MUNMAP;
-        ref_start2 = 0;
+        ref_start2 = -1;
         ref2 = "*";
         mate_name2 = "*";
     } else {
