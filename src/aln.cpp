@@ -673,19 +673,15 @@ inline void align_SE(
             r_tmp = read.seq;
             is_rc = false;
         }
-//        std::cout << "DIFF: "  <<  diff << ", " << n.score << ", " << ref_segm.length() << std::endl;
-
         if (ref_segm.length() == read_len){
             hamming_dist = HammingDistance(r_tmp, ref_segm);
-//            std::cout << "Hammingdist: " << n.score << ", "  <<  n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ") hd:" << hamming_dist << ", best ed so far: " << best_align_dist  << std::endl;
-            if ( (hamming_dist >=0)){
+            if (hamming_dist >= 0) {
                 int sw_score = aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
                 int diff_to_best = std::abs(best_align_sw_score - sw_score);
                 min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
                 std::stringstream cigar_string;
                 int aln_score = 0;
                 hamming_mod = HammingToCigarEQX2(r_tmp, ref_segm, cigar_string, aln_params.match, aln_params.mismatch, aln_score, soft_left, soft_right);
-//                if (hamming_dist < best_align_dist){
                 if (aln_score > best_align_sw_score){
                     min_mapq_diff = std::max(0, sw_score - best_align_sw_score); // new distance to next best match
 
@@ -709,10 +705,8 @@ inline void align_SE(
             }
         }
 
-//        std::cout << hamming_dist  << ", " << read_len << ", " << (float) hamming_dist / (float) read_len << std::endl;
-
         // ((float) sam_aln.ed / read_len) < 0.05  //Hamming distance worked fine, no need to ksw align
-        if ( (hamming_dist >=0) && (diff == 0) && (((float) hamming_dist / (float) read_len) < 0.05) ) { // Likely substitutions only (within NAM region) no need to call ksw alingment
+        if (hamming_dist >= 0 && diff == 0 && (((float) hamming_dist / (float) read_len) < 0.05) ) { // Likely substitutions only (within NAM region) no need to call ksw alingment
             ;
 //            if (hamming_dist < best_align_dist){
 //                ;
@@ -731,7 +725,6 @@ inline void align_SE(
 //        } else if ( (best_align_dist > 1) || ( aln_did_not_fit || needs_aln || (((float) hamming_dist / (float) read_len) >= 0.05) ) ){
             int extra_ref_left = std::min(soft_left, 50);
             int extra_ref_right = std::min(soft_right, 50);
-//            extra_ref = 50; //(read_diff - ref_diff) > 0 ?  (read_diff - ref_diff) : 0;
             int a = n.ref_s - n.query_s - extra_ref_left;
             int ref_start = std::max(0, a);
             int b = n.ref_e + (read_len - n.query_e)+ extra_ref_right;
@@ -762,12 +755,8 @@ inline void align_SE(
                 sam_aln.aln_score = info.sw_score;
                 sam_aln.aln_length = info.length;
             }
-//            std::cout << "HERE 2 "  << sam_aln.ref_start << " global ed: " << info.global_ed  <<  ", hamming: " << hamming_dist << ", "<< read_len << ", " << (float) hamming_dist / (float) read_len << std::endl;
-
-//            std::cout << "Aligned: " << n.score << ", "  << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ") ed:" << info.ed << ", best ed so far: " << best_align_dist  << std::endl;
-
         }
-        cnt ++;
+        cnt++;
     }
 
     sam_aln.mapq = std::min(min_mapq_diff, 60);
