@@ -8,9 +8,18 @@
 #include "index.hpp"
 #include "sam.hpp"
 #include "aln.hpp"
+#include "nam.hpp"
 
 int main() {
 }
+
+struct hit {
+    int query_s;
+    int query_e;
+    int ref_s;
+    int ref_e;
+    bool is_rc = false;
+};
 
 
 // defined in index.hpp

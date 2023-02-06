@@ -73,8 +73,8 @@ TEST_CASE("Pair with one unmapped SAM record") {
     // 89: PAIRED,MUNMAP,REVERSE,READ1
     // 165: PAIRED,UNMAP,MREVERSE,READ2
     CHECK(sam_string ==
-      "readname\t89\tcontig1\t2\t55\t2M\t*\t0\t0\tGGTT\t<B!#\tNM:i:17\tAS:i:9\n"
-      "readname\t165\t*\t0\t0\t*\tcontig1\t2\t0\tGGTT\tIHB#\n"
+      "readname\t89\tcontig1\t3\t55\t2M\t*\t0\t0\tGGTT\t<B!#\tNM:i:17\tAS:i:9\n"
+      "readname\t165\t*\t0\t0\t*\tcontig1\t3\t0\tGGTT\tIHB#\n"
     );
 }
 
@@ -135,7 +135,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     // 65: PAIRED,READ1
     // 129: PAIRED,READ2
     CHECK(sam_string ==
-    "readname\t65\tcontig1\t2\t55\t2M\tcontig2\t3\t0\tAACC\t#!B<\tNM:i:17\tAS:i:9\n"
-    "readname\t129\tcontig2\t3\t57\t3M\tcontig1\t2\t0\tGGTT\tIHB#\tNM:i:2\tAS:i:4\n"
+    "readname\t65\tcontig1\t3\t55\t2M\tcontig2\t4\t0\tAACC\t#!B<\tNM:i:17\tAS:i:9\n"
+    "readname\t129\tcontig2\t4\t57\t3M\tcontig1\t3\t0\tGGTT\tIHB#\tNM:i:2\tAS:i:4\n"
     );
 }

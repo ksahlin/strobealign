@@ -8,31 +8,6 @@
 #include "refs.hpp"
 #include "sam.hpp"
 
-struct hit {
-    int query_s;
-    int query_e;
-    int ref_s;
-    int ref_e;
-    bool is_rc = false;
-};
-
-// Non-overlapping approximate match
-struct nam {
-    int nam_id;
-    int query_s;
-    int query_e;
-    int query_prev_hit_startpos;
-    int ref_s;
-    int ref_e;
-    int ref_prev_hit_startpos;
-    int n_hits = 0;
-    int ref_id;
-    float score;
-//    unsigned int previous_query_start;
-//    unsigned int previous_ref_start;
-    bool is_rc = false;
-};
-
 struct alignment_params {
     int match;
     int mismatch;
