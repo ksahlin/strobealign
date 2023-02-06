@@ -43,6 +43,7 @@ add_library(salib STATIC ${SOURCES}
   src/sam.cpp
   src/pc.cpp
   src/aln.cpp
+  src/nam.cpp
   src/randstrobes.cpp
   src/readlen.cpp
   src/version.cpp
