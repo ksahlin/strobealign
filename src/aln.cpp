@@ -1851,53 +1851,53 @@ void align_SE_read(
     const References& references,
     const StrobemerIndex& index
 ) {
-        std::string seq, seq_rc;
-        QueryRandstrobeVector query_randstrobes;
-        std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
+    std::string seq, seq_rc;
+    QueryRandstrobeVector query_randstrobes;
+    std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
 
-        // generate mers here
-        Timer strobe_timer;
-        query_randstrobes = randstrobes_query(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
-        statistics.tot_construct_strobemers += strobe_timer.duration();
+    // generate mers here
+    Timer strobe_timer;
+    query_randstrobes = randstrobes_query(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
+    statistics.tot_construct_strobemers += strobe_timer.duration();
 
-        // Find NAMs
-        Timer nam_timer;
-        std::pair<float, int> info = find_nams(nams, query_randstrobes, index, index_parameters.k);
-        statistics.tot_find_nams += nam_timer.duration();
+    // Find NAMs
+    Timer nam_timer;
+    std::pair<float, int> info = find_nams(nams, query_randstrobes, index, index_parameters.k);
+    statistics.tot_find_nams += nam_timer.duration();
 
-        if (map_param.R > 1) {
-            Timer rescue_timer;
-            if (nams.empty() || info.first < 0.7) {
-                statistics.tried_rescue += 1;
-                nams.clear();
-                find_nams_rescue(nams, query_randstrobes, index, index_parameters.k, map_param.rescue_cutoff);
-            }
-            statistics.tot_time_rescue += rescue_timer.duration();
+    if (map_param.R > 1) {
+        Timer rescue_timer;
+        if (nams.empty() || info.first < 0.7) {
+            statistics.tried_rescue += 1;
+            nams.clear();
+            find_nams_rescue(nams, query_randstrobes, index, index_parameters.k, map_param.rescue_cutoff);
         }
+        statistics.tot_time_rescue += rescue_timer.duration();
+    }
 
-        //Sort hits on score
-        Timer nam_sort_timer;
-        std::sort(nams.begin(), nams.end(), score);
-        statistics.tot_sort_nams += nam_sort_timer.duration();
+    //Sort hits on score
+    Timer nam_sort_timer;
+    std::sort(nams.begin(), nams.end(), score);
+    statistics.tot_sort_nams += nam_sort_timer.duration();
 
-        Timer extend_timer;
-        if (!map_param.is_sam_out) {
-            output_hits_paf(outstring, nams, record.name, references, index_parameters.k,
-                            record.seq.length());
+    Timer extend_timer;
+    if (!map_param.is_sam_out) {
+        output_hits_paf(outstring, nams, record.name, references, index_parameters.k,
+                        record.seq.length());
+    } else {
+        if (map_param.max_secondary > 0){
+            // I created an entire new function here, duplicating a lot of the code as outputting secondary hits is has some overhead to the
+            // original align_SE function (storing a vector of hits and sorting them)
+            // Such overhead is not present in align_PE - which implements both options in the same function.
+
+            align_SE_secondary_hits(aln_params, sam, nams, record, index_parameters.k,
+                        references, statistics, map_param.dropoff_threshold, map_param.maxTries,
+                        map_param.max_secondary);
         } else {
-            if (map_param.max_secondary > 0){
-                // I created an entire new function here, duplicating a lot of the code as outputting secondary hits is has some overhead to the
-                // original align_SE function (storing a vector of hits and sorting them)
-                // Such overhead is not present in align_PE - which implements both options in the same function.
-
-                align_SE_secondary_hits(aln_params, sam, nams, record, index_parameters.k,
-                         references, statistics, map_param.dropoff_threshold, map_param.maxTries,
-                         map_param.max_secondary);
-            } else {
-                align_SE(aln_params, sam, nams, record, index_parameters.k,
-                         references, statistics,  map_param.dropoff_threshold, map_param.maxTries);
-            }
+            align_SE(aln_params, sam, nams, record, index_parameters.k,
+                        references, statistics,  map_param.dropoff_threshold, map_param.maxTries);
         }
-        statistics.tot_extend += extend_timer.duration();
-        nams.clear();
+    }
+    statistics.tot_extend += extend_timer.duration();
+    nams.clear();
 }
