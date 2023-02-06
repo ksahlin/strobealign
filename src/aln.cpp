@@ -1851,13 +1851,11 @@ void align_SE_read(
     const References& references,
     const StrobemerIndex& index
 ) {
-    std::string seq, seq_rc;
-    QueryRandstrobeVector query_randstrobes;
-    std::vector<nam> nams; // (r_id, r_pos_start, r_pos_end, q_pos_start, q_pos_end)
+    std::vector<nam> nams;
 
     // generate mers here
     Timer strobe_timer;
-    query_randstrobes = randstrobes_query(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
+    auto query_randstrobes = randstrobes_query(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
     statistics.tot_construct_strobemers += strobe_timer.duration();
 
     // Find NAMs
@@ -1875,7 +1873,7 @@ void align_SE_read(
         statistics.tot_time_rescue += rescue_timer.duration();
     }
 
-    //Sort hits on score
+    // Sort hits by score
     Timer nam_sort_timer;
     std::sort(nams.begin(), nams.end(), score);
     statistics.tot_sort_nams += nam_sort_timer.duration();
