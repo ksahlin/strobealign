@@ -8,6 +8,8 @@
 #include <thread>
 #include <cassert>
 #include <iomanip>
+#include <chrono>
+#include <unistd.h>
 
 #include "refs.hpp"
 #include "exceptions.hpp"
@@ -84,6 +86,43 @@ InputBuffer get_input_buffer(const CommandLineOptions& opt) {
         return InputBuffer(opt.reads_filename1, "", opt.chunk_size, true);
     } else {
         return InputBuffer(opt.reads_filename1, opt.reads_filename2, opt.chunk_size, false);
+    }
+}
+
+void show_progress_until_done(std::vector<int>& worker_done, std::vector<AlignmentStatistics>& stats) {
+    Timer timer;
+    bool reported = false;
+    bool done = false;
+    // Waiting time between progress updates
+    // Start with a small value so that there’s no delay if there are very few
+    // reads to align.
+    auto time_to_wait = std::chrono::milliseconds(1);
+    while (!done) {
+        std::this_thread::sleep_for(time_to_wait);
+        // Ramp up waiting time
+        time_to_wait = std::min(time_to_wait * 2, std::chrono::milliseconds(1000));
+        done = true;
+        for (auto is_done : worker_done) {
+            if (!is_done) {
+                done = false;
+                continue;
+            }
+        }
+        auto n_reads = 0;
+        for (auto& stat : stats) {
+            n_reads += stat.n_reads;
+        }
+        auto elapsed = timer.elapsed();
+        if (elapsed >= 1.0) {
+            std::cerr
+                << " Mapped "
+                << std::setw(12) << (n_reads / 1E6) << " M reads @ "
+                << std::setw(8) << (timer.elapsed() * 1E6 / n_reads) << " us/read                   \r";
+            reported = true;
+        }
+    }
+    if (reported) {
+        std::cerr << '\n';
     }
 }
 
@@ -232,16 +271,19 @@ int run_strobealign(int argc, char **argv) {
     OutputBuffer output_buffer(out);
 
     std::vector<std::thread> workers;
+    std::vector<int> worker_done(opt.n_threads);  // each thread sets its entry to 1 when it’s done
     for (int i = 0; i < opt.n_threads; ++i) {
         std::thread consumer(perform_task, std::ref(input_buffer), std::ref(output_buffer),
-            std::ref(log_stats_vec[i]), std::ref(aln_params),
+            std::ref(log_stats_vec[i]), std::ref(worker_done[i]), std::ref(aln_params),
             std::ref(map_param), std::ref(index_parameters), std::ref(references),
             std::ref(index), std::ref(opt.read_group_id));
         workers.push_back(std::move(consumer));
     }
-
-    for (size_t i = 0; i < workers.size(); ++i) {
-        workers[i].join();
+    if (opt.show_progress && isatty(2)) {
+        show_progress_until_done(worker_done, log_stats_vec);
+    }
+    for (auto& worker : workers) {
+        worker.join();
     }
     logger.info() << "Done!\n";
 

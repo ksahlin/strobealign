@@ -136,6 +136,7 @@ void perform_task(
     InputBuffer &input_buffer,
     OutputBuffer &output_buffer,
     AlignmentStatistics& statistics,
+    int& done,
     const alignment_params &aln_params,
     const mapping_params &map_param,
     const IndexParameters& index_parameters,
@@ -169,13 +170,16 @@ void perform_task(
             strip_suffix(record2.name);
             align_PE_read(record1, record2, sam, sam_out, statistics, isize_est, aln_params,
                         map_param, index_parameters, references, index);
+            statistics.n_reads += 2;
         }
         for (size_t i = 0; i < records3.size(); ++i) {
             auto record = records3[i];
             strip_suffix(record.name);
             align_SE_read(record, sam, sam_out, statistics, aln_params, map_param, index_parameters, references, index);
+            statistics.n_reads++;
         }
         output_buffer.output_records(std::move(sam_out), chunk_index);
         assert(sam_out == "");
     }
+    done = true;
 }
