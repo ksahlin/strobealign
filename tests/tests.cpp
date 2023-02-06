@@ -114,3 +114,23 @@ TEST_CASE("reverse complement") {
     CHECK(reverse_complement("ACG") == "CGT");
     CHECK(reverse_complement("AACGT") == "ACGTT");
 }
+
+TEST_CASE("compress cigar") {
+    CHECK(compress_cigar("") == "");
+    CHECK(compress_cigar("M") == "1M");
+    CHECK(compress_cigar("MM") == "2M");
+    CHECK(compress_cigar("MMI") == "2M1I");
+    CHECK(compress_cigar("MMII") == "2M2I");
+    CHECK(compress_cigar("MI") == "1M1I");
+    CHECK(compress_cigar("MII") == "1M2I");
+}
+
+TEST_CASE("fixwfa2cigar") {
+    CHECK(fixwfa2cigar("") == std::make_tuple(0, 0, "", 0));
+    CHECK(fixwfa2cigar("IM") == std::make_tuple(1, 0, "1=", 0));
+    CHECK(fixwfa2cigar("MI") == std::make_tuple(0, 1, "1=", 0));
+    CHECK(fixwfa2cigar("IMI") == std::make_tuple(1, 1, "1=", 0));
+    CHECK(fixwfa2cigar("IMIII") == std::make_tuple(1, 3, "1=", 0));
+    CHECK(fixwfa2cigar("IIIMI") == std::make_tuple(3, 1, "1=", 0));
+    CHECK(fixwfa2cigar("IMIIDDXIMII") == std::make_tuple(1, 2, "1=2D2I1X1D1=", 6));
+}

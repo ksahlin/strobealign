@@ -9,6 +9,8 @@
 #include "sam.hpp"
 
 struct alignment_params {
+    // These values should usually be positive
+    // (match is a score; the others are penalties)
     int match;
     int mismatch;
     int gap_open;
@@ -88,5 +90,8 @@ void align_PE_read(const klibpp::KSeq& record1, const klibpp::KSeq& record2, Sam
 void align_SE_read(const klibpp::KSeq& record, Sam& sam, std::string& outstring, AlignmentStatistics& statistics, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
 
 bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k);
+
+std::string compress_cigar(const std::string& ops);
+std::tuple<int,int,std::string,int> fixwfa2cigar(const std::string& ops);
 
 #endif

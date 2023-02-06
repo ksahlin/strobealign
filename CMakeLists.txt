@@ -29,10 +29,7 @@ endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 ExternalProject_Add(wfa2
   GIT_REPOSITORY https://github.com/smarco/WFA2-lib.git
-  GIT_TAG 4600d5d42ea0ee1cd7c346fc3861777f4492e961
-  BUILD_IN_SOURCE 1
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND make  # parallel build (-j) does not work with WFA2-lib
+  GIT_TAG v2.3.2
   INSTALL_COMMAND ""
 )
 foreach(lib wfa wfacpp)
@@ -70,8 +67,8 @@ add_library(salib STATIC ${SOURCES}
   ext/ssw_cpp.cpp
   ext/ssw.c
 )
-target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
-target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads wfa)
+target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR}/wfa2-prefix/src/wfa2 ${PROJECT_BINARY_DIR})
+target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads wfa wfacpp)
 if(OpenMP_CXX_FOUND)
   target_link_libraries(salib PUBLIC OpenMP::OpenMP_CXX)
 endif()
@@ -81,7 +78,7 @@ IF(ENABLE_AVX)
 ENDIF()
 
 add_executable(strobealign src/main.cpp)
-target_link_libraries(strobealign PUBLIC salib cmake_git_version_tracking wfacpp)
+target_link_libraries(strobealign PUBLIC salib cmake_git_version_tracking)
 install(TARGETS strobealign DESTINATION bin)
 
 add_executable(test-strobealign
@@ -104,5 +101,5 @@ target_link_libraries(unused-code salib)
 target_include_directories(unused-code PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 
 add_executable(wfademo src/wfademo.cpp)
-target_link_libraries(wfademo salib wfacpp)
+target_link_libraries(wfademo wfacpp OpenMP::OpenMP_CXX)
 target_include_directories(wfademo PUBLIC src/ ext/ ${PROJECT_BINARY_DIR}/wfa2-prefix/src/wfa2 ${PROJECT_BINARY_DIR})

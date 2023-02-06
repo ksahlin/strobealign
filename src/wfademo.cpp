@@ -37,19 +37,19 @@ using namespace std;
 using namespace wfa;
 
 int main(int argc,char* argv[]) {
-  // Patter & Text
-  string pattern = "TCTTTACTCGCGCGTTGGAGAAATACAATAGT";
-  string text    = "TCTATACTGCGCGTTTGGAGAAATAAAATAGT";
+  string pattern = "T";//CTTTACTCGCGCGTTGGAGAAATACAATAGT";
+  string text    = "T";//CTATACTGCGCGTTTGGAGAAATAAAATAGT";
 
-  // Create a WFAligner
-  WFAlignerGapAffine aligner(4,6,2,WFAligner::Alignment,WFAligner::MemoryHigh);
-  // Align
-  aligner.alignEnd2End(pattern,text);
+  WFAlignerGapAffine aligner(4, 6, 2, WFAligner::Alignment, WFAligner::MemoryHigh);
+
+  //aligner.alignEndsFree(pattern, 0, 0, text, text.length(), text.length());
+  aligner.alignEnd2End(pattern, text);
+
   cout << "WFA-Alignment returns score " << aligner.getAlignmentScore() << endl;
 
-  // Print CIGAR
   string cigar = aligner.getAlignmentCigar();
   cout << "PATTERN: " << pattern  << endl;
-  cout << "TEXT: " << text  << endl;
+  cout << " TEXT: " << text  << endl;
   cout << "CIGAR: " << cigar  << endl;
+
 }

@@ -3,11 +3,12 @@
 #include <iostream>
 #include <math.h>
 #include <sstream>
-#include "ssw_cpp.h"
+#include <algorithm>
 #include "revcomp.hpp"
 #include "timer.hpp"
 #include "nam.hpp"
 #include "paf.hpp"
+#include "bindings/cpp/WFAligner.hpp"
 
 using namespace klibpp;
 
@@ -16,8 +17,47 @@ static inline bool score(const nam &a, const nam &b) {
     return a.score > b.score;
 }
 
-inline aln_info ssw_align(const std::string &ref, const std::string &query, alignment_params parameters) {
+std::string compress_cigar(const std::string& ops) {
+    char prev = 0;
+    int count = 0;
+    std::stringstream cigar;
+    bool first = true;
+    for (auto op : ops) {
+        if (!first && op != prev) {
+            cigar << count << prev;
+            count = 0;
+        }
+        count++;
+        prev = op;
+        first = false;
+    }
+    if (!first) {
+        cigar << count << prev;
+    }
+    return cigar.str();
+}
 
+std::tuple<int,int,std::string,int> fixwfa2cigar(const std::string& ops) {
+    auto begin = 0ul;
+    while (ops[begin] == 'I' && begin < ops.size()) {
+        begin++;
+    }
+    auto end = ops.size();
+    while (end > 0 && end > begin && ops[end-1] == 'I') {
+        end--;
+    }
+    end = ops.size() - end;
+    std::string out = ops.substr(begin, ops.size() - (begin + end));
+    std::replace(out.begin(), out.end(), 'M', '=');
+    std::replace(out.begin(), out.end(), 'D', 'i');
+    std::replace(out.begin(), out.end(), 'I', 'D');
+    std::replace(out.begin(), out.end(), 'i', 'I');
+    auto edits = std::count_if(out.cbegin(), out.cend(), [](char c) { return c == 'X' || c == 'I' || c == 'D'; });
+
+    return std::make_tuple(begin, end, compress_cigar(out), edits);
+}
+
+inline aln_info ssw_align(const std::string &ref, const std::string &query, alignment_params parameters) {
     aln_info aln;
     int32_t maskLen = strlen(query.c_str())/2;
     maskLen = std::max(maskLen, 15);
@@ -31,12 +71,38 @@ inline aln_info ssw_align(const std::string &ref, const std::string &query, alig
         return aln;
     }
 
-    StripedSmithWaterman::Aligner aligner(parameters.match, parameters.mismatch, parameters.gap_open, parameters.gap_extend);
+//    std::cerr << "In ssw_align.\nref=" << ref << "\nquery=" << query << '\n';
+//    std::cerr << match_score << " " << mismatch_penalty << " " << gap_opening_penalty << " " << gap_extending_penalty << '\n';
+
+    // Create a WFAligner
+    //WFAlignerGapAffine aligner(4,6,2,WFAligner::Alignment,WFAligner::MemoryHigh);
+
+    /*
+    - A gap of length n costs gap_opening_penalty + n * gap_extending_penalty
+    - first parameter is a penalty, so must be negative or zero
+    */
+    wfa::WFAlignerGapAffine aligner(
+        -parameters.match,  // must be a penalty
+        parameters.mismatch,
+        parameters.gap_open - parameters.gap_extend,
+        parameters.gap_extend,
+        wfa::WFAligner::Alignment,
+        wfa::WFAligner::MemoryHigh
+    );
+    auto upper_query = query;
+    to_uppercase(upper_query);
+    aligner.alignEndsFree(
+        upper_query.c_str(), upper_query.size(), 0, 0,
+        ref.c_str(), ref.size(), ref.size(), ref.size()
+    );
+/*
+    StripedSmithWaterman::Aligner sswaligner(match_score, mismatch_penalty, gap_opening_penalty, gap_extending_penalty);
     // Declares a default filter
     StripedSmithWaterman::Filter filter;
     // Declares an alignment that stores the result
     StripedSmithWaterman::Alignment alignment_ssw;
-    aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 1);
+    sswaligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 1);
+*/
     // Have to give up this optimization untill the 'Command terminated abnormally' bug is fixed in ssw library
 //     if (read_len*match_score < 255){
 //         std::cerr << "Here: "  << read_len*match_score << " " << ref.length() << std::endl;
@@ -71,12 +137,42 @@ inline aln_info ssw_align(const std::string &ref, const std::string &query, alig
 //         << "Number of mismatches:\t" << alignment_ssw.mismatches << std::endl
 //         << "Cigar: " << alignment_ssw.cigar_string << std::endl;
 
-    aln.global_ed = alignment_ssw.global_ed;
+
+    auto [begin, end, cigar, ed] = fixwfa2cigar(aligner.getAlignmentCigar());
+/*
+    std::cerr << "  CIGAR WFA2: " << aligner.getAlignmentCigar() << '\n';
+    std::cerr << " CIGAR WFA2:  " <<  cigar << '\n';
+    std::cerr << "begin wfa2:" << begin << '\n';
+    std::cerr << "end wfa2:" << end << '\n';
+    std::cerr << "  CIGAR SSW:  " << alignment_ssw.cigar_string << '\n';
+
+    std::cerr << "  score WFA2: " << aligner.getAlignmentScore() << '\n';
+    std::cerr << "  score SSW:  " << alignment_ssw.sw_score << '\n';
+
+    std::cerr << " begin WFA2: " << begin << '\n';
+    std::cerr << " begin SSW:  " << alignment_ssw.ref_begin << '\n';
+
+    std::cerr << " end WFA2: " << ref.size() - end << '\n';
+    std::cerr << " end SSW:  " << alignment_ssw.ref_end << '\n';
+
+    std::cerr << "SSW global_ed: " << alignment_ssw.global_ed << '\n';
+    std::cerr << "SSW mism: " << alignment_ssw.mismatches << '\n';
+    std::cerr << "WFA2 ed: " << ed << '\n';
+*/
+    aln.global_ed = ed;
+    aln.ed = ed;
+    aln.ref_offset = begin;
+    aln.cigar = cigar;
+    aln.sw_score = aligner.getAlignmentScore();
+    aln.length = ref.size() - begin - end;
+
+/*    aln.global_ed = alignment_ssw.global_ed;
     aln.ed = alignment_ssw.mismatches;
     aln.ref_offset = alignment_ssw.ref_begin;
     aln.cigar = alignment_ssw.cigar_string;
     aln.sw_score = alignment_ssw.sw_score;
     aln.length = alignment_ssw.ref_end - alignment_ssw.ref_begin;
+*/
     return aln;
 }
 
