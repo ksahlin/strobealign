@@ -4,6 +4,7 @@
 
 * Add progress report (only shown if output is not a terminal and can be
   disabled with `--no-progress`)
+* Support gzip-compressed references. Thanks @luispedro
 
 ## v0.8.0 (2023-02-01)
 

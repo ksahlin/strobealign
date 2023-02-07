@@ -1,4 +1,6 @@
 #include <fstream>
+#include <zlib.h>
+
 #include "doctest.h"
 #include "refs.hpp"
 
@@ -42,6 +44,29 @@ TEST_CASE("Reference uppercase") {
             << ">empty_at_end_of_file";
     }
     auto refs = References::from_fasta("tmpref.fasta");
+    std::remove("tmpref.fasta");
+    CHECK(refs.sequences.size() == 2);
+    CHECK(refs.sequences[0].size() == 4);
+    CHECK(refs.sequences[0] == "ACGT");
+    CHECK(refs.sequences[1].size() == 8);
+    CHECK(refs.sequences[1] == "AACCGGTT");
+    CHECK(refs.names.size() == 2);
+    CHECK(refs.lengths.size() == 2);
+}
+
+// Copy & pasted from the above, but with a gzipped file
+TEST_CASE("Reference gzipped") {
+    {
+        gzFile writer = gzopen("tmpref.fasta.gz", "w");
+        gzputs(writer, ">ref1\n");
+        gzputs(writer, "acgt\n\n");
+        gzputs(writer, ">ref2\n");
+        gzputs(writer, "aacc\ngg\n\ntt\n");
+        gzputs(writer, ">empty\n");
+        gzputs(writer, ">empty_at_end_of_file");
+        gzclose(writer);
+    }
+    auto refs = References::from_fasta("tmpref.fasta.gz");
     std::remove("tmpref.fasta");
     CHECK(refs.sequences.size() == 2);
     CHECK(refs.sequences[0].size() == 4);
