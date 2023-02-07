@@ -7,6 +7,7 @@
 #include "index.hpp"
 #include "refs.hpp"
 #include "sam.hpp"
+#include "bindings/cpp/WFAligner.hpp"
 
 struct alignment_params {
     // These values should usually be positive
@@ -85,9 +86,54 @@ public:
     void update(int dist);
 };
 
-void align_PE_read(const klibpp::KSeq& record1, const klibpp::KSeq& record2, Sam& sam, std::string& outstring, AlignmentStatistics& statistics, i_dist_est& isize_est, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
+struct Aligner {
+public:
+    Aligner(alignment_params parameters) : parameters(parameters),
+        // - A gap of length n costs gap_opening_penalty + n * gap_extending_penalty
+        // - first parameter is a penalty, so must be negative or zero
+        wfa_aligner(
+                -parameters.match,  // must be a penalty
+                parameters.mismatch,
+                parameters.gap_open - parameters.gap_extend,
+                parameters.gap_extend,
+                wfa::WFAligner::Alignment,
+                wfa::WFAligner::MemoryHigh
+        )
+    { }
 
-void align_SE_read(const klibpp::KSeq& record, Sam& sam, std::string& outstring, AlignmentStatistics& statistics, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
+    aln_info align(const std::string &ref, const std::string &query);
+
+    alignment_params parameters;
+
+private:
+    wfa::WFAlignerGapAffine wfa_aligner;
+};
+
+void align_PE_read(
+    const klibpp::KSeq& record1,
+    const klibpp::KSeq& record2,
+    Sam& sam,
+    std::string& outstring,
+    AlignmentStatistics& statistics,
+    i_dist_est& isize_est,
+    Aligner& aligner,
+    const mapping_params& map_param,
+    const IndexParameters& index_parameters,
+    const References& references,
+    const StrobemerIndex& index
+);
+
+void align_SE_read(
+    const klibpp::KSeq& record,
+    Sam& sam,
+    std::string& outstring,
+    AlignmentStatistics& statistics,
+    Aligner& aligner,
+    const mapping_params& map_param,
+    const IndexParameters& index_parameters,
+    const References& references,
+    const StrobemerIndex& index
+);
 
 bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k);
 
