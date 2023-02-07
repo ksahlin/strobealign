@@ -7,6 +7,7 @@
 #include "index.hpp"
 #include "refs.hpp"
 #include "sam.hpp"
+#include "ssw_cpp.h"
 
 struct alignment_params {
     // match is a score, the others are penalties (all are nonnegative)
@@ -84,9 +85,47 @@ public:
     void update(int dist);
 };
 
-void align_PE_read(const klibpp::KSeq& record1, const klibpp::KSeq& record2, Sam& sam, std::string& outstring, AlignmentStatistics& statistics, i_dist_est& isize_est, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
+struct Aligner {
+public:
+    Aligner(alignment_params parameters)
+        : parameters(parameters)
+        , ssw_aligner(StripedSmithWaterman::Aligner(parameters.match, parameters.mismatch, parameters.gap_open, parameters.gap_extend))
+    { }
 
-void align_SE_read(const klibpp::KSeq& record, Sam& sam, std::string& outstring, AlignmentStatistics& statistics, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
+    aln_info align(const std::string &ref, const std::string &query) const;
+
+    alignment_params parameters;
+
+private:
+    const StripedSmithWaterman::Aligner ssw_aligner;
+    const StripedSmithWaterman::Filter filter;
+};
+
+void align_PE_read(
+    const klibpp::KSeq& record1,
+    const klibpp::KSeq& record2,
+    Sam& sam,
+    std::string& outstring,
+    AlignmentStatistics& statistics,
+    i_dist_est& isize_est,
+    const Aligner& aligner,
+    const mapping_params& map_param,
+    const IndexParameters& index_parameters,
+    const References& references,
+    const StrobemerIndex& index
+);
+
+void align_SE_read(
+    const klibpp::KSeq& record,
+    Sam& sam,
+    std::string& outstring,
+    AlignmentStatistics& statistics,
+    const Aligner& aligner,
+    const mapping_params& map_param,
+    const IndexParameters& index_parameters,
+    const References& references,
+    const StrobemerIndex& index
+);
 
 bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k);
 

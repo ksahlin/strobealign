@@ -145,6 +145,7 @@ void perform_task(
     const std::string& read_group_id
 ) {
     bool eof = false;
+    Aligner aligner{aln_params};
     while (!eof) {
         std::vector<klibpp::KSeq> records1;
         std::vector<klibpp::KSeq> records2;
@@ -168,14 +169,14 @@ void perform_task(
             to_uppercase(record2.seq);
             strip_suffix(record1.name);
             strip_suffix(record2.name);
-            align_PE_read(record1, record2, sam, sam_out, statistics, isize_est, aln_params,
+            align_PE_read(record1, record2, sam, sam_out, statistics, isize_est, aligner,
                         map_param, index_parameters, references, index);
             statistics.n_reads += 2;
         }
         for (size_t i = 0; i < records3.size(); ++i) {
             auto record = records3[i];
             strip_suffix(record.name);
-            align_SE_read(record, sam, sam_out, statistics, aln_params, map_param, index_parameters, references, index);
+            align_SE_read(record, sam, sam_out, statistics, aligner, map_param, index_parameters, references, index);
             statistics.n_reads++;
         }
         output_buffer.output_records(std::move(sam_out), chunk_index);
