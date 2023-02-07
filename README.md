@@ -262,7 +262,7 @@ Figure 4. Recall precision and F-score for the aligners on 2x150 and 2x250 datas
 For the four larger datasets above we show the runtime of aligners using 16 threads in Figure 5. The two SIM3 datasets are denoted SIM150 and SIM250, and the two GIAB datasets are denoted BIO150 and BIO250. Urmap was excluded from the timing benchmark because we can only get it to run with 1 core on our server as reported [here](https://github.com/rcedgar/urmap/issues/8). Strobealign is the fastest aligner across datasets. While urmap could be faster (based on the singlethreaded benchmarks), strobealign has substaintially better accuracy and downstream SV calling statistics (as seen in previous sections).
 
 ![runtime_sv](https://user-images.githubusercontent.com/1714667/161267752-8ff8d0ca-512d-46bc-a5f7-c3548dc603a3.png)
-Figure 5. Runtime of aligners using 16 threads on two simulaed and two biological datasets of about 20-30x coverage of a human genome.
+Figure 5. Runtime of aligners using 16 threads on two simulated and two biological datasets of about 20-30x coverage of a human genome.
 
 
 ## Variant calling benchmark method
