@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.16)
-include(ExternalProject)
 
 project(strobealign VERSION 0.7.1)
 include(FetchContent)
@@ -27,18 +26,12 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
-ExternalProject_Add(wfa2
-  GIT_REPOSITORY https://github.com/smarco/WFA2-lib.git
-  GIT_TAG v2.3.2
-  INSTALL_COMMAND ""
+
+FetchContent_Declare(wfa2
+  GIT_REPOSITORY https://github.com/marcelm/WFA2-lib.git
+  GIT_TAG d71685bf70bb8977b084e036efb15e74562c16fc
 )
-foreach(lib wfa wfacpp)
-  add_library(${lib} STATIC IMPORTED GLOBAL)
-  set_property(TARGET ${lib}
-    PROPERTY IMPORTED_LOCATION
-    ${CMAKE_CURRENT_BINARY_DIR}/wfa2-prefix/src/wfa2/lib/lib${lib}.a
-  )
-endforeach()
+FetchContent_MakeAvailable(wfa2)
 
 add_compile_options(-Wall -Wextra)
 
@@ -67,11 +60,8 @@ add_library(salib STATIC ${SOURCES}
   ext/ssw_cpp.cpp
   ext/ssw.c
 )
-target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR}/wfa2-prefix/src/wfa2 ${PROJECT_BINARY_DIR})
-target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads wfa wfacpp)
-if(OpenMP_CXX_FOUND)
-  target_link_libraries(salib PUBLIC OpenMP::OpenMP_CXX)
-endif()
+target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
+target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads wfa2::wfa2cpp_static)
 
 IF(ENABLE_AVX)
   target_compile_options(salib PUBLIC "-mavx2")
@@ -99,7 +89,3 @@ target_include_directories(dumpstrobes PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 add_executable(unused-code src/unused.cpp)
 target_link_libraries(unused-code salib)
 target_include_directories(unused-code PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
-
-add_executable(wfademo src/wfademo.cpp)
-target_link_libraries(wfademo wfacpp OpenMP::OpenMP_CXX)
-target_include_directories(wfademo PUBLIC src/ ext/ ${PROJECT_BINARY_DIR}/wfa2-prefix/src/wfa2 ${PROJECT_BINARY_DIR})
