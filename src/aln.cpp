@@ -586,7 +586,6 @@ static inline void align_segment(
     const alignment_params &aln_params,
     const std::string &read_segm,
     const std::string &ref_segm,
-    int ref_segm_len,
     int ref_start,
     int ext_left,
     int ext_right,
@@ -595,6 +594,7 @@ static inline void align_segment(
     alignment &sam_aln_segm,
     unsigned int &tot_ksw_aligned
 ) {
+    auto ref_segm_len = ref_segm.size();
     auto read_segm_len = read_segm.size();
     // The ref_segm includes an extension of ext_left bases upstream and ext_right bases downstream
     int ref_segm_len_ham = ref_segm_len - ext_left - ext_right; // we send in the already extended ref segment to save time. This is not true in center alignment if merged match have diff length
@@ -696,9 +696,8 @@ static inline alignment get_alignment(
 //            std::cerr << "Get_alignment Bug3! ref start: " << ref_start << " ref_segm_size: " << ref_segm_size << " ref len:  " << ref_seqs[n.ref_id].length() << std::endl;
 //        }
         ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_segm_size);
-//        std::cerr << " ref_tmp_start " << ref_tmp_start << " ext left " << ext_left << " ext right " << ext_right << " ref_tmp_segm_size " << ref_tmp_segm_size << " ref_segm_size " << ref_segm_size << " ref_segm " << ref_segm << std::endl;
         sam_aln.ref_id = n.ref_id;
-        align_segment(aln_params, r_tmp, ref_segm, ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln, tot_ksw_aligned);
+        align_segment(aln_params, r_tmp, ref_segm, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln, tot_ksw_aligned);
     } else {
         // test full hamming based alignment first
         ref_tmp_start = std::max(0, n.ref_s - n.query_s);
@@ -765,7 +764,7 @@ static inline alignment get_alignment(
 //            std::cerr << read_segm << std::endl;
 //            std::cerr << ref_segm << std::endl;
 
-            align_segment(aln_params, read_segm, ref_segm, ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln_segm_left, tot_ksw_aligned);
+            align_segment(aln_params, read_segm, ref_segm, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln_segm_left, tot_ksw_aligned);
 //            std::cerr << "LEFT CIGAR: " << sam_aln_segm_left.cigar << std::endl;
 
             //Right region align
@@ -782,7 +781,7 @@ static inline alignment get_alignment(
 //            std::cerr << read_segm << std::endl;
 //            std::cerr << ref_segm << std::endl;
 //            std::cerr << "read_segm.length(): " << read_segm.length() << " ref_segm_size " << ref_segm_size << std::endl;
-            align_segment(aln_params, read_segm, ref_segm, ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln_segm_right, tot_ksw_aligned);
+            align_segment(aln_params, read_segm, ref_segm, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln_segm_right, tot_ksw_aligned);
 //            std::cerr << "RIGHT CIGAR: " << sam_aln_segm_right.cigar << std::endl;
 
 
@@ -813,7 +812,7 @@ static inline alignment get_alignment(
             ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_segm_size);
 //        std::cerr << " ref_tmp_start " << ref_tmp_start << " ext left " << ext_left << " ext right " << ext_right << " ref_tmp_segm_size " << ref_tmp_segm_size << " ref_segm_size " << ref_segm_size << " ref_segm " << ref_segm << std::endl;
             sam_aln.ref_id = n.ref_id;
-            align_segment(aln_params, r_tmp, ref_segm, ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln, tot_ksw_aligned);
+            align_segment(aln_params, r_tmp, ref_segm, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln, tot_ksw_aligned);
         }
 
 
