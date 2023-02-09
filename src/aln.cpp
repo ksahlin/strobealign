@@ -246,7 +246,6 @@ inline void align_SE(
 ) {
     auto query_acc = record.name;
     Read read(record.seq);
-    auto qual = record.qual;
     auto read_len = read.size();
 
     if (all_nams.empty()) {
@@ -393,10 +392,10 @@ static inline void align_SE_secondary_hits(
     AlignmentStatistics &statistics,
     float dropoff,
     int max_tries,
-    unsigned max_secondary) {
+    unsigned max_secondary
+) {
     auto query_acc = record.name;
     Read read(record.seq);
-    auto qual = record.qual;
     auto read_len = read.size();
 
     if (all_nams.empty()) {
@@ -468,7 +467,6 @@ static inline void align_SE_secondary_hits(
                 if (sw_score > best_align_sw_score){
                     min_mapq_diff = std::max(0, sw_score - best_align_sw_score); // new distance to next best match
                 }
-//                needs_aln = HammingToCigarEQX(r_tmp, ref_segm, cigar_string);
                 auto info = hamming_align(r_tmp, ref_segm, aligner.parameters.match, aligner.parameters.mismatch, soft_left, soft_right);
 //                sw_score =  aln_params.match*(read_len-hamming_mod) - aln_params.mismatch*hamming_mod;
 
@@ -509,13 +507,7 @@ static inline void align_SE_secondary_hits(
             int ref_len = references.lengths[n.ref_id];
             int ref_end = std::min(ref_len, b);
             ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_end - ref_start);
-//            ksw_extz_t ez;
-//            const char *ref_ptr = ref_segm.c_str();
-//            const char *read_ptr = r_tmp.c_str();
             auto info = aligner.align(ref_segm, r_tmp);
-//            std::cout << "Extra ref: " << extra_ref << " " << read_diff << " " << ref_diff << " " << ref_start << " " << ref_end << std::endl;
-//            info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
-//            info.ed = info.global_ed; // read_len - info.sw_score;
             sw_score = info.sw_score;
             int diff_to_best = std::abs(best_align_sw_score - sw_score);
             min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
@@ -536,8 +528,6 @@ static inline void align_SE_secondary_hits(
             sam_aln.sw_score = info.sw_score;
             sam_aln.aln_score = info.sw_score;
             sam_aln.aln_length = info.length;
-//            std::cout << "Aligned: " << n.score << ", "  << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ") ed:" << info.ed << ", best ed so far: " << best_align_dist  << std::endl;
-
         }
         if (sw_score > best_align_sw_score){
             best_align_sw_score = sw_score;
