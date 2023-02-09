@@ -631,6 +631,10 @@ static inline void align_segment(
 
 
 /*
+ Extend a NAM so that it covers the entire read and return the resulting
+ alignment.
+*/
+/*
  Only the following fields of the 'nam' struct are used:
  - is_rc (r/w)
  - ref_id (read)
@@ -671,7 +675,7 @@ static inline alignment get_alignment(
     int ext_left;
     int ext_right;
     int ref_tmp_segm_size;
-    int ref_len = references.lengths[n.ref_id];
+    const int ref_len = references.lengths[n.ref_id];
     int ref_tmp_start;
     int ref_start;
     std::string ref_segm;
@@ -686,15 +690,7 @@ static inline alignment get_alignment(
         ext_right = std::min(50, ref_len - (n.ref_e + 1));
 
         const auto ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
-//        if (ref_start < 0  ){
-//            std::cerr << "Get_alignment Bug1! ref start: " << ref_start << " ref_segm_size: " << ref_segm_size  << " ref len:  " << ref_seqs[n.ref_id].length() << std::endl;
-//        }
-//        if (ref_start + ref_segm_size >= ref_seqs[n.ref_id].length() ){
-//            std::cerr << "Get_alignment Bug2! ref start: " << ref_start << " ref_segm_size: " << ref_segm_size << " ref len:  " << ref_seqs[n.ref_id].length() << std::endl;
-//        }
-//        if (ref_segm_size <= 20){
-//            std::cerr << "Get_alignment Bug3! ref start: " << ref_start << " ref_segm_size: " << ref_segm_size << " ref len:  " << ref_seqs[n.ref_id].length() << std::endl;
-//        }
+
         ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_segm_size);
         sam_aln.ref_id = n.ref_id;
         align_segment(aln_params, r_tmp, ref_segm, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln, tot_ksw_aligned);
