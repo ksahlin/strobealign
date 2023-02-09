@@ -192,7 +192,16 @@ aln_info hamming_align(const std::string &query, const std::string &ref, int mat
 }
 
 
-// decide if read should be fw or rc aligned to reference by checking exact match of first and last strobe in the NAM
+/*
+ * Determine whether the NAM represents a match to the forward or
+ * reverse-complemented sequence by checking in which orientation the
+ * first and last strobe in the NAM match
+ *
+ * - If first and last strobe match in forward orientation, return true.
+ * - If first and last strobe match in reverse orientation, update the NAM
+ *   in place and return true.
+ * - If first and last strobe do not match consistently, return false.
+ */
 bool reverse_nam_if_needed(nam& n, const Read& read, const References& references, int k) {
     auto read_len = read.size();
     std::string ref_start_kmer = references.sequences[n.ref_id].substr(n.ref_s, k);
@@ -587,6 +596,7 @@ static inline void align_segment(
     unsigned int &tot_ksw_aligned
 ) {
     auto read_segm_len = read_segm.size();
+    // The ref_segm includes an extension of ext_left bases upstream and ext_right bases downstream
     int ref_segm_len_ham = ref_segm_len - ext_left - ext_right; // we send in the already extended ref segment to save time. This is not true in center alignment if merged match have diff length
     if (ref_segm_len_ham == read_segm_len && !aln_did_not_fit) {
         std::string ref_segm_ham = ref_segm.substr(ext_left, read_segm_len);
@@ -637,7 +647,7 @@ static inline void align_segment(
 
 static inline alignment get_alignment(
     const alignment_params &aln_params,
-    nam &n,
+    nam &na,
     const References& references,
     const Read& read,
     int k,
@@ -647,37 +657,21 @@ static inline alignment get_alignment(
     alignment sam_aln;
 
     const auto read_len = read.size();
-    bool aln_did_not_fit = false;
-    int diff = std::abs(n.ref_span() - n.query_span());
-
-//    int max_allowed_mask = aln_params.gap_open/aln_params.match - 1 > 0 ? aln_params.gap_open/aln_params.match - 1 : 1;
-
-//    std::cerr << "n.ID " << n.nam_id  << " n.n_hits " << n.n_hits << " n.ref_s " <<  n.ref_s <<  " n.ref_e " << n.ref_e << " read " << read << std::endl;
-
-    // decide if read should be fw or rc aligned to reference here by checking exact match of first and last strobe in the NAM
-
-    bool fits = reverse_nam_if_needed(n, read, references, k);
-
+    const bool fits = reverse_nam_if_needed(na, read, references, k);
+    const auto n = na;
     if (!fits) {
         did_not_fit++;
-        aln_did_not_fit = true;
     }
+    const bool aln_did_not_fit = !fits;
+    const int diff = std::abs(n.ref_span() - n.query_span());
 
-    std::string r_tmp;
-    bool is_rc;
-    if (n.is_rc){
-        r_tmp = read.rc;
-        is_rc = true;
-    }else{
-        r_tmp = read.seq;
-        is_rc = false;
-    }
+    const std::string r_tmp = n.is_rc ? read.rc : read.seq;
+    const bool is_rc = n.is_rc;
 
     int ext_left;
     int ext_right;
     int ref_tmp_segm_size;
     int ref_len = references.lengths[n.ref_id];
-    size_t ref_segm_size;
     int ref_tmp_start;
     int ref_start;
     std::string ref_segm;
@@ -691,7 +685,7 @@ static inline alignment get_alignment(
         ref_tmp_segm_size = read_len + diff;
         ext_right = std::min(50, ref_len - (n.ref_e + 1));
 
-        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
+        const auto ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
 //        if (ref_start < 0  ){
 //            std::cerr << "Get_alignment Bug1! ref start: " << ref_start << " ref_segm_size: " << ref_segm_size  << " ref len:  " << ref_seqs[n.ref_id].length() << std::endl;
 //        }
@@ -705,12 +699,12 @@ static inline alignment get_alignment(
 //        std::cerr << " ref_tmp_start " << ref_tmp_start << " ext left " << ext_left << " ext right " << ext_right << " ref_tmp_segm_size " << ref_tmp_segm_size << " ref_segm_size " << ref_segm_size << " ref_segm " << ref_segm << std::endl;
         sam_aln.ref_id = n.ref_id;
         align_segment(aln_params, r_tmp, ref_segm, ref_segm_size, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc, sam_aln, tot_ksw_aligned);
-    } else{
+    } else {
         // test full hamming based alignment first
         ref_tmp_start = std::max(0, n.ref_s - n.query_s);
         int ref_start = std::max(0, ref_tmp_start);
         ref_tmp_segm_size = read_len + diff;
-        ref_segm_size = std::min(ref_tmp_segm_size, ref_len - ref_start + 1);
+        auto ref_segm_size = std::min(ref_tmp_segm_size, ref_len - ref_start + 1);
 
         std::string ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_segm_size);
         if (ref_segm_size == read_len && fits) {
@@ -719,7 +713,7 @@ static inline alignment get_alignment(
             if (hamming_dist >= 0 && (((float) hamming_dist / ref_segm_size) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
                 int soft_left = 0;
                 int soft_right = 0;
-                auto info = hamming_align(r_tmp, ref_segm, aln_params.match, aln_params.mismatch, soft_left, soft_right);
+                const auto info = hamming_align(r_tmp, ref_segm, aln_params.match, aln_params.mismatch, soft_left, soft_right);
                 sam_aln.cigar = info.cigar;
                 sam_aln.ed = info.ed;
                 sam_aln.sw_score = info.sw_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
@@ -727,7 +721,6 @@ static inline alignment get_alignment(
                 sam_aln.is_rc = is_rc;
                 sam_aln.is_unaligned = false;
                 sam_aln.aln_score = info.sw_score;
-//                std::cerr << "FULL HAMMING , returning " << sam_aln.cigar << " sam_aln_segm.ref_start " << sam_aln.ref_start << std::endl;
                 return sam_aln;
             }
         }
