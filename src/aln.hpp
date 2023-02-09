@@ -37,7 +37,7 @@ struct AlignmentStatistics {
     std::chrono::duration<double> tot_write_file;
 
     unsigned int n_reads = 0;
-    unsigned int tot_ksw_aligned = 0;
+    unsigned int tot_aligner_calls = 0;
     unsigned int tot_rescued = 0;
     unsigned int tot_all_tried = 0;
     unsigned int did_not_fit = 0;
@@ -53,7 +53,7 @@ struct AlignmentStatistics {
         this->tot_extend += other.tot_extend;
         this->tot_write_file += other.tot_write_file;
         this->n_reads += other.n_reads;
-        this->tot_ksw_aligned += other.tot_ksw_aligned;
+        this->tot_aligner_calls += other.tot_aligner_calls;
         this->tot_rescued += other.tot_rescued;
         this->tot_all_tried += other.tot_all_tried;
         this->did_not_fit += other.did_not_fit;
@@ -96,9 +96,14 @@ public:
 
     alignment_params parameters;
 
+    unsigned calls_count() {
+        return m_align_calls;
+    }
+
 private:
     const StripedSmithWaterman::Aligner ssw_aligner;
     const StripedSmithWaterman::Filter filter;
+    mutable unsigned m_align_calls{0};  // no. of calls to the align() method
 };
 
 void align_PE_read(

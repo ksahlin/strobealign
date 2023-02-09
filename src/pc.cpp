@@ -182,5 +182,6 @@ void perform_task(
         output_buffer.output_records(std::move(sam_out), chunk_index);
         assert(sam_out == "");
     }
+    statistics.tot_aligner_calls += aligner.calls_count();
     done = true;
 }
