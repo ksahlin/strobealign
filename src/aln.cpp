@@ -97,15 +97,14 @@ inline int hamming_distance(const std::string &s, const std::string &t) {
 
 aln_info hamming_align(const std::string &query, const std::string &ref, int match, int mismatch, int &soft_left, int &soft_right) {
     aln_info aln;
-    std::stringstream cigar;
-    if (query.length() != ref.length()){
+    if (query.length() != ref.length()) {
         return aln;
     }
 
     // Decide softclipps
     int peak_score = 0;
     int curr_score = 0;
-    size_t end_softclipp = 0;
+    size_t end_softclip = 0;
     for (size_t i = 0; i < query.length(); i++) {
         if (query[i] == ref[i]){
             curr_score += match;
@@ -115,13 +114,13 @@ aln_info hamming_align(const std::string &query, const std::string &ref, int mat
 
         if (curr_score >= peak_score){
             peak_score = curr_score;
-            end_softclipp = i;
+            end_softclip = i;
         }
     }
 
     peak_score = 0;
     curr_score = 0;
-    size_t start_softclipp = 0;
+    size_t start_softclip = 0;
     for (int i = query.length() - 1; i >= 0; i--) {
         if (query[i] == ref[i]){
             curr_score += match;
@@ -130,11 +129,11 @@ aln_info hamming_align(const std::string &query, const std::string &ref, int mat
         }
         if (curr_score >= peak_score) {
             peak_score = curr_score;
-            start_softclipp = i;
+            start_softclip = i;
         }
     }
 
-    if (start_softclipp >= end_softclipp) {
+    if (start_softclip >= end_softclip) {
         aln.sw_score = 0;
         soft_left = 50; //default
         soft_right = 50; //default
@@ -142,16 +141,17 @@ aln_info hamming_align(const std::string &query, const std::string &ref, int mat
         return aln;
     }
 
-    if (start_softclipp > 0) {
-        cigar << start_softclipp << 'S';
+    std::stringstream cigar;
+    if (start_softclip > 0) {
+        cigar << start_softclip << 'S';
     }
 
     int aln_score = 0;
     int counter = 1;
-    bool prev_is_match = query[start_softclipp+1] == ref[start_softclipp+1];
+    bool prev_is_match = query[start_softclip+1] == ref[start_softclip+1];
     int hamming_mod = prev_is_match ? 0 : 1;
     bool curr_match = false;
-    for (size_t i = start_softclipp + 1; i < end_softclipp + 1; i++) {
+    for (size_t i = start_softclip + 1; i < end_softclip + 1; i++) {
         curr_match = query[i] == ref[i];
 
         if (!curr_match && prev_is_match) {
@@ -178,12 +178,12 @@ aln_info hamming_align(const std::string &query, const std::string &ref, int mat
         hamming_mod += counter;
     }
 
-    if (query.length() - end_softclipp - 1 > 0){
-        cigar << query.length() - end_softclipp - 1 << 'S';
+    if (query.length() - end_softclip - 1 > 0){
+        cigar << query.length() - end_softclip - 1 << 'S';
     }
 
-    soft_left = start_softclipp;
-    soft_right = std::max(static_cast<int>(query.length() - end_softclipp - 1), 0);
+    soft_left = start_softclip;
+    soft_right = std::max(static_cast<int>(query.length() - end_softclip - 1), 0);
 
     aln.cigar = cigar.str();
     aln.sw_score = aln_score;
@@ -382,7 +382,6 @@ inline void align_SE(
     sam_aln.mapq = std::min(min_mapq_diff, 60);
     sam.add(sam_aln, record, read.rc);
 }
-
 
 static inline void align_SE_secondary_hits(
     const alignment_params &aln_params,
