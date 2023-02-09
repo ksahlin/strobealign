@@ -9,6 +9,7 @@
 #include "sam.hpp"
 
 struct alignment_params {
+    // match is a score, the others are penalties (all are nonnegative)
     int match;
     int mismatch;
     int gap_open;
@@ -17,11 +18,11 @@ struct alignment_params {
 
 struct aln_info {
     std::string cigar;
-    unsigned int ed;
+    unsigned int ed;  // edit distance
     unsigned int ref_offset;
     int sw_score;
-    int global_ed;
-    int length;
+    int global_ed;  // edit distance plus total number of soft-clipped bases
+    int length;  // length of aligned reference segment
 };
 
 struct AlignmentStatistics {
