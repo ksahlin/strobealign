@@ -587,16 +587,14 @@ static inline void align_segment(
     unsigned int &tot_ksw_aligned
 ) {
     auto read_segm_len = read_segm.size();
-    int soft_left = 50;
-    int soft_right = 50;
     int ref_segm_len_ham = ref_segm_len - ext_left - ext_right; // we send in the already extended ref segment to save time. This is not true in center alignment if merged match have diff length
     if (ref_segm_len_ham == read_segm_len && !aln_did_not_fit) {
         std::string ref_segm_ham = ref_segm.substr(ext_left, read_segm_len);
-//        std::cout << "ref_segm_ham " << ref_segm_ham << std::endl;
 
         auto hamming_dist = hamming_distance(read_segm, ref_segm_ham);
 
         if (hamming_dist >= 0 && (((float) hamming_dist / read_segm_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
+            int soft_left, soft_right;
             auto info = hamming_align(read_segm, ref_segm_ham, aln_params.match, aln_params.mismatch, soft_left, soft_right);
             sam_aln_segm.cigar = info.cigar;
             sam_aln_segm.ed = info.ed;
@@ -609,9 +607,7 @@ static inline void align_segment(
             return;
         }
     }
-
-    aln_info info;
-    info = ssw_align(ref_segm, read_segm, aln_params);
+    auto info = ssw_align(ref_segm, read_segm, aln_params);
     tot_ksw_aligned++;
     sam_aln_segm.cigar = info.cigar;
     sam_aln_segm.ed = info.ed;
