@@ -651,21 +651,16 @@ static inline void align_segment(
 
 static inline alignment get_alignment(
     const alignment_params &aln_params,
-    nam &na,
+    const nam &n,
     const References& references,
     const Read& read,
     int k,
-    unsigned int &did_not_fit,
+    bool fits,
     unsigned int &tot_ksw_aligned
 ) {
     alignment sam_aln;
 
     const auto read_len = read.size();
-    const bool fits = reverse_nam_if_needed(na, read, references, k);
-    const auto n = na;
-    if (!fits) {
-        did_not_fit++;
-    }
     const bool aln_did_not_fit = !fits;
     const int diff = std::abs(n.ref_span() - n.query_span());
 
@@ -1231,14 +1226,19 @@ void rescue_read(
 
     std::vector<alignment> aln_scores1;
     std::vector<alignment> aln_scores2;
-    for (auto &n : all_nams1) {
+    for (auto& n : all_nams1) {
         score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
         if ( (cnt1 >= max_tries) || score_dropoff1 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
             break;
         }
         //////// the actual testing of base pair alignment part start /////////
 //            std::cerr << query_acc1 << " force rescue"  << std::endl;
-        alignment a1 = get_alignment(aln_params, n, references, read1, k, statistics.did_not_fit, statistics.tot_ksw_aligned);
+
+        const bool fits = reverse_nam_if_needed(n, read1, references, k);
+        if (!fits) {
+            statistics.did_not_fit++;
+        }
+        alignment a1 = get_alignment(aln_params, n, references, read1, k, fits, statistics.tot_ksw_aligned);
         aln_scores1.push_back(a1);
 
         //////// Force SW alignment to rescue mate /////////
@@ -1444,10 +1444,21 @@ inline void align_PE(
     int b = std::max(0, n_max2.ref_s - n_max2.query_s);
     bool r1_r2 = n_max2.is_rc && (a < b) && ((b-a) < 2000); // r1 ---> <---- r2
     bool r2_r1 = n_max1.is_rc && (b < a) && ((a-b) < 2000); // r2 ---> <---- r1
+
     if (score_dropoff1 < dropoff && score_dropoff2 < dropoff && (n_max1.is_rc ^ n_max2.is_rc) && (r1_r2 || r2_r1)) { //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
-        auto sam_aln1 = get_alignment(aln_params, n_max1, references, read1, k, statistics.did_not_fit, statistics.tot_ksw_aligned);
+
+        bool fits1 = reverse_nam_if_needed(n_max1, read1, references, k);
+        if (!fits1) {
+            statistics.did_not_fit++;
+        }
+        bool fits2 = reverse_nam_if_needed(n_max2, read2, references, k);
+        if (!fits2) {
+            statistics.did_not_fit++;
+        }
+
+        auto sam_aln1 = get_alignment(aln_params, n_max1, references, read1, k, fits1, statistics.tot_ksw_aligned);
         statistics.tot_all_tried ++;
-        auto sam_aln2 = get_alignment(aln_params, n_max2, references, read2, k, statistics.did_not_fit, statistics.tot_ksw_aligned);
+        auto sam_aln2 = get_alignment(aln_params, n_max2, references, read2, k, fits2, statistics.tot_ksw_aligned);
         statistics.tot_all_tried ++;
         int mapq1 = get_MAPQ(all_nams1, n_max1);
         int mapq2 = get_MAPQ(all_nams2, n_max2);
@@ -1476,14 +1487,24 @@ inline void align_PE(
     robin_hood::unordered_map<int,alignment> is_aligned1;
     robin_hood::unordered_map<int,alignment> is_aligned2;
     auto n1_max = all_nams1[0];
+
+
+    bool fits1 = reverse_nam_if_needed(n1_max, read1, references, k);
+    if (!fits1) {
+        statistics.did_not_fit++;
+    }
     auto a1_indv_max = get_alignment(aln_params, n1_max, references, read1, k,
-                    statistics.did_not_fit, statistics.tot_ksw_aligned);
+                    fits1, statistics.tot_ksw_aligned);
 //            a1_indv_max.sw_score = -10000;
     is_aligned1[n1_max.nam_id] = a1_indv_max;
     statistics.tot_all_tried ++;
     auto n2_max = all_nams2[0];
+    bool fits2 = reverse_nam_if_needed(n2_max, read2, references, k);
+    if (!fits2) {
+        statistics.did_not_fit++;
+    }
     auto a2_indv_max = get_alignment(aln_params, n2_max, references, read2, k,
-                    statistics.did_not_fit, statistics.tot_ksw_aligned);
+                    fits2, statistics.tot_ksw_aligned);
 //            a2_indv_max.sw_score = -10000;
     is_aligned2[n2_max.nam_id] = a2_indv_max;
     statistics.tot_all_tried ++;
@@ -1516,8 +1537,11 @@ inline void align_PE(
                 a1 = is_aligned1[n1.nam_id];
             } else {
 //                    std::cerr << query_acc1 << std::endl;
-                a1 = get_alignment(
-                    aln_params, n1, references, read1, k, statistics.did_not_fit, statistics.tot_ksw_aligned);
+                bool fits = reverse_nam_if_needed(n1, read1, references, k);
+                if (!fits) {
+                    statistics.did_not_fit++;
+                }
+                a1 = get_alignment(aln_params, n1, references, read1, k, fits, statistics.tot_ksw_aligned);
                 is_aligned1[n1.nam_id] = a1;
                 statistics.tot_all_tried++;
             }
@@ -1546,8 +1570,12 @@ inline void align_PE(
                 a2 = is_aligned2[n2.nam_id];
             } else {
 //                    std::cerr << query_acc2 << std::endl;
+                bool fits = reverse_nam_if_needed(n2, read2, references, k);
+                if (!fits) {
+                    statistics.did_not_fit++;
+                }
                 a2 = get_alignment(aln_params, n2, references, read2, k,
-                                statistics.did_not_fit, statistics.tot_ksw_aligned);
+                                fits, statistics.tot_ksw_aligned);
                 is_aligned2[n2.nam_id] = a2;
                 statistics.tot_all_tried++;
             }
