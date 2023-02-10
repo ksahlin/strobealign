@@ -7,8 +7,10 @@
 #include "index.hpp"
 #include "refs.hpp"
 #include "sam.hpp"
+#include "ssw_cpp.h"
 
 struct alignment_params {
+    // match is a score, the others are penalties (all are nonnegative)
     int match;
     int mismatch;
     int gap_open;
@@ -17,11 +19,11 @@ struct alignment_params {
 
 struct aln_info {
     std::string cigar;
-    unsigned int ed;
+    unsigned int ed;  // edit distance
     unsigned int ref_offset;
     int sw_score;
-    int global_ed;
-    int length;
+    int global_ed;  // edit distance plus total number of soft-clipped bases
+    int length;  // length of aligned reference segment
 };
 
 struct AlignmentStatistics {
@@ -35,7 +37,7 @@ struct AlignmentStatistics {
     std::chrono::duration<double> tot_write_file;
 
     unsigned int n_reads = 0;
-    unsigned int tot_ksw_aligned = 0;
+    unsigned int tot_aligner_calls = 0;
     unsigned int tot_rescued = 0;
     unsigned int tot_all_tried = 0;
     unsigned int did_not_fit = 0;
@@ -51,7 +53,7 @@ struct AlignmentStatistics {
         this->tot_extend += other.tot_extend;
         this->tot_write_file += other.tot_write_file;
         this->n_reads += other.n_reads;
-        this->tot_ksw_aligned += other.tot_ksw_aligned;
+        this->tot_aligner_calls += other.tot_aligner_calls;
         this->tot_rescued += other.tot_rescued;
         this->tot_all_tried += other.tot_all_tried;
         this->did_not_fit += other.did_not_fit;
@@ -83,9 +85,52 @@ public:
     void update(int dist);
 };
 
-void align_PE_read(const klibpp::KSeq& record1, const klibpp::KSeq& record2, Sam& sam, std::string& outstring, AlignmentStatistics& statistics, i_dist_est& isize_est, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
+struct Aligner {
+public:
+    Aligner(alignment_params parameters)
+        : parameters(parameters)
+        , ssw_aligner(StripedSmithWaterman::Aligner(parameters.match, parameters.mismatch, parameters.gap_open, parameters.gap_extend))
+    { }
 
-void align_SE_read(const klibpp::KSeq& record, Sam& sam, std::string& outstring, AlignmentStatistics& statistics, const alignment_params& aln_params, const mapping_params& map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index);
+    aln_info align(const std::string &ref, const std::string &query) const;
+
+    alignment_params parameters;
+
+    unsigned calls_count() {
+        return m_align_calls;
+    }
+
+private:
+    const StripedSmithWaterman::Aligner ssw_aligner;
+    const StripedSmithWaterman::Filter filter;
+    mutable unsigned m_align_calls{0};  // no. of calls to the align() method
+};
+
+void align_PE_read(
+    const klibpp::KSeq& record1,
+    const klibpp::KSeq& record2,
+    Sam& sam,
+    std::string& outstring,
+    AlignmentStatistics& statistics,
+    i_dist_est& isize_est,
+    const Aligner& aligner,
+    const mapping_params& map_param,
+    const IndexParameters& index_parameters,
+    const References& references,
+    const StrobemerIndex& index
+);
+
+void align_SE_read(
+    const klibpp::KSeq& record,
+    Sam& sam,
+    std::string& outstring,
+    AlignmentStatistics& statistics,
+    const Aligner& aligner,
+    const mapping_params& map_param,
+    const IndexParameters& index_parameters,
+    const References& references,
+    const StrobemerIndex& index
+);
 
 bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k);
 

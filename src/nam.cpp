@@ -27,7 +27,6 @@ void add_to_hits_per_ref(
     int query_e,
     bool is_rc,
     const StrobemerIndex& index,
-    int k,
     RandstrobeMapEntry randstrobe_map_entry,
     int min_diff
 ) {
@@ -37,7 +36,7 @@ void add_to_hits_per_ref(
     if (randstrobe_map_entry.is_direct()) {
         auto r = randstrobe_map_entry.as_ref_randstrobe();
         int ref_s = r.position;
-        int ref_e = r.position + r.strobe2_offset() + k;
+        int ref_e = r.position + r.strobe2_offset() + index.k();
         int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
         if (diff <= min_diff) {
             hits_per_ref[r.reference_index()].push_back(hit{query_s, query_e, ref_s, ref_e, is_rc});
@@ -47,7 +46,7 @@ void add_to_hits_per_ref(
         for (size_t j = randstrobe_map_entry.offset(); j < randstrobe_map_entry.offset() + randstrobe_map_entry.count(); ++j) {
             auto r = index.flat_vector[j];
             int ref_s = r.position;
-            int ref_e = r.position + r.strobe2_offset() + k;
+            int ref_e = r.position + r.strobe2_offset() + index.k();
 
             int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
             if (diff <= min_diff) {
@@ -61,8 +60,7 @@ void add_to_hits_per_ref(
 std::pair<float,int> find_nams(
     std::vector<nam> &final_nams,
     const QueryRandstrobeVector &query_randstrobes,
-    const StrobemerIndex& index,
-    int k
+    const StrobemerIndex& index
 ) {
     robin_hood::unordered_map<unsigned int, std::vector<hit>> hits_per_ref;
     hits_per_ref.reserve(100);
@@ -76,7 +74,7 @@ std::pair<float,int> find_nams(
                 continue;
             }
             nr_good_hits++;
-            add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, k, ref_hit->second, 100000);
+            add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, ref_hit->second, 100000);
         }
     }
 
@@ -144,7 +142,7 @@ std::pair<float,int> find_nams(
             }
 
             // Only filter if we have advanced at least k nucleotides
-            if (h.query_s > prev_q_start + k) {
+            if (h.query_s > prev_q_start + index.k()) {
 
                 // Output all NAMs from open_matches to final_nams that the current hit have passed
                 for (auto &n : open_nams) {
@@ -188,7 +186,6 @@ void find_nams_rescue(
     std::vector<nam> &final_nams,
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index,
-    int k,
     unsigned int filter_cutoff
 ) {
     robin_hood::unordered_map<unsigned int, std::vector<hit>> hits_per_ref;
@@ -219,7 +216,7 @@ void find_nams_rescue(
             if ((count > filter_cutoff && cnt >= 5) || count > 1000) {
                 break;
             }
-            add_to_hits_per_ref(hits_per_ref, q.query_s, q.query_e, q.is_rc, index, k, q.randstrobe_map_entry, 1000);
+            add_to_hits_per_ref(hits_per_ref, q.query_s, q.query_e, q.is_rc, index, q.randstrobe_map_entry, 1000);
             cnt++;
         }
     }
@@ -287,7 +284,7 @@ void find_nams_rescue(
             }
 
             // Only filter if we have advanced at least k nucleotides
-            if (h.query_s > prev_q_start + k) {
+            if (h.query_s > prev_q_start + index.k()) {
 
                 // Output all NAMs from open_matches to final_nams that the current hit have passed
                 for (auto &n : open_nams) {
