@@ -470,7 +470,6 @@ static inline alignment get_alignment(
     const nam &n,
     const References& references,
     const Read& read,
-    int k,
     bool fits
 ) {
     alignment sam_aln;
@@ -1069,7 +1068,7 @@ void rescue_read(
         if (!fits) {
             statistics.did_not_fit++;
         }
-        alignment a1 = get_alignment(aligner, n, references, read1, k, fits);
+        alignment a1 = get_alignment(aligner, n, references, read1, fits);
         aln_scores1.push_back(a1);
 
         //////// Force SW alignment to rescue mate /////////
@@ -1287,9 +1286,9 @@ inline void align_PE(
             statistics.did_not_fit++;
         }
 
-        auto sam_aln1 = get_alignment(aligner, n_max1, references, read1, k, fits1);
+        auto sam_aln1 = get_alignment(aligner, n_max1, references, read1, fits1);
         statistics.tot_all_tried ++;
-        auto sam_aln2 = get_alignment(aligner, n_max2, references, read2, k, fits2);
+        auto sam_aln2 = get_alignment(aligner, n_max2, references, read2, fits2);
         statistics.tot_all_tried ++;
         int mapq1 = get_MAPQ(all_nams1, n_max1);
         int mapq2 = get_MAPQ(all_nams2, n_max2);
@@ -1323,7 +1322,7 @@ inline void align_PE(
     if (!fits1) {
         statistics.did_not_fit++;
     }
-    auto a1_indv_max = get_alignment(aligner, n1_max, references, read1, k,
+    auto a1_indv_max = get_alignment(aligner, n1_max, references, read1,
                     fits1);
 //            a1_indv_max.sw_score = -10000;
     is_aligned1[n1_max.nam_id] = a1_indv_max;
@@ -1333,7 +1332,7 @@ inline void align_PE(
     if (!fits2) {
         statistics.did_not_fit++;
     }
-    auto a2_indv_max = get_alignment(aligner, n2_max, references, read2, k,
+    auto a2_indv_max = get_alignment(aligner, n2_max, references, read2,
                     fits2);
 //            a2_indv_max.sw_score = -10000;
     is_aligned2[n2_max.nam_id] = a2_indv_max;
@@ -1371,7 +1370,7 @@ inline void align_PE(
                 if (!fits) {
                     statistics.did_not_fit++;
                 }
-                a1 = get_alignment(aligner, n1, references, read1, k, fits);
+                a1 = get_alignment(aligner, n1, references, read1, fits);
                 is_aligned1[n1.nam_id] = a1;
                 statistics.tot_all_tried++;
             }
@@ -1404,7 +1403,7 @@ inline void align_PE(
                 if (!fits) {
                     statistics.did_not_fit++;
                 }
-                a2 = get_alignment(aligner, n2, references, read2, k,
+                a2 = get_alignment(aligner, n2, references, read2,
                                 fits);
                 is_aligned2[n2.nam_id] = a2;
                 statistics.tot_all_tried++;
