@@ -1,9 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# Test StrobeAlign on a small, but non-toy dataset
+# Download a small test dataset (D. melanogaster genome and some reads from the SRA)
 
-# Downlad data
 mkdir -p tests/drosophila
 cd tests/drosophila
 
@@ -20,4 +19,3 @@ for r in 1 2; do
       mv ${f}.tmp ${f}
     fi
 done
-
