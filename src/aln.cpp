@@ -252,7 +252,7 @@ static inline void align_SE_secondary_hits(
         return;
     }
 
-    std::vector<std::tuple<int,alignment>> alignments; // (score, aln)
+    std::vector<alignment> alignments;
     int cnt = 0;
     float score_dropoff;
     nam n_max = all_nams[0];
@@ -297,15 +297,8 @@ static inline void align_SE_secondary_hits(
 //        bool needs_aln = false;
         int hamming_dist = -1;
         int sw_score = -999;
-        std::string r_tmp;
-        bool is_rc;
-        if (n.is_rc){
-            r_tmp = read.rc;
-            is_rc = true;
-        }else{
-            r_tmp = read.seq;
-            is_rc = false;
-        }
+        std::string r_tmp = n.is_rc ? read.rc : read.seq;
+        bool is_rc = n.is_rc;
 
         if (ref_segm.length() == read_len) {
             hamming_dist = hamming_distance(r_tmp, ref_segm);
@@ -382,8 +375,7 @@ static inline void align_SE_secondary_hits(
             }
         }
         if (max_secondary > 1) {
-            std::tuple<int, alignment> t (sam_aln.sw_score, sam_aln);
-            alignments.push_back(t);
+            alignments.push_back(sam_aln);
         }
         cnt++;
     }
@@ -395,15 +387,15 @@ static inline void align_SE_secondary_hits(
     }
     // Sort alignments by score, highest first
     std::sort(alignments.begin(), alignments.end(),
-        [](const std::tuple<int, alignment> &a, const std::tuple<int, alignment> &b) -> bool {
-            return std::get<0>(a) > std::get<0>(b);
+        [](const alignment& a, const alignment& b) -> bool {
+            return a.sw_score > b.sw_score;
         }
     );
 
     auto max_out = std::min(alignments.size(), static_cast<size_t>(max_secondary));
     bool is_secondary = false;
     for (size_t i = 0; i < max_out; ++i) {
-        auto sam_aln = std::get<1>(alignments[i]);
+        auto sam_aln = alignments[i];
         if ((sam_aln.sw_score - best_align_sw_score) > (2*aligner.parameters.mismatch + aligner.parameters.gap_open) ){
             break;
         }
