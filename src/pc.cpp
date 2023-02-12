@@ -16,21 +16,6 @@
 #include "kseq++.hpp"
 #include "sam.hpp"
 
-/* Strip the /1 or /2 suffix from a read name */
-void strip_suffix(std::string& name) {
-    auto len = name.length();
-    if (
-        len >= 2
-        && name[len - 2] == '/'
-        && (name[len - 1] == '1' || name[len - 1] == '2')
-    ) {
-        name.pop_back();
-        name.pop_back();
-        // C++20 would allow this:
-        // name.resize(len - 2);
-    }
-}
-
 // distribute_interleaved implements the 'interleaved' format:
 // If two consequent reads have the same name, they are considered to be a pair.
 // Otherwise, they are considered to be single-end reads.
@@ -167,15 +152,12 @@ void perform_task(
             auto record2 = records2[i];
             to_uppercase(record1.seq);
             to_uppercase(record2.seq);
-            strip_suffix(record1.name);
-            strip_suffix(record2.name);
             align_PE_read(record1, record2, sam, sam_out, statistics, isize_est, aligner,
                         map_param, index_parameters, references, index);
             statistics.n_reads += 2;
         }
         for (size_t i = 0; i < records3.size(); ++i) {
             auto record = records3[i];
-            strip_suffix(record.name);
             align_SE_read(record, sam, sam_out, statistics, aligner, map_param, index_parameters, references, index);
             statistics.n_reads++;
         }

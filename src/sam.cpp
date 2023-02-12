@@ -24,6 +24,20 @@ using namespace klibpp;
  * 12 optional fields
 */
 
+/* Strip the /1 or /2 suffix from a read name */
+std::string strip_suffix(const std::string& name) {
+    auto len = name.length();
+    if (
+        len >= 2
+        && name[len - 2] == '/'
+        && (name[len - 1] == '1' || name[len - 1] == '2')
+    ) {
+        return std::string{name, 0, len - 2};
+    } else {
+        return name;
+    }
+}
+
 void Sam::append_tail() {
     sam_string.append(tail);
 }
@@ -34,7 +48,7 @@ void Sam::add_unmapped(const KSeq& record, int flags) {
     }
     assert((flags & ~(UNMAP|PAIRED|MUNMAP|READ1|READ2)) == 0);
     assert(flags & UNMAP);
-    sam_string.append(record.name);
+    sam_string.append(strip_suffix(record.name));
     sam_string.append("\t");
     sam_string.append(std::to_string(flags));
     sam_string.append("\t*\t0\t" SAM_UNMAPPED_MAPQ_STRING "\t*\t*\t0\t0\t");
@@ -46,7 +60,7 @@ void Sam::add_unmapped(const KSeq& record, int flags) {
 
 void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& mate_rname, int mate_pos) {
     assert(flags & (UNMAP|PAIRED));
-    sam_string.append(record.name);
+    sam_string.append(strip_suffix(record.name));
     sam_string.append("\t");
     sam_string.append(std::to_string(flags));
     sam_string.append("\t*\t0\t" SAM_UNMAPPED_MAPQ_STRING "\t*\t");
@@ -100,7 +114,7 @@ void Sam::add_record(
     int ed,
     int aln_score
 ) {
-    sam_string.append(query_name);
+    sam_string.append(strip_suffix(query_name));
     sam_string.append("\t");
     sam_string.append(std::to_string(flags));
     sam_string.append("\t");
