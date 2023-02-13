@@ -319,3 +319,8 @@ void find_nams_rescue(
         }
     }
 }
+
+std::ostream& operator<<(std::ostream& os, const nam& n) {
+    os << "Nam(query: " << n.query_s << ".." << n.query_e << ", ref: " << n.ref_s << ".." << n.ref_e << ", score=" << n.score << ")";
+    return os;
+}

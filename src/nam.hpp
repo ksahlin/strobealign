@@ -43,4 +43,6 @@ void find_nams_rescue(
     unsigned int filter_cutoff
 );
 
+std::ostream& operator<<(std::ostream& os, const nam& thenam);
+
 #endif
