@@ -265,12 +265,15 @@ static inline void align_SE_secondary_hits(
     best_sam_aln.sw_score = -100000;
     best_sam_aln.is_unaligned = true;
     int min_mapq_diff = best_align_dist;
+    std::cerr << "NAMs: " << all_nams.size() << '\n';
     for (auto &n : all_nams) {
+        std::cerr << "working on NAM " << n << '\n';
         alignment sam_aln;
         sam_aln.ed = 10000; // init
         score_dropoff = (float) n.n_hits / n_max.n_hits;
 
         if ( (cnt >= max_tries) || best_align_dist == 0 || score_dropoff < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
+            std::cerr << "break\n";
             break;
         }
 
@@ -279,6 +282,8 @@ static inline void align_SE_secondary_hits(
         int diff = std::abs(n.ref_span() - n.query_span());
 
         bool fits = reverse_nam_if_needed(n, read, references, k);
+        std::cerr << "fits: " << (fits ? "yes" : "no" ) << '\n';
+        std::cerr << "new nam: " << n << '\n';
         if (!fits){
             statistics.did_not_fit++;
         }
@@ -302,6 +307,7 @@ static inline void align_SE_secondary_hits(
 
         if (ref_segm.length() == read_len) {
             hamming_dist = hamming_distance(r_tmp, ref_segm);
+            std::cerr << "hamming_dist = " << hamming_dist << '\n';
             if (hamming_dist >= 0) {
                 sw_score = aligner.parameters.match * (read_len - hamming_dist) - aligner.parameters.mismatch * hamming_dist;
                 int diff_to_best = std::abs(best_align_sw_score - sw_score);
@@ -323,6 +329,7 @@ static inline void align_SE_secondary_hits(
                 if (sam_aln.sw_score > best_sam_aln.sw_score) {
                     best_sam_aln = sam_aln;
                     if (max_secondary == 1) {
+                        std::cerr << "updating best_align_dist from " << best_align_dist << " to " << hamming_dist << '\n';
                         best_align_dist = hamming_dist;
                     }
                 }
@@ -1697,6 +1704,7 @@ void align_SE_read(
 ) {
     std::vector<nam> nams;
 
+    std::cerr << "\n\nworking on read " << record.name << '\n';
     // generate mers here
     Timer strobe_timer;
     auto query_randstrobes = randstrobes_query(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
