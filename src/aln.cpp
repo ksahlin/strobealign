@@ -281,9 +281,12 @@ static inline void align_SE_secondary_hits(
 
         int diff = std::abs(n.ref_span() - n.query_span());
 
+        auto before = n.is_rc;
         bool fits = reverse_nam_if_needed(n, read, references, k);
         std::cerr << "fits: " << (fits ? "yes" : "no" ) << '\n';
-        std::cerr << "new nam: " << n << '\n';
+        if (before != n.is_rc) {
+            std::cerr << "NEW nam: " << n << '\n';
+        }
         if (!fits){
             statistics.did_not_fit++;
         }
@@ -328,13 +331,14 @@ static inline void align_SE_secondary_hits(
                 sam_aln.aln_length = read_len;
                 if (sam_aln.sw_score > best_sam_aln.sw_score) {
                     best_sam_aln = sam_aln;
+                    std::cerr << "updating best from " << best_sam_aln.sw_score << " to " << sam_aln.sw_score << "cigar: " << sam_aln.cigar << '\n';
                     if (max_secondary == 1) {
                         std::cerr << "updating best_align_dist from " << best_align_dist << " to " << hamming_dist << '\n';
                         best_align_dist = hamming_dist;
                     }
                 }
             }
-        }
+        } else { std::cerr << "not same span\n"; }
         if (hamming_dist >=0 && diff == 0 && (((float) hamming_dist / (float) read_len) < 0.05) ) { // Likely substitutions only (within NAM region) no need to call ksw alingment
 //            if (hamming_dist < best_align_dist){
 //                ;
@@ -357,6 +361,7 @@ static inline void align_SE_secondary_hits(
             int ref_end = std::min(ref_len, b);
             ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_end - ref_start);
             auto info = aligner.align(ref_segm, r_tmp);
+            std::cerr << "alignment gave " << info.cigar << "\n";
             int diff_to_best = std::abs(best_align_sw_score - info.sw_score);
             min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
 
@@ -378,6 +383,7 @@ static inline void align_SE_secondary_hits(
                 }
             }
             if (sam_aln.sw_score >= best_sam_aln.sw_score) {
+                std::cerr << "updating best from " << best_sam_aln.sw_score << " to " << sam_aln.sw_score << "cigar: " << sam_aln.cigar << '\n';
                 best_sam_aln = sam_aln;
             }
         }
