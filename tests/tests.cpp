@@ -9,6 +9,8 @@
 #include "tmpdir.hpp"
 #include "io.hpp"
 #include "revcomp.hpp"
+#include "aln.hpp"
+
 
 TEST_CASE("estimate_read_length") {
     InputBuffer input_buffer1("tests/phix.1.fastq", "", 5, false);
@@ -113,4 +115,51 @@ TEST_CASE("reverse complement") {
     CHECK(reverse_complement("AC") == "GT");
     CHECK(reverse_complement("ACG") == "CGT");
     CHECK(reverse_complement("AACGT") == "ACGTT");
+}
+
+TEST_CASE("hamming_align") {
+    int soft_left, soft_right;
+    auto info = hamming_align(
+        "", "",
+        7, 5,
+        soft_left, soft_right
+    );
+    CHECK(info.cigar == "");
+    CHECK(info.ed == 0);
+    CHECK(info.global_ed == 0);
+    CHECK(info.length == 0);
+    CHECK(info.sw_score == 0);
+    CHECK(soft_left == 0);
+    CHECK(soft_right == 0);
+    CHECK(info.ref_offset == soft_left);
+
+    info = hamming_align(
+        "NAACCG",
+        "TAACCG",
+        3, 7,
+        soft_left, soft_right
+    );
+    CHECK(info.cigar == "1S5=");
+    CHECK(info.ed == 0);
+    CHECK(info.global_ed == 1);
+    CHECK(info.length == 5);
+    CHECK(info.sw_score == 5 * 3);
+    CHECK(soft_left == 1);
+    CHECK(soft_right == 0);
+    CHECK(info.ref_offset == soft_left);
+
+    info = hamming_align(
+        "AACCGN",
+        "AACCGT",
+        3, 7,
+        soft_left, soft_right
+    );
+    CHECK(info.cigar == "5=1S");
+    CHECK(info.ed == 0);
+    CHECK(info.global_ed == 1);
+    CHECK(info.length == 5);
+    CHECK(info.sw_score == 5 * 3);
+    CHECK(soft_left == 0);
+    CHECK(soft_right == 1);
+    CHECK(info.ref_offset == soft_left);
 }

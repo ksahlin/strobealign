@@ -19,11 +19,11 @@ struct alignment_params {
 
 struct aln_info {
     std::string cigar;
-    unsigned int ed;  // edit distance
-    unsigned int ref_offset;
-    int sw_score;
-    int global_ed;  // edit distance plus total number of soft-clipped bases
-    int length;  // length of aligned reference segment
+    unsigned int ed{0};  // edit distance
+    unsigned int ref_offset{0};
+    int sw_score{0};
+    int global_ed{0};  // edit distance plus total number of soft-clipped bases
+    int length{0};  // length of aligned reference segment
 };
 
 struct AlignmentStatistics {
@@ -132,6 +132,10 @@ void align_SE_read(
     const StrobemerIndex& index
 );
 
+// Private declarations, only here because we need them in tests
+
 bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k);
+
+aln_info hamming_align(const std::string &query, const std::string &ref, int match, int mismatch, int &soft_left, int &soft_right);
 
 #endif

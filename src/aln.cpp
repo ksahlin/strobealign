@@ -130,8 +130,8 @@ aln_info hamming_align(const std::string &query, const std::string &ref, int mat
 
     if (start_softclip >= end_softclip) {
         aln.sw_score = 0;
-        soft_left = 50; //default
-        soft_right = 50; //default
+        soft_left = 0;
+        soft_right = 0;
 
         return aln;
     }
@@ -183,6 +183,9 @@ aln_info hamming_align(const std::string &query, const std::string &ref, int mat
     aln.cigar = cigar.str();
     aln.sw_score = aln_score;
     aln.ed = hamming_mod;
+    aln.global_ed = aln.ed + soft_left + soft_right;
+    aln.length = query.length() - soft_left - soft_right;
+    aln.ref_offset = soft_left;
     return aln;
 }
 
