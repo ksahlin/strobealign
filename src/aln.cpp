@@ -112,24 +112,18 @@ aln_info hamming_align(const std::string &query, const std::string &ref, int mat
             end_softclip = i;
         }
     }
-    std::cerr << "end_softclip is " << end_softclip << " w peak score " << peak_score << '\n';
 
     peak_score = std::numeric_limits<int>::min();
     curr_score = 0;
     size_t start_softclip = 0;
-
-    std::cerr << "start_softcilp. len = " << query.length() << "\n";
     for (int i = query.length() - 1; i >= 0; i--) {
-        std::cerr << i << '\n';
-        if (query[i] == ref[i]) {
+        if (query[i] == ref[i]){
             curr_score += match;
         } else {
             curr_score -= mismatch;
         }
-        std::cerr << "curr score " << curr_score << '\n';
         if (curr_score >= peak_score) {
             peak_score = curr_score;
-            std::cerr << "setting softclip to " << i << "\n";
             start_softclip = i;
         }
     }
