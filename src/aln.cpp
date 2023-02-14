@@ -316,6 +316,7 @@ static inline void align_SE_secondary_hits(
                 int diff_to_best = std::abs(best_align_sw_score - sw_score);
                 min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
                 auto info = hamming_align(r_tmp, ref_segm, aligner.parameters.match, aligner.parameters.mismatch, soft_left, soft_right);
+                std::cerr << "hamming_align gave us "<<info.cigar <<'\n';
                 if (info.sw_score > best_align_sw_score) {
                     min_mapq_diff = std::max(0, sw_score - best_align_sw_score); // new distance to next best match
                     best_align_sw_score = info.sw_score;
@@ -330,8 +331,8 @@ static inline void align_SE_secondary_hits(
                 sam_aln.aln_score = info.sw_score;
                 sam_aln.aln_length = read_len;
                 if (sam_aln.sw_score > best_sam_aln.sw_score) {
+                    std::cerr << "updating best from " << best_sam_aln.sw_score << " to " << sam_aln.sw_score << " with cigar: " << sam_aln.cigar << '\n';
                     best_sam_aln = sam_aln;
-                    std::cerr << "updating best from " << best_sam_aln.sw_score << " to " << sam_aln.sw_score << "cigar: " << sam_aln.cigar << '\n';
                     if (max_secondary == 1) {
                         std::cerr << "updating best_align_dist from " << best_align_dist << " to " << hamming_dist << '\n';
                         best_align_dist = hamming_dist;
