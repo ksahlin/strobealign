@@ -90,95 +90,82 @@ inline int hamming_distance(const std::string &s, const std::string &t) {
     return mismatches;
 }
 
-aln_info hamming_align(const std::string &query, const std::string &ref, int match, int mismatch, int &soft_left, int &soft_right) {
+/*
+ * Find highest-scoring segment between reference and query assuming only matches
+ * and mismatches are allowed.
+ */
+std::pair<size_t, size_t> highest_scoring_segment(
+    const std::string& query, const std::string& ref, int match, int mismatch
+) {
+    size_t n = query.length();
+
+    size_t start = 0; // start of the current segment
+    int score = 0; // accumulated score so far in the current segment
+
+    size_t best_start = 0;
+    size_t best_end = 0;
+    int best_score = 0;
+    for (size_t i = 0; i < n; ++i) {
+        if (query[i] == ref[i]) {
+            score += match;
+        } else {
+            score -= mismatch;
+        }
+        if (score < 0) {
+            start = i + 1;
+            score = 0;
+        }
+        if (score > best_score) {
+            best_start = start;
+            best_score = score;
+            best_end = i + 1;
+        }
+    }
+    return std::make_pair(best_start, best_end);
+}
+
+
+aln_info hamming_align(
+    const std::string &query, const std::string &ref, int match, int mismatch, int &soft_left, int &soft_right
+) {
     aln_info aln;
     if (query.length() != ref.length()) {
         return aln;
     }
 
-    // Decide softclipps
-    int peak_score = 0;
-    int curr_score = 0;
-    size_t end_softclip = 0;
-    for (size_t i = 0; i < query.length(); i++) {
-        if (query[i] == ref[i]){
-            curr_score += match;
-        } else {
-            curr_score -= mismatch;
-        }
-
-        if (curr_score >= peak_score){
-            peak_score = curr_score;
-            end_softclip = i;
-        }
-    }
-
-    peak_score = 0;
-    curr_score = 0;
-    size_t start_softclip = 0;
-    for (int i = query.length() - 1; i >= 0; i--) {
-        if (query[i] == ref[i]){
-            curr_score += match;
-        } else {
-            curr_score -= mismatch;
-        }
-        if (curr_score >= peak_score) {
-            peak_score = curr_score;
-            start_softclip = i;
-        }
-    }
-
-    if (start_softclip >= end_softclip) {
-        aln.sw_score = 0;
-        soft_left = 0;
-        soft_right = 0;
-
-        return aln;
-    }
+    auto [segment_start, segment_end] = highest_scoring_segment(query, ref, match, mismatch);
 
     std::stringstream cigar;
-    if (start_softclip > 0) {
-        cigar << start_softclip << 'S';
+    if (segment_start > 0) {
+        cigar << segment_start << 'S';
     }
 
-    int aln_score = 0;
-    int counter = 1;
-    bool prev_is_match = query[start_softclip+1] == ref[start_softclip+1];
-    int hamming_mod = prev_is_match ? 0 : 1;
-    bool curr_match = false;
-    for (size_t i = start_softclip + 1; i < end_softclip + 1; i++) {
-        curr_match = query[i] == ref[i];
-
-        if (!curr_match && prev_is_match) {
-            cigar << counter << '=';
-            aln_score += counter * match;
+    // Create CIGAR string and count mismatches
+    int counter = 0;
+    bool prev_is_match = false;
+    int hamming_mod = 0;
+    bool first = true;
+    for (size_t i = segment_start; i < segment_end; i++) {
+        bool is_match = query[i] == ref[i];
+        hamming_mod += is_match ? 0 : 1;
+        if (!first && is_match != prev_is_match) {
+            cigar << counter << (prev_is_match ? '=' : 'X');
             counter = 0;
         }
-        else if (curr_match && !prev_is_match) {
-            cigar << counter << 'X';
-            aln_score -= counter * mismatch;
-            hamming_mod += counter;
-            counter = 0;
-        }
-        prev_is_match = curr_match;
         counter++;
+        prev_is_match = is_match;
+        first = false;
     }
-
-    // Print last
-    if (curr_match) {
-        cigar << counter << '=';
-        aln_score += counter * match;
-    } else {
-        cigar << counter << 'X';
-        hamming_mod += counter;
+    if (!first) {
+        cigar << counter << (prev_is_match ? '=' : 'X');
     }
+    int aln_score = (segment_end - segment_start - hamming_mod) * match - hamming_mod * mismatch;
 
-    if (query.length() - end_softclip - 1 > 0){
-        cigar << query.length() - end_softclip - 1 << 'S';
+    soft_left = segment_start;
+    soft_right = query.length() - segment_end;
+    if (soft_right > 0) {
+        cigar << query.length() - segment_end << 'S';
     }
-
-    soft_left = start_softclip;
-    soft_right = std::max(static_cast<int>(query.length() - end_softclip - 1), 0);
 
     aln.cigar = cigar.str();
     aln.sw_score = aln_score;

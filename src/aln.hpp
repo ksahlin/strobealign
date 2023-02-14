@@ -137,5 +137,6 @@ void align_SE_read(
 bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k);
 
 aln_info hamming_align(const std::string &query, const std::string &ref, int match, int mismatch, int &soft_left, int &soft_right);
+std::pair<size_t, size_t> highest_scoring_segment(const std::string& query, const std::string& ref, int match, int mismatch);
 
 #endif
