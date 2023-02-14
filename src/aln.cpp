@@ -97,7 +97,7 @@ aln_info hamming_align(const std::string &query, const std::string &ref, int mat
     }
 
     // Decide softclipps
-    int peak_score = 0;
+    int peak_score = std::numeric_limits<int>::min();
     int curr_score = 0;
     size_t end_softclip = 0;
     for (size_t i = 0; i < query.length(); i++) {
@@ -113,7 +113,7 @@ aln_info hamming_align(const std::string &query, const std::string &ref, int mat
         }
     }
 
-    peak_score = 0;
+    peak_score = std::numeric_limits<int>::min();
     curr_score = 0;
     size_t start_softclip = 0;
     for (int i = query.length() - 1; i >= 0; i--) {
