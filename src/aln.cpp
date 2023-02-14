@@ -335,7 +335,7 @@ static inline alignment align_segment(
     auto read_segm_len = read_segm.size();
     // The ref_segm includes an extension of ext_left bases upstream and ext_right bases downstream
     int ref_segm_len_ham = ref_segm_len - ext_left - ext_right; // we send in the already extended ref segment to save time. This is not true in center alignment if merged match have diff length
-    if (ref_segm_len_ham == read_segm_len) { // && !aln_did_not_fit) {
+    if (ref_segm_len_ham == read_segm_len && !aln_did_not_fit) {
         std::string ref_segm_ham = ref_segm.substr(ext_left, read_segm_len);
 
         auto hamming_dist = hamming_distance(read_segm, ref_segm_ham);
