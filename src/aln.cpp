@@ -412,7 +412,7 @@ static inline alignment get_alignment(
             int soft_left, soft_right;
             info = hamming_align(query, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, soft_left, soft_right);
             result_ref_start = projected_ref_start + soft_left;
-            result_aln_length = query.size();
+            result_aln_length = info.length;
             result_global_ed = info.ed + soft_left + soft_right;
             has_result = true;
         }
