@@ -44,6 +44,7 @@ add_library(salib STATIC ${SOURCES}
   src/paf.cpp
   src/pc.cpp
   src/aln.cpp
+  src/aligner.cpp
   src/nam.cpp
   src/randstrobes.cpp
   src/readlen.cpp
@@ -68,7 +69,7 @@ add_executable(test-strobealign
   tests/test_input.cpp
   tests/test_refs.cpp
   tests/test_sam.cpp
-  tests/test_aln.cpp
+  tests/test_aligner.cpp
 )
 target_link_libraries(test-strobealign salib)
 target_include_directories(test-strobealign PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})

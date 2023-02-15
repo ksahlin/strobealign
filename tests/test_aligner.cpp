@@ -1,5 +1,5 @@
 #include "doctest.h"
-#include "aln.hpp"
+#include "aligner.hpp"
 
 TEST_CASE("hamming_align") {
     int soft_left, soft_right;
