@@ -27,14 +27,14 @@ struct aln_info {
 };
 
 struct AlignmentStatistics {
-    std::chrono::duration<double> tot_read_file;
-    std::chrono::duration<double> tot_construct_strobemers;
-    std::chrono::duration<double> tot_find_nams;
-    std::chrono::duration<double> tot_time_rescue;
-    std::chrono::duration<double> tot_find_nams_alt;
-    std::chrono::duration<double> tot_sort_nams;
-    std::chrono::duration<double> tot_extend;
-    std::chrono::duration<double> tot_write_file;
+    std::chrono::duration<double> tot_read_file{0};
+    std::chrono::duration<double> tot_construct_strobemers{0};
+    std::chrono::duration<double> tot_find_nams{0};
+    std::chrono::duration<double> tot_time_rescue{0};
+    std::chrono::duration<double> tot_find_nams_alt{0};
+    std::chrono::duration<double> tot_sort_nams{0};
+    std::chrono::duration<double> tot_extend{0};
+    std::chrono::duration<double> tot_write_file{0};
 
     unsigned int n_reads = 0;
     unsigned int tot_aligner_calls = 0;
