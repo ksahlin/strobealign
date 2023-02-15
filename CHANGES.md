@@ -5,6 +5,9 @@
 * Add progress report (only shown if output is not a terminal; can be
   disabled with `--no-progress`)
 * Issue #238: Fix occasionally incorrect soft clipping
+* PR #239: Align single- and paired-end reads in the same way.
+* PR #239: Fix an uninitialized variable that could lead to nondeterministic
+  results.
 
 ## v0.8.0 (2023-02-01)
 
