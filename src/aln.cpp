@@ -7,6 +7,7 @@
 #include "timer.hpp"
 #include "nam.hpp"
 #include "paf.hpp"
+#include "aligner.hpp"
 
 using namespace klibpp;
 
@@ -21,169 +22,6 @@ static inline alignment get_alignment(
 static inline bool score(const Nam &a, const Nam &b) {
     return a.score > b.score;
 }
-
-aln_info Aligner::align(const std::string &ref, const std::string &query) const {
-    m_align_calls++;
-    aln_info aln;
-    int32_t maskLen = strlen(query.c_str())/2;
-    maskLen = std::max(maskLen, 15);
-    if (ref.length() > 2000){
-//        std::cerr << "ALIGNMENT TO REF LONGER THAN 2000bp - REPORT TO DEVELOPER. Happened for read: " <<  query << " ref len:" << ref.length() << std::endl;
-        aln.global_ed = 100000;
-        aln.ed = 100000;
-        aln.ref_offset = 0;
-        aln.cigar = "*";
-        aln.sw_score = -1000000;
-        return aln;
-    }
-
-    StripedSmithWaterman::Alignment alignment_ssw;
-    ssw_aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 1);
-    // Have to give up this optimization untill the 'Command terminated abnormally' bug is fixed in ssw library
-//     if (read_len*match_score < 255){
-//         std::cerr << "Here: "  << read_len*match_score << " " << ref.length() << std::endl;
-//         try
-//         {
-//             aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 0);
-//         }
-//         catch (...)
-//         {
-//             aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 1);
-//         }
-//
-//     } else {
-//            aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 1);
-//     }
-//    std::cerr << passed << std::endl;
-//    if(!passed){
-//        std::cerr << "Failed" << std::endl;
-//        std::cerr << "read: " << query << std::endl;
-//        std::cerr << "ref: "  << ref << std::endl;
-//    }
-
-
-//    std::cerr << "===== SSW result =====" << std::endl;
-//    std::cerr << "Best Smith-Waterman score:\t" << alignment_ssw.sw_score << std::endl
-//         << "Next-best Smith-Waterman score:\t" << alignment_ssw.sw_score_next_best << std::endl
-//         << "Reference start:\t" << alignment_ssw.ref_begin << std::endl
-//         << "Reference end:\t" << alignment_ssw.ref_end << std::endl
-//         << "Query start:\t" << alignment_ssw.query_begin << std::endl
-//         << "Query end:\t" << alignment_ssw.query_end << std::endl
-//         << "Next-best reference end:\t" << alignment_ssw.ref_end_next_best << std::endl
-//         << "Number of mismatches:\t" << alignment_ssw.mismatches << std::endl
-//         << "Cigar: " << alignment_ssw.cigar_string << std::endl;
-
-    aln.global_ed = alignment_ssw.global_ed;
-    aln.ed = alignment_ssw.mismatches;
-    aln.ref_offset = alignment_ssw.ref_begin;
-    aln.cigar = alignment_ssw.cigar_string;
-    aln.sw_score = alignment_ssw.sw_score;
-    // ref_begin appears to be a 1-based position
-    aln.length = alignment_ssw.ref_end - alignment_ssw.ref_begin + 1;
-    return aln;
-}
-
-inline int hamming_distance(const std::string &s, const std::string &t) {
-    if (s.length() != t.length()){
-        return -1;
-    }
-
-    int mismatches = 0;
-    for (size_t i = 0; i < s.length(); i++) {
-        if (s[i] != t[i]) {
-            mismatches++;
-        }
-    }
-
-    return mismatches;
-}
-
-/*
- * Find highest-scoring segment between reference and query assuming only matches
- * and mismatches are allowed.
- */
-std::pair<size_t, size_t> highest_scoring_segment(
-    const std::string& query, const std::string& ref, int match, int mismatch
-) {
-    size_t n = query.length();
-
-    size_t start = 0; // start of the current segment
-    int score = 0; // accumulated score so far in the current segment
-
-    size_t best_start = 0;
-    size_t best_end = 0;
-    int best_score = 0;
-    for (size_t i = 0; i < n; ++i) {
-        if (query[i] == ref[i]) {
-            score += match;
-        } else {
-            score -= mismatch;
-        }
-        if (score < 0) {
-            start = i + 1;
-            score = 0;
-        }
-        if (score > best_score) {
-            best_start = start;
-            best_score = score;
-            best_end = i + 1;
-        }
-    }
-    return std::make_pair(best_start, best_end);
-}
-
-
-aln_info hamming_align(
-    const std::string &query, const std::string &ref, int match, int mismatch, int &soft_left, int &soft_right
-) {
-    aln_info aln;
-    if (query.length() != ref.length()) {
-        return aln;
-    }
-
-    auto [segment_start, segment_end] = highest_scoring_segment(query, ref, match, mismatch);
-
-    std::stringstream cigar;
-    if (segment_start > 0) {
-        cigar << segment_start << 'S';
-    }
-
-    // Create CIGAR string and count mismatches
-    int counter = 0;
-    bool prev_is_match = false;
-    int hamming_mod = 0;
-    bool first = true;
-    for (size_t i = segment_start; i < segment_end; i++) {
-        bool is_match = query[i] == ref[i];
-        hamming_mod += is_match ? 0 : 1;
-        if (!first && is_match != prev_is_match) {
-            cigar << counter << (prev_is_match ? '=' : 'X');
-            counter = 0;
-        }
-        counter++;
-        prev_is_match = is_match;
-        first = false;
-    }
-    if (!first) {
-        cigar << counter << (prev_is_match ? '=' : 'X');
-    }
-    int aln_score = (segment_end - segment_start - hamming_mod) * match - hamming_mod * mismatch;
-
-    soft_left = segment_start;
-    soft_right = query.length() - segment_end;
-    if (soft_right > 0) {
-        cigar << query.length() - segment_end << 'S';
-    }
-
-    aln.cigar = cigar.str();
-    aln.sw_score = aln_score;
-    aln.ed = hamming_mod;
-    aln.global_ed = aln.ed + soft_left + soft_right;
-    aln.length = query.length() - soft_left - soft_right;
-    aln.ref_offset = soft_left;
-    return aln;
-}
-
 
 /*
  * Determine whether the NAM represents a match to the forward or
@@ -1077,7 +915,7 @@ void rescue_read(
 }
 
 /* Compute paired-end mapping score given top alignments */
-std::pair<int, int> joint_mapq_from_high_scores(const std::vector<std::tuple<double,alignment,alignment>>& high_scores) {
+static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<std::tuple<double,alignment,alignment>>& high_scores) {
     if (high_scores.size() <= 1) {
         return std::make_pair(60, 60);
     }
@@ -1440,7 +1278,6 @@ inline void align_PE(
         }
     }
 }
-
 
 inline void get_best_map_location(std::vector<Nam> &nams1, std::vector<Nam> &nams2, i_dist_est &isize_est, Nam &best_nam1,  Nam &best_nam2 ) {
     std::vector<std::tuple<int,Nam,Nam>> joint_NAM_scores = get_best_scoring_NAM_locations(nams1, nams2, isize_est.mu, isize_est.sigma);
