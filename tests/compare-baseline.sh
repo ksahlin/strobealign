@@ -12,14 +12,30 @@ set -euo pipefail
 # Fail early if pysam is missing
 python3 -c 'import pysam'
 
+ends="pe"
+while getopts "s" opt; do
+  case "${opt}" in
+    s)
+      ends=se  # single-end reads
+      ;;
+    \?)
+      exit 1
+      ;;
+  esac
+done
+
+ref=tests/drosophila/ref.fasta
+reads=(tests/drosophila/reads.1.fastq.gz)
+if [[ ${ends} = "pe" ]]; then
+  reads+=(tests/drosophila/reads.2.fastq.gz)
+fi
+
 # Ensure test data is available
 tests/download.sh
-ref=tests/drosophila/ref.fasta
-reads=(tests/drosophila/reads.1.fastq.gz tests/drosophila/reads.2.fastq.gz)
 
 source tests/baseline-commit.txt
 
-baseline_bam=baseline/baseline-${baseline_commit}.bam
+baseline_bam=baseline/baseline-${baseline_commit}.${ends}.bam
 baseline_binary=baseline/strobealign-${baseline_commit}
 cmake_options=-DCMAKE_BUILD_TYPE=RelWithDebInfo
 

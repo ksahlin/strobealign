@@ -2,8 +2,9 @@
 
 ## development version
 
-* Add progress report (only shown if output is not a terminal and can be
+* Add progress report (only shown if output is not a terminal; can be
   disabled with `--no-progress`)
+* Issue #238: Fix occasionally incorrect soft clipping
 
 ## v0.8.0 (2023-02-01)
 

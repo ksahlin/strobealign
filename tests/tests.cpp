@@ -5,10 +5,10 @@
 #include "readlen.hpp"
 #include "index.hpp"
 #include "fastq.hpp"
-#include "aln.hpp"
 #include "tmpdir.hpp"
 #include "io.hpp"
 #include "revcomp.hpp"
+
 
 TEST_CASE("estimate_read_length") {
     InputBuffer input_buffer1("tests/phix.1.fastq", "", 5, false);

@@ -68,6 +68,7 @@ add_executable(test-strobealign
   tests/test_input.cpp
   tests/test_refs.cpp
   tests/test_sam.cpp
+  tests/test_aln.cpp
 )
 target_link_libraries(test-strobealign salib)
 target_include_directories(test-strobealign PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
