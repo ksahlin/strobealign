@@ -402,6 +402,7 @@ static inline alignment get_alignment(
     aln_info info;
     int result_ref_start;
     int result_aln_length;
+    int result_global_ed;
     bool has_result = false;
     if (projected_ref_end - projected_ref_start == query.size() && fits) {
         std::string ref_segm_ham = ref.substr(projected_ref_start, query.size());
@@ -412,6 +413,7 @@ static inline alignment get_alignment(
             info = hamming_align(query, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, soft_left, soft_right);
             result_ref_start = projected_ref_start + soft_left;
             result_aln_length = query.size();
+            result_global_ed = info.ed + soft_left + soft_right;
             has_result = true;
         }
     }
@@ -425,10 +427,12 @@ static inline alignment get_alignment(
         info = aligner.align(ref_segm, query);
         result_ref_start = ref_start + info.ref_offset;
         result_aln_length = info.length;
+        result_global_ed = info.global_ed;
     }
     alignment sam_aln;
     sam_aln.cigar = info.cigar;
     sam_aln.ed = info.ed;
+    sam_aln.global_ed = result_global_ed;
     sam_aln.sw_score = info.sw_score;
     sam_aln.aln_score = info.sw_score;
     sam_aln.ref_start = result_ref_start;
