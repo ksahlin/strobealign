@@ -8,6 +8,7 @@
 * PR #239: Align single- and paired-end reads in the same way.
 * PR #239: Fix an uninitialized variable that could lead to nondeterministic
   results.
+* Issue #137: Compute TLEN (in SAM output) correctly
 
 ## v0.8.0 (2023-02-01)
 

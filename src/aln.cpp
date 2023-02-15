@@ -78,7 +78,8 @@ aln_info Aligner::align(const std::string &ref, const std::string &query) const 
     aln.ref_offset = alignment_ssw.ref_begin;
     aln.cigar = alignment_ssw.cigar_string;
     aln.sw_score = alignment_ssw.sw_score;
-    aln.length = alignment_ssw.ref_end - alignment_ssw.ref_begin;
+    // ref_begin appears to be a 1-based position
+    aln.length = alignment_ssw.ref_end - alignment_ssw.ref_begin + 1;
     return aln;
 }
 
@@ -401,8 +402,6 @@ static inline alignment get_alignment(
 
     aln_info info;
     int result_ref_start;
-    int result_aln_length;
-    int result_global_ed;
     bool has_result = false;
     if (projected_ref_end - projected_ref_start == query.size() && fits) {
         std::string ref_segm_ham = ref.substr(projected_ref_start, query.size());
@@ -412,8 +411,6 @@ static inline alignment get_alignment(
             int soft_left, soft_right;
             info = hamming_align(query, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, soft_left, soft_right);
             result_ref_start = projected_ref_start + soft_left;
-            result_aln_length = query.size();
-            result_global_ed = info.ed + soft_left + soft_right;
             has_result = true;
         }
     }
@@ -426,17 +423,15 @@ static inline alignment get_alignment(
         const auto ref_segm = ref.substr(ref_start, ref_segm_size);
         info = aligner.align(ref_segm, query);
         result_ref_start = ref_start + info.ref_offset;
-        result_aln_length = info.length;
-        result_global_ed = info.global_ed;
     }
     alignment sam_aln;
     sam_aln.cigar = info.cigar;
     sam_aln.ed = info.ed;
-    sam_aln.global_ed = result_global_ed;
+    sam_aln.global_ed = info.global_ed;
     sam_aln.sw_score = info.sw_score;
     sam_aln.aln_score = info.sw_score;
     sam_aln.ref_start = result_ref_start;
-    sam_aln.aln_length = result_aln_length;
+    sam_aln.aln_length = info.length;
     sam_aln.is_rc = n.is_rc;
     sam_aln.is_unaligned = false;
     sam_aln.ref_id = n.ref_id;
