@@ -56,10 +56,12 @@ add_library(salib STATIC ${SOURCES}
   src/randstrobes.cpp
   src/readlen.cpp
   src/version.cpp
+  src/ksw2wrap.cpp
   src/io.cpp
   ext/xxhash.c
   ext/ssw/ssw_cpp.cpp
   ext/ssw/ssw.c
+  ext/ksw2/ksw2_extz2_sse.c
 )
 target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads wfa2::wfa2cpp_static)
