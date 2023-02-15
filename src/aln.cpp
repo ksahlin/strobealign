@@ -393,35 +393,48 @@ static inline alignment get_alignment(
     const Read& read,
     bool fits
 ) {
+    const std::string query = n.is_rc ? read.rc : read.seq;
+    const std::string& ref = references.sequences[n.ref_id];
+
+    const int projected_ref_start = std::max(0, n.ref_s - n.query_s);
+    const int projected_ref_end = std::min(n.ref_e + query.size() - n.query_e, ref.size());
+
+    aln_info info;
+    int result_ref_start;
+    int result_aln_length;
+    bool has_result = false;
+    if (projected_ref_end - projected_ref_start == query.size() && fits) {
+        std::string ref_segm_ham = ref.substr(projected_ref_start, query.size());
+        auto hamming_dist = hamming_distance(query, ref_segm_ham);
+
+        if (hamming_dist >= 0 && (((float) hamming_dist / query.size()) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
+            int soft_left, soft_right;
+            info = hamming_align(query, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, soft_left, soft_right);
+            result_ref_start = projected_ref_start + soft_left;
+            result_aln_length = query.size();
+            has_result = true;
+        }
+    }
+    if (!has_result) {
+        const int diff = std::abs(n.ref_span() - n.query_span());
+        const int ext_left = std::min(50, projected_ref_start);
+        const int ref_start = projected_ref_start - ext_left;
+        const int ext_right = std::min(50ul, ref.size() - n.ref_e);
+        const auto ref_segm_size = read.size() + diff + ext_left + ext_right;
+        const auto ref_segm = ref.substr(ref_start, ref_segm_size);
+        info = aligner.align(ref_segm, query);
+        result_ref_start = ref_start + info.ref_offset;
+        result_aln_length = info.length;
+    }
     alignment sam_aln;
-
-    const auto read_len = read.size();
-    const bool aln_did_not_fit = !fits;
-    const int diff = std::abs(n.ref_span() - n.query_span());
-
-    const std::string r_tmp = n.is_rc ? read.rc : read.seq;
-    const bool is_rc = n.is_rc;
-
-    int ext_left;
-    int ext_right;
-    int ref_tmp_segm_size;
-    const int ref_len = references.lengths[n.ref_id];
-    int ref_tmp_start;
-    int ref_start;
-    std::string ref_segm;
-    std::string read_segm;
-
-    ref_tmp_start = std::max(0, n.ref_s - n.query_s);
-    ext_left = std::min(50, ref_tmp_start);
-    ref_start = ref_tmp_start - ext_left;
-
-    ref_tmp_segm_size = read_len + diff;
-    ext_right = std::min(50, ref_len - (n.ref_e + 1));
-
-    const auto ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
-
-    ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_segm_size);
-    sam_aln = align_segment(aligner, r_tmp, ref_segm, ref_start, ext_left, ext_right, aln_did_not_fit, is_rc);
+    sam_aln.cigar = info.cigar;
+    sam_aln.ed = info.ed;
+    sam_aln.sw_score = info.sw_score;
+    sam_aln.aln_score = info.sw_score;
+    sam_aln.ref_start = result_ref_start;
+    sam_aln.aln_length = result_aln_length;
+    sam_aln.is_rc = n.is_rc;
+    sam_aln.is_unaligned = false;
     sam_aln.ref_id = n.ref_id;
     return sam_aln;
 }
