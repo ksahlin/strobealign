@@ -28,6 +28,12 @@ endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 add_compile_options(-Wall -Wextra -Werror=maybe-uninitialized)
 
+FetchContent_Declare(wfa2
+  GIT_REPOSITORY https://github.com/smarco/WFA2-lib.git
+  GIT_TAG d71685bf70bb8977b084e036efb15e74562c16fc
+)
+FetchContent_MakeAvailable(wfa2)
+
 FetchContent_Declare(cmake_git_version_tracking
   GIT_REPOSITORY https://github.com/andrew-hardin/cmake-git-version-tracking.git
   GIT_TAG 904dbda1336ba4b9a1415a68d5f203f576b696bb
@@ -55,7 +61,7 @@ add_library(salib STATIC ${SOURCES}
   ext/ssw/ssw.c
 )
 target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
-target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads)
+target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads wfa2::wfa2cpp_static)
 IF(ENABLE_AVX)
   target_compile_options(salib PUBLIC "-mavx2")
 ENDIF()
