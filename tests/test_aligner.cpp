@@ -17,7 +17,7 @@ TEST_CASE("hamming_align") {
     CHECK(info.sw_score == 0);
     CHECK(soft_left == 0);
     CHECK(soft_right == 0);
-    CHECK(info.ref_offset == soft_left);
+    CHECK(info.ref_start == soft_left);
 
     info = hamming_align(
         "AAXGGG",
@@ -32,7 +32,7 @@ TEST_CASE("hamming_align") {
     CHECK(info.sw_score == 4);
     CHECK(soft_left == 0);
     CHECK(soft_right == 0);
-    CHECK(info.ref_offset == soft_left);
+    CHECK(info.ref_start == soft_left);
 
     info = hamming_align(
         "AXGGG",
@@ -47,7 +47,7 @@ TEST_CASE("hamming_align") {
     CHECK(info.sw_score == 3);
     CHECK(soft_left == 2);
     CHECK(soft_right == 0);
-    CHECK(info.ref_offset == soft_left);
+    CHECK(info.ref_start == soft_left);
 
     info = hamming_align(
         "NAACCG",
@@ -62,7 +62,7 @@ TEST_CASE("hamming_align") {
     CHECK(info.sw_score == 5 * 3);
     CHECK(soft_left == 1);
     CHECK(soft_right == 0);
-    CHECK(info.ref_offset == soft_left);
+    CHECK(info.ref_start == soft_left);
 
     info = hamming_align(
         "AACCGN",
@@ -77,7 +77,7 @@ TEST_CASE("hamming_align") {
     CHECK(info.sw_score == 5 * 3);
     CHECK(soft_left == 0);
     CHECK(soft_right == 1);
-    CHECK(info.ref_offset == soft_left);
+    CHECK(info.ref_start == soft_left);
 
     // negative total score, soft clipping on both ends
     info = hamming_align(
@@ -93,7 +93,7 @@ TEST_CASE("hamming_align") {
     CHECK(info.sw_score == 4 * 3);
     CHECK(soft_left == 1);
     CHECK(soft_right == 10);
-    CHECK(info.ref_offset == soft_left);
+    CHECK(info.ref_start == soft_left);
 
     info = hamming_align(
         "NAAAAAAAAAAAAAA",
@@ -108,7 +108,7 @@ TEST_CASE("hamming_align") {
     CHECK(info.sw_score == 6 * 3);
     CHECK(soft_left == 8);
     CHECK(soft_right == 1);
-    CHECK(info.ref_offset == soft_left);
+    CHECK(info.ref_start == soft_left);
 
     info = hamming_align(
         "AAAAAAAAAAAAAAA",
@@ -123,7 +123,7 @@ TEST_CASE("hamming_align") {
     CHECK(info.sw_score == 6 * 3);
     CHECK(soft_left == 1);
     CHECK(soft_right == 8);
-    CHECK(info.ref_offset == soft_left);
+    CHECK(info.ref_start == soft_left);
 }
 
 TEST_CASE("highest_scoring_segment") {
