@@ -197,7 +197,7 @@ static inline alignment align_segment(
     sam_aln_segm.cigar = info.cigar;
     sam_aln_segm.ed = info.ed;
     sam_aln_segm.sw_score = info.sw_score;
-    sam_aln_segm.ref_start = ref_start + info.ref_offset;
+    sam_aln_segm.ref_start = ref_start + info.ref_start;
     sam_aln_segm.is_rc = is_rc;
     sam_aln_segm.is_unaligned = false;
     sam_aln_segm.aln_score = info.sw_score;
@@ -260,7 +260,7 @@ static inline alignment get_alignment(
         const auto ref_segm_size = read.size() + diff + ext_left + ext_right;
         const auto ref_segm = ref.substr(ref_start, ref_segm_size);
         info = aligner.align(ref_segm, query);
-        result_ref_start = ref_start + info.ref_offset;
+        result_ref_start = ref_start + info.ref_start;
     }
     alignment sam_aln;
     sam_aln.cigar = info.cigar;
@@ -793,7 +793,7 @@ static inline void rescue_mate(
     sam_aln.ed = info.ed;
     sam_aln.sw_score = info.sw_score;
     sam_aln.aln_score = sam_aln.sw_score;
-    sam_aln.ref_start =  ref_start + info.ref_offset;
+    sam_aln.ref_start =  ref_start + info.ref_start;
     sam_aln.is_rc = a_is_rc;
     sam_aln.ref_id = n.ref_id;
     sam_aln.is_unaligned = info.cigar == "*";

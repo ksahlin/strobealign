@@ -18,7 +18,7 @@ aln_info Aligner::align(const std::string &ref, const std::string &query) const 
 //        std::cerr << "ALIGNMENT TO REF LONGER THAN 2000bp - REPORT TO DEVELOPER. Happened for read: " <<  query << " ref len:" << ref.length() << std::endl;
         aln.global_ed = 100000;
         aln.ed = 100000;
-        aln.ref_offset = 0;
+        aln.ref_start = 0;
         aln.cigar = "*";
         aln.sw_score = -1000000;
         return aln;
@@ -31,7 +31,7 @@ aln_info Aligner::align(const std::string &ref, const std::string &query) const 
 
     aln.global_ed = alignment_ssw.global_ed;
     aln.ed = alignment_ssw.mismatches;
-    aln.ref_offset = alignment_ssw.ref_begin;
+    aln.ref_start = alignment_ssw.ref_begin;
     aln.cigar = alignment_ssw.cigar_string;
     aln.sw_score = alignment_ssw.sw_score;
     // ref_end is a 1-based position
@@ -120,6 +120,6 @@ aln_info hamming_align(
     aln.ed = hamming_mod;
     aln.global_ed = aln.ed + soft_left + soft_right;
     aln.length = query.length() - soft_left - soft_right;
-    aln.ref_offset = soft_left;
+    aln.ref_start = soft_left;
     return aln;
 }
