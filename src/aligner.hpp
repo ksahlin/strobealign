@@ -28,15 +28,19 @@ struct AlignmentInfo {
     int ref_span() const { return ref_end - ref_start; }
 };
 
+void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b);
+
 struct Aligner {
 public:
     Aligner(AlignmentParameters parameters)
         : parameters(parameters)
         , ssw_aligner(StripedSmithWaterman::Aligner(parameters.match, parameters.mismatch, parameters.gap_open, parameters.gap_extend))
-    { }
+    {
+        ksw_gen_simple_mat(ksw_matrix_m, ksw_matrix, parameters.match, -parameters.mismatch);
+    }
 
     AlignmentInfo align(const std::string &query, const std::string &ref) const;
-
+    AlignmentInfo ksw_extend(const std::string& query, const std::string& ref, bool right_align) const;
     AlignmentParameters parameters;
 
     unsigned calls_count() {
@@ -47,6 +51,8 @@ private:
     const StripedSmithWaterman::Aligner ssw_aligner;
     const StripedSmithWaterman::Filter filter;
     mutable unsigned m_align_calls{0};  // no. of calls to the align() method
+    const int8_t ksw_matrix_m{5};
+    int8_t ksw_matrix[25];
 };
 
 inline int hamming_distance(const std::string &s, const std::string &t) {
