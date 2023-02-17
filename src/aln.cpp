@@ -249,6 +249,33 @@ static inline alignment get_alignment(
 ) {
     const std::string query = n.is_rc ? read.rc : read.seq;
     const std::string& ref = references.sequences[n.ref_id];
+    alignment sam_aln;
+
+
+    const int projected_ref_start = std::max(0, n.ref_s - n.query_s);
+    const int projected_ref_end = std::min(n.ref_e + query.size() - n.query_e, ref.size());
+
+    if (projected_ref_end - projected_ref_start == query.size() && fits) {
+        std::string ref_segm_ham = ref.substr(projected_ref_start, query.size());
+        auto hamming_dist = hamming_distance(query, ref_segm_ham);
+
+        if (hamming_dist >= 0 && (((float) hamming_dist / query.size()) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
+            auto info = hamming_align(query, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch);
+            int result_ref_start = projected_ref_start + info.ref_start;
+            int softclipped = info.query_start + (query.size() - info.query_end);
+            sam_aln.cigar = info.cigar;
+            sam_aln.ed = info.edit_distance;
+            sam_aln.global_ed = info.edit_distance + softclipped;
+            sam_aln.sw_score = info.sw_score;
+            sam_aln.aln_score = info.sw_score;
+            sam_aln.ref_start = result_ref_start;
+            sam_aln.aln_length = info.ref_span();
+            sam_aln.is_rc = n.is_rc;
+            sam_aln.is_unaligned = false;
+            sam_aln.ref_id = n.ref_id;
+            return sam_aln;
+        }
+    }
 
     // middle
     auto wfa_middle = aligner.wfa();
@@ -298,7 +325,6 @@ static inline alignment get_alignment(
         cigar.push(CIGAR_SOFTCLIP, right_soft_clip);
     }
 
-    alignment sam_aln;
     sam_aln.cigar = cigar.to_string();
     sam_aln.ed = left.edit_distance + middle_edits + right.edit_distance;
     sam_aln.global_ed = left_soft_clip + sam_aln.ed + right_soft_clip;
