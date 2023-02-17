@@ -9,7 +9,7 @@
 #include <algorithm>
 #include "aligner.hpp"
 
-aln_info Aligner::align(const std::string &ref, const std::string &query) const {
+aln_info Aligner::align(const std::string &query, const std::string &ref) const {
     m_align_calls++;
     aln_info aln;
     int32_t maskLen = query.length() / 2;

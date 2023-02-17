@@ -32,7 +32,7 @@ public:
         , ssw_aligner(StripedSmithWaterman::Aligner(parameters.match, parameters.mismatch, parameters.gap_open, parameters.gap_extend))
     { }
 
-    aln_info align(const std::string &ref, const std::string &query) const;
+    aln_info align(const std::string &query, const std::string &ref) const;
 
     alignment_params parameters;
 
