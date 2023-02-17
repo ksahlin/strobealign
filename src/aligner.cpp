@@ -3,11 +3,15 @@
  *
  * This is for anything that returns an aln_info object, currently
  * Aligner::align and hamming_align.
+ *
+ * ksw_extend code is based on https://github.com/lh3/ksw2/blob/master/cli.c
  */
 #include <sstream>
 #include <tuple>
 #include <algorithm>
 #include <cassert>
+#include <cstring>  // memset
+#include "ksw2/ksw2.h"
 #include "aligner.hpp"
 
 aln_info Aligner::align(const std::string &query, const std::string &ref) const {
@@ -192,4 +196,92 @@ aln_info hamming_align(
     aln.query_start = segment_start;
     aln.query_end = segment_end;
     return aln;
+}
+
+namespace {
+
+unsigned char seq_nt4_table[256] = {
+    0, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 0, 4, 1,  4, 4, 4, 2,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  3, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 0, 4, 1,  4, 4, 4, 2,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  3, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
+};
+
+void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b)
+{
+    int i, j;
+    a = a < 0? -a : a;
+    b = b > 0? -b : b;
+    for (i = 0; i < m - 1; ++i) {
+        for (j = 0; j < m - 1; ++j)
+            mat[i * m + j] = i == j? a : b;
+        mat[i * m + m - 1] = 0;
+    }
+    for (j = 0; j < m; ++j)
+        mat[(m - 1) * m + j] = 0;
+}
+
+}  // namespace
+
+aln_info Aligner::ksw_extend(const std::string& query, const std::string& ref) const {
+    int w = -1; // band width; -1 is inf
+    int zdrop = -1; // -1 to disable
+    int flag = KSW_EZ_EXTZ_ONLY;
+
+    ksw_extz_t ez;
+    memset(&ez, 0, sizeof(ksw_extz_t));
+
+    int8_t m = 5;
+    int8_t mat[25];
+    ksw_gen_simple_mat(5, mat, parameters.match, -parameters.mismatch);
+
+    ez.max_q = ez.max_t = ez.mqe_t = ez.mte_q = -1;
+    ez.max = 0; ez.mqe = ez.mte = KSW_NEG_INF;
+    ez.n_cigar = 0;
+    int qlen = query.length();
+    int tlen = ref.length();
+    uint8_t *qseq = (uint8_t*)calloc(qlen + 33, 1);
+    uint8_t *tseq = (uint8_t*)calloc(tlen + 33, 1);
+    for (int i = 0; i < qlen; ++i)
+        qseq[i] = seq_nt4_table[(uint8_t)query[i]];
+    for (int i = 0; i < tlen; ++i)
+        tseq[i] = seq_nt4_table[(uint8_t)ref[i]];
+
+    ksw_extz2_sse(
+        nullptr, qlen, (uint8_t*)qseq, tlen, (uint8_t*)tseq, m, mat, parameters.gap_open, parameters.gap_extend, w, zdrop, parameters.end_bonus, flag, &ez
+    );
+    free(qseq);
+    free(tseq);
+
+
+    aln_info info;
+    auto cigar = Cigar(ez.cigar, ez.n_cigar).to_eqx(query, ref);
+    info.edit_distance = cigar.edit_distance();
+    info.cigar = std::move(cigar);
+    info.ref_start = 0;
+    info.query_start = 0;
+    if (ez.reach_end) {
+        info.ref_end = ez.mqe_t + 1;
+        info.query_end = query.size();
+        info.sw_score = ez.mqe + parameters.end_bonus;
+    } else {
+        info.ref_end = ez.max_t + 1;
+        info.query_end = ez.max_q + 1;
+        info.sw_score = ez.max;
+    }
+
+    kfree(km, ez.cigar);
+    return info;
 }
