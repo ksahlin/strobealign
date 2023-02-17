@@ -25,47 +25,16 @@ aln_info Aligner::align(const std::string &ref, const std::string &query) const 
     }
 
     StripedSmithWaterman::Alignment alignment_ssw;
+
+    // query must be NULL-terminated
     ssw_aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 1);
-    // Have to give up this optimization untill the 'Command terminated abnormally' bug is fixed in ssw library
-//     if (read_len*match_score < 255){
-//         std::cerr << "Here: "  << read_len*match_score << " " << ref.length() << std::endl;
-//         try
-//         {
-//             aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 0);
-//         }
-//         catch (...)
-//         {
-//             aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 1);
-//         }
-//
-//     } else {
-//            aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 1);
-//     }
-//    std::cerr << passed << std::endl;
-//    if(!passed){
-//        std::cerr << "Failed" << std::endl;
-//        std::cerr << "read: " << query << std::endl;
-//        std::cerr << "ref: "  << ref << std::endl;
-//    }
-
-
-//    std::cerr << "===== SSW result =====" << std::endl;
-//    std::cerr << "Best Smith-Waterman score:\t" << alignment_ssw.sw_score << std::endl
-//         << "Next-best Smith-Waterman score:\t" << alignment_ssw.sw_score_next_best << std::endl
-//         << "Reference start:\t" << alignment_ssw.ref_begin << std::endl
-//         << "Reference end:\t" << alignment_ssw.ref_end << std::endl
-//         << "Query start:\t" << alignment_ssw.query_begin << std::endl
-//         << "Query end:\t" << alignment_ssw.query_end << std::endl
-//         << "Next-best reference end:\t" << alignment_ssw.ref_end_next_best << std::endl
-//         << "Number of mismatches:\t" << alignment_ssw.mismatches << std::endl
-//         << "Cigar: " << alignment_ssw.cigar_string << std::endl;
 
     aln.global_ed = alignment_ssw.global_ed;
     aln.ed = alignment_ssw.mismatches;
     aln.ref_offset = alignment_ssw.ref_begin;
     aln.cigar = alignment_ssw.cigar_string;
     aln.sw_score = alignment_ssw.sw_score;
-    // ref_begin appears to be a 1-based position
+    // ref_end is a 1-based position
     aln.length = alignment_ssw.ref_end - alignment_ssw.ref_begin + 1;
     return aln;
 }
