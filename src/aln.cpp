@@ -9,6 +9,7 @@
 #include "paf.hpp"
 #include "aligner.hpp"
 #include "cigar.hpp"
+#include "ksw2wrap.hpp"
 
 using namespace klibpp;
 
@@ -259,14 +260,29 @@ static inline alignment get_alignment(
     const auto middle_score = wfa_middle.getAlignmentScore();
     const auto middle_edits = count_edits(middle_ops);
 
+    // right extension
+    const std::string right_query = query.substr(n.query_e, query.length() - n.query_e);
+    const size_t ref_projected_end = std::min(ref.length(), n.ref_e + (query.length() - n.query_e));
+    const std::string right_ref = ref.substr(n.ref_e, ref_projected_end - n.ref_e + 50);
+
+    auto right = ksw_extend(right_query, right_ref,
+        aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.gap_open, aligner.parameters.gap_extend
+    );
+
+    auto full_cigar = Cigar(middle_ops + right.cigar);
+    auto right_soft_clip = right_query.size() - right.query_end;
+    if (right_soft_clip > 0) {
+        full_cigar.push(CIGAR_SOFTCLIP, right_soft_clip);
+    }
     alignment sam_aln;
-    sam_aln.cigar = Cigar(middle_ops).to_string();
-    sam_aln.ed = middle_edits;
-    sam_aln.global_ed = middle_edits;
-    sam_aln.sw_score = middle_score;
-    sam_aln.aln_score = middle_score;
+    sam_aln.cigar = full_cigar.to_string();
+    sam_aln.ed = middle_edits + right.edit_distance;
+    sam_aln.global_ed = middle_edits + right.edit_distance + right_soft_clip;
+    sam_aln.sw_score = middle_score + right.sw_score;
+    sam_aln.aln_score = middle_score + right.sw_score;
     sam_aln.ref_start = n.ref_s;
-    sam_aln.aln_length = n.ref_span();
+    sam_aln.aln_length = n.ref_span() + right.ref_end;
+
     sam_aln.is_rc = n.is_rc;
     sam_aln.is_unaligned = false;
     sam_aln.ref_id = n.ref_id;
