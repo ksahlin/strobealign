@@ -266,22 +266,45 @@ static inline alignment get_alignment(
     const std::string right_ref = ref.substr(n.ref_e, ref_projected_end - n.ref_e + 50);
 
     auto right = ksw_extend(right_query, right_ref,
-        aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.gap_open, aligner.parameters.gap_extend
+        aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.gap_open - aligner.parameters.gap_extend, aligner.parameters.gap_extend
     );
 
-    auto full_cigar = Cigar(middle_ops + right.cigar);
+    // left extension
+    std::string left_query = query.substr(0, n.query_s);
+    std::reverse(left_query.begin(), left_query.end());
+
+    const size_t ref_start = std::max(0, n.ref_s - n.query_s - 50);
+    std::string left_ref = ref.substr(ref_start, n.ref_s - ref_start);
+    std::reverse(left_ref.begin(), left_ref.end());
+
+    auto left = ksw_extend(left_query, left_ref,
+        aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.gap_open - aligner.parameters.gap_extend, aligner.parameters.gap_extend,
+        true // reverse CIGAR
+    );
+
+    // build final CIGAR
+    Cigar cigar;
+    int left_soft_clip = left_query.size() - left.query_end;
+    if (left_soft_clip > 0) {
+        cigar.push(CIGAR_SOFTCLIP, left_soft_clip);
+    }
+    cigar += Cigar(left.cigar);
+    cigar += Cigar(middle_ops);
+    cigar += Cigar(right.cigar);
+
     auto right_soft_clip = right_query.size() - right.query_end;
     if (right_soft_clip > 0) {
-        full_cigar.push(CIGAR_SOFTCLIP, right_soft_clip);
+        cigar.push(CIGAR_SOFTCLIP, right_soft_clip);
     }
+
     alignment sam_aln;
-    sam_aln.cigar = full_cigar.to_string();
-    sam_aln.ed = middle_edits + right.edit_distance;
-    sam_aln.global_ed = middle_edits + right.edit_distance + right_soft_clip;
-    sam_aln.sw_score = middle_score + right.sw_score;
-    sam_aln.aln_score = middle_score + right.sw_score;
-    sam_aln.ref_start = n.ref_s;
-    sam_aln.aln_length = n.ref_span() + right.ref_end;
+    sam_aln.cigar = cigar.to_string();
+    sam_aln.ed = left.edit_distance + middle_edits + right.edit_distance;
+    sam_aln.global_ed = left_soft_clip + sam_aln.ed + right_soft_clip;
+    sam_aln.sw_score = left.sw_score + middle_score + right.sw_score;
+    sam_aln.aln_score = sam_aln.sw_score;
+    sam_aln.ref_start = n.ref_s - left.ref_end;
+    sam_aln.aln_length = left.ref_end + n.ref_span() + right.ref_end;
 
     sam_aln.is_rc = n.is_rc;
     sam_aln.is_unaligned = false;
