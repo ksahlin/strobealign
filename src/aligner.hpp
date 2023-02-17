@@ -67,7 +67,7 @@ std::pair<size_t, size_t> highest_scoring_segment(
 );
 
 aln_info hamming_align(
-    const std::string &query, const std::string &ref, int match, int mismatch, int &soft_left, int &soft_right
+    const std::string &query, const std::string &ref, int match, int mismatch
 );
 
 #endif
