@@ -71,14 +71,10 @@ void global_aln(
 
 }  // namespace
 
-
-aln_info ksw_extend(const std::string& query, const std::string& ref, int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, bool reverse_cigar) {
+aln_info ksw_extend(const std::string& query, const std::string& ref, int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend) {
     int w = -1; // band width; -1 is inf
     int zdrop = -1; // -1 to disable
     int flag = KSW_EZ_EXTZ_ONLY;
-    if (reverse_cigar) {
-        flag |= KSW_EZ_REV_CIGAR;
-    }
 
     //int c, i, pair = 1;
     //char *algo = "extd", *s;
