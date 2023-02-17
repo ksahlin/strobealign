@@ -76,7 +76,7 @@ std::pair<size_t, size_t> highest_scoring_segment(
 }
 
 aln_info hamming_align(
-    const std::string &query, const std::string &ref, int match, int mismatch, int &soft_left, int &soft_right
+    const std::string &query, const std::string &ref, int match, int mismatch
 ) {
     aln_info aln;
     if (query.length() != ref.length()) {
@@ -111,8 +111,7 @@ aln_info hamming_align(
     }
     int aln_score = (segment_end - segment_start - hamming_mod) * match - hamming_mod * mismatch;
 
-    soft_left = segment_start;
-    soft_right = query.length() - segment_end;
+    int soft_right = query.length() - segment_end;
     if (soft_right > 0) {
         cigar << query.length() - segment_end << 'S';
     }
@@ -120,7 +119,7 @@ aln_info hamming_align(
     aln.cigar = cigar.str();
     aln.sw_score = aln_score;
     aln.ed = hamming_mod;
-    aln.global_ed = aln.ed + soft_left + soft_right;
+    aln.global_ed = aln.ed + segment_start + soft_right;
     aln.length = segment_end - segment_start;
     aln.ref_start = segment_start;
     aln.query_start = segment_start;

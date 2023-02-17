@@ -180,12 +180,11 @@ static inline alignment align_segment(
         auto hamming_dist = hamming_distance(read_segm, ref_segm_ham);
 
         if (hamming_dist >= 0 && (((float) hamming_dist / read_segm_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-            int soft_left, soft_right;
-            auto info = hamming_align(read_segm, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, soft_left, soft_right);
+            auto info = hamming_align(read_segm, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch);
             sam_aln_segm.cigar = info.cigar;
             sam_aln_segm.ed = info.ed;
             sam_aln_segm.sw_score = info.sw_score;
-            sam_aln_segm.ref_start = ref_start + ext_left + soft_left;
+            sam_aln_segm.ref_start = ref_start + ext_left + info.query_start;
             sam_aln_segm.is_rc = is_rc;
             sam_aln_segm.is_unaligned = false;
             sam_aln_segm.aln_score = info.sw_score;
@@ -246,9 +245,8 @@ static inline alignment get_alignment(
         auto hamming_dist = hamming_distance(query, ref_segm_ham);
 
         if (hamming_dist >= 0 && (((float) hamming_dist / query.size()) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-            int soft_left, soft_right;
-            info = hamming_align(query, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, soft_left, soft_right);
-            result_ref_start = projected_ref_start + soft_left;
+            info = hamming_align(query, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch);
+            result_ref_start = projected_ref_start + info.query_start;
             has_result = true;
         }
     }
@@ -311,13 +309,11 @@ static inline alignment get_alignment_unused(
         int hamming_dist = hamming_distance(r_tmp, ref_segm);
 
         if (hamming_dist >= 0 && (((float) hamming_dist / ref_segm_size) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-            int soft_left = 0;
-            int soft_right = 0;
-            const auto info = hamming_align(r_tmp, ref_segm, aligner.parameters.match, aligner.parameters.mismatch, soft_left, soft_right);
+            const auto info = hamming_align(r_tmp, ref_segm, aligner.parameters.match, aligner.parameters.mismatch);
             sam_aln.cigar = info.cigar;
             sam_aln.ed = info.ed;
             sam_aln.sw_score = info.sw_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
-            sam_aln.ref_start = ref_start + ext_left + soft_left;
+            sam_aln.ref_start = ref_start + ext_left + info.query_start;
             sam_aln.is_rc = is_rc;
             sam_aln.is_unaligned = false;
             sam_aln.aln_score = info.sw_score;
