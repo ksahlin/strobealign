@@ -278,8 +278,7 @@ static inline alignment get_alignment(
     std::reverse(left_ref.begin(), left_ref.end());
 
     auto left = ksw_extend(left_query, left_ref,
-        aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.gap_open - aligner.parameters.gap_extend, aligner.parameters.gap_extend,
-        true // reverse CIGAR
+        aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.gap_open - aligner.parameters.gap_extend, aligner.parameters.gap_extend
     );
 
     // build final CIGAR
@@ -288,7 +287,9 @@ static inline alignment get_alignment(
     if (left_soft_clip > 0) {
         cigar.push(CIGAR_SOFTCLIP, left_soft_clip);
     }
-    cigar += Cigar(left.cigar);
+    auto left_cigar = Cigar(left.cigar);
+    left_cigar.reverse();
+    cigar += left_cigar;
     cigar += Cigar(middle_ops);
     cigar += Cigar(right.cigar);
 
