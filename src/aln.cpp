@@ -200,7 +200,7 @@ static inline alignment align_segment(
     sam_aln_segm.is_rc = is_rc;
     sam_aln_segm.is_unaligned = false;
     sam_aln_segm.aln_score = info.sw_score;
-    sam_aln_segm.aln_length = info.length;
+    sam_aln_segm.aln_length = info.ref_span();
     return sam_aln_segm;
 }
 
@@ -268,7 +268,7 @@ static inline alignment get_alignment(
     sam_aln.sw_score = info.sw_score;
     sam_aln.aln_score = info.sw_score;
     sam_aln.ref_start = result_ref_start;
-    sam_aln.aln_length = info.length;
+    sam_aln.aln_length = info.ref_span();
     sam_aln.is_rc = n.is_rc;
     sam_aln.is_unaligned = false;
     sam_aln.ref_id = n.ref_id;
@@ -794,7 +794,7 @@ static inline void rescue_mate(
     sam_aln.is_rc = a_is_rc;
     sam_aln.ref_id = n.ref_id;
     sam_aln.is_unaligned = info.cigar == "*";
-    sam_aln.aln_length = info.length;
+    sam_aln.aln_length = info.ref_span();
     tot_rescued ++;
 }
 
