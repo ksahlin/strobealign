@@ -36,6 +36,8 @@ aln_info Aligner::align(const std::string &ref, const std::string &query) const 
     aln.sw_score = alignment_ssw.sw_score;
     // ref_end is a 1-based position
     aln.length = alignment_ssw.ref_end - alignment_ssw.ref_begin + 1;
+    aln.query_start = alignment_ssw.query_begin;
+    aln.query_end = alignment_ssw.query_end + 1;
     return aln;
 }
 
@@ -119,7 +121,9 @@ aln_info hamming_align(
     aln.sw_score = aln_score;
     aln.ed = hamming_mod;
     aln.global_ed = aln.ed + soft_left + soft_right;
-    aln.length = query.length() - soft_left - soft_right;
-    aln.ref_start = soft_left;
+    aln.length = segment_end - segment_start;
+    aln.ref_start = segment_start;
+    aln.query_start = segment_start;
+    aln.query_end = segment_end;
     return aln;
 }

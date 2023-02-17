@@ -17,6 +17,8 @@ struct aln_info {
     std::string cigar;
     unsigned int ed{0};  // edit distance
     unsigned int ref_start{0};
+    unsigned int query_start{0};
+    unsigned int query_end{0};
     int sw_score{0};
     int global_ed{0};  // edit distance plus total number of soft-clipped bases
     int length{0};  // length of aligned reference segment
