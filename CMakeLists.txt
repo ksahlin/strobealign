@@ -30,6 +30,12 @@ FetchContent_Declare(ZStrGitRepo
 )
 FetchContent_MakeAvailable(ZStrGitRepo)
 
+FetchContent_Declare(wfa2
+  GIT_REPOSITORY https://github.com/smarco/WFA2-lib.git
+  GIT_TAG 37ad27da2e3ad165887d0cdc9c510fc
+)
+FetchContent_MakeAvailable(wfa2)
+
 # Obtain version from Git or fall back to PROJECT_VERSION if not building
 # from a Git repository
 add_custom_target(version
@@ -67,7 +73,7 @@ add_library(salib STATIC ${SOURCES}
   ext/ssw/ssw.c
 )
 target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
-target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr)
+target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr wfa2::wfa2cpp_static)
 IF(ENABLE_AVX)
   target_compile_options(salib PUBLIC "-mavx2")
 ENDIF()
