@@ -61,8 +61,6 @@ inline int hamming_distance(const std::string &s, const std::string &t) {
     return mismatches;
 }
 
-std::string compress_cigar(const std::string& ops);
-
 std::pair<size_t, size_t> highest_scoring_segment(
     const std::string& query, const std::string& ref, int match, int mismatch
 );
