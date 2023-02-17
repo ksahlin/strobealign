@@ -2,7 +2,7 @@
 #define STROBEALIGN_ALIGNER_HPP
 
 #include <string>
-#include "ssw_cpp.h"
+#include "ssw/ssw_cpp.h"
 
 
 struct alignment_params {

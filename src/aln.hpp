@@ -7,7 +7,6 @@
 #include "index.hpp"
 #include "refs.hpp"
 #include "sam.hpp"
-#include "ssw_cpp.h"
 #include "aligner.hpp"
 
 struct AlignmentStatistics {

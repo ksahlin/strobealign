@@ -13,8 +13,6 @@
 #include <unordered_map>
 #include <optional>
 
-#include "robin_hood.h"
-#include "ssw_cpp.h"
 #include "index.hpp"
 #include "aln.hpp"
 #include "refs.hpp"

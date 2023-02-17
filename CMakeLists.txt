@@ -51,8 +51,8 @@ add_library(salib STATIC ${SOURCES}
   src/version.cpp
   src/io.cpp
   ext/xxhash.c
-  ext/ssw_cpp.cpp
-  ext/ssw.c
+  ext/ssw/ssw_cpp.cpp
+  ext/ssw/ssw.c
 )
 target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads)
