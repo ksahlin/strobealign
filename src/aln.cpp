@@ -192,7 +192,7 @@ static inline alignment align_segment(
             return sam_aln_segm;
         }
     }
-    auto info = aligner.align(ref_segm, read_segm);
+    auto info = aligner.align(read_segm, ref_segm);
     sam_aln_segm.cigar = info.cigar;
     sam_aln_segm.ed = info.edit_distance;
     sam_aln_segm.sw_score = info.sw_score;
@@ -257,7 +257,7 @@ static inline alignment get_alignment(
         const int ext_right = std::min(50ul, ref.size() - n.ref_e);
         const auto ref_segm_size = read.size() + diff + ext_left + ext_right;
         const auto ref_segm = ref.substr(ref_start, ref_segm_size);
-        info = aligner.align(ref_segm, query);
+        info = aligner.align(query, ref_segm);
         result_ref_start = ref_start + info.ref_start;
     }
     int softclipped = info.query_start + (query.size() - info.query_end);
@@ -768,7 +768,7 @@ static inline void rescue_mate(
         return;
 //        std::cerr << "Aligning anyway at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
     }
-    auto info = aligner.align(ref_segm, r_tmp);
+    auto info = aligner.align(r_tmp, ref_segm);
 
 //    if (info.ed == 100000){
 //        std::cerr<< "________________________________________" << std::endl;
