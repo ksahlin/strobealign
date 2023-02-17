@@ -246,7 +246,7 @@ static inline alignment get_alignment(
 
         if (hamming_dist >= 0 && (((float) hamming_dist / query.size()) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
             info = hamming_align(query, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch);
-            result_ref_start = projected_ref_start + info.query_start;
+            result_ref_start = projected_ref_start + info.ref_start;
             has_result = true;
         }
     }
@@ -260,10 +260,11 @@ static inline alignment get_alignment(
         info = aligner.align(ref_segm, query);
         result_ref_start = ref_start + info.ref_start;
     }
+    int softclipped = info.query_start + (query.size() - info.query_end);
     alignment sam_aln;
     sam_aln.cigar = info.cigar;
     sam_aln.ed = info.ed;
-    sam_aln.global_ed = info.global_ed;
+    sam_aln.global_ed = info.ed + softclipped;
     sam_aln.sw_score = info.sw_score;
     sam_aln.aln_score = info.sw_score;
     sam_aln.ref_start = result_ref_start;

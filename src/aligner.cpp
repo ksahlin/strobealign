@@ -16,7 +16,6 @@ aln_info Aligner::align(const std::string &ref, const std::string &query) const 
     maskLen = std::max(maskLen, 15);
     if (ref.length() > 2000){
 //        std::cerr << "ALIGNMENT TO REF LONGER THAN 2000bp - REPORT TO DEVELOPER. Happened for read: " <<  query << " ref len:" << ref.length() << std::endl;
-        aln.global_ed = 100000;
         aln.ed = 100000;
         aln.ref_start = 0;
         aln.cigar = "*";
@@ -29,7 +28,6 @@ aln_info Aligner::align(const std::string &ref, const std::string &query) const 
     // query must be NULL-terminated
     ssw_aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 1);
 
-    aln.global_ed = alignment_ssw.global_ed;
     aln.ed = alignment_ssw.mismatches;
     aln.ref_start = alignment_ssw.ref_begin;
     aln.cigar = alignment_ssw.cigar_string;
@@ -113,13 +111,12 @@ aln_info hamming_align(
 
     int soft_right = query.length() - segment_end;
     if (soft_right > 0) {
-        cigar << query.length() - segment_end << 'S';
+        cigar << soft_right << 'S';
     }
 
     aln.cigar = cigar.str();
     aln.sw_score = aln_score;
     aln.ed = hamming_mod;
-    aln.global_ed = aln.ed + segment_start + soft_right;
     aln.length = segment_end - segment_start;
     aln.ref_start = segment_start;
     aln.query_start = segment_start;

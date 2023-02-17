@@ -9,7 +9,6 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "");
     CHECK(info.ed == 0);
-    CHECK(info.global_ed == 0);
     CHECK(info.length == 0);
     CHECK(info.sw_score == 0);
     CHECK(info.ref_start == 0);
@@ -23,7 +22,6 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "2=1X3=");
     CHECK(info.ed == 1);
-    CHECK(info.global_ed == 1);
     CHECK(info.length == 6);
     CHECK(info.sw_score == 4);
     CHECK(info.ref_start == 0);
@@ -37,7 +35,6 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "2S3=");
     CHECK(info.ed == 0);
-    CHECK(info.global_ed == 2);
     CHECK(info.length == 3);
     CHECK(info.sw_score == 3);
     CHECK(info.ref_start == 2);
@@ -51,7 +48,6 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "1S5=");
     CHECK(info.ed == 0);
-    CHECK(info.global_ed == 1);
     CHECK(info.length == 5);
     CHECK(info.sw_score == 5 * 3);
     CHECK(info.ref_start == 1);
@@ -65,7 +61,6 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "5=1S");
     CHECK(info.ed == 0);
-    CHECK(info.global_ed == 1);
     CHECK(info.length == 5);
     CHECK(info.sw_score == 5 * 3);
     CHECK(info.ref_start == 0);
@@ -80,7 +75,6 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "1S4=10S");
     CHECK(info.ed == 0);
-    CHECK(info.global_ed == 11);
     CHECK(info.length == 4);
     CHECK(info.sw_score == 4 * 3);
     CHECK(info.ref_start == 1);
@@ -94,7 +88,6 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "8S6=1S");
     CHECK(info.ed == 0);
-    CHECK(info.global_ed == 9);
     CHECK(info.length == 6);
     CHECK(info.sw_score == 6 * 3);
     CHECK(info.ref_start == 8);
@@ -108,7 +101,6 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "1S6=8S");
     CHECK(info.ed == 0);
-    CHECK(info.global_ed == 9);
     CHECK(info.length == 6);
     CHECK(info.sw_score == 6 * 3);
     CHECK(info.ref_start == 1);
