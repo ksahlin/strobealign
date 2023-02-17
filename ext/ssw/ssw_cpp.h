@@ -20,9 +20,7 @@ struct Alignment {
   int32_t  query_end;          // Query end position of the best alignment
   int32_t  ref_end_next_best;  // Reference end position of the next best alignment
   int32_t  mismatches;         // Number of mismatches of the alignment
-  int32_t  global_ed;         // Global edit distance including softclipps
-
-    std::string cigar_string;    // Cigar string of the best alignment
+  std::string cigar_string;    // Cigar string of the best alignment
   std::vector<uint32_t> cigar; // Cigar stored in the BAM format
                                //   high 28 bits: length
 			       //   low 4 bits: M/I/D/S/X (0/1/2/4/8);
@@ -138,7 +136,7 @@ class Aligner {
   //                     will NOT return the suboptimal alignment information.
   // @return   True: succeed; false: fail.
   // =========
-  bool Align(const char* query, const Filter& filter, Alignment* alignment, const int32_t maskLen, const int8_t score_size) const;
+  bool Align(const char* query, const Filter& filter, Alignment* alignment, const int32_t maskLen) const;
 
   // =========
   // @function Align the query againt the reference.
@@ -156,7 +154,7 @@ class Aligner {
   // @return   True: succeed; false: fail.
   // =========
   bool Align(const char* query, const char* ref, const int& ref_len,
-             const Filter& filter, Alignment* alignment, const int32_t maskLen, const int8_t score_size) const;
+             const Filter& filter, Alignment* alignment, const int32_t maskLen) const;
 
   // @function Clear up all containers and thus the aligner is disabled.
   //             To rebuild the aligner please use Build functions.
