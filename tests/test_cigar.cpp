@@ -67,3 +67,7 @@ TEST_CASE("concatenate Cigar") {
     c += Cigar{"2M1X"};
     CHECK(c.to_string() == "5M1X");
 }
+
+TEST_CASE("edit distance") {
+    CHECK(Cigar("3=1X4D5I7=").edit_distance() == 10);
+}
