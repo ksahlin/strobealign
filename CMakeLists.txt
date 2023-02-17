@@ -29,8 +29,8 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 add_compile_options(-Wall -Wextra -Werror=maybe-uninitialized)
 
 FetchContent_Declare(wfa2
-  GIT_REPOSITORY https://github.com/smarco/WFA2-lib.git
-  GIT_TAG d71685bf70bb8977b084e036efb15e74562c16fc
+  GIT_REPOSITORY https://github.com/marcelm/WFA2-lib.git
+  GIT_TAG 37ad27da2e3ad165887d0cdc9c510fc
 )
 FetchContent_MakeAvailable(wfa2)
 
