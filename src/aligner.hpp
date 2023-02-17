@@ -3,6 +3,7 @@
 
 #include <string>
 #include "ssw/ssw_cpp.h"
+#include "bindings/cpp/WFAligner.hpp"
 
 
 struct alignment_params {
@@ -33,6 +34,19 @@ public:
     { }
 
     aln_info align(const std::string &query, const std::string &ref) const;
+
+    // - A gap of length n costs gap_opening_penalty + n * gap_extending_penalty
+    // - first parameter is a penalty, so must be negative or zero
+    wfa::WFAlignerGapAffine wfa() const {
+        return wfa::WFAlignerGapAffine(
+            -parameters.match,  // must be a penalty
+            parameters.mismatch,
+            parameters.gap_open - parameters.gap_extend,
+            parameters.gap_extend,
+            wfa::WFAligner::Alignment,
+            wfa::WFAligner::MemoryHigh
+        );
+    }
 
     alignment_params parameters;
 

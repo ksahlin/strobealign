@@ -8,6 +8,7 @@
 #include "nam.hpp"
 #include "paf.hpp"
 #include "aligner.hpp"
+#include "cigar.hpp"
 
 using namespace klibpp;
 
@@ -205,6 +206,20 @@ static inline alignment align_segment(
 }
 
 
+std::string fixops(const std::string& ops) {
+    std::string out = ops;
+    std::replace(out.begin(), out.end(), 'M', '=');
+    std::replace(out.begin(), out.end(), 'D', 'i');
+    std::replace(out.begin(), out.end(), 'I', 'D');
+    std::replace(out.begin(), out.end(), 'i', 'I');
+
+    return out;
+}
+
+int count_edits(const std::string& ops) {
+    return std::count_if(ops.cbegin(), ops.cend(), [](char c) { return c == 'X' || c == 'I' || c == 'D'; });
+}
+
 /*
  Extend a NAM so that it covers the entire read and return the resulting
  alignment.
@@ -234,44 +249,28 @@ static inline alignment get_alignment(
     const std::string query = n.is_rc ? read.rc : read.seq;
     const std::string& ref = references.sequences[n.ref_id];
 
-    const int projected_ref_start = std::max(0, n.ref_s - n.query_s);
-    const int projected_ref_end = std::min(n.ref_e + query.size() - n.query_e, ref.size());
+    // middle
+    auto wfa_middle = aligner.wfa();
+    wfa_middle.alignEnd2End(
+        query.c_str() + n.query_s, n.query_span(),
+        ref.c_str() + n.ref_s, n.ref_span()
+    );
+    const auto middle_ops = fixops(wfa_middle.getAlignmentCigar());
+    const auto middle_score = wfa_middle.getAlignmentScore();
+    const auto middle_edits = count_edits(middle_ops);
 
-    aln_info info;
-    int result_ref_start;
-    bool has_result = false;
-    if (projected_ref_end - projected_ref_start == query.size() && fits) {
-        std::string ref_segm_ham = ref.substr(projected_ref_start, query.size());
-        auto hamming_dist = hamming_distance(query, ref_segm_ham);
-
-        if (hamming_dist >= 0 && (((float) hamming_dist / query.size()) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-            info = hamming_align(query, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch);
-            result_ref_start = projected_ref_start + info.ref_start;
-            has_result = true;
-        }
-    }
-    if (!has_result) {
-        const int diff = std::abs(n.ref_span() - n.query_span());
-        const int ext_left = std::min(50, projected_ref_start);
-        const int ref_start = projected_ref_start - ext_left;
-        const int ext_right = std::min(50ul, ref.size() - n.ref_e);
-        const auto ref_segm_size = read.size() + diff + ext_left + ext_right;
-        const auto ref_segm = ref.substr(ref_start, ref_segm_size);
-        info = aligner.align(query, ref_segm);
-        result_ref_start = ref_start + info.ref_start;
-    }
-    int softclipped = info.query_start + (query.size() - info.query_end);
     alignment sam_aln;
-    sam_aln.cigar = info.cigar;
-    sam_aln.ed = info.edit_distance;
-    sam_aln.global_ed = info.edit_distance + softclipped;
-    sam_aln.sw_score = info.sw_score;
-    sam_aln.aln_score = info.sw_score;
-    sam_aln.ref_start = result_ref_start;
-    sam_aln.aln_length = info.ref_span();
+    sam_aln.cigar = Cigar(middle_ops).to_string();
+    sam_aln.ed = middle_edits;
+    sam_aln.global_ed = middle_edits;
+    sam_aln.sw_score = middle_score;
+    sam_aln.aln_score = middle_score;
+    sam_aln.ref_start = n.ref_s;
+    sam_aln.aln_length = n.ref_span();
     sam_aln.is_rc = n.is_rc;
     sam_aln.is_unaligned = false;
     sam_aln.ref_id = n.ref_id;
+
     return sam_aln;
 }
 
