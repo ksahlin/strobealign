@@ -9,9 +9,9 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "");
     CHECK(info.ed == 0);
-    CHECK(info.length == 0);
     CHECK(info.sw_score == 0);
     CHECK(info.ref_start == 0);
+    CHECK(info.ref_span() == 0);
     CHECK(info.query_start == 0);
     CHECK(info.query_end == 0);
 
@@ -22,9 +22,9 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "2=1X3=");
     CHECK(info.ed == 1);
-    CHECK(info.length == 6);
     CHECK(info.sw_score == 4);
     CHECK(info.ref_start == 0);
+    CHECK(info.ref_span() == 6);
     CHECK(info.query_start == 0);
     CHECK(info.query_end == 6);
 
@@ -35,9 +35,9 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "2S3=");
     CHECK(info.ed == 0);
-    CHECK(info.length == 3);
     CHECK(info.sw_score == 3);
     CHECK(info.ref_start == 2);
+    CHECK(info.ref_span() == 3);
     CHECK(info.query_start == 2);
     CHECK(info.query_end == 5);
 
@@ -48,9 +48,9 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "1S5=");
     CHECK(info.ed == 0);
-    CHECK(info.length == 5);
     CHECK(info.sw_score == 5 * 3);
     CHECK(info.ref_start == 1);
+    CHECK(info.ref_span() == 5);
     CHECK(info.query_start == 1);
     CHECK(info.query_end == 6);
 
@@ -61,9 +61,9 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "5=1S");
     CHECK(info.ed == 0);
-    CHECK(info.length == 5);
     CHECK(info.sw_score == 5 * 3);
     CHECK(info.ref_start == 0);
+    CHECK(info.ref_span() == 5);
     CHECK(info.query_start == 0);
     CHECK(info.query_end == 5);
 
@@ -75,9 +75,9 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "1S4=10S");
     CHECK(info.ed == 0);
-    CHECK(info.length == 4);
     CHECK(info.sw_score == 4 * 3);
     CHECK(info.ref_start == 1);
+    CHECK(info.ref_span() == 4);
     CHECK(info.query_start == 1);
     CHECK(info.query_end == 5);
 
@@ -88,9 +88,9 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "8S6=1S");
     CHECK(info.ed == 0);
-    CHECK(info.length == 6);
     CHECK(info.sw_score == 6 * 3);
     CHECK(info.ref_start == 8);
+    CHECK(info.ref_span() == 6);
     CHECK(info.query_start == 8);
     CHECK(info.query_end == 14);
 
@@ -101,9 +101,9 @@ TEST_CASE("hamming_align") {
     );
     CHECK(info.cigar == "1S6=8S");
     CHECK(info.ed == 0);
-    CHECK(info.length == 6);
     CHECK(info.sw_score == 6 * 3);
     CHECK(info.ref_start == 1);
+    CHECK(info.ref_span() == 6);
     CHECK(info.query_start == 1);
     CHECK(info.query_end == 7);
 }

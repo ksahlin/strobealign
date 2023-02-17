@@ -29,11 +29,11 @@ aln_info Aligner::align(const std::string &ref, const std::string &query) const 
     ssw_aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 1);
 
     aln.ed = alignment_ssw.mismatches;
-    aln.ref_start = alignment_ssw.ref_begin;
     aln.cigar = alignment_ssw.cigar_string;
     aln.sw_score = alignment_ssw.sw_score;
-    // ref_end is a 1-based position
-    aln.length = alignment_ssw.ref_end - alignment_ssw.ref_begin + 1;
+    aln.ref_start = alignment_ssw.ref_begin;
+    // end positions are off by 1 in SSW
+    aln.ref_end = alignment_ssw.ref_end + 1;
     aln.query_start = alignment_ssw.query_begin;
     aln.query_end = alignment_ssw.query_end + 1;
     return aln;
@@ -91,11 +91,11 @@ aln_info hamming_align(
     // Create CIGAR string and count mismatches
     int counter = 0;
     bool prev_is_match = false;
-    int hamming_mod = 0;
+    int mismatches = 0;
     bool first = true;
     for (size_t i = segment_start; i < segment_end; i++) {
         bool is_match = query[i] == ref[i];
-        hamming_mod += is_match ? 0 : 1;
+        mismatches += is_match ? 0 : 1;
         if (!first && is_match != prev_is_match) {
             cigar << counter << (prev_is_match ? '=' : 'X');
             counter = 0;
@@ -107,7 +107,7 @@ aln_info hamming_align(
     if (!first) {
         cigar << counter << (prev_is_match ? '=' : 'X');
     }
-    int aln_score = (segment_end - segment_start - hamming_mod) * match - hamming_mod * mismatch;
+    int aln_score = (segment_end - segment_start - mismatches) * match - mismatches * mismatch;
 
     int soft_right = query.length() - segment_end;
     if (soft_right > 0) {
@@ -116,9 +116,9 @@ aln_info hamming_align(
 
     aln.cigar = cigar.str();
     aln.sw_score = aln_score;
-    aln.ed = hamming_mod;
-    aln.length = segment_end - segment_start;
+    aln.ed = mismatches;
     aln.ref_start = segment_start;
+    aln.ref_end = segment_end;
     aln.query_start = segment_start;
     aln.query_end = segment_end;
     return aln;
