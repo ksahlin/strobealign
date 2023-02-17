@@ -15,7 +15,7 @@ struct alignment_params {
 
 struct aln_info {
     std::string cigar;
-    unsigned int ed{0};  // edit distance
+    unsigned int edit_distance{0};
     unsigned int ref_start{0};
     unsigned int ref_end{0};
     unsigned int query_start{0};
