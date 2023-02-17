@@ -182,7 +182,7 @@ static inline alignment align_segment(
         if (hamming_dist >= 0 && (((float) hamming_dist / read_segm_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
             auto info = hamming_align(read_segm, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch);
             sam_aln_segm.cigar = info.cigar;
-            sam_aln_segm.ed = info.ed;
+            sam_aln_segm.ed = info.edit_distance;
             sam_aln_segm.sw_score = info.sw_score;
             sam_aln_segm.ref_start = ref_start + ext_left + info.query_start;
             sam_aln_segm.is_rc = is_rc;
@@ -194,7 +194,7 @@ static inline alignment align_segment(
     }
     auto info = aligner.align(ref_segm, read_segm);
     sam_aln_segm.cigar = info.cigar;
-    sam_aln_segm.ed = info.ed;
+    sam_aln_segm.ed = info.edit_distance;
     sam_aln_segm.sw_score = info.sw_score;
     sam_aln_segm.ref_start = ref_start + info.ref_start;
     sam_aln_segm.is_rc = is_rc;
@@ -263,8 +263,8 @@ static inline alignment get_alignment(
     int softclipped = info.query_start + (query.size() - info.query_end);
     alignment sam_aln;
     sam_aln.cigar = info.cigar;
-    sam_aln.ed = info.ed;
-    sam_aln.global_ed = info.ed + softclipped;
+    sam_aln.ed = info.edit_distance;
+    sam_aln.global_ed = info.edit_distance + softclipped;
     sam_aln.sw_score = info.sw_score;
     sam_aln.aln_score = info.sw_score;
     sam_aln.ref_start = result_ref_start;
@@ -312,7 +312,7 @@ static inline alignment get_alignment_unused(
         if (hamming_dist >= 0 && (((float) hamming_dist / ref_segm_size) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
             const auto info = hamming_align(r_tmp, ref_segm, aligner.parameters.match, aligner.parameters.mismatch);
             sam_aln.cigar = info.cigar;
-            sam_aln.ed = info.ed;
+            sam_aln.ed = info.edit_distance;
             sam_aln.sw_score = info.sw_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
             sam_aln.ref_start = ref_start + ext_left + info.query_start;
             sam_aln.is_rc = is_rc;
@@ -787,7 +787,7 @@ static inline void rescue_mate(
 //    std::cerr << "Cigar: " << info.cigar << std::endl;
 
     sam_aln.cigar = info.cigar;
-    sam_aln.ed = info.ed;
+    sam_aln.ed = info.edit_distance;
     sam_aln.sw_score = info.sw_score;
     sam_aln.aln_score = sam_aln.sw_score;
     sam_aln.ref_start =  ref_start + info.ref_start;
