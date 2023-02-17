@@ -33,6 +33,19 @@ public:
         }
     }
 
+    /* This works only if I, D, X, = are the only operations used */
+    int edit_distance() const {
+        auto dist = 0;
+        for (auto op_len : m_ops) {
+            auto op = op_len & 0xf;
+            auto len = op_len >> 4;
+            if (op == CIGAR_INS || op == CIGAR_DEL || op == CIGAR_X) {
+                dist += len;
+            }
+        }
+        return dist;
+    }
+
     /* Return a new Cigar that uses =/X instead of M */
     Cigar to_eqx(const std::string& query, const std::string& ref) const;
 

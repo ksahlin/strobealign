@@ -90,9 +90,9 @@ aln_info ksw_extend(const std::string& query, const std::string& ref, int8_t mat
     global_aln(query, ref, 5, mat, gap_open, gap_extend, w, zdrop, flag, &ez);
 
     aln_info info;
-    auto edits = std::count_if(ez.cigar, ez.cigar + ez.n_cigar, [](char c) { return c == 'X' || c == 'I' || c == 'D'; });
-    info.cigar = Cigar(ez.cigar, ez.n_cigar).to_eqx(query, ref).to_string();
-    info.edit_distance = edits;
+    auto cigar = Cigar(ez.cigar, ez.n_cigar).to_eqx(query, ref);
+    info.cigar = cigar.to_string();
+    info.edit_distance = cigar.edit_distance();
     info.ref_start = 0;
     info.ref_end = ez.max_t + 1;
     info.query_end = ez.max_q + 1;
