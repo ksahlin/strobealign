@@ -150,7 +150,11 @@ void merge_hits_into_nams(
     }
 }
 
-/* Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
+/*
+ * Find a query’s NAMs, ignoring randstrobes that occur too often in the
+ * reference (have a count above filter_cutoff).
+ *
+ * Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
  */
 float find_nams(
     std::vector<nam> &final_nams,
@@ -178,6 +182,10 @@ float find_nams(
     return nonrepetitive_fraction;
 }
 
+/*
+ * Find a query’s NAMs, using also some of the randstrobes that occur more often
+ * than filter_cutoff.
+ */
 void find_nams_rescue(
     std::vector<nam> &final_nams,
     const QueryRandstrobeVector &query_randstrobes,
@@ -221,8 +229,7 @@ void find_nams_rescue(
     for (auto& hits : {hits_fw, hits_rc}) {
         int cnt = 0;
         for (auto &q : hits) {
-            auto count = q.count;
-            if ((count > filter_cutoff && cnt >= 5) || count > 1000) {
+            if ((q.count > filter_cutoff && cnt >= 5) || q.count > 1000) {
                 break;
             }
             add_to_hits_per_ref(hits_per_ref, q.query_s, q.query_e, q.is_rc, index, q.randstrobe_map_entry, 1000);
