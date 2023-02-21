@@ -47,7 +47,7 @@ void add_to_hits_per_ref(
 }
 
 std::vector<Nam> merge_hits_into_nams(
-    robin_hood::unordered_map<unsigned int, std::vector<Hit>> hits_per_ref,
+    robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
     int k,
     bool sort
 ) {
