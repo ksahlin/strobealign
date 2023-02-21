@@ -1533,19 +1533,13 @@ void align_PE_read(
     const References& references,
     const StrobemerIndex& index
 ) {
-    QueryRandstrobeVector query_randstrobes1, query_randstrobes2;
-
-    // generate mers here
     Timer strobe_timer;
-
-    query_randstrobes1 = randstrobes_query(
+    auto query_randstrobes1 = randstrobes_query(
         index_parameters.k, index_parameters.w_min, index_parameters.w_max, record1.seq, index_parameters.s, index_parameters.t_syncmer,
         index_parameters.q, index_parameters.max_dist);
-
-    query_randstrobes2 = randstrobes_query(
+    auto query_randstrobes2 = randstrobes_query(
         index_parameters.k, index_parameters.w_min, index_parameters.w_max, record2.seq, index_parameters.s, index_parameters.t_syncmer,
         index_parameters.q, index_parameters.max_dist);
-
     statistics.tot_construct_strobemers += strobe_timer.duration();
 
     // Find NAMs
@@ -1573,7 +1567,6 @@ void align_PE_read(
         statistics.tot_time_rescue += rescue_timer.duration();
     }
 
-    //Sort hits based on start choordinate on query sequence
     Timer nam_sort_timer;
     std::sort(nams1.begin(), nams1.end(), score);
     std::sort(nams2.begin(), nams2.end(), score);
@@ -1602,8 +1595,6 @@ void align_PE_read(
                  map_param.dropoff_threshold, isize_est, map_param.maxTries, map_param.max_secondary);
     }
     statistics.tot_extend += extend_timer.duration();
-    nams1.clear();
-    nams2.clear();
 }
 
 
@@ -1618,15 +1609,13 @@ void align_SE_read(
     const References& references,
     const StrobemerIndex& index
 ) {
-    std::vector<nam> nams;
-
-    // generate mers here
     Timer strobe_timer;
     auto query_randstrobes = randstrobes_query(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
     statistics.tot_construct_strobemers += strobe_timer.duration();
 
     // Find NAMs
     Timer nam_timer;
+    std::vector<nam> nams;
     std::pair<float, int> info = find_nams(nams, query_randstrobes, index);
     statistics.tot_find_nams += nam_timer.duration();
 
@@ -1640,7 +1629,6 @@ void align_SE_read(
         statistics.tot_time_rescue += rescue_timer.duration();
     }
 
-    // Sort hits by score
     Timer nam_sort_timer;
     std::sort(nams.begin(), nams.end(), score);
     statistics.tot_sort_nams += nam_sort_timer.duration();
@@ -1657,5 +1645,4 @@ void align_SE_read(
         );
     }
     statistics.tot_extend += extend_timer.duration();
-    nams.clear();
 }

@@ -152,7 +152,6 @@ private:
     const unsigned w_max;
     const uint64_t q;
     const unsigned int max_dist;
-    unsigned int strobe1_index = 0;
     std::deque<Syncmer> syncmers;
 };
 
