@@ -30,7 +30,7 @@ struct nam {
     }
 };
 
-std::pair<float,int> find_nams(
+float find_nams(
     std::vector<nam> &final_nams,
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index

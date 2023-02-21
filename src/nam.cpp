@@ -57,7 +57,10 @@ void add_to_hits_per_ref(
     }
 }
 
-std::pair<float,int> find_nams(
+/* Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
+ *
+ */
+float find_nams(
     std::vector<nam> &final_nams,
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index
@@ -77,10 +80,7 @@ std::pair<float,int> find_nams(
             add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, ref_hit->second, 100'000);
         }
     }
-
-    std::pair<float, int> info(0.0, 0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
-    info.first = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
-    int max_nam_n_hits = 0;
+    float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     int nam_id_cnt = 0;
 
     for (const auto &[ref_id, hits] : hits_per_ref) {
@@ -150,7 +150,6 @@ std::pair<float,int> find_nams(
 //                        n_score = n.n_hits * n.query_span();
                         n.score = n_score;
                         final_nams.push_back(n);
-                        max_nam_n_hits = std::max(n.n_hits, max_nam_n_hits);
                     }
                 }
 
@@ -171,11 +170,10 @@ std::pair<float,int> find_nams(
 //            n_score = n.n_hits * n.query_span();
             n.score = n_score;
             final_nams.push_back(n);
-            max_nam_n_hits = std::max(n.n_hits, max_nam_n_hits);
         }
     }
-    info.second = max_nam_n_hits;
-    return info;
+
+    return nonrepetitive_fraction;
 }
 
 void find_nams_rescue(

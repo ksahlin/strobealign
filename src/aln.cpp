@@ -1546,20 +1546,19 @@ void align_PE_read(
     Timer nam_timer;
     std::vector<nam> nams1;
     std::vector<nam> nams2;
-    std::pair<float, int> info1, info2;
-    info1 = find_nams(nams1, query_randstrobes1, index);
-    info2 = find_nams(nams2, query_randstrobes2, index);
+    auto nonrepetitive_fraction1 = find_nams(nams1, query_randstrobes1, index);
+    auto nonrepetitive_fraction2 = find_nams(nams2, query_randstrobes2, index);
     statistics.tot_find_nams += nam_timer.duration();
 
     if (map_param.R > 1) {
         Timer rescue_timer;
-        if (nams1.empty() || info1.first < 0.7) {
+        if (nams1.empty() || nonrepetitive_fraction1 < 0.7) {
             statistics.tried_rescue += 1;
             nams1.clear();
             find_nams_rescue(nams1, query_randstrobes1, index, map_param.rescue_cutoff);
         }
 
-        if (nams2.empty() || info2.first < 0.7) {
+        if (nams2.empty() || nonrepetitive_fraction2 < 0.7) {
             statistics.tried_rescue += 1;
             nams2.clear();
             find_nams_rescue(nams2, query_randstrobes2, index, map_param.rescue_cutoff);
@@ -1616,12 +1615,12 @@ void align_SE_read(
     // Find NAMs
     Timer nam_timer;
     std::vector<nam> nams;
-    std::pair<float, int> info = find_nams(nams, query_randstrobes, index);
+    auto nonrepetitive_fraction = find_nams(nams, query_randstrobes, index);
     statistics.tot_find_nams += nam_timer.duration();
 
     if (map_param.R > 1) {
         Timer rescue_timer;
-        if (nams.empty() || info.first < 0.7) {
+        if (nams.empty() || nonrepetitive_fraction < 0.7) {
             statistics.tried_rescue += 1;
             nams.clear();
             find_nams_rescue(nams, query_randstrobes, index, map_param.rescue_cutoff);
