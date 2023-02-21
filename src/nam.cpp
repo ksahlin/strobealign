@@ -1,5 +1,7 @@
 #include "nam.hpp"
 
+namespace {
+
 struct Hit {
     int query_s;
     int query_e;
@@ -150,6 +152,8 @@ std::vector<Nam> merge_hits_into_nams(
     }
     return nams;
 }
+
+} // namespace
 
 /*
  * Find a query’s NAMs, ignoring randstrobes that occur too often in the
