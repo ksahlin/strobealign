@@ -44,12 +44,12 @@ void add_to_hits_per_ref(
     }
 }
 
-void merge_hits_into_nams(
+std::vector<Nam> merge_hits_into_nams(
     robin_hood::unordered_map<unsigned int, std::vector<Hit>> hits_per_ref,
     int k,
-    std::vector<Nam> &final_nams,
     bool sort
 ) {
+    std::vector<Nam> nams;
     int nam_id_cnt = 0;
     for (auto &[ref_id, hits] : hits_per_ref) {
         if (sort) {
@@ -125,7 +125,7 @@ void merge_hits_into_nams(
                         n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
 //                        n_score = n.n_hits * n.query_span();
                         n.score = n_score;
-                        final_nams.push_back(n);
+                        nams.push_back(n);
                     }
                 }
 
@@ -145,9 +145,10 @@ void merge_hits_into_nams(
             n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
 //            n_score = n.n_hits * n.query_span();
             n.score = n_score;
-            final_nams.push_back(n);
+            nams.push_back(n);
         }
     }
+    return nams;
 }
 
 /*
@@ -156,8 +157,7 @@ void merge_hits_into_nams(
  *
  * Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
  */
-float find_nams(
-    std::vector<Nam> &final_nams,
+std::pair<float, std::vector<Nam>> find_nams(
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index
 ) {
@@ -178,16 +178,15 @@ float find_nams(
     }
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
 
-    merge_hits_into_nams(hits_per_ref, index.k(), final_nams, false);
-    return nonrepetitive_fraction;
+    auto nams = merge_hits_into_nams(hits_per_ref, index.k(), false);
+    return make_pair(nonrepetitive_fraction, nams);
 }
 
 /*
  * Find a query’s NAMs, using also some of the randstrobes that occur more often
  * than filter_cutoff.
  */
-void find_nams_rescue(
-    std::vector<Nam> &final_nams,
+std::vector<Nam> find_nams_rescue(
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index,
     unsigned int filter_cutoff
@@ -237,7 +236,7 @@ void find_nams_rescue(
         }
     }
 
-    merge_hits_into_nams(hits_per_ref, index.k(), final_nams, true);
+    return merge_hits_into_nams(hits_per_ref, index.k(), true);
 }
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {

@@ -30,14 +30,12 @@ struct Nam {
     }
 };
 
-float find_nams(
-    std::vector<Nam> &final_nams,
+std::pair<float, std::vector<Nam>> find_nams(
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index
 );
 
-void find_nams_rescue(
-    std::vector<Nam> &final_nams,
+std::vector<Nam> find_nams_rescue(
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index,
     unsigned int filter_cutoff
