@@ -8,19 +8,6 @@ struct hit {
     bool is_rc = false;
 };
 
-struct Hit {
-    unsigned int count;
-    RandstrobeMapEntry randstrobe_map_entry;
-    unsigned int query_s;
-    unsigned int query_e;
-    bool is_rc;
-
-    bool operator< (const Hit& rhs) const {
-        return std::tie(count, query_s, query_e, is_rc)
-            < std::tie(rhs.count, rhs.query_s, rhs.query_e, rhs.is_rc);
-    }
-};
-
 void add_to_hits_per_ref(
     robin_hood::unordered_map<unsigned int, std::vector<hit>>& hits_per_ref,
     int query_s,
@@ -182,6 +169,19 @@ void find_nams_rescue(
     const StrobemerIndex& index,
     unsigned int filter_cutoff
 ) {
+    struct Hit {
+        unsigned int count;
+        RandstrobeMapEntry randstrobe_map_entry;
+        unsigned int query_s;
+        unsigned int query_e;
+        bool is_rc;
+
+        bool operator< (const Hit& rhs) const {
+            return std::tie(count, query_s, query_e, is_rc)
+                < std::tie(rhs.count, rhs.query_s, rhs.query_e, rhs.is_rc);
+        }
+    };
+
     robin_hood::unordered_map<unsigned int, std::vector<hit>> hits_per_ref;
     std::vector<Hit> hits_fw;
     std::vector<Hit> hits_rc;
