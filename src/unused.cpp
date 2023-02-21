@@ -1187,7 +1187,7 @@ static inline bool sort_hits(const hit &a, const hit &b)
 
 
 static inline void find_nams_rescue(
-    std::vector<nam> &final_nams,
+    std::vector<Nam> &final_nams,
     robin_hood::unordered_map<unsigned int, std::vector<hit>> &hits_per_ref,
     const QueryRandstrobeVector &query_mers,
     const RefRandstrobeVector &ref_mers,
@@ -1367,7 +1367,7 @@ static inline void find_nams_rescue(
 //    std::cerr << "NUMBER OF HITS GENERATED: " << hit_count_all << std::endl;
 //    info.first = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     int max_nam_n_hits = 0;
-    std::vector<nam> open_nams;
+    std::vector<Nam> open_nams;
     int nam_id_cnt = 0;
 //    std::vector<nam> final_nams; // [ref_id] -> vector(struct nam)
 
@@ -1376,7 +1376,7 @@ static inline void find_nams_rescue(
         auto ref_id = it.first;
         std::vector<hit> hits = it.second;
         std::sort(hits.begin(), hits.end(), sort_hits);
-        open_nams = std::vector<nam> (); // Initialize vector
+        open_nams = std::vector<Nam> (); // Initialize vector
         unsigned int prev_q_start = 0;
         for (auto &h : hits){
             bool is_added = false;
@@ -1419,7 +1419,7 @@ static inline void find_nams_rescue(
 //            }
             // Add the hit to open matches
             if (!is_added){
-                nam n;
+                Nam n;
                 n.nam_id = nam_id_cnt;
                 nam_id_cnt ++;
                 n.query_s = h.query_s;
@@ -1484,7 +1484,7 @@ static inline void find_nams_rescue(
 
 
 static inline std::pair<float,int> find_nams(
-    std::vector<nam> &final_nams,
+    std::vector<Nam> &final_nams,
     robin_hood::unordered_map<unsigned int, std::vector<hit>> &hits_per_ref,
     const QueryRandstrobeVector &query_mers,
     const RefRandstrobeVector &ref_mers,
@@ -1591,7 +1591,7 @@ static inline std::pair<float,int> find_nams(
     info.first = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     int max_nam_n_hits = 0;
     int nam_id_cnt = 0;
-    std::vector<nam> open_nams;
+    std::vector<Nam> open_nams;
 //    std::vector<nam> final_nams; // [ref_id] -> vector(struct nam)
 
     for (auto &it : hits_per_ref)
@@ -1602,7 +1602,7 @@ static inline std::pair<float,int> find_nams(
 //    for(size_t i = 0; i < hits_per_ref.size(); ++i){
 //        unsigned int ref_id = i;
 //        auto hits = hits_per_ref[i];
-        open_nams = std::vector<nam> (); // Initialize vector
+        open_nams = std::vector<Nam> (); // Initialize vector
         unsigned int prev_q_start = 0;
         for (auto &h : hits){
             bool is_added = false;
@@ -1669,7 +1669,7 @@ static inline std::pair<float,int> find_nams(
 //            }
             // Add the hit to open matches
             if (!is_added){
-                nam n;
+                Nam n;
                 n.nam_id = nam_id_cnt;
                 nam_id_cnt ++;
                 n.query_s = h.query_s;

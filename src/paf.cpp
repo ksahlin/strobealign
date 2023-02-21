@@ -14,7 +14,7 @@
  * 11 alignment block length
  * 12 mapping quality (0-255; 255 for missing)
  */
-void output_hits_paf_PE(std::string &paf_output, const nam &n, const std::string &query_name, const References& references, int k, int read_len) {
+void output_hits_paf_PE(std::string &paf_output, const Nam &n, const std::string &query_name, const References& references, int k, int read_len) {
     if (n.ref_s < 0 ) {
         return;
     }
@@ -43,12 +43,12 @@ void output_hits_paf_PE(std::string &paf_output, const nam &n, const std::string
 }
 
 
-void output_hits_paf(std::string &paf_output, const std::vector<nam> &all_nams, const std::string& query_name, const References& references, int k, int read_len) {
+void output_hits_paf(std::string &paf_output, const std::vector<Nam> &all_nams, const std::string& query_name, const References& references, int k, int read_len) {
     // Output results
     if (all_nams.empty()) {
         return;
     }
     // Only output single best hit based on: number of randstrobe-matches times span of the merged match.
-    nam n = all_nams[0];
+    Nam n = all_nams[0];
     output_hits_paf_PE(paf_output, n, query_name, references, k, read_len);
 }

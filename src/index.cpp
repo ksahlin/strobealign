@@ -326,7 +326,7 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
     std::vector<uint64_t> log_count_1000_limit(max_size, 0);  // stores count and each index represents the length
     uint64_t tot_seed_count_1000_limit = 0;
 
-    size_t seed_length;
+    size_t seed_length = 0;
     for (auto &it : randstrobe_map) {
         auto ref_mer = it.second;
         auto offset = ref_mer.offset();
