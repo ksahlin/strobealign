@@ -192,47 +192,47 @@ void find_nams_rescue(
     const StrobemerIndex& index,
     unsigned int filter_cutoff
 ) {
-    struct Hit {
+    struct RescueHit {
         unsigned int count;
         RandstrobeMapEntry randstrobe_map_entry;
         unsigned int query_s;
         unsigned int query_e;
         bool is_rc;
 
-        bool operator< (const Hit& rhs) const {
+        bool operator< (const RescueHit& rhs) const {
             return std::tie(count, query_s, query_e, is_rc)
                 < std::tie(rhs.count, rhs.query_s, rhs.query_e, rhs.is_rc);
         }
     };
 
     robin_hood::unordered_map<unsigned int, std::vector<hit>> hits_per_ref;
-    std::vector<Hit> hits_fw;
-    std::vector<Hit> hits_rc;
+    std::vector<RescueHit> hits_fw;
+    std::vector<RescueHit> hits_rc;
     hits_per_ref.reserve(100);
     hits_fw.reserve(5000);
     hits_rc.reserve(5000);
 
-    for (auto &q : query_randstrobes) {
-        auto ref_hit = index.find(q.hash);
+    for (auto &qr : query_randstrobes) {
+        auto ref_hit = index.find(qr.hash);
         if (ref_hit != index.end()) {
-            Hit s{ref_hit->second.count(), ref_hit->second, q.start, q.end, q.is_reverse};
-            if (q.is_reverse){
-                hits_rc.push_back(s);
+            RescueHit rh{ref_hit->second.count(), ref_hit->second, qr.start, qr.end, qr.is_reverse};
+            if (qr.is_reverse){
+                hits_rc.push_back(rh);
             } else {
-                hits_fw.push_back(s);
+                hits_fw.push_back(rh);
             }
         }
     }
 
     std::sort(hits_fw.begin(), hits_fw.end());
     std::sort(hits_rc.begin(), hits_rc.end());
-    for (auto& hits : {hits_fw, hits_rc}) {
+    for (auto& rescue_hits : {hits_fw, hits_rc}) {
         int cnt = 0;
-        for (auto &q : hits) {
-            if ((q.count > filter_cutoff && cnt >= 5) || q.count > 1000) {
+        for (auto &rh : rescue_hits) {
+            if ((rh.count > filter_cutoff && cnt >= 5) || rh.count > 1000) {
                 break;
             }
-            add_to_hits_per_ref(hits_per_ref, q.query_s, q.query_e, q.is_rc, index, q.randstrobe_map_entry, 1000);
+            add_to_hits_per_ref(hits_per_ref, rh.query_s, rh.query_e, rh.is_rc, index, rh.randstrobe_map_entry, 1000);
             cnt++;
         }
     }
