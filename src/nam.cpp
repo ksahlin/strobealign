@@ -1,6 +1,6 @@
 #include "nam.hpp"
 
-struct hit {
+struct Hit {
     int query_s;
     int query_e;
     int ref_s;
@@ -9,7 +9,7 @@ struct hit {
 };
 
 void add_to_hits_per_ref(
-    robin_hood::unordered_map<unsigned int, std::vector<hit>>& hits_per_ref,
+    robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
     int query_s,
     int query_e,
     bool is_rc,
@@ -26,7 +26,7 @@ void add_to_hits_per_ref(
         int ref_e = r.position + r.strobe2_offset() + index.k();
         int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
         if (diff <= min_diff) {
-            hits_per_ref[r.reference_index()].push_back(hit{query_s, query_e, ref_s, ref_e, is_rc});
+            hits_per_ref[r.reference_index()].push_back(Hit{query_s, query_e, ref_s, ref_e, is_rc});
             min_diff = diff;
         }
     } else {
@@ -37,7 +37,7 @@ void add_to_hits_per_ref(
 
             int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
             if (diff <= min_diff) {
-                hits_per_ref[r.reference_index()].push_back(hit{query_s, query_e, ref_s, ref_e, is_rc});
+                hits_per_ref[r.reference_index()].push_back(Hit{query_s, query_e, ref_s, ref_e, is_rc});
                 min_diff = diff;
             }
         }
@@ -45,7 +45,7 @@ void add_to_hits_per_ref(
 }
 
 void merge_hits_into_nams(
-    robin_hood::unordered_map<unsigned int, std::vector<hit>> hits_per_ref,
+    robin_hood::unordered_map<unsigned int, std::vector<Hit>> hits_per_ref,
     int k,
     std::vector<nam> &final_nams,
     bool sort
@@ -53,7 +53,7 @@ void merge_hits_into_nams(
     int nam_id_cnt = 0;
     for (auto &[ref_id, hits] : hits_per_ref) {
         if (sort) {
-            std::sort(hits.begin(), hits.end(), [](const hit& a, const hit& b) -> bool {
+            std::sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) -> bool {
                     // first sort on query starts, then on reference starts
                     return (a.query_s < b.query_s) || ( (a.query_s == b.query_s) && (a.ref_s < b.ref_s) );
                 }
@@ -161,7 +161,7 @@ float find_nams(
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index
 ) {
-    robin_hood::unordered_map<unsigned int, std::vector<hit>> hits_per_ref;
+    robin_hood::unordered_map<unsigned int, std::vector<Hit>> hits_per_ref;
     hits_per_ref.reserve(100);
 
     int nr_good_hits = 0, total_hits = 0;
@@ -205,7 +205,7 @@ void find_nams_rescue(
         }
     };
 
-    robin_hood::unordered_map<unsigned int, std::vector<hit>> hits_per_ref;
+    robin_hood::unordered_map<unsigned int, std::vector<Hit>> hits_per_ref;
     std::vector<RescueHit> hits_fw;
     std::vector<RescueHit> hits_rc;
     hits_per_ref.reserve(100);
