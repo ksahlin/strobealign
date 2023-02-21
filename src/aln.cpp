@@ -1279,26 +1279,19 @@ inline void align_PE(
 //            int ref_start, ref_len, ref_end;
 //            std::cerr << "LOOOOOOOOOOOOOOOOOOOL " << min_ed << std::endl;
     std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
-    for (auto &t : joint_NAM_scores) {
-        auto score_ = std::get<0>(t);
-        auto n1 = std::get<1>(t);
-        auto n2 = std::get<2>(t);
+    for (auto &[score_, n1, n2] : joint_NAM_scores) {
         score_dropoff1 = (float) score_ / max_score;
-//                std::cerr << "Min ed: " << min_ed << std::endl;
         if ( (cnt >= max_tries) || (score_dropoff1 < dropoff) ){ // only consider top 20 if there are more.
             break;
         }
 
         //////// the actual testing of base pair alignment part start ////////
         //////////////////////////////////////////////////////////////////////
-        //////////////////////////////////////////////////////////////////////
         alignment a1;
         if (n1.ref_s >= 0) {
             if (is_aligned1.find(n1.nam_id) != is_aligned1.end() ){
-//                    std::cerr << "Already aligned a1! " << std::endl;
                 a1 = is_aligned1[n1.nam_id];
             } else {
-//                    std::cerr << query_acc1 << std::endl;
                 bool fits = reverse_nam_if_needed(n1, read1, references, k);
                 if (!fits) {
                     statistics.did_not_fit++;
@@ -1307,11 +1300,10 @@ inline void align_PE(
                 is_aligned1[n1.nam_id] = a1;
                 statistics.tot_all_tried++;
             }
-        } else { //rescue
-//                    std::cerr << "RESCUE HERE1" << std::endl;
+        } else {
             //////// Force SW alignment to rescue mate /////////
 //                    std::cerr << query_acc2 << " RESCUE MATE 1" << a1.is_rc << " " n1.is_rc << std::endl;
-            rescue_mate( aligner, n2, references, read2, read1, a1, mu, sigma, statistics.tot_rescued, k);
+            rescue_mate(aligner, n2, references, read2, read1, a1, mu, sigma, statistics.tot_rescued, k);
 //                    is_aligned1[n1.nam_id] = a1;
             statistics.tot_all_tried ++;
         }
