@@ -66,7 +66,7 @@ std::pair<float,int> find_nams(
     hits_per_ref.reserve(100);
 
     int nr_good_hits = 0, total_hits = 0;
-    for (auto &q : query_randstrobes) {
+    for (const auto &q : query_randstrobes) {
         auto ref_hit = index.find(q.hash);
         if (ref_hit != index.end()) {
             total_hits++;
@@ -74,22 +74,19 @@ std::pair<float,int> find_nams(
                 continue;
             }
             nr_good_hits++;
-            add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, ref_hit->second, 100000);
+            add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, ref_hit->second, 100'000);
         }
     }
 
-    std::pair<float,int> info (0.0f,0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
+    std::pair<float, int> info(0.0, 0); // (nr_nonrepetitive_hits/total_hits, max_nam_n_hits)
     info.first = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     int max_nam_n_hits = 0;
     int nam_id_cnt = 0;
-    std::vector<nam> open_nams;
 
-    for (auto &it : hits_per_ref) {
-        auto ref_id = it.first;
-        const std::vector<hit>& hits = it.second;
-        open_nams = std::vector<nam> (); // Initialize vector
+    for (const auto &[ref_id, hits] : hits_per_ref) {
+        std::vector<nam> open_nams;
         unsigned int prev_q_start = 0;
-        for (auto &h : hits){
+        for (auto &h : hits) {
             bool is_added = false;
             for (auto & o : open_nams) {
 
@@ -120,7 +117,6 @@ std::pair<float,int> find_nams(
                 }
 
             }
-//            }
             // Add the hit to open matches
             if (!is_added){
                 nam n;
@@ -167,7 +163,7 @@ std::pair<float,int> find_nams(
         }
 
         // Add all current open_matches to final NAMs
-        for (auto &n : open_nams){
+        for (auto &n : open_nams) {
             int n_max_span = std::max(n.query_span(), n.ref_span());
             int n_min_span = std::min(n.query_span(), n.ref_span());
             float n_score;
