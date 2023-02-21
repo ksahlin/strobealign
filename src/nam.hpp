@@ -6,7 +6,7 @@
 #include "randstrobes.hpp"
 
 // Non-overlapping approximate match
-struct nam {
+struct Nam {
     int nam_id;
     int query_s;
     int query_e;
@@ -31,18 +31,18 @@ struct nam {
 };
 
 float find_nams(
-    std::vector<nam> &final_nams,
+    std::vector<Nam> &final_nams,
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index
 );
 
 void find_nams_rescue(
-    std::vector<nam> &final_nams,
+    std::vector<Nam> &final_nams,
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index,
     unsigned int filter_cutoff
 );
 
-std::ostream& operator<<(std::ostream& os, const nam& thenam);
+std::ostream& operator<<(std::ostream& os, const Nam& nam);
 
 #endif

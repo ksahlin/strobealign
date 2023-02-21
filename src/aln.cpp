@@ -12,13 +12,13 @@ using namespace klibpp;
 
 static inline alignment get_alignment(
     const Aligner& aligner,
-    const nam &n,
+    const Nam &n,
     const References& references,
     const Read& read,
     bool fits
 );
 
-static inline bool score(const nam &a, const nam &b) {
+static inline bool score(const Nam &a, const Nam &b) {
     return a.score > b.score;
 }
 
@@ -195,7 +195,7 @@ aln_info hamming_align(
  *   in place and return true.
  * - If first and last strobe do not match consistently, return false.
  */
-bool reverse_nam_if_needed(nam& n, const Read& read, const References& references, int k) {
+bool reverse_nam_if_needed(Nam& n, const Read& read, const References& references, int k) {
     auto read_len = read.size();
     std::string ref_start_kmer = references.sequences[n.ref_id].substr(n.ref_s, k);
     std::string ref_end_kmer = references.sequences[n.ref_id].substr(n.ref_e-k, k);
@@ -233,7 +233,7 @@ bool reverse_nam_if_needed(nam& n, const Read& read, const References& reference
 static inline void align_SE_secondary_hits(
     const Aligner& aligner,
     Sam& sam,
-    std::vector<nam> &all_nams,
+    std::vector<Nam>& all_nams,
     const KSeq& record,
     int k,
     const References& references,
@@ -252,7 +252,7 @@ static inline void align_SE_secondary_hits(
     std::vector<alignment> alignments;
     int cnt = 0;
     float score_dropoff;
-    nam n_max = all_nams[0];
+    Nam n_max = all_nams[0];
 
     int best_align_dist = ~0U >> 1;
     int best_align_sw_score = -1000;
@@ -389,7 +389,7 @@ static inline alignment align_segment(
 
 static inline alignment get_alignment(
     const Aligner& aligner,
-    const nam &n,
+    const Nam &n,
     const References& references,
     const Read& read,
     bool fits
@@ -440,7 +440,7 @@ static inline alignment get_alignment(
 
 static inline alignment get_alignment_unused(
     const Aligner& aligner,
-    const nam &n,
+    const Nam &n,
     const References& references,
     const Read& read,
     int k,
@@ -680,12 +680,12 @@ static inline alignment get_alignment_unused(
 
 
 
-static inline int get_MAPQ(const std::vector<nam> &all_nams, const nam &n_max) {
+static inline int get_MAPQ(const std::vector<Nam> &all_nams, const Nam &n_max) {
     const float s1 = n_max.score;
     if (all_nams.size() <= 1) {
         return 60;
     }
-    const nam n_second = all_nams[1];
+    const Nam n_second = all_nams[1];
     const float s2 = n_second.score;
     // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
     const float min_matches = std::min(n_max.n_hits / 10.0, 1.0);
@@ -756,13 +756,13 @@ static inline void get_best_scoring_pair(
     std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
 }
 
-static inline std::vector<std::tuple<int,nam,nam>> get_best_scoring_NAM_locations(
-    const std::vector<nam> &all_nams1,
-    const std::vector<nam> &all_nams2,
+static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_NAM_locations(
+    const std::vector<Nam> &all_nams1,
+    const std::vector<Nam> &all_nams2,
     float mu,
     float sigma
 ) {
-    std::vector<std::tuple<int,nam,nam>> joint_NAM_scores;
+    std::vector<std::tuple<int,Nam,Nam>> joint_NAM_scores;
     if (all_nams1.empty() && all_nams2.empty()) {
         return joint_NAM_scores;
     }
@@ -791,7 +791,7 @@ static inline std::vector<std::tuple<int,nam,nam>> get_best_scoring_NAM_location
 //                    int diff2 = (n2.query_e - n2.query_s) - (n2.ref_e - n2.ref_s);
 //                    int  n2_penalty = diff2 > 0 ? diff2 : - diff2;
                     joint_hits = n1.n_hits + n2.n_hits; // - n1_penalty - n2_penalty; // trying out idea about penalty but it needs to be on the individual seed level - to late on merged match level.
-                    std::tuple<int, nam, nam> t (joint_hits, n1, n2);
+                    std::tuple<int, Nam, Nam> t (joint_hits, n1, n2);
                     joint_NAM_scores.push_back(t);
                     added_n1.insert(n1.nam_id);
                     added_n2.insert(n2.nam_id);
@@ -803,7 +803,7 @@ static inline std::vector<std::tuple<int,nam,nam>> get_best_scoring_NAM_location
         }
     }
 
-    nam dummy_nan;
+    Nam dummy_nan;
     dummy_nan.ref_s = -1;
     if (!all_nams1.empty()) {
         int hjss1 = hjss > 0 ? hjss : all_nams1[0].n_hits;
@@ -817,7 +817,7 @@ static inline std::vector<std::tuple<int,nam,nam>> get_best_scoring_NAM_location
 //            int diff1 = (n1.query_e - n1.query_s) - (n1.ref_e - n1.ref_s);
 //            int  n1_penalty = diff1 > 0 ? diff1 : - diff1;
             joint_hits = n1.n_hits;
-            std::tuple<int, nam, nam> t (joint_hits, n1, dummy_nan);
+            std::tuple<int, Nam, Nam> t{joint_hits, n1, dummy_nan};
             joint_NAM_scores.push_back(t);
         }
     }
@@ -836,7 +836,7 @@ static inline std::vector<std::tuple<int,nam,nam>> get_best_scoring_NAM_location
 //            int  n2_penalty = diff2 > 0 ? diff2 : - diff2;
             joint_hits = n2.n_hits;
             //                        std::cerr << S << " individual score " << x << " " << std::endl;
-            std::tuple<int, nam, nam> t (joint_hits, dummy_nan, n2);
+            std::tuple<int, Nam, Nam> t{joint_hits, dummy_nan, n2};
             joint_NAM_scores.push_back(t);
         }
     }
@@ -847,7 +847,7 @@ static inline std::vector<std::tuple<int,nam,nam>> get_best_scoring_NAM_location
     std::sort(
         joint_NAM_scores.begin(),
         joint_NAM_scores.end(),
-        [](const std::tuple<int, nam, nam> &a, const std::tuple<int, nam, nam> &b) -> bool {
+        [](const std::tuple<int, Nam, Nam>& a, const std::tuple<int, Nam, Nam>& b) -> bool {
             return std::get<0>(a) > std::get<0>(b);
         }
     ); // Sort by highest score first
@@ -874,7 +874,7 @@ bool has_shared_substring(const std::string& read_seq, const std::string& ref_se
 
 static inline void rescue_mate(
     const Aligner& aligner,
-    nam &n,
+    Nam &n,
     const References& references,
     const Read& guide,
     const Read& read,
@@ -969,7 +969,7 @@ void rescue_read(
     const Read& read1,  // read that has NAMs
     const Aligner& aligner,
     const References& references,
-    std::vector<nam> &all_nams1,
+    std::vector<Nam> &all_nams1,
     int max_tries,
     float dropoff,
     AlignmentStatistics &statistics,
@@ -984,7 +984,7 @@ void rescue_read(
     bool swap_r1r2  // TODO get rid of this
 ) {
     float score_dropoff1;
-    nam n_max1 = all_nams1[0];
+    Nam n_max1 = all_nams1[0];
     int cnt1 = 0;
 
     std::vector<alignment> aln_scores1;
@@ -1118,8 +1118,8 @@ std::pair<int, int> joint_mapq_from_high_scores(const std::vector<std::tuple<dou
 inline void align_PE(
     const Aligner& aligner,
     Sam &sam,
-    std::vector<nam> &all_nams1,
-    std::vector<nam> &all_nams2,
+    std::vector<Nam> &all_nams1,
+    std::vector<Nam> &all_nams2,
     const KSeq &record1,
     const KSeq &record2,
     int k,
@@ -1195,8 +1195,8 @@ inline void align_PE(
 
     int cnt = 0;
     double S = 0.0;
-    nam n_max1 = all_nams1[0];
-    nam n_max2 = all_nams2[0];
+    Nam n_max1 = all_nams1[0];
+    Nam n_max2 = all_nams2[0];
 
     float score_dropoff1 = all_nams1.size() > 1 ? (float) all_nams1[1].n_hits / n_max1.n_hits : 0.0;
     float score_dropoff2 = all_nams2.size() > 1 ? (float) all_nams2[1].n_hits / n_max2.n_hits : 0.0;
@@ -1243,7 +1243,7 @@ inline void align_PE(
     // Get top hit counts for all locations. The joint hit count is the sum of hits of the two mates. Then align as long as score dropoff or cnt < 20
 
     // (score, aln1, aln2)
-    std::vector<std::tuple<int,nam,nam>> joint_NAM_scores = get_best_scoring_NAM_locations(all_nams1, all_nams2, mu, sigma);
+    std::vector<std::tuple<int,Nam,Nam>> joint_NAM_scores = get_best_scoring_NAM_locations(all_nams1, all_nams2, mu, sigma);
     auto nam_max = joint_NAM_scores[0];
     auto max_score = std::get<0>(nam_max);
 
@@ -1442,9 +1442,9 @@ inline void align_PE(
 }
 
 
-inline void get_best_map_location(std::vector<nam> &nams1, std::vector<nam> &nams2, i_dist_est &isize_est, nam &best_nam1,  nam &best_nam2 ) {
-    std::vector<std::tuple<int,nam,nam>> joint_NAM_scores = get_best_scoring_NAM_locations(nams1, nams2, isize_est.mu, isize_est.sigma);
-    nam n1_joint_max, n2_joint_max, n1_indiv_max, n2_indiv_max;
+inline void get_best_map_location(std::vector<Nam> &nams1, std::vector<Nam> &nams2, i_dist_est &isize_est, Nam &best_nam1,  Nam &best_nam2 ) {
+    std::vector<std::tuple<int,Nam,Nam>> joint_NAM_scores = get_best_scoring_NAM_locations(nams1, nams2, isize_est.mu, isize_est.sigma);
+    Nam n1_joint_max, n2_joint_max, n1_indiv_max, n2_indiv_max;
     float score_joint = 0;
     float score_indiv = 0;
     best_nam1.ref_s = -1; //Unmapped until proven mapped
@@ -1536,8 +1536,8 @@ void align_PE_read(
 
     // Find NAMs
     Timer nam_timer;
-    std::vector<nam> nams1;
-    std::vector<nam> nams2;
+    std::vector<Nam> nams1;
+    std::vector<Nam> nams2;
     auto nonrepetitive_fraction1 = find_nams(nams1, query_randstrobes1, index);
     auto nonrepetitive_fraction2 = find_nams(nams2, query_randstrobes2, index);
     statistics.tot_find_nams += nam_timer.duration();
@@ -1565,8 +1565,8 @@ void align_PE_read(
 
     Timer extend_timer;
     if (!map_param.is_sam_out) {
-        nam nam_read1;
-        nam nam_read2;
+        Nam nam_read1;
+        Nam nam_read2;
         get_best_map_location(nams1, nams2, isize_est,
                               nam_read1,
                               nam_read2);
@@ -1606,7 +1606,7 @@ void align_SE_read(
 
     // Find NAMs
     Timer nam_timer;
-    std::vector<nam> nams;
+    std::vector<Nam> nams;
     auto nonrepetitive_fraction = find_nams(nams, query_randstrobes, index);
     statistics.tot_find_nams += nam_timer.duration();
 

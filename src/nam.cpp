@@ -47,7 +47,7 @@ void add_to_hits_per_ref(
 void merge_hits_into_nams(
     robin_hood::unordered_map<unsigned int, std::vector<Hit>> hits_per_ref,
     int k,
-    std::vector<nam> &final_nams,
+    std::vector<Nam> &final_nams,
     bool sort
 ) {
     int nam_id_cnt = 0;
@@ -60,7 +60,7 @@ void merge_hits_into_nams(
             );
         }
 
-        std::vector<nam> open_nams;
+        std::vector<Nam> open_nams;
         unsigned int prev_q_start = 0;
         for (auto &h : hits) {
             bool is_added = false;
@@ -95,7 +95,7 @@ void merge_hits_into_nams(
             }
             // Add the hit to open matches
             if (!is_added){
-                nam n;
+                Nam n;
                 n.nam_id = nam_id_cnt;
                 nam_id_cnt ++;
                 n.query_s = h.query_s;
@@ -157,7 +157,7 @@ void merge_hits_into_nams(
  * Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
  */
 float find_nams(
-    std::vector<nam> &final_nams,
+    std::vector<Nam> &final_nams,
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index
 ) {
@@ -187,7 +187,7 @@ float find_nams(
  * than filter_cutoff.
  */
 void find_nams_rescue(
-    std::vector<nam> &final_nams,
+    std::vector<Nam> &final_nams,
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index,
     unsigned int filter_cutoff
@@ -240,7 +240,7 @@ void find_nams_rescue(
     merge_hits_into_nams(hits_per_ref, index.k(), final_nams, true);
 }
 
-std::ostream& operator<<(std::ostream& os, const nam& n) {
+std::ostream& operator<<(std::ostream& os, const Nam& n) {
     os << "Nam(query: " << n.query_s << ".." << n.query_e << ", ref: " << n.ref_s << ".." << n.ref_e << ", score=" << n.score << ")";
     return os;
 }
