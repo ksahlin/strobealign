@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
-        run: brew install pkgconfig
+        run: brew install clang-omp
       - name: Build
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
