@@ -65,7 +65,8 @@ void log_parameters(const IndexParameters& index_parameters, const mapping_param
         << "A: " << aln_params.match << std::endl
         << "B: " << aln_params.mismatch << std::endl
         << "O: " << aln_params.gap_open << std::endl
-        << "E: " << aln_params.gap_extend << std::endl;
+        << "E: " << aln_params.gap_extend << std::endl
+        << "end bonus: " << aln_params.end_bonus << '\n';
 }
 
 bool avx2_enabled() {
@@ -161,6 +162,7 @@ int run_strobealign(int argc, char **argv) {
     aln_params.mismatch = opt.B;
     aln_params.gap_open = opt.O;
     aln_params.gap_extend = opt.E;
+    aln_params.end_bonus = opt.end_bonus;
 
     mapping_params map_param;
     map_param.r = opt.r;

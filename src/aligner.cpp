@@ -35,20 +35,62 @@ aln_info Aligner::align(const std::string &query, const std::string &ref) const 
     aln.ref_end = alignment_ssw.ref_end + 1;
     aln.query_start = alignment_ssw.query_begin;
     aln.query_end = alignment_ssw.query_end + 1;
+
+    // Try to extend to beginning of the query to get an end bonus
+    auto qstart = aln.query_start;
+    auto rstart = aln.ref_start;
+    auto score = aln.sw_score;
+    while (qstart > 0 && rstart > 0) {
+        qstart--;
+        rstart--;
+        if (query[qstart] == ref[rstart]) {
+            score += parameters.match;
+        } else {
+            score -= parameters.mismatch;
+        }
+    }
+    if (qstart == 0 && score + parameters.end_bonus > aln.sw_score) {
+        aln.query_start = 0;
+        aln.ref_start = rstart;
+        aln.sw_score = score + parameters.end_bonus;
+    }
+
+    // Try to extend to end of query to get an end bonus
+    auto qend = aln.query_end;
+    auto rend = aln.ref_end;
+    score = aln.sw_score;
+    while (qend < query.length() && rend < ref.length()) {
+        if (query[qend] == ref[rend]) {
+            score += parameters.match;
+        } else {
+            score -= parameters.mismatch;
+        }
+        qend++;
+        rend++;
+    }
+    if (qend == query.length() && score + parameters.end_bonus > aln.sw_score) {
+        aln.query_end = query.length();
+        aln.ref_end = rend;
+        aln.sw_score = score + parameters.end_bonus;
+    }
+
     return aln;
 }
 
 /*
  * Find highest-scoring segment between reference and query assuming only matches
  * and mismatches are allowed.
+ *
+ * The end_bonus is added to the score if the segment extends until the end
+ * of the query, once for each end.
  */
-std::pair<size_t, size_t> highest_scoring_segment(
-    const std::string& query, const std::string& ref, int match, int mismatch
+std::tuple<size_t, size_t, int> highest_scoring_segment(
+    const std::string& query, const std::string& ref, int match, int mismatch, int end_bonus
 ) {
     size_t n = query.length();
 
     size_t start = 0; // start of the current segment
-    int score = 0; // accumulated score so far in the current segment
+    int score = end_bonus; // accumulated score so far in the current segment
 
     size_t best_start = 0;
     size_t best_end = 0;
@@ -63,24 +105,25 @@ std::pair<size_t, size_t> highest_scoring_segment(
             start = i + 1;
             score = 0;
         }
-        if (score > best_score) {
+        int bonus = i + 1 == n ? end_bonus : 0;
+        if (score + bonus > best_score) {
             best_start = start;
-            best_score = score;
+            best_score = score + bonus;
             best_end = i + 1;
         }
     }
-    return std::make_pair(best_start, best_end);
+    return std::make_tuple(best_start, best_end, best_score);
 }
 
 aln_info hamming_align(
-    const std::string &query, const std::string &ref, int match, int mismatch
+    const std::string &query, const std::string &ref, int match, int mismatch, int end_bonus
 ) {
     aln_info aln;
     if (query.length() != ref.length()) {
         return aln;
     }
 
-    auto [segment_start, segment_end] = highest_scoring_segment(query, ref, match, mismatch);
+    auto [segment_start, segment_end, score] = highest_scoring_segment(query, ref, match, mismatch, end_bonus);
 
     Cigar cigar;
     if (segment_start > 0) {
@@ -106,7 +149,6 @@ aln_info hamming_align(
     if (!first) {
         cigar.push(prev_is_match ? CIGAR_EQ : CIGAR_X, counter);
     }
-    int aln_score = (segment_end - segment_start - mismatches) * match - mismatches * mismatch;
 
     int soft_right = query.length() - segment_end;
     if (soft_right > 0) {
@@ -114,7 +156,7 @@ aln_info hamming_align(
     }
 
     aln.cigar = std::move(cigar);
-    aln.sw_score = aln_score;
+    aln.sw_score = score;
     aln.edit_distance = mismatches;
     aln.ref_start = segment_start;
     aln.ref_end = segment_end;

@@ -33,7 +33,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlagList<std::string> rg(parser, "TAG:VALUE", "Add read group metadata to SAM header (can be specified multiple times). Example: SM:samplename", {"rg"});
 
     args::ValueFlag<int> N(parser, "INT", "Retain at most INT secondary alignments (is upper bounded by -M and depends on -S) [0]", {'N'});
-    args::ValueFlag<std::string> L(parser, "PATH", "Print statistics of indexing to PATH", {'L'});
+    args::ValueFlag<std::string> index_statistics(parser, "PATH", "Print statistics of indexing to PATH", {"index-statistics"});
     args::Flag i(parser, "index", "Do not map reads; only generate the strobemer index and write it to disk. If read files are provided, they are used to estimate read length", {"create-index", 'i'});
     args::Flag use_index(parser, "use_index", "Use a pre-generated index previously written with --create-index.", { "use-index" });
 
@@ -45,6 +45,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlag<int> B(parser, "INT", "Mismatch penalty [8]", {'B'});
     args::ValueFlag<int> O(parser, "INT", "Gap open penalty [12]", {'O'});
     args::ValueFlag<int> E(parser, "INT", "Gap extension penalty [1]", {'E'});
+    args::ValueFlag<int> end_bonus(parser, "INT", "Soft clipping penalty [10]", {'L'});
 
     args::Group search(parser, "Search parameters:");
     args::ValueFlag<float> f(parser, "FLOAT", "Top fraction of repetitive strobemers to filter out from sampling [0.0002]", {'f'});
@@ -92,7 +93,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (rgid) { opt.read_group_id = args::get(rgid); }
     if (rg) { opt.read_group_fields = args::get(rg); }
     if (N) { opt.max_secondary = args::get(N); }
-    if (L) { opt.logfile_name = args::get(L); }
+    if (index_statistics) { opt.logfile_name = args::get(index_statistics); }
     if (i) { opt.only_gen_index = true; }
     if (use_index) { opt.use_index = true; }
 
@@ -111,6 +112,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (B) { opt.B = args::get(B); }
     if (O) { opt.O = args::get(O); }
     if (E) { opt.E = args::get(E); }
+    if (end_bonus) { opt.end_bonus = args::get(end_bonus); }
 
     // Search parameters
     if (f) { opt.f = args::get(f); }

@@ -2,6 +2,7 @@
 #define STROBEALIGN_ALIGNER_HPP
 
 #include <string>
+#include <tuple>
 #include "ssw/ssw_cpp.h"
 #include "cigar.hpp"
 
@@ -12,6 +13,7 @@ struct alignment_params {
     int mismatch;
     int gap_open;
     int gap_extend;
+    int end_bonus;
 };
 
 struct aln_info {
@@ -62,12 +64,12 @@ inline int hamming_distance(const std::string &s, const std::string &t) {
     return mismatches;
 }
 
-std::pair<size_t, size_t> highest_scoring_segment(
-    const std::string& query, const std::string& ref, int match, int mismatch
+std::tuple<size_t, size_t, int> highest_scoring_segment(
+    const std::string& query, const std::string& ref, int match, int mismatch, int end_bonus
 );
 
 aln_info hamming_align(
-    const std::string &query, const std::string &ref, int match, int mismatch
+    const std::string &query, const std::string &ref, int match, int mismatch, int end_bonus
 );
 
 #endif
