@@ -105,12 +105,16 @@ std::tuple<size_t, size_t, int> highest_scoring_segment(
             start = i + 1;
             score = 0;
         }
-        int bonus = i + 1 == n ? end_bonus : 0;
-        if (score + bonus > best_score) {
+        if (score > best_score) {
             best_start = start;
-            best_score = score + bonus;
+            best_score = score;
             best_end = i + 1;
         }
+    }
+    if (score + end_bonus > best_score) {
+        best_score = score + end_bonus;
+        best_end = query.length();
+        best_start = start;
     }
     return std::make_tuple(best_start, best_end, best_score);
 }

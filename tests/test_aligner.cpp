@@ -123,3 +123,36 @@ TEST_CASE("highest_scoring_segment") {
     CHECK(highest_scoring_segment("AAAAAAAAAA", "TTAAAAAATT", 5, 7, 0) == std::make_tuple(2ul, 8ul, 30));
     CHECK(highest_scoring_segment("AAAAAAAAAAAAAAA", "TAAAAAATTTAAAAT", 5, 7, 0) == std::make_tuple(1ul, 7ul, 30));
 }
+
+TEST_CASE("highest_scoring_segment with soft clipping") {
+    auto x = highest_scoring_segment("", "", 2, 4, 5);
+    CHECK(std::get<0>(x) == 0);
+    CHECK(std::get<1>(x) == 0);
+    CHECK(std::get<2>(x) == 10);
+
+    x = highest_scoring_segment("TAAT", "TAAA", 2, 4, 5);
+    CHECK(std::get<0>(x) == 0);
+    CHECK(std::get<1>(x) == 4);
+    CHECK(std::get<2>(x) == 3 * 2 - 4 + 10);
+
+       x = highest_scoring_segment("AAA", "AAA", 2, 4, 5);
+    CHECK(std::get<0>(x) == 0);
+    CHECK(std::get<1>(x) == 3);
+    CHECK(std::get<2>(x) == 3 * 2 + 10);
+
+    x = highest_scoring_segment("TAAT", "AAAA", 2, 4, 5);
+    CHECK(std::get<0>(x) == 0);
+    CHECK(std::get<1>(x) == 4);
+    CHECK(std::get<2>(x) == 2 * 2 - 2 * 4 + 10);
+
+    x = highest_scoring_segment("ATAATA", "AAAAAA", 2, 4, 5);
+    CHECK(std::get<0>(x) == 0);
+    CHECK(std::get<1>(x) == 6);
+    CHECK(std::get<2>(x) == 4 * 2 - 2 * 4 + 10);
+
+    x = highest_scoring_segment("TTAATA", "AAAAAA", 2, 4, 5);
+    CHECK(std::get<0>(x) == 2);
+    CHECK(std::get<1>(x) == 6);
+    CHECK(std::get<2>(x) == 3 * 2 - 1 * 4 + 5);
+
+}
