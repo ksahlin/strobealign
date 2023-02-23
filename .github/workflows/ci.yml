@@ -49,13 +49,8 @@ jobs:
         with:
           ref: ${{ env.baseline_commit }}
           path: baseline
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
+      - name: Install dependencies
         run: sudo apt-get install samtools python3-pysam picard-tools
-      - name: Install macOS dependencies
-        if: runner.os == 'macOS'
-        run: brew install samtools pysam picard-tools
-
       - name: Cache test dataset
         uses: actions/cache@v3
         with:
