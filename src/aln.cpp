@@ -182,7 +182,7 @@ static inline alignment align_segment(
         auto hamming_dist = hamming_distance(read_segm, ref_segm_ham);
 
         if (hamming_dist >= 0 && (((float) hamming_dist / read_segm_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-            auto info = hamming_align(read_segm, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch);
+            auto info = hamming_align(read_segm, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
             sam_aln_segm.cigar = info.cigar.to_string();
             sam_aln_segm.ed = info.edit_distance;
             sam_aln_segm.sw_score = info.sw_score;
@@ -260,7 +260,7 @@ static inline alignment get_alignment(
         auto hamming_dist = hamming_distance(query, ref_segm_ham);
 
         if (hamming_dist >= 0 && (((float) hamming_dist / query.size()) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-            auto info = hamming_align(query, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch);
+            auto info = hamming_align(query, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
             int result_ref_start = projected_ref_start + info.ref_start;
             int softclipped = info.query_start + (query.size() - info.query_end);
             sam_aln.cigar = info.cigar.to_string();
@@ -375,7 +375,7 @@ static inline alignment get_alignment_unused(
         int hamming_dist = hamming_distance(r_tmp, ref_segm);
 
         if (hamming_dist >= 0 && (((float) hamming_dist / ref_segm_size) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-            const auto info = hamming_align(r_tmp, ref_segm, aligner.parameters.match, aligner.parameters.mismatch);
+            const auto info = hamming_align(r_tmp, ref_segm, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
             sam_aln.cigar = info.cigar.to_string();
             sam_aln.ed = info.edit_distance;
             sam_aln.sw_score = info.sw_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
