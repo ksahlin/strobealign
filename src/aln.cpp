@@ -293,7 +293,7 @@ static inline alignment get_alignment(
     const std::string right_ref = ref.substr(n.ref_e, ref_projected_end - n.ref_e + 50);
 
     auto right = ksw_extend(right_query, right_ref,
-        aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.gap_open - aligner.parameters.gap_extend, aligner.parameters.gap_extend
+        aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.gap_open - aligner.parameters.gap_extend, aligner.parameters.gap_extend, aligner.parameters.end_bonus
     );
 
     // left extension
@@ -305,7 +305,7 @@ static inline alignment get_alignment(
     std::reverse(left_ref.begin(), left_ref.end());
 
     auto left = ksw_extend(left_query, left_ref,
-        aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.gap_open - aligner.parameters.gap_extend, aligner.parameters.gap_extend
+        aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.gap_open - aligner.parameters.gap_extend, aligner.parameters.gap_extend, aligner.parameters.end_bonus
     );
 
     // build final CIGAR

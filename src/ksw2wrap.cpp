@@ -47,7 +47,7 @@ void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b)
 }
 
 void global_aln(
-    const std::string& qseq_, const std::string& tseq_, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int flag, ksw_extz_t *ez
+    const std::string& qseq_, const std::string& tseq_, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez
 ) {
     int i, qlen, tlen;
     uint8_t *qseq, *tseq;
@@ -63,7 +63,7 @@ void global_aln(
     for (i = 0; i < tlen; ++i)
         tseq[i] = seq_nt4_table[(uint8_t)tseq_[i]];
 
-    ksw_extz2_sse(nullptr, qlen, (uint8_t*)qseq, tlen, (uint8_t*)tseq, m, mat, q, e, w, zdrop, 0, flag, ez);
+    ksw_extz2_sse(nullptr, qlen, (uint8_t*)qseq, tlen, (uint8_t*)tseq, m, mat, q, e, w, zdrop, end_bonus, flag, ez);
 
     free(qseq);
     free(tseq);
@@ -71,7 +71,7 @@ void global_aln(
 
 }  // namespace
 
-aln_info ksw_extend(const std::string& query, const std::string& ref, int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend) {
+aln_info ksw_extend(const std::string& query, const std::string& ref, int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int end_bonus) {
     int w = -1; // band width; -1 is inf
     int zdrop = -1; // -1 to disable
     int flag = KSW_EZ_EXTZ_ONLY;
@@ -83,17 +83,23 @@ aln_info ksw_extend(const std::string& query, const std::string& ref, int8_t mat
 
     int8_t mat[25];
     ksw_gen_simple_mat(5, mat, match, -mismatch);
-    global_aln(query, ref, 5, mat, gap_open, gap_extend, w, zdrop, flag, &ez);
+    global_aln(query, ref, 5, mat, gap_open, gap_extend, w, zdrop, end_bonus, flag, &ez);
 
     aln_info info;
     auto cigar = Cigar(ez.cigar, ez.n_cigar).to_eqx(query, ref);
     info.edit_distance = cigar.edit_distance();
     info.cigar = std::move(cigar);
     info.ref_start = 0;
-    info.ref_end = ez.max_t + 1;
-    info.query_end = ez.max_q + 1;
     info.query_start = 0;
-    info.sw_score = ez.max;
+    if (ez.reach_end) {
+        info.ref_end = ez.mqe_t + 1;
+        info.query_end = query.size();
+        info.sw_score = ez.mqe + end_bonus;
+    } else {
+        info.ref_end = ez.max_t + 1;
+        info.query_end = ez.max_q + 1;
+        info.sw_score = ez.max;
+    }
 
     kfree(km, ez.cigar);
     return info;
