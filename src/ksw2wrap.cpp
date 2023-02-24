@@ -87,8 +87,8 @@ aln_info ksw_extend(const std::string& query, const std::string& ref, int8_t mat
 
     aln_info info;
     auto cigar = Cigar(ez.cigar, ez.n_cigar).to_eqx(query, ref);
-    info.cigar = cigar.to_string();
     info.edit_distance = cigar.edit_distance();
+    info.cigar = std::move(cigar);
     info.ref_start = 0;
     info.ref_end = ez.max_t + 1;
     info.query_end = ez.max_q + 1;

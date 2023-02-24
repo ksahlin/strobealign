@@ -18,7 +18,6 @@ aln_info Aligner::align(const std::string &query, const std::string &ref) const 
 //        std::cerr << "ALIGNMENT TO REF LONGER THAN 2000bp - REPORT TO DEVELOPER. Happened for read: " <<  query << " ref len:" << ref.length() << std::endl;
         aln.edit_distance = 100000;
         aln.ref_start = 0;
-        aln.cigar = "*";
         aln.sw_score = -1000000;
         return aln;
     }
@@ -29,7 +28,7 @@ aln_info Aligner::align(const std::string &query, const std::string &ref) const 
     ssw_aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 1);
 
     aln.edit_distance = alignment_ssw.mismatches;
-    aln.cigar = alignment_ssw.cigar_string;
+    aln.cigar = Cigar(alignment_ssw.cigar);
     aln.sw_score = alignment_ssw.sw_score;
     aln.ref_start = alignment_ssw.ref_begin;
     // end positions are off by 1 in SSW
@@ -83,9 +82,9 @@ aln_info hamming_align(
 
     auto [segment_start, segment_end] = highest_scoring_segment(query, ref, match, mismatch);
 
-    std::stringstream cigar;
+    Cigar cigar;
     if (segment_start > 0) {
-        cigar << segment_start << 'S';
+        cigar.push(CIGAR_SOFTCLIP, segment_start);
     }
 
     // Create CIGAR string and count mismatches
@@ -97,7 +96,7 @@ aln_info hamming_align(
         bool is_match = query[i] == ref[i];
         mismatches += is_match ? 0 : 1;
         if (!first && is_match != prev_is_match) {
-            cigar << counter << (prev_is_match ? '=' : 'X');
+            cigar.push(prev_is_match ? CIGAR_EQ : CIGAR_X, counter);
             counter = 0;
         }
         counter++;
@@ -105,16 +104,16 @@ aln_info hamming_align(
         first = false;
     }
     if (!first) {
-        cigar << counter << (prev_is_match ? '=' : 'X');
+        cigar.push(prev_is_match ? CIGAR_EQ : CIGAR_X, counter);
     }
     int aln_score = (segment_end - segment_start - mismatches) * match - mismatches * mismatch;
 
     int soft_right = query.length() - segment_end;
     if (soft_right > 0) {
-        cigar << soft_right << 'S';
+        cigar.push(CIGAR_SOFTCLIP, soft_right);
     }
 
-    aln.cigar = cigar.str();
+    aln.cigar = std::move(cigar);
     aln.sw_score = aln_score;
     aln.edit_distance = mismatches;
     aln.ref_start = segment_start;

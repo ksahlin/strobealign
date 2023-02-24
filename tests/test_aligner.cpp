@@ -7,7 +7,7 @@ TEST_CASE("hamming_align") {
         "", "",
         7, 5
     );
-    CHECK(info.cigar == "");
+    CHECK(info.cigar.to_string() == "");
     CHECK(info.edit_distance == 0);
     CHECK(info.sw_score == 0);
     CHECK(info.ref_start == 0);
@@ -20,7 +20,7 @@ TEST_CASE("hamming_align") {
         "AAYGGG",
         1, 1
     );
-    CHECK(info.cigar == "2=1X3=");
+    CHECK(info.cigar.to_string() == "2=1X3=");
     CHECK(info.edit_distance == 1);
     CHECK(info.sw_score == 4);
     CHECK(info.ref_start == 0);
@@ -33,7 +33,7 @@ TEST_CASE("hamming_align") {
         "AYGGG",
         1, 4
     );
-    CHECK(info.cigar == "2S3=");
+    CHECK(info.cigar.to_string() == "2S3=");
     CHECK(info.edit_distance == 0);
     CHECK(info.sw_score == 3);
     CHECK(info.ref_start == 2);
@@ -46,7 +46,7 @@ TEST_CASE("hamming_align") {
         "TAACCG",
         3, 7
     );
-    CHECK(info.cigar == "1S5=");
+    CHECK(info.cigar.to_string() == "1S5=");
     CHECK(info.edit_distance == 0);
     CHECK(info.sw_score == 5 * 3);
     CHECK(info.ref_start == 1);
@@ -59,7 +59,7 @@ TEST_CASE("hamming_align") {
         "AACCGT",
         3, 7
     );
-    CHECK(info.cigar == "5=1S");
+    CHECK(info.cigar.to_string() == "5=1S");
     CHECK(info.edit_distance == 0);
     CHECK(info.sw_score == 5 * 3);
     CHECK(info.ref_start == 0);
@@ -73,7 +73,7 @@ TEST_CASE("hamming_align") {
         "TAAAATTTTTTTTTT",
         3, 7
     );
-    CHECK(info.cigar == "1S4=10S");
+    CHECK(info.cigar.to_string() == "1S4=10S");
     CHECK(info.edit_distance == 0);
     CHECK(info.sw_score == 4 * 3);
     CHECK(info.ref_start == 1);
@@ -86,7 +86,7 @@ TEST_CASE("hamming_align") {
         "TAAAATTTAAAAAAT",
         3, 7
     );
-    CHECK(info.cigar == "8S6=1S");
+    CHECK(info.cigar.to_string() == "8S6=1S");
     CHECK(info.edit_distance == 0);
     CHECK(info.sw_score == 6 * 3);
     CHECK(info.ref_start == 8);
@@ -99,7 +99,7 @@ TEST_CASE("hamming_align") {
         "TAAAAAATTTAAAAT",
         3, 7
     );
-    CHECK(info.cigar == "1S6=8S");
+    CHECK(info.cigar.to_string() == "1S6=8S");
     CHECK(info.edit_distance == 0);
     CHECK(info.sw_score == 6 * 3);
     CHECK(info.ref_start == 1);
