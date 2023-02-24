@@ -36,12 +36,6 @@ aln_info Aligner::align(const std::string &query, const std::string &ref) const 
     aln.query_start = alignment_ssw.query_begin;
     aln.query_end = alignment_ssw.query_end + 1;
 
-    if (aln.query_start == 0) {
-        aln.sw_score += parameters.end_bonus;
-    }
-    if (aln.query_start == query.length()) {
-        aln.sw_score += parameters.end_bonus;
-    }
     return aln;
 }
 
@@ -80,9 +74,12 @@ std::tuple<size_t, size_t, int> highest_scoring_segment(
         }
     }
     if (score + end_bonus > best_score) {
-        best_score = score + end_bonus;
+        best_score = score;
         best_end = query.length();
         best_start = start;
+    }
+    if (best_start == 0) {
+        best_score -= end_bonus;
     }
     return std::make_tuple(best_start, best_end, best_score);
 }
