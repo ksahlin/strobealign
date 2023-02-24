@@ -3,6 +3,7 @@
 
 #include <string>
 #include "ssw/ssw_cpp.h"
+#include "cigar.hpp"
 
 
 struct alignment_params {
@@ -14,7 +15,7 @@ struct alignment_params {
 };
 
 struct aln_info {
-    std::string cigar;
+    Cigar cigar;
     unsigned int edit_distance{0};
     unsigned int ref_start{0};
     unsigned int ref_end{0};

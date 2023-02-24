@@ -20,11 +20,30 @@ enum CIGAR {
 class Cigar {
 public:
     explicit Cigar() { }
+
+    explicit Cigar(std::vector<uint32_t> ops) : m_ops(std::move(ops)) { }
+
+    Cigar(Cigar& other) : m_ops(other.m_ops) { }
+
     explicit Cigar(uint32_t* ops, size_t n) {
         m_ops.assign(ops, ops + n);
     }
 
     explicit Cigar(const std::string& cig);
+
+    explicit Cigar(Cigar&& other) noexcept {
+        *this = std::move(other);
+    }
+
+    Cigar& operator=(Cigar&& other) {
+        if (this != &other) {
+            m_ops = std::move(other.m_ops);
+        }
+        return *this;
+    }
+
+    bool empty() const { return m_ops.empty(); }
+
     void push(uint8_t op, int len);
 
     void operator+=(const Cigar& other) {
