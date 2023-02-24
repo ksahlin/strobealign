@@ -35,6 +35,13 @@ aln_info Aligner::align(const std::string &query, const std::string &ref) const 
     aln.ref_end = alignment_ssw.ref_end + 1;
     aln.query_start = alignment_ssw.query_begin;
     aln.query_end = alignment_ssw.query_end + 1;
+
+    if (aln.query_start == 0) {
+        aln.sw_score += parameters.end_bonus;
+    }
+    if (aln.query_start == query.length()) {
+        aln.sw_score += parameters.end_bonus;
+    }
     return aln;
 }
 
