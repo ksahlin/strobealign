@@ -84,6 +84,19 @@ Cigar::Cigar(const std::string& cig) {
     }
 }
 
+void Cigar::trim_end_deletions() {
+    if (m_ops.size() > 0 && (m_ops[m_ops.size() - 1] & 0xf) == CIGAR_DEL) {
+        m_ops.pop_back();
+    } else if (m_ops.size() > 1 && (m_ops[m_ops.size() - 1] & 0xf) == CIGAR_SOFTCLIP && (m_ops[m_ops.size() - 2] & 0xf) == CIGAR_DEL) {
+        m_ops.erase(m_ops.begin() + m_ops.size() - 2);
+    }
+    if (m_ops.size() > 0 && (m_ops[0] & 0xf) == CIGAR_DEL) {
+        m_ops.erase(m_ops.begin());
+    } else if (m_ops.size() > 1 && (m_ops[0] & 0xf) == CIGAR_SOFTCLIP && (m_ops[1] & 0xf) == CIGAR_DEL) {
+        m_ops.erase(m_ops.begin() + 1);
+    }
+}
+
 std::string compress_cigar(const std::string& ops) {
     char prev = 0;
     int count = 0;

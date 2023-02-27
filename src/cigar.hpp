@@ -73,6 +73,9 @@ public:
     /* Return a new Cigar that uses =/X instead of M */
     Cigar to_eqx(const std::string& query, const std::string& ref) const;
 
+    /* Remove initial or trailing deletions (possibly after/before soft clipping) */
+    void trim_end_deletions();
+
     std::string to_string() const;
 
     std::vector<uint32_t>::size_type ops_size() const {

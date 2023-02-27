@@ -77,3 +77,45 @@ TEST_CASE("reversed") {
     c.reverse();
     CHECK(c.to_string() == "7=5I4D1X3=");
 }
+
+TEST_CASE("trim_end_deletions") {
+    auto c = Cigar{""};
+    c.trim_end_deletions();
+    CHECK(c.to_string() == "");
+
+    c = Cigar{"1S"};
+    c.trim_end_deletions();
+    CHECK(c.to_string() == "1S");
+
+    c = Cigar{"1D 2S"};
+    c.trim_end_deletions();
+    CHECK(c.to_string() == "2S");
+
+    c = Cigar{"1D"};
+    c.trim_end_deletions();
+    CHECK(c.to_string() == "");
+
+    c = Cigar{"2S 3D"};
+    c.trim_end_deletions();
+    CHECK(c.to_string() == "2S");
+
+    c = Cigar{"20M"};
+    c.trim_end_deletions();
+    CHECK(c.to_string() == "20M");
+
+    c = Cigar{"2M 5D 3M"};
+    c.trim_end_deletions();
+    CHECK(c.to_string() == "2M5D3M");
+
+    c = Cigar{"5D 20M 7D"};
+    c.trim_end_deletions();
+    CHECK(c.to_string() == "20M");
+
+    c = Cigar{"3S 5D 20M"};
+    c.trim_end_deletions();
+    CHECK(c.to_string() == "3S20M");
+
+    c = Cigar{"3S 5D 20M 7D 4S"};
+    c.trim_end_deletions();
+    CHECK(c.to_string() == "3S20M4S");
+}

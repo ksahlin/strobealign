@@ -251,7 +251,6 @@ static inline alignment get_alignment(
     const std::string& ref = references.sequences[n.ref_id];
     alignment sam_aln;
 
-
     const int projected_ref_start = std::max(0, n.ref_s - n.query_s);
     const int projected_ref_end = std::min(n.ref_e + query.size() - n.query_e, ref.size());
 
