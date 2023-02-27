@@ -44,7 +44,7 @@ TEST_CASE("Cigar construction and push") {
         13 << 4 | CIGAR_DEL
     };
     Cigar c2{ops, 4};
-    CHECK(c2.m_ops.size() == 4);
+    CHECK(c2.ops_size() == 4);
     CHECK(c2.to_string() == "3M5X7I13D");
 }
 

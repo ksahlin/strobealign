@@ -75,6 +75,11 @@ public:
 
     std::string to_string() const;
 
+    std::vector<uint32_t>::size_type ops_size() const {
+        return m_ops.size();
+    }
+
+private:
     std::vector<uint32_t> m_ops;
 };
 
