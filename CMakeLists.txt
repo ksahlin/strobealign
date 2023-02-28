@@ -44,14 +44,16 @@ add_library(salib STATIC ${SOURCES}
   src/paf.cpp
   src/pc.cpp
   src/aln.cpp
+  src/cigar.cpp
+  src/aligner.cpp
   src/nam.cpp
   src/randstrobes.cpp
   src/readlen.cpp
   src/version.cpp
   src/io.cpp
   ext/xxhash.c
-  ext/ssw_cpp.cpp
-  ext/ssw.c
+  ext/ssw/ssw_cpp.cpp
+  ext/ssw/ssw.c
 )
 target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads)
@@ -68,7 +70,8 @@ add_executable(test-strobealign
   tests/test_input.cpp
   tests/test_refs.cpp
   tests/test_sam.cpp
-  tests/test_aln.cpp
+  tests/test_aligner.cpp
+  tests/test_cigar.cpp
 )
 target_link_libraries(test-strobealign salib)
 target_include_directories(test-strobealign PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
