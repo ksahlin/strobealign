@@ -36,12 +36,44 @@ aln_info Aligner::align(const std::string &query, const std::string &ref) const 
     aln.query_start = alignment_ssw.query_begin;
     aln.query_end = alignment_ssw.query_end + 1;
 
-    if (aln.query_start == 0) {
-        aln.sw_score += parameters.end_bonus;
+    // Try to extend to beginning of the query to get an end bonus
+    auto qstart = aln.query_start;
+    auto rstart = aln.ref_start;
+    auto score = aln.sw_score;
+    while (qstart > 0 && rstart > 0) {
+        qstart--;
+        rstart--;
+        if (query[qstart] == ref[rstart]) {
+            score += parameters.match;
+        } else {
+            score -= parameters.mismatch;
+        }
     }
-    if (aln.query_start == query.length()) {
-        aln.sw_score += parameters.end_bonus;
+    if (qstart == 0 && score + parameters.end_bonus > aln.sw_score) {
+        aln.query_start = 0;
+        aln.ref_start = rstart;
+        aln.sw_score = score + parameters.end_bonus;
     }
+
+    // Try to extend to end of query to get an end bonus
+    auto qend = aln.query_end;
+    auto rend = aln.ref_end;
+    score = aln.sw_score;
+    while (qend < query.length() && rend < ref.length()) {
+        if (query[qend] == ref[rend]) {
+            score += parameters.match;
+        } else {
+            score -= parameters.mismatch;
+        }
+        qend++;
+        rend++;
+    }
+    if (qend == query.length() && score + parameters.end_bonus > aln.sw_score) {
+        aln.query_end = query.length();
+        aln.ref_end = rend;
+        aln.sw_score = score + parameters.end_bonus;
+    }
+
     return aln;
 }
 
