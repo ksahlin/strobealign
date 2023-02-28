@@ -94,7 +94,7 @@ aln_info ksw_extend(const std::string& query, const std::string& ref, int8_t mat
     if (ez.reach_end) {
         info.ref_end = ez.mqe_t + 1;
         info.query_end = query.size();
-        info.sw_score = ez.mqe;
+        info.sw_score = ez.mqe + end_bonus;
     } else {
         info.ref_end = ez.max_t + 1;
         info.query_end = ez.max_q + 1;
