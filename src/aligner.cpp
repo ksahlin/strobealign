@@ -40,6 +40,7 @@ aln_info Aligner::align(const std::string &query, const std::string &ref) const 
     auto qstart = aln.query_start;
     auto rstart = aln.ref_start;
     auto score = aln.sw_score;
+    auto edits = aln.edit_distance;
     while (qstart > 0 && rstart > 0) {
         qstart--;
         rstart--;
@@ -47,23 +48,27 @@ aln_info Aligner::align(const std::string &query, const std::string &ref) const 
             score += parameters.match;
         } else {
             score -= parameters.mismatch;
+            edits++;
         }
     }
     if (qstart == 0 && score + parameters.end_bonus > aln.sw_score) {
         aln.query_start = 0;
         aln.ref_start = rstart;
         aln.sw_score = score + parameters.end_bonus;
+        aln.edit_distance = edits;
     }
 
     // Try to extend to end of query to get an end bonus
     auto qend = aln.query_end;
     auto rend = aln.ref_end;
     score = aln.sw_score;
+    edits = aln.edit_distance;
     while (qend < query.length() && rend < ref.length()) {
         if (query[qend] == ref[rend]) {
             score += parameters.match;
         } else {
             score -= parameters.mismatch;
+            edits++;
         }
         qend++;
         rend++;
@@ -72,6 +77,7 @@ aln_info Aligner::align(const std::string &query, const std::string &ref) const 
         aln.query_end = query.length();
         aln.ref_end = rend;
         aln.sw_score = score + parameters.end_bonus;
+        aln.edit_distance = edits;
     }
 
     return aln;
