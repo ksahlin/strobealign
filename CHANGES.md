@@ -4,7 +4,13 @@
 
 * Add progress report (only shown if output is not a terminal; can be
   disabled with `--no-progress`)
-* Issue #238: Fix occasionally incorrect soft clipping
+* PR #250: Avoid overeager soft clipping by adding an “end bonus” to the
+  alignment score if the alignment reaches the 5' or 3' end of the read.
+  This is equivalent to penalizing soft-clipping and improves mapping
+  accuracy, in particular for short reads, as candidate mapping sites with and
+  without soft clipping are compared more fairly. Use `-L` to change the end
+  bonus. (This emulates a feature found in BWA-MEM.)
+* Issue #238: Fix occasionally incorrect soft clipping.
 * PR #239: Align single- and paired-end reads in the same way.
 * PR #239: Fix an uninitialized variable that could lead to nondeterministic
   results.
