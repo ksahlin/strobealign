@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include <cassert>
 
 
@@ -72,6 +73,10 @@ public:
             }
         }
         return dist;
+    }
+
+    void reverse() {
+        std::reverse(m_ops.begin(), m_ops.end());
     }
 
     /* Return a new Cigar that uses =/X instead of M */

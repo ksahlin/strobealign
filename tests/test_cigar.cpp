@@ -71,3 +71,9 @@ TEST_CASE("concatenate Cigar") {
 TEST_CASE("edit distance") {
     CHECK(Cigar("3=1X4D5I7=").edit_distance() == 10);
 }
+
+TEST_CASE("reverse") {
+    Cigar c{"3=1X4D5I7="};
+    c.reverse();
+    CHECK(c.to_string() == "7=5I4D1X3=");
+}
