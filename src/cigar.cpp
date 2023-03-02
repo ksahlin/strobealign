@@ -3,15 +3,6 @@
 #include "cigar.hpp"
 
 
-void Cigar::push(uint8_t op, int len) {
-    assert(op < 16);
-    if (m_ops.empty() || (m_ops.back() & 0xf) != op) {
-        m_ops.push_back(len << 4 | op);
-    } else {
-        m_ops.back() += len << 4;
-    }
-}
-
 Cigar Cigar::to_eqx(const std::string& query, const std::string& ref) const {
     size_t i = 0, j = 0;
     Cigar cigar;

@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <cassert>
+
 
 enum CIGAR {
     CIGAR_MATCH = 0,
@@ -44,7 +47,14 @@ public:
 
     bool empty() const { return m_ops.empty(); }
 
-    void push(uint8_t op, int len);
+    void push(uint8_t op, int len) {
+        assert(op < 16);
+        if (m_ops.empty() || (m_ops.back() & 0xf) != op) {
+            m_ops.push_back(len << 4 | op);
+        } else {
+            m_ops.back() += len << 4;
+        }
+    }
 
     void operator+=(const Cigar& other) {
         for (auto op_len : other.m_ops) {
@@ -63,6 +73,10 @@ public:
             }
         }
         return dist;
+    }
+
+    void reverse() {
+        std::reverse(m_ops.begin(), m_ops.end());
     }
 
     /* Return a new Cigar that uses =/X instead of M */

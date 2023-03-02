@@ -44,6 +44,7 @@ struct CommandLineOptions {
     int B { 8 };
     int O { 12 };
     int E { 1 };
+    int end_bonus { 10 };
 
     // Search parameters
     float f { 0.0002 };

@@ -5,7 +5,7 @@ TEST_CASE("hamming_align") {
     // empty sequences
     auto info = hamming_align(
         "", "",
-        7, 5
+        7, 5, 0
     );
     CHECK(info.cigar.to_string() == "");
     CHECK(info.edit_distance == 0);
@@ -18,7 +18,7 @@ TEST_CASE("hamming_align") {
     info = hamming_align(
         "AAXGGG",
         "AAYGGG",
-        1, 1
+        1, 1, 0
     );
     CHECK(info.cigar.to_string() == "2=1X3=");
     CHECK(info.edit_distance == 1);
@@ -31,7 +31,7 @@ TEST_CASE("hamming_align") {
     info = hamming_align(
         "AXGGG",
         "AYGGG",
-        1, 4
+        1, 4, 0
     );
     CHECK(info.cigar.to_string() == "2S3=");
     CHECK(info.edit_distance == 0);
@@ -44,7 +44,7 @@ TEST_CASE("hamming_align") {
     info = hamming_align(
         "NAACCG",
         "TAACCG",
-        3, 7
+        3, 7, 0
     );
     CHECK(info.cigar.to_string() == "1S5=");
     CHECK(info.edit_distance == 0);
@@ -57,7 +57,7 @@ TEST_CASE("hamming_align") {
     info = hamming_align(
         "AACCGN",
         "AACCGT",
-        3, 7
+        3, 7, 0
     );
     CHECK(info.cigar.to_string() == "5=1S");
     CHECK(info.edit_distance == 0);
@@ -71,7 +71,7 @@ TEST_CASE("hamming_align") {
     info = hamming_align(
         "NAAAAAAAAAAAAAA",
         "TAAAATTTTTTTTTT",
-        3, 7
+        3, 7, 0
     );
     CHECK(info.cigar.to_string() == "1S4=10S");
     CHECK(info.edit_distance == 0);
@@ -84,7 +84,7 @@ TEST_CASE("hamming_align") {
     info = hamming_align(
         "NAAAAAAAAAAAAAA",
         "TAAAATTTAAAAAAT",
-        3, 7
+        3, 7, 0
     );
     CHECK(info.cigar.to_string() == "8S6=1S");
     CHECK(info.edit_distance == 0);
@@ -97,7 +97,7 @@ TEST_CASE("hamming_align") {
     info = hamming_align(
         "AAAAAAAAAAAAAAA",
         "TAAAAAATTTAAAAT",
-        3, 7
+        3, 7, 0
     );
     CHECK(info.cigar.to_string() == "1S6=8S");
     CHECK(info.edit_distance == 0);
@@ -109,17 +109,50 @@ TEST_CASE("hamming_align") {
 }
 
 TEST_CASE("highest_scoring_segment") {
-    auto x = highest_scoring_segment("", "", 5, 7);
-    CHECK(x.first == 0);
-    CHECK(x.second == 0);
-    x = highest_scoring_segment("AAAAAAAAAA", "AAAAAATTTT", 5, 7);
-    CHECK(x.first == 0);
-    CHECK(x.second == 6);
-    x = highest_scoring_segment("AAAAAAAAAA", "TTTTAAAAAA", 5, 7);
-    CHECK(x.first == 4);
-    CHECK(x.second == 10);
-    CHECK(highest_scoring_segment("AAAAAAAAAA", "AAAAAATTTT", 5, 7) == std::make_pair(0ul, 6ul));
-    CHECK(highest_scoring_segment("AAAAAAAAAA", "TTTTAAAAAA", 5, 7) == std::make_pair(4ul, 10ul));
-    CHECK(highest_scoring_segment("AAAAAAAAAA", "TTAAAAAATT", 5, 7) == std::make_pair(2ul, 8ul));
-    CHECK(highest_scoring_segment("AAAAAAAAAAAAAAA", "TAAAAAATTTAAAAT", 5, 7) == std::make_pair(1ul, 7ul));
+    auto x = highest_scoring_segment("", "", 5, 7, 0);
+    CHECK(std::get<0>(x) == 0);
+    CHECK(std::get<1>(x) == 0);
+    x = highest_scoring_segment("AAAAAAAAAA", "AAAAAATTTT", 5, 7, 0);
+    CHECK(std::get<0>(x) == 0);
+    CHECK(std::get<1>(x) == 6);
+    x = highest_scoring_segment("AAAAAAAAAA", "TTTTAAAAAA", 5, 7, 0);
+    CHECK(std::get<0>(x) == 4);
+    CHECK(std::get<1>(x) == 10);
+    CHECK(highest_scoring_segment("AAAAAAAAAA", "AAAAAATTTT", 5, 7, 0) == std::make_tuple(0ul, 6ul, 30));
+    CHECK(highest_scoring_segment("AAAAAAAAAA", "TTTTAAAAAA", 5, 7, 0) == std::make_tuple(4ul, 10ul, 30));
+    CHECK(highest_scoring_segment("AAAAAAAAAA", "TTAAAAAATT", 5, 7, 0) == std::make_tuple(2ul, 8ul, 30));
+    CHECK(highest_scoring_segment("AAAAAAAAAAAAAAA", "TAAAAAATTTAAAAT", 5, 7, 0) == std::make_tuple(1ul, 7ul, 30));
+}
+
+TEST_CASE("highest_scoring_segment with soft clipping") {
+    auto x = highest_scoring_segment("", "", 2, 4, 5);
+    CHECK(std::get<0>(x) == 0);
+    CHECK(std::get<1>(x) == 0);
+    CHECK(std::get<2>(x) == 10);
+
+    x = highest_scoring_segment("TAAT", "TAAA", 2, 4, 5);
+    CHECK(std::get<0>(x) == 0);
+    CHECK(std::get<1>(x) == 4);
+    CHECK(std::get<2>(x) == 3 * 2 - 4 + 10);
+
+       x = highest_scoring_segment("AAA", "AAA", 2, 4, 5);
+    CHECK(std::get<0>(x) == 0);
+    CHECK(std::get<1>(x) == 3);
+    CHECK(std::get<2>(x) == 3 * 2 + 10);
+
+    x = highest_scoring_segment("TAAT", "AAAA", 2, 4, 5);
+    CHECK(std::get<0>(x) == 0);
+    CHECK(std::get<1>(x) == 4);
+    CHECK(std::get<2>(x) == 2 * 2 - 2 * 4 + 10);
+
+    x = highest_scoring_segment("ATAATA", "AAAAAA", 2, 4, 5);
+    CHECK(std::get<0>(x) == 0);
+    CHECK(std::get<1>(x) == 6);
+    CHECK(std::get<2>(x) == 4 * 2 - 2 * 4 + 10);
+
+    x = highest_scoring_segment("TTAATA", "AAAAAA", 2, 4, 5);
+    CHECK(std::get<0>(x) == 2);
+    CHECK(std::get<1>(x) == 6);
+    CHECK(std::get<2>(x) == 3 * 2 - 1 * 4 + 5);
+
 }
