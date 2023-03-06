@@ -291,7 +291,7 @@ static inline alignment get_alignment(
     const size_t ref_projected_end = std::min(ref.length(), n.ref_e + (query.length() - n.query_e));
     const std::string right_ref = ref.substr(n.ref_e, ref_projected_end - n.ref_e + 50);
 
-    auto right = aligner.ksw_extend(right_query, right_ref);
+    auto right = aligner.ksw_extend(right_query, right_ref, false);
 
     // left extension
     std::string left_query = query.substr(0, n.query_s);
@@ -301,7 +301,7 @@ static inline alignment get_alignment(
     std::string left_ref = ref.substr(ref_start, n.ref_s - ref_start);
     std::reverse(left_ref.begin(), left_ref.end());
 
-    auto left = aligner.ksw_extend(left_query, left_ref);
+    auto left = aligner.ksw_extend(left_query, left_ref, true);
     left.cigar.reverse();
 
     // build final CIGAR

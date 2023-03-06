@@ -235,11 +235,13 @@ void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b)
 
 }  // namespace
 
-aln_info Aligner::ksw_extend(const std::string& query, const std::string& ref) const {
+aln_info Aligner::ksw_extend(const std::string& query, const std::string& ref, bool right_align) const {
     int w = -1; // band width; -1 is inf
     int zdrop = -1; // -1 to disable
     int flag = KSW_EZ_EXTZ_ONLY;
-
+    if (right_align) {
+        flag |= KSW_EZ_RIGHT;
+    }
     ksw_extz_t ez;
     memset(&ez, 0, sizeof(ksw_extz_t));
 

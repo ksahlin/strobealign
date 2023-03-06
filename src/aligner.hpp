@@ -38,7 +38,7 @@ public:
 
     aln_info align(const std::string &query, const std::string &ref) const;
 
-    aln_info ksw_extend(const std::string& query, const std::string& ref) const;
+    aln_info ksw_extend(const std::string& query, const std::string& ref, bool right_align) const;
 
     // - A gap of length n costs gap_opening_penalty + n * gap_extending_penalty
     // - first parameter is a penalty, so must be negative or zero
