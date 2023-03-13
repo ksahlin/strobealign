@@ -219,6 +219,8 @@ unsigned char seq_nt4_table[256] = {
     4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
 };
 
+}  // namespace
+
 void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b)
 {
     int i, j;
@@ -233,8 +235,6 @@ void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b)
         mat[(m - 1) * m + j] = 0;
 }
 
-}  // namespace
-
 aln_info Aligner::ksw_extend(const std::string& query, const std::string& ref, bool right_align) const {
     int w = -1; // band width; -1 is inf
     int zdrop = -1; // -1 to disable
@@ -244,10 +244,6 @@ aln_info Aligner::ksw_extend(const std::string& query, const std::string& ref, b
     }
     ksw_extz_t ez;
     memset(&ez, 0, sizeof(ksw_extz_t));
-
-    int8_t m = 5;
-    int8_t mat[25];
-    ksw_gen_simple_mat(5, mat, parameters.match, -parameters.mismatch);
 
     ez.max_q = ez.max_t = ez.mqe_t = ez.mte_q = -1;
     ez.max = 0; ez.mqe = ez.mte = KSW_NEG_INF;
@@ -262,7 +258,7 @@ aln_info Aligner::ksw_extend(const std::string& query, const std::string& ref, b
         tseq[i] = seq_nt4_table[(uint8_t)ref[i]];
 
     ksw_extz2_sse(
-        nullptr, qlen, (uint8_t*)qseq, tlen, (uint8_t*)tseq, m, mat, parameters.gap_open, parameters.gap_extend, w, zdrop, parameters.end_bonus, flag, &ez
+        nullptr, qlen, (uint8_t*)qseq, tlen, (uint8_t*)tseq, ksw_matrix_m, ksw_matrix, parameters.gap_open, parameters.gap_extend, w, zdrop, parameters.end_bonus, flag, &ez
     );
     free(qseq);
     free(tseq);
