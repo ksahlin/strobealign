@@ -87,6 +87,8 @@ public:
     std::vector<uint32_t> m_ops;
 };
 
+std::ostream& operator<<(std::ostream& os, const Cigar& cigar);
+
 std::string compress_cigar(const std::string& ops);
 
 #endif

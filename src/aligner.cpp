@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>  // memset
+#include <iostream>
 #include "ksw2/ksw2.h"
 #include "aligner.hpp"
 
@@ -233,6 +234,27 @@ void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b)
     }
     for (j = 0; j < m; ++j)
         mat[(m - 1) * m + j] = 0;
+}
+
+std::ostream& operator<<(std::ostream& os, const ksw_extz_t& ez) {
+    os << "ksw_extz_t("
+        //
+        << "\n max:             " << ez.max   // max overall score
+        << "\n coord max_q:     " << ez.max_q  // max extension coordinate
+        << "\n coord max_t:     " << ez.max_t  // max extension coordinate
+
+        << "\n score mqe:       " << ez.mqe // max score when reaching the end of query
+        << "\n mqe_t:           " << ez.mqe_t // coordinate in target corresponding to mqe
+
+        << "\n score mte:       " << ez.mte  // max score when reaching the end of target
+        << "\n mte_q:           " << ez.mte_q // coordinate in query corresponding to mte
+
+        << "\n score both ends: " << ez.score  // max score reaching both ends
+        << "\n cigar:           " << Cigar(ez.cigar, ez.n_cigar)
+        << "\n zdropped:        " << ez.zdropped
+        << "\n reach_end:       " << ez.reach_end
+        << "\n)";
+    return os;
 }
 
 aln_info Aligner::ksw_extend(const std::string& query, const std::string& ref, bool right_align) const {
