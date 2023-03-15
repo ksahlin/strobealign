@@ -34,6 +34,12 @@ FetchContent_Declare(cmake_git_version_tracking
 )
 FetchContent_MakeAvailable(cmake_git_version_tracking)
 
+FetchContent_Declare(ZStrGitRepo
+  GIT_REPOSITORY    "https://github.com/mateidavid/zstr"
+  GIT_TAG           "master"
+)
+FetchContent_MakeAvailable(ZStrGitRepo)
+
 add_library(salib STATIC ${SOURCES}
   src/refs.cpp
   src/fastq.cpp
@@ -56,7 +62,7 @@ add_library(salib STATIC ${SOURCES}
   ext/ssw/ssw.c
 )
 target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
-target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads)
+target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr)
 IF(ENABLE_AVX)
   target_compile_options(salib PUBLIC "-mavx2")
 ENDIF()

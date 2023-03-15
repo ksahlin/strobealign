@@ -1,8 +1,10 @@
-#include "refs.hpp"
 #include <vector>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include "refs.hpp"
+#include "zstr.hpp"
+
 
 /* Convert string to uppercase in-place */
 void to_uppercase(std::string& s) {
@@ -13,17 +15,18 @@ void to_uppercase(std::string& s) {
     );
 }
 
-References References::from_fasta(const std::string& filename) {
+namespace {
+
+template <typename T>
+References references_from_stream(T& stream) {
     std::vector<std::string> sequences;
-    ref_names names;
+    std::vector<std::string> names;
 
-    std::ifstream file(filename);
-
-    if (!file.good()) {
+    if (!stream.good()) {
         throw InvalidFasta("Cannot read from FASTA file");
     }
 
-    auto c = file.peek();
+    auto c = stream.peek();
     if (c != '>') {
         std::ostringstream oss;
         oss << "FASTA file must begin with '>' character, not '"
@@ -34,7 +37,7 @@ References References::from_fasta(const std::string& filename) {
     std::string line, seq, name;
     bool eof = false;
     do {
-        eof = !bool{getline(file, line)};
+        eof = !bool{getline(stream, line)};
         if (eof || (!line.empty() && line[0] == '>')) {
             if (seq.length() > 0) {
                 to_uppercase(seq);
@@ -51,6 +54,19 @@ References References::from_fasta(const std::string& filename) {
     } while (!eof);
 
     return References(std::move(sequences), std::move(names));
+}
+
+}
+
+/* Read compressed or uncompressed reference */
+References References::from_fasta(const std::string& filename) {
+    if (filename.length() > 3 && filename.substr(filename.length() - 3, 3) == ".gz") {
+        zstr::ifstream ifs(filename);
+        return references_from_stream(ifs);
+    } else {
+        std::ifstream ifs(filename);
+        return references_from_stream(ifs);
+    }
 }
 
 void References::add(std::string&& name, std::string&& sequence) {
