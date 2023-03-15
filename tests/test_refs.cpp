@@ -1,4 +1,5 @@
 #include <fstream>
+#include "zstr.hpp"
 #include "doctest.h"
 #include "refs.hpp"
 
@@ -50,4 +51,17 @@ TEST_CASE("Reference uppercase") {
     CHECK(refs.sequences[1] == "AACCGGTT");
     CHECK(refs.names.size() == 2);
     CHECK(refs.lengths.size() == 2);
+}
+
+TEST_CASE("Reference gzipped") {
+    {
+        zstr::ofstream ofs("tmpref.fasta.gz");
+        ofs << ">ref1\n"
+            << "acgt\n";
+    }
+    auto refs = References::from_fasta("tmpref.fasta.gz");
+    std::remove("tmpref.fasta.gz");
+    CHECK(refs.sequences.size() == 1);
+    CHECK(refs.names[0] == "ref1");
+    CHECK(refs.sequences[0] == "ACGT");
 }
