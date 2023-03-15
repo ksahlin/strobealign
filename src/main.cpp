@@ -21,9 +21,10 @@
 #include "timer.hpp"
 #include "readlen.hpp"
 #include "version.hpp"
+#include "buildconfig.hpp"
+
 
 static Logger& logger = Logger::get();
-
 
 /*
  * Return formatted SAM header as a string
