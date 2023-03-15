@@ -36,7 +36,7 @@ FetchContent_MakeAvailable(cmake_git_version_tracking)
 
 FetchContent_Declare(ZStrGitRepo
   GIT_REPOSITORY    "https://github.com/mateidavid/zstr"
-  GIT_TAG           "master"
+  GIT_TAG           "755da7890ea22478a702e3139092e6c964fab1f5"
 )
 FetchContent_MakeAvailable(ZStrGitRepo)
 

@@ -11,10 +11,10 @@
   without soft clipping are compared more fairly. Use `-L` to change the end
   bonus. (This emulates a feature found in BWA-MEM.)
 * Issue #238: Fix occasionally incorrect soft clipping.
-* PR #239: Align single- and paired-end reads in the same way.
 * PR #239: Fix an uninitialized variable that could lead to nondeterministic
   results.
 * Issue #137: Compute TLEN (in SAM output) correctly
+* PR #255: Add support for reading gzip-compressed reference FASTA files.
 
 ## v0.8.0 (2023-02-01)
 
