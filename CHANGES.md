@@ -15,6 +15,8 @@
   results.
 * Issue #137: Compute TLEN (in SAM output) correctly
 * PR #255: Add support for reading gzip-compressed reference FASTA files.
+* Issue #222: Make it possible again to build strobealign from the release
+  tarball (not only from the Git repository).
 
 ## v0.8.0 (2023-02-01)
 
