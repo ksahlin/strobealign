@@ -1,6 +1,6 @@
 # Strobealign Changelog
 
-## development version
+## v0.9.0 (2023-03-16)
 
 * Add progress report (only shown if output is not a terminal; can be
   disabled with `--no-progress`)
