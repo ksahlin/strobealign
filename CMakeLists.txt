@@ -4,10 +4,20 @@ project(strobealign VERSION 0.9.0)
 include(FetchContent)
 
 option(ENABLE_AVX "Enable AVX2 support" OFF)
+option(PYTHON_BINDINGS "Build Python bindings" ON)
 
 find_package(ZLIB)
 find_package(Threads)
 find_package(OpenMP)
+
+if(PYTHON_BINDINGS)
+  find_package(Python 3.10 COMPONENTS Interpreter Development.Module REQUIRED)
+  execute_process(
+    COMMAND "${Python_EXECUTABLE}" -c "import nanobind; print(nanobind.cmake_dir())"
+    OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE NB_DIR)
+  list(APPEND CMAKE_PREFIX_PATH "${NB_DIR}")
+  find_package(nanobind CONFIG REQUIRED)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -66,6 +76,9 @@ add_library(salib STATIC ${SOURCES}
   ext/ssw/ssw_cpp.cpp
   ext/ssw/ssw.c
 )
+if(PYTHON_BINDINGS)
+  set_target_properties(salib PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
 target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr)
 IF(ENABLE_AVX)
@@ -96,3 +109,8 @@ target_include_directories(dumpstrobes PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 add_executable(unused-code src/unused.cpp)
 target_link_libraries(unused-code salib)
 target_include_directories(unused-code PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
+
+if(PYTHON_BINDINGS)
+  nanobind_add_module(pystrobealign src/pythonbindings.cpp)
+  target_link_libraries(pystrobealign PRIVATE salib)
+endif()
