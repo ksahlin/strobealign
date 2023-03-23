@@ -4,6 +4,8 @@
 #include <iostream>
 #include "randstrobes.hpp"
 #include "refs.hpp"
+#include "index.hpp"
+
 
 namespace nb = nanobind;
 //using namespace nb::literals;
@@ -67,5 +69,13 @@ NB_MODULE(pystrobealign, m) {
     nb::class_<Record>(m, "Record")
         .def_prop_ro("name", &Record::name)
         .def_prop_ro("sequence", &Record::sequence)
+        ;
+
+    nb::class_<IndexParameters>(m, "IndexParameters")
+        .def_static("from_read_length", [](int r) { return IndexParameters::from_read_length(r); })
+        ;
+
+    nb::class_<StrobemerIndex>(m, "StrobemerIndex")
+        .def(nb::init<References, IndexParameters>())
         ;
 }
