@@ -1,5 +1,5 @@
-#ifndef RANDSTROBES_H
-#define RANDSTROBES_H
+#ifndef STROBEALIGN_RANDSTROBES_HPP
+#define STROBEALIGN_RANDSTROBES_HPP
 
 #include <vector>
 #include <string>
@@ -9,6 +9,9 @@
 #include <iostream>
 #include <stdexcept>
 #include <inttypes.h>
+
+#include "indexparameters.hpp"
+
 
 using syncmer_hash_t = uint64_t;
 using randstrobe_hash_t = uint64_t;
@@ -34,7 +37,7 @@ struct QueryRandstrobe {
 
 using QueryRandstrobeVector = std::vector<QueryRandstrobe>;
 
-QueryRandstrobeVector randstrobes_query(int k, unsigned w_min, unsigned w_max, const std::string &seq, int s, int t, uint64_t q, int max_dist);
+QueryRandstrobeVector randstrobes_query(const std::string &seq, const IndexParameters& parameters);
 
 struct Randstrobe {
     randstrobe_hash_t hash;

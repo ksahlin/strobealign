@@ -1357,12 +1357,8 @@ void align_PE_read(
     const StrobemerIndex& index
 ) {
     Timer strobe_timer;
-    auto query_randstrobes1 = randstrobes_query(
-        index_parameters.k, index_parameters.w_min, index_parameters.w_max, record1.seq, index_parameters.s, index_parameters.t_syncmer,
-        index_parameters.q, index_parameters.max_dist);
-    auto query_randstrobes2 = randstrobes_query(
-        index_parameters.k, index_parameters.w_min, index_parameters.w_max, record2.seq, index_parameters.s, index_parameters.t_syncmer,
-        index_parameters.q, index_parameters.max_dist);
+    auto query_randstrobes1 = randstrobes_query(record1.seq, index_parameters);
+    auto query_randstrobes2 = randstrobes_query(record2.seq, index_parameters);
     statistics.tot_construct_strobemers += strobe_timer.duration();
 
     // Find NAMs
@@ -1428,7 +1424,7 @@ void align_SE_read(
     const StrobemerIndex& index
 ) {
     Timer strobe_timer;
-    auto query_randstrobes = randstrobes_query(index_parameters.k, index_parameters.w_min, index_parameters.w_max, record.seq, index_parameters.s, index_parameters.t_syncmer, index_parameters.q, index_parameters.max_dist);
+    auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
     statistics.tot_construct_strobemers += strobe_timer.duration();
 
     // Find NAMs
