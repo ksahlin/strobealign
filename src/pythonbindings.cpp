@@ -1,14 +1,17 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/bind_vector.h>
 #include <nanobind/make_iterator.h>
 #include <iostream>
+#include <sstream>
 #include "randstrobes.hpp"
 #include "refs.hpp"
 #include "index.hpp"
+#include "nam.hpp"
 
 
 namespace nb = nanobind;
-//using namespace nb::literals;
+using namespace nb::literals;
 
 class SyncmerIteratorWrapper {
 public:
@@ -64,6 +67,7 @@ NB_MODULE(pystrobealign, m) {
         .def("__getitem__", [](const References& refs, size_t i) {
             return Record(refs.names[i], refs.sequences[i]);
         })
+        .def("__len__", [](const References& refs) { return refs.sequences.size(); })
         ;
 
     nb::class_<Record>(m, "Record")
@@ -73,9 +77,35 @@ NB_MODULE(pystrobealign, m) {
 
     nb::class_<IndexParameters>(m, "IndexParameters")
         .def_static("from_read_length", [](int r) { return IndexParameters::from_read_length(r); })
+        .def_ro("k", &IndexParameters::k)
+        .def_ro("s", &IndexParameters::s)
+        .def_ro("t", &IndexParameters::t_syncmer)
+        .def_ro("max_dist", &IndexParameters::max_dist)
+        .def_ro("w_min", &IndexParameters::w_min)
+        .def_ro("w_max", &IndexParameters::w_max)
+        .def_ro("q", &IndexParameters::q)
         ;
 
     nb::class_<StrobemerIndex>(m, "StrobemerIndex")
-        .def(nb::init<References, IndexParameters>())
+        .def(nb::init<References&, IndexParameters&>())
+        .def("populate", &StrobemerIndex::populate, "f"_a = 0.0002, "threads"_a = 1)
         ;
+
+    m.def("randstrobes_query", &randstrobes_query);
+
+    nb::bind_vector<QueryRandstrobeVector>(m, "QueryRandstrobeVector");
+
+    nb::bind_vector<std::vector<Nam>>(m, "NamVector");
+
+    nb::class_<Nam>(m, "Nam")
+        .def_ro("query_start", &Nam::query_s)
+        .def_ro("query_end", &Nam::query_e)
+        .def_ro("ref_start", &Nam::ref_s)
+        .def_ro("ref_end", &Nam::ref_e)
+        .def_ro("score", &Nam::score)
+        .def("__repr__", [](const Nam& nam) { std::stringstream s; s << nam; return s.str(); })
+    ;
+    m.def("find_nams", [](const QueryRandstrobeVector &query_randstrobes, const StrobemerIndex& index) -> std::vector<Nam> {
+        return find_nams(query_randstrobes, index).second;
+    });
 }
