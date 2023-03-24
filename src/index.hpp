@@ -28,6 +28,7 @@
  * - position of the first strobe
  * - offset of the second strobe
 */
+
 class RefRandstrobe {
 public:
     RefRandstrobe() { }  // TODO should not be needed
@@ -89,7 +90,7 @@ public:
         return m_count & 0x8000'0000;
     }
 
-    RefRandstrobe as_ref_randstrobe() const {
+    RefRandstrobe as_ref_randstrobe() const {  // 将m_count 首位置为0
         assert(is_direct());
         return RefRandstrobe{m_offset, m_count & 0x7fff'ffff};
     }
@@ -144,9 +145,40 @@ struct StrobemerIndex {
     void read(const std::string& filename);
     void populate(float f, size_t n_threads);
     void print_diagnostics(const std::string& logfile_name, int k) const;
+    unsigned int find(uint64_t key) const;
+    // RandstrobeMap::const_iterator find(uint64_t key) const {
+    //     return randstrobe_map.find(key);
+    // }
 
-    RandstrobeMap::const_iterator find(uint64_t key) const {
-        return randstrobe_map.find(key);
+    uint64_t get_hash(unsigned int position) const {
+        if (position < randstrobes_vector.size()){
+            return randstrobes_vector[position].hash;
+        }else{
+            return -1;
+        }
+    }
+
+    unsigned int get_strob1_position(unsigned int position) const {
+        return randstrobes_vector[position].position;
+    }
+
+    int strobe2_offset(unsigned int position) const {
+        return randstrobes_vector[position].packed & mask;
+    }
+
+    int reference_index(unsigned int position) const {
+        return randstrobes_vector[position].packed >> bit_alloc;
+    }
+
+    unsigned int get_next_pos(unsigned int position) const {
+        for(unsigned int i = position + 1; i < randstrobes_vector.size(); i++){
+            if (randstrobes_vector[i].hash != randstrobes_vector[position].hash){
+                return i - 1;
+            }
+            if (i == randstrobes_vector.size() - 1){
+                return i;
+            } 
+        }
     }
 
     RandstrobeMap::const_iterator end() const {
@@ -162,11 +194,16 @@ struct StrobemerIndex {
     }
 
 private:
-    std::vector<RefRandstrobeWithHash> add_randstrobes_to_hash_table();
-
+    // std::vector<RefRandstrobeWithHash> add_randstrobes_to_hash_table();
+    void add_randstrobes_to_vector();
     const IndexParameters& parameters;
     const References& references;
+    const unsigned int N = 28;  // store N bits in the 
+    unsigned int* hash_positions = new unsigned int[1 << N](); // the position array used to store the position of the hash in the hash vector;
     RandstrobeMap randstrobe_map; // k-mer -> (offset in flat_vector, occurence count )
+    std::vector<RefRandstrobeWithHash> randstrobes_vector;
+    static const int bit_alloc = 8;
+    static const int mask = (1 << bit_alloc) - 1;
 };
 
 #endif

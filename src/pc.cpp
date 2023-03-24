@@ -15,10 +15,10 @@
 #include "index.hpp"
 #include "kseq++.hpp"
 #include "sam.hpp"
-
 // distribute_interleaved implements the 'interleaved' format:
 // If two consequent reads have the same name, they are considered to be a pair.
 // Otherwise, they are considered to be single-end reads.
+
 void distribute_interleaved(
     std::vector<klibpp::KSeq>& records,
     std::vector<klibpp::KSeq>& records1,
