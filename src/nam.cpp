@@ -16,18 +16,36 @@ void add_to_hits_per_ref(
     int query_e,
     bool is_rc,
     const StrobemerIndex& index,
-    RandstrobeMapEntry randstrobe_map_entry,
+    // RandstrobeMapEntry randstrobe_map_entry,
+    unsigned int position,
     int min_diff
 ) {
-    randstrobe_map_entry.for_each(index.flat_vector, [&](const RefRandstrobe& rr) {
-        int ref_s = rr.position;
-        int ref_e = rr.position + rr.strobe2_offset() + index.k();
+    // Determine whether the hash table’s value directly represents a
+    // ReferenceMer (this is the case if count==1) or an offset/count
+    // pair that refers to entries in the flat_vector.
+
+    unsigned int next_position = index.get_next_pos(position);
+
+    if (next_position == position) {
+        int ref_s = index.get_strob1_position(position);
+        int ref_e = ref_s + index.strobe2_offset(position) + index.k();
         int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
         if (diff <= min_diff) {
-            hits_per_ref[rr.reference_index()].push_back(Hit{query_s, query_e, ref_s, ref_e, is_rc});
+            hits_per_ref[index.reference_index(position)].push_back(Hit{query_s, query_e, ref_s, ref_e, is_rc});
             min_diff = diff;
         }
-    });
+    } else {
+        for (unsigned int j = position + 1; j <= next_position; ++j) {
+            int ref_s = index.get_strob1_position(j);
+            int ref_e = ref_s + index.strobe2_offset(j) + index.k();
+
+            int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
+            if (diff <= min_diff) {
+                hits_per_ref[index.reference_index(j)].push_back(Hit{query_s, query_e, ref_s, ref_e, is_rc});
+                min_diff = diff;
+            }
+        }
+    }
 }
 
 std::vector<Nam> merge_hits_into_nams(
@@ -154,14 +172,16 @@ std::pair<float, std::vector<Nam>> find_nams(
 
     int nr_good_hits = 0, total_hits = 0;
     for (const auto &q : query_randstrobes) {
-        auto ref_hit = index.find(q.hash);
-        if (ref_hit != index.end()) {
+        // auto ref_hit = index.find(q.hash);
+        unsigned int position = index.find(q.hash);
+        if (position != -1){
             total_hits++;
-            if (ref_hit->second.count() > index.filter_cutoff) {
+            uint64_t new_hash = index.get_hash(position + index.filter_cutoff);
+            if ((new_hash != -1) && (new_hash == q.hash)){
                 continue;
             }
             nr_good_hits++;
-            add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, ref_hit->second, 100'000);
+            add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, position, 100'000);
         }
     }
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
@@ -181,7 +201,8 @@ std::vector<Nam> find_nams_rescue(
 ) {
     struct RescueHit {
         unsigned int count;
-        RandstrobeMapEntry randstrobe_map_entry;
+        // RandstrobeMapEntry randstrobe_map_entry;
+        unsigned int position;
         unsigned int query_s;
         unsigned int query_e;
         bool is_rc;
@@ -200,9 +221,11 @@ std::vector<Nam> find_nams_rescue(
     hits_rc.reserve(5000);
 
     for (auto &qr : query_randstrobes) {
-        auto ref_hit = index.find(qr.hash);
-        if (ref_hit != index.end()) {
-            RescueHit rh{ref_hit->second.count(), ref_hit->second, qr.start, qr.end, qr.is_reverse};
+        // auto ref_hit = index.find(qr.hash);
+        unsigned int position = index.find(qr.hash);
+        if (position != -1){
+            unsigned int count = index.get_next_pos(position) - position + 1;
+            RescueHit rh{count, position, qr.start, qr.end, qr.is_reverse};
             if (qr.is_reverse){
                 hits_rc.push_back(rh);
             } else {
@@ -219,7 +242,7 @@ std::vector<Nam> find_nams_rescue(
             if ((rh.count > filter_cutoff && cnt >= 5) || rh.count > 1000) {
                 break;
             }
-            add_to_hits_per_ref(hits_per_ref, rh.query_s, rh.query_e, rh.is_rc, index, rh.randstrobe_map_entry, 1000);
+            add_to_hits_per_ref(hits_per_ref, rh.query_s, rh.query_e, rh.is_rc, index, rh.position, 1000);
             cnt++;
         }
     }

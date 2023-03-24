@@ -17,12 +17,51 @@
 #include <hyperloglog/hyperloglog.hpp>
 #include "io.hpp"
 #include "timer.hpp"
-#include "logger.hpp"
-
-static Logger& logger = Logger::get();
 
 static const uint32_t STI_FILE_FORMAT_VERSION = 1;
 
+unsigned int StrobemerIndex::find(uint64_t key) const{
+    unsigned int top_N = key >> (64 - N);
+    unsigned int position_start = hash_positions[top_N] - 1;
+
+    if (position_start == -1){
+        return position_start;
+    }
+
+    unsigned int position_end = -1;
+    for (unsigned int i = top_N + 1; i < 1 << N; i++){
+        if (hash_positions[i] != 0){
+            position_end = hash_positions[i] - 2;
+            break;
+        } 
+    }
+
+    if (position_end == -1){
+        position_end =  randstrobes_vector.size() - 1;
+    }
+
+    if(position_start == position_end){
+        // return std::make_tuple(position_start) // occur once 
+        return position_start;
+    }
+
+    // Binary research to find the hash
+    int firstOccur = -1;
+    while (position_start <= position_end){
+        int mid = position_start + (position_end - position_start) / 2;
+        if (randstrobes_vector[mid].hash == key){
+            firstOccur = mid;
+            position_end = mid - 1;
+        }
+        else if(randstrobes_vector[mid].hash < key){
+            position_start = mid + 1;
+        }
+        else{
+           position_end = mid - 1; 
+        }
+    }   
+    return firstOccur;
+}
 
 uint64_t count_unique_hashes(const std::vector<RefRandstrobeWithHash>& mers){
     if (mers.empty()) {
@@ -173,52 +212,95 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     auto randstrobe_hashes = estimate_unique_randstrobe_hashes_parallel(references, parameters, n_threads);
     stats.elapsed_unique_hashes = estimate_unique.duration();
     logger.debug() << "Estimated number of unique randstrobe hashes: " << randstrobe_hashes << '\n';
-    randstrobe_map.reserve(randstrobe_hashes);
+    // randstrobe_map.reserve(randstrobe_hashes);
 
     Timer randstrobes_timer;
-    auto ind_flat_vector = add_randstrobes_to_hash_table();
+    add_randstrobes_to_vector();
+
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     Timer sorting_timer;
     // sort by hash values
-    pdqsort_branchless(ind_flat_vector.begin(), ind_flat_vector.end());
+    pdqsort_branchless(randstrobes_vector.begin(), randstrobes_vector.end());
+
     stats.elapsed_sorting_seeds = sorting_timer.duration();
 
     Timer hash_index_timer;
-    stats.flat_vector_size = ind_flat_vector.size();
+    // stats.flat_vector_size = randstrobes_vector.size();
 
     unsigned int offset = 0;
     unsigned int tot_high_ab = 0;
     unsigned int tot_mid_ab = 0;
     std::vector<unsigned int> strobemer_counts;
 
+    unsigned int randstrobe_hash_size = 0;      
     uint64_t prev_hash = -1;
-    flat_vector.reserve(ind_flat_vector.size());
-    for (auto &mer : ind_flat_vector) {
-        flat_vector.push_back(RefRandstrobe{mer.position, mer.packed});
-        if (mer.hash != prev_hash) {
-            auto mer_index_entry = randstrobe_map.find(mer.hash);
-            assert(mer_index_entry != randstrobe_map.end());
-            auto count = mer_index_entry->second.count();
-            assert(count > 1);
+    
+    // stats.flat_vector_size = 0;
+    stats.tot_occur_once = 0;
+    // calculate stats.flat_vector_size, randstrobe_hash_size
+    // add the top N bits of hash to the hash_positions
+    // calculate the count of hash that exists more than one time
+    unsigned int count = 0;
+    unsigned int position = 1;
+    bool occur_once = false;
+    for (auto &mer: randstrobes_vector){
+        uint64_t hash_value = mer.hash;
+        if (position == 1){
+            randstrobe_hash_size += 1;
+            occur_once = true;
+            hash_positions[hash_value >> (64 - N)] = position;
+            position += 1;
+            count += 1;
+            prev_hash = hash_value;
+            continue;
+        }
 
-            mer_index_entry->second.set_offset(offset);
+        if (hash_value == prev_hash){
+            occur_once = false;
+            position += 1;
+            count += 1;
+            continue;
+        }
+
+        if (hash_value != prev_hash){
+            randstrobe_hash_size += 1;
+            if (occur_once == true){
+                stats.tot_occur_once += 1;
+            }else{
+                occur_once = true;
+            }
             if (count > 100){
                 tot_high_ab++;
                 strobemer_counts.push_back(count);
-            } else {
+            }else{
                 tot_mid_ab++;
                 strobemer_counts.push_back(count);
             }
             count = 1;
+            hash_positions[hash_value >> (64 - N)] = position;
+            position += 1;
+            prev_hash = hash_value;
         }
-        prev_hash = mer.hash;
-        offset++;
+
+        if (&mer == &randstrobes_vector.back()){
+            if (occur_once == true){
+                stats.tot_occur_once += 1;
+            }
+            if (count > 100){
+                tot_high_ab++;
+                strobemer_counts.push_back(count);
+            }else{
+                tot_mid_ab++;
+                strobemer_counts.push_back(count);
+            }
+        }
     }
-    stats.frac_unique = 1.0 * stats.tot_occur_once / randstrobe_map.size();
+
+    stats.frac_unique = 1.0 * stats.tot_occur_once / randstrobe_hash_size;
     stats.tot_high_ab = tot_high_ab;
     stats.tot_mid_ab = tot_mid_ab;
-    stats.tot_distinct_strobemer_count = randstrobe_map.size();
+    stats.tot_distinct_strobemer_count = randstrobe_hash_size;
 
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
@@ -233,23 +315,11 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     }
     stats.filter_cutoff = filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
-    stats.unique_mers = randstrobe_map.size();
+    stats.unique_mers = randstrobe_hash_size;
 }
 
-/*
- * Generate randstrobes for all reference sequences and add them to the hash
- * table. Only those randstrobes which occur only once have correct, fully
- * filled-in entries in the hash table. For the others (with multiple
- * occurrences), only their count is correct. The offset needs to be filled in
- * later.
- *
- * Fills in
- * - stats.tot_occur_once
- * - stats.tot_strobemer_count
- */
-std::vector<RefRandstrobeWithHash> StrobemerIndex::add_randstrobes_to_hash_table() {
-    std::vector<RefRandstrobeWithHash> randstrobes_with_hash;
-    size_t tot_occur_once = 0;
+void StrobemerIndex::add_randstrobes_to_vector(){
+    // size_t tot_occur_once = 0;
     for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
         auto seq = references.sequences[ref_index];
         if (seq.length() < parameters.w_max) {
@@ -277,36 +347,90 @@ std::vector<RefRandstrobeWithHash> StrobemerIndex::add_randstrobes_to_hash_table
             }
             stats.tot_strobemer_count += chunk.size();
             for (auto randstrobe : chunk) {
-                RefRandstrobeWithHash::packed_t packed = ref_index << 8;
+                uint32_t packed = ref_index << 8;
                 packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
 
                 // try to insert as direct entry
-                RandstrobeMapEntry entry{randstrobe.strobe1_pos, packed | 0x8000'0000};
-                auto result = randstrobe_map.insert({randstrobe.hash, entry});
-                if (result.second) {
-                    tot_occur_once++;
-                } else {
-                    // already exists in hash table
-                    auto existing = result.first;
-                    auto existing_count = existing->second.count();
-                    if (existing_count == 1) {
-                        // current entry is a direct one, convert to an indirect one
-                        auto existing_randstrobe = existing->second.as_ref_randstrobe();
-                        randstrobes_with_hash.push_back(RefRandstrobeWithHash{randstrobe.hash, existing_randstrobe.position, existing_randstrobe.packed()});
-                        tot_occur_once--;
-                    }
-                    // offset is adjusted later after sorting
-                    existing->second.set_count(existing_count + 1);
-
-                    randstrobes_with_hash.push_back(RefRandstrobeWithHash{randstrobe.hash, randstrobe.strobe1_pos, packed});
+                // RandstrobeMapEntry entry{randstrobe.strobe1_pos, packed | 0x8000'0000};
+                randstrobes_vector.push_back(RefRandstrobeWithHash{randstrobe.hash, randstrobe.strobe1_pos, packed});
                 }
+                chunk.clear();
             }
-            chunk.clear();
         }
-    }
-    stats.tot_occur_once = tot_occur_once;
-    return randstrobes_with_hash;
+    // stats.tot_occur_once = tot_occur_once;
 }
+
+/*
+ * Generate randstrobes for all reference sequences and add them to the hash
+ * table. Only those randstrobes which occur only once have correct, fully
+ * filled-in entries in the hash table. For the others (with multiple
+ * occurrences), only their count is correct. The offset needs to be filled in
+ * later.
+ *
+ * Fills in
+ * - stats.tot_occur_once
+ * - stats.tot_strobemer_count
+ */
+//  std::vector<RefRandstrobeWithHash> StrobemerIndex::add_randstrobes_to_hash_table() {
+//     std::vector<RefRandstrobeWithHash> randstrobes_with_hash;
+//     size_t tot_occur_once = 0;
+//     for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
+//         auto seq = references.sequences[ref_index];
+//         if (seq.length() < parameters.w_max) {
+//             continue;
+//         }
+//         auto randstrobe_iter = RandstrobeIterator2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
+//         std::vector<Randstrobe> chunk;
+//         // TODO
+//         // Chunking makes this function faster, but the speedup is achieved even
+//         // with a chunk size of 1.
+//         const size_t chunk_size = 4;
+//         chunk.reserve(chunk_size);
+
+//         bool end = false;
+//         while (!end) {
+//             // fill chunk
+//             Randstrobe randstrobe;
+//             while (chunk.size() < chunk_size) {
+//                 randstrobe = randstrobe_iter.next();
+//                 if (randstrobe == randstrobe_iter.end()) {
+//                     end = true;
+//                     break;
+//                 }
+//                 chunk.push_back(randstrobe);
+//             }
+//             stats.tot_strobemer_count += chunk.size();
+//             for (auto randstrobe : chunk) {
+//                 RefRandstrobeWithHash::packed_t packed = ref_index << 8;
+//                 packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
+
+//                 // try to insert as direct entry
+//                 RandstrobeMapEntry entry{randstrobe.strobe1_pos, packed | 0x8000'0000};
+//                 auto result = randstrobe_map.insert({randstrobe.hash, entry});
+//                 if (result.second) {
+//                     tot_occur_once++;
+//                 } else {
+//                     // already exists in hash table
+//                     auto existing = result.first;
+//                     auto existing_count = existing->second.count();
+//                     if (existing_count == 1) {
+//                         // current entry is a direct one, convert to an indirect one
+//                         auto existing_randstrobe = existing->second.as_ref_randstrobe();
+//                         randstrobes_with_hash.push_back(RefRandstrobeWithHash{randstrobe.hash, existing_randstrobe.position, existing_randstrobe.packed()});
+//                         tot_occur_once--;
+//                     }
+//                     // offset is adjusted later after sorting
+//                     existing->second.set_count(existing_count + 1);
+
+//                     randstrobes_with_hash.push_back(RefRandstrobeWithHash{randstrobe.hash, randstrobe.strobe1_pos, packed});
+//                 }
+//             }
+//             chunk.clear();
+//         }
+//     }
+//     stats.tot_occur_once = tot_occur_once;
+//     return randstrobes_with_hash;
+// }
 
 void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) const {
     // Prins to csv file the statistics on the number of seeds of a particular length and what fraction of them them are unique in the index:
