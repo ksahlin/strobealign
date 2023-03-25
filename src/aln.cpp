@@ -1373,7 +1373,7 @@ void align_PE_read(
     auto [nonrepetitive_fraction1, nams1] = find_nams(query_randstrobes1, index);
     auto [nonrepetitive_fraction2, nams2] = find_nams(query_randstrobes2, index);
     statistics.tot_find_nams += nam_timer.duration();
- 
+
     if (map_param.R > 1) {
         Timer rescue_timer;
         if (nams1.empty() || nonrepetitive_fraction1 < 0.7) {

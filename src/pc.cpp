@@ -143,7 +143,6 @@ void perform_task(
                 && input_buffer.finished_reading){
             break;
         }
-
         std::string sam_out;
         sam_out.reserve(7*map_param.r * (records1.size() + records3.size()));
         Sam sam{sam_out, references, read_group_id, map_param.output_unmapped};

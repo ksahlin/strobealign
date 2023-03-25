@@ -17,6 +17,9 @@
 #include <hyperloglog/hyperloglog.hpp>
 #include "io.hpp"
 #include "timer.hpp"
+#include "logger.hpp"
+
+static Logger& logger = Logger::get();
 
 static const uint32_t STI_FILE_FORMAT_VERSION = 1;
 
@@ -42,7 +45,9 @@ unsigned int StrobemerIndex::find(uint64_t key) const{
 
     if(position_start == position_end){
         // return std::make_tuple(position_start) // occur once 
-        return position_start;
+        if (randstrobes_vector[position_start].hash == key){
+            return position_start;
+        }
     }
 
     // Binary research to find the hash
@@ -222,7 +227,6 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     Timer sorting_timer;
     // sort by hash values
     pdqsort_branchless(randstrobes_vector.begin(), randstrobes_vector.end());
-
     stats.elapsed_sorting_seeds = sorting_timer.duration();
 
     Timer hash_index_timer;
@@ -273,12 +277,15 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
             if (count > 100){
                 tot_high_ab++;
                 strobemer_counts.push_back(count);
-            }else{
+            }else if (count > 1){
                 tot_mid_ab++;
                 strobemer_counts.push_back(count);
             }
             count = 1;
-            hash_positions[hash_value >> (64 - N)] = position;
+
+            if (hash_positions[hash_value >> (64 - N)] == 0){
+                hash_positions[hash_value >> (64 - N)] = position;
+            }
             position += 1;
             prev_hash = hash_value;
         }
@@ -290,7 +297,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
             if (count > 100){
                 tot_high_ab++;
                 strobemer_counts.push_back(count);
-            }else{
+            }else if (count > 1){
                 tot_mid_ab++;
                 strobemer_counts.push_back(count);
             }
@@ -304,7 +311,9 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
 
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
-    unsigned int index_cutoff = randstrobe_map.size()*f;
+    // unsigned int index_cutoff = randstrobe_map.size()*f;
+
+    unsigned int index_cutoff= randstrobe_hash_size *f;
     stats.index_cutoff = index_cutoff;
     if (!strobemer_counts.empty()){
         filter_cutoff = index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back();
@@ -354,7 +363,7 @@ void StrobemerIndex::add_randstrobes_to_vector(){
                 // RandstrobeMapEntry entry{randstrobe.strobe1_pos, packed | 0x8000'0000};
                 randstrobes_vector.push_back(RefRandstrobeWithHash{randstrobe.hash, randstrobe.strobe1_pos, packed});
                 }
-                chunk.clear();
+            chunk.clear();
             }
         }
     // stats.tot_occur_once = tot_occur_once;
