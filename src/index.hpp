@@ -201,10 +201,6 @@ struct StrobemerIndex {
 
     }
 
-    unsigned int get_size() const {
-        return randstrobes_vector.size();
-    }
-
     RandstrobeMap::const_iterator end() const {
         return randstrobe_map.cend();
     }
@@ -219,13 +215,13 @@ struct StrobemerIndex {
 
 private:
     // std::vector<RefRandstrobeWithHash> add_randstrobes_to_hash_table();
-    void add_randstrobes_to_vector();
+    void add_randstrobes_to_vector(int randstrobe_hashes);
     const IndexParameters& parameters;
     const References& references;
     const unsigned int N = 28;  // store N bits in the 
+    std::vector<RefRandstrobeWithHash> randstrobes_vector;
     unsigned int* hash_positions = new unsigned int[1 << N](); // the position array used to store the position of the hash in the hash vector;
     RandstrobeMap randstrobe_map; // k-mer -> (offset in flat_vector, occurence count )
-    std::vector<RefRandstrobeWithHash> randstrobes_vector;
     static const int bit_alloc = 8;
     static const int mask = (1 << bit_alloc) - 1;
 };

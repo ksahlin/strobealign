@@ -20,7 +20,6 @@
 #include "logger.hpp"
 
 static Logger& logger = Logger::get();
-
 static const uint32_t STI_FILE_FORMAT_VERSION = 1;
 
 unsigned int StrobemerIndex::find(uint64_t key) const{
@@ -44,7 +43,6 @@ unsigned int StrobemerIndex::find(uint64_t key) const{
     }
 
     if(position_start == position_end){
-        // return std::make_tuple(position_start) // occur once 
         if (randstrobes_vector[position_start].hash == key){
             return position_start;
         }
@@ -167,34 +165,37 @@ void StrobemerIndex::read(const std::string& filename) {
     }
 }
 
-hll::HyperLogLog estimate_unique_randstrobe_hashes(const std::string& seq, const IndexParameters& parameters) {
-    hll::HyperLogLog hll(10);
+int estimate_randstrobe_hashes(const std::string& seq, const IndexParameters& parameters) {
+    int num = 0;
 
     auto randstrobe_iter = RandstrobeIterator2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
     Randstrobe randstrobe;
     while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
-        hll.add(reinterpret_cast<char*>(&randstrobe.hash), sizeof(randstrobe.hash));
+        num++;
     }
-    return hll;
+    return num;
 }
 
-size_t estimate_unique_randstrobe_hashes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
+size_t estimate_randstrobe_hashes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
     std::vector<std::thread> workers;
-    std::vector<hll::HyperLogLog> estimators;
-    for (size_t i = 0; i < n_threads; ++i) {
-        estimators.push_back(hll::HyperLogLog(10));
-    }
+    int total = 0;
     std::atomic_size_t ref_index = 0;
+
+    std::vector<int> estimators;
+    for (size_t i = 0; i < n_threads; ++i) {
+        estimators.push_back(0);
+    }
+
     for (size_t i = 0; i < n_threads; ++i) {
         workers.push_back(
             std::thread(
-                [&ref_index](const References& references, const IndexParameters& parameters, hll::HyperLogLog& estimator) {
+                [&ref_index](const References& references, const IndexParameters& parameters, int& estimator) {
                     while (true) {
                         size_t j = ref_index.fetch_add(1);
                         if (j >= references.size()) {
                             break;
                         }
-                        estimator.merge(estimate_unique_randstrobe_hashes(references.sequences[j], parameters));
+                        estimator += estimate_randstrobe_hashes(references.sequences[j], parameters);
                     }
                 }, std::ref(references), std::ref(parameters), std::ref(estimators[i]))
         );
@@ -203,29 +204,27 @@ size_t estimate_unique_randstrobe_hashes_parallel(const References& references, 
         worker.join();
     }
 
-    hll::HyperLogLog hll(10);
     for (auto& estimator : estimators) {
-        hll.merge(estimator);
+        total += estimator;
     }
-    return hll.estimate();
+    return total;
 }
 
 void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.tot_strobemer_count = 0;
 
     Timer estimate_unique;
-    auto randstrobe_hashes = estimate_unique_randstrobe_hashes_parallel(references, parameters, n_threads);
+    auto randstrobe_hashes = estimate_randstrobe_hashes_parallel(references, parameters, n_threads);
     stats.elapsed_unique_hashes = estimate_unique.duration();
-    logger.debug() << "Estimated number of unique randstrobe hashes: " << randstrobe_hashes << '\n';
+    logger.debug() << "Estimated number of randstrobe hashes: " << randstrobe_hashes << '\n';
     // randstrobe_map.reserve(randstrobe_hashes);
 
     Timer randstrobes_timer;
-    add_randstrobes_to_vector();
-
+    add_randstrobes_to_vector(randstrobe_hashes);
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     Timer sorting_timer;
-    // sort by hash values
+    // sort by hash valuesles
     pdqsort_branchless(randstrobes_vector.begin(), randstrobes_vector.end());
     stats.elapsed_sorting_seeds = sorting_timer.duration();
 
@@ -327,8 +326,9 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.unique_mers = randstrobe_hash_size;
 }
 
-void StrobemerIndex::add_randstrobes_to_vector(){
+void StrobemerIndex::add_randstrobes_to_vector(int randstrobe_hashes){
     // size_t tot_occur_once = 0;
+    randstrobes_vector.reserve(randstrobe_hashes);
     for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
         auto seq = references.sequences[ref_index];
         if (seq.length() < parameters.w_max) {
@@ -341,7 +341,6 @@ void StrobemerIndex::add_randstrobes_to_vector(){
         // with a chunk size of 1.
         const size_t chunk_size = 4;
         chunk.reserve(chunk_size);
-
         bool end = false;
         while (!end) {
             // fill chunk
@@ -356,9 +355,8 @@ void StrobemerIndex::add_randstrobes_to_vector(){
             }
             stats.tot_strobemer_count += chunk.size();
             for (auto randstrobe : chunk) {
-                uint32_t packed = ref_index << 8;
+                RefRandstrobeWithHash::packed_t packed = ref_index << 8;
                 packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
-
                 // try to insert as direct entry
                 // RandstrobeMapEntry entry{randstrobe.strobe1_pos, packed | 0x8000'0000};
                 randstrobes_vector.push_back(RefRandstrobeWithHash{randstrobe.hash, randstrobe.strobe1_pos, packed});

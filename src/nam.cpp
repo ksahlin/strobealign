@@ -1,7 +1,5 @@
 #include "nam.hpp"
-#include "logger.hpp"
 
-static Logger& logger = Logger::get();
 namespace {
 
 struct Hit {
@@ -36,8 +34,7 @@ void add_to_hits_per_ref(
             hits_per_ref[index.reference_index(position)].push_back(Hit{query_s, query_e, ref_s, ref_e, is_rc});
             min_diff = diff;
         }
-    } 
-    else {
+    } else {
         for (unsigned int j = position; j <= next_position; ++j) {
             int ref_s = index.get_strob1_position(j);
             int ref_e = ref_s + index.strobe2_offset(j) + index.k();
@@ -174,8 +171,6 @@ std::pair<float, std::vector<Nam>> find_nams(
 
     int nr_good_hits = 0, total_hits = 0;
     for (const auto &q : query_randstrobes) {
-        // auto ref_hit = index.find(q.hash);
-
         unsigned int position = index.find(q.hash);
         if (position != -1){
             total_hits++;
@@ -190,7 +185,6 @@ std::pair<float, std::vector<Nam>> find_nams(
     }
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     auto nams = merge_hits_into_nams(hits_per_ref, index.k(), false);
-    // return make_pair(hits_per_ref[0].size() + hits_per_ref[1].size() + hits_per_ref[2].size(), nams);
     return make_pair(nonrepetitive_fraction, nams);
 }
 
