@@ -157,7 +157,6 @@ void perform_task(
                 && input_buffer.finished_reading){
             break;
         }
-
         std::string sam_out;
         sam_out.reserve(7*map_param.r * (records1.size() + records3.size()));
         CigarOps cigar_ops = map_param.cigar_eqx ? CigarOps::EQX : CigarOps::M;

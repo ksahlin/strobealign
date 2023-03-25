@@ -170,7 +170,7 @@ struct StrobemerIndex {
         }else{
             return -1;
         }
-    }
+    } 
 
     unsigned int get_strob1_position(unsigned int position) const {
         return randstrobes_vector[position].position;
@@ -185,14 +185,24 @@ struct StrobemerIndex {
     }
 
     unsigned int get_next_pos(unsigned int position) const {
+        if (position == randstrobes_vector.size() - 1){
+                return position;
+            } 
+
+        uint64_t hash_value = randstrobes_vector[position].hash;
         for(unsigned int i = position + 1; i < randstrobes_vector.size(); i++){
-            if (randstrobes_vector[i].hash != randstrobes_vector[position].hash){
+            if (randstrobes_vector[i].hash != hash_value){
                 return i - 1;
             }
             if (i == randstrobes_vector.size() - 1){
                 return i;
             } 
         }
+
+    }
+
+    unsigned int get_size() const {
+        return randstrobes_vector.size();
     }
 
     RandstrobeMap::const_iterator end() const {
