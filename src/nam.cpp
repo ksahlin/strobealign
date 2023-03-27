@@ -175,13 +175,11 @@ std::pair<float, std::vector<Nam>> find_nams(
     2. the occur times of the hash value, use a flag 
     3. need to know reference index, strobe1 position, storbe2 - strobe1
     */
-
     int nr_good_hits = 0, total_hits = 0;
     for (const auto &q : query_randstrobes) {
         unsigned int position = index.find(q.hash);
         if (position != -1){
             total_hits++;
-
             uint64_t new_hash = index.get_hash(position + index.filter_cutoff);
             if ((new_hash == q.hash)){
                 continue;
