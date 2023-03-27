@@ -46,8 +46,10 @@ unsigned int StrobemerIndex::find(uint64_t key) const{
         if (randstrobes_vector[position_start].hash == key){
             return position_start;
         }
+        else{
+            return -1;
+        }
     }
-
     // Binary research to find the hash
     int firstOccur = -1;
     while (position_start <= position_end){

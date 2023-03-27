@@ -16,8 +16,6 @@
 #include "kseq++.hpp"
 #include "sam.hpp"
 
-// checks if two read names are the same ignoring /1 suffix on the first one
-// and /2 on the second one (if present)
 bool same_name(const std::string& n1, const std::string& n2) {
     if (n1.length() != n2.length()) return false;
     if (n1.length() <= 2) return n1 == n2;
