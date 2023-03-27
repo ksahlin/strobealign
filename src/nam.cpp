@@ -77,7 +77,7 @@ std::vector<Nam> merge_hits_into_nams(
                         o.ref_e = h.ref_e;
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
-                        o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
+                        o.query_prev_hit_startpos = h.query_s; // ` the last strobemer hit in case of outputting paf
                         o.ref_prev_hit_startpos = h.ref_s; // log the last strobemer hit in case of outputting paf
                         o.n_hits ++;
 //                        o.score += (float)1/ (float)h.count;

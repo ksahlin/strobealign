@@ -204,7 +204,7 @@ private:
     void add_randstrobes_to_vector(int randstrobe_hashes);
     const IndexParameters& parameters;
     const References& references;
-    const unsigned int N = 28;  // store N bits in the 
+    const unsigned int N = 27;  // store N bits in the 
     std::vector<RefRandstrobeWithHash> randstrobes_vector;
     unsigned int* hash_positions = new unsigned int[1 << N](); // the position array used to store the position of the hash in the hash vector;
     RandstrobeMap randstrobe_map; // k-mer -> (offset in flat_vector, occurence count )

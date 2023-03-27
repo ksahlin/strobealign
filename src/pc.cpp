@@ -132,7 +132,9 @@ void perform_task(
 ) {
     bool eof = false;
     Aligner aligner{aln_params};
+    int temp_index = 0;
     while (!eof) {
+        temp_index += 1;
         std::vector<klibpp::KSeq> records1;
         std::vector<klibpp::KSeq> records2;
         std::vector<klibpp::KSeq> records3;
@@ -144,6 +146,7 @@ void perform_task(
                 && input_buffer.finished_reading){
             break;
         }
+
         std::string sam_out;
         sam_out.reserve(7*map_param.r * (records1.size() + records3.size()));
         Sam sam{sam_out, references, read_group_id, map_param.output_unmapped};

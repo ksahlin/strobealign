@@ -24,13 +24,13 @@ static const uint32_t STI_FILE_FORMAT_VERSION = 1;
 
 unsigned int StrobemerIndex::find(uint64_t key) const{
     unsigned int top_N = key >> (64 - N);
-    unsigned int position_start = hash_positions[top_N] - 1;
+    int position_start = hash_positions[top_N] - 1;
 
     if (position_start == -1){
         return position_start;
     }
 
-    unsigned int position_end = -1;
+    int position_end = -1;
     for (unsigned int i = top_N + 1; i < 1 << N; i++){
         if (hash_positions[i] != 0){
             position_end = hash_positions[i] - 2;
