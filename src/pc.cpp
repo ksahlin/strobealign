@@ -143,7 +143,9 @@ void perform_task(
 ) {
     bool eof = false;
     Aligner aligner{aln_params};
+    int temp_index = 0;
     while (!eof) {
+        temp_index += 1;
         std::vector<klibpp::KSeq> records1;
         std::vector<klibpp::KSeq> records2;
         std::vector<klibpp::KSeq> records3;
@@ -155,6 +157,7 @@ void perform_task(
                 && input_buffer.finished_reading){
             break;
         }
+
         std::string sam_out;
         sam_out.reserve(7*map_param.r * (records1.size() + records3.size()));
         CigarOps cigar_ops = map_param.cigar_eqx ? CigarOps::EQX : CigarOps::M;
