@@ -102,5 +102,5 @@ target_link_libraries(unused-code salib)
 target_include_directories(unused-code PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 
 if(PYTHON_BINDINGS)
-  add_subdirectory(python)
+  add_subdirectory(src/python)
 endif()
