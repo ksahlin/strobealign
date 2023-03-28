@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Check for tab characters
-        run: "! grep -P -R '\\t' src/ tests/*.cpp"
+        run: "! grep -P -R '\\t' src/ python/ tests/*.cpp"
 
   build:
     if: >-
@@ -28,9 +28,15 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Install nanobind
+        run: pip install nanobind
       - name: Build
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DPYTHON_BINDINGS=ON
           cd build
           make -j3
           make install
