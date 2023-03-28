@@ -10,15 +10,6 @@ find_package(ZLIB)
 find_package(Threads)
 find_package(OpenMP)
 
-if(PYTHON_BINDINGS)
-  find_package(Python 3.10 COMPONENTS Interpreter Development.Module REQUIRED)
-  execute_process(
-    COMMAND "${Python_EXECUTABLE}" -c "import nanobind; print(nanobind.cmake_dir())"
-    OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE NB_DIR)
-  list(APPEND CMAKE_PREFIX_PATH "${NB_DIR}")
-  find_package(nanobind CONFIG REQUIRED)
-endif()
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -111,6 +102,5 @@ target_link_libraries(unused-code salib)
 target_include_directories(unused-code PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 
 if(PYTHON_BINDINGS)
-  nanobind_add_module(pystrobealign src/pythonbindings.cpp)
-  target_link_libraries(pystrobealign PRIVATE salib)
+  add_subdirectory(python)
 endif()
