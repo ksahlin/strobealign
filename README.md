@@ -75,6 +75,11 @@ cmake -B build -DCMAKE_C_FLAGS="-msse4.2" -DCMAKE_CXX_FLAGS="-msse4.2"
 See the [contributing instructions](#contributing) for how to compile strobealign
 as a developer.
 
+### Python bindings
+
+Experimental and incomplete Python bindings can be installed with
+`pip install .`. The only documentation for the moment are the tests in
+`tests/*.py`.
 
 ## Usage
 
@@ -91,7 +96,6 @@ To use interleaved files, use the `--interleaved` flag:
 ```
 strobealign ref.fa reads.fq --interleaved > output.sam  # Single and/or paired-end reads
 ```
-
 
 To report secondary alignments, set parameter `-N [INT]` for a maximum of `[INT]` secondary alignments.
 

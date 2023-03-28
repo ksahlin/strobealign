@@ -79,8 +79,9 @@ add_dependencies(salib version)
 
 add_executable(strobealign src/main.cpp)
 target_link_libraries(strobealign PUBLIC salib)
-install(TARGETS strobealign DESTINATION bin)
-
+if(NOT PYTHON_BINDINGS)
+  install(TARGETS strobealign DESTINATION bin)
+endif()
 add_executable(test-strobealign
   tests/tests.cpp
   tests/test_input.cpp
