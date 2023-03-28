@@ -47,7 +47,7 @@ private:
 };
 
 
-NB_MODULE(pystrobealign, m) {
+NB_MODULE(strobealign_extension, m) {
     nb::class_<SyncmerIteratorWrapper>(m, "SyncmerIterator")
         .def(nb::init<const std::string&, size_t, size_t, size_t>())
         .def("__next__", [](SyncmerIteratorWrapper& siw) -> std::pair<size_t, randstrobe_hash_t> {
