@@ -4,7 +4,7 @@ project(strobealign VERSION 0.9.0)
 include(FetchContent)
 
 option(ENABLE_AVX "Enable AVX2 support" OFF)
-option(PYTHON_BINDINGS "Build Python bindings" ON)
+option(PYTHON_BINDINGS "Build Python bindings" OFF)
 
 find_package(ZLIB)
 find_package(Threads)
