@@ -67,9 +67,6 @@ add_library(salib STATIC ${SOURCES}
   ext/ssw/ssw_cpp.cpp
   ext/ssw/ssw.c
 )
-if(PYTHON_BINDINGS)
-  set_target_properties(salib PROPERTIES POSITION_INDEPENDENT_CODE ON)
-endif()
 target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr)
 IF(ENABLE_AVX)
