@@ -46,8 +46,10 @@ private:
     const std::string& m_sequence;
 };
 
-
-NB_MODULE(strobealign_extension, m) {
+NB_MODULE(strobealign_extension, m_) {
+    (void) m_;
+    // Add definitions to the *parent* module
+    nb::module_ m = nb::module_::import_("strobealign");
     nb::class_<SyncmerIteratorWrapper>(m, "SyncmerIterator")
         .def(nb::init<const std::string&, size_t, size_t, size_t>())
         .def("__next__", [](SyncmerIteratorWrapper& siw) -> std::pair<size_t, randstrobe_hash_t> {
@@ -103,6 +105,7 @@ NB_MODULE(strobealign_extension, m) {
         .def_ro("ref_start", &Nam::ref_s)
         .def_ro("ref_end", &Nam::ref_e)
         .def_ro("score", &Nam::score)
+        .def_ro("reference_index", &Nam::ref_id)
         .def("__repr__", [](const Nam& nam) { std::stringstream s; s << nam; return s.str(); })
     ;
     m.def("find_nams", [](const QueryRandstrobeVector &query_randstrobes, const StrobemerIndex& index) -> std::vector<Nam> {

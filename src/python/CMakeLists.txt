@@ -1,3 +1,4 @@
+set_target_properties(salib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 find_package(Python 3.10 COMPONENTS Interpreter Development.Module REQUIRED)
 execute_process(
   COMMAND "${Python_EXECUTABLE}" -c "import nanobind; print(nanobind.cmake_dir())"
