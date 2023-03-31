@@ -1,5 +1,7 @@
 #include "nam.hpp"
+#include "logger.hpp"
 
+static Logger& logger = Logger::get();
 namespace {
 
 struct Hit {
@@ -24,9 +26,8 @@ void add_to_hits_per_ref(
     // ReferenceMer (this is the case if count==1) or an offset/count
     // pair that refers to entries in the flat_vector.
 
-    unsigned int next_position = index.get_next_pos(position);
-
-    if (next_position == position) {
+    unsigned int count = index.get_count(position);
+    if (count == 1) {
         // auto r = randstrobe_map_entry.as_ref_randstrobe();
         int ref_s = index.get_strob1_position(position);
         int ref_e = ref_s + index.strobe2_offset(position) + index.k();
@@ -36,7 +37,7 @@ void add_to_hits_per_ref(
             min_diff = diff;
         }
     } else {
-        for (unsigned int j = position; j <= next_position; ++j) {
+        for (unsigned int j = position; j < position + count; ++j) {
             int ref_s = index.get_strob1_position(j);
             int ref_e = ref_s + index.strobe2_offset(j) + index.k();
             int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
@@ -180,10 +181,10 @@ std::pair<float, std::vector<Nam>> find_nams(
         unsigned int position = index.find(q.hash);
         if (position != -1){
             total_hits++;
-            uint64_t new_hash = index.get_hash(position + index.filter_cutoff);
-            if ((new_hash == q.hash)){
+            unsigned int count = index.get_count(position);
+            if (count > index.filter_cutoff){
                 continue;
-            }
+            } 
             nr_good_hits++;
             add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, position, 100'000);
         }
@@ -227,7 +228,7 @@ std::vector<Nam> find_nams_rescue(
         // auto ref_hit = index.find(qr.hash);
         unsigned int position = index.find(qr.hash);
         if (position != -1){
-            unsigned int count = index.get_next_pos(position) - position + 1;
+            unsigned int count = index.get_count(position);
             RescueHit rh{count, position, qr.start, qr.end, qr.is_reverse};
             if (qr.is_reverse){
                 hits_rc.push_back(rh);

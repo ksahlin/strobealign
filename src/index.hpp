@@ -147,6 +147,7 @@ struct StrobemerIndex {
     void print_diagnostics(const std::string& logfile_name, int k) const;
     unsigned int find(uint64_t key) const;
     static const unsigned int N = 28;  // store N bits in the 
+    static const uint64_t hash_mask = (((uint64_t)1 << (64 - N)) - 1);
     // RandstrobeMap::const_iterator find(uint64_t key) const {
     //     return randstrobe_map.find(key);
     // }
@@ -171,21 +172,9 @@ struct StrobemerIndex {
         return randstrobes_vector[position].packed >> bit_alloc;
     }
 
-    unsigned int get_next_pos(unsigned int position) const {
-        if (position == randstrobes_vector.size() - 1){
-                return position;
-            } 
-
-        uint64_t hash_value = randstrobes_vector[position].hash;
-        for(unsigned int i = position + 1; i < randstrobes_vector.size(); i++){
-            if (randstrobes_vector[i].hash != hash_value){
-                return i - 1;
-            }
-            if (i == randstrobes_vector.size() - 1){
-                return i;
-            } 
-        }
-
+    unsigned int get_count(unsigned int position) const {
+        unsigned int count = randstrobes_vector[position].hash >> (64 - N);
+        return count;
     }
 
     RandstrobeMap::const_iterator end() const {
