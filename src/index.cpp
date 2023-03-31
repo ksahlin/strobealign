@@ -22,7 +22,7 @@
 static Logger& logger = Logger::get();
 static const uint32_t STI_FILE_FORMAT_VERSION = 1;
 
-bool cmp(const RefRandstrobeWithHash& lhs, const RefRandstrobeWithHash& rhs) { return lhs.hash <  rhs.hash; }
+bool cmp(const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) { return (lhs.hash & StrobemerIndex::hash_mask) < (rhs.hash & StrobemerIndex::hash_mask); }
 
 const int MAX_LINEAR_SEARCH = 4;
 unsigned int StrobemerIndex::find(uint64_t key) const{
@@ -31,26 +31,21 @@ unsigned int StrobemerIndex::find(uint64_t key) const{
     int position_end = hash_positions[top_N + 1];
 
     if(position_start == position_end){
-        if (randstrobes_vector[position_start].hash == key){
-            return position_start;
-        }
-        else{
-            return -1;
-        }
+        return -1;
     }
 
     if (position_end - position_start < MAX_LINEAR_SEARCH) {
           for ( ; position_start < position_end; ++position_start) {
-              if (randstrobes_vector[position_start].hash == key) return position_start;
+              if ((randstrobes_vector[position_start].hash & hash_mask) == (key & hash_mask)) return position_start;
           }
           return -1;
       }
 
     auto pos = std::lower_bound(randstrobes_vector.begin() + position_start,
                                                randstrobes_vector.begin() + position_end,
-                                               RefRandstrobeWithHash{key, 0, 0},
+                                               RefRandstrobeWithHash{key & hash_mask, 0, 0},
                                                cmp);
-    if (pos->hash == key) return pos - randstrobes_vector.begin();
+    if ((pos->hash & hash_mask) == (key & hash_mask)) return pos - randstrobes_vector.begin();
     return -1;
 }
 
@@ -267,6 +262,8 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
             }else{
                 occur_once = true;
             }
+
+            randstrobes_vector[position - count].hash = (prev_hash & hash_mask) | ((uint64_t)count << (64 - N));
             if (count > 100){
                 tot_high_ab++;
                 strobemer_counts.push_back(count);
@@ -299,7 +296,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
                 tot_mid_ab++;
                 strobemer_counts.push_back(count);
             }
-
+            randstrobes_vector[position - (count - 1)].hash = (prev_hash & hash_mask) | ((uint64_t)count << (64 - N));
             for (unsigned int index_temp = prev_hash_N + 1; index_temp < (1 << N); index_temp++){
                     hash_positions[index_temp] = randstrobes_vector.size();
             }
