@@ -22,25 +22,13 @@
 static Logger& logger = Logger::get();
 static const uint32_t STI_FILE_FORMAT_VERSION = 1;
 
+bool cmp(const RefRandstrobeWithHash& lhs, const RefRandstrobeWithHash& rhs) { return lhs.hash <  rhs.hash; }
+
+const int MAX_LINEAR_SEARCH = 4;
 unsigned int StrobemerIndex::find(uint64_t key) const{
-    unsigned int top_N = key >> (64 - N);
-    int position_start = hash_positions[top_N] - 1;
-
-    if (position_start == -1){
-        return position_start;
-    }
-
-    int position_end = -1;
-    for (unsigned int i = top_N + 1; i < 1 << N; i++){
-        if (hash_positions[i] != 0){
-            position_end = hash_positions[i] - 2;
-            break;
-        } 
-    }
-
-    if (position_end == -1){
-        position_end =  randstrobes_vector.size() - 1;
-    }
+    const unsigned int top_N = key >> (64 - N);
+    int position_start = hash_positions[top_N];
+    int position_end = hash_positions[top_N + 1];
 
     if(position_start == position_end){
         if (randstrobes_vector[position_start].hash == key){
@@ -50,22 +38,20 @@ unsigned int StrobemerIndex::find(uint64_t key) const{
             return -1;
         }
     }
-    // Binary research to find the hash
-    int firstOccur = -1;
-    while (position_start <= position_end){
-        int mid = position_start + (position_end - position_start) / 2;
-        if (randstrobes_vector[mid].hash == key){
-            firstOccur = mid;
-            position_end = mid - 1;
-        }
-        else if(randstrobes_vector[mid].hash < key){
-            position_start = mid + 1;
-        }
-        else{
-           position_end = mid - 1; 
-        }
-    }   
-    return firstOccur;
+
+    if (position_end - position_start < MAX_LINEAR_SEARCH) {
+          for ( ; position_start < position_end; ++position_start) {
+              if (randstrobes_vector[position_start].hash == key) return position_start;
+          }
+          return -1;
+      }
+
+    auto pos = std::lower_bound(randstrobes_vector.begin() + position_start,
+                                               randstrobes_vector.begin() + position_end,
+                                               RefRandstrobeWithHash{key, 0, 0},
+                                               cmp);
+    if (pos->hash == key) return pos - randstrobes_vector.begin();
+    return -1;
 }
 
 uint64_t count_unique_hashes(const std::vector<RefRandstrobeWithHash>& mers){
@@ -247,14 +233,20 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     // add the top N bits of hash to the hash_positions
     // calculate the count of hash that exists more than one time
     unsigned int count = 0;
-    unsigned int position = 1;
+    unsigned int position = 0;
+    unsigned int prev_hash_N = 0;
     bool occur_once = false;
     for (auto &mer: randstrobes_vector){
         uint64_t hash_value = mer.hash;
-        if (position == 1){
+        if (position == 0){
             randstrobe_hash_size += 1;
             occur_once = true;
-            hash_positions[hash_value >> (64 - N)] = position;
+            unsigned int existing_hash_N = hash_value >> (64 - N);
+            hash_positions[existing_hash_N] = position;
+            for (unsigned int index_temp = 0; index_temp < existing_hash_N; index_temp++){
+                hash_positions[index_temp] = position;
+            }
+            prev_hash_N = existing_hash_N;
             position += 1;
             count += 1;
             prev_hash = hash_value;
@@ -283,10 +275,15 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
                 strobemer_counts.push_back(count);
             }
             count = 1;
-
-            if (hash_positions[hash_value >> (64 - N)] == 0){
-                hash_positions[hash_value >> (64 - N)] = position;
+            unsigned int existing_hash_N = hash_value >> (64 - N);
+            if (existing_hash_N != prev_hash_N){
+                hash_positions[existing_hash_N] = position;
+                for (unsigned int index_temp = prev_hash_N + 1; index_temp < existing_hash_N; index_temp++){
+                    hash_positions[index_temp] = position;
             }
+            prev_hash_N = existing_hash_N;
+            }
+
             position += 1;
             prev_hash = hash_value;
         }
@@ -301,6 +298,10 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
             }else if (count > 1){
                 tot_mid_ab++;
                 strobemer_counts.push_back(count);
+            }
+
+            for (unsigned int index_temp = prev_hash_N + 1; index_temp < (1 << N); index_temp++){
+                    hash_positions[index_temp] = randstrobes_vector.size();
             }
         }
     }
