@@ -29,7 +29,7 @@ static Logger& logger = Logger::get();
 /*
  * Return formatted SAM header as a string
  */
-std::string sam_header(const References& references, const std::string& read_group_id, const std::vector<std::string>& read_group_fields) {
+std::string sam_header(const References& references, const std::string& read_group_id, const std::vector<std::string>& read_group_fields, const std::string& cmd_line) {
     std::stringstream out;
     out << "@HD\tVN:1.6\tSO:unsorted\n";
     for (size_t i = 0; i < references.size(); ++i) {
@@ -42,7 +42,7 @@ std::string sam_header(const References& references, const std::string& read_gro
         }
         out << '\n';
     }
-    out << "@PG\tID:strobealign\tPN:strobealign\tVN:" << version_string() << "\tCL:strobealign\n";
+    out << "@PG\tID:strobealign\tPN:strobealign\tVN:" << version_string() << "\tCL:" << cmd_line << std::endl;
     return out.str();
 }
 
@@ -130,6 +130,11 @@ void show_progress_until_done(std::vector<int>& worker_done, std::vector<Alignme
 
 int run_strobealign(int argc, char **argv) {
     auto opt = parse_command_line_arguments(argc, argv);
+
+    std::stringstream cmd_line;
+    for(int i = 0; i < argc; ++i) {
+        cmd_line << argv[i] << " ";
+    }
 
     logger.set_level(opt.verbose ? LOG_DEBUG : LOG_INFO);
     logger.info() << std::setprecision(2) << std::fixed;
@@ -264,7 +269,7 @@ int run_strobealign(int argc, char **argv) {
     std::ostream out(buf);
 
     if (map_param.is_sam_out) {
-        out << sam_header(references, opt.read_group_id, opt.read_group_fields);
+        out << sam_header(references, opt.read_group_id, opt.read_group_fields, cmd_line.str());
     }
 
     std::vector<AlignmentStatistics> log_stats_vec(opt.n_threads);
