@@ -131,11 +131,6 @@ void show_progress_until_done(std::vector<int>& worker_done, std::vector<Alignme
 int run_strobealign(int argc, char **argv) {
     auto opt = parse_command_line_arguments(argc, argv);
 
-    std::stringstream cmd_line;
-    for(int i = 0; i < argc; ++i) {
-        cmd_line << argv[i] << " ";
-    }
-
     logger.set_level(opt.verbose ? LOG_DEBUG : LOG_INFO);
     logger.info() << std::setprecision(2) << std::fixed;
     logger.info() << "This is strobealign " << version_string() << '\n';
@@ -269,6 +264,11 @@ int run_strobealign(int argc, char **argv) {
     std::ostream out(buf);
 
     if (map_param.is_sam_out) {
+        std::stringstream cmd_line;
+        for(int i = 0; i < argc; ++i) {
+            cmd_line << argv[i] << " ";
+        }
+
         out << sam_header(references, opt.read_group_id, opt.read_group_fields, cmd_line.str());
     }
 
