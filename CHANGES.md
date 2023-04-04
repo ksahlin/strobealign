@@ -1,5 +1,10 @@
 # Strobealign Changelog
 
+## development version
+
+* #258: Fix compilation on MinGW. Thanks @teepean.
+* #260: Include full command line in the SAM PG header.
+
 ## v0.9.0 (2023-03-16)
 
 * Add progress report (only shown if output is not a terminal; can be
