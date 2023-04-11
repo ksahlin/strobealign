@@ -24,6 +24,35 @@ TEST_CASE("Formatting unmapped SAM record") {
     }
 }
 
+TEST_CASE("Sam::add") {
+    References references;
+    references.add("contig1", "AACCGGTT");
+    std::string sam_string;
+    Sam sam(sam_string, references);
+
+    klibpp::KSeq record;
+    record.name = "readname";
+    record.seq = "AACGT";
+    record.qual = ">#BB";
+
+    alignment aln;
+    aln.ref_id = 0;
+    aln.is_unaligned = false;
+    aln.is_rc = true;
+    aln.ref_start = 2;
+    aln.ed = 3;
+    aln.aln_score = 9;
+    aln.mapq = 55;
+    aln.cigar = Cigar("2S2=1X3=3S");
+
+    std::string read_rc = reverse_complement(record.seq);
+    bool is_secondary = false;
+    sam.add(aln, record, read_rc, is_secondary);
+    CHECK(sam_string ==
+        "readname\t16\tcontig1\t3\t55\t2S2=1X3=3S\t*\t0\t0\tACGTT\tBB#>\tNM:i:3\tAS:i:9\n"
+    );
+}
+
 TEST_CASE("Pair with one unmapped SAM record") {
     References references;
     references.add("contig1", "ACGT");
