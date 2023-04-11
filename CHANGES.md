@@ -2,14 +2,14 @@
 
 ## development version
 
-* #258: Fix compilation on MinGW. Thanks @teepean.
-* #260: Include full command line in the SAM PG header.
-* #20: Add command-line option `--m-op`. If used, emit `M` CIGAR operations
-  instead of `=` and `X`.
+* #258: Fixed compilation on MinGW. Thanks @teepean.
+* #260: Include full command line in the SAM PG header. Thanks @telmin.
+* #20: By default, emit `M` CIGAR operations instead of `=` and `X`.
+  Added option `--eqx` to use `=` and `X` as before.
 
 ## v0.9.0 (2023-03-16)
 
-* Add progress report (only shown if output is not a terminal; can be
+* Added progress report (only shown if output is not a terminal; can be
   disabled with `--no-progress`)
 * PR #250: Avoid overeager soft clipping by adding an “end bonus” to the
   alignment score if the alignment reaches the 5' or 3' end of the read.
@@ -17,12 +17,12 @@
   accuracy, in particular for short reads, as candidate mapping sites with and
   without soft clipping are compared more fairly. Use `-L` to change the end
   bonus. (This emulates a feature found in BWA-MEM.)
-* Issue #238: Fix occasionally incorrect soft clipping.
-* PR #239: Fix an uninitialized variable that could lead to nondeterministic
+* Issue #238: Fixed occasionally incorrect soft clipping.
+* PR #239: Fixed an uninitialized variable that could lead to nondeterministic
   results.
 * Issue #137: Compute TLEN (in SAM output) correctly
-* PR #255: Add support for reading gzip-compressed reference FASTA files.
-* Issue #222: Make it possible again to build strobealign from the release
+* PR #255: Added support for reading gzip-compressed reference FASTA files.
+* Issue #222: Made it possible again to build strobealign from the release
   tarball (not only from the Git repository).
 
 ## v0.8.0 (2023-02-01)

@@ -120,6 +120,7 @@ options. Some important ones are:
   `--create-index`, see [index files](#index-files).
 * `-t N`, `--threads=N`: Use N threads. This mainly applies to the mapping step
   as the indexing step is only partially parallelized.
+* `--eqx`: Emit `=` and `X` CIGAR operations instead of `M`.
 * `-x`: Only map reads, do not do no base-level alignment. This switches the
   output format from SAM to [PAF](https://github.com/lh3/miniasm/blob/master/PAF.md).
 * `--rg-id=ID`: Add RG tag to each SAM record.
