@@ -25,6 +25,12 @@ strobealign --chunk-size 3 --rg-id 1 --rg SM:sample --rg LB:library -v tests/phi
 diff tests/phix.se.sam phix.se.sam
 rm phix.se.sam
 
+# Single-end SAM, M CIGAR operators
+strobealign --m-op tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > phix.se.m.sam
+if samtools view phix.se.m.sam | cut -f6 | grep -q '[X=]'; then false; fi
+
+rm phix.se.m.sam
+
 # Paired-end SAM
 strobealign --chunk-size 3 --rg-id 1 --rg SM:sample --rg LB:library tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq | grep -v '^@PG' > phix.pe.sam
 diff tests/phix.pe.sam phix.pe.sam

@@ -4,6 +4,8 @@
 
 * #258: Fix compilation on MinGW. Thanks @teepean.
 * #260: Include full command line in the SAM PG header.
+* #20: Add command-line option `--m-op`. If used, emit `M` CIGAR operations
+  instead of `=` and `X`.
 
 ## v0.9.0 (2023-03-16)
 

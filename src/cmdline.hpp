@@ -14,6 +14,7 @@ struct CommandLineOptions {
     bool write_to_stdout { true };
     bool verbose { false };
     bool show_progress { true };
+    bool cigar_eqx { true };
     std::string read_group_id { "" };
     std::vector<std::string> read_group_fields;
     std::string logfile_name { "" };
