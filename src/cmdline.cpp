@@ -26,6 +26,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlag<std::string> o(parser, "PATH", "redirect output to file [stdout]", {'o'});
     args::Flag v(parser, "v", "Verbose output", {'v'});
     args::Flag no_progress(parser, "no-progress", "Disable progress report (enabled by default if output is a terminal)", {"no-progress"});
+    args::Flag eqx(parser, "eqx", "Emit =/X instead of M CIGAR operations", {"eqx"});
     args::Flag x(parser, "x", "Only map reads, no base level alignment (produces PAF file)", {'x'});
     args::Flag U(parser, "U", "Suppress output of unmapped reads", {'U'});
     args::Flag interleaved(parser, "interleaved", "Interleaved input", {"interleaved"});
@@ -88,6 +89,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (o) { opt.output_file_name = args::get(o); opt.write_to_stdout = false; }
     if (v) { opt.verbose = true; }
     if (no_progress) { opt.show_progress = false; }
+    if (eqx) { opt.cigar_eqx = true; }
     if (x) { opt.is_sam_out = false; }
     if (U) { opt.output_unmapped = false; }
     if (rgid) { opt.read_group_id = args::get(rgid); }

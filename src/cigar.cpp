@@ -2,6 +2,20 @@
 #include <sstream>
 #include "cigar.hpp"
 
+/* Return a new Cigar that uses M operations instead of =/X */
+Cigar Cigar::to_m() const {
+    Cigar cigar;
+    for (auto op_len : m_ops) {
+        auto op = op_len & 0xf;
+        auto len = op_len >> 4;
+        if (op == CIGAR_EQ || op == CIGAR_X) {
+            cigar.push(CIGAR_MATCH, len);
+        } else {
+            cigar.push(op, len);
+        }
+    }
+    return cigar;
+}
 
 Cigar Cigar::to_eqx(const std::string& query, const std::string& ref) const {
     size_t i = 0, j = 0;

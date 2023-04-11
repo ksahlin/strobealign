@@ -8,19 +8,59 @@ TEST_CASE("Formatting unmapped SAM record") {
     kseq.seq = "ACGT";
     kseq.qual = ">#BB";
     std::string sam_string;
+    References references;
 
     SUBCASE("without RG") {
-        Sam sam(sam_string, References());
+        Sam sam(sam_string, references);
         sam.add_unmapped(kseq);
 
         CHECK(sam_string == "read1\t4\t*\t0\t0\t*\t*\t0\t0\tACGT\t>#BB\n");
     }
 
     SUBCASE("with RG") {
-        Sam sam(sam_string, References(), "rg1");
+        Sam sam(sam_string, references, CigarOps::EQX, "rg1");
         sam.add_unmapped(kseq);
 
         CHECK(sam_string == "read1\t4\t*\t0\t0\t*\t*\t0\t0\tACGT\t>#BB\tRG:Z:rg1\n");
+    }
+}
+
+TEST_CASE("Sam::add") {
+    References references;
+    references.add("contig1", "AACCGGTT");
+
+    klibpp::KSeq record;
+    record.name = "readname";
+    record.seq = "AACGT";
+    record.qual = ">#BB";
+
+    alignment aln;
+    aln.ref_id = 0;
+    aln.is_unaligned = false;
+    aln.is_rc = true;
+    aln.ref_start = 2;
+    aln.ed = 3;
+    aln.aln_score = 9;
+    aln.mapq = 55;
+    aln.cigar = Cigar("2S2=1X3=3S");
+
+    std::string read_rc = reverse_complement(record.seq);
+    bool is_secondary = false;
+    SUBCASE("Cigar =/X") {
+        std::string sam_string;
+        Sam sam(sam_string, references);
+        sam.add(aln, record, read_rc, is_secondary);
+        CHECK(sam_string ==
+            "readname\t16\tcontig1\t3\t55\t2S2=1X3=3S\t*\t0\t0\tACGTT\tBB#>\tNM:i:3\tAS:i:9\n"
+        );
+    }
+    SUBCASE("Cigar M") {
+        std::string sam_string;
+        Sam sam(sam_string, references, CigarOps::M);
+        sam.add(aln, record, read_rc, is_secondary);
+        CHECK(sam_string ==
+            "readname\t16\tcontig1\t3\t55\t2S6M3S\t*\t0\t0\tACGTT\tBB#>\tNM:i:3\tAS:i:9\n"
+        );
     }
 }
 
@@ -37,7 +77,7 @@ TEST_CASE("Pair with one unmapped SAM record") {
     aln1.is_rc = true;
     aln1.ed = 17;
     aln1.aln_score = 9;
-    aln1.cigar = "2M";
+    aln1.cigar = Cigar("2M");
 
     alignment aln2;
     aln2.is_unaligned = true;
@@ -91,7 +131,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     aln1.is_rc = false;
     aln1.ed = 17;
     aln1.aln_score = 9;
-    aln1.cigar = "2M";
+    aln1.cigar = Cigar("2M");
 
     alignment aln2;
     aln2.is_unaligned = false;
@@ -100,7 +140,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     aln2.is_rc = false;
     aln2.ed = 2;
     aln2.aln_score = 4;
-    aln2.cigar = "3M";
+    aln2.cigar = Cigar("3M");
 
     klibpp::KSeq record1;
     klibpp::KSeq record2;

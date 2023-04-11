@@ -12,10 +12,9 @@ TEST_CASE("compress_cigar") {
 }
 
 TEST_CASE("Parse CIGAR") {
-    std::vector<std::string> cigars = {"", "1M", "10M2I1D99=1X4P5S"};
-    for (auto& s : cigars) {
-        CHECK(Cigar(s).to_string() == s);
-    }
+    CHECK(Cigar("").empty());
+    CHECK(Cigar("1M").to_string() == "1M");
+    CHECK(Cigar("10M2I1D99=1X4P5S").to_string() == "10M2I1D99=1X4P5S");
     // Not standard, only for convenience
     CHECK(Cigar("M").to_string() == "1M");
     CHECK(Cigar("M M").to_string() == "2M");
@@ -48,7 +47,7 @@ TEST_CASE("Cigar construction and push") {
     CHECK(c2.to_string() == "3M5X7I13D");
 }
 
-TEST_CASE("Cigar =/X conversion") {
+TEST_CASE("Cigar conversion from M to =/X") {
     Cigar c1{"1M"};
     CHECK(c1.to_eqx("A", "A").to_string() == "1=");
     CHECK(c1.to_eqx("A", "G").to_string() == "1X");
@@ -60,6 +59,12 @@ TEST_CASE("Cigar =/X conversion") {
 
     Cigar c{"2M 1D 4M 1I 3M"};
     CHECK(c.to_eqx("ACTTTGCATT", "ACGTATGAAA").to_string() == "2=1D1=1X2=1I1=2X");
+}
+
+TEST_CASE("Cigar conversion from =/X to M") {
+    CHECK(Cigar("").to_m().empty());
+    CHECK(Cigar("5=").to_m().to_string() == "5M");
+    CHECK(Cigar("5S3=1X2=4S").to_m().to_string() == "5S6M4S");
 }
 
 TEST_CASE("concatenate Cigar") {

@@ -118,14 +118,14 @@ static inline void align_SE_secondary_hits(
         if (sam_aln.sw_score > best_align_sw_score) {
             min_mapq_diff = std::max(0, sam_aln.sw_score - best_align_sw_score); // new distance to next best match
             best_align_sw_score = sam_aln.sw_score;
-            best_sam_aln = sam_aln;
+            best_sam_aln = std::move(sam_aln);
             if (max_secondary == 1) {
-                best_align_dist = sam_aln.global_ed;
+                best_align_dist = best_sam_aln.global_ed;
             }
         }
 //        sam_aln.ed = 10000; // init
         if (max_secondary > 1) {
-            alignments.push_back(sam_aln);
+            alignments.emplace_back(sam_aln);
         }
         cnt++;
     }
@@ -181,7 +181,7 @@ static inline alignment align_segment(
 
         if (hamming_dist >= 0 && (((float) hamming_dist / read_segm_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
             auto info = hamming_align(read_segm, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
-            sam_aln_segm.cigar = info.cigar.to_string();
+            sam_aln_segm.cigar = std::move(info.cigar);
             sam_aln_segm.ed = info.edit_distance;
             sam_aln_segm.sw_score = info.sw_score;
             sam_aln_segm.ref_start = ref_start + ext_left + info.query_start;
@@ -193,7 +193,7 @@ static inline alignment align_segment(
         }
     }
     auto info = aligner.align(read_segm, ref_segm);
-    sam_aln_segm.cigar = info.cigar.to_string();
+    sam_aln_segm.cigar = std::move(info.cigar);
     sam_aln_segm.ed = info.edit_distance;
     sam_aln_segm.sw_score = info.sw_score;
     sam_aln_segm.ref_start = ref_start + info.ref_start;
@@ -262,7 +262,7 @@ static inline alignment get_alignment(
     }
     int softclipped = info.query_start + (query.size() - info.query_end);
     alignment sam_aln;
-    sam_aln.cigar = info.cigar.to_string();
+    sam_aln.cigar = std::move(info.cigar);
     sam_aln.ed = info.edit_distance;
     sam_aln.global_ed = info.edit_distance + softclipped;
     sam_aln.sw_score = info.sw_score;
@@ -310,8 +310,8 @@ static inline alignment get_alignment_unused(
         int hamming_dist = hamming_distance(r_tmp, ref_segm);
 
         if (hamming_dist >= 0 && (((float) hamming_dist / ref_segm_size) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-            const auto info = hamming_align(r_tmp, ref_segm, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
-            sam_aln.cigar = info.cigar.to_string();
+            auto info = hamming_align(r_tmp, ref_segm, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
+            sam_aln.cigar = std::move(info.cigar);
             sam_aln.ed = info.edit_distance;
             sam_aln.sw_score = info.sw_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
             sam_aln.ref_start = ref_start + ext_left + info.query_start;
@@ -383,7 +383,7 @@ static inline alignment get_alignment_unused(
 
         // Stitch together
         sam_aln.ref_id = n.ref_id;
-        sam_aln.cigar = sam_aln_segm_left.cigar + sam_aln_segm_right.cigar;
+        sam_aln.cigar = Cigar(sam_aln_segm_left.cigar.to_string() + sam_aln_segm_right.cigar.to_string());
         sam_aln.ed = sam_aln_segm_left.ed + sam_aln_segm_right.ed;
         sam_aln.sw_score = sam_aln_segm_left.sw_score + sam_aln_segm_right.sw_score;
         sam_aln.ref_start =  sam_aln_segm_left.ref_start;
@@ -568,9 +568,6 @@ static inline bool sort_scores(const std::tuple<double, alignment, alignment> &a
     return std::get<0>(a) > std::get<0>(b);
 }
 
-
-
-
 static inline void get_best_scoring_pair(
     const std::vector<alignment> &aln_scores1, const std::vector<alignment> &aln_scores2, std::vector<std::tuple<double,alignment,alignment>> &high_scores, float mu, float sigma
 ) {
@@ -585,7 +582,7 @@ static inline void get_best_scoring_pair(
                 // 10 corresponds to a value of log(normal_pdf(dist, mu, sigma)) of more than 4 stddevs away
                 score -= 10;
             }
-            high_scores.push_back(std::make_tuple(score, a1, a2));
+            high_scores.emplace_back(std::make_tuple(score, a1, a2));
         }
     }
     std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
@@ -742,7 +739,7 @@ static inline void rescue_mate(
     ref_end = std::min(ref_len, std::max(0, b));
 
     if (ref_end < ref_start + k){
-        sam_aln.cigar = "*";
+        sam_aln.cigar = Cigar();
         sam_aln.ed = read_len;
         sam_aln.sw_score = 0;
         sam_aln.aln_score = 0;
@@ -756,7 +753,7 @@ static inline void rescue_mate(
     std::string ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_end - ref_start);
 
     if (!has_shared_substring(r_tmp, ref_segm, k)){
-        sam_aln.cigar = "*";
+        sam_aln.cigar = Cigar();
         sam_aln.ed = read_len;
         sam_aln.sw_score = 0;
         sam_aln.aln_score = 0;
@@ -786,7 +783,7 @@ static inline void rescue_mate(
 //    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
 //    std::cerr << "Cigar: " << info.cigar << std::endl;
 
-    sam_aln.cigar = info.cigar.to_string();
+    sam_aln.cigar = info.cigar;
     sam_aln.ed = info.edit_distance;
     sam_aln.sw_score = info.sw_score;
     sam_aln.aln_score = sam_aln.sw_score;
@@ -837,13 +834,13 @@ void rescue_read(
             statistics.did_not_fit++;
         }
         alignment a1 = get_alignment(aligner, n, references, read1, fits);
-        aln_scores1.push_back(a1);
+        aln_scores1.emplace_back(a1);
 
         //////// Force SW alignment to rescue mate /////////
         alignment a2;
 //            std::cerr << query_acc2 << " force rescue" << std::endl;
         rescue_mate(aligner, n, references, read1, read2, a2, mu, sigma, statistics.tot_rescued, k);
-        aln_scores2.push_back(a2);
+        aln_scores2.emplace_back(a2);
 
         cnt1 ++;
         statistics.tot_all_tried ++;

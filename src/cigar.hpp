@@ -26,7 +26,7 @@ public:
 
     explicit Cigar(std::vector<uint32_t> ops) : m_ops(std::move(ops)) { }
 
-    Cigar(Cigar& other) : m_ops(other.m_ops) { }
+    Cigar(const Cigar& other) : m_ops(other.m_ops) { }
 
     explicit Cigar(uint32_t* ops, size_t n) {
         m_ops.assign(ops, ops + n);
@@ -37,6 +37,8 @@ public:
     explicit Cigar(Cigar&& other) noexcept {
         *this = std::move(other);
     }
+
+    Cigar& operator=(const Cigar&) = default;
 
     Cigar& operator=(Cigar&& other) {
         if (this != &other) {
@@ -78,6 +80,9 @@ public:
     void reverse() {
         std::reverse(m_ops.begin(), m_ops.end());
     }
+
+    /* Return a new Cigar that uses M instead of =/X */
+    Cigar to_m() const;
 
     /* Return a new Cigar that uses =/X instead of M */
     Cigar to_eqx(const std::string& query, const std::string& ref) const;

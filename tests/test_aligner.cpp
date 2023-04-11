@@ -7,7 +7,7 @@ TEST_CASE("hamming_align") {
         "", "",
         7, 5, 0
     );
-    CHECK(info.cigar.to_string() == "");
+    CHECK(info.cigar.empty());
     CHECK(info.edit_distance == 0);
     CHECK(info.sw_score == 0);
     CHECK(info.ref_start == 0);

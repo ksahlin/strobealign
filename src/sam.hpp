@@ -1,12 +1,14 @@
-#ifndef SAM_HPP
-#define SAM_HPP
+#ifndef STROBEALIGN_SAM_HPP
+#define STROBEALIGN_SAM_HPP
 
 #include <string>
 #include "kseq++.hpp"
 #include "refs.hpp"
+#include "cigar.hpp"
+
 
 struct alignment {
-    std::string cigar;
+    Cigar cigar;
     int ref_start;
     int ed;
     int global_ed;
@@ -34,12 +36,24 @@ enum SamFlags {
     SUPPLEMENTARY = 0x800,
 };
 
+enum struct CigarOps {
+    EQX = 0,  // use = and X CIGAR operations
+    M = 1,    // use M CIGAR operations
+};
+
 class Sam {
 
 public:
-    Sam(std::string& sam_string, const References& references, const std::string& read_group_id = "", bool output_unmapped = true)
+    Sam(
+        std::string& sam_string,
+        const References& references,
+        CigarOps cigar_ops = CigarOps::EQX,
+        const std::string& read_group_id = "",
+        bool output_unmapped = true
+    )
         : sam_string(sam_string)
         , references(references)
+        , cigar_ops(cigar_ops)
         , output_unmapped(output_unmapped) {
             if (read_group_id.empty()) {
                 tail = "\n";
@@ -55,12 +69,14 @@ public:
     void add_unmapped_pair(const klibpp::KSeq& r1, const klibpp::KSeq& r2);
     void add_unmapped_mate(const klibpp::KSeq& record, int flags, const std::string& mate_rname, int mate_pos);
 
-    void add_record(const std::string& query_name, int flags, const std::string& reference_name, int pos, int mapq, const std::string& cigar, const std::string& mate_name, int mate_ref_start, int template_len, const std::string& query_sequence, const std::string& query_sequence_rc, const std::string& qual, int ed, int aln_score);
+    void add_record(const std::string& query_name, int flags, const std::string& reference_name, int pos, int mapq, const Cigar& cigar, const std::string& mate_name, int mate_ref_start, int template_len, const std::string& query_sequence, const std::string& query_sequence_rc, const std::string& qual, int ed, int aln_score);
 
 private:
     void append_tail();
+    std::string cigar_string(const Cigar& cigar) const;
     std::string& sam_string;
     const References& references;
+    const CigarOps cigar_ops;
     std::string tail;
     bool output_unmapped;
 };

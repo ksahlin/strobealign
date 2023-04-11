@@ -42,6 +42,20 @@ void Sam::append_tail() {
     sam_string.append(tail);
 }
 
+std::string Sam::cigar_string(const Cigar& cigar) const {
+    if (cigar.empty()) {
+        // This case should normally not occur because
+        // unmapped reads would be added with add_unmapped,
+        // which hardcodes the "*"
+        return "*";
+    }
+    if (cigar_ops == CigarOps::EQX) {
+        return cigar.to_string();
+    } else {
+        return cigar.to_m().to_string();
+    }
+}
+
 void Sam::add_unmapped(const KSeq& record, int flags) {
     if (!output_unmapped) {
         return;
@@ -104,7 +118,7 @@ void Sam::add_record(
     const std::string& reference_name,
     int pos,
     int mapq,
-    const std::string& cigar,
+    const Cigar& cigar,
     const std::string& mate_name,
     int mate_ref_start,
     int template_len,
@@ -124,7 +138,7 @@ void Sam::add_record(
     sam_string.append("\t");
     sam_string.append(std::to_string(mapq));
     sam_string.append("\t");
-    sam_string.append(cigar);
+    sam_string.append(cigar_string(cigar));
     sam_string.append("\t");
 
     sam_string.append(mate_name);
