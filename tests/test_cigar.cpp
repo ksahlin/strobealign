@@ -12,10 +12,9 @@ TEST_CASE("compress_cigar") {
 }
 
 TEST_CASE("Parse CIGAR") {
-    std::vector<std::string> cigars = {"", "1M", "10M2I1D99=1X4P5S"};
-    for (auto& s : cigars) {
-        CHECK(Cigar(s).to_string() == s);
-    }
+    CHECK(Cigar("").empty());
+    CHECK(Cigar("1M").to_string() == "1M");
+    CHECK(Cigar("10M2I1D99=1X4P5S").to_string() == "10M2I1D99=1X4P5S");
     // Not standard, only for convenience
     CHECK(Cigar("M").to_string() == "1M");
     CHECK(Cigar("M M").to_string() == "2M");
@@ -26,7 +25,7 @@ TEST_CASE("Parse CIGAR") {
 
 TEST_CASE("Cigar construction and push") {
     Cigar c1;
-    CHECK(c1.to_string() == "");
+    CHECK(c1.to_string() == "*");
 
     c1.push(CIGAR_MATCH, 1);
     CHECK(c1.to_string() == "1M");

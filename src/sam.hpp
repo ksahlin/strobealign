@@ -1,12 +1,14 @@
-#ifndef SAM_HPP
-#define SAM_HPP
+#ifndef STROBEALIGN_SAM_HPP
+#define STROBEALIGN_SAM_HPP
 
 #include <string>
 #include "kseq++.hpp"
 #include "refs.hpp"
+#include "cigar.hpp"
+
 
 struct alignment {
-    std::string cigar;
+    Cigar cigar;
     int ref_start;
     int ed;
     int global_ed;
@@ -55,7 +57,7 @@ public:
     void add_unmapped_pair(const klibpp::KSeq& r1, const klibpp::KSeq& r2);
     void add_unmapped_mate(const klibpp::KSeq& record, int flags, const std::string& mate_rname, int mate_pos);
 
-    void add_record(const std::string& query_name, int flags, const std::string& reference_name, int pos, int mapq, const std::string& cigar, const std::string& mate_name, int mate_ref_start, int template_len, const std::string& query_sequence, const std::string& query_sequence_rc, const std::string& qual, int ed, int aln_score);
+    void add_record(const std::string& query_name, int flags, const std::string& reference_name, int pos, int mapq, const Cigar& cigar, const std::string& mate_name, int mate_ref_start, int template_len, const std::string& query_sequence, const std::string& query_sequence_rc, const std::string& qual, int ed, int aln_score);
 
 private:
     void append_tail();

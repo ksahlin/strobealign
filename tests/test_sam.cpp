@@ -37,7 +37,7 @@ TEST_CASE("Pair with one unmapped SAM record") {
     aln1.is_rc = true;
     aln1.ed = 17;
     aln1.aln_score = 9;
-    aln1.cigar = "2M";
+    aln1.cigar = Cigar("2M");
 
     alignment aln2;
     aln2.is_unaligned = true;
@@ -91,7 +91,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     aln1.is_rc = false;
     aln1.ed = 17;
     aln1.aln_score = 9;
-    aln1.cigar = "2M";
+    aln1.cigar = Cigar("2M");
 
     alignment aln2;
     aln2.is_unaligned = false;
@@ -100,7 +100,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     aln2.is_rc = false;
     aln2.ed = 2;
     aln2.aln_score = 4;
-    aln2.cigar = "3M";
+    aln2.cigar = Cigar("3M");
 
     klibpp::KSeq record1;
     klibpp::KSeq record2;

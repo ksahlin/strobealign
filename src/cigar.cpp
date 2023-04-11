@@ -31,6 +31,9 @@ Cigar Cigar::to_eqx(const std::string& query, const std::string& ref) const {
 }
 
 std::string Cigar::to_string() const {
+    if (m_ops.empty()) {
+        return "*";
+    }
     std::stringstream s;
     for (auto op_len : m_ops) {
         s << (op_len >> 4) << "MIDNSHP=X"[op_len & 0xf];
