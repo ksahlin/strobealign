@@ -36,12 +36,24 @@ enum SamFlags {
     SUPPLEMENTARY = 0x800,
 };
 
+enum struct CigarOps {
+    EQX = 0,  // use = and X CIGAR operations
+    M = 1,    // use M CIGAR operations
+};
+
 class Sam {
 
 public:
-    Sam(std::string& sam_string, const References& references, const std::string& read_group_id = "", bool output_unmapped = true)
+    Sam(
+        std::string& sam_string,
+        const References& references,
+        CigarOps cigar_ops = CigarOps::EQX,
+        const std::string& read_group_id = "",
+        bool output_unmapped = true
+    )
         : sam_string(sam_string)
         , references(references)
+        , cigar_ops(cigar_ops)
         , output_unmapped(output_unmapped) {
             if (read_group_id.empty()) {
                 tail = "\n";
@@ -61,8 +73,10 @@ public:
 
 private:
     void append_tail();
+    std::string cigar_string(const Cigar& cigar) const;
     std::string& sam_string;
     const References& references;
+    const CigarOps cigar_ops;
     std::string tail;
     bool output_unmapped;
 };

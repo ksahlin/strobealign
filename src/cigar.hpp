@@ -81,6 +81,9 @@ public:
         std::reverse(m_ops.begin(), m_ops.end());
     }
 
+    /* Return a new Cigar that uses M instead of =/X */
+    Cigar to_m() const;
+
     /* Return a new Cigar that uses =/X instead of M */
     Cigar to_eqx(const std::string& query, const std::string& ref) const;
 

@@ -8,16 +8,17 @@ TEST_CASE("Formatting unmapped SAM record") {
     kseq.seq = "ACGT";
     kseq.qual = ">#BB";
     std::string sam_string;
+    References references;
 
     SUBCASE("without RG") {
-        Sam sam(sam_string, References());
+        Sam sam(sam_string, references);
         sam.add_unmapped(kseq);
 
         CHECK(sam_string == "read1\t4\t*\t0\t0\t*\t*\t0\t0\tACGT\t>#BB\n");
     }
 
     SUBCASE("with RG") {
-        Sam sam(sam_string, References(), "rg1");
+        Sam sam(sam_string, references, CigarOps::EQX, "rg1");
         sam.add_unmapped(kseq);
 
         CHECK(sam_string == "read1\t4\t*\t0\t0\t*\t*\t0\t0\tACGT\t>#BB\tRG:Z:rg1\n");
@@ -27,8 +28,6 @@ TEST_CASE("Formatting unmapped SAM record") {
 TEST_CASE("Sam::add") {
     References references;
     references.add("contig1", "AACCGGTT");
-    std::string sam_string;
-    Sam sam(sam_string, references);
 
     klibpp::KSeq record;
     record.name = "readname";
@@ -47,10 +46,22 @@ TEST_CASE("Sam::add") {
 
     std::string read_rc = reverse_complement(record.seq);
     bool is_secondary = false;
-    sam.add(aln, record, read_rc, is_secondary);
-    CHECK(sam_string ==
-        "readname\t16\tcontig1\t3\t55\t2S2=1X3=3S\t*\t0\t0\tACGTT\tBB#>\tNM:i:3\tAS:i:9\n"
-    );
+    SUBCASE("Cigar =/X") {
+        std::string sam_string;
+        Sam sam(sam_string, references);
+        sam.add(aln, record, read_rc, is_secondary);
+        CHECK(sam_string ==
+            "readname\t16\tcontig1\t3\t55\t2S2=1X3=3S\t*\t0\t0\tACGTT\tBB#>\tNM:i:3\tAS:i:9\n"
+        );
+    }
+    SUBCASE("Cigar M") {
+        std::string sam_string;
+        Sam sam(sam_string, references, CigarOps::M);
+        sam.add(aln, record, read_rc, is_secondary);
+        CHECK(sam_string ==
+            "readname\t16\tcontig1\t3\t55\t2S6M3S\t*\t0\t0\tACGTT\tBB#>\tNM:i:3\tAS:i:9\n"
+        );
+    }
 }
 
 TEST_CASE("Pair with one unmapped SAM record") {

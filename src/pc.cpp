@@ -146,7 +146,7 @@ void perform_task(
 
         std::string sam_out;
         sam_out.reserve(7*map_param.r * (records1.size() + records3.size()));
-        Sam sam{sam_out, references, read_group_id, map_param.output_unmapped};
+        Sam sam{sam_out, references, CigarOps::EQX, read_group_id, map_param.output_unmapped};
         for (size_t i = 0; i < records1.size(); ++i) {
             auto record1 = records1[i];
             auto record2 = records2[i];
