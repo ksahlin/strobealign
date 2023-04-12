@@ -98,15 +98,39 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("w_max", &IndexParameters::w_max)
         .def_ro("q", &IndexParameters::q)
     ;
+    nb::class_<RefRandstrobe>(m, "RefRandstrobe")
+        .def_ro("position", &RefRandstrobe::position)
+        .def_prop_ro("reference_index", &RefRandstrobe::reference_index)
+        .def_prop_ro("strobe2_offset", &RefRandstrobe::strobe2_offset)
+    ;
+    nb::bind_vector<RefRandstrobeVector>(m, "RefRandstrobeVector");
     nb::class_<StrobemerIndex>(m, "StrobemerIndex")
         .def(nb::init<References&, IndexParameters&>())
+        .def("find", [](const StrobemerIndex& index, uint64_t key) -> RefRandstrobeVector {
+            RefRandstrobeVector v;
+            auto it = index.find(key);
+            if (it != index.end()) {
+                it->second.for_each(index.flat_vector, [&v](const RefRandstrobe& rr) {
+                    v.push_back(rr);
+                });
+            }
+            return v;
+        })
         .def("populate", &StrobemerIndex::populate, "f"_a = 0.0002, "threads"_a = 1)
+        .def_ro("filter_cutoff", &StrobemerIndex::filter_cutoff)
+        .def_prop_ro("k", &StrobemerIndex::k)
     ;
-    m.def("randstrobes_query", &randstrobes_query);
 
+    nb::class_<QueryRandstrobe>(m, "QueryRandstrobe")
+        .def_ro("hash", &QueryRandstrobe::hash)
+        .def_ro("start", &QueryRandstrobe::start)
+        .def_ro("end", &QueryRandstrobe::end)
+        .def_ro("is_reverse", &QueryRandstrobe::is_reverse)
+        .def("__repr__", [](const QueryRandstrobe& qr) {
+            std::stringstream s; s << qr; return s.str();
+        })
+    ;
     nb::bind_vector<QueryRandstrobeVector>(m, "QueryRandstrobeVector");
-
-    nb::bind_vector<std::vector<Nam>>(m, "NamVector");
 
     nb::class_<Nam>(m, "Nam")
         .def_ro("query_start", &Nam::query_s)
@@ -115,8 +139,14 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("ref_end", &Nam::ref_e)
         .def_ro("score", &Nam::score)
         .def_ro("reference_index", &Nam::ref_id)
-        .def("__repr__", [](const Nam& nam) { std::stringstream s; s << nam; return s.str(); })
+        .def_ro("is_rc", &Nam::is_rc)
+        .def("__repr__", [](const Nam& nam) {
+            std::stringstream s; s << nam; return s.str();
+        })
     ;
+    nb::bind_vector<std::vector<Nam>>(m, "NamVector");
+
+    m.def("randstrobes_query", &randstrobes_query);
     m.def("find_nams", [](const QueryRandstrobeVector &query_randstrobes, const StrobemerIndex& index) -> std::vector<Nam> {
         return find_nams(query_randstrobes, index).second;
     });
