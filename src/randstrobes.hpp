@@ -35,6 +35,8 @@ struct QueryRandstrobe {
     bool is_reverse;
 };
 
+std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe);
+
 using QueryRandstrobeVector = std::vector<QueryRandstrobe>;
 
 QueryRandstrobeVector randstrobes_query(const std::string &seq, const IndexParameters& parameters);

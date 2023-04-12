@@ -132,6 +132,16 @@ std::ostream& operator<<(std::ostream& os, const Randstrobe& randstrobe) {
     return os;
 }
 
+std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe) {
+    os << "QueryRandstrobe(hash=" << randstrobe.hash
+        << ", start=" << randstrobe.start
+        << ", end=" << randstrobe.end
+        << ", is_reverse=" << randstrobe.is_reverse
+        << ")";
+
+    return os;
+}
+
 Randstrobe RandstrobeIterator::get(unsigned int strobe1_start) const {
     unsigned int w_end = std::min(static_cast<size_t>(strobe1_start + w_max), string_hashes.size() - 1);
 
