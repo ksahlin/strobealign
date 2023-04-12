@@ -8,6 +8,7 @@
 #include "refs.hpp"
 #include "index.hpp"
 #include "nam.hpp"
+#include "logger.hpp"
 
 
 namespace nb = nanobind;
@@ -50,6 +51,18 @@ NB_MODULE(strobealign_extension, m_) {
     (void) m_;
     // Add definitions to the *parent* module
     nb::module_ m = nb::module_::import_("strobealign");
+
+    nb::enum_<LOG_LEVELS>(m, "LOG_LEVELS")
+        .value("LOG_DEBUG", LOG_LEVELS::LOG_DEBUG)
+        .value("LOG_INFO", LOG_LEVELS::LOG_INFO)
+        .value("LOG_WARNING", LOG_LEVELS::LOG_WARNING)
+        .value("LOG_ERROR", LOG_LEVELS::LOG_ERROR)
+        .export_values();
+
+    nb::class_<Logger>(m, "Logger")
+        .def_static("get", &Logger::get, nb::rv_policy::reference)
+        .def("set_level", &Logger::set_level)
+    ;
     nb::class_<SyncmerIteratorWrapper>(m, "SyncmerIterator")
         .def(nb::init<const std::string&, size_t, size_t, size_t>())
         .def("__next__", [](SyncmerIteratorWrapper& siw) -> std::pair<size_t, randstrobe_hash_t> {
@@ -60,8 +73,8 @@ NB_MODULE(strobealign_extension, m_) {
                 return std::make_pair(syncmer.position, syncmer.hash);
             }
         })
-        .def("__iter__", [](SyncmerIteratorWrapper& siw) -> SyncmerIteratorWrapper { return siw; });
-
+        .def("__iter__", [](SyncmerIteratorWrapper& siw) -> SyncmerIteratorWrapper { return siw; })
+    ;
     nb::class_<References>(m, "References")
         .def(nb::init())
         .def("add", &References::add)
@@ -70,13 +83,11 @@ NB_MODULE(strobealign_extension, m_) {
             return Record(refs.names[i], refs.sequences[i]);
         })
         .def("__len__", [](const References& refs) { return refs.sequences.size(); })
-        ;
-
+    ;
     nb::class_<Record>(m, "Record")
         .def_prop_ro("name", &Record::name)
         .def_prop_ro("sequence", &Record::sequence)
-        ;
-
+    ;
     nb::class_<IndexParameters>(m, "IndexParameters")
         .def_static("from_read_length", [](int r) { return IndexParameters::from_read_length(r); })
         .def_ro("k", &IndexParameters::k)
@@ -86,13 +97,11 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("w_min", &IndexParameters::w_min)
         .def_ro("w_max", &IndexParameters::w_max)
         .def_ro("q", &IndexParameters::q)
-        ;
-
+    ;
     nb::class_<StrobemerIndex>(m, "StrobemerIndex")
         .def(nb::init<References&, IndexParameters&>())
         .def("populate", &StrobemerIndex::populate, "f"_a = 0.0002, "threads"_a = 1)
-        ;
-
+    ;
     m.def("randstrobes_query", &randstrobes_query);
 
     nb::bind_vector<QueryRandstrobeVector>(m, "QueryRandstrobeVector");

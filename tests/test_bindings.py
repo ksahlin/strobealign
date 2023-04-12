@@ -1,5 +1,14 @@
 import strobealign
 
+
+def test_logger():
+    logger = strobealign.Logger.get()
+    # Enable debug logging
+    logger.set_level(strobealign.LOG_LEVELS.LOG_DEBUG)
+    # Only log on error
+    logger.set_level(strobealign.LOG_LEVELS.LOG_ERROR)
+
+
 def test_references():
     refs = strobealign.References.from_fasta("tests/phix.fasta")
     assert len(refs) == 1
