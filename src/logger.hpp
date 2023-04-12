@@ -57,7 +57,7 @@ public:
 
 private:
     Logger()
-        : level(0)
+        : level(LOG_WARNING)
         , _os(std::cerr)
         , _debug(LogStream(LOG_DEBUG, *this))
         , _info(LogStream(LOG_INFO, *this))
