@@ -19,7 +19,7 @@ void add_to_hits_per_ref(
     RandstrobeMapEntry randstrobe_map_entry,
     int min_diff
 ) {
-    auto func = [&](const RefRandstrobe& rr) {
+    randstrobe_map_entry.for_each(index.flat_vector, [&](const RefRandstrobe& rr) {
         int ref_s = rr.position;
         int ref_e = rr.position + rr.strobe2_offset() + index.k();
         int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
@@ -27,17 +27,7 @@ void add_to_hits_per_ref(
             hits_per_ref[rr.reference_index()].push_back(Hit{query_s, query_e, ref_s, ref_e, is_rc});
             min_diff = diff;
         }
-    };
-    // Determine whether the hash table’s value directly represents a
-    // ReferenceMer (this is the case if count==1) or an offset/count
-    // pair that refers to entries in the flat_vector.
-    if (randstrobe_map_entry.is_direct()) {
-        func(randstrobe_map_entry.as_ref_randstrobe());
-    } else {
-        for (size_t j = randstrobe_map_entry.offset(); j < randstrobe_map_entry.offset() + randstrobe_map_entry.count(); ++j) {
-            func(index.flat_vector[j]);
-        }
-    }
+    });
 }
 
 std::vector<Nam> merge_hits_into_nams(
