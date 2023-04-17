@@ -1,4 +1,3 @@
-#include "randstrobes.hpp"
 #include <string>
 
 #include <deque>
@@ -6,6 +5,8 @@
 #include <algorithm>
 #include <cassert>
 #include <xxhash.h>
+
+#include "randstrobes.hpp"
 
 // a, A -> 0
 // c, C -> 1
@@ -203,23 +204,14 @@ Randstrobe RandstrobeIterator2::next() {
  * syncmers. Since creating canonical syncmers is the most time consuming step,
  * we avoid performing it twice for the read and its reverse complement here.
  */
-QueryRandstrobeVector randstrobes_query(
-    int k,
-    unsigned w_min,
-    unsigned w_max,
-    const std::string& seq,
-    int s,
-    int t,
-    uint64_t q,
-    int max_dist
-) {
+QueryRandstrobeVector randstrobes_query(const std::string& seq, const IndexParameters& parameters) {
     // this function differs from  the function seq_to_randstrobes2 which creating randstrobes for the reference.
     // The seq_to_randstrobes2 stores randstobes only in one direction from canonical syncmers.
     // this function stores randstobes from both directions created from canonical syncmers.
     // Since creating canonical syncmers is the most time consuming step, we avoid perfomring it twice for the read and its RC here
     QueryRandstrobeVector randstrobes2;
     auto read_length = seq.length();
-    if (read_length < w_max) {
+    if (read_length < parameters.w_max) {
         return randstrobes2;
     }
 
@@ -227,32 +219,38 @@ QueryRandstrobeVector randstrobes_query(
     std::vector<uint64_t> string_hashes;
     std::vector<unsigned int> pos_to_seq_coordinate;
 
-    std::tie(string_hashes, pos_to_seq_coordinate) = make_string_to_hashvalues_open_syncmers_canonical(seq, k, s, t);
+    std::tie(string_hashes, pos_to_seq_coordinate) = make_string_to_hashvalues_open_syncmers_canonical(
+        seq, parameters.k, parameters.s, parameters.t_syncmer
+    );
 
     unsigned int nr_hashes = string_hashes.size();
     if (nr_hashes == 0) {
         return randstrobes2;
     }
 
-    RandstrobeIterator randstrobe_fwd_iter { string_hashes, pos_to_seq_coordinate, w_min, w_max, q, max_dist };
+    RandstrobeIterator randstrobe_fwd_iter{
+        string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist
+    };
     while (randstrobe_fwd_iter.has_next()) {
         auto randstrobe = randstrobe_fwd_iter.next();
         randstrobes2.push_back(
-            QueryRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + k, false}
+            QueryRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.k, false}
         );
     }
 
     std::reverse(string_hashes.begin(), string_hashes.end());
     std::reverse(pos_to_seq_coordinate.begin(), pos_to_seq_coordinate.end());
     for (unsigned int i = 0; i < nr_hashes; i++) {
-        pos_to_seq_coordinate[i] = read_length - pos_to_seq_coordinate[i] - k;
+        pos_to_seq_coordinate[i] = read_length - pos_to_seq_coordinate[i] - parameters.k;
     }
 
-    RandstrobeIterator randstrobe_rc_iter { string_hashes, pos_to_seq_coordinate, w_min, w_max, q, max_dist };
+    RandstrobeIterator randstrobe_rc_iter{string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist};
     while (randstrobe_rc_iter.has_next()) {
         auto randstrobe = randstrobe_rc_iter.next();
         randstrobes2.push_back(
-            QueryRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + k, true}
+            QueryRandstrobe{
+                randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.k, true
+            }
         );
     }
     return randstrobes2;
