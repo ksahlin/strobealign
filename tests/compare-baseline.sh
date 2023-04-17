@@ -62,7 +62,7 @@ builddir=$(mktemp -p . -d build.XXXXXXX)
 cmake . -B ${builddir} ${cmake_options}
 make -j 4 -C ${builddir} strobealign
 set -x
-${builddir}/strobealign -t 4 ${ref} ${reads[@]} | samtools view -o head.bam
+${builddir}/strobealign --eqx -t 4 ${ref} ${reads[@]} | samtools view -o head.bam
 rm -rf ${builddir}
 
 # Do the actual comparison
