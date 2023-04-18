@@ -52,6 +52,8 @@ bool reverse_nam_if_needed(Nam& n, const Read& read, const References& reference
         return true;
     }
 
+    return false;
+
     // False forward or false reverse (possible due to symmetrical hash values)
     //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
     int q_start_tmp = read_len - n.query_e;
