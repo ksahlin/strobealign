@@ -138,8 +138,11 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("ref_start", &Nam::ref_s)
         .def_ro("ref_end", &Nam::ref_e)
         .def_ro("score", &Nam::score)
+        .def_ro("n_hits", &Nam::n_hits)
         .def_ro("reference_index", &Nam::ref_id)
         .def_ro("is_rc", &Nam::is_rc)
+        .def_prop_ro("ref_span", &Nam::ref_span)
+        .def_prop_ro("query_span", &Nam::query_span)
         .def("__repr__", [](const Nam& nam) {
             std::stringstream s; s << nam; return s.str();
         })
