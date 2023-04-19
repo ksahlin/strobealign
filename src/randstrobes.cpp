@@ -266,12 +266,13 @@ QueryRandstrobeVector randstrobes_query(const std::string& seq, const IndexParam
             pos_to_seq_coordinate[i] = read_length - pos_to_seq_coordinate[i] - parameters.k;
         }
 */
+        unsigned seq_length = seq.length();
         RandstrobeIterator randstrobe_rc_iter{string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist};
         while (randstrobe_rc_iter.has_next()) {
             auto randstrobe = randstrobe_rc_iter.next();
             randstrobes2.push_back(
                 QueryRandstrobe{
-                    randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.k, true
+                    randstrobe.hash, seq_length - randstrobe.strobe1_pos, seq_length - (randstrobe.strobe2_pos + parameters.k), true
                 }
             );
         }
