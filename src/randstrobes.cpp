@@ -198,60 +198,59 @@ Randstrobe RandstrobeIterator2::next() {
 }
 
 /*
- * Generate randstrobes for a query sequence (read).
- *
- * This function stores randstrobes for both directions created from canonical
- * syncmers. Since creating canonical syncmers is the most time consuming step,
- * we avoid performing it twice for the read and its reverse complement here.
+ * Generate randstrobes for a query sequence and its reverse complement.
  */
 QueryRandstrobeVector randstrobes_query(const std::string& seq, const IndexParameters& parameters) {
-    // this function differs from  the function seq_to_randstrobes2 which creating randstrobes for the reference.
-    // The seq_to_randstrobes2 stores randstobes only in one direction from canonical syncmers.
-    // this function stores randstobes from both directions created from canonical syncmers.
-    // Since creating canonical syncmers is the most time consuming step, we avoid perfomring it twice for the read and its RC here
-    QueryRandstrobeVector randstrobes2;
-    auto read_length = seq.length();
-    if (read_length < parameters.w_max) {
-        return randstrobes2;
+    QueryRandstrobeVector randstrobes;
+    if (seq.length() < parameters.w_max) {
+        return randstrobes;
     }
 
-    // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
-    std::vector<uint64_t> string_hashes;
-    std::vector<unsigned int> pos_to_seq_coordinate;
-
-    std::tie(string_hashes, pos_to_seq_coordinate) = make_string_to_hashvalues_open_syncmers_canonical(
+    // Generate syncmers for the forward sequence
+    auto [string_hashes, pos_to_seq_coordinate] = make_string_to_hashvalues_open_syncmers_canonical(
         seq, parameters.k, parameters.s, parameters.t_syncmer
     );
-
-    unsigned int nr_hashes = string_hashes.size();
-    if (nr_hashes == 0) {
-        return randstrobes2;
+    if (string_hashes.empty()) {
+        return randstrobes;
     }
 
+    // Generate randstrobes for the forward sequence
     RandstrobeIterator randstrobe_fwd_iter{
         string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist
     };
     while (randstrobe_fwd_iter.has_next()) {
         auto randstrobe = randstrobe_fwd_iter.next();
-        randstrobes2.push_back(
-            QueryRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.k, false}
+        randstrobes.push_back(
+            QueryRandstrobe{
+                randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.k, false
+            }
         );
     }
 
+    // For the reverse complement, we can re-use the syncmers of the forward
+    // sequence because canonical syncmers are invariant under reverse
+    // complementing. Only the coordinates need to be adjusted.
     std::reverse(string_hashes.begin(), string_hashes.end());
     std::reverse(pos_to_seq_coordinate.begin(), pos_to_seq_coordinate.end());
-    for (unsigned int i = 0; i < nr_hashes; i++) {
-        pos_to_seq_coordinate[i] = read_length - pos_to_seq_coordinate[i] - parameters.k;
+    for (size_t i = 0; i < string_hashes.size(); i++) {
+        pos_to_seq_coordinate[i] = seq.length() - pos_to_seq_coordinate[i] - parameters.k;
     }
 
-    RandstrobeIterator randstrobe_rc_iter{string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist};
+    // Randstrobes cannot be re-used for the reverse complement:
+    // If in the forward direction, syncmer[i] and syncmer[j] were paired up, it
+    // is not necessarily the case that syncmer[j] is going to be paired with
+    // syncmer[i] in the reverse direction because i is fixed in the forward
+    // direction and j is fixed in the reverse direction.
+    RandstrobeIterator randstrobe_rc_iter{
+        string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist
+    };
     while (randstrobe_rc_iter.has_next()) {
         auto randstrobe = randstrobe_rc_iter.next();
-        randstrobes2.push_back(
+        randstrobes.push_back(
             QueryRandstrobe{
                 randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.k, true
             }
         );
     }
-    return randstrobes2;
+    return randstrobes;
 }
