@@ -34,6 +34,7 @@ static inline bool score(const Nam &a, const Nam &b) {
  * - If first and last strobe do not match consistently, return false.
  */
 bool reverse_nam_if_needed(Nam& n, const Read& read, const References& references, int k) {
+    return true;
     auto read_len = read.size();
     std::string ref_start_kmer = references.sequences[n.ref_id].substr(n.ref_s, k);
     std::string ref_end_kmer = references.sequences[n.ref_id].substr(n.ref_e-k, k);
