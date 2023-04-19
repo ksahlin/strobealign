@@ -1426,35 +1426,65 @@ void align_SE_read(
     const References& references,
     const StrobemerIndex& index
 ) {
-    Timer strobe_timer;
-    auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
-    statistics.tot_construct_strobemers += strobe_timer.duration();
+    std::vector<bool> rcs{false, true};
+    std::string rc_seq = reverse_complement(record.seq);
+    std::vector<Nam> nams[2];
+    bool need_rescue[2] = {false, false};
+    QueryRandstrobeVector query_randstrobes[2];
+    for (int i = 0; i < 2; ++i) {
+        const std::string& seq = (i == 1) ? rc_seq : record.seq;
+        Timer strobe_timer;
+        query_randstrobes[i] = randstrobes_query(seq, index_parameters);
+        statistics.tot_construct_strobemers += strobe_timer.duration();
 
-    // Find NAMs
-    Timer nam_timer;
-    auto [nonrepetitive_fraction, nams] = find_nams(query_randstrobes, index);
-    statistics.tot_find_nams += nam_timer.duration();
+        // Find NAMs
+        Timer nam_timer;
+        float nonrepetitive_fraction;
+        std::tie(nonrepetitive_fraction, nams[i]) = find_nams(query_randstrobes[i], index);
+        statistics.tot_find_nams += nam_timer.duration();
 
-    if (map_param.R > 1) {
+        if (nams[i].empty() || nonrepetitive_fraction < 0.7) {
+            need_rescue[i] = true;
+        }
+    }
+    if (map_param.R > 1 && need_rescue[0] && need_rescue[1]) {
         Timer rescue_timer;
-        if (nams.empty() || nonrepetitive_fraction < 0.7) {
-            statistics.tried_rescue += 1;
-            nams = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff);
+        statistics.tried_rescue += 2;
+        for (int i = 0; i < 2; ++i) {
+            nams[i] = find_nams_rescue(query_randstrobes[i], index, map_param.rescue_cutoff);
         }
         statistics.tot_time_rescue += rescue_timer.duration();
     }
 
+    for (auto &n : nams[1]) {
+        n.is_rc = true;
+    }
+
     Timer nam_sort_timer;
-    std::sort(nams.begin(), nams.end(), score);
+    for (int i = 0; i < 2; ++i) {
+        std::sort(nams[i].begin(), nams[i].end(), score);
+    }
     statistics.tot_sort_nams += nam_sort_timer.duration();
+
+    // Forward or reverse complement?
+    int orientation;
+    if (nams[0].empty()) {
+        orientation = 1;
+    } else if (nams[1].empty()) {
+        orientation = 0;
+    } else if (nams[0][0].score >= nams[1][0].score) {
+        orientation = 0;
+    } else {
+        orientation = 1;
+    }
 
     Timer extend_timer;
     if (!map_param.is_sam_out) {
-        output_hits_paf(outstring, nams, record.name, references, index_parameters.k,
+        output_hits_paf(outstring, nams[orientation], record.name, references, index_parameters.k,
                         record.seq.length());
     } else {
         align_SE_secondary_hits(
-            aligner, sam, nams, record, index_parameters.k,
+            aligner, sam, nams[orientation], record, index_parameters.k,
             references, statistics, map_param.dropoff_threshold, map_param.maxTries,
             map_param.max_secondary + 1
         );

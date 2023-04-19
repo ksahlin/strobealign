@@ -220,10 +220,10 @@ QueryRandstrobeVector randstrobes_query(const std::string& seq, const IndexParam
     // The seq_to_randstrobes2 stores randstobes only in one direction from canonical syncmers.
     // this function stores randstobes from both directions created from canonical syncmers.
     // Since creating canonical syncmers is the most time consuming step, we avoid perfomring it twice for the read and its RC here
-    QueryRandstrobeVector randstrobes2;
+    QueryRandstrobeVector randstrobes;
     auto read_length = seq.length();
     if (read_length < parameters.w_max) {
-        return randstrobes2;
+        return randstrobes;
     }
     {
         // make string of strobes into hashvalues all at once to avoid repetitive k-mer to hash value computations
@@ -235,20 +235,20 @@ QueryRandstrobeVector randstrobes_query(const std::string& seq, const IndexParam
         );
 
         unsigned int nr_hashes = string_hashes.size();
-        if (nr_hashes == 0) {
-            return randstrobes2;
-        }
+        if (nr_hashes > 0) {
 
-        RandstrobeIterator randstrobe_fwd_iter{
-            string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist
-        };
-        while (randstrobe_fwd_iter.has_next()) {
-            auto randstrobe = randstrobe_fwd_iter.next();
-            randstrobes2.push_back(
-                QueryRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.k, false}
-            );
+            RandstrobeIterator randstrobe_fwd_iter{
+                string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist
+            };
+            while (randstrobe_fwd_iter.has_next()) {
+                auto randstrobe = randstrobe_fwd_iter.next();
+                randstrobes.push_back(
+                    QueryRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.k, false}
+                );
+            }
         }
     }
+    return randstrobes;
     {
         std::string rc_seq{reverse_complement(seq)};
         std::vector<uint64_t> string_hashes;
@@ -258,24 +258,23 @@ QueryRandstrobeVector randstrobes_query(const std::string& seq, const IndexParam
         );
 
         unsigned int nr_hashes = string_hashes.size();
-        /*if (nr_hashes == 0) {
-            return randstrobes2;
-        }*/
+        if (nr_hashes > 0) {
 
-/*        for (unsigned int i = 0; i < nr_hashes; i++) {
-            pos_to_seq_coordinate[i] = read_length - pos_to_seq_coordinate[i] - parameters.k;
-        }
-*/
-        unsigned seq_length = seq.length();
-        RandstrobeIterator randstrobe_rc_iter{string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist};
-        while (randstrobe_rc_iter.has_next()) {
-            auto randstrobe = randstrobe_rc_iter.next();
-            randstrobes2.push_back(
-                QueryRandstrobe{
-                    randstrobe.hash, seq_length - randstrobe.strobe1_pos, seq_length - (randstrobe.strobe2_pos + parameters.k), true
-                }
-            );
+    /*        for (unsigned int i = 0; i < nr_hashes; i++) {
+                pos_to_seq_coordinate[i] = read_length - pos_to_seq_coordinate[i] - parameters.k;
+            }
+    */
+            unsigned seq_length = rc_seq.length();
+            RandstrobeIterator randstrobe_rc_iter{string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist};
+            while (randstrobe_rc_iter.has_next()) {
+                auto randstrobe = randstrobe_rc_iter.next();
+                randstrobes.push_back(
+                    QueryRandstrobe{
+                        randstrobe.hash, seq_length - (randstrobe.strobe2_pos + parameters.k), seq_length - randstrobe.strobe1_pos, true
+                    }
+                );
+            }
         }
     }
-    return randstrobes2;
+    return randstrobes;
 }
