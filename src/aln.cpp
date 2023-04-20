@@ -1460,7 +1460,7 @@ void align_SE_read(
     statistics.tot_sort_nams += nam_sort_timer.duration();
 
     // Forward or reverse complement?
-    int orientation;
+    /*int orientation;
     if (nams[0].empty()) {
         orientation = 1;
     } else if (nams[1].empty()) {
@@ -1469,15 +1469,17 @@ void align_SE_read(
         orientation = 0;
     } else {
         orientation = 1;
-    }
+    }*/
 
+    std::vector<Nam> all_nams{nams[0]};
+    all_nams.insert(all_nams.begin(), nams[1].begin(), nams[1].end());
     Timer extend_timer;
     if (!map_param.is_sam_out) {
-        output_hits_paf(outstring, nams[orientation], record.name, references, index_parameters.k,
+        output_hits_paf(outstring, all_nams, record.name, references, index_parameters.k,
                         record.seq.length());
     } else {
         align_SE_secondary_hits(
-            aligner, sam, nams[orientation], record, index_parameters.k,
+            aligner, sam, all_nams, record, index_parameters.k,
             references, statistics, map_param.dropoff_threshold, map_param.maxTries,
             map_param.max_secondary + 1
         );
