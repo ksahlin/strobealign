@@ -1426,10 +1426,8 @@ void align_SE_read(
     const References& references,
     const StrobemerIndex& index
 ) {
-    std::vector<bool> rcs{false, true};
     std::string rc_seq = reverse_complement(record.seq);
     std::vector<Nam> nams[2];
-    bool need_rescue[2] = {false, false};
     QueryRandstrobeVector query_randstrobes[2];
     for (int i = 0; i < 2; ++i) {
         const std::string& seq = (i == 1) ? rc_seq : record.seq;
@@ -1443,17 +1441,12 @@ void align_SE_read(
         std::tie(nonrepetitive_fraction, nams[i]) = find_nams(query_randstrobes[i], index);
         statistics.tot_find_nams += nam_timer.duration();
 
-        if (nams[i].empty() || nonrepetitive_fraction < 0.7) {
-            need_rescue[i] = true;
-        }
-    }
-    if (map_param.R > 1 && need_rescue[0] && need_rescue[1]) {
-        Timer rescue_timer;
-        statistics.tried_rescue += 2;
-        for (int i = 0; i < 2; ++i) {
+        if (map_param.R > 1 && (nams[i].empty() || nonrepetitive_fraction < 0.7)) {
+            Timer rescue_timer;
+            statistics.tried_rescue += 2;
             nams[i] = find_nams_rescue(query_randstrobes[i], index, map_param.rescue_cutoff);
+            statistics.tot_time_rescue += rescue_timer.duration();
         }
-        statistics.tot_time_rescue += rescue_timer.duration();
     }
 
     for (auto &n : nams[1]) {
