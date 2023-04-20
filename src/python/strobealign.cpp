@@ -140,7 +140,7 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("score", &Nam::score)
         .def_ro("n_hits", &Nam::n_hits)
         .def_ro("reference_index", &Nam::ref_id)
-        .def_ro("is_rc", &Nam::is_rc)
+        .def_rw("is_rc", &Nam::is_rc)
         .def_prop_ro("ref_span", &Nam::ref_span)
         .def_prop_ro("query_span", &Nam::query_span)
         .def("__repr__", [](const Nam& nam) {
