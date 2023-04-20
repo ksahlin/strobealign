@@ -1473,6 +1473,7 @@ void align_SE_read(
 
     std::vector<Nam> all_nams{nams[0]};
     all_nams.insert(all_nams.begin(), nams[1].begin(), nams[1].end());
+    std::sort(all_nams.begin(), all_nams.end(), score);
     Timer extend_timer;
     if (!map_param.is_sam_out) {
         output_hits_paf(outstring, all_nams, record.name, references, index_parameters.k,
