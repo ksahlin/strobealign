@@ -713,7 +713,7 @@ static inline void rescue_mate(
     alignment &sam_aln,
     float mu,
     float sigma,
-    size_t &tot_rescued,
+    uint64_t &tot_rescued,
     int k
 ) {
     int a, b, ref_start,ref_len,ref_end;
