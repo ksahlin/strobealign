@@ -19,12 +19,12 @@ struct AlignmentStatistics {
     std::chrono::duration<double> tot_extend{0};
     std::chrono::duration<double> tot_write_file{0};
 
-    unsigned int n_reads = 0;
-    unsigned int tot_aligner_calls = 0;
-    unsigned int tot_rescued = 0;
-    unsigned int tot_all_tried = 0;
-    unsigned int did_not_fit = 0;
-    unsigned int tried_rescue = 0;
+    size_t n_reads = 0;
+    size_t tot_aligner_calls = 0;
+    size_t tot_rescued = 0;
+    size_t tot_all_tried = 0;
+    size_t did_not_fit = 0;
+    size_t tried_rescue = 0;
 
     AlignmentStatistics operator+=(const AlignmentStatistics& other) {
         this->tot_read_file += other.tot_read_file;
