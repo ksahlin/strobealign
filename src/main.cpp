@@ -110,7 +110,7 @@ void show_progress_until_done(std::vector<int>& worker_done, std::vector<Alignme
                 continue;
             }
         }
-        auto n_reads = 0;
+        auto n_reads = 0ull;
         for (auto& stat : stats) {
             n_reads += stat.n_reads;
         }
