@@ -52,6 +52,7 @@ NB_MODULE(strobealign_extension, m_) {
     // Add definitions to the *parent* module
     nb::module_ m = nb::module_::import_("strobealign");
 
+    m.doc() = "strobealign aligns short reads using dynamic seed size with strobemers";
     nb::enum_<LOG_LEVELS>(m, "LOG_LEVELS")
         .value("LOG_DEBUG", LOG_LEVELS::LOG_DEBUG)
         .value("LOG_INFO", LOG_LEVELS::LOG_INFO)
@@ -84,7 +85,7 @@ NB_MODULE(strobealign_extension, m_) {
         })
         .def("__len__", [](const References& refs) { return refs.sequences.size(); })
     ;
-    nb::class_<Record>(m, "Record")
+    nb::class_<Record>(m, "Record", "FASTA record")
         .def_prop_ro("name", &Record::name)
         .def_prop_ro("sequence", &Record::sequence)
     ;
@@ -98,7 +99,7 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("w_max", &IndexParameters::w_max)
         .def_ro("q", &IndexParameters::q)
     ;
-    nb::class_<RefRandstrobe>(m, "RefRandstrobe")
+    nb::class_<RefRandstrobe>(m, "RefRandstrobe", "Randstrobe on a reference")
         .def_ro("position", &RefRandstrobe::position)
         .def_prop_ro("reference_index", &RefRandstrobe::reference_index)
         .def_prop_ro("strobe2_offset", &RefRandstrobe::strobe2_offset)
