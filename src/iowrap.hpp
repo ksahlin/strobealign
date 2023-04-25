@@ -52,6 +52,33 @@ private:
     void open(const std::string& filename) override;
 };
 
+class RawIO : public AbstructIO
+{
+public:
+    RawIO(const std::string& filename)
+        : AbstructIO(filename)
+    {
+        open(filename);
+    }
+
+    virtual ~RawIO()
+    {
+        if(fd != -1) {
+            close();
+        }
+    }
+
+    int64_t read(void* buffer, size_t length) override;
+    std::string ReaderName() const {
+        return "RawIO";
+    }
+
+private:
+    int fd;
+    void open(const std::string& filename) override;
+    void close();
+};
+
 class IsalIO : public AbstructIO
 {
 public:

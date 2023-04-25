@@ -22,6 +22,28 @@ int64_t GeneralIO::read(void* buffer, size_t length)
     return gzread(file, buffer, length);
 }
 
+void RawIO::open(const std::string& filename)
+{
+    fd = ::open(filename.c_str(), 0);
+    if(fd < 0) {
+        throw InvalidFile("Could not open FASTQ file: " + filename);
+    }
+}
+
+void RawIO::close()
+{
+    if(fd != -1) {
+        ::close(fd);
+    }
+    fd = -1;
+}
+
+int64_t RawIO::read(void* buffer, size_t length)
+{
+    ssize_t ret = ::read(fd, buffer, length);
+    return ret;
+}
+
 void IsalIO::initialize()
 {
     isal_inflate_init(&state);

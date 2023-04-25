@@ -1,15 +1,25 @@
 #include "fastq.hpp"
 
 namespace {
-    inline bool isGzip(const std::string& filename)
+    inline bool checkExt(const std::string& filename, const std::string& target_ext)
     {
         auto ext_pos = filename.find_last_of(".");
         auto ext = filename.substr(ext_pos, filename.size() - ext_pos);
-        if(ext == ".gz") {
+        if(ext == target_ext) {
             return true;
         }
 
         return false;
+    }
+
+    inline bool isGzip(const std::string& filename)
+    {
+        return checkExt(filename, ".gz");
+    }
+
+    inline bool isRaw(const std::string& filename)
+    {
+        return checkExt(filename, ".fq") || checkExt(filename, ".fastq");
     }
 
     std::unique_ptr<AbstructIO> CreateIO(const std::string& filename)
@@ -17,6 +27,8 @@ namespace {
         std::unique_ptr<AbstructIO> io;
         if(isGzip(filename)) {
             io = std::make_unique<IsalIO>(filename);
+        } else if(isRaw(filename)) {
+            io = std::make_unique<RawIO>(filename);
         } else {
             io = std::make_unique<GeneralIO>(filename);
         }
