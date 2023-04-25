@@ -90,7 +90,9 @@ NB_MODULE(strobealign_extension, m_) {
         .def_prop_ro("sequence", &Record::sequence)
     ;
     nb::class_<IndexParameters>(m, "IndexParameters")
-        .def_static("from_read_length", [](int r) { return IndexParameters::from_read_length(r); })
+        .def_static("from_read_length", [](int r, int k = IndexParameters::DEFAULT, int s = IndexParameters::DEFAULT, int l = IndexParameters::DEFAULT, int u = IndexParameters::DEFAULT) {
+            return IndexParameters::from_read_length(r, k, s, l, u);
+        }, "r"_a, "k"_a = IndexParameters::DEFAULT, "s"_a = IndexParameters::DEFAULT, "l"_a = IndexParameters::DEFAULT, "u"_a = IndexParameters::DEFAULT)
         .def_ro("k", &IndexParameters::k)
         .def_ro("s", &IndexParameters::s)
         .def_ro("t", &IndexParameters::t_syncmer)
