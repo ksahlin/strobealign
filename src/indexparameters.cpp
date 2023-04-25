@@ -30,10 +30,10 @@ static std::vector<Profile> profiles = {
     };
 
 /* Create an IndexParameters instance based on a given read length.
- * c, k, s, l, u and max_seed_len can be used to override determined parameters
+ * k, s, l, u, c and max_seed_len can be used to override determined parameters
  * by setting them to a value other than IndexParameters::DEFAULT.
  */
-IndexParameters IndexParameters::from_read_length(int read_length, int c, int k, int s, int l, int u, int max_seed_len) {
+IndexParameters IndexParameters::from_read_length(int read_length, int k, int s, int l, int u, int c, int max_seed_len) {
     const int default_c = 8;
     size_t canonical_read_length = 50;
     for (const auto& p : profiles) {

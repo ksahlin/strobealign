@@ -103,11 +103,11 @@ int run_dumpstrobes(int argc, char **argv) {
     }
     IndexParameters index_parameters = IndexParameters::from_read_length(
         r,
-        c_set ? c : IndexParameters::DEFAULT,
         k_set ? k : IndexParameters::DEFAULT,
         s_set ? s : IndexParameters::DEFAULT,
         l_set ? l : IndexParameters::DEFAULT,
         u_set ? u : IndexParameters::DEFAULT,
+        c_set ? c : IndexParameters::DEFAULT,
         max_seed_len_set ? max_seed_len : IndexParameters::DEFAULT
     );
 

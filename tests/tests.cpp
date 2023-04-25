@@ -87,7 +87,7 @@ TEST_CASE("read_/write_vector") {
 TEST_CASE("both randstrobes iterator implementations give same results") {
     auto references = References::from_fasta("tests/phix.fasta");
     auto& seq = references.sequences[0];
-    auto parameters = IndexParameters::from_read_length(300, 8);
+    auto parameters = IndexParameters::from_read_length(300);
 
     std::vector<uint64_t> string_hashes;
     std::vector<unsigned int> pos_to_seq_coordinate;
