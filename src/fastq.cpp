@@ -1,11 +1,36 @@
 #include "fastq.hpp"
 
+namespace {
+    inline bool isGzip(const std::string& filename)
+    {
+        auto ext_pos = filename.find_last_of(".");
+        auto ext = filename.substr(ext_pos, filename.size() - ext_pos);
+        if(ext == ".gz") {
+            return true;
+        }
+
+        return false;
+    }
+
+    std::unique_ptr<AbstructIO> CreateIO(const std::string& filename)
+    {
+        std::unique_ptr<AbstructIO> io;
+        if(isGzip(filename)) {
+            io = std::make_unique<IsalIO>(filename);
+        } else {
+            io = std::make_unique<GeneralIO>(filename);
+        }
+        return io;
+    }
+};
+
 RewindableFile::RewindableFile(const std::string& filename)
     : file(nullptr),
     rewindable(true),
     stream_(klibpp::make_ikstream(this, rewind_read, 16384)) {
 
-    file = std::make_unique<GeneralIO>(filename);
+    file = CreateIO(filename);
+
     stream_ = klibpp::make_ikstream(this, rewind_read, 16384);
 }
 
