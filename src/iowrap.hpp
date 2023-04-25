@@ -56,7 +56,13 @@ class RawIO : public AbstructIO
 {
 public:
     RawIO(const std::string& filename)
-        : AbstructIO(filename)
+        : AbstructIO(filename),
+          fd(-1),
+          preload_size(256ull * 1024 * 1024),
+          read_buffer(),
+          read_buffer_work(),
+          read_buffer_copied(0),
+          thread_reader()
     {
         open(filename);
     }
@@ -75,6 +81,17 @@ public:
 
 private:
     int fd;
+
+    void preload(size_t size);
+
+    size_t preload_size;
+
+    std::vector<uint8_t> read_buffer;
+    std::vector<uint8_t> read_buffer_work;
+    size_t read_buffer_copied;
+
+    std::thread thread_reader;
+
     void open(const std::string& filename) override;
     void close();
 };
