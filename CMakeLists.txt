@@ -42,8 +42,9 @@ ExternalProject_Add(
   BUILD_COMMAND make -f Makefile.unx
   INSTALL_COMMAND ""
 )
-set(ISAL_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/ISAL/src/ISAL/include")
-set(ISAL_LIB "${CMAKE_CURRENT_BINARY_DIR}/ISAL/src/ISAL/bin/isa-l.a")
+ExternalProject_Get_property(ISAL SOURCE_DIR)
+set(ISAL_INCLUDE_DIR "${SOURCE_DIR}/include")
+set(ISAL_LIB "${SOURCE_DIR}/bin/isa-l.a")
 
 # Obtain version from Git or fall back to PROJECT_VERSION if not building
 # from a Git repository
