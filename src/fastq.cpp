@@ -4,17 +4,12 @@ RewindableFile::RewindableFile(const std::string& filename)
     : file(nullptr),
     rewindable(true),
     stream_(klibpp::make_ikstream(this, rewind_read, 16384)) {
-    if (filename != "") {
-        file = gzopen(filename.c_str(), "r");
-        if (file == nullptr) {
-            throw InvalidFile("Could not open FASTQ file: " + filename);
-        }
-    }
+
+    file = std::make_unique<GeneralIO>(filename);
     stream_ = klibpp::make_ikstream(this, rewind_read, 16384);
 }
 
 RewindableFile::~RewindableFile() {
-    if (file) gzclose(file);
 }
 
 void RewindableFile::rewind() {
@@ -41,7 +36,7 @@ int RewindableFile::read(void* buffer, const int length) {
         return can_read +
             this->read(static_cast<char*>(buffer) + can_read, length - can_read);
     }
-    const int bytes_read = gzread(file, buffer, length);
+    const auto bytes_read = file->read(buffer, length);
     if (bytes_read < 0) {
         throw std::runtime_error("Error reading FASTQ file");
     }
