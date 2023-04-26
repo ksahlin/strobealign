@@ -4,6 +4,7 @@ project(strobealign VERSION 0.9.0)
 include(FetchContent)
 
 option(ENABLE_AVX "Enable AVX2 support" OFF)
+option(PYTHON_BINDINGS "Build Python bindings" OFF)
 
 find_package(ZLIB)
 find_package(Threads)
@@ -75,8 +76,9 @@ add_dependencies(salib version)
 
 add_executable(strobealign src/main.cpp)
 target_link_libraries(strobealign PUBLIC salib)
-install(TARGETS strobealign DESTINATION bin)
-
+if(NOT PYTHON_BINDINGS)
+  install(TARGETS strobealign DESTINATION bin)
+endif()
 add_executable(test-strobealign
   tests/tests.cpp
   tests/test_input.cpp
@@ -96,3 +98,7 @@ target_include_directories(dumpstrobes PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 add_executable(unused-code src/unused.cpp)
 target_link_libraries(unused-code salib)
 target_include_directories(unused-code PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
+
+if(PYTHON_BINDINGS)
+  add_subdirectory(src/python)
+endif()

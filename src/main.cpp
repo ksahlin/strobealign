@@ -150,11 +150,11 @@ int run_strobealign(int argc, char **argv) {
     input_buffer.rewind_reset();
     IndexParameters index_parameters = IndexParameters::from_read_length(
         opt.r,
-        opt.c_set ? opt.c : IndexParameters::DEFAULT,
         opt.k_set ? opt.k : IndexParameters::DEFAULT,
         opt.s_set ? opt.s : IndexParameters::DEFAULT,
         opt.l_set ? opt.l : IndexParameters::DEFAULT,
         opt.u_set ? opt.u : IndexParameters::DEFAULT,
+        opt.c_set ? opt.c : IndexParameters::DEFAULT,
         opt.max_seed_len_set ? opt.max_seed_len : IndexParameters::DEFAULT
     );
     logger.debug() << index_parameters << '\n';
