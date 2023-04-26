@@ -258,6 +258,15 @@ See [Changelog](CHANGES.md).
 
 See [Contributing](CONTRIBUTING.md).
 
+## Code formatting
+
+We use [clang-format](https://clang.llvm.org/docs/ClangFormat.html). You can
+manually format a changed file by running
+`clang-format -style=file src/filename.cpp` or (preferably) install
+[pre-commit](https://pre-commit.com/) and run `pre-commit install` to add a
+Git pre-commit hook that will run when you commit your changes and will
+automatically reformat changed files touched by the commit.
+
 
 ## Evaluation
 
