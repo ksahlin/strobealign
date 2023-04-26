@@ -1384,7 +1384,7 @@ void align_PE_read(
     Timer nam_sort_timer;
     std::sort(nams1.begin(), nams1.end(), score);
     std::sort(nams2.begin(), nams2.end(), score);
-    statistics.tot_sort_nams += nam_timer.duration();
+    statistics.tot_sort_nams += nam_sort_timer.duration();
 
     Timer extend_timer;
     if (!map_param.is_sam_out) {
