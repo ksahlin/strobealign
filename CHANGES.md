@@ -6,6 +6,8 @@
 * #260: Include full command line in the SAM PG header. Thanks @telmin.
 * #20: By default, emit `M` CIGAR operations instead of `=` and `X`.
   Added option `--eqx` to use `=` and `X` as before.
+* #265: Fixed overflowing read count statistics when processing $2^{31}$ reads
+  or more. Thanks @telmin.
 
 ## v0.9.0 (2023-03-16)
 
