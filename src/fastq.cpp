@@ -4,6 +4,9 @@ namespace {
     inline bool checkExt(const std::string& filename, const std::string& target_ext)
     {
         auto ext_pos = filename.find_last_of(".");
+        if(ext_pos == std::string::npos) {
+            return false;
+        }
         auto ext = filename.substr(ext_pos, filename.size() - ext_pos);
         if(ext == target_ext) {
             return true;
