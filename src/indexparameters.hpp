@@ -1,5 +1,5 @@
-#ifndef INDEXPARAMETERS_HPP
-#define INDEXPARAMETERS_HPP
+#ifndef STROBEALIGN_INDEXPARAMETERS_HPP
+#define STROBEALIGN_INDEXPARAMETERS_HPP
 
 #include <cstdint>
 #include <algorithm>

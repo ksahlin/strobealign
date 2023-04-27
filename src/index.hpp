@@ -1,11 +1,7 @@
-//
-//  index.hpp
-//  cpp_course
-//
 //  Created by Kristoffer Sahlin on 4/21/21.
-//
-#ifndef index_hpp
-#define index_hpp
+
+#ifndef STROBEALIGN_INDEX_HPP
+#define STROBEALIGN_INDEX_HPP
 
 #include <chrono>
 #include <stdio.h>

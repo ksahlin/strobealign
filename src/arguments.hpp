@@ -1,5 +1,5 @@
-#ifndef ARGUMENTS_HPP
-#define ARGUMENTS_HPP
+#ifndef STROBEALIGN_ARGUMENTS_HPP
+#define STROBEALIGN_ARGUMENTS_HPP
 
 #include <args.hxx>
 

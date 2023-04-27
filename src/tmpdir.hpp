@@ -1,5 +1,5 @@
-#ifndef TMPDIR_HPP
-#define TMPDIR_HPP
+#ifndef STROBEALIGN_TMPDIR_HPP
+#define STROBEALIGN_TMPDIR_HPP
 
 #include <filesystem>
 #include <sstream>

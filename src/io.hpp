@@ -1,5 +1,5 @@
-#ifndef IO_HPP
-#define IO_HPP
+#ifndef STROBEALIGN_IO_HPP
+#define STROBEALIGN_IO_HPP
 
 #include <iostream>
 #include <vector>

@@ -1,5 +1,5 @@
-#ifndef REFS_HPP
-#define REFS_HPP
+#ifndef STROBEALIGN_REFS_HPP
+#define STROBEALIGN_REFS_HPP
 
 #include <cstdint>
 #include <string>

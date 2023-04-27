@@ -1,5 +1,5 @@
-#ifndef FASTQ_HPP
-#define FASTQ_HPP
+#ifndef STROBEALIGN_FASTQ_HPP
+#define STROBEALIGN_FASTQ_HPP
 
 #include <zlib.h>
 #include <string>
