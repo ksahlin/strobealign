@@ -1,5 +1,5 @@
-#ifndef pc_hpp
-#define pc_hpp
+#ifndef STROBEALIGN_PC_HPP
+#define STROBEALIGN_PC_HPP
 
 #include <thread>
 #include <condition_variable>

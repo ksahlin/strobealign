@@ -1,5 +1,5 @@
-#ifndef exceptions_hpp
-#define exceptions_hpp
+#ifndef STROBEALIGN_EXCEPTIONS_HPP
+#define STROBEALIGN_EXCEPTIONS_HPP
 
 #include <stdexcept>
 #include <string>

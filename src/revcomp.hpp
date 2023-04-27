@@ -1,5 +1,5 @@
-#ifndef REVCOMP_HPP
-#define REVCOMP_HPP
+#ifndef STROBEALIGN_REVCOMP_HPP
+#define STROBEALIGN_REVCOMP_HPP
 
 #include <string>
 #include <algorithm>

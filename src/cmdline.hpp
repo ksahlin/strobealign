@@ -1,5 +1,5 @@
-#ifndef CMDLINE_HPP
-#define CMDLINE_HPP
+#ifndef STROBEALIGN_CMDLINE_HPP
+#define STROBEALIGN_CMDLINE_HPP
 
 #include <vector>
 #include <string>

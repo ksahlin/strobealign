@@ -1,5 +1,5 @@
-#ifndef LOGGER_HPP
-#define LOGGER_HPP
+#ifndef STROBEALIGN_LOGGER_HPP
+#define STROBEALIGN_LOGGER_HPP
 
 #include <ostream>
 #include <iostream>

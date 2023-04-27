@@ -1,5 +1,5 @@
-#ifndef TIMER_HPP
-#define TIMER_HPP
+#ifndef STROBEALIGN_TIMER_HPP
+#define STROBEALIGN_TIMER_HPP
 
 #include <chrono>
 
