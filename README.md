@@ -192,40 +192,7 @@ See [Changelog](CHANGES.md).
 Contributing
 ------------
 
-Contributions to strobealign are very welcome! For small things, just submit a
-PR. When you want to make larger changes, it may be a good idea to first open an
-issue or to send an e-mail so we can discuss it.
-
-## Compiling
-
-When compiling strobealign, you can add `-DCMAKE_BUILD_TYPE=RelWithDebInfo` to
-the `cmake` options to get debug symbols.
-
-If needed, run `make` with `VERBOSE=1` to get more logging output.
-
-After CMake has been run, you can use this one-liner to compile strobealign and
-run the tests:
-```
-make -j -C build && tests/run.sh
-```
-
-## Testing
-
-Whenever you make changes that could potentially affect mapping results, you can
-run a more elaborate test that compares strobealign against a “baseline”
-(know good) commit. Just run this script:
-```
-tests/compare-baseline.sh
-```
-The first time, it will download the D. melanogaster genome and some reads from
-the SRA. Since the dataset is truncated to the first 100'000 reads, mapping it
-should take less than 30 seconds.
-
-The baseline commit is configured in `tests/baseline-commit.txt`. The script
-builds strobealign from that commit and runs it against the downloaded test
-data, then builds strobealign as it is in your working copy and compares the
-two produced BAM files. The baseline BAM is cached and re-used as long as the
-baseline commit does not change.
+See [Contributing](CONTRIBUTING.md).
 
 
 V0.7 Performance
