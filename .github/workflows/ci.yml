@@ -101,6 +101,12 @@ jobs:
           make -j3 -C baseline/build
           baseline/build/strobealign tests/drosophila/ref.fasta tests/drosophila/reads.1.fastq.gz tests/drosophila/reads.2.fastq.gz | samtools view -o baseline.bam
 
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get install nasm
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install nasm
       - name: Build HEAD version
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
