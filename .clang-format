@@ -1,0 +1,13 @@
+---
+Language:        Cpp
+BasedOnStyle:  Chromium
+AlignAfterOpenBracket: BlockIndent
+IndentWidth:     4
+ColumnLimit:     110
+ReflowComments:  false
+BreakConstructorInitializers: BeforeComma
+BreakInheritanceList: BeforeComma
+SpaceAfterCStyleCast: true
+SpaceInEmptyBlock: true
+
+# Possibly configure IncludeCategories
