@@ -72,7 +72,7 @@ void RawIO::preload(size_t size)
 {
     read_buffer_work.resize(preload_size);
     auto actual_size = ::read(fd, read_buffer_work.data(), size);
-    if(actual_size != size) {
+    if(actual_size != (decltype(actual_size))size) {
         read_buffer_work.resize(actual_size);
     }
 }
@@ -176,7 +176,7 @@ void IsalIO::decompress(size_t count)
     uncompressed_data_work.resize(std::max(count, previous_member_size));
     uint8_t* ptr = uncompressed_data_work.data();
 
-    while(ptr - uncompressed_data_work.data() < count) {
+    while((uintptr_t)(ptr - uncompressed_data_work.data()) < (uintptr_t)count) {
         if(compressed_size == 0) break;
 
         size_t actual_input_size     = std::min(decompress_chunk_size, compressed_size);
