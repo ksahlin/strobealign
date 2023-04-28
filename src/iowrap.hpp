@@ -1,85 +1,69 @@
 #ifndef IO_WRAP_HPP
 #define IO_WRAP_HPP
 
-#include <string>
 #include <cstdint>
+#include <string>
 
 #include <zlib.h>
-#include "isa-l/igzip_lib.h"
 #include <vector>
+#include "isa-l/igzip_lib.h"
 
 #include <thread>
 
-class AbstractIO
-{
-public:
-    AbstractIO(const std::string&)
-    {}
+class AbstractIO {
+   public:
+    AbstractIO(const std::string&) { }
 
-    virtual ~AbstractIO() {}
+    virtual ~AbstractIO() { }
 
     virtual int64_t read(void* buffer, size_t length) = 0;
     virtual std::string ReaderName() const = 0;
 
-protected:
+   protected:
     virtual void open(const std::string& filename) = 0;
 };
 
+class GeneralIO : public AbstractIO {
+   public:
+    GeneralIO(const std::string& filename) : AbstractIO(filename) { open(filename); }
 
-class GeneralIO : public AbstractIO
-{
-public:
-    GeneralIO(const std::string& filename)
-        : AbstractIO(filename)
-    {
-        open(filename);
-    }
-
-    virtual ~GeneralIO()
-    {
-        if(file) {
+    virtual ~GeneralIO() {
+        if (file) {
             gzclose(file);
         }
     }
 
     int64_t read(void* buffer, size_t length) override;
-    std::string ReaderName() const override {
-        return "GeneralIO";
-    }
+    std::string ReaderName() const override { return "GeneralIO"; }
 
-private:
+   private:
     gzFile file;
     void open(const std::string& filename) override;
 };
 
-class RawIO : public AbstractIO
-{
-public:
+class RawIO : public AbstractIO {
+   public:
     RawIO(const std::string& filename)
-        : AbstractIO(filename),
-          fd(-1),
-          preload_size(256ull * 1024 * 1024),
-          read_buffer(),
-          read_buffer_work(),
-          read_buffer_copied(0),
-          thread_reader()
-    {
+        : AbstractIO(filename)
+        , fd(-1)
+        , preload_size(256ull * 1024 * 1024)
+        , read_buffer()
+        , read_buffer_work()
+        , read_buffer_copied(0)
+        , thread_reader() {
         open(filename);
     }
 
-    virtual ~RawIO()
-    {
-        if(fd != -1) {
+    virtual ~RawIO() {
+        if (fd != -1) {
             close();
         }
     }
 
     int64_t read(void* buffer, size_t length) override;
-    std::string ReaderName() const {
-        return "RawIO";
-    }
+    std::string ReaderName() const { return "RawIO"; }
 
-private:
+   private:
     int fd;
 
     void preload(size_t size);
@@ -96,41 +80,36 @@ private:
     void close();
 };
 
-class IsalIO : public AbstractIO
-{
-public:
+class IsalIO : public AbstractIO {
+   public:
     IsalIO(const std::string& filename)
-        : AbstractIO(filename),
-          fd(-1),
-          mmap_mem(nullptr),
-          filesize(-1),
-          mmap_size(-1),
-          uncompressed_data(),
-          uncompressed_data_work(),
-          uncompressed_data_copied(0),
-          compressed_data(nullptr),
-          compressed_size(0),
-          decompress_chunk_size(2567ull * 1024 * 1024),
-          previous_member_size(1024ull * 1024 * 1024),
-          thread_reader()
-    {
+        : AbstractIO(filename)
+        , fd(-1)
+        , mmap_mem(nullptr)
+        , filesize(-1)
+        , mmap_size(-1)
+        , uncompressed_data()
+        , uncompressed_data_work()
+        , uncompressed_data_copied(0)
+        , compressed_data(nullptr)
+        , compressed_size(0)
+        , decompress_chunk_size(2567ull * 1024 * 1024)
+        , previous_member_size(1024ull * 1024 * 1024)
+        , thread_reader() {
         initialize();
         open(filename);
     }
 
-    virtual ~IsalIO()
-    {
-        if(fd != -1) {
+    virtual ~IsalIO() {
+        if (fd != -1) {
             close();
         }
     }
 
     int64_t read(void* buffer, size_t length) override;
-    std::string ReaderName() const override {
-        return "IsalIO";
-    }
+    std::string ReaderName() const override { return "IsalIO"; }
 
-private:
+   private:
     int fd;
     void* mmap_mem;
     ssize_t filesize;
