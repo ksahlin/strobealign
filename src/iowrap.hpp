@@ -61,7 +61,7 @@ class RawIO : public AbstractIO {
     }
 
     int64_t read(void* buffer, size_t length) override;
-    std::string ReaderName() const { return "RawIO"; }
+    std::string ReaderName() const override { return "RawIO"; }
 
    private:
     int fd;
