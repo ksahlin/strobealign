@@ -190,7 +190,7 @@ void IsalIO::decompress(size_t count)
 
         auto ret = isal_inflate(&state);
         if(ret != ISAL_DECOMP_OK) {
-            throw std::runtime_error("Error encountered whikle decompressing");
+            throw std::runtime_error("Error encountered while decompressing");
             exit(-1);
         }
 
