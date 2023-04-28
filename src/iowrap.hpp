@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #include <zlib.h>
-#include "igzip_lib.h"
+#include "isa-l/igzip_lib.h"
 #include <vector>
 
 #include <thread>

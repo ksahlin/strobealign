@@ -31,21 +31,6 @@ FetchContent_Declare(ZStrGitRepo
 )
 FetchContent_MakeAvailable(ZStrGitRepo)
 
-### add isal
-include(ExternalProject)
-ExternalProject_Add(
-  ISAL
-  GIT_REPOSITORY https://github.com/intel/isa-l
-  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ISAL
-  BUILD_IN_SOURCE 1
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND make -f Makefile.unx
-  INSTALL_COMMAND ""
-)
-ExternalProject_Get_property(ISAL SOURCE_DIR)
-set(ISAL_INCLUDE_DIR "${SOURCE_DIR}/include")
-set(ISAL_LIB "${SOURCE_DIR}/bin/isa-l.a")
-
 # Obtain version from Git or fall back to PROJECT_VERSION if not building
 # from a Git repository
 add_custom_target(version
@@ -83,9 +68,10 @@ add_library(salib STATIC ${SOURCES}
   ext/ssw/ssw_cpp.cpp
   ext/ssw/ssw.c
 )
-target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR} ${ISAL_INCLUDE_DIR})
-target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr ${ISAL_LIB})
-add_dependencies(salib ISAL)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(ISAL REQUIRED IMPORTED_TARGET GLOBAL libisal>=2.30.0)
+target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
+target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr PkgConfig::ISAL)
 IF(ENABLE_AVX)
   target_compile_options(salib PUBLIC "-mavx2")
 ENDIF()
