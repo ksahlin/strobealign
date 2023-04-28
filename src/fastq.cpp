@@ -1,7 +1,7 @@
 #include "fastq.hpp"
 
 namespace {
-    inline bool checkExt(const std::string& filename, const std::string& target_ext)
+    bool checkExt(const std::string& filename, const std::string& target_ext)
     {
         auto ext_pos = filename.find_last_of(".");
         if(ext_pos == std::string::npos) {
