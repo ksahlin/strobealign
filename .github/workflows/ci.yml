@@ -30,10 +30,10 @@ jobs:
       - uses: actions/checkout@v3
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get install nasm
+        run: sudo apt-get install libisal-dev
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
-        run: brew install nasm
+        run: brew install isa-l
       - name: Build
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
@@ -56,10 +56,10 @@ jobs:
           python-version: "3.10"
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get install nasm
+        run: sudo apt-get install libisal-dev
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
-        run: brew install nasm
+        run: brew install isa-l
       - name: Install Python dependencies
         run: pip install pytest
       - name: Install Python bindings
@@ -109,10 +109,10 @@ jobs:
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get install nasm
+        run: sudo apt-get install libisal-dev
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
-        run: brew install nasm
+        run: brew install isa-l
       - name: Build HEAD version
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
