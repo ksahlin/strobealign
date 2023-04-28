@@ -10,13 +10,13 @@
 
 #include <thread>
 
-class AbstructIO
+class AbstractIO
 {
 public:
-    AbstructIO(const std::string&)
+    AbstractIO(const std::string&)
     {}
 
-    virtual ~AbstructIO() {}
+    virtual ~AbstractIO() {}
 
     virtual int64_t read(void* buffer, size_t length) = 0;
     virtual std::string ReaderName() const = 0;
@@ -26,11 +26,11 @@ protected:
 };
 
 
-class GeneralIO : public AbstructIO
+class GeneralIO : public AbstractIO
 {
 public:
     GeneralIO(const std::string& filename)
-        : AbstructIO(filename)
+        : AbstractIO(filename)
     {
         open(filename);
     }
@@ -52,11 +52,11 @@ private:
     void open(const std::string& filename) override;
 };
 
-class RawIO : public AbstructIO
+class RawIO : public AbstractIO
 {
 public:
     RawIO(const std::string& filename)
-        : AbstructIO(filename),
+        : AbstractIO(filename),
           fd(-1),
           preload_size(256ull * 1024 * 1024),
           read_buffer(),
@@ -96,11 +96,11 @@ private:
     void close();
 };
 
-class IsalIO : public AbstructIO
+class IsalIO : public AbstractIO
 {
 public:
     IsalIO(const std::string& filename)
-        : AbstructIO(filename),
+        : AbstractIO(filename),
           fd(-1),
           mmap_mem(nullptr),
           filesize(-1),

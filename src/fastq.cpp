@@ -25,9 +25,9 @@ namespace {
         return check_ext(filename, ".fq") || check_ext(filename, ".fastq");
     }
 
-    std::unique_ptr<AbstructIO> create_io(const std::string& filename)
+    std::unique_ptr<AbstractIO> create_io(const std::string& filename)
     {
-        std::unique_ptr<AbstructIO> io;
+        std::unique_ptr<AbstractIO> io;
         if(is_gzip(filename)) {
             io = std::make_unique<IsalIO>(filename);
         } else if(is_raw(filename)) {
