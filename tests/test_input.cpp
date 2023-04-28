@@ -104,3 +104,14 @@ TEST_CASE("RewindableFile") {
     rf.read(buf2, 1024);
     CHECK(memcmp(buf1, buf2, 1024) == 0);
 }
+
+TEST_CASE("same_name"){
+    CHECK(same_name("a", "a"));
+    CHECK(same_name("abc", "abc"));
+    CHECK(same_name("abc/1", "abc/2"));
+
+    CHECK(!same_name("a", "b"));
+    CHECK(!same_name("a/1", "b/2"));
+    CHECK(!same_name("abc/", "abx/"));
+    CHECK(!same_name("abc/2", "abc/1"));
+}

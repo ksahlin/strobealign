@@ -16,6 +16,19 @@
 #include "kseq++.hpp"
 #include "sam.hpp"
 
+
+// checks if two read names are the same ignoring /1 suffix on the first one
+// and /2 on the second one (if present)
+bool same_name(const std::string& n1, const std::string& n2) {
+    if (n1.length() != n2.length()) return false;
+    if (n1.length() <= 2) return n1 == n2;
+    size_t i = 0;
+    for ( ; i < n1.length() - 1; ++i) {
+        if (n1[i] != n2[i]) return false;
+    }
+    if (n1[i - 1] == '/' && n1[i] == '1' && n2[i] == '2') return true;
+    return n1[i] == n2[i];
+}
 // distribute_interleaved implements the 'interleaved' format:
 // If two consequent reads have the same name, they are considered to be a pair.
 // Otherwise, they are considered to be single-end reads.
@@ -28,7 +41,7 @@ void distribute_interleaved(
 ) {
     auto it = records.begin();
     if (lookahead1) {
-        if (it != records.end() && lookahead1->name == it->name) {
+        if (it != records.end() && same_name(lookahead1->name, it->name)) {
             records1.push_back(*lookahead1);
             records2.push_back(*it);
             ++it;
@@ -38,7 +51,7 @@ void distribute_interleaved(
         lookahead1 = std::nullopt;
     }
     for (; it != records.end(); ++it) {
-        if (it + 1 != records.end() && it->name == (it + 1)->name) {
+        if (it + 1 != records.end() && same_name(it->name, (it + 1)->name)) {
             records1.push_back(*it);
             records2.push_back(*(it + 1));
             ++it;

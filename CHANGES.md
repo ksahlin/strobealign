@@ -8,6 +8,7 @@
   Added option `--eqx` to use `=` and `X` as before.
 * #265: Fixed overflowing read count statistics when processing $2^{31}$ reads
   or more. Thanks @telmin.
+* #273: Fix handling of interleaved files using /1 or /2 suffixes
 
 ## v0.9.0 (2023-03-16)
 
