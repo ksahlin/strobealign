@@ -1,7 +1,7 @@
 #include "fastq.hpp"
 
 namespace {
-    bool checkExt(const std::string& filename, const std::string& target_ext)
+    bool check_ext(const std::string& filename, const std::string& target_ext)
     {
         auto ext_pos = filename.find_last_of(".");
         if(ext_pos == std::string::npos) {
@@ -15,22 +15,22 @@ namespace {
         return false;
     }
 
-    inline bool isGzip(const std::string& filename)
+    inline bool is_gzip(const std::string& filename)
     {
-        return checkExt(filename, ".gz");
+        return check_ext(filename, ".gz");
     }
 
-    inline bool isRaw(const std::string& filename)
+    inline bool is_raw(const std::string& filename)
     {
-        return checkExt(filename, ".fq") || checkExt(filename, ".fastq");
+        return check_ext(filename, ".fq") || check_ext(filename, ".fastq");
     }
 
-    std::unique_ptr<AbstructIO> CreateIO(const std::string& filename)
+    std::unique_ptr<AbstructIO> create_io(const std::string& filename)
     {
         std::unique_ptr<AbstructIO> io;
-        if(isGzip(filename)) {
+        if(is_gzip(filename)) {
             io = std::make_unique<IsalIO>(filename);
-        } else if(isRaw(filename)) {
+        } else if(is_raw(filename)) {
             io = std::make_unique<RawIO>(filename);
         } else {
             io = std::make_unique<GeneralIO>(filename);
@@ -44,7 +44,7 @@ RewindableFile::RewindableFile(const std::string& filename)
     rewindable(true),
     stream_(klibpp::make_ikstream(this, rewind_read, 16384)) {
 
-    file = CreateIO(filename);
+    file = create_io(filename);
 
     stream_ = klibpp::make_ikstream(this, rewind_read, 16384);
 }
