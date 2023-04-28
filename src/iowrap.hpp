@@ -1,5 +1,5 @@
-#ifndef IO_WRAP_HPP
-#define IO_WRAP_HPP
+#ifndef STROBEALIGN_IOWRAP_HPP
+#define STROBEALIGN_IOWRAP_HPP
 
 #include <cstdint>
 #include <string>
