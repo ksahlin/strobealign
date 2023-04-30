@@ -9,6 +9,7 @@ option(PYTHON_BINDINGS "Build Python bindings" OFF)
 find_package(ZLIB)
 find_package(Threads)
 find_package(OpenMP)
+find_package(PkgConfig REQUIRED)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -68,7 +69,6 @@ add_library(salib STATIC ${SOURCES}
   ext/ssw/ssw_cpp.cpp
   ext/ssw/ssw.c
 )
-find_package(PkgConfig REQUIRED)
 pkg_check_modules(ISAL REQUIRED IMPORTED_TARGET GLOBAL libisal>=2.30.0)
 target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr PkgConfig::ISAL)
