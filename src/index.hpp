@@ -138,7 +138,6 @@ struct StrobemerIndex {
         , references(references) {}
     unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
                                 //therefore stored here since it needs to be saved with the index.
-    RefRandstrobeVector flat_vector;
     mutable IndexCreationStatistics stats;
 
     void write(const std::string& filename) const;
@@ -146,11 +145,6 @@ struct StrobemerIndex {
     void populate(float f, size_t n_threads);
     void print_diagnostics(const std::string& logfile_name, int k) const;
     unsigned int find(uint64_t key) const;
-    static const unsigned int N = 28;  // store N bits in the 
-    static const uint64_t hash_mask = (((uint64_t)1 << (64 - N)) - 1);
-    // RandstrobeMap::const_iterator find(uint64_t key) const {
-    //     return randstrobe_map.find(key);
-    // }
 
     uint64_t get_hash(unsigned int position) const {
         if (position < randstrobes_vector.size()){
@@ -158,7 +152,15 @@ struct StrobemerIndex {
         }else{
             return -1;
         }
-    } 
+    }
+
+    // uint64_t get_hash_mask() const{
+    //     return hash_mask;
+    // }
+
+    // unsigned int get_N() const{
+    //     return N;
+    // }
 
     unsigned int get_strob1_position(unsigned int position) const {
         return randstrobes_vector[position].position;
@@ -177,28 +179,20 @@ struct StrobemerIndex {
         return count;
     }
 
-    RandstrobeMap::const_iterator end() const {
-        return randstrobe_map.cend();
-    }
-
-    void add_entry(uint64_t key, unsigned int offset, unsigned int count) {
-        randstrobe_map[key] = RandstrobeMapEntry{offset, count};
-    }
-
     int k() const {
         return parameters.k;
     }
-    
+
 private:
-    // std::vector<RefRandstrobeWithHash> add_randstrobes_to_hash_table();
     void add_randstrobes_to_vector(int randstrobe_hashes);
     const IndexParameters& parameters;
     const References& references;
     std::vector<RefRandstrobeWithHash> randstrobes_vector;
-    unsigned int* hash_positions = new unsigned int[1 << N](); // the position array used to store the position of the hash in the hash vector;
-    RandstrobeMap randstrobe_map; // k-mer -> (offset in flat_vector, occurence count )
+    std::vector<unsigned int> hash_positions;
     static const int bit_alloc = 8;
     static const int mask = (1 << bit_alloc) - 1;
+    const unsigned int N = parameters.n;
+    const uint64_t hash_mask = (((uint64_t)1 << (64 - N)) - 1);
 };
 
 #endif

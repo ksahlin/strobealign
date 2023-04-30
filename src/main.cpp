@@ -154,7 +154,8 @@ int run_strobealign(int argc, char **argv) {
         opt.s_set ? opt.s : IndexParameters::DEFAULT,
         opt.l_set ? opt.l : IndexParameters::DEFAULT,
         opt.u_set ? opt.u : IndexParameters::DEFAULT,
-        opt.max_seed_len_set ? opt.max_seed_len : IndexParameters::DEFAULT
+        opt.max_seed_len_set ? opt.max_seed_len : IndexParameters::DEFAULT,
+        opt.n_set ? opt.n : 28
     );
     logger.debug() << index_parameters << '\n';
     alignment_params aln_params;
