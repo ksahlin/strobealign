@@ -25,15 +25,15 @@ namespace {
         return check_ext(filename, ".fq") || check_ext(filename, ".fastq");
     }
 
-    std::unique_ptr<AbstractIO> create_io(const std::string& filename)
+    std::unique_ptr<Reader> create_io(const std::string& filename)
     {
-        std::unique_ptr<AbstractIO> io;
+        std::unique_ptr<Reader> io;
         if(is_gzip(filename)) {
-            io = std::make_unique<IsalIO>(filename);
+            io = std::make_unique<IsalGzipReader>(filename);
         } else if(is_raw(filename)) {
-            io = std::make_unique<RawIO>(filename);
+            io = std::make_unique<UncompressReader>(filename);
         } else {
-            io = std::make_unique<GeneralIO>(filename);
+            io = std::make_unique<GzipReader>(filename);
         }
         return io;
     }

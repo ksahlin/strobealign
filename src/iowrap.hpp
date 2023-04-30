@@ -10,11 +10,11 @@
 
 #include <thread>
 
-class AbstractIO {
+class Reader {
    public:
-    AbstractIO(const std::string&) { }
+    Reader(const std::string&) { }
 
-    virtual ~AbstractIO() { }
+    virtual ~Reader() { }
 
     virtual int64_t read(void* buffer, size_t length) = 0;
     virtual std::string ReaderName() const = 0;
@@ -23,28 +23,28 @@ class AbstractIO {
     virtual void open(const std::string& filename) = 0;
 };
 
-class GeneralIO : public AbstractIO {
+class GzipReader : public Reader {
    public:
-    GeneralIO(const std::string& filename) : AbstractIO(filename) { open(filename); }
+    GzipReader(const std::string& filename) : Reader(filename) { open(filename); }
 
-    virtual ~GeneralIO() {
+    virtual ~GzipReader() {
         if (file) {
             gzclose(file);
         }
     }
 
     int64_t read(void* buffer, size_t length) override;
-    std::string ReaderName() const override { return "GeneralIO"; }
+    std::string ReaderName() const override { return "GzipReader"; }
 
    private:
     gzFile file;
     void open(const std::string& filename) override;
 };
 
-class RawIO : public AbstractIO {
+class UncompressReader : public Reader {
    public:
-    RawIO(const std::string& filename)
-        : AbstractIO(filename)
+    UncompressReader(const std::string& filename)
+        : Reader(filename)
         , fd(-1)
         , preload_size(256ull * 1024 * 1024)
         , read_buffer()
@@ -54,14 +54,14 @@ class RawIO : public AbstractIO {
         open(filename);
     }
 
-    virtual ~RawIO() {
+    virtual ~UncompressReader() {
         if (fd != -1) {
             close();
         }
     }
 
     int64_t read(void* buffer, size_t length) override;
-    std::string ReaderName() const override { return "RawIO"; }
+    std::string ReaderName() const override { return "UncompressReader"; }
 
    private:
     int fd;
@@ -80,10 +80,10 @@ class RawIO : public AbstractIO {
     void close();
 };
 
-class IsalIO : public AbstractIO {
+class IsalGzipReader : public Reader {
    public:
-    IsalIO(const std::string& filename)
-        : AbstractIO(filename)
+    IsalGzipReader(const std::string& filename)
+        : Reader(filename)
         , fd(-1)
         , mmap_mem(nullptr)
         , filesize(-1)
@@ -100,14 +100,14 @@ class IsalIO : public AbstractIO {
         open(filename);
     }
 
-    virtual ~IsalIO() {
+    virtual ~IsalGzipReader() {
         if (fd != -1) {
             close();
         }
     }
 
     int64_t read(void* buffer, size_t length) override;
-    std::string ReaderName() const override { return "IsalIO"; }
+    std::string ReaderName() const override { return "IsalGzipReader"; }
 
    private:
     int fd;

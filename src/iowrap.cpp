@@ -7,7 +7,7 @@
 #include <system_error>
 #include "exceptions.hpp"
 
-void GeneralIO::open(const std::string& filename) {
+void GzipReader::open(const std::string& filename) {
     if (filename != "") {
         file = gzopen(filename.c_str(), "r");
         if (file == nullptr) {
@@ -16,20 +16,20 @@ void GeneralIO::open(const std::string& filename) {
     }
 }
 
-int64_t GeneralIO::read(void* buffer, size_t length) {
+int64_t GzipReader::read(void* buffer, size_t length) {
     return gzread(file, buffer, length);
 }
 
-void RawIO::open(const std::string& filename) {
+void UncompressReader::open(const std::string& filename) {
     fd = ::open(filename.c_str(), 0);
     if (fd < 0) {
         throw InvalidFile("Could not open FASTQ file: " + filename);
     }
 
-    thread_reader = std::thread(&RawIO::preload, this, preload_size);
+    thread_reader = std::thread(&UncompressReader::preload, this, preload_size);
 }
 
-void RawIO::close() {
+void UncompressReader::close() {
     if (thread_reader.joinable())
         thread_reader.join();
 
@@ -39,7 +39,7 @@ void RawIO::close() {
     fd = -1;
 }
 
-int64_t RawIO::read(void* buffer, size_t length) {
+int64_t UncompressReader::read(void* buffer, size_t length) {
     size_t actual_count = 0;
     while (length > 0) {
         size_t size_from_data = std::min(length, read_buffer.size() - read_buffer_copied);
@@ -58,13 +58,13 @@ int64_t RawIO::read(void* buffer, size_t length) {
                     break;
                 }
             }
-            thread_reader = std::thread(&RawIO::preload, this, preload_size);
+            thread_reader = std::thread(&UncompressReader::preload, this, preload_size);
         }
     }
     return actual_count;
 }
 
-void RawIO::preload(size_t size) {
+void UncompressReader::preload(size_t size) {
     read_buffer_work.resize(preload_size);
     auto actual_size = ::read(fd, read_buffer_work.data(), size);
     if (actual_size != (decltype(actual_size)) size) {
@@ -72,14 +72,14 @@ void RawIO::preload(size_t size) {
     }
 }
 
-void IsalIO::initialize() {
+void IsalGzipReader::initialize() {
     isal_inflate_init(&state);
     state.crc_flag = ISAL_GZIP_NO_HDR_VER;
 
     isal_gzip_header_init(&gz_hdr);
 }
 
-void IsalIO::open(const std::string& filename) {
+void IsalGzipReader::open(const std::string& filename) {
     fd = ::open(filename.c_str(), 0);
     if (fd < 0) {
         throw InvalidFile("Could not open FASTQ file: " + filename);
@@ -124,10 +124,10 @@ void IsalIO::open(const std::string& filename) {
     compressed_data += processed_size;
     compressed_size -= processed_size;
 
-    thread_reader = std::thread(&IsalIO::decompress, this, std::min(decompress_chunk_size, compressed_size));
+    thread_reader = std::thread(&IsalGzipReader::decompress, this, std::min(decompress_chunk_size, compressed_size));
 }
 
-void IsalIO::close() {
+void IsalGzipReader::close() {
     if (thread_reader.joinable())
         thread_reader.join();
 
@@ -142,7 +142,7 @@ void IsalIO::close() {
     fd = -1;
 }
 
-int64_t IsalIO::read(void* buffer, size_t length) {
+int64_t IsalGzipReader::read(void* buffer, size_t length) {
     size_t actual_count = 0;
     while (length > 0) {
         size_t size_from_data = std::min(length, uncompressed_data.size() - uncompressed_data_copied);
@@ -162,13 +162,13 @@ int64_t IsalIO::read(void* buffer, size_t length) {
                 }
             }
             thread_reader =
-                std::thread(&IsalIO::decompress, this, std::min(decompress_chunk_size, compressed_size));
+                std::thread(&IsalGzipReader::decompress, this, std::min(decompress_chunk_size, compressed_size));
         }
     }
     return actual_count;
 }
 
-void IsalIO::decompress(size_t count) {
+void IsalGzipReader::decompress(size_t count) {
     uncompressed_data_work.resize(std::max(count, previous_member_size));
     uint8_t* ptr = uncompressed_data_work.data();
 
