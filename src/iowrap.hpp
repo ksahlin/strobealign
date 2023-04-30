@@ -6,7 +6,7 @@
 
 #include <zlib.h>
 #include <vector>
-#include "isa-l/igzip_lib.h"
+#include <isa-l/igzip_lib.h>
 
 #include <thread>
 
