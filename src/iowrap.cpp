@@ -188,7 +188,6 @@ void IsalIO::decompress(size_t count) {
         auto ret = isal_inflate(&state);
         if (ret != ISAL_DECOMP_OK) {
             throw std::runtime_error("Error encountered while decompressing");
-            exit(-1);
         }
 
         size_t processed = actual_input_size - state.avail_in;
