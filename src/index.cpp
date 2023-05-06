@@ -234,7 +234,6 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
                 occur_once = true;
             }
 
-            randstrobes_vector[position - count].hash = (prev_hash & hash_mask) | ((uint64_t)count << (64 - N));
             if (count > 100){
                 tot_high_ab++;
                 strobemer_counts.push_back(count);
@@ -266,7 +265,6 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
                 tot_mid_ab++;
                 strobemer_counts.push_back(count);
             }
-            randstrobes_vector[position - (count - 1)].hash = (prev_hash & hash_mask) | ((uint64_t)count << (64 - N));
             for (unsigned int index_temp = prev_hash_N + 1; index_temp < (1 << N); index_temp++){
                     hash_positions.push_back(randstrobes_vector.size());
             }
@@ -416,3 +414,27 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
     double fraction_masked = 1.0 - (double) tot_seed_count_1000_limit/ (double) tot_seed_count;
     log_file << median << ',' << tot_seed_count << ',' << e_hits << ',' << 100*fraction_masked << std::endl;
 }
+
+unsigned int StrobemerIndex::get_count_line_search(const unsigned int position) const {
+    const auto hash = get_hash(position);
+
+    unsigned int count = 0;
+    // step can be any number that is a power of 2, but a large number works
+    // very well
+    unsigned int step = 512;
+    while (get_hash(position + count + step) == hash) {
+        count += step;
+        step *= 2;
+    }
+    while (step > 1) {
+        while (get_hash(position + count + step) == hash) {
+            count += step;
+        }
+        step /= 2;
+    }
+    while (get_hash(position + count) == hash) {
+        ++count;
+    }
+    return count;
+}
+

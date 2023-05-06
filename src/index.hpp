@@ -167,7 +167,7 @@ struct StrobemerIndex {
         }
     }
 
-    unsigned int get_strob1_position(unsigned int position) const {
+    unsigned int get_strobe1_position(unsigned int position) const {
         return randstrobes_vector[position].position;
     }
 
@@ -179,9 +179,24 @@ struct StrobemerIndex {
         return randstrobes_vector[position].packed >> bit_alloc;
     }
 
-    unsigned int get_count(unsigned int position) const {
-        unsigned int count = randstrobes_vector[position].hash >> (64 - N);
-        return count;
+    unsigned int get_count(const unsigned int position) const {
+        constexpr unsigned int MAX_LINEAR_SEARCH = 8;
+        const auto hash = randstrobes_vector[position].hash;
+
+        // For 95% of cases, the result will be small and a brute force search
+        // is the best option. Once, we go over MAX_LINEAR_SEARCH, though, we
+        // call get_count_line_search which performs a line search with
+        // expanding step in O(log N) comparisons
+        //
+        unsigned int count = 1;
+        while (get_hash(position + count) == hash
+                && count < MAX_LINEAR_SEARCH) {
+            ++count;
+        }
+        if (get_hash(position + count) != hash) {
+            return count;
+        }
+        return count + get_count_line_search(position + count);
     }
 
     int k() const {
@@ -190,6 +205,8 @@ struct StrobemerIndex {
 
 private:
     void add_randstrobes_to_vector(int randstrobe_hashes);
+    unsigned int get_count_line_search(unsigned int) const;
+
     const IndexParameters& parameters;
     const References& references;
     std::vector<RefRandstrobeWithHash> randstrobes_vector;

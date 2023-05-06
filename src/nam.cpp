@@ -21,28 +21,13 @@ void add_to_hits_per_ref(
     unsigned int position,
     int min_diff
 ) {
-    // Determine whether the hash table’s value directly represents a
-    // ReferenceMer (this is the case if count==1) or an offset/count
-    // pair that refers to entries in the flat_vector.
-
-    unsigned int count = index.get_count(position);
-    if (count == 1) {
-        int ref_s = index.get_strob1_position(position);
+    for (const auto hash = index.get_hash(position); index.get_hash(position) == hash; ++position) {
+        int ref_s = index.get_strobe1_position(position);
         int ref_e = ref_s + index.strobe2_offset(position) + index.k();
         int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
         if (diff <= min_diff) {
             hits_per_ref[index.reference_index(position)].push_back(Hit{query_s, query_e, ref_s, ref_e, is_rc});
             min_diff = diff;
-        }
-    } else {
-        for (unsigned int j = position; j < position + count; ++j) {
-            int ref_s = index.get_strob1_position(j);
-            int ref_e = ref_s + index.strobe2_offset(j) + index.k();
-            int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
-            if (diff <= min_diff) {
-                hits_per_ref[index.reference_index(j)].push_back(Hit{query_s, query_e, ref_s, ref_e, is_rc});
-                min_diff = diff;
-            }
         }
     }
 }
@@ -180,10 +165,7 @@ std::pair<float, std::vector<Nam>> find_nams(
         unsigned int position = index.find(q.hash);
         if (position != -1){
             total_hits++;
-            unsigned int count = index.get_count(position);
-            if (count > index.filter_cutoff){
-                continue;
-            } 
+            if (index.get_hash(position + index.filter_cutoff) == q.hash) { continue; }
             nr_good_hits++;
             add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, position, 100'000);
         }
