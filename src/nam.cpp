@@ -162,7 +162,7 @@ std::pair<float, std::vector<Nam>> find_nams(
 
     int nr_good_hits = 0, total_hits = 0;
     for (const auto &q : query_randstrobes) {
-        unsigned int position = index.find(q.hash);
+        int position = index.find(q.hash);
         if (position != -1){
             total_hits++;
             if (index.get_hash(position + index.filter_cutoff) == q.hash) { continue; }
@@ -186,7 +186,6 @@ std::vector<Nam> find_nams_rescue(
 ) {
     struct RescueHit {
         unsigned int count;
-        // RandstrobeMapEntry randstrobe_map_entry;
         unsigned int position;
         unsigned int query_s;
         unsigned int query_e;
@@ -206,7 +205,6 @@ std::vector<Nam> find_nams_rescue(
     hits_rc.reserve(5000);
 
     for (auto &qr : query_randstrobes) {
-        // auto ref_hit = index.find(qr.hash);
         unsigned int position = index.find(qr.hash);
         if (position != -1){
             unsigned int count = index.get_count(position);
@@ -217,14 +215,6 @@ std::vector<Nam> find_nams_rescue(
                 hits_fw.push_back(rh);
             }
         }
-        // if (ref_hit != index.end()) {
-        //     RescueHit rh{ref_hit->second.count(), ref_hit->second, qr.start, qr.end, qr.is_reverse};
-        //     if (qr.is_reverse){
-        //         hits_rc.push_back(rh);
-        //     } else {
-        //         hits_fw.push_back(rh);
-        //     }
-        // }
     }
 
     std::sort(hits_fw.begin(), hits_fw.end());

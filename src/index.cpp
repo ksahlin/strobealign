@@ -24,7 +24,7 @@ static const uint32_t STI_FILE_FORMAT_VERSION = 2;
 
 const int MAX_LINEAR_SEARCH = 4;
 unsigned int StrobemerIndex::find(uint64_t key) const{
-    const unsigned int top_N = key >> (64 - N);
+    const unsigned int top_N = key >> (64 - parameters.n);
     int position_start = hash_positions[top_N];
     int position_end = hash_positions[top_N + 1];
 
@@ -34,35 +34,21 @@ unsigned int StrobemerIndex::find(uint64_t key) const{
 
     if (position_end - position_start < MAX_LINEAR_SEARCH) {
           for ( ; position_start < position_end; ++position_start) {
-              if ((randstrobes_vector[position_start].hash & hash_mask) == (key & hash_mask)) return position_start;
+              if (randstrobes_vector[position_start].hash == key) return position_start;
           }
           return -1;
       }
 
-    auto cmp = [this](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return (lhs.hash & hash_mask) < (rhs.hash & hash_mask); };
+    auto cmp = [this](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return lhs.hash < rhs.hash; };
 
     auto pos = std::lower_bound(randstrobes_vector.begin() + position_start,
                                                randstrobes_vector.begin() + position_end,
-                                               RefRandstrobeWithHash{key & hash_mask, 0, 0},
+                                               RefRandstrobeWithHash{key, 0, 0},
                                                cmp);
-    if ((pos->hash & hash_mask) == (key & hash_mask)) return pos - randstrobes_vector.begin();
+    if (pos->hash == key) return pos - randstrobes_vector.begin();
     return -1;
 }
 
-uint64_t count_unique_hashes(const std::vector<RefRandstrobeWithHash>& mers){
-    if (mers.empty()) {
-        return 0;
-    }
-    uint64_t prev_k = mers.at(0).hash;
-    uint64_t unique_elements = 1;
-    for (auto &curr_k : mers) {
-        if (curr_k.hash != prev_k) {
-            unique_elements ++;
-        }
-        prev_k = curr_k.hash;
-    }
-    return unique_elements;
-}
 
 void StrobemerIndex::write(const std::string& filename) const {
     std::ofstream ofs(filename, std::ios::binary);
@@ -184,20 +170,19 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
 
     Timer hash_index_timer;
 
-    unsigned int offset = 0;
     unsigned int tot_high_ab = 0;
     unsigned int tot_mid_ab = 0;
     std::vector<unsigned int> strobemer_counts;
 
-    unsigned int randstrobe_hash_size = 0;      
+    unsigned int randstrobe_hash_size = 0;
     uint64_t prev_hash = -1;
-    
+
     stats.tot_occur_once = 0;
     // calculate stats.flat_vector_size, randstrobe_hash_size
     // add the top N bits of hash to the hash_positions
     // calculate the count of hash that exists more than one time
 
-    hash_positions.reserve(1 << N);
+    hash_positions.reserve(1 << parameters.n);
 
     unsigned int count = 0;
     unsigned int position = 0;
@@ -208,7 +193,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
         if (position == 0){
             randstrobe_hash_size += 1;
             occur_once = true;
-            unsigned int existing_hash_N = hash_value >> (64 - N);
+            unsigned int existing_hash_N = hash_value >> (64 - parameters.n);
             for (unsigned int index_temp = 0; index_temp <= existing_hash_N; index_temp++){
                 hash_positions.push_back(position);
             }
@@ -242,7 +227,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
                 strobemer_counts.push_back(count);
             }
             count = 1;
-            unsigned int existing_hash_N = hash_value >> (64 - N);
+            unsigned int existing_hash_N = hash_value >> (64 - parameters.n);
             if (existing_hash_N != prev_hash_N){
                 for (unsigned int index_temp = prev_hash_N + 1; index_temp <= existing_hash_N; index_temp++){
                     hash_positions.push_back(position);
@@ -265,7 +250,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
                 tot_mid_ab++;
                 strobemer_counts.push_back(count);
             }
-            for (unsigned int index_temp = prev_hash_N + 1; index_temp < (1 << N); index_temp++){
+            for (unsigned int index_temp = prev_hash_N + 1; index_temp < (1 << parameters.n); index_temp++){
                     hash_positions.push_back(randstrobes_vector.size());
             }
         }
