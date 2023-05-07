@@ -93,24 +93,6 @@ public:
         }
     }
 
-<<<<<<< HEAD
-private:
-=======
-    unsigned int offset() const{
-        assert(!is_direct());
-        return m_offset;
-    }
-
-    bool is_direct() const {
-        return m_count & 0x8000'0000;
-    }
-
-    RefRandstrobe as_ref_randstrobe() const {  // 将m_count 首位置为0
-        assert(is_direct());
-        return RefRandstrobe{m_offset, m_count & 0x7fff'ffff};
-    }
-
->>>>>>> a8f67916634c393db08b8a2e6c8305da4eec5838
     void set_count(unsigned int count) {
         m_count = count;
     }
@@ -184,14 +166,6 @@ struct StrobemerIndex {
             return -1;
         }
     }
-
-    // uint64_t get_hash_mask() const{
-    //     return hash_mask;
-    // }
-
-    // unsigned int get_N() const{
-    //     return N;
-    // }
 
     unsigned int get_strob1_position(unsigned int position) const {
         return randstrobes_vector[position].position;

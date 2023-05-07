@@ -39,7 +39,7 @@ public:
         verify();
     }
 
-    static IndexParameters from_read_length(int read_length, int c = DEFAULT, int k = DEFAULT, int s = DEFAULT, int l = DEFAULT, int u = DEFAULT, int max_seed_len = DEFAULT, int n = 28);
+    static IndexParameters from_read_length(int read_length, int k = DEFAULT, int s = DEFAULT, int l = DEFAULT, int u = DEFAULT, int c = DEFAULT, int max_seed_len = DEFAULT, int n = 28);
     static IndexParameters read(std::istream& os);
     std::string filename_extension() const;
     void write(std::ostream& os) const;

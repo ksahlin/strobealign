@@ -141,7 +141,6 @@ int run_strobealign(int argc, char **argv) {
     if (opt.c >= 64 || opt.c <= 0) {
         throw BadParameter("c must be greater than 0 and less than 64");
     }
-
     InputBuffer input_buffer = get_input_buffer(opt);
     if (!opt.r_set && !opt.reads_filename1.empty()) {
         opt.r = estimate_read_length(input_buffer);
@@ -154,6 +153,7 @@ int run_strobealign(int argc, char **argv) {
         opt.s_set ? opt.s : IndexParameters::DEFAULT,
         opt.l_set ? opt.l : IndexParameters::DEFAULT,
         opt.u_set ? opt.u : IndexParameters::DEFAULT,
+        opt.c_set ? opt.c : IndexParameters::DEFAULT,
         opt.max_seed_len_set ? opt.max_seed_len : IndexParameters::DEFAULT,
         opt.n_set ? opt.n : 28
     );
