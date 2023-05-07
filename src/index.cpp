@@ -20,7 +20,7 @@
 #include "logger.hpp"
 
 static Logger& logger = Logger::get();
-static const uint32_t STI_FILE_FORMAT_VERSION = 1;
+static const uint32_t STI_FILE_FORMAT_VERSION = 2;
 
 const int MAX_LINEAR_SEARCH = 4;
 unsigned int StrobemerIndex::find(uint64_t key) const{
