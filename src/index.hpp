@@ -97,6 +97,7 @@ struct StrobemerIndex {
         if (position_end - position_start < MAX_LINEAR_SEARCH) {
             for ( ; position_start < position_end; ++position_start) {
                 if (randstrobes_vector[position_start].hash == key) return position_start;
+                if (randstrobes_vector[position_start].hash > key) return -1;
             }
             return -1;
         }
