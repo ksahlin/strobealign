@@ -177,98 +177,64 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     unsigned int tot_mid_ab = 0;
     std::vector<unsigned int> strobemer_counts;
 
-    unsigned int randstrobe_hash_size = 0;
-    uint64_t prev_hash = -1;
-
     stats.tot_occur_once = 0;
-    // calculate stats.flat_vector_size, randstrobe_hash_size
+    // calculate stats.flat_vector_size, n_distinct_hashes
     // add the top N bits of hash to the hash_positions
     // calculate the count of hash that exists more than one time
 
     hash_positions.reserve(1 << parameters.n);
 
+    unsigned int unique_mers = 0;
+    uint64_t prev_hash = uint64_t(-1);
     unsigned int count = 0;
-    unsigned int position = 0;
-    unsigned int prev_hash_N = 0;
-    bool occur_once = false;
-    for (auto &mer: randstrobes_vector){
-        uint64_t hash_value = mer.hash;
-        if (position == 0){
-            randstrobe_hash_size += 1;
-            occur_once = true;
-            unsigned int existing_hash_N = hash_value >> (64 - parameters.n);
-            for (unsigned int index_temp = 0; index_temp <= existing_hash_N; index_temp++){
-                hash_positions.push_back(position);
-            }
-            prev_hash_N = existing_hash_N;
-            position += 1;
-            count += 1;
-            prev_hash = hash_value;
+    for (unsigned int position = 0; position < randstrobes_vector.size(); ++position) {
+        const uint64_t cur_hash = randstrobes_vector[position].hash;
+        if (cur_hash == prev_hash) {
+            ++count;
             continue;
         }
 
-        if (hash_value == prev_hash){
-            occur_once = false;
-            position += 1;
-            count += 1;
-            continue;
+        ++unique_mers;
+
+        if (count == 1) {
+            ++stats.tot_occur_once;
+        } else {
+            if (count > 100) {
+                ++tot_high_ab;
+            } else {
+                ++tot_mid_ab;
+            }
+            strobemer_counts.push_back(count);
         }
-
-        if (hash_value != prev_hash){
-            randstrobe_hash_size += 1;
-            if (occur_once == true){
-                stats.tot_occur_once += 1;
-            }else{
-                occur_once = true;
-            }
-
-            if (count > 100){
-                tot_high_ab++;
-                strobemer_counts.push_back(count);
-            }else if (count > 1){
-                tot_mid_ab++;
-                strobemer_counts.push_back(count);
-            }
-            count = 1;
-            unsigned int existing_hash_N = hash_value >> (64 - parameters.n);
-            if (existing_hash_N != prev_hash_N){
-                for (unsigned int index_temp = prev_hash_N + 1; index_temp <= existing_hash_N; index_temp++){
-                    hash_positions.push_back(position);
-            }
-            prev_hash_N = existing_hash_N;
-            }
-
-            position += 1;
-            prev_hash = hash_value;
+        count = 1;
+        const unsigned int cur_hash_N = cur_hash >> (64 - parameters.n);
+        while (hash_positions.size() <= cur_hash_N) {
+            hash_positions.push_back(position);
         }
-
-        if (&mer == &randstrobes_vector.back()){
-            if (occur_once == true){
-                stats.tot_occur_once += 1;
-            }
-            if (count > 100){
-                tot_high_ab++;
-                strobemer_counts.push_back(count);
-            }else if (count > 1){
-                tot_mid_ab++;
-                strobemer_counts.push_back(count);
-            }
-            for (unsigned int index_temp = prev_hash_N + 1; index_temp < (1 << parameters.n); index_temp++){
-                    hash_positions.push_back(randstrobes_vector.size());
-            }
-        }
+        prev_hash = cur_hash;
     }
-
-    stats.frac_unique = 1.0 * stats.tot_occur_once / randstrobe_hash_size;
+    // wrap up last entry
+    if (count == 1) {
+        ++stats.tot_occur_once;
+    } else {
+        if (count > 100) {
+            tot_high_ab++;
+        } else {
+            tot_mid_ab++;
+        }
+        strobemer_counts.push_back(count);
+    }
+    while (hash_positions.size() < (1 << parameters.n)) {
+        hash_positions.push_back(randstrobes_vector.size());
+    }
+    stats.frac_unique = 1.0 * stats.tot_occur_once / unique_mers;
     stats.tot_high_ab = tot_high_ab;
     stats.tot_mid_ab = tot_mid_ab;
-    stats.tot_distinct_strobemer_count = randstrobe_hash_size;
+    stats.tot_distinct_strobemer_count = unique_mers;
 
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
-    // unsigned int index_cutoff = randstrobe_map.size()*f;
-
-    unsigned int index_cutoff= randstrobe_hash_size *f;
+    unsigned int index_cutoff = unique_mers * f;
     stats.index_cutoff = index_cutoff;
     if (!strobemer_counts.empty()){
         filter_cutoff = index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back();
@@ -279,7 +245,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     }
     stats.filter_cutoff = filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
-    stats.unique_mers = randstrobe_hash_size;
+    stats.unique_mers = unique_mers;
 }
 
 void StrobemerIndex::add_randstrobes_to_vector(int randstrobe_hashes){
