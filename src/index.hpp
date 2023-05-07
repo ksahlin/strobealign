@@ -85,7 +85,30 @@ struct StrobemerIndex {
     void read(const std::string& filename);
     void populate(float f, size_t n_threads);
     void print_diagnostics(const std::string& logfile_name, int k) const;
-    unsigned int find(uint64_t key) const;
+    unsigned int find(uint64_t key) const {
+        constexpr int MAX_LINEAR_SEARCH = 4;
+        const unsigned int top_N = key >> (64 - parameters.n);
+        int position_start = hash_positions[top_N];
+        int position_end = hash_positions[top_N + 1];
+        if (position_start == position_end) {
+            return -1;
+        }
+
+        if (position_end - position_start < MAX_LINEAR_SEARCH) {
+            for ( ; position_start < position_end; ++position_start) {
+                if (randstrobes_vector[position_start].hash == key) return position_start;
+            }
+            return -1;
+        }
+        auto cmp = [this](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return lhs.hash < rhs.hash; };
+
+        auto pos = std::lower_bound(randstrobes_vector.begin() + position_start,
+                                               randstrobes_vector.begin() + position_end,
+                                               RefRandstrobeWithHash{key, 0, 0},
+                                               cmp);
+        if (pos->hash == key) return pos - randstrobes_vector.begin();
+        return -1;
+    }
 
     uint64_t get_hash(unsigned int position) const {
         if (position < randstrobes_vector.size()){
