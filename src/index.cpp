@@ -104,6 +104,9 @@ void StrobemerIndex::read(const std::string& filename) {
 
     read_vector(ifs, randstrobes_vector);
     read_vector(ifs, hash_positions);
+    if (hash_positions.size() != 1 << parameters.n) {
+        throw InvalidIndexFile("hash_positions vector is of the wrong size");
+    }
 }
 
 int estimate_randstrobe_hashes(const std::string& seq, const IndexParameters& parameters) {
