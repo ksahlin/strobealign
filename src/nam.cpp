@@ -27,6 +27,7 @@ void add_to_hits_per_ref(
     // pair that refers to entries in the flat_vector.
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     unsigned int next_position = index.get_next_pos(position);
 
     if (next_position == position) {
@@ -35,6 +36,11 @@ void add_to_hits_per_ref(
     if (count == 1) {
         // auto r = randstrobe_map_entry.as_ref_randstrobe();
 >>>>>>> 8f7cebc (Add count to topN bits)
+=======
+    unsigned int count = index.get_count(position);
+    if (count == 1) {
+        // auto r = randstrobe_map_entry.as_ref_randstrobe();
+>>>>>>> a8f67916634c393db08b8a2e6c8305da4eec5838
         int ref_s = index.get_strob1_position(position);
         int ref_e = ref_s + index.strobe2_offset(position) + index.k();
         int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
@@ -178,13 +184,19 @@ std::pair<float, std::vector<Nam>> find_nams(
     hits_per_ref.reserve(100);
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> a8f67916634c393db08b8a2e6c8305da4eec5838
     /*
     1. Find the hash in the vector
     2. the occur times of the hash value, use a flag 
     3. need to know reference index, strobe1 position, storbe2 - strobe1
     */
+<<<<<<< HEAD
 >>>>>>> 4740246 (Fix bug when finding hash)
+=======
+>>>>>>> a8f67916634c393db08b8a2e6c8305da4eec5838
     int nr_good_hits = 0, total_hits = 0;
     for (const auto &q : query_randstrobes) {
         unsigned int position = index.find(q.hash);
@@ -245,6 +257,14 @@ std::vector<Nam> find_nams_rescue(
                 hits_fw.push_back(rh);
             }
         }
+        // if (ref_hit != index.end()) {
+        //     RescueHit rh{ref_hit->second.count(), ref_hit->second, qr.start, qr.end, qr.is_reverse};
+        //     if (qr.is_reverse){
+        //         hits_rc.push_back(rh);
+        //     } else {
+        //         hits_fw.push_back(rh);
+        //     }
+        // }
     }
 
     std::sort(hits_fw.begin(), hits_fw.end());
