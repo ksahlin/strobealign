@@ -4,9 +4,9 @@
 #include <cstdint>
 #include <string>
 
+#include <isa-l/igzip_lib.h>
 #include <zlib.h>
 #include <vector>
-#include <isa-l/igzip_lib.h>
 
 #include <thread>
 
@@ -46,7 +46,7 @@ class UncompressReader : public Reader {
     UncompressReader(const std::string& filename)
         : Reader(filename)
         , fd(-1)
-        , preload_size(256ull * 1024 * 1024)
+        , preload_size(64ull * 1024 * 1024)
         , read_buffer()
         , read_buffer_work()
         , read_buffer_copied(0)
@@ -93,8 +93,8 @@ class IsalGzipReader : public Reader {
         , uncompressed_data_copied(0)
         , compressed_data(nullptr)
         , compressed_size(0)
-        , decompress_chunk_size(2567ull * 1024 * 1024)
-        , previous_member_size(1024ull * 1024 * 1024)
+        , decompress_chunk_size(8ull * 1024 * 1024)
+        , previous_member_size(32ull * 1024 * 1024)
         , thread_reader() {
         initialize();
         open(filename);
