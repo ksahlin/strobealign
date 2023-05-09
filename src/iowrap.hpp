@@ -17,7 +17,7 @@ class Reader {
     virtual ~Reader() { }
 
     virtual int64_t read(void* buffer, size_t length) = 0;
-    virtual std::string ReaderName() const = 0;
+    [[maybe_unused]] virtual std::string name() const = 0;
 
    protected:
     virtual void open(const std::string& filename) = 0;
@@ -34,7 +34,7 @@ class GzipReader : public Reader {
     }
 
     int64_t read(void* buffer, size_t length) override;
-    std::string ReaderName() const override { return "GzipReader"; }
+    std::string name() const override { return "GzipReader"; }
 
    private:
     gzFile file;
@@ -61,7 +61,7 @@ class UncompressReader : public Reader {
     }
 
     int64_t read(void* buffer, size_t length) override;
-    std::string ReaderName() const override { return "UncompressReader"; }
+    [[maybe_unused]] std::string name() const override { return "UncompressReader"; }
 
    private:
     int fd;
@@ -107,7 +107,7 @@ class IsalGzipReader : public Reader {
     }
 
     int64_t read(void* buffer, size_t length) override;
-    std::string ReaderName() const override { return "IsalGzipReader"; }
+    [[maybe_unused]] std::string name() const override { return "IsalGzipReader"; }
 
    private:
     int fd;
