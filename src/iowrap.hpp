@@ -34,7 +34,7 @@ class GzipReader : public Reader {
     }
 
     int64_t read(void* buffer, size_t length) override;
-    std::string name() const override { return "GzipReader"; }
+    [[maybe_unused]] std::string name() const override { return "GzipReader"; }
 
    private:
     gzFile file;
