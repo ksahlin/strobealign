@@ -25,7 +25,7 @@ class Reader {
 
 class GzipReader : public Reader {
    public:
-    GzipReader(const std::string& filename) : Reader(filename) { open(filename); }
+    GzipReader(const std::string& filename) : Reader(filename), file() { open(filename); }
 
     virtual ~GzipReader() {
         if (file) {
