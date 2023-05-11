@@ -93,8 +93,8 @@ class IsalGzipReader : public Reader {
         , uncompressed_data_copied(0)
         , compressed_data(nullptr)
         , compressed_size(0)
-        , decompress_chunk_size(8ull * 1024 * 1024)
-        , previous_member_size(32ull * 1024 * 1024)
+        , decompress_chunk_size(2ull * 1024 * 1024)
+        , previous_member_size(8ull * 1024 * 1024)
         , thread_reader() {
         initialize();
         open(filename);
