@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <vector>
+#include <cstdint>
 
 void write_int_to_ostream(std::ostream& os, int value);
 int read_int_from_istream(std::istream& is);
