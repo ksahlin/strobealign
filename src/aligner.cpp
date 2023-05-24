@@ -10,12 +10,12 @@
 #include <cassert>
 #include "aligner.hpp"
 
-aln_info Aligner::align(const std::string &query, const std::string &ref) const {
+aln_info Aligner::align(const char* query, size_t qlen, const char* ref, size_t rlen) const {
     m_align_calls++;
     aln_info aln;
-    int32_t maskLen = query.length() / 2;
+    int32_t maskLen = qlen / 2;
     maskLen = std::max(maskLen, 15);
-    if (ref.length() > 2000){
+    if (rlen > 2000){
 //        std::cerr << "ALIGNMENT TO REF LONGER THAN 2000bp - REPORT TO DEVELOPER. Happened for read: " <<  query << " ref len:" << ref.length() << std::endl;
         aln.edit_distance = 100000;
         aln.ref_start = 0;
@@ -26,7 +26,7 @@ aln_info Aligner::align(const std::string &query, const std::string &ref) const 
     StripedSmithWaterman::Alignment alignment_ssw;
 
     // query must be NULL-terminated
-    ssw_aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen, 1);
+    ssw_aligner.Align(query, ref, rlen, filter, &alignment_ssw, maskLen, 1);
 
     aln.edit_distance = alignment_ssw.mismatches;
     aln.cigar = Cigar(alignment_ssw.cigar);
@@ -75,7 +75,7 @@ aln_info Aligner::align(const std::string &query, const std::string &ref) const 
     score = aln.sw_score;
     edits = aln.edit_distance;
     Cigar back_cigar;
-    while (qend < query.length() && rend < ref.length()) {
+    while (qend < qlen && rend < rlen) {
         if (query[qend] == ref[rend]) {
             score += parameters.match;
             back_cigar.push(CIGAR_EQ, 1);
@@ -87,13 +87,13 @@ aln_info Aligner::align(const std::string &query, const std::string &ref) const 
         qend++;
         rend++;
     }
-    if (qend == query.length() && score + parameters.end_bonus > aln.sw_score) {
-        if (aln.query_end < query.length()) {
+    if (qend == qlen && score + parameters.end_bonus > aln.sw_score) {
+        if (aln.query_end < qlen) {
             assert((aln.cigar.m_ops[aln.cigar.m_ops.size() - 1] & 0xf) == CIGAR_SOFTCLIP);
             aln.cigar.m_ops.pop_back();
             aln.cigar += back_cigar;
         }
-        aln.query_end = query.length();
+        aln.query_end = qlen;
         aln.ref_end = rend;
         aln.sw_score = score + parameters.end_bonus;
         aln.edit_distance = edits;
