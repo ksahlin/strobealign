@@ -1,5 +1,6 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/string_view.h>
 #include <nanobind/stl/bind_vector.h>
 #include <nanobind/make_iterator.h>
 #include <iostream>
