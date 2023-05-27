@@ -34,13 +34,13 @@ TEST_CASE("IndexParameters identical for slight read-length differences") {
 
 TEST_CASE("Parameters in sti file do not match") {
     TemporaryDirectory tmp_dir;
-    std::string ref_path = tmp_dir.path() / "ref.fasta";
+    std::string ref_path = (tmp_dir.path() / "ref.fasta").string();
     std::filesystem::copy("tests/phix.fasta", ref_path);
     auto references = References::from_fasta(ref_path);
     auto parameters = IndexParameters::from_read_length(300);
     StrobemerIndex index(references, parameters);
     index.populate(0.0002, 1);
-    std::string sti_path = tmp_dir.path() / "index.sti";
+    std::string sti_path = (tmp_dir.path() / "index.sti").string();
     index.write(sti_path);
 
     auto other_parameters = IndexParameters::from_read_length(50);
@@ -54,7 +54,7 @@ TEST_CASE("Missing sti file") {
     auto references = References::from_fasta("tests/phix.fasta");
     auto parameters = IndexParameters::from_read_length(300);
     StrobemerIndex index(references, parameters);
-    REQUIRE_THROWS_AS(index.read(tmp_dir.path() / "index.sti"), InvalidIndexFile);
+    REQUIRE_THROWS_AS(index.read((tmp_dir.path() / "index.sti").string()), InvalidIndexFile);
 }
 
 TEST_CASE("Reads file missing") {
@@ -70,7 +70,7 @@ TEST_CASE("has_shared_substring") {
 
 TEST_CASE("read_/write_vector") {
     TemporaryDirectory tmp_dir;
-    std::string filename = tmp_dir.path() / "vector";
+    std::string filename = (tmp_dir.path() / "vector").string();
     const std::vector<int> expected{2, 3, 5, 7, 11};
     {
         std::ofstream ofs{filename, std::ios::binary};
