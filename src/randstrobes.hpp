@@ -39,7 +39,7 @@ std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe);
 
 using QueryRandstrobeVector = std::vector<QueryRandstrobe>;
 
-QueryRandstrobeVector randstrobes_query(const std::string &seq, const IndexParameters& parameters);
+QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexParameters& parameters);
 
 struct Randstrobe {
     randstrobe_hash_t hash;
@@ -109,13 +109,13 @@ std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer);
 
 class SyncmerIterator {
 public:
-    SyncmerIterator(const std::string& seq, size_t k, size_t s, size_t t)
+    SyncmerIterator(const std::string_view seq, size_t k, size_t s, size_t t)
         : seq(seq), k(k), s(s), t(t) { }
 
     Syncmer next();
 
 private:
-    const std::string& seq;
+    const std::string_view seq;
     const size_t k;
     const size_t s;
     const size_t t;
@@ -162,7 +162,7 @@ private:
 
 
 std::pair<std::vector<syncmer_hash_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
-    const std::string &seq,
+    const std::string_view seq,
     const size_t k,
     const size_t s,
     const size_t t

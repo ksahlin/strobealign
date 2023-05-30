@@ -111,7 +111,7 @@ Syncmer SyncmerIterator::next() {
 }
 
 std::pair<std::vector<syncmer_hash_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
-    const std::string &seq,
+    const std::string_view seq,
     const size_t k,
     const size_t s,
     const size_t t
@@ -210,7 +210,7 @@ Randstrobe RandstrobeIterator2::next() {
 /*
  * Generate randstrobes for a query sequence and its reverse complement.
  */
-QueryRandstrobeVector randstrobes_query(const std::string& seq, const IndexParameters& parameters) {
+QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexParameters& parameters) {
     QueryRandstrobeVector randstrobes;
     if (seq.length() < parameters.w_max) {
         return randstrobes;
