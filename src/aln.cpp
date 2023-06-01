@@ -695,7 +695,7 @@ bool has_shared_substring(const std::string& read_seq, const std::string& ref_se
     int sub_size = 2 * k / 3;
     int step_size = k / 3;
     std::string submer;
-    for (size_t i = 0; i + k <= read_seq.size(); i += step_size) {
+    for (size_t i = 0; i + sub_size < read_seq.size(); i += step_size) {
         submer = read_seq.substr(i, sub_size);
         if (ref_seq.find(submer) != std::string::npos) {
             return true;
