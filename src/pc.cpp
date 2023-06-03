@@ -16,6 +16,7 @@
 #include "kseq++.hpp"
 #include "sam.hpp"
 
+// checks if two read names are the same ignoring /1 suffix on the first one
 bool same_name(const std::string& n1, const std::string& n2) {
     if (n1.length() != n2.length()) return false;
     if (n1.length() <= 2) return n1 == n2;
@@ -143,9 +144,7 @@ void perform_task(
 ) {
     bool eof = false;
     Aligner aligner{aln_params};
-    int temp_index = 0;
     while (!eof) {
-        temp_index += 1;
         std::vector<klibpp::KSeq> records1;
         std::vector<klibpp::KSeq> records2;
         std::vector<klibpp::KSeq> records3;

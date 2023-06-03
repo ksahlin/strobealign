@@ -85,7 +85,7 @@ struct StrobemerIndex {
     void read(const std::string& filename);
     void populate(float f, size_t n_threads);
     void print_diagnostics(const std::string& logfile_name, int k) const;
-    unsigned int find(uint64_t key) const {
+    int find(uint64_t key) const {
         constexpr int MAX_LINEAR_SEARCH = 4;
         const unsigned int top_N = key >> (64 - parameters.n);
         int position_start = hash_positions[top_N];
@@ -118,6 +118,10 @@ struct StrobemerIndex {
             return -1;
         }
     }
+    
+    uint64_t get_next_hash(int position) const{
+        return get_hash(position + filter_cutoff);
+    }
 
     unsigned int get_strobe1_position(unsigned int position) const {
         return randstrobes_vector[position].position;
@@ -133,22 +137,33 @@ struct StrobemerIndex {
 
     unsigned int get_count(const unsigned int position) const {
         constexpr unsigned int MAX_LINEAR_SEARCH = 8;
-        const auto hash = randstrobes_vector[position].hash;
-
-        // For 95% of cases, the result will be small and a brute force search
-        // is the best option. Once, we go over MAX_LINEAR_SEARCH, though, we
-        // call get_count_line_search which performs a line search with
-        // expanding step in O(log N) comparisons
-        //
+        const auto key = randstrobes_vector[position].hash;
+        const unsigned int top_N = key >> (64 - parameters.n);
+        int position_end = hash_positions[top_N + 1];
         unsigned int count = 1;
-        while (get_hash(position + count) == hash
-                && count < MAX_LINEAR_SEARCH) {
-            ++count;
-        }
-        if (get_hash(position + count) != hash) {
+
+        if (position_end - position < MAX_LINEAR_SEARCH) {
+            for (int position_start = position + 1; position_start < position_end; ++position_start) {
+                if (randstrobes_vector[position_start].hash == key){
+                    count += 1;
+                }
+                else{
+                    break;
+                }
+            }
             return count;
         }
-        return count + get_count_line_search(position + count);
+        auto cmp = [this](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return lhs.hash < rhs.hash; };
+
+        auto pos = std::upper_bound(randstrobes_vector.begin() + position,
+                                               randstrobes_vector.begin() + position_end,
+                                               RefRandstrobeWithHash{key, 0, 0},
+                                               cmp);
+        return (pos - randstrobes_vector.begin() - 1) - position + 1;
+    }
+
+    int end() const {
+        return -1;
     }
 
     int k() const {

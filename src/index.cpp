@@ -14,10 +14,11 @@
 #include <iostream>
 #include <thread>
 #include <atomic>
-#include <hyperloglog/hyperloglog.hpp>
+// #include <hyperloglog/hyperloglog.hpp>
 #include "io.hpp"
 #include "timer.hpp"
 #include "logger.hpp"
+#include <sstream>
 
 static Logger& logger = Logger::get();
 static const uint32_t STI_FILE_FORMAT_VERSION = 2;
@@ -341,26 +342,5 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
     log_file << median << ',' << tot_seed_count << ',' << e_hits << ',' << 100*fraction_masked << std::endl;
 }
 
-unsigned int StrobemerIndex::get_count_line_search(const unsigned int position) const {
-    const auto hash = get_hash(position);
 
-    unsigned int count = 0;
-    // step can be any number that is a power of 2, but a large number works
-    // very well
-    unsigned int step = 512;
-    while (get_hash(position + count + step) == hash) {
-        count += step;
-        step *= 2;
-    }
-    while (step > 1) {
-        while (get_hash(position + count + step) == hash) {
-            count += step;
-        }
-        step /= 2;
-    }
-    while (get_hash(position + count) == hash) {
-        ++count;
-    }
-    return count;
-}
 

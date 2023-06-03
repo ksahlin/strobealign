@@ -61,7 +61,7 @@ std::vector<Nam> merge_hits_into_nams(
                         o.ref_e = h.ref_e;
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
-                        o.query_prev_hit_startpos = h.query_s; // ` the last strobemer hit in case of outputting paf
+                        o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
                         o.ref_prev_hit_startpos = h.ref_s; // log the last strobemer hit in case of outputting paf
                         o.n_hits ++;
 //                        o.score += (float)1/ (float)h.count;
@@ -153,19 +153,12 @@ std::pair<float, std::vector<Nam>> find_nams(
 ) {
     robin_hood::unordered_map<unsigned int, std::vector<Hit>> hits_per_ref;
     hits_per_ref.reserve(100);
-
-    /*
-    1. Find the hash in the vector
-    2. the occur times of the hash value, use a flag 
-    3. need to know reference index, strobe1 position, storbe2 - strobe1
-    */
-
     int nr_good_hits = 0, total_hits = 0;
     for (const auto &q : query_randstrobes) {
         int position = index.find(q.hash);
-        if (position != -1){
+        if (position != index.end()){
             total_hits++;
-            if (index.get_hash(position + index.filter_cutoff) == q.hash) { continue; }
+            if (index.get_next_hash(position) == q.hash) { continue; }
             nr_good_hits++;
             add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, position, 100'000);
         }
@@ -205,8 +198,8 @@ std::vector<Nam> find_nams_rescue(
     hits_rc.reserve(5000);
 
     for (auto &qr : query_randstrobes) {
-        unsigned int position = index.find(qr.hash);
-        if (position != -1){
+        int position = index.find(qr.hash);
+        if (position != index.end()){
             unsigned int count = index.get_count(position);
             RescueHit rh{count, position, qr.start, qr.end, qr.is_reverse};
             if (qr.is_reverse){
