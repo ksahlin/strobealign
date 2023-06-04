@@ -77,7 +77,7 @@ void StrobemerIndex::read(const std::string& filename) {
 
     read_vector(ifs, randstrobes_vector);
     read_vector(ifs, hash_positions);
-    if (hash_positions.size() != 1 << parameters.n) {
+    if (hash_positions.size() != 1 << parameters.b) {
         throw InvalidIndexFile("hash_positions vector is of the wrong size");
     }
 }
@@ -155,7 +155,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     // add the top N bits of hash to the hash_positions
     // calculate the count of hash that exists more than one time
 
-    hash_positions.reserve(1 << parameters.n);
+    hash_positions.reserve(1 << parameters.b);
 
     unsigned int unique_mers = 0;
     uint64_t prev_hash = uint64_t(-1);
@@ -180,7 +180,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
             strobemer_counts.push_back(count);
         }
         count = 1;
-        const unsigned int cur_hash_N = cur_hash >> (64 - parameters.n);
+        const unsigned int cur_hash_N = cur_hash >> (64 - parameters.b);
         while (hash_positions.size() <= cur_hash_N) {
             hash_positions.push_back(position);
         }
@@ -197,7 +197,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
         }
         strobemer_counts.push_back(count);
     }
-    while (hash_positions.size() < (1 << parameters.n)) {
+    while (hash_positions.size() < (1 << parameters.b)) {
         hash_positions.push_back(randstrobes_vector.size());
     }
     stats.frac_unique = 1.0 * stats.tot_occur_once / unique_mers;

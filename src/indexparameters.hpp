@@ -20,10 +20,10 @@ public:
     const int t_syncmer;
     const unsigned w_min;
     const unsigned w_max;
-    const int n;
+    const int b;
 
     static const int DEFAULT = std::numeric_limits<int>::min();
-    IndexParameters(size_t canonical_read_length, int k, int s, int l, int u, int q, int max_dist, int n)
+    IndexParameters(size_t canonical_read_length, int k, int s, int l, int u, int q, int max_dist, int b)
         : canonical_read_length(canonical_read_length)
         , k(k)
         , s(s)
@@ -34,12 +34,12 @@ public:
         , t_syncmer((k - s) / 2 + 1)
         , w_min(std::max(1, k / (k - s + 1) + l))
         , w_max(k / (k - s + 1) + u)
-        , n(n)
+        , b(b)
     {
         verify();
     }
 
-    static IndexParameters from_read_length(int read_length, int k = DEFAULT, int s = DEFAULT, int l = DEFAULT, int u = DEFAULT, int c = DEFAULT, int max_seed_len = DEFAULT, int n = 28);
+    static IndexParameters from_read_length(int read_length, int k = DEFAULT, int s = DEFAULT, int l = DEFAULT, int u = DEFAULT, int c = DEFAULT, int max_seed_len = DEFAULT, int b = 28);
     static IndexParameters read(std::istream& os);
     std::string filename_extension() const;
     void write(std::ostream& os) const;

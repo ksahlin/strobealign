@@ -87,7 +87,7 @@ struct StrobemerIndex {
     void print_diagnostics(const std::string& logfile_name, int k) const;
     int find(uint64_t key) const {
         constexpr int MAX_LINEAR_SEARCH = 4;
-        const unsigned int top_N = key >> (64 - parameters.n);
+        const unsigned int top_N = key >> (64 - parameters.b);
         int position_start = hash_positions[top_N];
         int position_end = hash_positions[top_N + 1];
         if (position_start == position_end) {
@@ -138,7 +138,7 @@ struct StrobemerIndex {
     unsigned int get_count(const unsigned int position) const {
         constexpr unsigned int MAX_LINEAR_SEARCH = 8;
         const auto key = randstrobes_vector[position].hash;
-        const unsigned int top_N = key >> (64 - parameters.n);
+        const unsigned int top_N = key >> (64 - parameters.b);
         int position_end = hash_positions[top_N + 1];
         unsigned int count = 1;
 

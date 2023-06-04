@@ -33,7 +33,7 @@ static std::vector<Profile> profiles = {
  * k, s, l, u, c and max_seed_len can be used to override determined parameters
  * by setting them to a value other than IndexParameters::DEFAULT.
  */
-IndexParameters IndexParameters::from_read_length(int read_length, int k, int s, int l, int u, int c, int max_seed_len, int n) {
+IndexParameters IndexParameters::from_read_length(int read_length, int k, int s, int l, int u, int c, int max_seed_len, int b) {
     const int default_c = 8;
     size_t canonical_read_length = 50;
     for (const auto& p : profiles) {
@@ -63,7 +63,7 @@ IndexParameters IndexParameters::from_read_length(int read_length, int k, int s,
         max_dist = max_seed_len - k; // convert to distance in start positions
     }
     int q = std::pow(2, c == DEFAULT ? default_c : c) - 1;
-    return IndexParameters(canonical_read_length, k, s, l, u, q, max_dist, n);
+    return IndexParameters(canonical_read_length, k, s, l, u, q, max_dist, b);
 }
 
 void IndexParameters::write(std::ostream& os) const {
@@ -74,7 +74,7 @@ void IndexParameters::write(std::ostream& os) const {
     write_int_to_ostream(os, u);
     write_int_to_ostream(os, q);
     write_int_to_ostream(os, max_dist);
-    write_int_to_ostream(os, n);
+    write_int_to_ostream(os, b);
 }
 
 IndexParameters IndexParameters::read(std::istream& is) {
@@ -85,8 +85,8 @@ IndexParameters IndexParameters::read(std::istream& is) {
     int u = read_int_from_istream(is);
     int q = read_int_from_istream(is);
     int max_dist = read_int_from_istream(is);
-    int n = read_int_from_istream(is);
-    return IndexParameters(canonical_read_length, k, s, l, u, q, max_dist, n);
+    int b = read_int_from_istream(is);
+    return IndexParameters(canonical_read_length, k, s, l, u, q, max_dist, b);
 }
 
 bool IndexParameters::operator==(const IndexParameters& other) const {
@@ -101,7 +101,7 @@ bool IndexParameters::operator==(const IndexParameters& other) const {
         && this->t_syncmer == other.t_syncmer
         && this->w_min == other.w_min
         && this->w_max == other.w_max
-        && this->n == other.n;
+        && this->b == other.b;
 }
 
 /*
@@ -131,7 +131,7 @@ std::ostream& operator<<(std::ostream& os, const IndexParameters& parameters) {
         << ", t_syncmer=" << parameters.t_syncmer
         << ", w_min=" << parameters.w_min
         << ", w_max=" << parameters.w_max
-        << ", n=" << parameters.n
+        << ", b=" << parameters.b
         << ")";
     return os;
 }
