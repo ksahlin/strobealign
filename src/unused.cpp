@@ -13,6 +13,33 @@
 int main() {
 }
 
+class RefRandstrobe {
+public:
+    RefRandstrobe() { }  // TODO should not be needed
+    RefRandstrobe(uint32_t position, uint32_t packed) : position(position), m_packed(packed) {
+    }
+    uint32_t position;
+
+    int reference_index() const {
+        return m_packed >> bit_alloc;
+    }
+
+    int strobe2_offset() const {
+        return m_packed & mask;
+    }
+
+    RefRandstrobeWithHash::packed_t packed() const {
+        return m_packed;
+    }
+
+private:
+    static const int bit_alloc = 8;
+    static const int mask = (1 << bit_alloc) - 1;
+    RefRandstrobeWithHash::packed_t m_packed;
+};
+
+using RefRandstrobeVector = std::vector<RefRandstrobe>;
+
 namespace {
 
 struct StrobemerIndex;

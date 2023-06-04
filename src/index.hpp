@@ -18,42 +18,7 @@
 #include "randstrobes.hpp"
 #include "indexparameters.hpp"
 
-/*
- * This describes where a randstrobe occurs. Info stored:
- * - reference index
- * - position of the first strobe
- * - offset of the second strobe
-*/
 
-class RefRandstrobe {
-public:
-    RefRandstrobe() { }  // TODO should not be needed
-    RefRandstrobe(uint32_t position, uint32_t packed) : position(position), m_packed(packed) {
-    }
-    uint32_t position;
-
-    int reference_index() const {
-        return m_packed >> bit_alloc;
-    }
-
-    int strobe2_offset() const {
-        return m_packed & mask;
-    }
-
-    RefRandstrobeWithHash::packed_t packed() const {
-        return m_packed;
-    }
-
-private:
-    static const int bit_alloc = 8;
-    static const int mask = (1 << bit_alloc) - 1;
-    RefRandstrobeWithHash::packed_t m_packed;
-};
-
-using RefRandstrobeVector = std::vector<RefRandstrobe>;
-
-
-typedef std::vector<uint64_t> hash_vector; //only used during index generation
 struct IndexCreationStatistics {
     unsigned int flat_vector_size = 0;
     unsigned int tot_strobemer_count = 0;
@@ -101,7 +66,7 @@ struct StrobemerIndex {
             }
             return -1;
         }
-        auto cmp = [this](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return lhs.hash < rhs.hash; };
+        auto cmp = [](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return lhs.hash < rhs.hash; };
 
         auto pos = std::lower_bound(randstrobes_vector.begin() + position_start,
                                                randstrobes_vector.begin() + position_end,
@@ -136,6 +101,13 @@ struct StrobemerIndex {
     }
 
     unsigned int get_count(const unsigned int position) const {
+        // For 95% of cases, the result will be small and a brute force search
+        // is the best option. Once, we go over MAX_LINEAR_SEARCH, though, we
+        // use a binary search to get the next position
+        // In the human genome, if we assume that the frequency 
+        // a hash will be queried is proportional to the frequency it appears in the table, 
+        // with MAX_LINEAR_SEARCH=8, the actual value will be 96%.
+
         constexpr unsigned int MAX_LINEAR_SEARCH = 8;
         const auto key = randstrobes_vector[position].hash;
         const unsigned int top_N = key >> (64 - parameters.b);
@@ -153,7 +125,7 @@ struct StrobemerIndex {
             }
             return count;
         }
-        auto cmp = [this](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return lhs.hash < rhs.hash; };
+        auto cmp = [](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return lhs.hash < rhs.hash; };
 
         auto pos = std::upper_bound(randstrobes_vector.begin() + position,
                                                randstrobes_vector.begin() + position_end,
