@@ -61,24 +61,24 @@ struct StrobemerIndex {
 
         if (position_end - position_start < MAX_LINEAR_SEARCH) {
             for ( ; position_start < position_end; ++position_start) {
-                if (randstrobes_vector[position_start].hash == key) return position_start;
-                if (randstrobes_vector[position_start].hash > key) return -1;
+                if (randstrobes[position_start].hash == key) return position_start;
+                if (randstrobes[position_start].hash > key) return -1;
             }
             return -1;
         }
         auto cmp = [](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return lhs.hash < rhs.hash; };
 
-        auto pos = std::lower_bound(randstrobes_vector.begin() + position_start,
-                                               randstrobes_vector.begin() + position_end,
+        auto pos = std::lower_bound(randstrobes.begin() + position_start,
+                                               randstrobes.begin() + position_end,
                                                RefRandstrobeWithHash{key, 0, 0},
                                                cmp);
-        if (pos->hash == key) return pos - randstrobes_vector.begin();
+        if (pos->hash == key) return pos - randstrobes.begin();
         return -1;
     }
 
     uint64_t get_hash(unsigned int position) const {
-        if (position < randstrobes_vector.size()){
-            return randstrobes_vector[position].hash;
+        if (position < randstrobes.size()){
+            return randstrobes[position].hash;
         }else{
             return -1;
         }
@@ -89,15 +89,15 @@ struct StrobemerIndex {
     }
 
     unsigned int get_strobe1_position(unsigned int position) const {
-        return randstrobes_vector[position].position;
+        return randstrobes[position].position;
     }
 
     int strobe2_offset(unsigned int position) const {
-        return randstrobes_vector[position].packed & mask;
+        return randstrobes[position].packed & mask;
     }
 
     int reference_index(unsigned int position) const {
-        return randstrobes_vector[position].packed >> bit_alloc;
+        return randstrobes[position].packed >> bit_alloc;
     }
 
     unsigned int get_count(const unsigned int position) const {
@@ -109,14 +109,14 @@ struct StrobemerIndex {
         // with MAX_LINEAR_SEARCH=8, the actual value will be 96%.
 
         constexpr unsigned int MAX_LINEAR_SEARCH = 8;
-        const auto key = randstrobes_vector[position].hash;
+        const auto key = randstrobes[position].hash;
         const unsigned int top_N = key >> (64 - parameters.b);
         int position_end = hash_positions[top_N + 1];
         unsigned int count = 1;
 
         if (position_end - position < MAX_LINEAR_SEARCH) {
             for (int position_start = position + 1; position_start < position_end; ++position_start) {
-                if (randstrobes_vector[position_start].hash == key){
+                if (randstrobes[position_start].hash == key){
                     count += 1;
                 }
                 else{
@@ -127,11 +127,11 @@ struct StrobemerIndex {
         }
         auto cmp = [](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return lhs.hash < rhs.hash; };
 
-        auto pos = std::upper_bound(randstrobes_vector.begin() + position,
-                                               randstrobes_vector.begin() + position_end,
+        auto pos = std::upper_bound(randstrobes.begin() + position,
+                                               randstrobes.begin() + position_end,
                                                RefRandstrobeWithHash{key, 0, 0},
                                                cmp);
-        return (pos - randstrobes_vector.begin() - 1) - position + 1;
+        return (pos - randstrobes.begin() - 1) - position + 1;
     }
 
     int end() const {
@@ -148,7 +148,7 @@ private:
 
     const IndexParameters& parameters;
     const References& references;
-    std::vector<RefRandstrobeWithHash> randstrobes_vector;
+    std::vector<RefRandstrobeWithHash> randstrobes;
     std::vector<unsigned int> hash_positions;
     static constexpr int bit_alloc = 8;
     static constexpr int mask = (1 << bit_alloc) - 1;

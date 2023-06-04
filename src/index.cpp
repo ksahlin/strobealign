@@ -36,7 +36,7 @@ void StrobemerIndex::write(const std::string& filename) const {
     write_int_to_ostream(ofs, filter_cutoff);
     parameters.write(ofs);
 
-    write_vector(ofs, randstrobes_vector);
+    write_vector(ofs, randstrobes);
     write_vector(ofs, hash_positions);
 }
 
@@ -75,7 +75,7 @@ void StrobemerIndex::read(const std::string& filename) {
         throw InvalidIndexFile("Index parameters in .sti file and those specified on command line differ");
     }
 
-    read_vector(ifs, randstrobes_vector);
+    read_vector(ifs, randstrobes);
     read_vector(ifs, hash_positions);
     if (hash_positions.size() != 1 << parameters.b) {
         throw InvalidIndexFile("hash_positions vector is of the wrong size");
@@ -141,7 +141,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
 
     Timer sorting_timer;
     // sort by hash valuesles
-    pdqsort_branchless(randstrobes_vector.begin(), randstrobes_vector.end());
+    pdqsort_branchless(randstrobes.begin(), randstrobes.end());
     stats.elapsed_sorting_seeds = sorting_timer.duration();
 
     Timer hash_index_timer;
@@ -160,8 +160,8 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     unsigned int unique_mers = 0;
     uint64_t prev_hash = uint64_t(-1);
     unsigned int count = 0;
-    for (unsigned int position = 0; position < randstrobes_vector.size(); ++position) {
-        const uint64_t cur_hash = randstrobes_vector[position].hash;
+    for (unsigned int position = 0; position < randstrobes.size(); ++position) {
+        const uint64_t cur_hash = randstrobes[position].hash;
         if (cur_hash == prev_hash) {
             ++count;
             continue;
@@ -198,7 +198,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
         strobemer_counts.push_back(count);
     }
     while (hash_positions.size() < (1 << parameters.b)) {
-        hash_positions.push_back(randstrobes_vector.size());
+        hash_positions.push_back(randstrobes.size());
     }
     stats.frac_unique = 1.0 * stats.tot_occur_once / unique_mers;
     stats.tot_high_ab = tot_high_ab;
@@ -223,7 +223,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
 
 void StrobemerIndex::add_randstrobes_to_vector(int randstrobe_hashes){
     // size_t tot_occur_once = 0;
-    randstrobes_vector.reserve(randstrobe_hashes);
+    randstrobes.reserve(randstrobe_hashes);
     for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
         auto seq = references.sequences[ref_index];
         if (seq.length() < parameters.w_max) {
@@ -253,7 +253,7 @@ void StrobemerIndex::add_randstrobes_to_vector(int randstrobe_hashes){
                 RefRandstrobeWithHash::packed_t packed = ref_index << 8;
                 packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
                 // try to insert as direct entry
-                randstrobes_vector.push_back(RefRandstrobeWithHash{randstrobe.hash, randstrobe.strobe1_pos, packed});
+                randstrobes.push_back(RefRandstrobeWithHash{randstrobe.hash, randstrobe.strobe1_pos, packed});
                 }
             chunk.clear();
             }
@@ -281,7 +281,7 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
 
     size_t seed_length = 0;
 
-    for (int it = 0; it < randstrobes_vector.size(); it++) {
+    for (int it = 0; it < randstrobes.size(); it++) {
         seed_length = strobe2_offset(it) + k;
         auto count = get_count(it);
 
