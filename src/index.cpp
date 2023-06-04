@@ -37,7 +37,7 @@ void StrobemerIndex::write(const std::string& filename) const {
     parameters.write(ofs);
 
     write_vector(ofs, randstrobes);
-    write_vector(ofs, hash_positions);
+    write_vector(ofs, randstrobe_start_indices);
 }
 
 void StrobemerIndex::read(const std::string& filename) {
@@ -76,9 +76,9 @@ void StrobemerIndex::read(const std::string& filename) {
     }
 
     read_vector(ifs, randstrobes);
-    read_vector(ifs, hash_positions);
-    if (hash_positions.size() != 1 << parameters.b) {
-        throw InvalidIndexFile("hash_positions vector is of the wrong size");
+    read_vector(ifs, randstrobe_start_indices);
+    if (randstrobe_start_indices.size() != 1 << parameters.b) {
+        throw InvalidIndexFile("randstrobe_start_indices vector is of the wrong size");
     }
 }
 
@@ -152,10 +152,10 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
 
     stats.tot_occur_once = 0;
     // calculate stats.flat_vector_size, n_distinct_hashes
-    // add the top N bits of hash to the hash_positions
+    // add the top N bits of hash to the randstrobe_start_indices
     // calculate the count of hash that exists more than one time
 
-    hash_positions.reserve(1 << parameters.b);
+    randstrobe_start_indices.reserve(1 << parameters.b);
 
     unsigned int unique_mers = 0;
     uint64_t prev_hash = uint64_t(-1);
@@ -181,8 +181,8 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
         }
         count = 1;
         const unsigned int cur_hash_N = cur_hash >> (64 - parameters.b);
-        while (hash_positions.size() <= cur_hash_N) {
-            hash_positions.push_back(position);
+        while (randstrobe_start_indices.size() <= cur_hash_N) {
+            randstrobe_start_indices.push_back(position);
         }
         prev_hash = cur_hash;
     }
@@ -197,8 +197,8 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
         }
         strobemer_counts.push_back(count);
     }
-    while (hash_positions.size() < (1 << parameters.b)) {
-        hash_positions.push_back(randstrobes.size());
+    while (randstrobe_start_indices.size() < (1 << parameters.b)) {
+        randstrobe_start_indices.push_back(randstrobes.size());
     }
     stats.frac_unique = 1.0 * stats.tot_occur_once / unique_mers;
     stats.tot_high_ab = tot_high_ab;

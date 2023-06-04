@@ -53,8 +53,8 @@ struct StrobemerIndex {
     int find(uint64_t key) const {
         constexpr int MAX_LINEAR_SEARCH = 4;
         const unsigned int top_N = key >> (64 - parameters.b);
-        int position_start = hash_positions[top_N];
-        int position_end = hash_positions[top_N + 1];
+        int position_start = randstrobe_start_indices[top_N];
+        int position_end = randstrobe_start_indices[top_N + 1];
         if (position_start == position_end) {
             return -1;
         }
@@ -111,7 +111,7 @@ struct StrobemerIndex {
         constexpr unsigned int MAX_LINEAR_SEARCH = 8;
         const auto key = randstrobes[position].hash;
         const unsigned int top_N = key >> (64 - parameters.b);
-        int position_end = hash_positions[top_N + 1];
+        int position_end = randstrobe_start_indices[top_N + 1];
         unsigned int count = 1;
 
         if (position_end - position < MAX_LINEAR_SEARCH) {
@@ -149,7 +149,7 @@ private:
     const IndexParameters& parameters;
     const References& references;
     std::vector<RefRandstrobeWithHash> randstrobes;
-    std::vector<unsigned int> hash_positions;
+    std::vector<unsigned int> randstrobe_start_indices;
     static constexpr int bit_alloc = 8;
     static constexpr int mask = (1 << bit_alloc) - 1;
 };
