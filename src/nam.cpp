@@ -1,8 +1,4 @@
 #include "nam.hpp"
-#include "logger.hpp"
-
-static Logger& logger = Logger::get();
-namespace {
 
 struct Hit {
     int query_s;

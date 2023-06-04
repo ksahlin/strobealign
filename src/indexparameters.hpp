@@ -23,6 +23,7 @@ public:
     const int b;
 
     static const int DEFAULT = std::numeric_limits<int>::min();
+    static const int DEFAULT_b = 28;
     IndexParameters(size_t canonical_read_length, int k, int s, int l, int u, int q, int max_dist, int b)
         : canonical_read_length(canonical_read_length)
         , k(k)
@@ -39,7 +40,7 @@ public:
         verify();
     }
 
-    static IndexParameters from_read_length(int read_length, int k = DEFAULT, int s = DEFAULT, int l = DEFAULT, int u = DEFAULT, int c = DEFAULT, int max_seed_len = DEFAULT, int b = 28);
+    static IndexParameters from_read_length(int read_length, int k = DEFAULT, int s = DEFAULT, int l = DEFAULT, int u = DEFAULT, int c = DEFAULT, int max_seed_len = DEFAULT, int b = DEFAULT);
     static IndexParameters read(std::istream& os);
     std::string filename_extension() const;
     void write(std::ostream& os) const;
