@@ -9,7 +9,11 @@
 #include <cassert>
 #include <iomanip>
 #include <chrono>
+#ifdef _WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 
 #include "refs.hpp"
 #include "exceptions.hpp"
