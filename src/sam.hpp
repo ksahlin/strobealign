@@ -73,6 +73,11 @@ public:
 
 private:
     void append_tail();
+    void append_qual(const std::string& qual) {
+        sam_string.append("\t");
+        sam_string.append(qual.empty() ? "*" : qual);
+    }
+
     std::string cigar_string(const Cigar& cigar) const;
     std::string& sam_string;
     const References& references;

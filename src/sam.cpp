@@ -67,8 +67,7 @@ void Sam::add_unmapped(const KSeq& record, int flags) {
     sam_string.append(std::to_string(flags));
     sam_string.append("\t*\t0\t" SAM_UNMAPPED_MAPQ_STRING "\t*\t*\t0\t0\t");
     sam_string.append(record.seq);
-    sam_string.append("\t");
-    sam_string.append(record.qual);
+    append_qual(record.qual);
     append_tail();
 }
 
@@ -83,8 +82,7 @@ void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& ma
     sam_string.append(std::to_string(mate_pos + 1));
     sam_string.append("\t0\t");
     sam_string.append(record.seq);
-    sam_string.append("\t");
-    sam_string.append(record.qual);
+    append_qual(record.qual);
     append_tail();
 }
 
@@ -153,15 +151,14 @@ void Sam::add_record(
     } else {
         sam_string.append(query_sequence);
     }
-    sam_string.append("\t");
 
     if (!(flags & UNMAP)) {
         if (flags & REVERSE) {
             auto qual_rev = qual;
             std::reverse(qual_rev.begin(), qual_rev.end());
-            sam_string.append(qual_rev);
+            append_qual(qual_rev);
         } else {
-            sam_string.append(qual);
+            append_qual(qual);
         }
         sam_string.append("\t");
         sam_string.append("NM:i:");
@@ -170,7 +167,7 @@ void Sam::add_record(
         sam_string.append("AS:i:");
         sam_string.append(std::to_string(aln_score));
     } else {
-        sam_string.append(qual);
+        append_qual(qual);
     }
     append_tail();
 }
