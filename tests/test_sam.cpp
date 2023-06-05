@@ -23,6 +23,17 @@ TEST_CASE("Formatting unmapped SAM record") {
 
         CHECK(sam_string == "read1\t4\t*\t0\t0\t*\t*\t0\t0\tACGT\t>#BB\tRG:Z:rg1\n");
     }
+
+    SUBCASE("without qualities") {
+        Sam sam(sam_string, references);
+        klibpp::KSeq kseq_noqual;
+        kseq_noqual.name = "read1";
+        kseq_noqual.seq = "ACGT";
+        kseq_noqual.qual = "";
+        sam.add_unmapped(kseq_noqual);
+
+        CHECK(sam_string == "read1\t4\t*\t0\t0\t*\t*\t0\t0\tACGT\t*\n");
+    }
 }
 
 TEST_CASE("Sam::add") {
