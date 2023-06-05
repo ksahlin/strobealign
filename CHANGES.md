@@ -1,6 +1,6 @@
 # Strobealign Changelog
 
-## development version
+## v0.10.0 (2023-06-05)
 
 * #258: Fixed compilation on MinGW. Thanks @teepean.
 * #260: Include full command line in the SAM PG header. Thanks @telmin.
@@ -8,7 +8,7 @@
   Added option `--eqx` to use `=` and `X` as before.
 * #265: Fixed overflowing read count statistics when processing $2^{31}$ reads
   or more. Thanks @telmin.
-* #273: Fix handling of interleaved files using /1 or /2 suffixes
+* #273: Fix handling of interleaved files using `/1` or `/2` suffixes
 
 ## v0.9.0 (2023-03-16)
 
