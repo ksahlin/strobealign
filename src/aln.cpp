@@ -68,7 +68,7 @@ bool reverse_nam_if_needed(Nam& n, const Read& read, const References& reference
     return false;
 }
 
-static inline void align_SE_secondary_hits(
+static inline void align_SE(
     const Aligner& aligner,
     Sam& sam,
     std::vector<Nam>& all_nams,
@@ -1450,7 +1450,7 @@ void align_SE_read(
         output_hits_paf(outstring, nams, record.name, references, index_parameters.k,
                         record.seq.length());
     } else {
-        align_SE_secondary_hits(
+        align_SE(
             aligner, sam, nams, record, index_parameters.k,
             references, statistics, map_param.dropoff_threshold, map_param.maxTries,
             map_param.max_secondary + 1
