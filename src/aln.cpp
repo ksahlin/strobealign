@@ -870,20 +870,17 @@ void rescue_read(
         auto best_aln_pair = high_scores[0];
         alignment sam_aln1 = std::get<1>(best_aln_pair);
         alignment sam_aln2 = std::get<2>(best_aln_pair);
-//            get_MAPQ(all_nams1, n_max1, mapq1);
-//            mapq2 = 0;
         if (swap_r1r2) {
             sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper_pair(sam_aln2, sam_aln1, mu, sigma), true);
         } else {
             sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper_pair(sam_aln1, sam_aln2, mu, sigma), true);
         }
     } else {
-        int max_out = std::min(high_scores.size(), max_secondary);
+        auto max_out = std::min(high_scores.size(), max_secondary);
         bool is_primary = true;
         auto best_aln_pair = high_scores[0];
         auto s_max = std::get<0>(best_aln_pair);
-//            get_MAPQ(all_nams1, n_max1, mapq1);
-        for (int i = 0; i < max_out; ++i) {
+        for (size_t i = 0; i < max_out; ++i) {
             if (i > 0) {
                 is_primary = false;
                 mapq1 = 0;
@@ -1228,7 +1225,6 @@ inline void align_PE(
     auto sam_aln1 = std::get<1>(best_aln_pair);
     auto sam_aln2 = std::get<2>(best_aln_pair);
     if (max_secondary == 0) {
-//            get_MAPQ_aln(sam_aln1, sam_aln2);
         bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
         sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc,
                         mapq1, mapq2, is_proper, true);
