@@ -119,18 +119,18 @@ static inline void align_SE(
             min_mapq_diff = std::max(0, sam_aln.sw_score - best_align_sw_score); // new distance to next best match
             best_align_sw_score = sam_aln.sw_score;
             best_sam_aln = std::move(sam_aln);
-            if (max_secondary == 1) {
+            if (max_secondary == 0) {
                 best_align_dist = best_sam_aln.global_ed;
             }
         }
 //        sam_aln.ed = 10000; // init
-        if (max_secondary > 1) {
+        if (max_secondary > 0) {
             alignments.emplace_back(sam_aln);
         }
         cnt++;
     }
 
-    if (max_secondary == 1) {
+    if (max_secondary == 0) {
         best_sam_aln.mapq = std::min(min_mapq_diff, 60);
         sam.add(best_sam_aln, record, read.rc);
         return;
@@ -142,7 +142,7 @@ static inline void align_SE(
         }
     );
 
-    auto max_out = std::min(alignments.size(), static_cast<size_t>(max_secondary));
+    auto max_out = std::min(alignments.size(), static_cast<size_t>(max_secondary) + 1);
     bool is_secondary = false;
     for (size_t i = 0; i < max_out; ++i) {
         auto sam_aln = alignments[i];
@@ -1449,7 +1449,7 @@ void align_SE_read(
         align_SE(
             aligner, sam, nams, record, index_parameters.k,
             references, statistics, map_param.dropoff_threshold, map_param.maxTries,
-            map_param.max_secondary + 1
+            map_param.max_secondary
         );
     }
     statistics.tot_extend += extend_timer.duration();
