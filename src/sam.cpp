@@ -146,14 +146,18 @@ void Sam::add_record(
     sam_string.append(std::to_string(template_len));
     sam_string.append("\t");
 
-    if (flags & REVERSE) {
+    if (flags & SECONDARY) {
+        sam_string.append("*");
+    } else if (flags & REVERSE) {
         sam_string.append(query_sequence_rc);
     } else {
         sam_string.append(query_sequence);
     }
 
     if (!(flags & UNMAP)) {
-        if (flags & REVERSE) {
+        if (flags & SECONDARY) {
+            append_qual("");
+        } else if (flags & REVERSE) {
             auto qual_rev = qual;
             std::reverse(qual_rev.begin(), qual_rev.end());
             append_qual(qual_rev);
