@@ -80,15 +80,14 @@ static inline void align_SE(
     int max_tries,
     unsigned max_secondary
 ) {
-    Read read(record.seq);
-
     if (all_nams.empty()) {
         sam.add_unmapped(record);
         return;
     }
 
+    Read read(record.seq);
     std::vector<alignment> alignments;
-    int cnt = 0;
+    int tries = 0;
     float score_dropoff;
     Nam n_max = all_nams[0];
 
@@ -102,7 +101,7 @@ static inline void align_SE(
     for (auto &n : all_nams) {
         score_dropoff = (float) n.n_hits / n_max.n_hits;
 
-        if ( (cnt >= max_tries) || best_align_dist == 0 || score_dropoff < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
+        if (tries >= max_tries || best_align_dist == 0 || score_dropoff < dropoff) { // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
             break;
         }
         statistics.tot_all_tried ++;
@@ -123,11 +122,10 @@ static inline void align_SE(
                 best_align_dist = best_sam_aln.global_ed;
             }
         }
-//        sam_aln.ed = 10000; // init
         if (max_secondary > 0) {
             alignments.emplace_back(sam_aln);
         }
-        cnt++;
+        tries++;
     }
 
     if (max_secondary == 0) {
@@ -817,13 +815,13 @@ void rescue_read(
 ) {
     float score_dropoff1;
     Nam n_max1 = all_nams1[0];
-    int cnt1 = 0;
+    int tries = 0;
 
     std::vector<alignment> aln_scores1;
     std::vector<alignment> aln_scores2;
     for (auto& n : all_nams1) {
         score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
-        if ( (cnt1 >= max_tries) || score_dropoff1 < dropoff){ // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
+        if (tries >= max_tries || score_dropoff1 < dropoff) { // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
             break;
         }
         //////// the actual testing of base pair alignment part start /////////
@@ -842,7 +840,7 @@ void rescue_read(
         rescue_mate(aligner, n, references, read1, read2, a2, mu, sigma, statistics.tot_rescued, k);
         aln_scores2.emplace_back(a2);
 
-        cnt1 ++;
+        tries++;
         statistics.tot_all_tried ++;
     }
     std::sort(aln_scores1.begin(), aln_scores1.end(), score_sw);
@@ -1022,7 +1020,7 @@ inline void align_PE(
     // If we get here, both reads have NAMs
     assert(!all_nams1.empty() && !all_nams2.empty());
 
-    int cnt = 0;
+    int tries = 0;
     double S = 0.0;
     Nam n_max1 = all_nams1[0];
     Nam n_max2 = all_nams2[0];
@@ -1110,7 +1108,7 @@ inline void align_PE(
     std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
     for (auto &[score_, n1, n2] : joint_NAM_scores) {
         score_dropoff1 = (float) score_ / max_score;
-        if ( (cnt >= max_tries) || (score_dropoff1 < dropoff) ){ // only consider top 20 if there are more.
+        if (tries >= max_tries || score_dropoff1 < dropoff) {
             break;
         }
 
@@ -1193,7 +1191,7 @@ inline void align_PE(
         std::tuple<double, alignment, alignment> aln_tuple (S, a1, a2);
         high_scores.push_back(aln_tuple);
 
-        cnt ++;
+        tries++;
     }
 
     // Finally, add highest scores of both mates as individually mapped
