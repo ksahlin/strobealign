@@ -76,8 +76,15 @@ void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& ma
     sam_string.append(strip_suffix(record.name));
     sam_string.append("\t");
     sam_string.append(std::to_string(flags));
-    sam_string.append("\t*\t0\t" SAM_UNMAPPED_MAPQ_STRING "\t*\t");
+    sam_string.append("\t");
+    // The SAM specification recommends: "For a unmapped paired-end or
+    // mate-pair read whose mate is mapped, the unmapped read should have
+    // RNAME and POS identical to its mate."
     sam_string.append(mate_rname);
+    sam_string.append("\t");
+    sam_string.append(std::to_string(mate_pos + 1));
+    sam_string.append("\t" SAM_UNMAPPED_MAPQ_STRING "\t*\t");
+    sam_string.append("=");
     sam_string.append("\t");
     sam_string.append(std::to_string(mate_pos + 1));
     sam_string.append("\t0\t");
@@ -253,13 +260,23 @@ void Sam::add_pair(
         mate_name2 = "=";
     }
 
+    if (sam_aln1.is_unaligned != sam_aln2.is_unaligned) {
+        mate_name1 = "=";
+        mate_name2 = "=";
+        if (sam_aln1.is_unaligned) {
+            ref_start1 = ref_start2;
+        } else {
+            ref_start2 = ref_start1;
+        }
+    }
+
     if (sam_aln1.is_unaligned) {
-        add_unmapped_mate(record1, f1, mate_name2, ref_start2);
+        add_unmapped_mate(record1, f1, ref2, ref_start2);
     } else {
         add_record(record1.name, f1, ref1, sam_aln1.ref_start, mapq1, sam_aln1.cigar, mate_name2, ref_start2, template_len1, record1.seq, read1_rc, record1.qual, ed1, sam_aln1.aln_score);
     }
     if (sam_aln2.is_unaligned) {
-        add_unmapped_mate(record2, f2, mate_name1, ref_start1);
+        add_unmapped_mate(record2, f2, ref1, ref_start1);
     } else {
         add_record(record2.name, f2, ref2, sam_aln2.ref_start, mapq2, sam_aln2.cigar, mate_name1, ref_start1, -template_len1, record2.seq, read2_rc, record2.qual, ed2, sam_aln2.aln_score);
     }

@@ -124,8 +124,8 @@ TEST_CASE("Pair with one unmapped SAM record") {
     // 89: PAIRED,MUNMAP,REVERSE,READ1
     // 165: PAIRED,UNMAP,MREVERSE,READ2
     CHECK(sam_string ==
-      "readname\t89\tcontig1\t3\t55\t2M\t*\t0\t0\tGGTT\t<B!#\tNM:i:17\tAS:i:9\n"
-      "readname\t165\t*\t0\t0\t*\tcontig1\t3\t0\tGGTT\tIHB#\n"
+      "readname\t89\tcontig1\t3\t55\t2M\t=\t3\t0\tGGTT\t<B!#\tNM:i:17\tAS:i:9\n"
+      "readname\t165\tcontig1\t3\t0\t*\t=\t3\t0\tGGTT\tIHB#\n"
     );
 }
 
