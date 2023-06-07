@@ -114,6 +114,9 @@ static inline void align_SE(
         int diff_to_best = std::abs(best_align_sw_score - sam_aln.sw_score);
         min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
 
+        if (max_secondary > 0) {
+            alignments.emplace_back(sam_aln);
+        }
         if (sam_aln.sw_score > best_align_sw_score) {
             min_mapq_diff = std::max(0, sam_aln.sw_score - best_align_sw_score); // new distance to next best match
             best_align_sw_score = sam_aln.sw_score;
@@ -121,9 +124,6 @@ static inline void align_SE(
             if (max_secondary == 0) {
                 best_align_dist = best_sam_aln.global_ed;
             }
-        }
-        if (max_secondary > 0) {
-            alignments.emplace_back(sam_aln);
         }
         tries++;
     }
