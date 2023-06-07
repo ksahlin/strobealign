@@ -1,5 +1,11 @@
 # Strobealign Changelog
 
+## development version
+
+* #289: Fixed missing CIGAR for secondary alignments.
+* #212: SEQ and QUAL are set to `*` for secondary alignments as recommended
+  by the SAM specification.
+
 ## v0.10.0 (2023-06-05)
 
 * #258: Fixed compilation on MinGW. Thanks @teepean.
