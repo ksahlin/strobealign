@@ -37,17 +37,17 @@ diff tests/phix.pe.sam phix.pe.sam
 rm phix.pe.sam
 
 # Single-end PAF
-strobealign -x tests/phix.fasta tests/phix.1.fastq | tail > phix.se.paf
+strobealign -x tests/phix.fasta tests/phix.1.fastq | tail -n 11 > phix.se.paf
 diff tests/phix.se.paf phix.se.paf
 rm phix.se.paf
 
 # Single-end PAF (stdin input)
-cat tests/phix.1.fastq | strobealign -x tests/phix.fasta - | tail > phix.se.paf
+cat tests/phix.1.fastq | strobealign -x tests/phix.fasta - | tail -n 11 > phix.se.paf
 diff tests/phix.se.paf phix.se.paf
 rm phix.se.paf
 
 # Paired-end PAF
-strobealign -x tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq | tail > phix.pe.paf
+strobealign -x tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq | tail -n 11 > phix.pe.paf
 diff tests/phix.pe.paf phix.pe.paf
 rm phix.pe.paf
 
