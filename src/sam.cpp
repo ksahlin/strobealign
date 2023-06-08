@@ -71,7 +71,7 @@ void Sam::add_unmapped(const KSeq& record, int flags) {
     append_tail();
 }
 
-void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& mate_rname, int mate_pos) {
+void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& mate_reference_name, int mate_pos) {
     assert(flags & (UNMAP|PAIRED));
     sam_string.append(strip_suffix(record.name));
     sam_string.append("\t");
@@ -80,7 +80,7 @@ void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& ma
     // The SAM specification recommends: "For a unmapped paired-end or
     // mate-pair read whose mate is mapped, the unmapped read should have
     // RNAME and POS identical to its mate."
-    sam_string.append(mate_rname);
+    sam_string.append(mate_reference_name);
     sam_string.append("\t");
     sam_string.append(std::to_string(mate_pos + 1));
     sam_string.append("\t" SAM_UNMAPPED_MAPQ_STRING "\t*\t");
@@ -124,8 +124,8 @@ void Sam::add_record(
     int pos,
     int mapq,
     const Cigar& cigar,
-    const std::string& mate_name,
-    int mate_ref_start,
+    const std::string& mate_reference_name,
+    int mate_pos,
     int template_len,
     const std::string& query_sequence,
     const std::string& query_sequence_rc,
@@ -146,9 +146,9 @@ void Sam::add_record(
     sam_string.append(cigar_string(cigar));
     sam_string.append("\t");
 
-    sam_string.append(mate_name);
+    sam_string.append(mate_reference_name);
     sam_string.append("\t");
-    sam_string.append(std::to_string(mate_ref_start + 1));
+    sam_string.append(std::to_string(mate_pos + 1));
     sam_string.append("\t");
     sam_string.append(std::to_string(template_len));
     sam_string.append("\t");
@@ -218,67 +218,67 @@ void Sam::add_pair(
         f2 |= PROPER_PAIR;
     }
 
-    std::string mate_name1;
-    std::string ref1;
-    int ref_start1 = sam_aln1.ref_start;
-    int ed1 = sam_aln1.ed;
+    std::string reference_name1;
+    int pos1 = sam_aln1.ref_start;
+    int edit_distance1 = sam_aln1.ed;
     if (sam_aln1.is_unaligned) {
         f1 |= UNMAP;
         f2 |= MUNMAP;
-        ref1 = "*";
-        ref_start1 = -1;
-        mate_name1 = "*";
+        pos1 = -1;
+        reference_name1 = "*";
     } else {
         if (sam_aln1.is_rc) {
             f1 |= REVERSE;
             f2 |= MREVERSE;
         }
-        mate_name1 = references.names[sam_aln1.ref_id];
-        ref1 = references.names[sam_aln1.ref_id];
+        reference_name1 = references.names[sam_aln1.ref_id];
     }
 
-    std::string mate_name2;
-    std::string ref2;
-    int ref_start2 = sam_aln2.ref_start;
-    int ed2 = sam_aln2.ed;
+    std::string reference_name2;
+    int pos2 = sam_aln2.ref_start;
+    int edit_distance2 = sam_aln2.ed;
     if (sam_aln2.is_unaligned) {
         f2 |= UNMAP;
         f1 |= MUNMAP;
-        ref_start2 = -1;
-        ref2 = "*";
-        mate_name2 = "*";
+        pos2 = -1;
+        reference_name2 = "*";
     } else {
         if (sam_aln2.is_rc) {
             f1 |= MREVERSE;
             f2 |= REVERSE;
         }
-        mate_name2 = references.names[sam_aln2.ref_id];
-        ref2 = references.names[sam_aln2.ref_id];
+        reference_name2 = references.names[sam_aln2.ref_id];
     }
-    if (!sam_aln1.is_unaligned && !sam_aln2.is_unaligned && sam_aln1.ref_id == sam_aln2.ref_id) {
-        mate_name1 = "=";
-        mate_name2 = "=";
+
+    // Reference name as used in the RNEXT field;
+    // set to "=" if identical to reference_name
+    std::string mate_reference_name1 = reference_name1;
+    std::string mate_reference_name2 = reference_name2;
+    if (
+        (!sam_aln1.is_unaligned && !sam_aln2.is_unaligned && sam_aln1.ref_id == sam_aln2.ref_id)
+        || (sam_aln1.is_unaligned != sam_aln2.is_unaligned)
+    ) {
+        mate_reference_name1 = "=";
+        mate_reference_name2 = "=";
     }
 
     if (sam_aln1.is_unaligned != sam_aln2.is_unaligned) {
-        mate_name1 = "=";
-        mate_name2 = "=";
         if (sam_aln1.is_unaligned) {
-            ref_start1 = ref_start2;
+            pos1 = pos2;
         } else {
-            ref_start2 = ref_start1;
+            pos2 = pos1;
         }
     }
 
     if (sam_aln1.is_unaligned) {
-        add_unmapped_mate(record1, f1, ref2, ref_start2);
+        add_unmapped_mate(record1, f1, reference_name2, pos2);
     } else {
-        add_record(record1.name, f1, ref1, sam_aln1.ref_start, mapq1, sam_aln1.cigar, mate_name2, ref_start2, template_len1, record1.seq, read1_rc, record1.qual, ed1, sam_aln1.aln_score);
+        add_record(record1.name, f1, reference_name1, sam_aln1.ref_start, mapq1, sam_aln1.cigar, mate_reference_name2, pos2, template_len1, record1.seq, read1_rc, record1.qual, edit_distance1, sam_aln1.aln_score);
     }
     if (sam_aln2.is_unaligned) {
-        add_unmapped_mate(record2, f2, ref1, ref_start1);
+        add_unmapped_mate(record2, f2, reference_name1, pos1);
     } else {
-        add_record(record2.name, f2, ref2, sam_aln2.ref_start, mapq2, sam_aln2.cigar, mate_name1, ref_start1, -template_len1, record2.seq, read2_rc, record2.qual, ed2, sam_aln2.aln_score);
+        add_record(record2.name, f2, reference_name2, sam_aln2.ref_start, mapq2, sam_aln2.cigar, mate_reference_name1, pos1, -template_len1, record2.seq, read2_rc, record2.qual, edit_distance2, sam_aln2.aln_score);
     }
 }
 
