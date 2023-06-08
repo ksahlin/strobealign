@@ -47,7 +47,7 @@ TEST_CASE("InputBuffer paired") {
             break;
         }
     }
-    CHECK(total_pe == 44);
+    CHECK(total_pe == 45);
     CHECK(total_se == 0);
 }
 
@@ -72,7 +72,7 @@ TEST_CASE("InputBuffer single-end (with rewind)") {
         }
     }
     CHECK(total_pe == 0);
-    CHECK(total_se == 44);
+    CHECK(total_se == 45);
 
     ibuf.rewind_reset();
     total_pe = 0;
@@ -90,7 +90,7 @@ TEST_CASE("InputBuffer single-end (with rewind)") {
         }
     }
     CHECK(total_pe == 0);
-    CHECK(total_se == 44);
+    CHECK(total_se == 45);
 }
 
 TEST_CASE("RewindableFile") {

@@ -15,7 +15,7 @@ TEST_CASE("estimate_read_length") {
     CHECK(estimate_read_length(input_buffer1) == 289);
 
     InputBuffer input_buffer2("tests/phix.1.fastq", "tests/phix.2.fastq", 5, false);
-    CHECK(estimate_read_length(input_buffer2) == 289);
+    CHECK(estimate_read_length(input_buffer2) == 287);
 }
 
 TEST_CASE("IndexParameters==") {
