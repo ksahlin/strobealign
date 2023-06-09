@@ -2,6 +2,7 @@
 Language:        Cpp
 BasedOnStyle:  Chromium
 AlignAfterOpenBracket: BlockIndent
+BinPackArguments: false
 IndentWidth:     4
 ColumnLimit:     110
 ReflowComments:  false
