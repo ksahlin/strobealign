@@ -45,8 +45,10 @@ static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
     return xxh64(packed);
 }
 
-static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_hash_t hash2) {
-    return hash1 + hash2;
+static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t syncmer1_hash, syncmer_hash_t syncmer2_hash) {
+    // alternative:
+    // (syncmer1_hash << 1) ^ syncmer2_hash
+    return 2 * syncmer1_hash - syncmer2_hash;
 }
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
