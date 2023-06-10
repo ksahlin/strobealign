@@ -64,7 +64,7 @@ void StrobemerIndex::read(const std::string& filename) {
     }
 
     // Skip over variable-length chunk reserved for future use
-    uint64_t reserved_chunk_size;
+    randstrobe_hash_t reserved_chunk_size;
     ifs.read(reinterpret_cast<char*>(&reserved_chunk_size), sizeof(reserved_chunk_size));
     ifs.seekg(reserved_chunk_size, std::ios_base::cur);
 
@@ -94,34 +94,34 @@ int count_randstrobe_hashes(const std::string& seq, const IndexParameters& param
 
 size_t count_randstrobe_hashes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
     std::vector<std::thread> workers;
-    int total = 0;
+    unsigned int total = 0;
     std::atomic_size_t ref_index = 0;
 
-    std::vector<int> estimators;
+    std::vector<int> counts;
     for (size_t i = 0; i < n_threads; ++i) {
-        estimators.push_back(0);
+        counts.push_back(0);
     }
 
     for (size_t i = 0; i < n_threads; ++i) {
         workers.push_back(
             std::thread(
-                [&ref_index](const References& references, const IndexParameters& parameters, int& estimator) {
+                [&ref_index](const References& references, const IndexParameters& parameters, int& count) {
                     while (true) {
                         size_t j = ref_index.fetch_add(1);
                         if (j >= references.size()) {
                             break;
                         }
-                        estimator += count_randstrobe_hashes(references.sequences[j], parameters);
+                        count += count_randstrobe_hashes(references.sequences[j], parameters);
                     }
-                }, std::ref(references), std::ref(parameters), std::ref(estimators[i]))
+                }, std::ref(references), std::ref(parameters), std::ref(counts[i]))
         );
     }
     for (auto& worker : workers) {
         worker.join();
     }
 
-    for (auto& estimator : estimators) {
-        total += estimator;
+    for (auto& count : counts) {
+        total += count;
     }
     return total;
 }
@@ -129,17 +129,17 @@ size_t count_randstrobe_hashes_parallel(const References& references, const Inde
 void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.tot_strobemer_count = 0;
 
-    Timer estimate_unique;
-    auto randstrobe_hashes = estimate_randstrobe_hashes_parallel(references, parameters, n_threads);
-    stats.elapsed_unique_hashes = estimate_unique.duration();
-    logger.debug() << "Estimated number of randstrobe hashes: " << randstrobe_hashes << '\n';
+    Timer count_hash;
+    auto randstrobe_hashes = count_randstrobe_hashes_parallel(references, parameters, n_threads);
+    stats.elapsed_unique_hashes = count_hash.duration();
+    logger.debug() << "Count number of randstrobe hashes: " << randstrobe_hashes << '\n';
 
     Timer randstrobes_timer;
     add_randstrobes_to_vector(randstrobe_hashes);
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     Timer sorting_timer;
-    // sort by hash valuesles
+    // sort by hash values
     pdqsort_branchless(randstrobes.begin(), randstrobes.end());
     stats.elapsed_sorting_seeds = sorting_timer.duration();
 
@@ -150,17 +150,13 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     std::vector<unsigned int> strobemer_counts;
 
     stats.tot_occur_once = 0;
-    // calculate stats.flat_vector_size, n_distinct_hashes
-    // add the top N bits of hash to the randstrobe_start_indices
-    // calculate the count of hash that exists more than one time
-
     randstrobe_start_indices.reserve(1 << parameters.b);
 
     unsigned int unique_mers = 0;
-    uint64_t prev_hash = uint64_t(-1);
+    randstrobe_hash_t prev_hash = static_cast<randstrobe_hash_t>(-1);
     unsigned int count = 0;
     for (unsigned int position = 0; position < randstrobes.size(); ++position) {
-        const uint64_t cur_hash = randstrobes[position].hash;
+        const randstrobe_hash_t cur_hash = randstrobes[position].hash;
         if (cur_hash == prev_hash) {
             ++count;
             continue;
@@ -250,7 +246,6 @@ void StrobemerIndex::add_randstrobes_to_vector(int randstrobe_hashes){
             for (auto randstrobe : chunk) {
                 RefRandstrobeWithHash::packed_t packed = ref_index << 8;
                 packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
-                // try to insert as direct entry
                 randstrobes.push_back(RefRandstrobeWithHash{randstrobe.hash, randstrobe.strobe1_pos, packed});
                 }
             chunk.clear();
@@ -269,16 +264,16 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
     std::vector<int> log_repetitive(max_size, 0);  // stores count unique and each index represents the length
 
 
-    std::vector<uint64_t> log_count_squared(max_size,0);
-    uint64_t tot_seed_count = 0;
-    uint64_t tot_seed_count_sq = 0;
+    std::vector<randstrobe_hash_t> log_count_squared(max_size,0);
+    randstrobe_hash_t tot_seed_count = 0;
+    randstrobe_hash_t tot_seed_count_sq = 0;
 
-    std::vector<uint64_t> log_count_1000_limit(max_size, 0);  // stores count and each index represents the length
-    uint64_t tot_seed_count_1000_limit = 0;
+    std::vector<randstrobe_hash_t> log_count_1000_limit(max_size, 0);  // stores count and each index represents the length
+    randstrobe_hash_t tot_seed_count_1000_limit = 0;
 
     size_t seed_length = 0;
 
-    for (int it = 0; it < randstrobes.size(); it++) {
+    for (size_t it = 0; it < randstrobes.size(); it++) {
         seed_length = strobe2_offset(it) + k;
         auto count = get_count(it);
 
@@ -293,7 +288,7 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
             }
         } else {
             // TODO This function should not log anything
-            logger.info() << "Detected seed size over " << max_size << " bp (can happen, e.g., over centromere): " << seed_length << std::endl;
+            // logger.info() << "Detected seed size over " << max_size << " bp (can happen, e.g., over centromere): " << seed_length << std::endl;
         }
 
         if (count == 1 && seed_length < max_size) {

@@ -29,7 +29,7 @@ struct IndexCreationStatistics {
     unsigned int tot_distinct_strobemer_count = 0;
     unsigned int index_cutoff = 0;
     unsigned int filter_cutoff = 0;
-    uint64_t unique_mers = 0;
+    randstrobe_hash_t unique_mers = 0;
 
     std::chrono::duration<double> elapsed_hash_index;
     std::chrono::duration<double> elapsed_generating_seeds;
@@ -50,7 +50,7 @@ struct StrobemerIndex {
     void read(const std::string& filename);
     void populate(float f, size_t n_threads);
     void print_diagnostics(const std::string& logfile_name, int k) const;
-    int find(uint64_t key) const {
+    int find(randstrobe_hash_t key) const {
         constexpr int MAX_LINEAR_SEARCH = 4;
         const unsigned int top_N = key >> (64 - parameters.b);
         int position_start = randstrobe_start_indices[top_N];
@@ -76,7 +76,7 @@ struct StrobemerIndex {
         return -1;
     }
 
-    uint64_t get_hash(unsigned int position) const {
+    randstrobe_hash_t get_hash(unsigned int position) const {
         if (position < randstrobes.size()){
             return randstrobes[position].hash;
         }else{
@@ -84,7 +84,7 @@ struct StrobemerIndex {
         }
     }
     
-    uint64_t get_next_hash(int position) const{
+    randstrobe_hash_t get_next_hash(int position) const{
         return get_hash(position + filter_cutoff);
     }
 
