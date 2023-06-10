@@ -14,7 +14,6 @@
 #include <iostream>
 #include <thread>
 #include <atomic>
-// #include <hyperloglog/hyperloglog.hpp>
 #include "io.hpp"
 #include "timer.hpp"
 #include "logger.hpp"
@@ -82,7 +81,7 @@ void StrobemerIndex::read(const std::string& filename) {
     }
 }
 
-int estimate_randstrobe_hashes(const std::string& seq, const IndexParameters& parameters) {
+int count_randstrobe_hashes(const std::string& seq, const IndexParameters& parameters) {
     int num = 0;
 
     auto randstrobe_iter = RandstrobeIterator2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
@@ -93,7 +92,7 @@ int estimate_randstrobe_hashes(const std::string& seq, const IndexParameters& pa
     return num;
 }
 
-size_t estimate_randstrobe_hashes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
+size_t count_randstrobe_hashes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
     std::vector<std::thread> workers;
     int total = 0;
     std::atomic_size_t ref_index = 0;
@@ -112,7 +111,7 @@ size_t estimate_randstrobe_hashes_parallel(const References& references, const I
                         if (j >= references.size()) {
                             break;
                         }
-                        estimator += estimate_randstrobe_hashes(references.sequences[j], parameters);
+                        estimator += count_randstrobe_hashes(references.sequences[j], parameters);
                     }
                 }, std::ref(references), std::ref(parameters), std::ref(estimators[i]))
         );
@@ -222,7 +221,6 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
 }
 
 void StrobemerIndex::add_randstrobes_to_vector(int randstrobe_hashes){
-    // size_t tot_occur_once = 0;
     randstrobes.reserve(randstrobe_hashes);
     for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
         auto seq = references.sequences[ref_index];
@@ -258,7 +256,6 @@ void StrobemerIndex::add_randstrobes_to_vector(int randstrobe_hashes){
             chunk.clear();
             }
         }
-    // stats.tot_occur_once = tot_occur_once;
 }
 
 void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) const {
@@ -341,6 +338,3 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
     double fraction_masked = 1.0 - (double) tot_seed_count_1000_limit/ (double) tot_seed_count;
     log_file << median << ',' << tot_seed_count << ',' << e_hits << ',' << 100*fraction_masked << std::endl;
 }
-
-
-

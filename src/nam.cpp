@@ -1,5 +1,7 @@
 #include "nam.hpp"
 
+namespace {
+
 struct Hit {
     int query_s;
     int query_e;
