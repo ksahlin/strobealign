@@ -78,7 +78,7 @@ void StrobemerIndex::read(const std::string& filename) {
 
     read_vector(ifs, randstrobes);
     read_vector(ifs, randstrobe_start_indices);
-    if (randstrobe_start_indices.size() != 1 << bits) {
+    if (randstrobe_start_indices.size() != (1 << bits) + 1) {
         throw InvalidIndexFile("randstrobe_start_indices vector is of the wrong size");
     }
 }
@@ -159,7 +159,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     std::vector<unsigned int> strobemer_counts;
 
     stats.tot_occur_once = 0;
-    randstrobe_start_indices.reserve(1 << bits);
+    randstrobe_start_indices.reserve((1 << bits) + 1);
 
     unsigned int unique_mers = 0;
     randstrobe_hash_t prev_hash = static_cast<randstrobe_hash_t>(-1);
@@ -201,7 +201,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
         }
         strobemer_counts.push_back(count);
     }
-    while (randstrobe_start_indices.size() < (1 << bits)) {
+    while (randstrobe_start_indices.size() < ((1 << bits) + 1)) {
         randstrobe_start_indices.push_back(randstrobes.size());
     }
     stats.frac_unique = 1.0 * stats.tot_occur_once / unique_mers;
