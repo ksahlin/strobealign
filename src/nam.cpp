@@ -199,7 +199,7 @@ std::vector<Nam> find_nams_rescue(
         int position = index.find(qr.hash);
         if (position != index.end()){
             unsigned int count = index.get_count(position);
-            RescueHit rh{count, position, qr.start, qr.end, qr.is_reverse};
+            RescueHit rh{count, static_cast<unsigned int>(position), qr.start, qr.end, qr.is_reverse};
             if (qr.is_reverse){
                 hits_rc.push_back(rh);
             } else {
