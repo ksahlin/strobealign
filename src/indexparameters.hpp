@@ -23,7 +23,7 @@ public:
     const int b;
 
     static const int DEFAULT = std::numeric_limits<int>::min();
-    static const int DEFAULT_b = 28;
+
     IndexParameters(size_t canonical_read_length, int k, int s, int l, int u, int q, int max_dist, int b)
         : canonical_read_length(canonical_read_length)
         , k(k)
