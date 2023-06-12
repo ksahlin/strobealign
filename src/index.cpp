@@ -33,6 +33,7 @@ void StrobemerIndex::write(const std::string& filename) const {
     write_vector(ofs, reserved_chunk);
 
     write_int_to_ostream(ofs, filter_cutoff);
+    write_int_to_ostream(ofs, bits);
     parameters.write(ofs);
 
     write_vector(ofs, randstrobes);
@@ -69,6 +70,7 @@ void StrobemerIndex::read(const std::string& filename) {
     ifs.seekg(reserved_chunk_size, std::ios_base::cur);
 
     filter_cutoff = read_int_from_istream(ifs);
+    bits = read_int_from_istream(ifs);
     const IndexParameters sti_parameters = IndexParameters::read(ifs);
     if (parameters != sti_parameters) {
         throw InvalidIndexFile("Index parameters in .sti file and those specified on command line differ");
@@ -76,9 +78,16 @@ void StrobemerIndex::read(const std::string& filename) {
 
     read_vector(ifs, randstrobes);
     read_vector(ifs, randstrobe_start_indices);
-    if (randstrobe_start_indices.size() != 1 << parameters.b) {
+    if (randstrobe_start_indices.size() != 1 << bits) {
         throw InvalidIndexFile("randstrobe_start_indices vector is of the wrong size");
     }
+}
+
+/* Pick a suitable number of bits for indexing randstrobe start indices */
+int StrobemerIndex::pick_bits(size_t size) const {
+    size_t estimated_number_of_randstrobes = size / (parameters.k - parameters.s + 1);
+    // Two randstrobes per bucket on average
+    return std::max(8, static_cast<int>(log2(estimated_number_of_randstrobes)) - 1);
 }
 
 int count_randstrobe_hashes(const std::string& seq, const IndexParameters& parameters) {
@@ -150,7 +159,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     std::vector<unsigned int> strobemer_counts;
 
     stats.tot_occur_once = 0;
-    randstrobe_start_indices.reserve(1 << parameters.b);
+    randstrobe_start_indices.reserve(1 << bits);
 
     unsigned int unique_mers = 0;
     randstrobe_hash_t prev_hash = static_cast<randstrobe_hash_t>(-1);
@@ -175,7 +184,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
             strobemer_counts.push_back(count);
         }
         count = 1;
-        const unsigned int cur_hash_N = cur_hash >> (64 - parameters.b);
+        const unsigned int cur_hash_N = cur_hash >> (64 - bits);
         while (randstrobe_start_indices.size() <= cur_hash_N) {
             randstrobe_start_indices.push_back(position);
         }
@@ -192,7 +201,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
         }
         strobemer_counts.push_back(count);
     }
-    while (randstrobe_start_indices.size() < (1 << parameters.b)) {
+    while (randstrobe_start_indices.size() < (1 << bits)) {
         randstrobe_start_indices.push_back(randstrobes.size());
     }
     stats.frac_unique = 1.0 * stats.tot_occur_once / unique_mers;

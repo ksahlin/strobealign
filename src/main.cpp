@@ -154,8 +154,7 @@ int run_strobealign(int argc, char **argv) {
         opt.l_set ? opt.l : IndexParameters::DEFAULT,
         opt.u_set ? opt.u : IndexParameters::DEFAULT,
         opt.c_set ? opt.c : IndexParameters::DEFAULT,
-        opt.max_seed_len_set ? opt.max_seed_len : IndexParameters::DEFAULT,
-        opt.b_set ? opt.b : IndexParameters::DEFAULT
+        opt.max_seed_len_set ? opt.max_seed_len : IndexParameters::DEFAULT
     );
     logger.debug() << index_parameters << '\n';
     alignment_params aln_params;
@@ -194,7 +193,7 @@ int run_strobealign(int argc, char **argv) {
         throw InvalidFasta("No reference sequences found");
     }
 
-    StrobemerIndex index(references, index_parameters);
+    StrobemerIndex index(references, index_parameters, opt.bits);
     if (opt.use_index) {
         // Read the index from a file
         assert(!opt.only_gen_index);
@@ -202,8 +201,10 @@ int run_strobealign(int argc, char **argv) {
         std::string sti_path = opt.ref_filename + index_parameters.filename_extension();
         logger.info() << "Reading index from " << sti_path << '\n';
         index.read(sti_path);
+        logger.debug() << "Bits used to index buckets: " << index.get_bits() << "\n";
         logger.info() << "Total time reading index: " << read_index_timer.elapsed() << " s\n";
     } else {
+        logger.debug() << "Bits used to index buckets: " << index.get_bits() << "\n";
         logger.info() << "Indexing ...\n";
         Timer index_timer;
         index.populate(opt.f, opt.n_threads);

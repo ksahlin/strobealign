@@ -38,10 +38,11 @@ struct IndexCreationStatistics {
 };
 
 struct StrobemerIndex {
-    StrobemerIndex(const References& references, const IndexParameters& parameters)
+    StrobemerIndex(const References& references, const IndexParameters& parameters, int bits=-1)
         : filter_cutoff(0)
         , parameters(parameters)
-        , references(references) {}
+        , references(references)
+        , bits(bits == -1 ? pick_bits(references.total_length()) : bits) { }
     unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
                                 //therefore stored here since it needs to be saved with the index.
     mutable IndexCreationStatistics stats;
@@ -50,9 +51,10 @@ struct StrobemerIndex {
     void read(const std::string& filename);
     void populate(float f, size_t n_threads);
     void print_diagnostics(const std::string& logfile_name, int k) const;
+    int pick_bits(size_t size) const;
     int find(randstrobe_hash_t key) const {
         constexpr int MAX_LINEAR_SEARCH = 4;
-        const unsigned int top_N = key >> (64 - parameters.b);
+        const unsigned int top_N = key >> (64 - bits);
         int position_start = randstrobe_start_indices[top_N];
         int position_end = randstrobe_start_indices[top_N + 1];
         if (position_start == position_end) {
@@ -110,7 +112,7 @@ struct StrobemerIndex {
 
         constexpr unsigned int MAX_LINEAR_SEARCH = 8;
         const auto key = randstrobes[position].hash;
-        const unsigned int top_N = key >> (64 - parameters.b);
+        const unsigned int top_N = key >> (64 - bits);
         int position_end = randstrobe_start_indices[top_N + 1];
         unsigned int count = 1;
 
@@ -142,6 +144,10 @@ struct StrobemerIndex {
         return parameters.k;
     }
 
+    int get_bits() const {
+        return bits;
+    }
+
 private:
     void add_randstrobes_to_vector(int randstrobe_hashes);
     unsigned int get_count_line_search(unsigned int) const;
@@ -152,6 +158,7 @@ private:
     std::vector<unsigned int> randstrobe_start_indices;
     static constexpr int bit_alloc = 8;
     static constexpr int mask = (1 << bit_alloc) - 1;
+    int bits; // no. of bits of the hash to use when indexing a randstrobe bucket
 };
 
 #endif
