@@ -26,7 +26,13 @@ aln_info Aligner::align(const std::string &query, const std::string &ref) const 
     StripedSmithWaterman::Alignment alignment_ssw;
 
     // query must be NULL-terminated
-    ssw_aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen);
+    auto flag = ssw_aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen);
+    if (flag != 0) {
+        aln.edit_distance = 100000;
+        aln.ref_start = 0;
+        aln.sw_score = -100000;
+        return aln;
+    }
 
     aln.edit_distance = alignment_ssw.mismatches;
     aln.cigar = Cigar(alignment_ssw.cigar);
