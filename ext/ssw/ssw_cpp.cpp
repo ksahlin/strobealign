@@ -1,6 +1,6 @@
 // ssw_cpp.cpp
 // Created by Wan-Ping Lee
-// Last revision by Mengyao Zhao on 2017-05-30
+// Last revision by Mengyao Zhao on 2023-Apr-21
 
 #include "ssw_cpp.h"
 #include "ssw.h"
@@ -117,101 +117,6 @@ void CleanPreviousMOperator(
   *length_X = 0;
 }
 
-//// @Function:
-////     1. Calculate the global edit distance including softclipps.
-////     2. Modify the cigar string:
-////         differentiate matches (M) and mismatches(X).
-//// @Return:
-////     The number global edit distance
-//    int CalculateGlobalED(
-//            StripedSmithWaterman::Alignment* al,
-//            int8_t const *ref,
-//            int8_t const *query,
-//            const int& query_len) {
-//
-//        ref   += al->ref_begin;
-//        query += al->query_begin;
-//        int global_ed = 0;
-//
-//        std::vector<uint32_t> new_cigar;
-//        std::ostringstream new_cigar_string;
-//
-//        if (al->query_begin > 0) {
-//            uint32_t cigar = to_cigar_int(al->query_begin, 'S');
-//            new_cigar.push_back(cigar);
-//            new_cigar_string << al->query_begin << 'S';
-//            global_ed += al->query_begin;
-//        }
-//
-//        bool in_M = false; // the previous is match
-//        bool in_X = false; // the previous is mismatch
-//        uint32_t length_M = 0;
-//        uint32_t length_X = 0;
-//
-//        for (unsigned int i = 0; i < al->cigar.size(); ++i) {
-//            char op = cigar_int_to_op(al->cigar[i]);
-//            uint32_t length = cigar_int_to_len(al->cigar[i]);
-//            if (op == 'M') {
-//                for (uint32_t j = 0; j < length; ++j) {
-//                    if (*ref != *query) {
-//                        ++global_ed;
-//                        if (in_M) { // the previous is match; however the current one is mismatche
-//                            uint32_t match = to_cigar_int(length_M, '=');
-//                            new_cigar.push_back(match);
-//                            new_cigar_string << length_M << '=';
-//                        }
-//                        length_M = 0;
-//                        ++length_X;
-//                        in_M = false;
-//                        in_X = true;
-//                    } else { // *ref == *query
-//                        if (in_X) { // the previous is mismatch; however the current one is matche
-//                            uint32_t match = to_cigar_int(length_X, 'X');
-//                            new_cigar.push_back(match);
-//                            new_cigar_string << length_X << 'X';
-//                        }
-//                        ++length_M;
-//                        length_X = 0;
-//                        in_M = true;
-//                        in_X = false;
-//                    } // end of if (*ref != *query)
-//                    ++ref;
-//                    ++query;
-//                }
-//            } else if (op == 'I') {
-//                query += length;
-//                global_ed += length;
-//                CleanPreviousMOperator(&in_M, &in_X, &length_M, &length_X, &new_cigar, &new_cigar_string);
-//                new_cigar.push_back(al->cigar[i]);
-//                new_cigar_string << length << 'I';
-//            } else if (op == 'D') {
-//                ref += length;
-//                global_ed += length;
-//                CleanPreviousMOperator(&in_M, &in_X, &length_M, &length_X, &new_cigar, &new_cigar_string);
-//                new_cigar.push_back(al->cigar[i]);
-//                new_cigar_string << length << 'D';
-//            }
-//        }
-//
-//        CleanPreviousMOperator(&in_M, &in_X, &length_M, &length_X, &new_cigar, &new_cigar_string);
-//
-//        int end = query_len - al->query_end - 1;
-//        if (end > 0) {
-//            uint32_t cigar = to_cigar_int(end, 'S');
-//            new_cigar.push_back(cigar);
-//            new_cigar_string << end << 'S';
-//            global_ed += end;
-//        }
-//
-//        al->cigar_string.clear();
-//        al->cigar.clear();
-//        al->cigar_string = new_cigar_string.str();
-//        al->cigar = new_cigar;
-//
-//        return global_ed;
-//    }
-
-
 // @Function:
 //     1. Calculate the number of mismatches.
 //     2. Modify the cigar string:
@@ -222,7 +127,7 @@ int CalculateNumberMismatch(
     StripedSmithWaterman::Alignment* al,
     int8_t const *ref,
     int8_t const *query,
-    const int& query_len, int &global_ed) {
+    const int& query_len) {
 
   ref   += al->ref_begin;
   query += al->query_begin;
@@ -235,7 +140,6 @@ int CalculateNumberMismatch(
     uint32_t cigar = to_cigar_int(al->query_begin, 'S');
     new_cigar.push_back(cigar);
     new_cigar_string << al->query_begin << 'S';
-      global_ed += al->query_begin;
   }
 
   bool in_M = false; // the previous is match
@@ -250,7 +154,6 @@ int CalculateNumberMismatch(
       for (uint32_t j = 0; j < length; ++j) {
 	if (*ref != *query) {
 	  ++mismatch_length;
-	  ++global_ed;
           if (in_M) { // the previous is match; however the current one is mismatche
 	    uint32_t match = to_cigar_int(length_M, '=');
 	    new_cigar.push_back(match);
@@ -277,14 +180,12 @@ int CalculateNumberMismatch(
     } else if (op == 'I') {
       query += length;
       mismatch_length += length;
-      global_ed += length;
       CleanPreviousMOperator(&in_M, &in_X, &length_M, &length_X, &new_cigar, &new_cigar_string);
       new_cigar.push_back(al->cigar[i]);
       new_cigar_string << length << 'I';
     } else if (op == 'D') {
       ref += length;
       mismatch_length += length;
-      global_ed += length;
       CleanPreviousMOperator(&in_M, &in_X, &length_M, &length_X, &new_cigar, &new_cigar_string);
       new_cigar.push_back(al->cigar[i]);
       new_cigar_string << length << 'D';
@@ -298,8 +199,6 @@ int CalculateNumberMismatch(
     uint32_t cigar = to_cigar_int(end, 'S');
     new_cigar.push_back(cigar);
     new_cigar_string << end << 'S';
-    global_ed += end;
-
   }
 
   al->cigar_string.clear();
@@ -391,25 +290,18 @@ int Aligner::SetReferenceSequence(const char* seq, const int& length) {
 
   int len = 0;
   if (translation_matrix_) {
-    // calculate the valid length
-    //int calculated_ref_length = static_cast<int>(strlen(seq));
-    //int valid_length = (calculated_ref_length > length)
-    //                   ? length : calculated_ref_length;
-    int valid_length = length;
     // delete the current buffer
     CleanReferenceSequence();
     // allocate a new buffer
-    translated_reference_ = new int8_t[valid_length];
+    translated_reference_ = new int8_t[length];
 
-    len = TranslateBase(seq, valid_length, translated_reference_);
+    len = TranslateBase(seq, length, translated_reference_);
   } else {
     // nothing
   }
 
   reference_length_ = len;
   return len;
-
-
 }
 
 int Aligner::TranslateBase(const char* bases, const int& length,
@@ -427,8 +319,8 @@ int Aligner::TranslateBase(const char* bases, const int& length,
 }
 
 
-bool Aligner::Align(const char* query, const Filter& filter,
-                    Alignment* alignment, const int32_t maskLen, const int8_t score_size) const
+uint16_t Aligner::Align(const char* query, const Filter& filter,
+                    Alignment* alignment, const int32_t maskLen) const
 {
   if (!translation_matrix_) return false;
   if (reference_length_ == 0) return false;
@@ -438,7 +330,7 @@ bool Aligner::Align(const char* query, const Filter& filter,
   int8_t* translated_query = new int8_t[query_len];
   TranslateBase(query, query_len, translated_query);
 
-//  const int8_t score_size = 1;
+  const int8_t score_size = 2;
   s_profile* profile = ssw_init(translated_query, query_len, score_matrix_,
                                 score_matrix_size_, score_size);
 
@@ -451,21 +343,20 @@ bool Aligner::Align(const char* query, const Filter& filter,
 
   alignment->Clear();
   ConvertAlignment(*s_al, query_len, alignment);
-  int global_ed = 0;
-  alignment->mismatches = CalculateNumberMismatch(&*alignment, translated_reference_, translated_query, query_len, global_ed);
-  alignment->global_ed = global_ed; //CalculateGlobalED(&*alignment, translated_reference_, translated_query, query_len);
+  alignment->mismatches = CalculateNumberMismatch(&*alignment, translated_reference_, translated_query, query_len);
+  uint16_t align_flag = s_al->flag;
 
   // Free memory
   delete [] translated_query;
   align_destroy(s_al);
   init_destroy(profile);
 
-  return true;
+  return align_flag;
 }
 
 
-bool Aligner::Align(const char* query, const char* ref, const int& ref_len,
-                    const Filter& filter, Alignment* alignment, const int32_t maskLen, const int8_t score_size) const
+uint16_t Aligner::Align(const char* query, const char* ref, const int& ref_len,
+                    const Filter& filter, Alignment* alignment, const int32_t maskLen) const
 {
   if (!translation_matrix_) return false;
 
@@ -480,7 +371,7 @@ bool Aligner::Align(const char* query, const char* ref, const int& ref_len,
   TranslateBase(ref, valid_ref_len, translated_ref);
 
 
-//  const int8_t score_size = 1;
+  const int8_t score_size = 2;
   s_profile* profile = ssw_init(translated_query, query_len, score_matrix_,
                                 score_matrix_size_, score_size);
 
@@ -493,9 +384,8 @@ bool Aligner::Align(const char* query, const char* ref, const int& ref_len,
 
   alignment->Clear();
   ConvertAlignment(*s_al, query_len, alignment);
-    int global_ed = 0;
-    alignment->mismatches = CalculateNumberMismatch(&*alignment, translated_ref, translated_query, query_len, global_ed);
-    alignment->global_ed = global_ed; //CalculateGlobalED(&*alignment, translated_reference_, translated_query, query_len);
+  alignment->mismatches = CalculateNumberMismatch(&*alignment, translated_ref, translated_query, query_len);
+  uint16_t align_flag = s_al->flag;
 
   // Free memory
   delete [] translated_query;
@@ -503,7 +393,7 @@ bool Aligner::Align(const char* query, const char* ref, const int& ref_len,
   align_destroy(s_al);
   init_destroy(profile);
 
-  return true;
+  return align_flag;
 }
 
 void Aligner::Clear(void) {

@@ -5,6 +5,8 @@
 * #289: Fixed missing CIGAR for secondary alignments.
 * #212: SEQ and QUAL are set to `*` for secondary alignments as recommended
   by the SAM specification.
+* #294: Updated the alignment library (SSW), which fixes some incorrect
+  alignments.
 
 ## v0.10.0 (2023-06-05)
 
