@@ -43,6 +43,17 @@ data, then builds strobealign as it is in your working copy and compares the
 two produced BAM files. The baseline BAM is cached and re-used as long as the
 baseline commit does not change.
 
+## Making a release
+
+* Update changelog (adjust section header)
+* Bump version in `CMakeLists.txt`
+* Bump version in `setup.py`
+* Commit
+* Push and wait for CI to pass
+* Do `git tag ...` and `git push --tags`
+* Make a release via the GitHub releases page
+* Wait for the Bioconda bot to pick up the new release and then approve its
+  version bump PR
 
 ## Style guide
 
