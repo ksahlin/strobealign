@@ -108,7 +108,7 @@ void StrobemerIndex::read(const std::string& filename) {
     // read in big chunks
     const uint64_t chunk_size = pow(2,20);//4 M => chunks of ~10 MB - The chunk size seem not to be that important
     auto buf_size = std::min(sz, chunk_size) * (sizeof(RandstrobeMap::key_type) + sizeof(RandstrobeMap::mapped_type));
-    std::unique_ptr<char> buf_ptr(new char[buf_size]);
+    std::unique_ptr<char[]> buf_ptr(new char[buf_size]);
     char* buf2 = buf_ptr.get();
     auto left_to_read = sz;
     while (left_to_read > 0) {
