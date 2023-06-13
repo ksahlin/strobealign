@@ -95,11 +95,11 @@ struct StrobemerIndex {
     }
 
     int strobe2_offset(unsigned int position) const {
-        return randstrobes[position].packed & mask;
+        return randstrobes[position].strobe2_offset();
     }
 
     int reference_index(unsigned int position) const {
-        return randstrobes[position].packed >> bit_alloc;
+        return randstrobes[position].reference_index();
     }
 
     unsigned int get_count(const unsigned int position) const {
@@ -156,8 +156,6 @@ private:
     const References& references;
     std::vector<RefRandstrobe> randstrobes;
     std::vector<unsigned int> randstrobe_start_indices;
-    static constexpr int bit_alloc = 8;
-    static constexpr int mask = (1 << bit_alloc) - 1;
     int bits; // no. of bits of the hash to use when indexing a randstrobe bucket
 };
 

@@ -21,11 +21,30 @@ struct RefRandstrobe {
     using packed_t = uint32_t;
     randstrobe_hash_t hash;
     uint32_t position;
-    packed_t packed; // packed representation of ref_index and strobe offset
+
+    RefRandstrobe() { }
+
+    RefRandstrobe(randstrobe_hash_t hash, uint32_t position, uint32_t packed)
+        : hash(hash)
+        , position(position)
+        , m_packed(packed) { }
 
     bool operator< (const RefRandstrobe& other) const {
         return hash < other.hash;
     }
+
+    int reference_index() const {
+        return m_packed >> bit_alloc;
+    }
+
+    int strobe2_offset() const {
+        return m_packed & mask;
+    }
+
+private:
+    static constexpr int bit_alloc = 8;
+    static constexpr int mask = (1 << bit_alloc) - 1;
+    packed_t m_packed; // packed representation of ref_index and strobe offset
 };
 
 struct QueryRandstrobe {
