@@ -220,12 +220,13 @@ int run_strobealign(int argc, char **argv) {
         logger.info() << "Total time indexing: " << index_timer.elapsed() << " s\n";
 
         logger.debug()
-        << "Unique strobemers: " << index.stats.unique_strobemers << std::endl
-        << "Total strobemers count: " << index.stats.tot_strobemer_count << std::endl
-        << "Total strobemers occur once: " << index.stats.tot_occur_once << std::endl
-        << "Fraction Unique: " << index.stats.frac_unique << std::endl
-        << "Total strobemers highly abundant > 100: " << index.stats.tot_high_ab << std::endl
-        << "Total strobemers mid abundance (between 2-100): " << index.stats.tot_mid_ab << std::endl;
+            << "Index statistics\n"
+            << "  Total strobemers:    " << std::setw(14) << index.stats.tot_strobemer_count << '\n'
+            << "  Unique strobemers:   " << std::setw(14) << index.stats.unique_strobemers << '\n'
+            << "    1 occurrence:      " << std::setw(14) << index.stats.tot_occur_once << " (" << std::setw(6) << index.stats.frac_unique*100 << "%)\n"
+            << "    2..100 occurrences:" << std::setw(14) << index.stats.tot_mid_ab << " (" << std::setw(6) << (100.0 * index.stats.tot_mid_ab / index.stats.unique_strobemers) << "%)\n"
+            << "    >100 occurrences:  " << std::setw(14) << index.stats.tot_high_ab << " (" << std::setw(6) << (100.0 * index.stats.tot_high_ab / index.stats.unique_strobemers) << "%)\n"
+            ;
         if (index.stats.tot_high_ab >= 1) {
             logger.debug() << "Ratio distinct to highly abundant: " << index.stats.unique_strobemers / index.stats.tot_high_ab << std::endl;
         }
