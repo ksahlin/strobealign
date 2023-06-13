@@ -13,10 +13,10 @@
 int main() {
 }
 
-class RefRandstrobe {
+class RefRandstrobeWithoutHash {
 public:
-    RefRandstrobe() { }  // TODO should not be needed
-    RefRandstrobe(uint32_t position, uint32_t packed) : position(position), m_packed(packed) {
+    RefRandstrobeWithoutHash() { }  // TODO should not be needed
+    RefRandstrobeWithoutHash(uint32_t position, uint32_t packed) : position(position), m_packed(packed) {
     }
     uint32_t position;
 
@@ -28,17 +28,17 @@ public:
         return m_packed & mask;
     }
 
-    RefRandstrobeWithHash::packed_t packed() const {
+    RefRandstrobe::packed_t packed() const {
         return m_packed;
     }
 
 private:
     static const int bit_alloc = 8;
     static const int mask = (1 << bit_alloc) - 1;
-    RefRandstrobeWithHash::packed_t m_packed;
+    RefRandstrobe::packed_t m_packed;
 };
 
-using RefRandstrobeVector = std::vector<RefRandstrobe>;
+using RefRandstrobeVector = std::vector<RefRandstrobeWithoutHash>;
 
 namespace {
 
@@ -101,9 +101,9 @@ public:
         return m_count & 0x8000'0000;
     }
 
-    RefRandstrobe as_ref_randstrobe() const {  // 将m_count 首位置为0
+    RefRandstrobeWithoutHash as_ref_randstrobe() const {
         assert(is_direct());
-        return RefRandstrobe{m_offset, m_count & 0x7fff'ffff};
+        return RefRandstrobeWithoutHash{m_offset, m_count & 0x7fff'ffff};
     }
 
     unsigned int m_offset;

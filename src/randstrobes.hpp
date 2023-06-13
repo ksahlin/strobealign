@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <iostream>
 #include <stdexcept>
+#include <string_view>
 #include <inttypes.h>
 
 #include "indexparameters.hpp"
@@ -16,14 +17,13 @@
 using syncmer_hash_t = uint64_t;
 using randstrobe_hash_t = uint64_t;
 
-// only used during index generation
-struct RefRandstrobeWithHash {
+struct RefRandstrobe {
     using packed_t = uint32_t;
     randstrobe_hash_t hash;
     uint32_t position;
     packed_t packed; // packed representation of ref_index and strobe offset
 
-    bool operator< (const RefRandstrobeWithHash& other) const {
+    bool operator< (const RefRandstrobe& other) const {
         return hash < other.hash;
     }
 };

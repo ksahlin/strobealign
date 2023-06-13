@@ -68,11 +68,11 @@ struct StrobemerIndex {
             }
             return -1;
         }
-        auto cmp = [](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return lhs.hash < rhs.hash; };
+        auto cmp = [](const RefRandstrobe lhs, const RefRandstrobe rhs) {return lhs.hash < rhs.hash; };
 
         auto pos = std::lower_bound(randstrobes.begin() + position_start,
                                                randstrobes.begin() + position_end,
-                                               RefRandstrobeWithHash{key, 0, 0},
+                                               RefRandstrobe{key, 0, 0},
                                                cmp);
         if (pos->hash == key) return pos - randstrobes.begin();
         return -1;
@@ -127,11 +127,11 @@ struct StrobemerIndex {
             }
             return count;
         }
-        auto cmp = [](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return lhs.hash < rhs.hash; };
+        auto cmp = [](const RefRandstrobe lhs, const RefRandstrobe rhs) {return lhs.hash < rhs.hash; };
 
         auto pos = std::upper_bound(randstrobes.begin() + position,
                                                randstrobes.begin() + position_end,
-                                               RefRandstrobeWithHash{key, 0, 0},
+                                               RefRandstrobe{key, 0, 0},
                                                cmp);
         return (pos - randstrobes.begin() - 1) - position + 1;
     }
@@ -154,7 +154,7 @@ private:
 
     const IndexParameters& parameters;
     const References& references;
-    std::vector<RefRandstrobeWithHash> randstrobes;
+    std::vector<RefRandstrobe> randstrobes;
     std::vector<unsigned int> randstrobe_start_indices;
     static constexpr int bit_alloc = 8;
     static constexpr int mask = (1 << bit_alloc) - 1;
