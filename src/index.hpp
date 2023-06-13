@@ -86,8 +86,8 @@ struct StrobemerIndex {
         }
     }
     
-    randstrobe_hash_t get_next_hash(int position) const{
-        return get_hash(position + filter_cutoff);
+    randstrobe_hash_t is_filtered(int position) const {
+        return get_hash(position) == get_hash(position + filter_cutoff);
     }
 
     unsigned int get_strobe1_position(unsigned int position) const {
