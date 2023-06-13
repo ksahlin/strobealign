@@ -2,6 +2,9 @@
 
 ## development version
 
+* #278: Memory usage was reduced drastically thanks to a redesigned strobemer
+  index memory layout. For the human genome, for example, strobealign now needs
+  13 GiB of RAM instead of 23 GiB. Contributed by @psj1997 and @luispedro.
 * #289: Fixed missing CIGAR for secondary alignments.
 * #212: SEQ and QUAL are set to `*` for secondary alignments as recommended
   by the SAM specification.
