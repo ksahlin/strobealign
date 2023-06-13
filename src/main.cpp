@@ -220,7 +220,7 @@ int run_strobealign(int argc, char **argv) {
         logger.info() << "Total time indexing: " << index_timer.elapsed() << " s\n";
 
         logger.debug()
-        << "Unique strobemers: " << index.stats.unique_mers << std::endl
+        << "Unique strobemers: " << index.stats.unique_strobemers << std::endl
         << "Total strobemers count: " << index.stats.tot_strobemer_count << std::endl
         << "Total strobemers occur once: " << index.stats.tot_occur_once << std::endl
         << "Fraction Unique: " << index.stats.frac_unique << std::endl

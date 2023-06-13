@@ -29,7 +29,7 @@ struct IndexCreationStatistics {
     unsigned int tot_distinct_strobemer_count = 0;
     unsigned int index_cutoff = 0;
     unsigned int filter_cutoff = 0;
-    randstrobe_hash_t unique_mers = 0;
+    randstrobe_hash_t unique_strobemers = 0;
 
     std::chrono::duration<double> elapsed_hash_index;
     std::chrono::duration<double> elapsed_generating_seeds;

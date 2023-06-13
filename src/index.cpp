@@ -221,7 +221,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     }
     stats.filter_cutoff = filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
-    stats.unique_mers = unique_mers;
+    stats.unique_strobemers = unique_mers;
 }
 
 void StrobemerIndex::add_randstrobes_to_vector(int randstrobe_hashes){
