@@ -206,7 +206,6 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.frac_unique = 1.0 * stats.tot_occur_once / unique_mers;
     stats.tot_high_ab = tot_high_ab;
     stats.tot_mid_ab = tot_mid_ab;
-    stats.tot_distinct_strobemer_count = unique_mers;
 
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 

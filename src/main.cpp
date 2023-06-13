@@ -225,13 +225,12 @@ int run_strobealign(int argc, char **argv) {
         << "Total strobemers occur once: " << index.stats.tot_occur_once << std::endl
         << "Fraction Unique: " << index.stats.frac_unique << std::endl
         << "Total strobemers highly abundant > 100: " << index.stats.tot_high_ab << std::endl
-        << "Total strobemers mid abundance (between 2-100): " << index.stats.tot_mid_ab << std::endl
-        << "Total distinct strobemers stored: " << index.stats.tot_distinct_strobemer_count << std::endl;
+        << "Total strobemers mid abundance (between 2-100): " << index.stats.tot_mid_ab << std::endl;
         if (index.stats.tot_high_ab >= 1) {
-            logger.debug() << "Ratio distinct to highly abundant: " << index.stats.tot_distinct_strobemer_count / index.stats.tot_high_ab << std::endl;
+            logger.debug() << "Ratio distinct to highly abundant: " << index.stats.unique_strobemers / index.stats.tot_high_ab << std::endl;
         }
         if (index.stats.tot_mid_ab >= 1) {
-            logger.debug() << "Ratio distinct to non distinct: " << index.stats.tot_distinct_strobemer_count / (index.stats.tot_high_ab + index.stats.tot_mid_ab) << std::endl;
+            logger.debug() << "Ratio distinct to non distinct: " << index.stats.unique_strobemers / (index.stats.tot_high_ab + index.stats.tot_mid_ab) << std::endl;
         }
         logger.debug() << "Filtered cutoff index: " << index.stats.index_cutoff << std::endl;
         logger.debug() << "Filtered cutoff count: " << index.stats.filter_cutoff << std::endl;

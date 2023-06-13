@@ -26,7 +26,6 @@ struct IndexCreationStatistics {
     float frac_unique = 0;
     unsigned int tot_high_ab = 0;
     unsigned int tot_mid_ab = 0;
-    unsigned int tot_distinct_strobemer_count = 0;
     unsigned int index_cutoff = 0;
     unsigned int filter_cutoff = 0;
     randstrobe_hash_t unique_strobemers = 0;
