@@ -153,6 +153,19 @@ private:
 
     const IndexParameters& parameters;
     const References& references;
+
+    /*
+     * The randstrobes vector contains all randstrobes sorted by hash.
+     *
+     * The randstrobe_start_indices vector points to entries in the
+     * randstrobes vector. randstrobe_start_indices[x] is the index of the
+     * first entry in randstrobes whose top *bits* bits of its hash value are
+     * greater than or equal to x.
+     *
+     * randstrobe_start_indices has one extra guard entry at the end that
+     * is always randstrobes.size().
+     */
+
     std::vector<RefRandstrobe> randstrobes;
     std::vector<unsigned int> randstrobe_start_indices;
     int bits; // no. of bits of the hash to use when indexing a randstrobe bucket
