@@ -150,7 +150,6 @@ struct StrobemerIndex {
 
 private:
     void add_randstrobes_to_vector(int randstrobe_hashes);
-    unsigned int get_count_line_search(unsigned int) const;
 
     const IndexParameters& parameters;
     const References& references;
