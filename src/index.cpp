@@ -140,8 +140,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
 
     Timer count_hash;
     auto randstrobe_hashes = count_randstrobe_hashes_parallel(references, parameters, n_threads);
-    stats.elapsed_unique_hashes = count_hash.duration();
-    logger.debug() << "Count number of randstrobe hashes: " << randstrobe_hashes << '\n';
+    stats.elapsed_counting_hashes = count_hash.duration();
 
     Timer randstrobes_timer;
     add_randstrobes_to_vector(randstrobe_hashes);
