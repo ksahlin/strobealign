@@ -104,7 +104,7 @@ int count_randstrobe_hashes(const std::string& seq, const IndexParameters& param
 size_t count_randstrobe_hashes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
     std::vector<std::thread> workers;
     unsigned int total = 0;
-    std::atomic_size_t ref_index = 0;
+    std::atomic_size_t ref_index{0};
 
     std::vector<int> counts;
     for (size_t i = 0; i < n_threads; ++i) {
