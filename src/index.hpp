@@ -18,113 +18,6 @@
 #include "randstrobes.hpp"
 #include "indexparameters.hpp"
 
-/*
- * This describes where a randstrobe occurs. Info stored:
- * - reference index
- * - position of the first strobe
- * - offset of the second strobe
-*/
-class RefRandstrobe {
-public:
-    RefRandstrobe() { }  // TODO should not be needed
-    RefRandstrobe(uint32_t position, uint32_t packed) : position(position), m_packed(packed) {
-    }
-    uint32_t position;
-
-    int reference_index() const {
-        return m_packed >> bit_alloc;
-    }
-
-    int strobe2_offset() const {
-        return m_packed & mask;
-    }
-
-    RefRandstrobeWithHash::packed_t packed() const {
-        return m_packed;
-    }
-
-private:
-    static const int bit_alloc = 8;
-    static const int mask = (1 << bit_alloc) - 1;
-    RefRandstrobeWithHash::packed_t m_packed;
-};
-
-using RefRandstrobeVector = std::vector<RefRandstrobe>;
-
-struct StrobemerIndex;
-
-/*
- * An entry in the randstrobe map that allows retrieval of randstrobe
- * occurrences. To save memory, the entry is either a "direct" or an
- * "indirect" one.
- *
- * - A direct entry is used if the randstrobe occurs only once in the reference.
- *   Then that single occurrence itself is stored and can be retrieved by the
- *   as_ref_randstrobe() method.
- * - An indirect entry is used if the randstrobe has multiple occurrences.
- *   In that case, offset() and count() point to an interval within a second
- *   table (RandstrobeVector).
- */
-class RandstrobeMapEntry {
-public:
-    RandstrobeMapEntry() { }
-    RandstrobeMapEntry(unsigned int offset, unsigned int count) : m_offset(offset), m_count(count) { }
-
-    template <class F>
-    void for_each(const RefRandstrobeVector& flat_vector, F func) const {
-        // Determine whether the hash table’s value directly represents a
-        // ReferenceMer (this is the case if count==1) or an offset/count
-        // pair that refers to entries in the flat_vector.
-        if (is_direct()) {
-            func(as_ref_randstrobe());
-        } else {
-            for (size_t j = offset(); j < offset() + count(); ++j) {
-                func(flat_vector[j]);
-            }
-        }
-    }
-
-    unsigned int count() const {
-        if (is_direct()) {
-            return 1;
-        } else {
-            return m_count;
-        }
-    }
-
-private:
-    void set_count(unsigned int count) {
-        m_count = count;
-    }
-
-    void set_offset(unsigned int offset) {
-        assert(!is_direct());
-        m_offset = offset;
-    }
-
-    unsigned int offset() const {
-        assert(!is_direct());
-        return m_offset;
-    }
-
-    bool is_direct() const {
-        return m_count & 0x8000'0000;
-    }
-
-    RefRandstrobe as_ref_randstrobe() const {
-        assert(is_direct());
-        return RefRandstrobe{m_offset, m_count & 0x7fff'ffff};
-    }
-
-    unsigned int m_offset;
-    unsigned int m_count;
-
-    friend StrobemerIndex;
-};
-
-using RandstrobeMap = robin_hood::unordered_map<randstrobe_hash_t, RandstrobeMapEntry>;
-
-typedef std::vector<uint64_t> hash_vector; //only used during index generation
 
 struct IndexCreationStatistics {
     unsigned int flat_vector_size = 0;
@@ -136,7 +29,7 @@ struct IndexCreationStatistics {
     unsigned int tot_distinct_strobemer_count = 0;
     unsigned int index_cutoff = 0;
     unsigned int filter_cutoff = 0;
-    uint64_t unique_mers = 0;
+    randstrobe_hash_t unique_mers = 0;
 
     std::chrono::duration<double> elapsed_hash_index;
     std::chrono::duration<double> elapsed_generating_seeds;
@@ -145,42 +38,127 @@ struct IndexCreationStatistics {
 };
 
 struct StrobemerIndex {
-    StrobemerIndex(const References& references, const IndexParameters& parameters)
+    StrobemerIndex(const References& references, const IndexParameters& parameters, int bits=-1)
         : filter_cutoff(0)
         , parameters(parameters)
-        , references(references) {}
+        , references(references)
+        , bits(bits == -1 ? pick_bits(references.total_length()) : bits) { }
     unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
                                 //therefore stored here since it needs to be saved with the index.
-    RefRandstrobeVector flat_vector;
     mutable IndexCreationStatistics stats;
 
     void write(const std::string& filename) const;
     void read(const std::string& filename);
     void populate(float f, size_t n_threads);
     void print_diagnostics(const std::string& logfile_name, int k) const;
+    int pick_bits(size_t size) const;
+    int find(randstrobe_hash_t key) const {
+        constexpr int MAX_LINEAR_SEARCH = 4;
+        const unsigned int top_N = key >> (64 - bits);
+        int position_start = randstrobe_start_indices[top_N];
+        int position_end = randstrobe_start_indices[top_N + 1];
+        if (position_start == position_end) {
+            return -1;
+        }
 
-    RandstrobeMap::const_iterator find(uint64_t key) const {
-        return randstrobe_map.find(key);
+        if (position_end - position_start < MAX_LINEAR_SEARCH) {
+            for ( ; position_start < position_end; ++position_start) {
+                if (randstrobes[position_start].hash == key) return position_start;
+                if (randstrobes[position_start].hash > key) return -1;
+            }
+            return -1;
+        }
+        auto cmp = [](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return lhs.hash < rhs.hash; };
+
+        auto pos = std::lower_bound(randstrobes.begin() + position_start,
+                                               randstrobes.begin() + position_end,
+                                               RefRandstrobeWithHash{key, 0, 0},
+                                               cmp);
+        if (pos->hash == key) return pos - randstrobes.begin();
+        return -1;
     }
 
-    RandstrobeMap::const_iterator end() const {
-        return randstrobe_map.cend();
+    randstrobe_hash_t get_hash(unsigned int position) const {
+        if (position < randstrobes.size()){
+            return randstrobes[position].hash;
+        }else{
+            return -1;
+        }
+    }
+    
+    randstrobe_hash_t get_next_hash(int position) const{
+        return get_hash(position + filter_cutoff);
     }
 
-    void add_entry(uint64_t key, unsigned int offset, unsigned int count) {
-        randstrobe_map[key] = RandstrobeMapEntry{offset, count};
+    unsigned int get_strobe1_position(unsigned int position) const {
+        return randstrobes[position].position;
+    }
+
+    int strobe2_offset(unsigned int position) const {
+        return randstrobes[position].packed & mask;
+    }
+
+    int reference_index(unsigned int position) const {
+        return randstrobes[position].packed >> bit_alloc;
+    }
+
+    unsigned int get_count(const unsigned int position) const {
+        // For 95% of cases, the result will be small and a brute force search
+        // is the best option. Once, we go over MAX_LINEAR_SEARCH, though, we
+        // use a binary search to get the next position
+        // In the human genome, if we assume that the frequency 
+        // a hash will be queried is proportional to the frequency it appears in the table, 
+        // with MAX_LINEAR_SEARCH=8, the actual value will be 96%.
+
+        constexpr unsigned int MAX_LINEAR_SEARCH = 8;
+        const auto key = randstrobes[position].hash;
+        const unsigned int top_N = key >> (64 - bits);
+        int position_end = randstrobe_start_indices[top_N + 1];
+        unsigned int count = 1;
+
+        if (position_end - position < MAX_LINEAR_SEARCH) {
+            for (int position_start = position + 1; position_start < position_end; ++position_start) {
+                if (randstrobes[position_start].hash == key){
+                    count += 1;
+                }
+                else{
+                    break;
+                }
+            }
+            return count;
+        }
+        auto cmp = [](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return lhs.hash < rhs.hash; };
+
+        auto pos = std::upper_bound(randstrobes.begin() + position,
+                                               randstrobes.begin() + position_end,
+                                               RefRandstrobeWithHash{key, 0, 0},
+                                               cmp);
+        return (pos - randstrobes.begin() - 1) - position + 1;
+    }
+
+    int end() const {
+        return -1;
     }
 
     int k() const {
         return parameters.k;
     }
 
+    int get_bits() const {
+        return bits;
+    }
+
 private:
-    std::vector<RefRandstrobeWithHash> add_randstrobes_to_hash_table();
+    void add_randstrobes_to_vector(int randstrobe_hashes);
+    unsigned int get_count_line_search(unsigned int) const;
 
     const IndexParameters& parameters;
     const References& references;
-    RandstrobeMap randstrobe_map; // k-mer -> (offset in flat_vector, occurence count )
+    std::vector<RefRandstrobeWithHash> randstrobes;
+    std::vector<unsigned int> randstrobe_start_indices;
+    static constexpr int bit_alloc = 8;
+    static constexpr int mask = (1 << bit_alloc) - 1;
+    int bits; // no. of bits of the hash to use when indexing a randstrobe bucket
 };
 
 #endif

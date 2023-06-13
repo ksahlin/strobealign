@@ -63,6 +63,7 @@ IndexParameters IndexParameters::from_read_length(int read_length, int k, int s,
         max_dist = max_seed_len - k; // convert to distance in start positions
     }
     int q = std::pow(2, c == DEFAULT ? default_c : c) - 1;
+
     return IndexParameters(canonical_read_length, k, s, l, u, q, max_dist);
 }
 

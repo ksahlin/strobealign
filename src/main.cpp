@@ -145,7 +145,6 @@ int run_strobealign(int argc, char **argv) {
     if (opt.c >= 64 || opt.c <= 0) {
         throw BadParameter("c must be greater than 0 and less than 64");
     }
-
     InputBuffer input_buffer = get_input_buffer(opt);
     if (!opt.r_set && !opt.reads_filename1.empty()) {
         opt.r = estimate_read_length(input_buffer);
@@ -198,7 +197,7 @@ int run_strobealign(int argc, char **argv) {
         throw InvalidFasta("No reference sequences found");
     }
 
-    StrobemerIndex index(references, index_parameters);
+    StrobemerIndex index(references, index_parameters, opt.bits);
     if (opt.use_index) {
         // Read the index from a file
         assert(!opt.only_gen_index);
@@ -206,8 +205,10 @@ int run_strobealign(int argc, char **argv) {
         std::string sti_path = opt.ref_filename + index_parameters.filename_extension();
         logger.info() << "Reading index from " << sti_path << '\n';
         index.read(sti_path);
+        logger.debug() << "Bits used to index buckets: " << index.get_bits() << "\n";
         logger.info() << "Total time reading index: " << read_index_timer.elapsed() << " s\n";
     } else {
+        logger.debug() << "Bits used to index buckets: " << index.get_bits() << "\n";
         logger.info() << "Indexing ...\n";
         Timer index_timer;
         index.populate(opt.f, opt.n_threads);

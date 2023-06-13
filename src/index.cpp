@@ -14,30 +14,13 @@
 #include <iostream>
 #include <thread>
 #include <atomic>
-#include <hyperloglog/hyperloglog.hpp>
 #include "io.hpp"
 #include "timer.hpp"
 #include "logger.hpp"
+#include <sstream>
 
 static Logger& logger = Logger::get();
-
-static const uint32_t STI_FILE_FORMAT_VERSION = 1;
-
-
-uint64_t count_unique_hashes(const std::vector<RefRandstrobeWithHash>& mers){
-    if (mers.empty()) {
-        return 0;
-    }
-    uint64_t prev_k = mers.at(0).hash;
-    uint64_t unique_elements = 1;
-    for (auto &curr_k : mers) {
-        if (curr_k.hash != prev_k) {
-            unique_elements ++;
-        }
-        prev_k = curr_k.hash;
-    }
-    return unique_elements;
-}
+static const uint32_t STI_FILE_FORMAT_VERSION = 2;
 
 void StrobemerIndex::write(const std::string& filename) const {
     std::ofstream ofs(filename, std::ios::binary);
@@ -50,17 +33,11 @@ void StrobemerIndex::write(const std::string& filename) const {
     write_vector(ofs, reserved_chunk);
 
     write_int_to_ostream(ofs, filter_cutoff);
+    write_int_to_ostream(ofs, bits);
     parameters.write(ofs);
 
-    write_vector(ofs, flat_vector);
-
-    // write mers_index
-    auto size = uint64_t(randstrobe_map.size());
-    ofs.write(reinterpret_cast<char*>(&size), sizeof(size));
-    for (auto& p : randstrobe_map) {
-        ofs.write(reinterpret_cast<const char*>(&p.first), sizeof(p.first));
-        ofs.write(reinterpret_cast<const char*>(&p.second), sizeof(p.second));
-    }
+    write_vector(ofs, randstrobes);
+    write_vector(ofs, randstrobe_start_indices);
 }
 
 void StrobemerIndex::read(const std::string& filename) {
@@ -88,141 +65,153 @@ void StrobemerIndex::read(const std::string& filename) {
     }
 
     // Skip over variable-length chunk reserved for future use
-    uint64_t reserved_chunk_size;
+    randstrobe_hash_t reserved_chunk_size;
     ifs.read(reinterpret_cast<char*>(&reserved_chunk_size), sizeof(reserved_chunk_size));
     ifs.seekg(reserved_chunk_size, std::ios_base::cur);
 
     filter_cutoff = read_int_from_istream(ifs);
+    bits = read_int_from_istream(ifs);
     const IndexParameters sti_parameters = IndexParameters::read(ifs);
     if (parameters != sti_parameters) {
         throw InvalidIndexFile("Index parameters in .sti file and those specified on command line differ");
     }
 
-    read_vector(ifs, flat_vector);
-
-    uint64_t sz;
-    // read mers_index:
-    randstrobe_map.clear();
-    ifs.read(reinterpret_cast<char*>(&sz), sizeof(sz));
-    randstrobe_map.reserve(sz);
-    // read in big chunks
-    const uint64_t chunk_size = pow(2,20);//4 M => chunks of ~10 MB - The chunk size seem not to be that important
-    auto buf_size = std::min(sz, chunk_size) * (sizeof(RandstrobeMap::key_type) + sizeof(RandstrobeMap::mapped_type));
-    std::unique_ptr<char> buf_ptr(new char[buf_size]);
-    char* buf2 = buf_ptr.get();
-    auto left_to_read = sz;
-    while (left_to_read > 0) {
-        auto to_read = std::min(left_to_read, chunk_size);
-        ifs.read(buf2, to_read * (sizeof(RandstrobeMap::key_type) + sizeof(RandstrobeMap::mapped_type)));
-        //Add the elements directly from the buffer
-        for (size_t i = 0; i < to_read; ++i) {
-            auto start = buf2 + i * (sizeof(RandstrobeMap::key_type) + sizeof(RandstrobeMap::mapped_type));
-            randstrobe_map[*reinterpret_cast<RandstrobeMap::key_type*>(start)] = *reinterpret_cast<RandstrobeMap::mapped_type*>(start + sizeof(RandstrobeMap::key_type));
-        }
-        left_to_read -= to_read;
+    read_vector(ifs, randstrobes);
+    read_vector(ifs, randstrobe_start_indices);
+    if (randstrobe_start_indices.size() != (1 << bits) + 1) {
+        throw InvalidIndexFile("randstrobe_start_indices vector is of the wrong size");
     }
 }
 
-hll::HyperLogLog estimate_unique_randstrobe_hashes(const std::string& seq, const IndexParameters& parameters) {
-    hll::HyperLogLog hll(10);
+/* Pick a suitable number of bits for indexing randstrobe start indices */
+int StrobemerIndex::pick_bits(size_t size) const {
+    size_t estimated_number_of_randstrobes = size / (parameters.k - parameters.s + 1);
+    // Two randstrobes per bucket on average
+    return std::max(8, static_cast<int>(log2(estimated_number_of_randstrobes)) - 1);
+}
+
+int count_randstrobe_hashes(const std::string& seq, const IndexParameters& parameters) {
+    int num = 0;
 
     auto randstrobe_iter = RandstrobeIterator2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
     Randstrobe randstrobe;
     while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
-        hll.add(reinterpret_cast<char*>(&randstrobe.hash), sizeof(randstrobe.hash));
+        num++;
     }
-    return hll;
+    return num;
 }
 
-size_t estimate_unique_randstrobe_hashes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
+size_t count_randstrobe_hashes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
     std::vector<std::thread> workers;
-    std::vector<hll::HyperLogLog> estimators;
-    for (size_t i = 0; i < n_threads; ++i) {
-        estimators.push_back(hll::HyperLogLog(10));
-    }
+    unsigned int total = 0;
     std::atomic_size_t ref_index = 0;
+
+    std::vector<int> counts;
+    for (size_t i = 0; i < n_threads; ++i) {
+        counts.push_back(0);
+    }
+
     for (size_t i = 0; i < n_threads; ++i) {
         workers.push_back(
             std::thread(
-                [&ref_index](const References& references, const IndexParameters& parameters, hll::HyperLogLog& estimator) {
+                [&ref_index](const References& references, const IndexParameters& parameters, int& count) {
                     while (true) {
                         size_t j = ref_index.fetch_add(1);
                         if (j >= references.size()) {
                             break;
                         }
-                        estimator.merge(estimate_unique_randstrobe_hashes(references.sequences[j], parameters));
+                        count += count_randstrobe_hashes(references.sequences[j], parameters);
                     }
-                }, std::ref(references), std::ref(parameters), std::ref(estimators[i]))
+                }, std::ref(references), std::ref(parameters), std::ref(counts[i]))
         );
     }
     for (auto& worker : workers) {
         worker.join();
     }
 
-    hll::HyperLogLog hll(10);
-    for (auto& estimator : estimators) {
-        hll.merge(estimator);
+    for (auto& count : counts) {
+        total += count;
     }
-    return hll.estimate();
+    return total;
 }
 
 void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.tot_strobemer_count = 0;
 
-    Timer estimate_unique;
-    auto randstrobe_hashes = estimate_unique_randstrobe_hashes_parallel(references, parameters, n_threads);
-    stats.elapsed_unique_hashes = estimate_unique.duration();
-    logger.debug() << "Estimated number of unique randstrobe hashes: " << randstrobe_hashes << '\n';
-    randstrobe_map.reserve(randstrobe_hashes);
+    Timer count_hash;
+    auto randstrobe_hashes = count_randstrobe_hashes_parallel(references, parameters, n_threads);
+    stats.elapsed_unique_hashes = count_hash.duration();
+    logger.debug() << "Count number of randstrobe hashes: " << randstrobe_hashes << '\n';
 
     Timer randstrobes_timer;
-    auto ind_flat_vector = add_randstrobes_to_hash_table();
+    add_randstrobes_to_vector(randstrobe_hashes);
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     Timer sorting_timer;
     // sort by hash values
-    pdqsort_branchless(ind_flat_vector.begin(), ind_flat_vector.end());
+    pdqsort_branchless(randstrobes.begin(), randstrobes.end());
     stats.elapsed_sorting_seeds = sorting_timer.duration();
 
     Timer hash_index_timer;
-    stats.flat_vector_size = ind_flat_vector.size();
 
-    unsigned int offset = 0;
     unsigned int tot_high_ab = 0;
     unsigned int tot_mid_ab = 0;
     std::vector<unsigned int> strobemer_counts;
 
-    uint64_t prev_hash = -1;
-    flat_vector.reserve(ind_flat_vector.size());
-    for (auto &mer : ind_flat_vector) {
-        flat_vector.push_back(RefRandstrobe{mer.position, mer.packed});
-        if (mer.hash != prev_hash) {
-            auto mer_index_entry = randstrobe_map.find(mer.hash);
-            assert(mer_index_entry != randstrobe_map.end());
-            auto count = mer_index_entry->second.count();
-            assert(count > 1);
+    stats.tot_occur_once = 0;
+    randstrobe_start_indices.reserve((1 << bits) + 1);
 
-            mer_index_entry->second.set_offset(offset);
-            if (count > 100){
-                tot_high_ab++;
-                strobemer_counts.push_back(count);
-            } else {
-                tot_mid_ab++;
-                strobemer_counts.push_back(count);
-            }
-            count = 1;
+    unsigned int unique_mers = 0;
+    randstrobe_hash_t prev_hash = static_cast<randstrobe_hash_t>(-1);
+    unsigned int count = 0;
+    for (unsigned int position = 0; position < randstrobes.size(); ++position) {
+        const randstrobe_hash_t cur_hash = randstrobes[position].hash;
+        if (cur_hash == prev_hash) {
+            ++count;
+            continue;
         }
-        prev_hash = mer.hash;
-        offset++;
+
+        ++unique_mers;
+
+        if (count == 1) {
+            ++stats.tot_occur_once;
+        } else {
+            if (count > 100) {
+                ++tot_high_ab;
+            } else {
+                ++tot_mid_ab;
+            }
+            strobemer_counts.push_back(count);
+        }
+        count = 1;
+        const unsigned int cur_hash_N = cur_hash >> (64 - bits);
+        while (randstrobe_start_indices.size() <= cur_hash_N) {
+            randstrobe_start_indices.push_back(position);
+        }
+        prev_hash = cur_hash;
     }
-    stats.frac_unique = 1.0 * stats.tot_occur_once / randstrobe_map.size();
+    // wrap up last entry
+    if (count == 1) {
+        ++stats.tot_occur_once;
+    } else {
+        if (count > 100) {
+            tot_high_ab++;
+        } else {
+            tot_mid_ab++;
+        }
+        strobemer_counts.push_back(count);
+    }
+    while (randstrobe_start_indices.size() < ((1 << bits) + 1)) {
+        randstrobe_start_indices.push_back(randstrobes.size());
+    }
+    stats.frac_unique = 1.0 * stats.tot_occur_once / unique_mers;
     stats.tot_high_ab = tot_high_ab;
     stats.tot_mid_ab = tot_mid_ab;
-    stats.tot_distinct_strobemer_count = randstrobe_map.size();
+    stats.tot_distinct_strobemer_count = unique_mers;
 
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
-    unsigned int index_cutoff = randstrobe_map.size()*f;
+    unsigned int index_cutoff = unique_mers * f;
     stats.index_cutoff = index_cutoff;
     if (!strobemer_counts.empty()){
         filter_cutoff = index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back();
@@ -233,23 +222,11 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     }
     stats.filter_cutoff = filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
-    stats.unique_mers = randstrobe_map.size();
+    stats.unique_mers = unique_mers;
 }
 
-/*
- * Generate randstrobes for all reference sequences and add them to the hash
- * table. Only those randstrobes which occur only once have correct, fully
- * filled-in entries in the hash table. For the others (with multiple
- * occurrences), only their count is correct. The offset needs to be filled in
- * later.
- *
- * Fills in
- * - stats.tot_occur_once
- * - stats.tot_strobemer_count
- */
-std::vector<RefRandstrobeWithHash> StrobemerIndex::add_randstrobes_to_hash_table() {
-    std::vector<RefRandstrobeWithHash> randstrobes_with_hash;
-    size_t tot_occur_once = 0;
+void StrobemerIndex::add_randstrobes_to_vector(int randstrobe_hashes){
+    randstrobes.reserve(randstrobe_hashes);
     for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
         auto seq = references.sequences[ref_index];
         if (seq.length() < parameters.w_max) {
@@ -262,7 +239,6 @@ std::vector<RefRandstrobeWithHash> StrobemerIndex::add_randstrobes_to_hash_table
         // with a chunk size of 1.
         const size_t chunk_size = 4;
         chunk.reserve(chunk_size);
-
         bool end = false;
         while (!end) {
             // fill chunk
@@ -279,33 +255,11 @@ std::vector<RefRandstrobeWithHash> StrobemerIndex::add_randstrobes_to_hash_table
             for (auto randstrobe : chunk) {
                 RefRandstrobeWithHash::packed_t packed = ref_index << 8;
                 packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
-
-                // try to insert as direct entry
-                RandstrobeMapEntry entry{randstrobe.strobe1_pos, packed | 0x8000'0000};
-                auto result = randstrobe_map.insert({randstrobe.hash, entry});
-                if (result.second) {
-                    tot_occur_once++;
-                } else {
-                    // already exists in hash table
-                    auto existing = result.first;
-                    auto existing_count = existing->second.count();
-                    if (existing_count == 1) {
-                        // current entry is a direct one, convert to an indirect one
-                        auto existing_randstrobe = existing->second.as_ref_randstrobe();
-                        randstrobes_with_hash.push_back(RefRandstrobeWithHash{randstrobe.hash, existing_randstrobe.position, existing_randstrobe.packed()});
-                        tot_occur_once--;
-                    }
-                    // offset is adjusted later after sorting
-                    existing->second.set_count(existing_count + 1);
-
-                    randstrobes_with_hash.push_back(RefRandstrobeWithHash{randstrobe.hash, randstrobe.strobe1_pos, packed});
+                randstrobes.push_back(RefRandstrobeWithHash{randstrobe.hash, randstrobe.strobe1_pos, packed});
                 }
-            }
             chunk.clear();
+            }
         }
-    }
-    stats.tot_occur_once = tot_occur_once;
-    return randstrobes_with_hash;
 }
 
 void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) const {
@@ -319,35 +273,31 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
     std::vector<int> log_repetitive(max_size, 0);  // stores count unique and each index represents the length
 
 
-    std::vector<uint64_t> log_count_squared(max_size,0);
-    uint64_t tot_seed_count = 0;
-    uint64_t tot_seed_count_sq = 0;
+    std::vector<randstrobe_hash_t> log_count_squared(max_size,0);
+    randstrobe_hash_t tot_seed_count = 0;
+    randstrobe_hash_t tot_seed_count_sq = 0;
 
-    std::vector<uint64_t> log_count_1000_limit(max_size, 0);  // stores count and each index represents the length
-    uint64_t tot_seed_count_1000_limit = 0;
+    std::vector<randstrobe_hash_t> log_count_1000_limit(max_size, 0);  // stores count and each index represents the length
+    randstrobe_hash_t tot_seed_count_1000_limit = 0;
 
     size_t seed_length = 0;
-    for (auto &it : randstrobe_map) {
-        auto ref_mer = it.second;
-        auto offset = ref_mer.offset();
-        auto count = ref_mer.count();
 
-        for (size_t j = offset; j < offset + count; ++j) {
-            auto r = flat_vector[j];
-            seed_length = r.strobe2_offset() + k;
-            if (seed_length < max_size){
-                log_count[seed_length] ++;
-                log_count_squared[seed_length] += count;
-                tot_seed_count ++;
-                tot_seed_count_sq += count;
-                if (count <= 1000){
-                    log_count_1000_limit[seed_length] ++;
-                    tot_seed_count_1000_limit ++;
-                }
-            } else {
-               // TODO This function should not log anything
-               // logger.info() << "Detected seed size over " << max_size << " bp (can happen, e.g., over centromere): " << seed_length << std::endl;
+    for (size_t it = 0; it < randstrobes.size(); it++) {
+        seed_length = strobe2_offset(it) + k;
+        auto count = get_count(it);
+
+        if (seed_length < max_size){
+            log_count[seed_length] ++;
+            log_count_squared[seed_length] += count;
+            tot_seed_count ++;
+            tot_seed_count_sq += count;
+            if (count <= 1000){
+                log_count_1000_limit[seed_length] ++;
+                tot_seed_count_1000_limit ++;
             }
+        } else {
+            // TODO This function should not log anything
+            // logger.info() << "Detected seed size over " << max_size << " bp (can happen, e.g., over centromere): " << seed_length << std::endl;
         }
 
         if (count == 1 && seed_length < max_size) {

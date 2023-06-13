@@ -24,10 +24,12 @@ struct SeedingArguments {
             "It is recommended not to change this parameter unless you have a good "
             "understanding of syncmers as it will drastically change the memory usage and "
             "results with non default values.", {'s'}}
+        , bits{parser, "INT", "No. of top bits of hash to use as bucket indices "
+            "[determined from reference size]", {'b'}}
     {
     }
     args::ArgumentParser& parser;
-    args::ValueFlag<int> r, m, k, l, u, c, s;
+    args::ValueFlag<int> r, m, k, l, u, c, s, bits;
 };
 
 #endif

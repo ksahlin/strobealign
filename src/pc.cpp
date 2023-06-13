@@ -16,7 +16,6 @@
 #include "kseq++.hpp"
 #include "sam.hpp"
 
-
 // checks if two read names are the same ignoring /1 suffix on the first one
 // and /2 on the second one (if present)
 bool same_name(const std::string& n1, const std::string& n2) {
@@ -29,9 +28,11 @@ bool same_name(const std::string& n1, const std::string& n2) {
     if (n1[i - 1] == '/' && n1[i] == '1' && n2[i] == '2') return true;
     return n1[i] == n2[i];
 }
+
 // distribute_interleaved implements the 'interleaved' format:
 // If two consequent reads have the same name, they are considered to be a pair.
 // Otherwise, they are considered to be single-end reads.
+
 void distribute_interleaved(
     std::vector<klibpp::KSeq>& records,
     std::vector<klibpp::KSeq>& records1,

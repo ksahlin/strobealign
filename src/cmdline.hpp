@@ -26,6 +26,7 @@ struct CommandLineOptions {
 
     // Seeding
     int r { 150 };
+    int bits { -1 };
     bool r_set { false };
     bool max_seed_len_set { false };
     bool k_set { false };
