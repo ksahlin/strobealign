@@ -142,6 +142,9 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     auto randstrobe_hashes = count_randstrobes_parallel(references, parameters, n_threads);
     stats.elapsed_counting_hashes = count_hash.duration();
 
+    if (randstrobe_hashes > std::numeric_limits<bucket_index_t>::max()) {
+        throw std::range_error("Too many randstrobes");
+    }
     Timer randstrobes_timer;
     randstrobes.reserve(randstrobe_hashes);
     add_randstrobes_to_vector();
