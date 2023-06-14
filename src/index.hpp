@@ -148,7 +148,7 @@ struct StrobemerIndex {
     }
 
 private:
-    void add_randstrobes_to_vector(int randstrobe_hashes);
+    void add_randstrobes_to_vector(size_t randstrobe_hashes);
 
     const IndexParameters& parameters;
     const References& references;

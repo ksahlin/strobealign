@@ -90,8 +90,8 @@ int StrobemerIndex::pick_bits(size_t size) const {
     return std::max(8, static_cast<int>(log2(estimated_number_of_randstrobes)) - 1);
 }
 
-int count_randstrobe_hashes(const std::string& seq, const IndexParameters& parameters) {
-    int num = 0;
+uint64_t count_randstrobe_hashes(const std::string& seq, const IndexParameters& parameters) {
+    uint64_t num = 0;
 
     auto randstrobe_iter = RandstrobeIterator2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
     Randstrobe randstrobe;
@@ -101,12 +101,12 @@ int count_randstrobe_hashes(const std::string& seq, const IndexParameters& param
     return num;
 }
 
-size_t count_randstrobe_hashes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
+uint64_t count_randstrobe_hashes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
     std::vector<std::thread> workers;
-    unsigned int total = 0;
+    uint64_t total = 0;
     std::atomic_size_t ref_index{0};
 
-    std::vector<int> counts;
+    std::vector<uint64_t> counts;
     for (size_t i = 0; i < n_threads; ++i) {
         counts.push_back(0);
     }
@@ -114,7 +114,7 @@ size_t count_randstrobe_hashes_parallel(const References& references, const Inde
     for (size_t i = 0; i < n_threads; ++i) {
         workers.push_back(
             std::thread(
-                [&ref_index](const References& references, const IndexParameters& parameters, int& count) {
+                [&ref_index](const References& references, const IndexParameters& parameters, uint64_t& count) {
                     while (true) {
                         size_t j = ref_index.fetch_add(1);
                         if (j >= references.size()) {
@@ -223,7 +223,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.unique_strobemers = unique_mers;
 }
 
-void StrobemerIndex::add_randstrobes_to_vector(int randstrobe_hashes){
+void StrobemerIndex::add_randstrobes_to_vector(size_t randstrobe_hashes){
     randstrobes.reserve(randstrobe_hashes);
     for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
         auto seq = references.sequences[ref_index];
