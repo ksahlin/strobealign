@@ -40,6 +40,13 @@ static inline syncmer_hash_t syncmer_kmer_hash(uint64_t packed) {
     return XXH64(&packed, sizeof(uint64_t), 0);
 }
 
+static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
+    // return ys;
+    // return robin_hash(ys);
+    // return hash64(ys, mask);
+    return XXH64(&packed, 8, 0);
+}
+
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
     os << "Syncmer(hash=" << syncmer.hash << ", position=" << syncmer.position << ")";
     return os;
@@ -59,10 +66,7 @@ Syncmer SyncmerIterator::next() {
             }
             // we find an s-mer
             uint64_t ys = std::min(xs[0], xs[1]);
-//          uint64_t hash_s = robin_hash(ys);
-            uint64_t hash_s = ys;
-//          uint64_t hash_s = hash64(ys, mask);
-//          uint64_t hash_s = XXH64(&ys, 8,0);
+            uint64_t hash_s = syncmer_smer_hash(ys);
             qs.push_back(hash_s);
             // not enough hashes in the queue, yet
             if (qs.size() < k - s + 1) {
