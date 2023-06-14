@@ -90,7 +90,7 @@ int StrobemerIndex::pick_bits(size_t size) const {
     return std::max(8, static_cast<int>(log2(estimated_number_of_randstrobes)) - 1);
 }
 
-uint64_t count_randstrobe_hashes(const std::string& seq, const IndexParameters& parameters) {
+uint64_t count_randstrobes(const std::string& seq, const IndexParameters& parameters) {
     uint64_t num = 0;
 
     auto randstrobe_iter = RandstrobeIterator2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
@@ -101,7 +101,7 @@ uint64_t count_randstrobe_hashes(const std::string& seq, const IndexParameters& 
     return num;
 }
 
-uint64_t count_randstrobe_hashes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
+uint64_t count_randstrobes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
     std::vector<std::thread> workers;
     uint64_t total = 0;
     std::atomic_size_t ref_index{0};
@@ -120,7 +120,7 @@ uint64_t count_randstrobe_hashes_parallel(const References& references, const In
                         if (j >= references.size()) {
                             break;
                         }
-                        count += count_randstrobe_hashes(references.sequences[j], parameters);
+                        count += count_randstrobes(references.sequences[j], parameters);
                     }
                 }, std::ref(references), std::ref(parameters), std::ref(counts[i]))
         );
@@ -139,7 +139,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.tot_strobemer_count = 0;
 
     Timer count_hash;
-    auto randstrobe_hashes = count_randstrobe_hashes_parallel(references, parameters, n_threads);
+    auto randstrobe_hashes = count_randstrobes_parallel(references, parameters, n_threads);
     stats.elapsed_counting_hashes = count_hash.duration();
 
     Timer randstrobes_timer;
