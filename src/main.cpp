@@ -214,24 +214,24 @@ int run_strobealign(int argc, char **argv) {
         index.populate(opt.f, opt.n_threads);
         
         logger.info() << "  Time generating seeds: " << index.stats.elapsed_generating_seeds.count() << " s" <<  std::endl;
-        logger.info() << "  Time estimating number of unique hashes: " << index.stats.elapsed_unique_hashes.count() << " s" <<  std::endl;
+        logger.info() << "  Time counting hashes: " << index.stats.elapsed_counting_hashes.count() << " s" <<  std::endl;
         logger.info() << "  Time sorting non-unique seeds: " << index.stats.elapsed_sorting_seeds.count() << " s" <<  std::endl;
         logger.info() << "  Time generating hash table index: " << index.stats.elapsed_hash_index.count() << " s" <<  std::endl;
         logger.info() << "Total time indexing: " << index_timer.elapsed() << " s\n";
 
         logger.debug()
-        << "Unique strobemers: " << index.stats.unique_mers << std::endl
-        << "Total strobemers count: " << index.stats.tot_strobemer_count << std::endl
-        << "Total strobemers occur once: " << index.stats.tot_occur_once << std::endl
-        << "Fraction Unique: " << index.stats.frac_unique << std::endl
-        << "Total strobemers highly abundant > 100: " << index.stats.tot_high_ab << std::endl
-        << "Total strobemers mid abundance (between 2-100): " << index.stats.tot_mid_ab << std::endl
-        << "Total distinct strobemers stored: " << index.stats.tot_distinct_strobemer_count << std::endl;
+            << "Index statistics\n"
+            << "  Total strobemers:    " << std::setw(14) << index.stats.tot_strobemer_count << '\n'
+            << "  Distinct strobemers: " << std::setw(14) << index.stats.unique_strobemers << " (100.00%)\n"
+            << "    1 occurrence:      " << std::setw(14) << index.stats.tot_occur_once << " (" << std::setw(6) << index.stats.frac_unique*100 << "%)\n"
+            << "    2..100 occurrences:" << std::setw(14) << index.stats.tot_mid_ab << " (" << std::setw(6) << (100.0 * index.stats.tot_mid_ab / index.stats.unique_strobemers) << "%)\n"
+            << "    >100 occurrences:  " << std::setw(14) << index.stats.tot_high_ab << " (" << std::setw(6) << (100.0 * index.stats.tot_high_ab / index.stats.unique_strobemers) << "%)\n"
+            ;
         if (index.stats.tot_high_ab >= 1) {
-            logger.debug() << "Ratio distinct to highly abundant: " << index.stats.tot_distinct_strobemer_count / index.stats.tot_high_ab << std::endl;
+            logger.debug() << "Ratio distinct to highly abundant: " << index.stats.unique_strobemers / index.stats.tot_high_ab << std::endl;
         }
         if (index.stats.tot_mid_ab >= 1) {
-            logger.debug() << "Ratio distinct to non distinct: " << index.stats.tot_distinct_strobemer_count / (index.stats.tot_high_ab + index.stats.tot_mid_ab) << std::endl;
+            logger.debug() << "Ratio distinct to non distinct: " << index.stats.unique_strobemers / (index.stats.tot_high_ab + index.stats.tot_mid_ab) << std::endl;
         }
         logger.debug() << "Filtered cutoff index: " << index.stats.index_cutoff << std::endl;
         logger.debug() << "Filtered cutoff count: " << index.stats.filter_cutoff << std::endl;

@@ -104,7 +104,7 @@ int count_randstrobe_hashes(const std::string& seq, const IndexParameters& param
 size_t count_randstrobe_hashes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
     std::vector<std::thread> workers;
     unsigned int total = 0;
-    std::atomic_size_t ref_index = 0;
+    std::atomic_size_t ref_index{0};
 
     std::vector<int> counts;
     for (size_t i = 0; i < n_threads; ++i) {
@@ -140,8 +140,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
 
     Timer count_hash;
     auto randstrobe_hashes = count_randstrobe_hashes_parallel(references, parameters, n_threads);
-    stats.elapsed_unique_hashes = count_hash.duration();
-    logger.debug() << "Count number of randstrobe hashes: " << randstrobe_hashes << '\n';
+    stats.elapsed_counting_hashes = count_hash.duration();
 
     Timer randstrobes_timer;
     add_randstrobes_to_vector(randstrobe_hashes);
@@ -207,7 +206,6 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.frac_unique = 1.0 * stats.tot_occur_once / unique_mers;
     stats.tot_high_ab = tot_high_ab;
     stats.tot_mid_ab = tot_mid_ab;
-    stats.tot_distinct_strobemer_count = unique_mers;
 
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
@@ -222,7 +220,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     }
     stats.filter_cutoff = filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
-    stats.unique_mers = unique_mers;
+    stats.unique_strobemers = unique_mers;
 }
 
 void StrobemerIndex::add_randstrobes_to_vector(int randstrobe_hashes){
