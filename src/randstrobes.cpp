@@ -3,6 +3,8 @@
 #include <bitset>
 #include <algorithm>
 #include <cassert>
+
+#define XXH_INLINE_ALL
 #include <xxhash.h>
 
 #include "randstrobes.hpp"
