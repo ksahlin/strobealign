@@ -1,5 +1,4 @@
 #include <string>
-
 #include <deque>
 #include <bitset>
 #include <algorithm>

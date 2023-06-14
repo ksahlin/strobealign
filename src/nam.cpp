@@ -156,7 +156,9 @@ std::pair<float, std::vector<Nam>> find_nams(
         int position = index.find(q.hash);
         if (position != index.end()){
             total_hits++;
-            if (index.get_next_hash(position) == q.hash) { continue; }
+            if (index.is_filtered(position)) {
+                continue;
+            }
             nr_good_hits++;
             add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, position, 100'000);
         }

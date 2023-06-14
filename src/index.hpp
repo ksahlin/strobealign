@@ -68,11 +68,11 @@ struct StrobemerIndex {
             }
             return -1;
         }
-        auto cmp = [](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return lhs.hash < rhs.hash; };
+        auto cmp = [](const RefRandstrobe lhs, const RefRandstrobe rhs) {return lhs.hash < rhs.hash; };
 
         auto pos = std::lower_bound(randstrobes.begin() + position_start,
                                                randstrobes.begin() + position_end,
-                                               RefRandstrobeWithHash{key, 0, 0},
+                                               RefRandstrobe{key, 0, 0},
                                                cmp);
         if (pos->hash == key) return pos - randstrobes.begin();
         return -1;
@@ -86,8 +86,8 @@ struct StrobemerIndex {
         }
     }
     
-    randstrobe_hash_t get_next_hash(int position) const{
-        return get_hash(position + filter_cutoff);
+    randstrobe_hash_t is_filtered(int position) const {
+        return get_hash(position) == get_hash(position + filter_cutoff);
     }
 
     unsigned int get_strobe1_position(unsigned int position) const {
@@ -95,11 +95,11 @@ struct StrobemerIndex {
     }
 
     int strobe2_offset(unsigned int position) const {
-        return randstrobes[position].packed & mask;
+        return randstrobes[position].strobe2_offset();
     }
 
     int reference_index(unsigned int position) const {
-        return randstrobes[position].packed >> bit_alloc;
+        return randstrobes[position].reference_index();
     }
 
     unsigned int get_count(const unsigned int position) const {
@@ -127,11 +127,11 @@ struct StrobemerIndex {
             }
             return count;
         }
-        auto cmp = [](const RefRandstrobeWithHash lhs, const RefRandstrobeWithHash rhs) {return lhs.hash < rhs.hash; };
+        auto cmp = [](const RefRandstrobe lhs, const RefRandstrobe rhs) {return lhs.hash < rhs.hash; };
 
         auto pos = std::upper_bound(randstrobes.begin() + position,
                                                randstrobes.begin() + position_end,
-                                               RefRandstrobeWithHash{key, 0, 0},
+                                               RefRandstrobe{key, 0, 0},
                                                cmp);
         return (pos - randstrobes.begin() - 1) - position + 1;
     }
@@ -150,14 +150,24 @@ struct StrobemerIndex {
 
 private:
     void add_randstrobes_to_vector(int randstrobe_hashes);
-    unsigned int get_count_line_search(unsigned int) const;
 
     const IndexParameters& parameters;
     const References& references;
-    std::vector<RefRandstrobeWithHash> randstrobes;
+
+    /*
+     * The randstrobes vector contains all randstrobes sorted by hash.
+     *
+     * The randstrobe_start_indices vector points to entries in the
+     * randstrobes vector. randstrobe_start_indices[x] is the index of the
+     * first entry in randstrobes whose top *bits* bits of its hash value are
+     * greater than or equal to x.
+     *
+     * randstrobe_start_indices has one extra guard entry at the end that
+     * is always randstrobes.size().
+     */
+
+    std::vector<RefRandstrobe> randstrobes;
     std::vector<unsigned int> randstrobe_start_indices;
-    static constexpr int bit_alloc = 8;
-    static constexpr int mask = (1 << bit_alloc) - 1;
     int bits; // no. of bits of the hash to use when indexing a randstrobe bucket
 };
 

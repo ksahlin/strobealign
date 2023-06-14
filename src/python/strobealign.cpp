@@ -102,16 +102,16 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("w_max", &IndexParameters::w_max)
         .def_ro("q", &IndexParameters::q)
     ;
-    nb::class_<RefRandstrobeWithHash>(m, "RefRandstrobeWithHash", "Randstrobe on a reference")
-        .def_ro("position", &RefRandstrobeWithHash::position)
-        //.def_prop_ro("reference_index", &RefRandstrobeWithHash::reference_index)
-        //.def_prop_ro("strobe2_offset", &RefRandstrobeWithHash::strobe2_offset)
+    nb::class_<RefRandstrobe>(m, "RefRandstrobeWithHash", "Randstrobe on a reference")
+        .def_ro("position", &RefRandstrobe::position)
+        .def_prop_ro("reference_index", &RefRandstrobe::reference_index)
+        .def_prop_ro("strobe2_offset", &RefRandstrobe::strobe2_offset)
     ;
-    nb::bind_vector<std::vector<RefRandstrobeWithHash>>(m, "RefRandstrobeVector");
+    nb::bind_vector<std::vector<RefRandstrobe>>(m, "RefRandstrobeVector");
     nb::class_<StrobemerIndex>(m, "StrobemerIndex")
         .def(nb::init<References&, IndexParameters&>())
-        .def("find", [](const StrobemerIndex& index, uint64_t key) -> std::vector<RefRandstrobeWithHash> {
-            std::vector<RefRandstrobeWithHash> v;
+        .def("find", [](const StrobemerIndex& index, uint64_t key) -> std::vector<RefRandstrobe> {
+            std::vector<RefRandstrobe> v;
             auto position = index.find(key);
             if (position != index.end()) {
                 /*while (index.randstrobes[position].hash == key) {
