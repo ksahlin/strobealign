@@ -143,7 +143,8 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.elapsed_counting_hashes = count_hash.duration();
 
     Timer randstrobes_timer;
-    add_randstrobes_to_vector(randstrobe_hashes);
+    randstrobes.reserve(randstrobe_hashes);
+    add_randstrobes_to_vector();
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     Timer sorting_timer;
@@ -223,8 +224,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.unique_strobemers = unique_mers;
 }
 
-void StrobemerIndex::add_randstrobes_to_vector(size_t randstrobe_hashes){
-    randstrobes.reserve(randstrobe_hashes);
+void StrobemerIndex::add_randstrobes_to_vector() {
     for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
         auto seq = references.sequences[ref_index];
         if (seq.length() < parameters.w_max) {
