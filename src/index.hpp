@@ -42,7 +42,12 @@ struct StrobemerIndex {
         : filter_cutoff(0)
         , parameters(parameters)
         , references(references)
-        , bits(bits == -1 ? pick_bits(references.total_length()) : bits) { }
+        , bits(bits == -1 ? pick_bits(references.total_length()) : bits)
+    {
+        if (this->bits < 8 || this->bits > 31) {
+            throw BadParameter("Bits must be between 8 and 31");
+        }
+    }
     unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
                                 //therefore stored here since it needs to be saved with the index.
     mutable IndexCreationStatistics stats;
