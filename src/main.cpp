@@ -222,7 +222,7 @@ int run_strobealign(int argc, char **argv) {
         logger.debug()
             << "Index statistics\n"
             << "  Total strobemers:    " << std::setw(14) << index.stats.tot_strobemer_count << '\n'
-            << "  Unique strobemers:   " << std::setw(14) << index.stats.unique_strobemers << '\n'
+            << "  Distinct strobemers: " << std::setw(14) << index.stats.unique_strobemers << '\n'
             << "    1 occurrence:      " << std::setw(14) << index.stats.tot_occur_once << " (" << std::setw(6) << index.stats.frac_unique*100 << "%)\n"
             << "    2..100 occurrences:" << std::setw(14) << index.stats.tot_mid_ab << " (" << std::setw(6) << (100.0 * index.stats.tot_mid_ab / index.stats.unique_strobemers) << "%)\n"
             << "    >100 occurrences:  " << std::setw(14) << index.stats.tot_high_ab << " (" << std::setw(6) << (100.0 * index.stats.tot_high_ab / index.stats.unique_strobemers) << "%)\n"
