@@ -17,7 +17,7 @@ License: See doctest.h
 ## kseq++
 
 Homepage: https://github.com/cartoonist/kseqpp
-License: See LICENSE-kseqpp
+License: See kseq++/LICENSE
 
 
 ## pdqsort

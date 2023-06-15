@@ -5,7 +5,7 @@
 #include <string>
 
 #include "exceptions.hpp"
-#include "kseq++.hpp"
+#include "kseq++/kseq++.hpp"
 
 // File that can be rewound (once only!)
 class RewindableFile {

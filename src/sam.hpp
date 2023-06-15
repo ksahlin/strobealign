@@ -2,7 +2,7 @@
 #define STROBEALIGN_SAM_HPP
 
 #include <string>
-#include "kseq++.hpp"
+#include "kseq++/kseq++.hpp"
 #include "refs.hpp"
 #include "cigar.hpp"
 
