@@ -20,7 +20,6 @@
 
 
 struct IndexCreationStatistics {
-    unsigned int flat_vector_size = 0;
     unsigned int tot_strobemer_count = 0;
     unsigned int tot_occur_once = 0;
     float frac_unique = 0;
