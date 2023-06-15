@@ -86,6 +86,7 @@ namespace klibpp {
         /* Consts */
         constexpr static std::make_unsigned_t< size_type > DEFAULT_BUFSIZE = 131072;
         constexpr static unsigned int DEFAULT_WRAPLEN = 60;
+        constexpr static unsigned int FASTQ_DEFAULT_WRAPLEN = 0;  // nowrap
         constexpr static format::Format DEFAULT_FORMAT = format::mix;
         /* Data members */
         char_type* m_buf;                               /**< @brief character buffer */
@@ -117,6 +118,7 @@ namespace klibpp {
           wraplen( DEFAULT_WRAPLEN ), fmt( fmt_ ), f( std::move( f_ ) ),
           func( std::move(  func_  ) ), close( cfunc_ )
         {
+          if ( this->fmt == format::fastq ) this->wraplen = FASTQ_DEFAULT_WRAPLEN;
           this->m_begin = 0;
           this->m_end = 0;
           this->terminate = false;
@@ -259,6 +261,18 @@ namespace klibpp {
         }
 
           inline void
+        set_nowrapping()
+        {
+          this->set_wraplen( 0 );
+        }
+
+          inline void
+        set_wrapping()
+        {
+          this->set_wraplen( DEFAULT_WRAPLEN );
+        }
+
+          inline void
         set_format( format::Format fmt_ )
         {
           this->fmt = fmt_;
@@ -288,13 +302,13 @@ namespace klibpp {
             this->puts( rec.comment );
           }
           this->puts( '\n' );
-          this->puts( rec.seq, true );
+          this->puts( rec.seq );
           if ( ( this->fmt == format::mix && !rec.qual.empty() ) ||  // FASTQ record
                ( this->fmt == format::fastq ) ) {                        // Forced FASTQ
             this->puts( '\n' );
             this->puts( '+' );
             this->puts( '\n' );
-            this->puts( rec.qual, true );
+            this->puts( rec.qual );
           }
           this->puts( '\n' );
           if ( *this ) this->counter++;
@@ -321,7 +335,7 @@ namespace klibpp {
         }
         /* Low-level methods */
           inline bool
-        puts( std::string const& s, bool wrap=false ) noexcept
+        puts( std::string const& s ) noexcept
         {
           if ( this->fail() ) return false;
 
@@ -331,12 +345,12 @@ namespace klibpp {
             assert( cursor < s.size() );
             if ( this->m_begin >= this->bufsize ) this->async_write();
             if ( this->fail() ) break;
-            if ( wrap && cursor != 0 && cursor % this->wraplen == 0 ) {
+            if ( this->wraplen && cursor != 0 && cursor % this->wraplen == 0 ) {
               this->m_buf[ this->m_begin++ ] = '\n';
             }
             len = std::min( s.size() - cursor,
                 static_cast< std::string::size_type >( this->bufsize - this->m_begin ) );
-            if ( wrap )
+            if ( this->wraplen )
               len = std::min( len, this->wraplen - cursor % this->wraplen );
             std::copy( &s[ cursor ], &s[ cursor ] + len, this->m_buf + this->m_begin );
             this->m_begin += len;
@@ -505,7 +519,6 @@ namespace klibpp {
           this->f = std::move( other.f );
           this->func = std::move( other.func );
           this->close = other.close;
-          other.close = nullptr;
         }
 
         KStream& operator=( KStream&& other ) noexcept
@@ -525,7 +538,6 @@ namespace klibpp {
           this->f = std::move( other.f );
           this->func = std::move( other.func );
           this->close = other.close;
-          other.close = nullptr;
           return *this;
         }
 
@@ -666,9 +678,12 @@ namespace klibpp {
             if ( !( c = this->getc( ) ) ) break;
             --this->begin;
             if ( delimiter == KStream::SEP_LINE ) {
-              for ( i = this->begin; i < this->end; ++i ) {
-                if ( this->buf[ i ] == '\n' ) break;
-              }
+              // Incorporate optimization from new seqtk (see : https://github.com/lh3/seqtk/pull/123)
+              // Fabian commmented on this here (https://twitter.com/kloetzl/status/1661679452479266818)
+              // and suggested that std::find() may be more idiomatic.  However, I'm a bit concerned
+              // that may be non-trivially slower than memchr (https://gms.tf/stdfind-and-memchr-optimizations.html).
+              char_type* sep = ( char_type* )std::memchr( this->buf + this->begin, '\n', this->end - this->begin );
+              i = ( sep != nullptr ) ? ( sep - this->buf ) : this->end;
             }
             else if ( delimiter > KStream::SEP_MAX ) {
               for ( i = this->begin; i < this->end; ++i ) {

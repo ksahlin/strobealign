@@ -17,6 +17,7 @@ License: See doctest.h
 ## kseq++
 
 Homepage: https://github.com/cartoonist/kseqpp
+Version: 1.1.1
 License: See kseq++/LICENSE
 
 
