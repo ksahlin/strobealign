@@ -61,15 +61,15 @@ struct StrobemerIndex {
         bucket_index_t position_start = randstrobe_start_indices[top_N];
         bucket_index_t position_end = randstrobe_start_indices[top_N + 1];
         if (position_start == position_end) {
-            return -1;
+            return end();
         }
 
         if (position_end - position_start < MAX_LINEAR_SEARCH) {
             for ( ; position_start < position_end; ++position_start) {
                 if (randstrobes[position_start].hash == key) return position_start;
-                if (randstrobes[position_start].hash > key) return -1;
+                if (randstrobes[position_start].hash > key) return end();
             }
-            return -1;
+            return end();
         }
         auto cmp = [](const RefRandstrobe lhs, const RefRandstrobe rhs) {return lhs.hash < rhs.hash; };
 
@@ -78,14 +78,14 @@ struct StrobemerIndex {
                                                RefRandstrobe{key, 0, 0},
                                                cmp);
         if (pos->hash == key) return pos - randstrobes.begin();
-        return -1;
+        return end();
     }
 
     randstrobe_hash_t get_hash(bucket_index_t position) const {
         if (position < randstrobes.size()) {
             return randstrobes[position].hash;
         } else {
-            return -1;
+            return end();
         }
     }
     
