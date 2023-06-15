@@ -142,6 +142,9 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     auto randstrobe_hashes = count_randstrobes_parallel(references, parameters, n_threads);
     stats.elapsed_counting_hashes = count_hash.duration();
 
+    uint64_t memory_bytes = references.total_length() + sizeof(RefRandstrobe) * randstrobe_hashes + sizeof(bucket_index_t) * (1u << bits);
+    logger.debug() << "Estimated total memory usage: " << memory_bytes / 1E9 << " GB\n";
+
     if (randstrobe_hashes > std::numeric_limits<bucket_index_t>::max()) {
         throw std::range_error("Too many randstrobes");
     }
