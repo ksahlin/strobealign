@@ -35,7 +35,7 @@ struct IndexCreationStatistics {
 };
 
 struct StrobemerIndex {
-    using bucket_index_t = uint32_t;
+    using bucket_index_t = uint64_t;
     StrobemerIndex(const References& references, const IndexParameters& parameters, int bits=-1)
         : filter_cutoff(0)
         , parameters(parameters)
@@ -170,7 +170,7 @@ private:
      */
 
     std::vector<RefRandstrobe> randstrobes;
-    std::vector<unsigned int> randstrobe_start_indices;
+    std::vector<bucket_index_t> randstrobe_start_indices;
     int bits; // no. of bits of the hash to use when indexing a randstrobe bucket
 };
 
