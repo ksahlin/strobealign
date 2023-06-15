@@ -37,11 +37,17 @@ struct IndexCreationStatistics {
 };
 
 struct StrobemerIndex {
+    using bucket_index_t = uint32_t;
     StrobemerIndex(const References& references, const IndexParameters& parameters, int bits=-1)
         : filter_cutoff(0)
         , parameters(parameters)
         , references(references)
-        , bits(bits == -1 ? pick_bits(references.total_length()) : bits) { }
+        , bits(bits == -1 ? pick_bits(references.total_length()) : bits)
+    {
+        if (this->bits < 8 || this->bits > 31) {
+            throw BadParameter("Bits must be between 8 and 31");
+        }
+    }
     unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
                                 //therefore stored here since it needs to be saved with the index.
     mutable IndexCreationStatistics stats;
@@ -54,8 +60,8 @@ struct StrobemerIndex {
     int find(randstrobe_hash_t key) const {
         constexpr int MAX_LINEAR_SEARCH = 4;
         const unsigned int top_N = key >> (64 - bits);
-        int position_start = randstrobe_start_indices[top_N];
-        int position_end = randstrobe_start_indices[top_N + 1];
+        bucket_index_t position_start = randstrobe_start_indices[top_N];
+        bucket_index_t position_end = randstrobe_start_indices[top_N + 1];
         if (position_start == position_end) {
             return -1;
         }
@@ -77,31 +83,31 @@ struct StrobemerIndex {
         return -1;
     }
 
-    randstrobe_hash_t get_hash(unsigned int position) const {
-        if (position < randstrobes.size()){
+    randstrobe_hash_t get_hash(bucket_index_t position) const {
+        if (position < randstrobes.size()) {
             return randstrobes[position].hash;
-        }else{
+        } else {
             return -1;
         }
     }
     
-    randstrobe_hash_t is_filtered(int position) const {
+    randstrobe_hash_t is_filtered(bucket_index_t position) const {
         return get_hash(position) == get_hash(position + filter_cutoff);
     }
 
-    unsigned int get_strobe1_position(unsigned int position) const {
+    unsigned int get_strobe1_position(bucket_index_t position) const {
         return randstrobes[position].position;
     }
 
-    int strobe2_offset(unsigned int position) const {
+    int strobe2_offset(bucket_index_t position) const {
         return randstrobes[position].strobe2_offset();
     }
 
-    int reference_index(unsigned int position) const {
+    int reference_index(bucket_index_t position) const {
         return randstrobes[position].reference_index();
     }
 
-    unsigned int get_count(const unsigned int position) const {
+    unsigned int get_count(bucket_index_t position) const {
         // For 95% of cases, the result will be small and a brute force search
         // is the best option. Once, we go over MAX_LINEAR_SEARCH, though, we
         // use a binary search to get the next position
@@ -112,11 +118,11 @@ struct StrobemerIndex {
         constexpr unsigned int MAX_LINEAR_SEARCH = 8;
         const auto key = randstrobes[position].hash;
         const unsigned int top_N = key >> (64 - bits);
-        int position_end = randstrobe_start_indices[top_N + 1];
-        unsigned int count = 1;
+        bucket_index_t position_end = randstrobe_start_indices[top_N + 1];
+        uint64_t count = 1;
 
         if (position_end - position < MAX_LINEAR_SEARCH) {
-            for (int position_start = position + 1; position_start < position_end; ++position_start) {
+            for (bucket_index_t position_start = position + 1; position_start < position_end; ++position_start) {
                 if (randstrobes[position_start].hash == key){
                     count += 1;
                 }
@@ -148,7 +154,7 @@ struct StrobemerIndex {
     }
 
 private:
-    void add_randstrobes_to_vector(int randstrobe_hashes);
+    void add_randstrobes_to_vector();
 
     const IndexParameters& parameters;
     const References& references;

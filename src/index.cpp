@@ -78,7 +78,7 @@ void StrobemerIndex::read(const std::string& filename) {
 
     read_vector(ifs, randstrobes);
     read_vector(ifs, randstrobe_start_indices);
-    if (randstrobe_start_indices.size() != (1 << bits) + 1) {
+    if (randstrobe_start_indices.size() != (1u << bits) + 1) {
         throw InvalidIndexFile("randstrobe_start_indices vector is of the wrong size");
     }
 }
@@ -87,11 +87,11 @@ void StrobemerIndex::read(const std::string& filename) {
 int StrobemerIndex::pick_bits(size_t size) const {
     size_t estimated_number_of_randstrobes = size / (parameters.k - parameters.s + 1);
     // Two randstrobes per bucket on average
-    return std::max(8, static_cast<int>(log2(estimated_number_of_randstrobes)) - 1);
+    return std::clamp(static_cast<int>(log2(estimated_number_of_randstrobes)) - 1, 8, 31);
 }
 
-int count_randstrobe_hashes(const std::string& seq, const IndexParameters& parameters) {
-    int num = 0;
+uint64_t count_randstrobes(const std::string& seq, const IndexParameters& parameters) {
+    uint64_t num = 0;
 
     auto randstrobe_iter = RandstrobeIterator2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
     Randstrobe randstrobe;
@@ -101,12 +101,12 @@ int count_randstrobe_hashes(const std::string& seq, const IndexParameters& param
     return num;
 }
 
-size_t count_randstrobe_hashes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
+uint64_t count_randstrobes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
     std::vector<std::thread> workers;
-    unsigned int total = 0;
+    uint64_t total = 0;
     std::atomic_size_t ref_index{0};
 
-    std::vector<int> counts;
+    std::vector<uint64_t> counts;
     for (size_t i = 0; i < n_threads; ++i) {
         counts.push_back(0);
     }
@@ -114,13 +114,13 @@ size_t count_randstrobe_hashes_parallel(const References& references, const Inde
     for (size_t i = 0; i < n_threads; ++i) {
         workers.push_back(
             std::thread(
-                [&ref_index](const References& references, const IndexParameters& parameters, int& count) {
+                [&ref_index](const References& references, const IndexParameters& parameters, uint64_t& count) {
                     while (true) {
                         size_t j = ref_index.fetch_add(1);
                         if (j >= references.size()) {
                             break;
                         }
-                        count += count_randstrobe_hashes(references.sequences[j], parameters);
+                        count += count_randstrobes(references.sequences[j], parameters);
                     }
                 }, std::ref(references), std::ref(parameters), std::ref(counts[i]))
         );
@@ -139,11 +139,15 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.tot_strobemer_count = 0;
 
     Timer count_hash;
-    auto randstrobe_hashes = count_randstrobe_hashes_parallel(references, parameters, n_threads);
+    auto randstrobe_hashes = count_randstrobes_parallel(references, parameters, n_threads);
     stats.elapsed_counting_hashes = count_hash.duration();
 
+    if (randstrobe_hashes > std::numeric_limits<bucket_index_t>::max()) {
+        throw std::range_error("Too many randstrobes");
+    }
     Timer randstrobes_timer;
-    add_randstrobes_to_vector(randstrobe_hashes);
+    randstrobes.reserve(randstrobe_hashes);
+    add_randstrobes_to_vector();
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     Timer sorting_timer;
@@ -158,12 +162,13 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     std::vector<unsigned int> strobemer_counts;
 
     stats.tot_occur_once = 0;
-    randstrobe_start_indices.reserve((1 << bits) + 1);
+    randstrobe_start_indices.reserve((1u << bits) + 1);
 
-    unsigned int unique_mers = 0;
+    uint64_t unique_mers = 0;
     randstrobe_hash_t prev_hash = static_cast<randstrobe_hash_t>(-1);
     unsigned int count = 0;
-    for (unsigned int position = 0; position < randstrobes.size(); ++position) {
+
+    for (bucket_index_t position = 0; position < randstrobes.size(); ++position) {
         const randstrobe_hash_t cur_hash = randstrobes[position].hash;
         if (cur_hash == prev_hash) {
             ++count;
@@ -200,7 +205,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
         }
         strobemer_counts.push_back(count);
     }
-    while (randstrobe_start_indices.size() < ((1 << bits) + 1)) {
+    while (randstrobe_start_indices.size() < ((1u << bits) + 1)) {
         randstrobe_start_indices.push_back(randstrobes.size());
     }
     stats.frac_unique = 1.0 * stats.tot_occur_once / unique_mers;
@@ -223,8 +228,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.unique_strobemers = unique_mers;
 }
 
-void StrobemerIndex::add_randstrobes_to_vector(int randstrobe_hashes){
-    randstrobes.reserve(randstrobe_hashes);
+void StrobemerIndex::add_randstrobes_to_vector() {
     for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
         auto seq = references.sequences[ref_index];
         if (seq.length() < parameters.w_max) {

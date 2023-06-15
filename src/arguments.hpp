@@ -24,7 +24,7 @@ struct SeedingArguments {
             "It is recommended not to change this parameter unless you have a good "
             "understanding of syncmers as it will drastically change the memory usage and "
             "results with non default values.", {'s'}}
-        , bits{parser, "INT", "No. of top bits of hash to use as bucket indices "
+        , bits{parser, "INT", "No. of top bits of hash to use as bucket indices (8-31)"
             "[determined from reference size]", {'b'}}
     {
     }
