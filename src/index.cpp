@@ -157,9 +157,9 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
 
     Timer hash_index_timer;
 
-    unsigned int tot_high_ab = 0;
-    unsigned int tot_mid_ab = 0;
-    std::vector<unsigned int> strobemer_counts;
+    uint64_t tot_high_ab = 0;
+    uint64_t tot_mid_ab = 0;
+    std::vector<uint64_t> strobemer_counts;
 
     stats.tot_occur_once = 0;
     randstrobe_start_indices.reserve((1u << bits) + 1);
@@ -213,7 +213,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
 
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
-    unsigned int index_cutoff = unique_mers * f;
+    uint64_t index_cutoff = unique_mers * f;
     stats.index_cutoff = index_cutoff;
     if (!strobemer_counts.empty()){
         filter_cutoff = index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back();

@@ -20,13 +20,13 @@
 
 
 struct IndexCreationStatistics {
-    unsigned int tot_strobemer_count = 0;
-    unsigned int tot_occur_once = 0;
-    unsigned int tot_high_ab = 0;
-    unsigned int tot_mid_ab = 0;
-    unsigned int index_cutoff = 0;
-    unsigned int filter_cutoff = 0;
-    randstrobe_hash_t unique_strobemers = 0;
+    uint64_t tot_strobemer_count = 0;
+    uint64_t tot_occur_once = 0;
+    uint64_t tot_high_ab = 0;
+    uint64_t tot_mid_ab = 0;
+    uint64_t index_cutoff = 0;
+    uint64_t filter_cutoff = 0;
+    uint64_t unique_strobemers = 0;
 
     std::chrono::duration<double> elapsed_hash_index;
     std::chrono::duration<double> elapsed_generating_seeds;
