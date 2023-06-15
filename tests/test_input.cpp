@@ -1,7 +1,7 @@
 #include <vector>
 #include "doctest.h"
 #include "pc.hpp"
-#include "kseq++.hpp"
+#include "kseq++/kseq++.hpp"
 
 TEST_CASE("InputBuffer interleaved") {
     InputBuffer ibuf("tests/interleaved.fq", "", 1, true);

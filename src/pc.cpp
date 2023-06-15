@@ -13,7 +13,7 @@
 #include "timer.hpp"
 #include "robin_hood.h"
 #include "index.hpp"
-#include "kseq++.hpp"
+#include "kseq++/kseq++.hpp"
 #include "sam.hpp"
 
 // checks if two read names are the same ignoring /1 suffix on the first one

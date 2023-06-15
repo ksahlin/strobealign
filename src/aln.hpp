@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include "kseq++.hpp"
+#include "kseq++/kseq++.hpp"
 #include "index.hpp"
 #include "refs.hpp"
 #include "sam.hpp"

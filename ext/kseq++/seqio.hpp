@@ -45,12 +45,22 @@ namespace klibpp {
       /* Typedefs */
       typedef KStreamOut< gzFile, int(*)(gzFile_s*, const void*, unsigned int) > base_type;
       /* Lifecycle */
-      SeqStreamOut( const char* filename, bool compressed=false )
-        : base_type( gzopen( filename, ( compressed ? "w" : "wT" ) ), gzwrite, gzclose )
+      SeqStreamOut( const char* filename, bool compressed=false,
+                    format::Format fmt=base_type::DEFAULT_FORMAT )
+        : base_type( gzopen( filename, ( compressed ? "w" : "wT" ) ), gzwrite, fmt, gzclose )
       { }
 
-      SeqStreamOut( int fd, bool compressed=false )
-        : base_type( gzdopen( fd, ( compressed ? "w" : "wT" ) ), gzwrite, gzclose )
+      SeqStreamOut( int fd, bool compressed=false,
+                    format::Format fmt=base_type::DEFAULT_FORMAT )
+        : base_type( gzdopen( fd, ( compressed ? "w" : "wT" ) ), gzwrite, fmt, gzclose )
+      { }
+
+      SeqStreamOut( const char* filename, format::Format fmt )
+        : base_type( gzopen( filename, "wT" ), gzwrite, fmt, gzclose )
+      { }
+
+      SeqStreamOut( int fd, format::Format fmt )
+        : base_type( gzdopen( fd, "wT" ), gzwrite, fmt, gzclose )
       { }
   };
 }  /* -----  end of namespace klibpp  ----- */
