@@ -55,7 +55,7 @@ struct StrobemerIndex {
     void populate(float f, size_t n_threads);
     void print_diagnostics(const std::string& logfile_name, int k) const;
     int pick_bits(size_t size) const;
-    int find(randstrobe_hash_t key) const {
+    size_t find(randstrobe_hash_t key) const {
         constexpr int MAX_LINEAR_SEARCH = 4;
         const unsigned int top_N = key >> (64 - bits);
         bucket_index_t position_start = randstrobe_start_indices[top_N];
@@ -89,7 +89,7 @@ struct StrobemerIndex {
         }
     }
     
-    randstrobe_hash_t is_filtered(bucket_index_t position) const {
+    bool is_filtered(bucket_index_t position) const {
         return get_hash(position) == get_hash(position + filter_cutoff);
     }
 
