@@ -22,7 +22,6 @@
 struct IndexCreationStatistics {
     unsigned int tot_strobemer_count = 0;
     unsigned int tot_occur_once = 0;
-    float frac_unique = 0;
     unsigned int tot_high_ab = 0;
     unsigned int tot_mid_ab = 0;
     unsigned int index_cutoff = 0;

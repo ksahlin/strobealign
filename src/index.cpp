@@ -208,7 +208,6 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     while (randstrobe_start_indices.size() < ((1u << bits) + 1)) {
         randstrobe_start_indices.push_back(randstrobes.size());
     }
-    stats.frac_unique = 1.0 * stats.tot_occur_once / unique_mers;
     stats.tot_high_ab = tot_high_ab;
     stats.tot_mid_ab = tot_mid_ab;
 
