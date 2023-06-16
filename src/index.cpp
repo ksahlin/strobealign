@@ -142,6 +142,10 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     auto randstrobe_hashes = count_randstrobes_parallel(references, parameters, n_threads);
     stats.elapsed_counting_hashes = count_hash.duration();
 
+    uint64_t memory_bytes = references.total_length() + sizeof(RefRandstrobe) * randstrobe_hashes + sizeof(bucket_index_t) * (1u << bits);
+    logger.debug() << "Total number of randstrobes: " << randstrobe_hashes << '\n';
+    logger.debug() << "Estimated total memory usage: " << memory_bytes / 1E9 << " GB\n";
+
     if (randstrobe_hashes > std::numeric_limits<bucket_index_t>::max()) {
         throw std::range_error("Too many randstrobes");
     }
@@ -157,9 +161,9 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
 
     Timer hash_index_timer;
 
-    unsigned int tot_high_ab = 0;
-    unsigned int tot_mid_ab = 0;
-    std::vector<unsigned int> strobemer_counts;
+    uint64_t tot_high_ab = 0;
+    uint64_t tot_mid_ab = 0;
+    std::vector<uint64_t> strobemer_counts;
 
     stats.tot_occur_once = 0;
     randstrobe_start_indices.reserve((1u << bits) + 1);
@@ -208,13 +212,12 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     while (randstrobe_start_indices.size() < ((1u << bits) + 1)) {
         randstrobe_start_indices.push_back(randstrobes.size());
     }
-    stats.frac_unique = 1.0 * stats.tot_occur_once / unique_mers;
     stats.tot_high_ab = tot_high_ab;
     stats.tot_mid_ab = tot_mid_ab;
 
     std::sort(strobemer_counts.begin(), strobemer_counts.end(), std::greater<int>());
 
-    unsigned int index_cutoff = unique_mers * f;
+    uint64_t index_cutoff = unique_mers * f;
     stats.index_cutoff = index_cutoff;
     if (!strobemer_counts.empty()){
         filter_cutoff = index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back();
@@ -258,10 +261,10 @@ void StrobemerIndex::add_randstrobes_to_vector() {
                 RefRandstrobe::packed_t packed = ref_index << 8;
                 packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
                 randstrobes.push_back(RefRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, packed});
-                }
-            chunk.clear();
             }
+            chunk.clear();
         }
+    }
 }
 
 void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) const {
