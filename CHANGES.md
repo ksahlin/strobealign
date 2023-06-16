@@ -12,6 +12,8 @@
 * #277, #285, PR #306: Support for very large references (exceeding ~20 Gbp) was
   added by switching from 32 bit to 64 bit strobemer indices.
   This was also enabled and made simpler by the memory layout changes.
+* #307: Indexing was further parallelized, cutting the time for index generation
+  in about half for many cases.
 * #289: Fixed missing CIGAR for secondary alignments.
 * #212: SEQ and QUAL are set to `*` for secondary alignments as recommended
   by the SAM specification.

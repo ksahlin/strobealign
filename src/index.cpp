@@ -106,22 +106,20 @@ std::vector<uint64_t> count_randstrobes_parallel(const References& references, c
     std::atomic_size_t ref_index{0};
 
     std::vector<uint64_t> counts;
-    for (size_t i = 0; i < n_threads; ++i) {
-        counts.push_back(0);
-    }
+    counts.assign(references.size(), 0);
 
     for (size_t i = 0; i < n_threads; ++i) {
         workers.push_back(
             std::thread(
-                [&ref_index](const References& references, const IndexParameters& parameters, uint64_t& count) {
+                [&ref_index](const References& references, const IndexParameters& parameters, std::vector<uint64_t>& counts) {
                     while (true) {
                         size_t j = ref_index.fetch_add(1);
                         if (j >= references.size()) {
                             break;
                         }
-                        count += count_randstrobes(references.sequences[j], parameters);
+                        counts[j] = count_randstrobes(references.sequences[j], parameters);
                     }
-                }, std::ref(references), std::ref(parameters), std::ref(counts[i]))
+                }, std::ref(references), std::ref(parameters), std::ref(counts))
         );
     }
     for (auto& worker : workers) {
@@ -152,7 +150,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     }
     Timer randstrobes_timer;
     randstrobes.assign(total_randstrobes, RefRandstrobe{0, 0, 0});
-    assign_all_randstrobes(randstrobe_counts);
+    assign_all_randstrobes_parallel(randstrobe_counts, n_threads);
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     Timer sorting_timer;
@@ -237,6 +235,36 @@ void StrobemerIndex::assign_all_randstrobes(const std::vector<uint64_t>& randstr
     for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
         assign_randstrobes(ref_index, offset);
         offset += randstrobe_counts[ref_index];
+    }
+}
+
+void StrobemerIndex::assign_all_randstrobes_parallel(const std::vector<uint64_t>& randstrobe_counts, size_t n_threads) {
+    // Compute offsets
+    std::vector<size_t> offsets;
+    size_t offset = 0;
+    for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
+        offsets.push_back(offset);
+        offset += randstrobe_counts[ref_index];
+    }
+
+    std::vector<std::thread> workers;
+    std::atomic_size_t ref_index{0};
+    for (size_t i = 0; i < n_threads; ++i) {
+        workers.push_back(
+            std::thread(
+                [&]() {
+                    while (true) {
+                        size_t j = ref_index.fetch_add(1);
+                        if (j >= references.size()) {
+                            break;
+                        }
+                        assign_randstrobes(j, offsets[j]);
+                    }
+                })
+        );
+    }
+    for (auto& worker : workers) {
+        worker.join();
     }
 }
 
