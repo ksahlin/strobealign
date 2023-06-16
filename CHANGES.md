@@ -2,9 +2,13 @@
 
 ## development version
 
-* #278: Memory usage was reduced drastically thanks to a redesigned strobemer
+* #278: Memory usage was reduced drastically due to a redesigned strobemer
   index memory layout. For the human genome, for example, strobealign now needs
-  14 GiB of RAM instead of 23 GiB. Contributed by @psj1997 and @luispedro.
+  14 instead of 23 GiB RAM.
+
+  Idea and implementation for this substantial improvement were contributed by
+  Shaojun Pan (@psj1997) (supervised by Luis Pedro @luispedro) and originate in
+  his work on a "strobealign-lm" (low memory) branch of strobealign. Thanks!
 * #277, #285, PR #306: Support for very large references (exceeding ~20 Gbp) was
   added by switching from 32 bit to 64 bit strobemer indices.
   This was also enabled and made simpler by the memory layout changes.
