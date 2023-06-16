@@ -16,7 +16,7 @@ void add_to_hits_per_ref(
     int query_e,
     bool is_rc,
     const StrobemerIndex& index,
-    unsigned int position,
+    size_t position,
     int min_diff
 ) {
     for (const auto hash = index.get_hash(position); index.get_hash(position) == hash; ++position) {
@@ -153,7 +153,7 @@ std::pair<float, std::vector<Nam>> find_nams(
     hits_per_ref.reserve(100);
     int nr_good_hits = 0, total_hits = 0;
     for (const auto &q : query_randstrobes) {
-        int position = index.find(q.hash);
+        size_t position = index.find(q.hash);
         if (position != index.end()){
             total_hits++;
             if (index.is_filtered(position)) {
@@ -179,7 +179,7 @@ std::vector<Nam> find_nams_rescue(
 ) {
     struct RescueHit {
         unsigned int count;
-        unsigned int position;
+        size_t position;
         unsigned int query_s;
         unsigned int query_e;
         bool is_rc;
@@ -198,10 +198,10 @@ std::vector<Nam> find_nams_rescue(
     hits_rc.reserve(5000);
 
     for (auto &qr : query_randstrobes) {
-        int position = index.find(qr.hash);
-        if (position != index.end()){
+        size_t position = index.find(qr.hash);
+        if (position != index.end()) {
             unsigned int count = index.get_count(position);
-            RescueHit rh{count, static_cast<unsigned int>(position), qr.start, qr.end, qr.is_reverse};
+            RescueHit rh{count, position, qr.start, qr.end, qr.is_reverse};
             if (qr.is_reverse){
                 hits_rc.push_back(rh);
             } else {

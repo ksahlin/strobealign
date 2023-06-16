@@ -139,7 +139,7 @@ struct StrobemerIndex {
         return (pos - randstrobes.begin() - 1) - position + 1;
     }
 
-    int end() const {
+    size_t end() const {
         return -1;
     }
 
