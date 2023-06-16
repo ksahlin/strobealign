@@ -213,9 +213,9 @@ int run_strobealign(int argc, char **argv) {
         Timer index_timer;
         index.populate(opt.f, opt.n_threads);
         
+        logger.info() << "  Time counting seeds: " << index.stats.elapsed_counting_hashes.count() << " s" <<  std::endl;
         logger.info() << "  Time generating seeds: " << index.stats.elapsed_generating_seeds.count() << " s" <<  std::endl;
-        logger.info() << "  Time counting hashes: " << index.stats.elapsed_counting_hashes.count() << " s" <<  std::endl;
-        logger.info() << "  Time sorting non-unique seeds: " << index.stats.elapsed_sorting_seeds.count() << " s" <<  std::endl;
+        logger.info() << "  Time sorting seeds: " << index.stats.elapsed_sorting_seeds.count() << " s" <<  std::endl;
         logger.info() << "  Time generating hash table index: " << index.stats.elapsed_hash_index.count() << " s" <<  std::endl;
         logger.info() << "Total time indexing: " << index_timer.elapsed() << " s\n";
 
