@@ -21,6 +21,8 @@ def test_index_parameters():
     assert isinstance(params.syncmer.k, int)
     assert isinstance(params.syncmer.s, int)
     assert isinstance(params.syncmer.t, int)
+    assert isinstance(params.randstrobe.w_min, int)
+    assert isinstance(params.randstrobe.w_max, int)
 
 
 def test_indexing_and_nams_finding():

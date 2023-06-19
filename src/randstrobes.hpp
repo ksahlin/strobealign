@@ -91,15 +91,12 @@ class RandstrobeIterator {
 public:
     RandstrobeIterator(
         const std::vector<Syncmer>& syncmers,
-        unsigned w_min,
-        unsigned w_max,
-        uint64_t q,
-        int max_dist
+        RandstrobeParameters parameters
     ) : syncmers(syncmers)
-      , w_min(w_min)
-      , w_max(w_max)
-      , q(q)
-      , max_dist(max_dist)
+      , w_min(parameters.w_min)
+      , w_max(parameters.w_max)
+      , q(parameters.q)
+      , max_dist(parameters.max_dist)
     {
         if (w_min > w_max) {
             throw std::invalid_argument("w_min is greater than w_max");
@@ -128,8 +125,8 @@ std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer);
 
 class SyncmerIterator {
 public:
-    SyncmerIterator(const std::string_view seq, size_t k, size_t s, size_t t)
-        : seq(seq), k(k), s(s), t(t) { }
+    SyncmerIterator(const std::string_view seq, SyncmerParameters parameters)
+        : seq(seq), k(parameters.k), s(parameters.s), t(parameters.t_syncmer) { }
 
     Syncmer next();
 
@@ -161,16 +158,14 @@ private:
 class RandstrobeGenerator {
 public:
     RandstrobeGenerator(
-        const std::string& seq, size_t k, size_t s, size_t t,
-        unsigned w_min,
-        unsigned w_max,
-        uint64_t q,
-        int max_dist
-    ) : syncmer_iterator(SyncmerIterator(seq, k, s, t))
-      , w_min(w_min)
-      , w_max(w_max)
-      , q(q)
-      , max_dist(max_dist)
+        const std::string& seq,
+        SyncmerParameters syncmer_parameters,
+        RandstrobeParameters randstrobe_parameters
+    ) : syncmer_iterator(SyncmerIterator(seq, syncmer_parameters))
+      , w_min(randstrobe_parameters.w_min)
+      , w_max(randstrobe_parameters.w_max)
+      , q(randstrobe_parameters.q)
+      , max_dist(randstrobe_parameters.max_dist)
     { }
 
     Randstrobe next();
@@ -186,11 +181,6 @@ private:
 };
 
 
-std::vector<Syncmer> canonical_syncmers(
-    const std::string_view seq,
-    const size_t k,
-    const size_t s,
-    const size_t t
-);
+std::vector<Syncmer> canonical_syncmers(const std::string_view seq, SyncmerParameters parameters);
 
 #endif

@@ -93,7 +93,7 @@ int StrobemerIndex::pick_bits(size_t size) const {
 uint64_t count_randstrobes(const std::string& seq, const IndexParameters& parameters) {
     uint64_t num = 0;
 
-    auto randstrobe_iter = RandstrobeGenerator(seq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t_syncmer, parameters.randstrobe.w_min, parameters.randstrobe.w_max, parameters.randstrobe.q, parameters.randstrobe.max_dist);
+    RandstrobeGenerator randstrobe_iter{seq, parameters.syncmer, parameters.randstrobe};
     Randstrobe randstrobe;
     while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
         num++;
@@ -237,7 +237,7 @@ void StrobemerIndex::add_randstrobes_to_vector() {
         if (seq.length() < parameters.randstrobe.w_max) {
             continue;
         }
-        auto randstrobe_iter = RandstrobeGenerator(seq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t_syncmer, parameters.randstrobe.w_min, parameters.randstrobe.w_max, parameters.randstrobe.q, parameters.randstrobe.max_dist);
+        RandstrobeGenerator randstrobe_iter{seq, parameters.syncmer, parameters.randstrobe};
         std::vector<Randstrobe> chunk;
         // TODO
         // Chunking makes this function faster, but the speedup is achieved even

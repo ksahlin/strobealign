@@ -17,8 +17,8 @@ using namespace nb::literals;
 
 class SyncmerIteratorWrapper {
 public:
-    explicit SyncmerIteratorWrapper(const std::string& seq, size_t k, size_t s, size_t t)
-        : m_seq(seq), it(m_seq, k, s, t) { }
+    explicit SyncmerIteratorWrapper(const std::string& seq, SyncmerParameters parameters)
+        : m_seq(seq), it(m_seq, parameters) { }
 
     Syncmer next() {
         return it.next();
@@ -65,8 +65,19 @@ NB_MODULE(strobealign_extension, m_) {
         .def_static("get", &Logger::get, nb::rv_policy::reference)
         .def("set_level", &Logger::set_level)
     ;
+    nb::class_<SyncmerParameters>(m, "SyncmerParameters")
+        .def_ro("k", &SyncmerParameters::k)
+        .def_ro("s", &SyncmerParameters::s)
+        .def_ro("t", &SyncmerParameters::t_syncmer)
+    ;
+    nb::class_<RandstrobeParameters>(m, "RandstrobeParameters")
+        .def_ro("max_dist", &RandstrobeParameters::max_dist)
+        .def_ro("w_min", &RandstrobeParameters::w_min)
+        .def_ro("w_max", &RandstrobeParameters::w_max)
+        .def_ro("q", &RandstrobeParameters::q)
+    ;
     nb::class_<SyncmerIteratorWrapper>(m, "SyncmerIterator")
-        .def(nb::init<const std::string&, size_t, size_t, size_t>())
+        .def(nb::init<const std::string&, SyncmerParameters>())
         .def("__next__", [](SyncmerIteratorWrapper& siw) -> std::pair<size_t, randstrobe_hash_t> {
             auto syncmer = siw.next();
             if (syncmer.is_end()) {
@@ -89,17 +100,6 @@ NB_MODULE(strobealign_extension, m_) {
     nb::class_<Record>(m, "Record", "FASTA record")
         .def_prop_ro("name", &Record::name)
         .def_prop_ro("sequence", &Record::sequence)
-    ;
-    nb::class_<SyncmerParameters>(m, "SyncmerParameters")
-        .def_ro("k", &SyncmerParameters::k)
-        .def_ro("s", &SyncmerParameters::s)
-        .def_ro("t", &SyncmerParameters::t_syncmer)
-    ;
-    nb::class_<RandstrobeParameters>(m, "RandstrobeParameters")
-        .def_ro("max_dist", &RandstrobeParameters::max_dist)
-        .def_ro("w_min", &RandstrobeParameters::w_min)
-        .def_ro("w_max", &RandstrobeParameters::w_max)
-        .def_ro("q", &RandstrobeParameters::q)
     ;
     nb::class_<IndexParameters>(m, "IndexParameters")
         .def_static("from_read_length", [](int r, int k = IndexParameters::DEFAULT, int s = IndexParameters::DEFAULT, int l = IndexParameters::DEFAULT, int u = IndexParameters::DEFAULT) {

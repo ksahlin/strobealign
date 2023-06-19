@@ -23,10 +23,9 @@ std::ostream& operator<<(std::ostream& os, const BedRecord& record) {
 }
 
 void dump_randstrobes(std::ostream& os, const std::string& name, const std::string& sequence, const IndexParameters& parameters) {
-    auto syncmers = canonical_syncmers(
-        sequence, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t_syncmer);
+    auto syncmers = canonical_syncmers(sequence, parameters.syncmer);
 
-    RandstrobeIterator randstrobe_iter{syncmers, parameters.randstrobe.w_min, parameters.randstrobe.w_max, parameters.randstrobe.q, parameters.randstrobe.max_dist };
+    RandstrobeIterator randstrobe_iter{syncmers, parameters.randstrobe};
     while (randstrobe_iter.has_next()) {
         auto randstrobe = randstrobe_iter.next();
         os << BedRecord{name, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k};
@@ -34,8 +33,7 @@ void dump_randstrobes(std::ostream& os, const std::string& name, const std::stri
 }
 
 void dump_randstrobes2(std::ostream& os, const std::string& name, const std::string& sequence, const IndexParameters& parameters) {
-    auto randstrobe_iter = RandstrobeGenerator(
-        sequence, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t_syncmer, parameters.randstrobe.w_min, parameters.randstrobe.w_max, parameters.randstrobe.q, parameters.randstrobe.max_dist);
+    auto randstrobe_iter = RandstrobeGenerator(sequence, parameters.syncmer, parameters.randstrobe);
     Randstrobe randstrobe;
     while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
         os << BedRecord{name, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k};
@@ -43,7 +41,7 @@ void dump_randstrobes2(std::ostream& os, const std::string& name, const std::str
 }
 
 void dump_syncmers(std::ostream& os, const std::string& name, const std::string& sequence, const IndexParameters& parameters) {
-    SyncmerIterator syncmer_iterator(sequence, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t_syncmer);
+    SyncmerIterator syncmer_iterator(sequence, parameters.syncmer);
     Syncmer syncmer;
     while (!(syncmer = syncmer_iterator.next()).is_end()) {
         os << BedRecord{name, syncmer.position, syncmer.position + parameters.syncmer.k};

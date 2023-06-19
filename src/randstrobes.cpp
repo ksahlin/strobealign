@@ -113,12 +113,10 @@ Syncmer SyncmerIterator::next() {
 
 std::vector<Syncmer> canonical_syncmers(
     const std::string_view seq,
-    const size_t k,
-    const size_t s,
-    const size_t t
+    SyncmerParameters parameters
 ) {
     std::vector<Syncmer> syncmers;
-    SyncmerIterator syncmer_iterator{seq, k, s, t};
+    SyncmerIterator syncmer_iterator{seq, parameters};
     Syncmer syncmer;
     while (!(syncmer = syncmer_iterator.next()).is_end()) {
         syncmers.push_back(syncmer);
@@ -216,17 +214,13 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     }
 
     // Generate syncmers for the forward sequence
-    auto syncmers = canonical_syncmers(
-        seq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t_syncmer
-    );
+    auto syncmers = canonical_syncmers(seq, parameters.syncmer);
     if (syncmers.empty()) {
         return randstrobes;
     }
 
     // Generate randstrobes for the forward sequence
-    RandstrobeIterator randstrobe_fwd_iter{
-        syncmers, parameters.randstrobe.w_min, parameters.randstrobe.w_max, parameters.randstrobe.q, parameters.randstrobe.max_dist
-    };
+    RandstrobeIterator randstrobe_fwd_iter{syncmers, parameters.randstrobe};
     while (randstrobe_fwd_iter.has_next()) {
         auto randstrobe = randstrobe_fwd_iter.next();
         randstrobes.push_back(
@@ -249,9 +243,7 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     // is not necessarily the case that syncmer[j] is going to be paired with
     // syncmer[i] in the reverse direction because i is fixed in the forward
     // direction and j is fixed in the reverse direction.
-    RandstrobeIterator randstrobe_rc_iter{
-        syncmers, parameters.randstrobe.w_min, parameters.randstrobe.w_max, parameters.randstrobe.q, parameters.randstrobe.max_dist
-    };
+    RandstrobeIterator randstrobe_rc_iter{syncmers, parameters.randstrobe};
     while (randstrobe_rc_iter.has_next()) {
         auto randstrobe = randstrobe_rc_iter.next();
         randstrobes.push_back(
