@@ -117,15 +117,15 @@ std::pair<std::vector<syncmer_hash_t>, std::vector<unsigned int>> make_string_to
     const size_t s,
     const size_t t
 ) {
-    std::vector<syncmer_hash_t> string_hashes;
+    std::vector<syncmer_hash_t> syncmer_hashes;
     std::vector<unsigned int> pos_to_seq_coordinate;
     SyncmerIterator syncmer_iterator{seq, k, s, t};
     Syncmer syncmer;
     while (!(syncmer = syncmer_iterator.next()).is_end()) {
-        string_hashes.push_back(syncmer.hash);
+        syncmer_hashes.push_back(syncmer.hash);
         pos_to_seq_coordinate.push_back(syncmer.position);
     }
-    return make_pair(string_hashes, pos_to_seq_coordinate);
+    return make_pair(syncmer_hashes, pos_to_seq_coordinate);
 }
 
 std::ostream& operator<<(std::ostream& os, const Randstrobe& randstrobe) {
@@ -143,38 +143,38 @@ std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe) {
     return os;
 }
 
-Randstrobe RandstrobeIterator::get(unsigned int strobe1_start) const {
-    unsigned int w_end = std::min(static_cast<size_t>(strobe1_start + w_max), string_hashes.size() - 1);
+Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
+    unsigned int w_end = std::min(static_cast<size_t>(strobe1_index + w_max), syncmer_hashes.size() - 1);
 
-    unsigned int seq_pos_strobe1 = pos_to_seq_coordinate[strobe1_start];
-    unsigned int seq_end_constraint = seq_pos_strobe1 + max_dist;
+    unsigned int strobe1_pos = index_to_coordinate[strobe1_index];
+    unsigned int seq_end_constraint = strobe1_pos + max_dist;
 
-    unsigned int w_start = strobe1_start + w_min;
-    uint64_t strobe_hashval = string_hashes[strobe1_start];
+    unsigned int w_start = strobe1_index + w_min;
+    uint64_t strobe_hash = syncmer_hashes[strobe1_index];
     uint64_t min_val = UINT64_MAX;
-    unsigned int strobe_pos_next = strobe1_start; // Defaults if no nearby syncmer
-    uint64_t strobe_hashval_next = string_hashes[strobe1_start];
+    unsigned int strobe_pos_next = strobe1_index; // Defaults if no nearby syncmer
+    uint64_t strobe_hash_next = strobe_hash;
     std::bitset<64> b;
 
     for (auto i = w_start; i <= w_end; i++) {
-        assert(i < string_hashes.size());
+        assert(i < syncmer_hashes.size());
         // Method 3' skew sample more for prob exact matching
-        b = (strobe_hashval ^ string_hashes[i])  & q;
+        b = (strobe_hash ^ syncmer_hashes[i])  & q;
         uint64_t res = b.count();
 
-        if (pos_to_seq_coordinate[i] > seq_end_constraint) {
+        if (index_to_coordinate[i] > seq_end_constraint) {
             break;
         }
 
         if (res < min_val){
             min_val = res;
             strobe_pos_next = i;
-            strobe_hashval_next = string_hashes[i];
+            strobe_hash_next = syncmer_hashes[i];
         }
     }
-    uint64_t hash_randstrobe2 = string_hashes[strobe1_start] + strobe_hashval_next;
+    uint64_t hash_randstrobe2 = syncmer_hashes[strobe1_index] + strobe_hash_next;
 
-    return Randstrobe { hash_randstrobe2, seq_pos_strobe1, pos_to_seq_coordinate[strobe_pos_next] };
+    return Randstrobe { hash_randstrobe2, strobe1_pos, index_to_coordinate[strobe_pos_next] };
 }
 
 Randstrobe RandstrobeIterator2::next() {
@@ -218,16 +218,16 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     }
 
     // Generate syncmers for the forward sequence
-    auto [string_hashes, pos_to_seq_coordinate] = make_string_to_hashvalues_open_syncmers_canonical(
+    auto [syncmer_hashes, pos_to_seq_coordinate] = make_string_to_hashvalues_open_syncmers_canonical(
         seq, parameters.k, parameters.s, parameters.t_syncmer
     );
-    if (string_hashes.empty()) {
+    if (syncmer_hashes.empty()) {
         return randstrobes;
     }
 
     // Generate randstrobes for the forward sequence
     RandstrobeIterator randstrobe_fwd_iter{
-        string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist
+        syncmer_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist
     };
     while (randstrobe_fwd_iter.has_next()) {
         auto randstrobe = randstrobe_fwd_iter.next();
@@ -241,9 +241,9 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     // For the reverse complement, we can re-use the syncmers of the forward
     // sequence because canonical syncmers are invariant under reverse
     // complementing. Only the coordinates need to be adjusted.
-    std::reverse(string_hashes.begin(), string_hashes.end());
+    std::reverse(syncmer_hashes.begin(), syncmer_hashes.end());
     std::reverse(pos_to_seq_coordinate.begin(), pos_to_seq_coordinate.end());
-    for (size_t i = 0; i < string_hashes.size(); i++) {
+    for (size_t i = 0; i < syncmer_hashes.size(); i++) {
         pos_to_seq_coordinate[i] = seq.length() - pos_to_seq_coordinate[i] - parameters.k;
     }
 
@@ -253,7 +253,7 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     // syncmer[i] in the reverse direction because i is fixed in the forward
     // direction and j is fixed in the reverse direction.
     RandstrobeIterator randstrobe_rc_iter{
-        string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist
+        syncmer_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist
     };
     while (randstrobe_rc_iter.has_next()) {
         auto randstrobe = randstrobe_rc_iter.next();

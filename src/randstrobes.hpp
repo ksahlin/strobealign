@@ -79,14 +79,14 @@ std::ostream& operator<<(std::ostream& os, const Randstrobe& randstrobe);
 class RandstrobeIterator {
 public:
     RandstrobeIterator(
-        const std::vector<uint64_t> &string_hashes,
-        const std::vector<unsigned int> &pos_to_seq_coordinate,
+        const std::vector<uint64_t>& syncmer_hashes,
+        const std::vector<unsigned int>& index_to_coordinate,
         unsigned w_min,
         unsigned w_max,
         uint64_t q,
         int max_dist
-    ) : string_hashes(string_hashes)
-      , pos_to_seq_coordinate(pos_to_seq_coordinate)
+    ) : syncmer_hashes(syncmer_hashes)
+      , index_to_coordinate(index_to_coordinate)
       , w_min(w_min)
       , w_max(w_max)
       , q(q)
@@ -98,22 +98,22 @@ public:
     }
 
     Randstrobe next() {
-        return get(strobe1_start++);
+        return get(strobe1_index++);
     }
 
     bool has_next() {
-        return strobe1_start + w_min < string_hashes.size();
+        return strobe1_index + w_min < syncmer_hashes.size();
     }
 
 private:
-    Randstrobe get(unsigned int strobe1_start) const;
-    const std::vector<uint64_t> &string_hashes;
-    const std::vector<unsigned int> &pos_to_seq_coordinate;
+    Randstrobe get(unsigned int strobe1_index) const;
+    const std::vector<uint64_t>& syncmer_hashes;
+    const std::vector<unsigned int>& index_to_coordinate;
     const unsigned w_min;
     const unsigned w_max;
     const uint64_t q;
     const unsigned int max_dist;
-    unsigned int strobe1_start = 0;
+    unsigned int strobe1_index = 0;
 };
 
 struct Syncmer {
