@@ -23,7 +23,7 @@ std::ostream& operator<<(std::ostream& os, const BedRecord& record) {
 }
 
 void dump_randstrobes(std::ostream& os, const std::string& name, const std::string& sequence, const IndexParameters& parameters) {
-    auto syncmers = make_string_to_hashvalues_open_syncmers_canonical(
+    auto syncmers = canonical_syncmers(
         sequence, parameters.k, parameters.s, parameters.t_syncmer);
 
     RandstrobeIterator randstrobe_iter{syncmers, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist };

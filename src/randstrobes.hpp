@@ -180,7 +180,7 @@ private:
 };
 
 
-std::vector<Syncmer> make_string_to_hashvalues_open_syncmers_canonical(
+std::vector<Syncmer> canonical_syncmers(
     const std::string_view seq,
     const size_t k,
     const size_t s,

@@ -111,7 +111,7 @@ Syncmer SyncmerIterator::next() {
     return Syncmer{0, 0}; // end marker
 }
 
-std::vector<Syncmer> make_string_to_hashvalues_open_syncmers_canonical(
+std::vector<Syncmer> canonical_syncmers(
     const std::string_view seq,
     const size_t k,
     const size_t s,
@@ -216,7 +216,7 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     }
 
     // Generate syncmers for the forward sequence
-    auto syncmers = make_string_to_hashvalues_open_syncmers_canonical(
+    auto syncmers = canonical_syncmers(
         seq, parameters.k, parameters.s, parameters.t_syncmer
     );
     if (syncmers.empty()) {

@@ -89,7 +89,7 @@ TEST_CASE("both randstrobes iterator implementations give same results") {
     auto& seq = references.sequences[0];
     auto parameters = IndexParameters::from_read_length(300);
 
-    auto syncmers = make_string_to_hashvalues_open_syncmers_canonical(seq, parameters.k, parameters.s, parameters.t_syncmer);
+    auto syncmers = canonical_syncmers(seq, parameters.k, parameters.s, parameters.t_syncmer);
     RandstrobeIterator iter1{syncmers, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist };
     RandstrobeIterator2 iter2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
 
