@@ -18,9 +18,9 @@ def test_references():
 
 def test_index_parameters():
     params = strobealign.IndexParameters.from_read_length(100)
-    assert isinstance(params.k, int)
-    assert isinstance(params.s, int)
-    assert isinstance(params.t, int)
+    assert isinstance(params.syncmer.k, int)
+    assert isinstance(params.syncmer.s, int)
+    assert isinstance(params.syncmer.t, int)
 
 
 def test_indexing_and_nams_finding():

@@ -90,13 +90,16 @@ NB_MODULE(strobealign_extension, m_) {
         .def_prop_ro("name", &Record::name)
         .def_prop_ro("sequence", &Record::sequence)
     ;
+    nb::class_<SyncmerParameters>(m, "SyncmerParameters")
+        .def_ro("k", &SyncmerParameters::k)
+        .def_ro("s", &SyncmerParameters::s)
+        .def_ro("t", &SyncmerParameters::t_syncmer)
+    ;
     nb::class_<IndexParameters>(m, "IndexParameters")
         .def_static("from_read_length", [](int r, int k = IndexParameters::DEFAULT, int s = IndexParameters::DEFAULT, int l = IndexParameters::DEFAULT, int u = IndexParameters::DEFAULT) {
             return IndexParameters::from_read_length(r, k, s, l, u);
         }, "r"_a, "k"_a = IndexParameters::DEFAULT, "s"_a = IndexParameters::DEFAULT, "l"_a = IndexParameters::DEFAULT, "u"_a = IndexParameters::DEFAULT)
-        .def_ro("k", &IndexParameters::k)
-        .def_ro("s", &IndexParameters::s)
-        .def_ro("t", &IndexParameters::t_syncmer)
+        .def_ro("syncmer", &IndexParameters::syncmer)
         .def_ro("max_dist", &IndexParameters::max_dist)
         .def_ro("w_min", &IndexParameters::w_min)
         .def_ro("w_max", &IndexParameters::w_max)

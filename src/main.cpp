@@ -58,15 +58,15 @@ void warn_if_no_optimizations() {
 
 void log_parameters(const IndexParameters& index_parameters, const mapping_params& map_param, const alignment_params& aln_params) {
     logger.debug() << "Using" << std::endl
-        << "k: " << index_parameters.k << std::endl
-        << "s: " << index_parameters.s << std::endl
+        << "k: " << index_parameters.syncmer.k << std::endl
+        << "s: " << index_parameters.syncmer.s << std::endl
         << "w_min: " << index_parameters.w_min << std::endl
         << "w_max: " << index_parameters.w_max << std::endl
         << "Read length (r): " << map_param.r << std::endl
-        << "Maximum seed length: " << index_parameters.max_dist + index_parameters.k << std::endl
+        << "Maximum seed length: " << index_parameters.max_dist + index_parameters.syncmer.k << std::endl
         << "R: " << map_param.R << std::endl
         << "Expected [w_min, w_max] in #syncmers: [" << index_parameters.w_min << ", " << index_parameters.w_max << "]" << std::endl
-        << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_min << ", " << (index_parameters.k - index_parameters.s + 1) * index_parameters.w_max << "]" << std::endl
+        << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.w_min << ", " << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.w_max << "]" << std::endl
         << "A: " << aln_params.match << std::endl
         << "B: " << aln_params.mismatch << std::endl
         << "O: " << aln_params.gap_open << std::endl
@@ -240,7 +240,7 @@ int run_strobealign(int argc, char **argv) {
         logger.debug() << "Filtered cutoff count: " << index.stats.filter_cutoff << std::endl;
         
         if (!opt.logfile_name.empty()) {
-            index.print_diagnostics(opt.logfile_name, index_parameters.k);
+            index.print_diagnostics(opt.logfile_name, index_parameters.syncmer.k);
             logger.debug() << "Finished printing log stats" << std::endl;
         }
         if (opt.only_gen_index) {

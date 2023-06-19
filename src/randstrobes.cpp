@@ -217,7 +217,7 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
 
     // Generate syncmers for the forward sequence
     auto syncmers = canonical_syncmers(
-        seq, parameters.k, parameters.s, parameters.t_syncmer
+        seq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t_syncmer
     );
     if (syncmers.empty()) {
         return randstrobes;
@@ -231,7 +231,7 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
         auto randstrobe = randstrobe_fwd_iter.next();
         randstrobes.push_back(
             QueryRandstrobe{
-                randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.k, false
+                randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k, false
             }
         );
     }
@@ -241,7 +241,7 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     // complementing. Only the coordinates need to be adjusted.
     std::reverse(syncmers.begin(), syncmers.end());
     for (size_t i = 0; i < syncmers.size(); i++) {
-        syncmers[i].position = seq.length() - syncmers[i].position - parameters.k;
+        syncmers[i].position = seq.length() - syncmers[i].position - parameters.syncmer.k;
     }
 
     // Randstrobes cannot be re-used for the reverse complement:
@@ -256,7 +256,7 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
         auto randstrobe = randstrobe_rc_iter.next();
         randstrobes.push_back(
             QueryRandstrobe{
-                randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.k, true
+                randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k, true
             }
         );
     }

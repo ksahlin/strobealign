@@ -144,7 +144,7 @@ struct StrobemerIndex {
     }
 
     int k() const {
-        return parameters.k;
+        return parameters.syncmer.k;
     }
 
     int get_bits() const {

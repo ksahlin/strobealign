@@ -6,6 +6,12 @@
 #include "io.hpp"
 
 
+bool SyncmerParameters::operator==(const SyncmerParameters& other) const {
+    return this->s == other.s
+        && this->k == other.k
+        && this->t_syncmer == other.t_syncmer;
+}
+
 /* Pre-defined index parameters that work well for a certain
  * "canonical" read length (and similar read lengths)  */
 struct Profile {
@@ -69,8 +75,8 @@ IndexParameters IndexParameters::from_read_length(int read_length, int k, int s,
 
 void IndexParameters::write(std::ostream& os) const {
     write_int_to_ostream(os, canonical_read_length);
-    write_int_to_ostream(os, k);
-    write_int_to_ostream(os, s);
+    write_int_to_ostream(os, syncmer.k);
+    write_int_to_ostream(os, syncmer.s);
     write_int_to_ostream(os, l);
     write_int_to_ostream(os, u);
     write_int_to_ostream(os, q);
@@ -91,13 +97,11 @@ IndexParameters IndexParameters::read(std::istream& is) {
 bool IndexParameters::operator==(const IndexParameters& other) const {
     return
         this->canonical_read_length == other.canonical_read_length
-        && this->k == other.k
-        && this->s == other.s
+        && this->syncmer == other.syncmer
         && this->l == other.l
         && this->u == other.u
         && this->q == other.q
         && this->max_dist == other.max_dist
-        && this->t_syncmer == other.t_syncmer
         && this->w_min == other.w_min
         && this->w_max == other.w_max;
 }
@@ -120,13 +124,13 @@ std::string IndexParameters::filename_extension() const {
 std::ostream& operator<<(std::ostream& os, const IndexParameters& parameters) {
     os << "IndexParameters("
         << "r=" << parameters.canonical_read_length
-        << ", k=" << parameters.k
-        << ", s=" << parameters.s
+        << ", k=" << parameters.syncmer.k
+        << ", s=" << parameters.syncmer.s
+        << ", t_syncmer=" << parameters.syncmer.t_syncmer
         << ", l=" << parameters.l
         << ", u=" << parameters.u
         << ", q=" << parameters.q
         << ", max_dist=" << parameters.max_dist
-        << ", t_syncmer=" << parameters.t_syncmer
         << ", w_min=" << parameters.w_min
         << ", w_max=" << parameters.w_max
         << ")";
