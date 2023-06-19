@@ -11,7 +11,7 @@
 
 using namespace klibpp;
 
-static inline alignment get_alignment(
+static inline Alignment get_alignment(
     const Aligner& aligner,
     const Nam &n,
     const References& references,
@@ -86,7 +86,7 @@ static inline void align_SE(
     }
 
     Read read(record.seq);
-    std::vector<alignment> alignments;
+    std::vector<Alignment> alignments;
     int tries = 0;
     float score_dropoff;
     Nam n_max = all_nams[0];
@@ -94,7 +94,7 @@ static inline void align_SE(
     int best_align_dist = ~0U >> 1;
     int best_align_sw_score = -1000;
 
-    alignment best_sam_aln;
+    Alignment best_sam_aln;
     best_sam_aln.sw_score = -100000;
     best_sam_aln.is_unaligned = true;
     int min_mapq_diff = best_align_dist;
@@ -135,7 +135,7 @@ static inline void align_SE(
     }
     // Sort alignments by score, highest first
     std::sort(alignments.begin(), alignments.end(),
-        [](const alignment& a, const alignment& b) -> bool {
+        [](const Alignment& a, const Alignment& b) -> bool {
             return a.sw_score > b.sw_score;
         }
     );
@@ -157,7 +157,7 @@ static inline void align_SE(
     }
 }
 
-static inline alignment align_segment(
+static inline Alignment align_segment(
     const Aligner& aligner,
     const std::string &read_segm,
     const std::string &ref_segm,
@@ -167,7 +167,7 @@ static inline alignment align_segment(
     bool aln_did_not_fit,
     bool is_rc
 ) {
-    alignment sam_aln_segm;
+    Alignment sam_aln_segm;
     auto ref_segm_len = ref_segm.size();
     auto read_segm_len = read_segm.size();
     // The ref_segm includes an extension of ext_left bases upstream and ext_right bases downstream
@@ -222,7 +222,7 @@ static inline alignment align_segment(
  - rescue_mate, which ...?
 */
 
-static inline alignment get_alignment(
+static inline Alignment get_alignment(
     const Aligner& aligner,
     const Nam &n,
     const References& references,
@@ -259,7 +259,7 @@ static inline alignment get_alignment(
         result_ref_start = ref_start + info.ref_start;
     }
     int softclipped = info.query_start + (query.size() - info.query_end);
-    alignment sam_aln;
+    Alignment sam_aln;
     sam_aln.cigar = std::move(info.cigar);
     sam_aln.ed = info.edit_distance;
     sam_aln.global_ed = info.edit_distance + softclipped;
@@ -273,7 +273,7 @@ static inline alignment get_alignment(
     return sam_aln;
 }
 
-static inline alignment get_alignment_unused(
+static inline Alignment get_alignment_unused(
     const Aligner& aligner,
     const Nam &n,
     const References& references,
@@ -281,7 +281,7 @@ static inline alignment get_alignment_unused(
     int k,
     bool fits
 ) {
-    alignment sam_aln;
+    Alignment sam_aln;
 
     const auto read_len = read.size();
     const bool aln_did_not_fit = !fits;
@@ -555,19 +555,19 @@ static inline float normal_pdf(float x, float m, float s)
     return inv_sqrt_2pi / s * std::exp(-0.5f * a * a);
 }
 
-static inline bool score_sw(const alignment &a, const alignment &b)
+static inline bool score_sw(const Alignment &a, const Alignment &b)
 {
     return a.sw_score > b.sw_score;
 }
 
-static inline bool sort_scores(const std::tuple<double, alignment, alignment> &a,
-                               const std::tuple<double, alignment, alignment> &b)
+static inline bool sort_scores(const std::tuple<double, Alignment, Alignment> &a,
+                               const std::tuple<double, Alignment, Alignment> &b)
 {
     return std::get<0>(a) > std::get<0>(b);
 }
 
 static inline void get_best_scoring_pair(
-    const std::vector<alignment> &aln_scores1, const std::vector<alignment> &aln_scores2, std::vector<std::tuple<double,alignment,alignment>> &high_scores, float mu, float sigma
+    const std::vector<Alignment> &aln_scores1, const std::vector<Alignment> &aln_scores2, std::vector<std::tuple<double,Alignment,Alignment>> &high_scores, float mu, float sigma
 ) {
     for (auto &a1 : aln_scores1) {
         for (auto &a2 : aln_scores2) {
@@ -708,7 +708,7 @@ static inline void rescue_mate(
     const References& references,
     const Read& guide,
     const Read& read,
-    alignment &sam_aln,
+    Alignment &sam_aln,
     float mu,
     float sigma,
     uint64_t &tot_rescued,
@@ -817,8 +817,8 @@ void rescue_read(
     Nam n_max1 = all_nams1[0];
     int tries = 0;
 
-    std::vector<alignment> aln_scores1;
-    std::vector<alignment> aln_scores2;
+    std::vector<Alignment> aln_scores1;
+    std::vector<Alignment> aln_scores2;
     for (auto& n : all_nams1) {
         score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
         if (tries >= max_tries || score_dropoff1 < dropoff) { // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
@@ -831,11 +831,11 @@ void rescue_read(
         if (!fits) {
             statistics.did_not_fit++;
         }
-        alignment a1 = get_alignment(aligner, n, references, read1, fits);
+        Alignment a1 = get_alignment(aligner, n, references, read1, fits);
         aln_scores1.emplace_back(a1);
 
         //////// Force SW alignment to rescue mate /////////
-        alignment a2;
+        Alignment a2;
 //            std::cerr << query_acc2 << " force rescue" << std::endl;
         rescue_mate(aligner, n, references, read1, read2, a2, mu, sigma, statistics.tot_rescued, k);
         aln_scores2.emplace_back(a2);
@@ -847,7 +847,7 @@ void rescue_read(
     std::sort(aln_scores2.begin(), aln_scores2.end(), score_sw);
 
     // Calculate best combined score here
-    std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
+    std::vector<std::tuple<double,Alignment,Alignment>> high_scores; // (score, aln1, aln2)
     get_best_scoring_pair(aln_scores1, aln_scores2, high_scores, mu, sigma );
 
     // Calculate joint MAPQ score
@@ -866,8 +866,8 @@ void rescue_read(
     // append both alignments to string here
     if (max_secondary == 0){
         auto best_aln_pair = high_scores[0];
-        alignment sam_aln1 = std::get<1>(best_aln_pair);
-        alignment sam_aln2 = std::get<2>(best_aln_pair);
+        Alignment sam_aln1 = std::get<1>(best_aln_pair);
+        Alignment sam_aln2 = std::get<2>(best_aln_pair);
         if (swap_r1r2) {
             sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper_pair(sam_aln2, sam_aln1, mu, sigma), true);
         } else {
@@ -886,8 +886,8 @@ void rescue_read(
             }
             auto aln_pair = high_scores[i];
             auto s_score = std::get<0>(aln_pair);
-            alignment sam_aln1 = std::get<1>(aln_pair);
-            alignment sam_aln2 = std::get<2>(aln_pair);
+            Alignment sam_aln1 = std::get<1>(aln_pair);
+            Alignment sam_aln2 = std::get<2>(aln_pair);
             if (s_max - s_score < secondary_dropoff) {
                 if (swap_r1r2) {
                     bool is_proper = is_proper_pair(sam_aln2, sam_aln1, mu, sigma);
@@ -904,7 +904,7 @@ void rescue_read(
 }
 
 /* Compute paired-end mapping score given top alignments */
-static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<std::tuple<double,alignment,alignment>>& high_scores) {
+static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<std::tuple<double,Alignment,Alignment>>& high_scores) {
     if (high_scores.size() <= 1) {
         return std::make_pair(60, 60);
     }
@@ -1074,8 +1074,8 @@ inline void align_PE(
     auto nam_max = joint_NAM_scores[0];
     auto max_score = std::get<0>(nam_max);
 
-    robin_hood::unordered_map<int,alignment> is_aligned1;
-    robin_hood::unordered_map<int,alignment> is_aligned2;
+    robin_hood::unordered_map<int,Alignment> is_aligned1;
+    robin_hood::unordered_map<int,Alignment> is_aligned2;
     auto n1_max = all_nams1[0];
 
     bool fits1 = reverse_nam_if_needed(n1_max, read1, references, k);
@@ -1105,7 +1105,7 @@ inline void align_PE(
 //            bool a1_is_rc, a2_is_rc;
 //            int ref_start, ref_len, ref_end;
 //            std::cerr << "LOOOOOOOOOOOOOOOOOOOL " << min_ed << std::endl;
-    std::vector<std::tuple<double,alignment,alignment>> high_scores; // (score, aln1, aln2)
+    std::vector<std::tuple<double,Alignment,Alignment>> high_scores; // (score, aln1, aln2)
     for (auto &[score_, n1, n2] : joint_NAM_scores) {
         score_dropoff1 = (float) score_ / max_score;
         if (tries >= max_tries || score_dropoff1 < dropoff) {
@@ -1114,7 +1114,7 @@ inline void align_PE(
 
         //////// the actual testing of base pair alignment part start ////////
         //////////////////////////////////////////////////////////////////////
-        alignment a1;
+        Alignment a1;
         if (n1.ref_s >= 0) {
             if (is_aligned1.find(n1.nam_id) != is_aligned1.end() ){
                 a1 = is_aligned1[n1.nam_id];
@@ -1144,7 +1144,7 @@ inline void align_PE(
 //                    cnt = 0;
         }
 
-        alignment a2;
+        Alignment a2;
         if(n2.ref_s >= 0) {
             if (is_aligned2.find(n2.nam_id) != is_aligned2.end() ){
 //                    std::cerr << "Already aligned a2! " << std::endl;
@@ -1188,7 +1188,7 @@ inline void align_PE(
 //                    std::cerr << " CASE2: " << S << " " << (double)a1.sw_score << " " << (double)a2.sw_score << std::endl;
         }
 
-        std::tuple<double, alignment, alignment> aln_tuple (S, a1, a2);
+        std::tuple<double, Alignment, Alignment> aln_tuple (S, a1, a2);
         high_scores.push_back(aln_tuple);
 
         tries++;
@@ -1196,7 +1196,7 @@ inline void align_PE(
 
     // Finally, add highest scores of both mates as individually mapped
     S = (double)a1_indv_max.sw_score + (double)a2_indv_max.sw_score - 20; // 20 corresponds to  a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
-    std::tuple<double, alignment, alignment> aln_tuple (S, a1_indv_max, a2_indv_max);
+    std::tuple<double, Alignment, Alignment> aln_tuple (S, a1_indv_max, a2_indv_max);
     high_scores.push_back(aln_tuple);
     std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
 

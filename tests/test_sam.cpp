@@ -45,7 +45,7 @@ TEST_CASE("Sam::add") {
     record.seq = "AACGT";
     record.qual = ">#BB";
 
-    alignment aln;
+    Alignment aln;
     aln.ref_id = 0;
     aln.is_unaligned = false;
     aln.is_rc = true;
@@ -81,7 +81,7 @@ TEST_CASE("Pair with one unmapped SAM record") {
     std::string sam_string;
     Sam sam(sam_string, references);
 
-    alignment aln1;
+    Alignment aln1;
     aln1.ref_id = 0;
     aln1.is_unaligned = false;
     aln1.ref_start = 2;
@@ -90,7 +90,7 @@ TEST_CASE("Pair with one unmapped SAM record") {
     aln1.aln_score = 9;
     aln1.cigar = Cigar("2M");
 
-    alignment aln2;
+    Alignment aln2;
     aln2.is_unaligned = true;
 
     klibpp::KSeq record1;
@@ -135,7 +135,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     references.add("contig2", "GGAA");
     std::string sam_string;
 
-    alignment aln1;
+    Alignment aln1;
     aln1.ref_id = 0;
     aln1.is_unaligned = false;
     aln1.ref_start = 2;
@@ -144,7 +144,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     aln1.aln_score = 9;
     aln1.cigar = Cigar("2M");
 
-    alignment aln2;
+    Alignment aln2;
     aln2.is_unaligned = false;
     aln2.ref_id = 1;
     aln2.ref_start = 3;
