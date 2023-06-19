@@ -89,10 +89,8 @@ TEST_CASE("both randstrobes iterator implementations give same results") {
     auto& seq = references.sequences[0];
     auto parameters = IndexParameters::from_read_length(300);
 
-    std::vector<uint64_t> string_hashes;
-    std::vector<unsigned int> pos_to_seq_coordinate;
-    std::tie(string_hashes, pos_to_seq_coordinate) = make_string_to_hashvalues_open_syncmers_canonical(seq, parameters.k, parameters.s, parameters.t_syncmer);
-    RandstrobeIterator iter1{string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist };
+    auto syncmers = make_string_to_hashvalues_open_syncmers_canonical(seq, parameters.k, parameters.s, parameters.t_syncmer);
+    RandstrobeIterator iter1{syncmers, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist };
     RandstrobeIterator2 iter2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
 
     while (iter1.has_next()) {

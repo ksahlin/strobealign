@@ -23,17 +23,10 @@ std::ostream& operator<<(std::ostream& os, const BedRecord& record) {
 }
 
 void dump_randstrobes(std::ostream& os, const std::string& name, const std::string& sequence, const IndexParameters& parameters) {
-    std::vector<uint64_t> string_hashes;
-    std::vector<unsigned int> pos_to_seq_coordinate;
-    std::tie(string_hashes, pos_to_seq_coordinate) = make_string_to_hashvalues_open_syncmers_canonical(
+    auto syncmers = make_string_to_hashvalues_open_syncmers_canonical(
         sequence, parameters.k, parameters.s, parameters.t_syncmer);
 
-    unsigned int nr_hashes = string_hashes.size();
-    if (nr_hashes == 0) {
-        return;
-    }
-
-    RandstrobeIterator randstrobe_iter { string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist };
+    RandstrobeIterator randstrobe_iter{syncmers, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist };
     while (randstrobe_iter.has_next()) {
         auto randstrobe = randstrobe_iter.next();
         os << BedRecord{name, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.k};

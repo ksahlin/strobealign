@@ -76,17 +76,26 @@ struct Randstrobe {
 
 std::ostream& operator<<(std::ostream& os, const Randstrobe& randstrobe);
 
+struct Syncmer {
+    syncmer_hash_t hash;
+    size_t position;
+    bool is_end() const {
+        return hash == 0 && position == 0;
+    }
+};
+
+/*
+ * Iterate over randstrobes using a pre-computed vector of syncmers
+ */
 class RandstrobeIterator {
 public:
     RandstrobeIterator(
-        const std::vector<uint64_t>& syncmer_hashes,
-        const std::vector<unsigned int>& index_to_coordinate,
+        const std::vector<Syncmer>& syncmers,
         unsigned w_min,
         unsigned w_max,
         uint64_t q,
         int max_dist
-    ) : syncmer_hashes(syncmer_hashes)
-      , index_to_coordinate(index_to_coordinate)
+    ) : syncmers(syncmers)
       , w_min(w_min)
       , w_max(w_max)
       , q(q)
@@ -102,26 +111,17 @@ public:
     }
 
     bool has_next() {
-        return strobe1_index + w_min < syncmer_hashes.size();
+        return strobe1_index + w_min < syncmers.size();
     }
 
 private:
     Randstrobe get(unsigned int strobe1_index) const;
-    const std::vector<uint64_t>& syncmer_hashes;
-    const std::vector<unsigned int>& index_to_coordinate;
+    const std::vector<Syncmer>& syncmers;
     const unsigned w_min;
     const unsigned w_max;
     const uint64_t q;
     const unsigned int max_dist;
     unsigned int strobe1_index = 0;
-};
-
-struct Syncmer {
-    syncmer_hash_t hash;
-    size_t position;
-    bool is_end() const {
-        return hash == 0 && position == 0;
-    }
 };
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer);
@@ -180,7 +180,7 @@ private:
 };
 
 
-std::pair<std::vector<syncmer_hash_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
+std::vector<Syncmer> make_string_to_hashvalues_open_syncmers_canonical(
     const std::string_view seq,
     const size_t k,
     const size_t s,
