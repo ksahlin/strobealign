@@ -175,7 +175,7 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
     return Randstrobe{hash_randstrobe2, strobe1_pos, static_cast<uint32_t>(syncmers[strobe_index_next].position)};
 }
 
-Randstrobe RandstrobeIterator2::next() {
+Randstrobe RandstrobeGenerator::next() {
     while (syncmers.size() <= w_max) {
         Syncmer syncmer = syncmer_iterator.next();
         if (syncmer.is_end()) {
@@ -184,7 +184,7 @@ Randstrobe RandstrobeIterator2::next() {
         syncmers.push_back(syncmer);
     }
     if (syncmers.size() <= w_min) {
-        return RandstrobeIterator2::end();
+        return RandstrobeGenerator::end();
     }
     auto strobe1 = syncmers[0];
     auto max_position = strobe1.position + max_dist;

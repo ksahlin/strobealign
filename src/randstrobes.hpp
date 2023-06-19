@@ -152,9 +152,15 @@ private:
     size_t i = 0;
 };
 
-class RandstrobeIterator2 {
+/*
+ * Iterate over randstrobes while generating syncmers on the fly
+ *
+ * Unlike RandstrobeIterator, this does not need a pre-computed vector
+ * of syncmers and therefore uses less memory.
+ */
+class RandstrobeGenerator {
 public:
-    RandstrobeIterator2(
+    RandstrobeGenerator(
         const std::string& seq, size_t k, size_t s, size_t t,
         unsigned w_min,
         unsigned w_max,

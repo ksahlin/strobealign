@@ -34,7 +34,7 @@ void dump_randstrobes(std::ostream& os, const std::string& name, const std::stri
 }
 
 void dump_randstrobes2(std::ostream& os, const std::string& name, const std::string& sequence, const IndexParameters& parameters) {
-    auto randstrobe_iter = RandstrobeIterator2(
+    auto randstrobe_iter = RandstrobeGenerator(
         sequence, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
     Randstrobe randstrobe;
     while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {

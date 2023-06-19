@@ -91,7 +91,7 @@ TEST_CASE("both randstrobes iterator implementations give same results") {
 
     auto syncmers = canonical_syncmers(seq, parameters.k, parameters.s, parameters.t_syncmer);
     RandstrobeIterator iter1{syncmers, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist };
-    RandstrobeIterator2 iter2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
+    RandstrobeGenerator iter2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
 
     while (iter1.has_next()) {
         auto randstrobe1 = iter1.next();
@@ -99,6 +99,7 @@ TEST_CASE("both randstrobes iterator implementations give same results") {
         CHECK(randstrobe2 != iter2.end());
         CHECK(randstrobe1 == randstrobe2);
     }
+    CHECK(iter2.next() == iter2.end());
 }
 
 TEST_CASE("reverse complement") {
