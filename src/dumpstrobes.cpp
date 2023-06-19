@@ -26,7 +26,7 @@ void dump_randstrobes(std::ostream& os, const std::string& name, const std::stri
     auto syncmers = canonical_syncmers(
         sequence, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t_syncmer);
 
-    RandstrobeIterator randstrobe_iter{syncmers, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist };
+    RandstrobeIterator randstrobe_iter{syncmers, parameters.randstrobe.w_min, parameters.randstrobe.w_max, parameters.randstrobe.q, parameters.randstrobe.max_dist };
     while (randstrobe_iter.has_next()) {
         auto randstrobe = randstrobe_iter.next();
         os << BedRecord{name, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k};
@@ -35,7 +35,7 @@ void dump_randstrobes(std::ostream& os, const std::string& name, const std::stri
 
 void dump_randstrobes2(std::ostream& os, const std::string& name, const std::string& sequence, const IndexParameters& parameters) {
     auto randstrobe_iter = RandstrobeGenerator(
-        sequence, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
+        sequence, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t_syncmer, parameters.randstrobe.w_min, parameters.randstrobe.w_max, parameters.randstrobe.q, parameters.randstrobe.max_dist);
     Randstrobe randstrobe;
     while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
         os << BedRecord{name, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k};

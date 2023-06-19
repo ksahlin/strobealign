@@ -36,11 +36,7 @@ struct SyncmerParameters {
     bool operator==(const SyncmerParameters& other) const;
 };
 
-/* Settings that influence index creation */
-class IndexParameters {
-public:
-    const size_t canonical_read_length;
-    const SyncmerParameters syncmer;
+struct RandstrobeParameters {
     const int l;
     const int u;
     const uint64_t q;
@@ -48,19 +44,41 @@ public:
     const unsigned w_min;
     const unsigned w_max;
 
+    RandstrobeParameters(int l, int u, uint64_t q, int max_dist, unsigned w_min, unsigned w_max)
+        : l(l)
+        , u(u)
+        , q(q)
+        , max_dist(max_dist)
+        , w_min(w_min)
+        , w_max(w_max)
+    {
+        verify();
+    }
+
+    bool operator==(const RandstrobeParameters& other) const;
+
+private:
+    void verify() const {
+        if (max_dist > 255) {
+            throw BadParameter("maximum seed length (-m <max_dist>) is larger than 255");
+        }
+    }
+};
+
+/* Settings that influence index creation */
+class IndexParameters {
+public:
+    const size_t canonical_read_length;
+    const SyncmerParameters syncmer;
+    const RandstrobeParameters randstrobe;
+
     static const int DEFAULT = std::numeric_limits<int>::min();
 
     IndexParameters(size_t canonical_read_length, int k, int s, int l, int u, int q, int max_dist)
         : canonical_read_length(canonical_read_length)
         , syncmer(k, s)
-        , l(l)
-        , u(u)
-        , q(q)
-        , max_dist(max_dist)
-        , w_min(std::max(1, k / (k - s + 1) + l))
-        , w_max(k / (k - s + 1) + u)
+        , randstrobe(l, u, q, max_dist, std::max(1, k / (k - s + 1) + l), k / (k - s + 1) + u)
     {
-        verify();
     }
 
     static IndexParameters from_read_length(
@@ -71,13 +89,6 @@ public:
     void write(std::ostream& os) const;
     bool operator==(const IndexParameters& other) const;
     bool operator!=(const IndexParameters& other) const { return !(*this == other); }
-
-private:
-    void verify() const {
-        if (max_dist > 255) {
-            throw BadParameter("maximum seed length (-m <max_dist>) is larger than 255");
-        }
-    }
 };
 
 std::ostream& operator<<(std::ostream& os, const IndexParameters& parameters);

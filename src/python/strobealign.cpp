@@ -95,15 +95,18 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("s", &SyncmerParameters::s)
         .def_ro("t", &SyncmerParameters::t_syncmer)
     ;
+    nb::class_<RandstrobeParameters>(m, "RandstrobeParameters")
+        .def_ro("max_dist", &RandstrobeParameters::max_dist)
+        .def_ro("w_min", &RandstrobeParameters::w_min)
+        .def_ro("w_max", &RandstrobeParameters::w_max)
+        .def_ro("q", &RandstrobeParameters::q)
+    ;
     nb::class_<IndexParameters>(m, "IndexParameters")
         .def_static("from_read_length", [](int r, int k = IndexParameters::DEFAULT, int s = IndexParameters::DEFAULT, int l = IndexParameters::DEFAULT, int u = IndexParameters::DEFAULT) {
             return IndexParameters::from_read_length(r, k, s, l, u);
         }, "r"_a, "k"_a = IndexParameters::DEFAULT, "s"_a = IndexParameters::DEFAULT, "l"_a = IndexParameters::DEFAULT, "u"_a = IndexParameters::DEFAULT)
         .def_ro("syncmer", &IndexParameters::syncmer)
-        .def_ro("max_dist", &IndexParameters::max_dist)
-        .def_ro("w_min", &IndexParameters::w_min)
-        .def_ro("w_max", &IndexParameters::w_max)
-        .def_ro("q", &IndexParameters::q)
+        .def_ro("randstrobe", &IndexParameters::randstrobe)
     ;
     nb::class_<RefRandstrobe>(m, "RefRandstrobeWithHash", "Randstrobe on a reference")
         .def_ro("position", &RefRandstrobe::position)

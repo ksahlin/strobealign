@@ -90,8 +90,8 @@ TEST_CASE("both randstrobes iterator implementations give same results") {
     auto parameters = IndexParameters::from_read_length(300);
 
     auto syncmers = canonical_syncmers(seq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t_syncmer);
-    RandstrobeIterator iter1{syncmers, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist };
-    RandstrobeGenerator iter2(seq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
+    RandstrobeIterator iter1{syncmers, parameters.randstrobe.w_min, parameters.randstrobe.w_max, parameters.randstrobe.q, parameters.randstrobe.max_dist };
+    RandstrobeGenerator iter2(seq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t_syncmer, parameters.randstrobe.w_min, parameters.randstrobe.w_max, parameters.randstrobe.q, parameters.randstrobe.max_dist);
 
     while (iter1.has_next()) {
         auto randstrobe1 = iter1.next();

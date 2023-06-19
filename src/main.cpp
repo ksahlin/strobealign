@@ -60,13 +60,13 @@ void log_parameters(const IndexParameters& index_parameters, const mapping_param
     logger.debug() << "Using" << std::endl
         << "k: " << index_parameters.syncmer.k << std::endl
         << "s: " << index_parameters.syncmer.s << std::endl
-        << "w_min: " << index_parameters.w_min << std::endl
-        << "w_max: " << index_parameters.w_max << std::endl
+        << "w_min: " << index_parameters.randstrobe.w_min << std::endl
+        << "w_max: " << index_parameters.randstrobe.w_max << std::endl
         << "Read length (r): " << map_param.r << std::endl
-        << "Maximum seed length: " << index_parameters.max_dist + index_parameters.syncmer.k << std::endl
+        << "Maximum seed length: " << index_parameters.randstrobe.max_dist + index_parameters.syncmer.k << std::endl
         << "R: " << map_param.R << std::endl
-        << "Expected [w_min, w_max] in #syncmers: [" << index_parameters.w_min << ", " << index_parameters.w_max << "]" << std::endl
-        << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.w_min << ", " << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.w_max << "]" << std::endl
+        << "Expected [w_min, w_max] in #syncmers: [" << index_parameters.randstrobe.w_min << ", " << index_parameters.randstrobe.w_max << "]" << std::endl
+        << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_min << ", " << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_max << "]" << std::endl
         << "A: " << aln_params.match << std::endl
         << "B: " << aln_params.mismatch << std::endl
         << "O: " << aln_params.gap_open << std::endl

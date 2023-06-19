@@ -211,7 +211,7 @@ Randstrobe RandstrobeGenerator::next() {
  */
 QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexParameters& parameters) {
     QueryRandstrobeVector randstrobes;
-    if (seq.length() < parameters.w_max) {
+    if (seq.length() < parameters.randstrobe.w_max) {
         return randstrobes;
     }
 
@@ -225,7 +225,7 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
 
     // Generate randstrobes for the forward sequence
     RandstrobeIterator randstrobe_fwd_iter{
-        syncmers, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist
+        syncmers, parameters.randstrobe.w_min, parameters.randstrobe.w_max, parameters.randstrobe.q, parameters.randstrobe.max_dist
     };
     while (randstrobe_fwd_iter.has_next()) {
         auto randstrobe = randstrobe_fwd_iter.next();
@@ -250,7 +250,7 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     // syncmer[i] in the reverse direction because i is fixed in the forward
     // direction and j is fixed in the reverse direction.
     RandstrobeIterator randstrobe_rc_iter{
-        syncmers, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist
+        syncmers, parameters.randstrobe.w_min, parameters.randstrobe.w_max, parameters.randstrobe.q, parameters.randstrobe.max_dist
     };
     while (randstrobe_rc_iter.has_next()) {
         auto randstrobe = randstrobe_rc_iter.next();
