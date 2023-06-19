@@ -5,7 +5,9 @@ execute_process(
   ERROR_QUIET
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
+
 if (NOT GIT_ERROR)
+  string(SUBSTRING "${GIT_VERSION}" 1 -1 GIT_VERSION)  # Remove "v" prefix
   set(PROJECT_VERSION "${GIT_VERSION}")
 else()
   set(PROJECT_VERSION "${DEFAULT_VERSION}")
