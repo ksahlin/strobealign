@@ -102,7 +102,7 @@ public:
     }
 
     bool has_next() {
-        return strobe1_start + w_min < string_hashes.size();
+        return strobe1_start < string_hashes.size();
     }
 
 private:

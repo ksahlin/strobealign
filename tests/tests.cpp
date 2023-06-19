@@ -101,6 +101,31 @@ TEST_CASE("both randstrobes iterator implementations give same results") {
         CHECK(randstrobe2 != iter2.end());
         CHECK(randstrobe1 == randstrobe2);
     }
+    CHECK(iter2.next() == iter2.end());
+}
+
+TEST_CASE("syncmer and randstrobe iterators return same no. of items") {
+    auto references = References::from_fasta("tests/phix.fasta");
+    auto& seq = references.sequences[0];
+    auto parameters = IndexParameters::from_read_length(100);
+
+    uint64_t randstrobe_count = 0;
+    auto randstrobe_iter = RandstrobeIterator2(
+        seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist
+    );
+    Randstrobe randstrobe;
+    while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
+        randstrobe_count++;
+    }
+
+    uint64_t syncmer_count = 0;
+    auto syncmer_iterator = SyncmerIterator(seq, parameters.k, parameters.s, parameters.t_syncmer);
+    Syncmer syncmer;
+    while (!(syncmer = syncmer_iterator.next()).is_end()) {
+        syncmer_count++;
+    }
+
+    CHECK(randstrobe_count == syncmer_count);
 }
 
 TEST_CASE("reverse complement") {
