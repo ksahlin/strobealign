@@ -89,11 +89,9 @@ TEST_CASE("both randstrobes iterator implementations give same results") {
     auto& seq = references.sequences[0];
     auto parameters = IndexParameters::from_read_length(300);
 
-    std::vector<uint64_t> string_hashes;
-    std::vector<unsigned int> pos_to_seq_coordinate;
-    std::tie(string_hashes, pos_to_seq_coordinate) = make_string_to_hashvalues_open_syncmers_canonical(seq, parameters.k, parameters.s, parameters.t_syncmer);
-    RandstrobeIterator iter1{string_hashes, pos_to_seq_coordinate, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist };
-    RandstrobeIterator2 iter2(seq, parameters.k, parameters.s, parameters.t_syncmer, parameters.w_min, parameters.w_max, parameters.q, parameters.max_dist);
+    auto syncmers = canonical_syncmers(seq, parameters.syncmer);
+    RandstrobeIterator iter1{syncmers, parameters.randstrobe};
+    RandstrobeGenerator iter2{seq, parameters.syncmer, parameters.randstrobe};
 
     while (iter1.has_next()) {
         auto randstrobe1 = iter1.next();
@@ -101,6 +99,7 @@ TEST_CASE("both randstrobes iterator implementations give same results") {
         CHECK(randstrobe2 != iter2.end());
         CHECK(randstrobe1 == randstrobe2);
     }
+    CHECK(iter2.next() == iter2.end());
 }
 
 TEST_CASE("reverse complement") {

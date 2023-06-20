@@ -76,46 +76,6 @@ struct Randstrobe {
 
 std::ostream& operator<<(std::ostream& os, const Randstrobe& randstrobe);
 
-class RandstrobeIterator {
-public:
-    RandstrobeIterator(
-        const std::vector<uint64_t> &string_hashes,
-        const std::vector<unsigned int> &pos_to_seq_coordinate,
-        unsigned w_min,
-        unsigned w_max,
-        uint64_t q,
-        int max_dist
-    ) : string_hashes(string_hashes)
-      , pos_to_seq_coordinate(pos_to_seq_coordinate)
-      , w_min(w_min)
-      , w_max(w_max)
-      , q(q)
-      , max_dist(max_dist)
-    {
-        if (w_min > w_max) {
-            throw std::invalid_argument("w_min is greater than w_max");
-        }
-    }
-
-    Randstrobe next() {
-        return get(strobe1_start++);
-    }
-
-    bool has_next() {
-        return strobe1_start + w_min < string_hashes.size();
-    }
-
-private:
-    Randstrobe get(unsigned int strobe1_start) const;
-    const std::vector<uint64_t> &string_hashes;
-    const std::vector<unsigned int> &pos_to_seq_coordinate;
-    const unsigned w_min;
-    const unsigned w_max;
-    const uint64_t q;
-    const unsigned int max_dist;
-    unsigned int strobe1_start = 0;
-};
-
 struct Syncmer {
     syncmer_hash_t hash;
     size_t position;
@@ -124,12 +84,49 @@ struct Syncmer {
     }
 };
 
+/*
+ * Iterate over randstrobes using a pre-computed vector of syncmers
+ */
+class RandstrobeIterator {
+public:
+    RandstrobeIterator(
+        const std::vector<Syncmer>& syncmers,
+        RandstrobeParameters parameters
+    ) : syncmers(syncmers)
+      , w_min(parameters.w_min)
+      , w_max(parameters.w_max)
+      , q(parameters.q)
+      , max_dist(parameters.max_dist)
+    {
+        if (w_min > w_max) {
+            throw std::invalid_argument("w_min is greater than w_max");
+        }
+    }
+
+    Randstrobe next() {
+        return get(strobe1_index++);
+    }
+
+    bool has_next() {
+        return strobe1_index + w_min < syncmers.size();
+    }
+
+private:
+    Randstrobe get(unsigned int strobe1_index) const;
+    const std::vector<Syncmer>& syncmers;
+    const unsigned w_min;
+    const unsigned w_max;
+    const uint64_t q;
+    const unsigned int max_dist;
+    unsigned int strobe1_index = 0;
+};
+
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer);
 
 class SyncmerIterator {
 public:
-    SyncmerIterator(const std::string_view seq, size_t k, size_t s, size_t t)
-        : seq(seq), k(k), s(s), t(t) { }
+    SyncmerIterator(const std::string_view seq, SyncmerParameters parameters)
+        : seq(seq), k(parameters.k), s(parameters.s), t(parameters.t_syncmer) { }
 
     Syncmer next();
 
@@ -152,19 +149,23 @@ private:
     size_t i = 0;
 };
 
-class RandstrobeIterator2 {
+/*
+ * Iterate over randstrobes while generating syncmers on the fly
+ *
+ * Unlike RandstrobeIterator, this does not need a pre-computed vector
+ * of syncmers and therefore uses less memory.
+ */
+class RandstrobeGenerator {
 public:
-    RandstrobeIterator2(
-        const std::string& seq, size_t k, size_t s, size_t t,
-        unsigned w_min,
-        unsigned w_max,
-        uint64_t q,
-        int max_dist
-    ) : syncmer_iterator(SyncmerIterator(seq, k, s, t))
-      , w_min(w_min)
-      , w_max(w_max)
-      , q(q)
-      , max_dist(max_dist)
+    RandstrobeGenerator(
+        const std::string& seq,
+        SyncmerParameters syncmer_parameters,
+        RandstrobeParameters randstrobe_parameters
+    ) : syncmer_iterator(SyncmerIterator(seq, syncmer_parameters))
+      , w_min(randstrobe_parameters.w_min)
+      , w_max(randstrobe_parameters.w_max)
+      , q(randstrobe_parameters.q)
+      , max_dist(randstrobe_parameters.max_dist)
     { }
 
     Randstrobe next();
@@ -180,11 +181,6 @@ private:
 };
 
 
-std::pair<std::vector<syncmer_hash_t>, std::vector<unsigned int>> make_string_to_hashvalues_open_syncmers_canonical(
-    const std::string_view seq,
-    const size_t k,
-    const size_t s,
-    const size_t t
-);
+std::vector<Syncmer> canonical_syncmers(const std::string_view seq, SyncmerParameters parameters);
 
 #endif

@@ -986,8 +986,8 @@ static inline void get_joint_MAPQ(float s1, float s2, int joint_n_matches, int &
 // from aln.cpp
 
 
-static inline bool sort_lowest_ed_scores_single(const std::tuple<int, alignment> &a,
-                                                const std::tuple<int, alignment> &b)
+static inline bool sort_lowest_ed_scores_single(const std::tuple<int, Alignment> &a,
+                                                const std::tuple<int, Alignment> &b)
 {
     return (std::get<0>(a) < std::get<0>(b));
 }

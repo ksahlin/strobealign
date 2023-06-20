@@ -100,7 +100,7 @@ void Sam::add_unmapped_pair(const KSeq& r1, const KSeq& r2) {
 
 // Add single-end alignment
 void Sam::add(
-    const alignment& sam_aln,
+    const Alignment& sam_aln,
     const KSeq& record,
     const std::string& sequence_rc,
     bool is_secondary
@@ -184,8 +184,8 @@ void Sam::add_record(
 }
 
 void Sam::add_pair(
-    const alignment &sam_aln1,
-    const alignment &sam_aln2,
+    const Alignment &sam_aln1,
+    const Alignment &sam_aln2,
     const KSeq& record1,
     const KSeq& record2,
     const std::string &read1_rc,
@@ -282,7 +282,7 @@ void Sam::add_pair(
     }
 }
 
-bool is_proper_pair(const alignment& sam_aln1, const alignment& sam_aln2, float mu, float sigma) {
+bool is_proper_pair(const Alignment& sam_aln1, const Alignment& sam_aln2, float mu, float sigma) {
     const int dist = sam_aln2.ref_start - sam_aln1.ref_start;
     const bool same_reference = sam_aln1.ref_id == sam_aln2.ref_id;
     const bool both_aligned = same_reference && !sam_aln1.is_unaligned && !sam_aln2.is_unaligned;
