@@ -30,7 +30,6 @@ struct IndexCreationStatistics {
 
     std::chrono::duration<double> elapsed_hash_index;
     std::chrono::duration<double> elapsed_generating_seeds;
-    std::chrono::duration<double> elapsed_counting_hashes;
     std::chrono::duration<double> elapsed_sorting_seeds;
 };
 

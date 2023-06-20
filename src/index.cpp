@@ -101,6 +101,15 @@ uint64_t count_randstrobes(const std::string& seq, const IndexParameters& parame
     return num;
 }
 
+/* Return an estimate for the number of randstrobes based on the seeding parameters */
+uint64_t estimate_randstrobes(size_t reference_length, const SyncmerParameters& parameters) {
+    double count = reference_length / (parameters.k - parameters.s + 1);
+    // 1% extra to avoid potentially expensive reallocation of the randstrobes vector
+    count *= 1.01;
+
+    return static_cast<uint64_t>(count);
+}
+
 uint64_t count_randstrobes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
     std::vector<std::thread> workers;
     uint64_t total = 0;
@@ -136,14 +145,10 @@ uint64_t count_randstrobes_parallel(const References& references, const IndexPar
 }
 
 void StrobemerIndex::populate(float f, size_t n_threads) {
-    stats.tot_strobemer_count = 0;
-
-    Timer count_hash;
-    auto randstrobe_hashes = count_randstrobes_parallel(references, parameters, n_threads);
-    stats.elapsed_counting_hashes = count_hash.duration();
+    auto randstrobe_hashes = estimate_randstrobes(references.total_length(), parameters.syncmer);
 
     uint64_t memory_bytes = references.total_length() + sizeof(RefRandstrobe) * randstrobe_hashes + sizeof(bucket_index_t) * (1u << bits);
-    logger.debug() << "Total number of randstrobes: " << randstrobe_hashes << '\n';
+    logger.debug() << "Estimated number of randstrobes: " << randstrobe_hashes << '\n';
     logger.debug() << "Estimated total memory usage: " << memory_bytes / 1E9 << " GB\n";
 
     if (randstrobe_hashes > std::numeric_limits<bucket_index_t>::max()) {
@@ -232,6 +237,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
 }
 
 void StrobemerIndex::add_randstrobes_to_vector() {
+    stats.tot_strobemer_count = 0;
     for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
         auto seq = references.sequences[ref_index];
         if (seq.length() < parameters.randstrobe.w_max) {
