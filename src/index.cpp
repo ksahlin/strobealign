@@ -168,8 +168,8 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.tot_occur_once = 0;
     randstrobe_start_indices.reserve((1u << bits) + 1);
 
-    uint64_t unique_mers = 0;
-    randstrobe_hash_t prev_hash = static_cast<randstrobe_hash_t>(-1);
+    uint64_t unique_mers = randstrobes.empty() ? 0 : 1;
+    randstrobe_hash_t prev_hash = randstrobes.empty() ? 0 : randstrobes[0].hash;
     unsigned int count = 0;
 
     for (bucket_index_t position = 0; position < randstrobes.size(); ++position) {
