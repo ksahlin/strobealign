@@ -40,12 +40,32 @@ void dump_randstrobes2(std::ostream& os, const std::string& name, const std::str
     }
 }
 
+uint64_t count_randstrobes(const std::string& sequence, const IndexParameters& parameters) {
+    auto randstrobe_iter = RandstrobeGenerator(sequence, parameters.syncmer, parameters.randstrobe);
+    Randstrobe randstrobe;
+    uint64_t n = 0;
+    while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
+        n++;
+    }
+    return n;
+}
+
 void dump_syncmers(std::ostream& os, const std::string& name, const std::string& sequence, const IndexParameters& parameters) {
     SyncmerIterator syncmer_iterator(sequence, parameters.syncmer);
     Syncmer syncmer;
     while (!(syncmer = syncmer_iterator.next()).is_end()) {
         os << BedRecord{name, syncmer.position, syncmer.position + parameters.syncmer.k};
     }
+}
+
+uint64_t count_syncmers(const std::string& sequence, const SyncmerParameters& parameters) {
+    SyncmerIterator syncmer_iterator(sequence, parameters);
+    Syncmer syncmer;
+    uint64_t n = 0;
+    while (!(syncmer = syncmer_iterator.next()).is_end()) {
+        n++;
+    }
+    return n;
 }
 
 int run_dumpstrobes(int argc, char **argv) {
@@ -58,6 +78,7 @@ int run_dumpstrobes(int argc, char **argv) {
 
     args::HelpFlag help(parser, "help", "Print help and exit", {'h', "help"});
     args::Flag syncmers(parser, "syncmers", "Dump syncmers instead of randstrobes", {"syncmers"});
+    args::Flag count(parser, "count", "Count only", {"count"});
     auto seeding = SeedingArguments{parser};
     args::Positional<std::string> ref_filename(parser, "reference", "Reference in FASTA format", args::Options::Required);
 
@@ -107,7 +128,8 @@ int run_dumpstrobes(int argc, char **argv) {
     References references;
     references = References::from_fasta(ref_path);
 
-    logger.info() << "Reference size: " << references.total_length() / 1E6 << " Mbp ("
+    logger.info() << "Reference size: " << references.total_length()
+    << " (" << references.total_length() / 1E6 << " Mbp, "
         << references.size() << " contig" << (references.size() == 1 ? "" : "s")
         << "; largest: "
         << (*std::max_element(references.lengths.begin(), references.lengths.end()) / 1E6) << " Mbp)\n";
@@ -115,13 +137,26 @@ int run_dumpstrobes(int argc, char **argv) {
         throw InvalidFasta("No reference sequences found");
     }
 
-    for (size_t i = 0; i < references.size(); ++i) {
-        auto& seq = references.sequences[i];
-        auto& name = references.names[i];
-        if (syncmers) {
-            dump_syncmers(std::cout, name, seq, index_parameters);
-        } else {
-            dump_randstrobes2(std::cout, name, seq, index_parameters);
+    if (count) {
+        uint64_t n = 0;
+        for (size_t i = 0; i < references.size(); ++i) {
+            auto& seq = references.sequences[i];
+            if (syncmers) {
+                n += count_syncmers(seq, index_parameters.syncmer);
+            } else {
+                n += count_randstrobes(seq, index_parameters);
+            }
+        }
+        std::cout << n << std::endl;
+    } else {
+        for (size_t i = 0; i < references.size(); ++i) {
+            auto& seq = references.sequences[i];
+            auto& name = references.names[i];
+            if (syncmers) {
+                dump_syncmers(std::cout, name, seq, index_parameters);
+            } else {
+                dump_randstrobes2(std::cout, name, seq, index_parameters);
+            }
         }
     }
 
