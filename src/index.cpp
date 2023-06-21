@@ -90,17 +90,6 @@ int StrobemerIndex::pick_bits(size_t size) const {
     return std::clamp(static_cast<int>(log2(estimated_number_of_randstrobes)) - 1, 8, 31);
 }
 
-uint64_t count_randstrobes(const std::string& seq, const IndexParameters& parameters) {
-    uint64_t num = 0;
-
-    RandstrobeGenerator randstrobe_iter{seq, parameters.syncmer, parameters.randstrobe};
-    Randstrobe randstrobe;
-    while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
-        num++;
-    }
-    return num;
-}
-
 /* Return an estimate for the number of randstrobes based on the seeding parameters */
 uint64_t estimate_randstrobes(size_t reference_length, const SyncmerParameters& parameters) {
     double count = reference_length / (parameters.k - parameters.s + 1);
@@ -110,62 +99,28 @@ uint64_t estimate_randstrobes(size_t reference_length, const SyncmerParameters& 
     return static_cast<uint64_t>(count);
 }
 
-uint64_t count_randstrobes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
-    std::vector<std::thread> workers;
-    uint64_t total = 0;
-    std::atomic_size_t ref_index{0};
-
-    std::vector<uint64_t> counts;
-    for (size_t i = 0; i < n_threads; ++i) {
-        counts.push_back(0);
-    }
-
-    for (size_t i = 0; i < n_threads; ++i) {
-        workers.push_back(
-            std::thread(
-                [&ref_index](const References& references, const IndexParameters& parameters, uint64_t& count) {
-                    while (true) {
-                        size_t j = ref_index.fetch_add(1);
-                        if (j >= references.size()) {
-                            break;
-                        }
-                        count += count_randstrobes(references.sequences[j], parameters);
-                    }
-                }, std::ref(references), std::ref(parameters), std::ref(counts[i]))
-        );
-    }
-    for (auto& worker : workers) {
-        worker.join();
-    }
-
-    for (auto& count : counts) {
-        total += count;
-    }
-    return total;
-}
-
 void StrobemerIndex::populate(float f, size_t n_threads) {
-    auto randstrobe_hashes = estimate_randstrobes(references.total_length(), parameters.syncmer);
+    auto randstrobes_est = estimate_randstrobes(references.total_length(), parameters.syncmer);
 
-    uint64_t memory_bytes = references.total_length() + sizeof(RefRandstrobe) * randstrobe_hashes + sizeof(bucket_index_t) * (1u << bits);
-    logger.debug() << "  Estimated number of randstrobes: " << randstrobe_hashes << '\n';
+    uint64_t memory_bytes = references.total_length() + sizeof(RefRandstrobe) * randstrobes_est + sizeof(bucket_index_t) * (1u << bits);
+    logger.debug() << "  Estimated number of randstrobes: " << randstrobes_est << '\n';
     logger.debug() << "  Estimated total memory usage: " << memory_bytes / 1E9 << " GB\n";
 
-    if (randstrobe_hashes > std::numeric_limits<bucket_index_t>::max()) {
+    if (randstrobes_est > std::numeric_limits<bucket_index_t>::max()) {
         throw std::range_error("Too many randstrobes");
     }
     Timer randstrobes_timer;
-    randstrobes.reserve(randstrobe_hashes);
+    randstrobes.reserve(randstrobes_est);
     add_randstrobes_to_vector();
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     logger.debug() << "  Actual number of randstrobes: " << randstrobes.size()
-        << " (" << 100.0 * randstrobes.size() / randstrobe_hashes << "% of estimate)\n";
+        << " (" << 100.0 * randstrobes.size() / randstrobes_est << "% of estimate)\n";
 
-    if (randstrobes.size() > randstrobe_hashes) {
+    if (randstrobes.size() > randstrobes_est) {
         logger.warning()
             << "WARNING: More strobemers found than expected (factor "
-            << 1.0 * randstrobes.size() / randstrobe_hashes
+            << 1.0 * randstrobes.size() / randstrobes_est
             << "). Please report this to the developers\n";
     }
     Timer sorting_timer;
