@@ -148,8 +148,8 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     auto randstrobe_hashes = estimate_randstrobes(references.total_length(), parameters.syncmer);
 
     uint64_t memory_bytes = references.total_length() + sizeof(RefRandstrobe) * randstrobe_hashes + sizeof(bucket_index_t) * (1u << bits);
-    logger.debug() << "Estimated number of randstrobes: " << randstrobe_hashes << '\n';
-    logger.debug() << "Estimated total memory usage: " << memory_bytes / 1E9 << " GB\n";
+    logger.debug() << "  Estimated number of randstrobes: " << randstrobe_hashes << '\n';
+    logger.debug() << "  Estimated total memory usage: " << memory_bytes / 1E9 << " GB\n";
 
     if (randstrobe_hashes > std::numeric_limits<bucket_index_t>::max()) {
         throw std::range_error("Too many randstrobes");
@@ -159,6 +159,15 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     add_randstrobes_to_vector();
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
+    logger.debug() << "  Actual number of randstrobes: " << randstrobes.size()
+        << " (" << 100.0 * randstrobes.size() / randstrobe_hashes << "% of estimate)\n";
+
+    if (randstrobes.size() > randstrobe_hashes) {
+        logger.warning()
+            << "WARNING: More strobemers found than expected (factor "
+            << 1.0 * randstrobes.size() / randstrobe_hashes
+            << "). Please report this to the developers\n";
+    }
     Timer sorting_timer;
     // sort by hash values
     pdqsort_branchless(randstrobes.begin(), randstrobes.end());
