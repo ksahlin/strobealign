@@ -1,6 +1,6 @@
 # Strobealign Changelog
 
-## development version
+## v0.11.0 (2023-06-22)
 
 * #278: Memory usage was reduced drastically due to a redesigned strobemer
   index memory layout. For the human genome, for example, RAM usage was reduced

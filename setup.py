@@ -5,7 +5,7 @@ setup(
     name="strobealign",
     description="Python bindings for strobealign",
     license="MIT",
-    version="0.9.0",
+    version="0.11.0",
     packages=["strobealign"],
     package_dir={"": "src/python"},
     cmake_install_dir="src/python",
