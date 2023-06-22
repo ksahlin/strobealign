@@ -91,14 +91,18 @@ int StrobemerIndex::pick_bits(size_t size) const {
 }
 
 uint64_t count_randstrobes(const std::string& seq, const IndexParameters& parameters) {
-    uint64_t num = 0;
-
-    RandstrobeGenerator randstrobe_iter{seq, parameters.syncmer, parameters.randstrobe};
-    Randstrobe randstrobe;
-    while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
-        num++;
+    uint64_t n_syncmers = 0;
+    SyncmerIterator syncmer_iterator(seq, parameters.syncmer);
+    Syncmer syncmer;
+    while (!(syncmer = syncmer_iterator.next()).is_end()) {
+        n_syncmers++;
     }
-    return num;
+    // The last w_min syncmers do not result in a randstrobe
+    if (n_syncmers < parameters.randstrobe.w_min) {
+        return 0;
+    } else {
+        return n_syncmers - parameters.randstrobe.w_min;
+    }
 }
 
 std::vector<uint64_t> count_randstrobes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
