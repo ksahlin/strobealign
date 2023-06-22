@@ -3,8 +3,9 @@
 ## development version
 
 * #278: Memory usage was reduced drastically due to a redesigned strobemer
-  index memory layout. For the human genome, for example, strobealign now needs
-  14 instead of 23 GiB RAM.
+  index memory layout. For the human genome, for example, RAM usage was reduced
+  from 23 to 13 GiB. (Other changes increased RAM usage again slightly, see
+  below.)
 
   Idea and implementation for this substantial improvement were contributed by
   Shaojun Pan (@psj1997) (supervised by Luis Pedro @luispedro) and originate in
@@ -12,6 +13,11 @@
 * #277, #285, PR #306: Support for very large references (exceeding ~20 Gbp) was
   added by switching from 32 bit to 64 bit strobemer indices.
   This was also enabled and made simpler by the memory layout changes.
+  This increases RAM usage by 1 GiB for human-sized genomes.
+* #313: Increased accuracy (especially on short single-end reads) due to
+  "more random" syncmers. This increases memory usage again slightly so that we
+  are at 14.7 GiB RAM usage for the human genome for this version of
+  strobealign.
 * #307: Indexing was further parallelized, cutting the time for index generation
   in about half for many cases.
 * #289: Fixed missing CIGAR for secondary alignments.

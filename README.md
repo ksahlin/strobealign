@@ -27,7 +27,7 @@ For an introduction, see also the 📺 [RECOMB-Seq video from 2022: “Flexible 
 1. [Installation](#installation)
 2. [Usage](#usage)
 3. [Command-line options](#command-line-options)
-4. [Index file](#index-files)
+4. [Index files](#index-files)
 5. [Changelog](#changelog)
 6. [Contributing](#contributing)
 7. [Evaluation](#evaluation)
@@ -154,14 +154,13 @@ read length is close to the average read length of the input.
 The average read length of the input is normally estimated from the first
 500 reads, but can also be explicitly set with `-r`.
 
-### Pre-computing an index
+### Pre-computing an index (`.sti`)
 
 By default, strobealign creates a new index every time the program is run.
 Depending on CPU, indexing a human-sized genome takes
-2 to 5 minutes, which is fast compared to mapping many millions of reads.
+1 to 2 minutes, which is not long compared to mapping many millions of reads.
 However, for repeatedly mapping small libraries, it is faster to pre-generate
-an index on disk and use that. Keep in mind though that an index file can become
-large (8 GiB for the human genome) and reading it from disk also takes time.
+an index on disk and use that.
 
 To create an index, use the `--create-index` option.
 Since strobealign needs to know the read length, either provide it with
@@ -180,6 +179,12 @@ To use the index when mapping, provide option `--use-index` when doing the
 actual mapping:
 
     strobealign --use-index ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools ...
+
+- Note that the `.sti` files are usually tied to a specific strobealign version.
+  That is, when upgrading strobealign, the `.sti` files need to be regenerated.
+  Strobealign detects whether the index was created with an incompatible
+  version and refuses to load it.
+- Index files are about four times as large as the reference.
 
 
 ## Changelog
