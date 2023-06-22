@@ -145,24 +145,27 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
         total_randstrobes += count;
     }
 
-    logger.debug() << "Total number of randstrobes: " << total_randstrobes << '\n';
+    logger.debug() << "  Total number of randstrobes: " << total_randstrobes << '\n';
     uint64_t memory_bytes = references.total_length() + sizeof(RefRandstrobe) * total_randstrobes + sizeof(bucket_index_t) * (1u << bits);
-    logger.debug() << "Estimated total memory usage: " << memory_bytes / 1E9 << " GB\n";
+    logger.debug() << "  Estimated total memory usage: " << memory_bytes / 1E9 << " GB\n";
 
     if (total_randstrobes > std::numeric_limits<bucket_index_t>::max()) {
         throw std::range_error("Too many randstrobes");
     }
     Timer randstrobes_timer;
+    logger.debug() << "  Generating randstrobes ...\n";
     randstrobes.assign(total_randstrobes, RefRandstrobe{0, 0, 0});
     assign_all_randstrobes_parallel(randstrobe_counts, n_threads);
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     Timer sorting_timer;
+    logger.debug() << "  Sorting ...\n";
     // sort by hash values
     pdqsort_branchless(randstrobes.begin(), randstrobes.end());
     stats.elapsed_sorting_seeds = sorting_timer.duration();
 
     Timer hash_index_timer;
+    logger.debug() << "  Indexing ...\n";
 
     uint64_t tot_high_ab = 0;
     uint64_t tot_mid_ab = 0;
