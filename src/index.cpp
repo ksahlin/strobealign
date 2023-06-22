@@ -260,7 +260,7 @@ void StrobemerIndex::add_randstrobes_to_vector() {
             for (auto randstrobe : chunk) {
                 RefRandstrobe::packed_t packed = ref_index << 8;
                 packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
-                randstrobes.push_back(RefRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, packed});
+                randstrobes.emplace_back(randstrobe.hash, randstrobe.strobe1_pos, packed);
             }
             chunk.clear();
         }
