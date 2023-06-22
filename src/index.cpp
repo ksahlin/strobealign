@@ -91,75 +91,81 @@ int StrobemerIndex::pick_bits(size_t size) const {
 }
 
 uint64_t count_randstrobes(const std::string& seq, const IndexParameters& parameters) {
-    uint64_t num = 0;
-
-    RandstrobeGenerator randstrobe_iter{seq, parameters.syncmer, parameters.randstrobe};
-    Randstrobe randstrobe;
-    while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
-        num++;
+    uint64_t n_syncmers = 0;
+    SyncmerIterator syncmer_iterator(seq, parameters.syncmer);
+    Syncmer syncmer;
+    while (!(syncmer = syncmer_iterator.next()).is_end()) {
+        n_syncmers++;
     }
-    return num;
+    // The last w_min syncmers do not result in a randstrobe
+    if (n_syncmers < parameters.randstrobe.w_min) {
+        return 0;
+    } else {
+        return n_syncmers - parameters.randstrobe.w_min;
+    }
 }
 
-uint64_t count_randstrobes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
+std::vector<uint64_t> count_randstrobes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
     std::vector<std::thread> workers;
-    uint64_t total = 0;
     std::atomic_size_t ref_index{0};
 
     std::vector<uint64_t> counts;
-    for (size_t i = 0; i < n_threads; ++i) {
-        counts.push_back(0);
-    }
+    counts.assign(references.size(), 0);
 
     for (size_t i = 0; i < n_threads; ++i) {
         workers.push_back(
             std::thread(
-                [&ref_index](const References& references, const IndexParameters& parameters, uint64_t& count) {
+                [&ref_index](const References& references, const IndexParameters& parameters, std::vector<uint64_t>& counts) {
                     while (true) {
                         size_t j = ref_index.fetch_add(1);
                         if (j >= references.size()) {
                             break;
                         }
-                        count += count_randstrobes(references.sequences[j], parameters);
+                        counts[j] = count_randstrobes(references.sequences[j], parameters);
                     }
-                }, std::ref(references), std::ref(parameters), std::ref(counts[i]))
+                }, std::ref(references), std::ref(parameters), std::ref(counts))
         );
     }
     for (auto& worker : workers) {
         worker.join();
     }
 
-    for (auto& count : counts) {
-        total += count;
-    }
-    return total;
+    return counts;
 }
 
 void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.tot_strobemer_count = 0;
 
     Timer count_hash;
-    auto randstrobe_hashes = count_randstrobes_parallel(references, parameters, n_threads);
+    auto randstrobe_counts = count_randstrobes_parallel(references, parameters, n_threads);
     stats.elapsed_counting_hashes = count_hash.duration();
 
-    uint64_t memory_bytes = references.total_length() + sizeof(RefRandstrobe) * randstrobe_hashes + sizeof(bucket_index_t) * (1u << bits);
-    logger.debug() << "Total number of randstrobes: " << randstrobe_hashes << '\n';
-    logger.debug() << "Estimated total memory usage: " << memory_bytes / 1E9 << " GB\n";
+    uint64_t total_randstrobes = 0;
+    for (auto& count : randstrobe_counts) {
+        total_randstrobes += count;
+    }
 
-    if (randstrobe_hashes > std::numeric_limits<bucket_index_t>::max()) {
+    logger.debug() << "  Total number of randstrobes: " << total_randstrobes << '\n';
+    uint64_t memory_bytes = references.total_length() + sizeof(RefRandstrobe) * total_randstrobes + sizeof(bucket_index_t) * (1u << bits);
+    logger.debug() << "  Estimated total memory usage: " << memory_bytes / 1E9 << " GB\n";
+
+    if (total_randstrobes > std::numeric_limits<bucket_index_t>::max()) {
         throw std::range_error("Too many randstrobes");
     }
     Timer randstrobes_timer;
-    randstrobes.reserve(randstrobe_hashes);
-    add_randstrobes_to_vector();
+    logger.debug() << "  Generating randstrobes ...\n";
+    randstrobes.assign(total_randstrobes, RefRandstrobe{0, 0, 0});
+    assign_all_randstrobes_parallel(randstrobe_counts, n_threads);
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     Timer sorting_timer;
+    logger.debug() << "  Sorting ...\n";
     // sort by hash values
     pdqsort_branchless(randstrobes.begin(), randstrobes.end());
     stats.elapsed_sorting_seeds = sorting_timer.duration();
 
     Timer hash_index_timer;
+    logger.debug() << "  Indexing ...\n";
 
     uint64_t tot_high_ab = 0;
     uint64_t tot_mid_ab = 0;
@@ -231,39 +237,79 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.unique_strobemers = unique_mers;
 }
 
-void StrobemerIndex::add_randstrobes_to_vector() {
+void StrobemerIndex::assign_all_randstrobes(const std::vector<uint64_t>& randstrobe_counts) {
+    size_t offset = 0;
     for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
-        auto seq = references.sequences[ref_index];
-        if (seq.length() < parameters.randstrobe.w_max) {
-            continue;
-        }
-        RandstrobeGenerator randstrobe_iter{seq, parameters.syncmer, parameters.randstrobe};
-        std::vector<Randstrobe> chunk;
-        // TODO
-        // Chunking makes this function faster, but the speedup is achieved even
-        // with a chunk size of 1.
-        const size_t chunk_size = 4;
-        chunk.reserve(chunk_size);
-        bool end = false;
-        while (!end) {
-            // fill chunk
-            Randstrobe randstrobe;
-            while (chunk.size() < chunk_size) {
-                randstrobe = randstrobe_iter.next();
-                if (randstrobe == randstrobe_iter.end()) {
-                    end = true;
-                    break;
-                }
-                chunk.push_back(randstrobe);
+        assign_randstrobes(ref_index, offset);
+        offset += randstrobe_counts[ref_index];
+    }
+}
+
+void StrobemerIndex::assign_all_randstrobes_parallel(const std::vector<uint64_t>& randstrobe_counts, size_t n_threads) {
+    // Compute offsets
+    std::vector<size_t> offsets;
+    size_t offset = 0;
+    for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
+        offsets.push_back(offset);
+        offset += randstrobe_counts[ref_index];
+    }
+
+    std::vector<std::thread> workers;
+    std::atomic_size_t ref_index{0};
+    for (size_t i = 0; i < n_threads; ++i) {
+        workers.push_back(
+            std::thread(
+                [&]() {
+                    while (true) {
+                        size_t j = ref_index.fetch_add(1);
+                        if (j >= references.size()) {
+                            break;
+                        }
+                        assign_randstrobes(j, offsets[j]);
+                    }
+                })
+        );
+    }
+    for (auto& worker : workers) {
+        worker.join();
+    }
+}
+
+/*
+ * Compute randstrobes of one reference and assign them to the randstrobes
+ * vector starting from the given offset
+ */
+void StrobemerIndex::assign_randstrobes(size_t ref_index, size_t offset) {
+    auto seq = references.sequences[ref_index];
+    if (seq.length() < parameters.randstrobe.w_max) {
+        return;
+    }
+    RandstrobeGenerator randstrobe_iter{seq, parameters.syncmer, parameters.randstrobe};
+    std::vector<Randstrobe> chunk;
+    // TODO
+    // Chunking makes this function faster, but the speedup is achieved even
+    // with a chunk size of 1.
+    const size_t chunk_size = 4;
+    chunk.reserve(chunk_size);
+    bool end = false;
+    while (!end) {
+        // fill chunk
+        Randstrobe randstrobe;
+        while (chunk.size() < chunk_size) {
+            randstrobe = randstrobe_iter.next();
+            if (randstrobe == randstrobe_iter.end()) {
+                end = true;
+                break;
             }
-            stats.tot_strobemer_count += chunk.size();
-            for (auto randstrobe : chunk) {
-                RefRandstrobe::packed_t packed = ref_index << 8;
-                packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
-                randstrobes.emplace_back(randstrobe.hash, randstrobe.strobe1_pos, packed);
-            }
-            chunk.clear();
+            chunk.push_back(randstrobe);
         }
+        stats.tot_strobemer_count += chunk.size();
+        for (auto randstrobe : chunk) {
+            RefRandstrobe::packed_t packed = ref_index << 8;
+            packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
+            randstrobes[offset++] = RefRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, packed};
+        }
+        chunk.clear();
     }
 }
 
