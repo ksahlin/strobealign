@@ -103,7 +103,7 @@ void Sam::add(
     const Alignment& sam_aln,
     const KSeq& record,
     const std::string& sequence_rc,
-    bool is_secondary,
+    bool is_primary,
     const Details& details
 ) {
     assert(!sam_aln.is_unaligned);
@@ -111,7 +111,7 @@ void Sam::add(
     if (!sam_aln.is_unaligned && sam_aln.is_rc) {
         flags |= REVERSE;
     }
-    if (is_secondary) {
+    if (!is_primary) {
         flags |= SECONDARY;
     }
     add_record(record.name, flags, references.names[sam_aln.ref_id], sam_aln.ref_start, sam_aln.mapq, sam_aln.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, sam_aln.ed, sam_aln.aln_score);

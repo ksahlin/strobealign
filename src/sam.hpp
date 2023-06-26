@@ -71,7 +71,7 @@ public:
         }
 
     /* Add an alignment */
-    void add(const Alignment& sam_aln, const klibpp::KSeq& record, const std::string& sequence_rc, bool is_secondary, const Details& details);
+    void add(const Alignment& sam_aln, const klibpp::KSeq& record, const std::string& sequence_rc, bool is_primary, const Details& details);
     void add_pair(const Alignment& sam_aln1, const Alignment& sam_aln2, const klibpp::KSeq& record1, const klibpp::KSeq& record2, const std::string& read1_rc, const std::string& read2_rc, int mapq1, int mapq2, bool is_proper, bool is_primary, const Details& details);
     void add_unmapped(const klibpp::KSeq& record, int flags = UNMAP);
     void add_unmapped_pair(const klibpp::KSeq& r1, const klibpp::KSeq& r2);

@@ -132,7 +132,7 @@ static inline void align_SE(
 
     if (max_secondary == 0) {
         best_sam_aln.mapq = std::min(min_mapq_diff, 60);
-        sam.add(best_sam_aln, record, read.rc, false, details);
+        sam.add(best_sam_aln, record, read.rc, true, details);
         return;
     }
     // Sort alignments by score, highest first
@@ -143,19 +143,19 @@ static inline void align_SE(
     );
 
     auto max_out = std::min(alignments.size(), static_cast<size_t>(max_secondary) + 1);
-    bool is_secondary = false;
+    bool is_primary{true};
     for (size_t i = 0; i < max_out; ++i) {
         auto sam_aln = alignments[i];
         if ((sam_aln.sw_score - best_align_sw_score) > (2*aligner.parameters.mismatch + aligner.parameters.gap_open) ){
             break;
         }
-        if (is_secondary) {
+        if (!is_primary) {
             sam_aln.mapq = 255;
         } else {
             sam_aln.mapq = std::min(min_mapq_diff, 60);
         }
-        sam.add(sam_aln, record, read.rc, is_secondary, details);
-        is_secondary = true;
+        sam.add(sam_aln, record, read.rc, is_primary, details);
+        is_primary = false;
     }
 }
 
