@@ -312,7 +312,7 @@ int run_strobealign(int argc, char **argv) {
 
     logger.info() << "Total mapping sites tried: " << tot_statistics.tot_all_tried << std::endl
         << "Total calls to ssw: " << tot_statistics.tot_aligner_calls << std::endl
-        << "Inconsistent NAM ends: " << tot_statistics.inconsistent_nam << std::endl
+        << "Inconsistent NAM ends: " << tot_statistics.inconsistent_nams << std::endl
         << "Tried NAM rescue: " << tot_statistics.nam_rescue << std::endl
         << "Mates rescued by alignment: " << tot_statistics.tot_rescued << std::endl
         << "Total time mapping: " << map_align_timer.elapsed() << " s." << std::endl

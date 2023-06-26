@@ -48,6 +48,7 @@ struct Details {
     uint64_t nams{0};  // No. of NAMs found
     uint64_t mate_rescue{false}; // No. of times rescue by local alignment was attempted
     uint64_t tried_alignment{0}; // No. of computed alignments (get_alignment or rescue_mate)
+    uint64_t nam_inconsistent{0};
 };
 
 class Sam {

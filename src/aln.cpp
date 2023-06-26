@@ -76,7 +76,6 @@ static inline void align_SE(
     const KSeq& record,
     int k,
     const References& references,
-    AlignmentStatistics &statistics,
     Details& details,
     float dropoff,
     int max_tries,
@@ -107,9 +106,7 @@ static inline void align_SE(
             break;
         }
         bool consistent_nam = reverse_nam_if_needed(n, read, references, k);
-        if (!consistent_nam) {
-            statistics.inconsistent_nam++;
-        }
+        details.nam_inconsistent += !consistent_nam;
         auto sam_aln = get_alignment(aligner, n, references, read, consistent_nam);
         details.tried_alignment++;
 
@@ -809,7 +806,6 @@ void rescue_read(
     std::vector<Nam> &all_nams1,
     int max_tries,
     float dropoff,
-    AlignmentStatistics &statistics,
     std::array<Details, 2>& details,
     int k,
     float mu,
@@ -835,9 +831,7 @@ void rescue_read(
         //////// the actual testing of base pair alignment part start
 
         const bool consistent_nam = reverse_nam_if_needed(n, read1, references, k);
-        if (!consistent_nam) {
-            statistics.inconsistent_nam++;
-        }
+        details[0].nam_inconsistent += !consistent_nam;
         alignments1.emplace_back(get_alignment(aligner, n, references, read1, consistent_nam));
         details[0].tried_alignment++;
 
@@ -956,7 +950,6 @@ inline void align_PE(
     const KSeq &record2,
     int k,
     const References& references,
-    AlignmentStatistics &statistics,
     std::array<Details, 2>& details,
     float dropoff,
     i_dist_est &isize_est,
@@ -985,7 +978,6 @@ inline void align_PE(
             all_nams1,
             max_tries,
             dropoff,
-            statistics,
             details,
             k,
             mu,
@@ -1010,7 +1002,6 @@ inline void align_PE(
             all_nams2,
             max_tries,
             dropoff,
-            statistics,
             details,
             k,
             mu,
@@ -1046,13 +1037,9 @@ inline void align_PE(
     if (score_dropoff1 < dropoff && score_dropoff2 < dropoff && (n_max1.is_rc ^ n_max2.is_rc) && (r1_r2 || r2_r1)) { //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
 
         bool consistent_nam1 = reverse_nam_if_needed(n_max1, read1, references, k);
-        if (!consistent_nam1) {
-            statistics.inconsistent_nam++;
-        }
+        details[0].nam_inconsistent += !consistent_nam1;
         bool consistent_nam2 = reverse_nam_if_needed(n_max2, read2, references, k);
-        if (!consistent_nam2) {
-            statistics.inconsistent_nam++;
-        }
+        details[1].nam_inconsistent += !consistent_nam2;
 
         auto sam_aln1 = get_alignment(aligner, n_max1, references, read1, consistent_nam1);
         details[0].tried_alignment++;
@@ -1084,9 +1071,7 @@ inline void align_PE(
     auto n1_max = all_nams1[0];
 
     bool consistent_nam1 = reverse_nam_if_needed(n1_max, read1, references, k);
-    if (!consistent_nam1) {
-        statistics.inconsistent_nam++;
-    }
+    details[0].nam_inconsistent += !consistent_nam1;
     auto a1_indv_max = get_alignment(aligner, n1_max, references, read1,
                                      consistent_nam1);
 //            a1_indv_max.sw_score = -10000;
@@ -1094,9 +1079,7 @@ inline void align_PE(
     details[0].tried_alignment++;
     auto n2_max = all_nams2[0];
     bool consistent_nam2 = reverse_nam_if_needed(n2_max, read2, references, k);
-    if (!consistent_nam2) {
-        statistics.inconsistent_nam++;
-    }
+    details[1].nam_inconsistent += !consistent_nam2;
     auto a2_indv_max = get_alignment(aligner, n2_max, references, read2,
                                      consistent_nam2);
 //            a2_indv_max.sw_score = -10000;
@@ -1125,9 +1108,7 @@ inline void align_PE(
                 a1 = is_aligned1[n1.nam_id];
             } else {
                 bool consistent_nam = reverse_nam_if_needed(n1, read1, references, k);
-                if (!consistent_nam) {
-                    statistics.inconsistent_nam++;
-                }
+                details[0].nam_inconsistent += !consistent_nam;
                 a1 = get_alignment(aligner, n1, references, read1, consistent_nam);
                 is_aligned1[n1.nam_id] = a1;
                 details[0].tried_alignment++;
@@ -1152,9 +1133,7 @@ inline void align_PE(
                 a2 = is_aligned2[n2.nam_id];
             } else {
                 bool consistent_nam = reverse_nam_if_needed(n2, read2, references, k);
-                if (!consistent_nam) {
-                    statistics.inconsistent_nam++;
-                }
+                details[1].nam_inconsistent += !consistent_nam;
                 a2 = get_alignment(aligner, n2, references, read2, consistent_nam);
                 is_aligned2[n2.nam_id] = a2;
                 details[1].tried_alignment++;
@@ -1400,8 +1379,7 @@ void align_PE_read(
         align_PE(aligner, sam, nams1, nams2, record1,
                  record2,
                  index_parameters.syncmer.k,
-                 references, statistics,
-                 details,
+                 references, details,
                  map_param.dropoff_threshold, isize_est, map_param.maxTries, map_param.max_secondary);
     }
     statistics.tot_extend += extend_timer.duration();
@@ -1452,7 +1430,7 @@ void align_SE_read(
     } else {
         align_SE(
             aligner, sam, nams, record, index_parameters.syncmer.k,
-            references, statistics, details, map_param.dropoff_threshold, map_param.maxTries,
+            references, details, map_param.dropoff_threshold, map_param.maxTries,
             map_param.max_secondary
         );
     }
