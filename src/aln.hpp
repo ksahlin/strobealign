@@ -46,7 +46,7 @@ struct AlignmentStatistics {
     }
 
     AlignmentStatistics operator+=(const Details& details) {
-        this->tried_rescue += details.rescue1 + details.rescue2;
+        this->tried_rescue += details.rescue;
 
         return *this;
     }
@@ -62,6 +62,7 @@ struct mapping_params {
     bool is_sam_out { true };
     CigarOps cigar_ops{CigarOps::M};
     bool output_unmapped { true };
+    bool details{false};
 };
 
 class i_dist_est {

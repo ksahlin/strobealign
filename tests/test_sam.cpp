@@ -109,7 +109,7 @@ TEST_CASE("Pair with one unmapped SAM record") {
     int mapq2 = 57;
     bool is_proper = false;
     bool is_primary = true;
-    Details details;
+    std::array<Details, 2> details;
 
     sam.add_pair(
         aln1,
@@ -171,7 +171,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     int mapq2 = 57;
     bool is_proper = false;
     bool is_primary = true;
-    Details details;
+    std::array<Details, 2> details;
 
     Sam sam(sam_string, references);
 

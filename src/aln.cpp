@@ -811,7 +811,7 @@ void rescue_read(
     int max_tries,
     float dropoff,
     AlignmentStatistics &statistics,
-    Details& details,
+    std::array<Details, 2>& details,
     int k,
     float mu,
     float sigma,
@@ -899,7 +899,8 @@ void rescue_read(
             if (s_max - s_score < secondary_dropoff) {
                 if (swap_r1r2) {
                     bool is_proper = is_proper_pair(sam_aln2, sam_aln1, mu, sigma);
-                    sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper, is_primary, details);
+                    std::array<Details, 2> swapped_details{details[1], details[0]};
+                    sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper, is_primary, swapped_details);
                 } else {
                     bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
                     sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary, details);
@@ -960,7 +961,7 @@ inline void align_PE(
     int k,
     const References& references,
     AlignmentStatistics &statistics,
-    Details& details,
+    std::array<Details, 2>& details,
     float dropoff,
     i_dist_est &isize_est,
     int max_tries,
@@ -1361,7 +1362,7 @@ void align_PE_read(
     const References& references,
     const StrobemerIndex& index
 ) {
-    Details details;
+    std::array<Details, 2> details;
 
     Timer strobe_timer;
     auto query_randstrobes1 = randstrobes_query(record1.seq, index_parameters);
@@ -1377,17 +1378,17 @@ void align_PE_read(
         Timer rescue_timer;
         if (nams1.empty() || nonrepetitive_fraction1 < 0.7) {
             nams1 = find_nams_rescue(query_randstrobes1, index, map_param.rescue_cutoff);
-            details.rescue1 = true;
+            details[0].rescue = true;
         }
 
         if (nams2.empty() || nonrepetitive_fraction2 < 0.7) {
             nams2 = find_nams_rescue(query_randstrobes2, index, map_param.rescue_cutoff);
-            details.rescue2 = true;
+            details[1].rescue = true;
         }
         statistics.tot_time_rescue += rescue_timer.duration();
     }
-    details.nams1 = nams1.size();
-    details.nams2 = nams2.size();
+    details[0].nams = nams1.size();
+    details[1].nams = nams2.size();
 
     Timer nam_sort_timer;
     std::sort(nams1.begin(), nams1.end(), score);
@@ -1418,7 +1419,8 @@ void align_PE_read(
                  map_param.dropoff_threshold, isize_est, map_param.maxTries, map_param.max_secondary);
     }
     statistics.tot_extend += extend_timer.duration();
-    statistics += details;
+    statistics += details[0];
+    statistics += details[1];
 }
 
 
@@ -1446,12 +1448,13 @@ void align_SE_read(
     if (map_param.R > 1) {
         Timer rescue_timer;
         if (nams.empty() || nonrepetitive_fraction < 0.7) {
-            details.rescue1 = true;
+            details.rescue = true;
             nams = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff);
         }
         statistics.tot_time_rescue += rescue_timer.duration();
     }
 
+    details.nams = nams.size();
     Timer nam_sort_timer;
     std::sort(nams.begin(), nams.end(), score);
     statistics.tot_sort_nams += nam_sort_timer.duration();

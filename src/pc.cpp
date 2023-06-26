@@ -159,7 +159,7 @@ void perform_task(
 
         std::string sam_out;
         sam_out.reserve(7*map_param.r * (records1.size() + records3.size()));
-        Sam sam{sam_out, references, map_param.cigar_ops, read_group_id, map_param.output_unmapped};
+        Sam sam{sam_out, references, map_param.cigar_ops, read_group_id, map_param.output_unmapped, map_param.details};
         i_dist_est isize_est;
         for (size_t i = 0; i < records1.size(); ++i) {
             auto record1 = records1[i];

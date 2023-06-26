@@ -1,6 +1,7 @@
 #include "sam.hpp"
 #include <algorithm>
 #include <ostream>
+#include <sstream>
 
 #define SAM_UNMAPPED_MAPQ 0
 #define SAM_UNMAPPED_MAPQ_STRING "0"
@@ -38,8 +39,15 @@ std::string strip_suffix(const std::string& name) {
     }
 }
 
-void Sam::append_tail() {
+void Sam::append_rg_and_newline() {
     sam_string.append(tail);
+}
+
+void Sam::append_details(const Details& details) {
+    std::stringstream s;
+    s << "\tna:i:" << details.nams;
+    s << "\tre:i:" << details.rescue;
+    sam_string.append(s.str());
 }
 
 std::string Sam::cigar_string(const Cigar& cigar) const {
@@ -68,7 +76,7 @@ void Sam::add_unmapped(const KSeq& record, int flags) {
     sam_string.append("\t*\t0\t" SAM_UNMAPPED_MAPQ_STRING "\t*\t*\t0\t0\t");
     sam_string.append(record.seq);
     append_qual(record.qual);
-    append_tail();
+    append_rg_and_newline();
 }
 
 void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& mate_reference_name, int mate_pos) {
@@ -90,7 +98,7 @@ void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& ma
     sam_string.append("\t0\t");
     sam_string.append(record.seq);
     append_qual(record.qual);
-    append_tail();
+    append_rg_and_newline();
 }
 
 void Sam::add_unmapped_pair(const KSeq& r1, const KSeq& r2) {
@@ -114,7 +122,7 @@ void Sam::add(
     if (!is_primary) {
         flags |= SECONDARY;
     }
-    add_record(record.name, flags, references.names[sam_aln.ref_id], sam_aln.ref_start, sam_aln.mapq, sam_aln.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, sam_aln.ed, sam_aln.aln_score);
+    add_record(record.name, flags, references.names[sam_aln.ref_id], sam_aln.ref_start, sam_aln.mapq, sam_aln.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, sam_aln.ed, sam_aln.aln_score, details);
 }
 
 // Add one individual record
@@ -132,7 +140,8 @@ void Sam::add_record(
     const std::string& query_sequence_rc,
     const std::string& qual,
     int ed,
-    int aln_score
+    int aln_score,
+    const Details& details
 ) {
     sam_string.append(strip_suffix(query_name));
     sam_string.append("\t");
@@ -181,7 +190,11 @@ void Sam::add_record(
     } else {
         append_qual(qual);
     }
-    append_tail();
+
+    if (show_details) {
+        append_details(details);
+    }
+    append_rg_and_newline();
 }
 
 void Sam::add_pair(
@@ -195,7 +208,7 @@ void Sam::add_pair(
     int mapq2,
     bool is_proper,
     bool is_primary,
-    const Details& details
+    const std::array<Details, 2>& details
 ) {
     int f1 = PAIRED | READ1;
     int f2 = PAIRED | READ2;
@@ -275,12 +288,12 @@ void Sam::add_pair(
     if (sam_aln1.is_unaligned) {
         add_unmapped_mate(record1, f1, reference_name2, pos2);
     } else {
-        add_record(record1.name, f1, reference_name1, sam_aln1.ref_start, mapq1, sam_aln1.cigar, mate_reference_name2, pos2, template_len1, record1.seq, read1_rc, record1.qual, edit_distance1, sam_aln1.aln_score);
+        add_record(record1.name, f1, reference_name1, sam_aln1.ref_start, mapq1, sam_aln1.cigar, mate_reference_name2, pos2, template_len1, record1.seq, read1_rc, record1.qual, edit_distance1, sam_aln1.aln_score, details[0]);
     }
     if (sam_aln2.is_unaligned) {
         add_unmapped_mate(record2, f2, reference_name1, pos1);
     } else {
-        add_record(record2.name, f2, reference_name2, sam_aln2.ref_start, mapq2, sam_aln2.cigar, mate_reference_name1, pos1, -template_len1, record2.seq, read2_rc, record2.qual, edit_distance2, sam_aln2.aln_score);
+        add_record(record2.name, f2, reference_name2, sam_aln2.ref_start, mapq2, sam_aln2.cigar, mate_reference_name1, pos1, -template_len1, record2.seq, read2_rc, record2.qual, edit_distance2, sam_aln2.aln_score, details[1]);
     }
 }
 

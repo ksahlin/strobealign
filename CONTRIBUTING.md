@@ -65,3 +65,11 @@ style guide, but new code should follow it.
   should be `ClassName`, `variable_name`, `method_name`, `CONSTANT`.
 * The header guard of a file named `xyz.hpp` should be named
   `STROBEALIGN_XYZ_HPP`.
+
+## Detailed SAM output (`--details`)
+
+When `--details` is provided, the following additional SAM tags are output for
+mapped reads.
+
+`na`: Number of NAMs found
+`re`: 0 or 1 indicating whether NAM rescue was done
