@@ -41,6 +41,14 @@ enum struct CigarOps {
     M = 1,    // use M CIGAR operations
 };
 
+/* Details about aligning a single or paired-end read */
+struct Details {
+    bool rescue1{false}; // find_nams_rescue() was needed for R1
+    bool rescue2{false}; // find_nams_rescue() was needed for R2
+    uint64_t nams1{0};  // No. of NAMs found for R1
+    uint64_t nams2{0};  // No. of NAMs found for R2
+};
+
 class Sam {
 
 public:
@@ -63,14 +71,14 @@ public:
         }
 
     /* Add an alignment */
-    void add(const Alignment& sam_aln, const klibpp::KSeq& record, const std::string& sequence_rc, bool is_secondary = false);
-    void add_pair(const Alignment& sam_aln1, const Alignment& sam_aln2, const klibpp::KSeq& record1, const klibpp::KSeq& record2, const std::string& read1_rc, const std::string& read2_rc, int mapq1, int mapq2, bool is_proper, bool is_primary);
+    void add(const Alignment& sam_aln, const klibpp::KSeq& record, const std::string& sequence_rc, bool is_secondary, const Details& details);
+    void add_pair(const Alignment& sam_aln1, const Alignment& sam_aln2, const klibpp::KSeq& record1, const klibpp::KSeq& record2, const std::string& read1_rc, const std::string& read2_rc, int mapq1, int mapq2, bool is_proper, bool is_primary, const Details& details);
     void add_unmapped(const klibpp::KSeq& record, int flags = UNMAP);
     void add_unmapped_pair(const klibpp::KSeq& r1, const klibpp::KSeq& r2);
     void add_unmapped_mate(const klibpp::KSeq& record, int flags, const std::string& mate_reference_name, int mate_pos);
-    void add_record(const std::string& query_name, int flags, const std::string& reference_name, int pos, int mapq, const Cigar& cigar, const std::string& mate_reference_name, int mate_pos, int template_len, const std::string& query_sequence, const std::string& query_sequence_rc, const std::string& qual, int ed, int aln_score);
 
 private:
+    void add_record(const std::string& query_name, int flags, const std::string& reference_name, int pos, int mapq, const Cigar& cigar, const std::string& mate_reference_name, int mate_pos, int template_len, const std::string& query_sequence, const std::string& query_sequence_rc, const std::string& qual, int ed, int aln_score);
     void append_tail();
     void append_qual(const std::string& qual) {
         sam_string.append("\t");

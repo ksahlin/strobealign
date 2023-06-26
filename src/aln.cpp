@@ -11,6 +11,7 @@
 
 using namespace klibpp;
 
+
 static inline Alignment get_alignment(
     const Aligner& aligner,
     const Nam &n,
@@ -76,6 +77,7 @@ static inline void align_SE(
     int k,
     const References& references,
     AlignmentStatistics &statistics,
+    Details& details,
     float dropoff,
     int max_tries,
     unsigned max_secondary
@@ -130,7 +132,7 @@ static inline void align_SE(
 
     if (max_secondary == 0) {
         best_sam_aln.mapq = std::min(min_mapq_diff, 60);
-        sam.add(best_sam_aln, record, read.rc);
+        sam.add(best_sam_aln, record, read.rc, false, details);
         return;
     }
     // Sort alignments by score, highest first
@@ -152,7 +154,7 @@ static inline void align_SE(
         } else {
             sam_aln.mapq = std::min(min_mapq_diff, 60);
         }
-        sam.add(sam_aln, record, read.rc, is_secondary);
+        sam.add(sam_aln, record, read.rc, is_secondary, details);
         is_secondary = true;
     }
 }
@@ -809,6 +811,7 @@ void rescue_read(
     int max_tries,
     float dropoff,
     AlignmentStatistics &statistics,
+    Details& details,
     int k,
     float mu,
     float sigma,
@@ -869,14 +872,14 @@ void rescue_read(
     }
 
     // append both alignments to string here
-    if (max_secondary == 0){
+    if (max_secondary == 0) {
         auto best_aln_pair = high_scores[0];
         Alignment sam_aln1 = std::get<1>(best_aln_pair);
         Alignment sam_aln2 = std::get<2>(best_aln_pair);
         if (swap_r1r2) {
-            sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper_pair(sam_aln2, sam_aln1, mu, sigma), true);
+            sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper_pair(sam_aln2, sam_aln1, mu, sigma), true, details);
         } else {
-            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper_pair(sam_aln1, sam_aln2, mu, sigma), true);
+            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper_pair(sam_aln1, sam_aln2, mu, sigma), true, details);
         }
     } else {
         auto max_out = std::min(high_scores.size(), max_secondary);
@@ -896,10 +899,10 @@ void rescue_read(
             if (s_max - s_score < secondary_dropoff) {
                 if (swap_r1r2) {
                     bool is_proper = is_proper_pair(sam_aln2, sam_aln1, mu, sigma);
-                    sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper, is_primary);
+                    sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper, is_primary, details);
                 } else {
                     bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
-                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary);
+                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary, details);
                 }
             } else {
                 break;
@@ -957,6 +960,7 @@ inline void align_PE(
     int k,
     const References& references,
     AlignmentStatistics &statistics,
+    Details& details,
     float dropoff,
     i_dist_est &isize_est,
     int max_tries,
@@ -985,6 +989,7 @@ inline void align_PE(
             max_tries,
             dropoff,
             statistics,
+            details,
             k,
             mu,
             sigma,
@@ -1009,6 +1014,7 @@ inline void align_PE(
             max_tries,
             dropoff,
             statistics,
+            details,
             k,
             mu,
             sigma,
@@ -1058,7 +1064,7 @@ inline void align_PE(
         int mapq1 = get_MAPQ(all_nams1, n_max1);
         int mapq2 = get_MAPQ(all_nams2, n_max2);
         bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
-        sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, true);
+        sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, true, details);
 
         if ((isize_est.sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && is_proper) {
             isize_est.update(std::abs(sam_aln1.ref_start - sam_aln2.ref_start));
@@ -1230,7 +1236,7 @@ inline void align_PE(
     if (max_secondary == 0) {
         bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
         sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc,
-                        mapq1, mapq2, is_proper, true);
+                        mapq1, mapq2, is_proper, true, details);
     } else {
         int max_out = std::min(high_scores.size(), max_secondary);
         // remove eventual duplicates - comes from, e.g., adding individual best alignments above (if identical to joint best alignment)
@@ -1259,7 +1265,7 @@ inline void align_PE(
             if (s_max - s_score < secondary_dropoff) {
                 bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
                 sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc,
-                                mapq1, mapq2, is_proper, is_primary);
+                                mapq1, mapq2, is_proper, is_primary, details);
             } else {
                 break;
             }
@@ -1355,6 +1361,8 @@ void align_PE_read(
     const References& references,
     const StrobemerIndex& index
 ) {
+    Details details;
+
     Timer strobe_timer;
     auto query_randstrobes1 = randstrobes_query(record1.seq, index_parameters);
     auto query_randstrobes2 = randstrobes_query(record2.seq, index_parameters);
@@ -1368,16 +1376,18 @@ void align_PE_read(
     if (map_param.R > 1) {
         Timer rescue_timer;
         if (nams1.empty() || nonrepetitive_fraction1 < 0.7) {
-            statistics.tried_rescue += 1;
             nams1 = find_nams_rescue(query_randstrobes1, index, map_param.rescue_cutoff);
+            details.rescue1 = true;
         }
 
         if (nams2.empty() || nonrepetitive_fraction2 < 0.7) {
-            statistics.tried_rescue += 1;
             nams2 = find_nams_rescue(query_randstrobes2, index, map_param.rescue_cutoff);
+            details.rescue2 = true;
         }
         statistics.tot_time_rescue += rescue_timer.duration();
     }
+    details.nams1 = nams1.size();
+    details.nams2 = nams2.size();
 
     Timer nam_sort_timer;
     std::sort(nams1.begin(), nams1.end(), score);
@@ -1404,9 +1414,11 @@ void align_PE_read(
                  record2,
                  index_parameters.syncmer.k,
                  references, statistics,
+                 details,
                  map_param.dropoff_threshold, isize_est, map_param.maxTries, map_param.max_secondary);
     }
     statistics.tot_extend += extend_timer.duration();
+    statistics += details;
 }
 
 
@@ -1421,6 +1433,7 @@ void align_SE_read(
     const References& references,
     const StrobemerIndex& index
 ) {
+    Details details;
     Timer strobe_timer;
     auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
     statistics.tot_construct_strobemers += strobe_timer.duration();
@@ -1433,7 +1446,7 @@ void align_SE_read(
     if (map_param.R > 1) {
         Timer rescue_timer;
         if (nams.empty() || nonrepetitive_fraction < 0.7) {
-            statistics.tried_rescue += 1;
+            details.rescue1 = true;
             nams = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff);
         }
         statistics.tot_time_rescue += rescue_timer.duration();
@@ -1450,9 +1463,10 @@ void align_SE_read(
     } else {
         align_SE(
             aligner, sam, nams, record, index_parameters.syncmer.k,
-            references, statistics, map_param.dropoff_threshold, map_param.maxTries,
+            references, statistics, details, map_param.dropoff_threshold, map_param.maxTries,
             map_param.max_secondary
         );
     }
     statistics.tot_extend += extend_timer.duration();
+    statistics += details;
 }

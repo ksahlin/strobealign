@@ -103,7 +103,8 @@ void Sam::add(
     const Alignment& sam_aln,
     const KSeq& record,
     const std::string& sequence_rc,
-    bool is_secondary
+    bool is_secondary,
+    const Details& details
 ) {
     assert(!sam_aln.is_unaligned);
     int flags = 0;
@@ -193,7 +194,8 @@ void Sam::add_pair(
     int mapq1,
     int mapq2,
     bool is_proper,
-    bool is_primary
+    bool is_primary,
+    const Details& details
 ) {
     int f1 = PAIRED | READ1;
     int f2 = PAIRED | READ2;

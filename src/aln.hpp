@@ -9,6 +9,7 @@
 #include "sam.hpp"
 #include "aligner.hpp"
 
+
 struct AlignmentStatistics {
     std::chrono::duration<double> tot_read_file{0};
     std::chrono::duration<double> tot_construct_strobemers{0};
@@ -19,12 +20,12 @@ struct AlignmentStatistics {
     std::chrono::duration<double> tot_extend{0};
     std::chrono::duration<double> tot_write_file{0};
 
-    uint64_t n_reads = 0;
-    uint64_t tot_aligner_calls = 0;
-    uint64_t tot_rescued = 0;
-    uint64_t tot_all_tried = 0;
-    uint64_t did_not_fit = 0;
-    uint64_t tried_rescue = 0;
+    uint64_t n_reads{0};
+    uint64_t tot_aligner_calls{0};
+    uint64_t tot_rescued{0};
+    uint64_t tot_all_tried{0};
+    uint64_t did_not_fit{0};
+    uint64_t tried_rescue{0};
 
     AlignmentStatistics operator+=(const AlignmentStatistics& other) {
         this->tot_read_file += other.tot_read_file;
@@ -41,6 +42,12 @@ struct AlignmentStatistics {
         this->tot_all_tried += other.tot_all_tried;
         this->did_not_fit += other.did_not_fit;
         this->tried_rescue += other.tried_rescue;
+        return *this;
+    }
+
+    AlignmentStatistics operator+=(const Details& details) {
+        this->tried_rescue += details.rescue1 + details.rescue2;
+
         return *this;
     }
 };
