@@ -65,13 +65,12 @@ void distribute_interleaved(
     }
 }
 
-
-size_t InputBuffer::read_records(std::vector<klibpp::KSeq> &records1,
-        std::vector<klibpp::KSeq> &records2,
-        std::vector<klibpp::KSeq> &records3,
-        AlignmentStatistics &statistics,
-        int to_read) {
-    Timer timer;
+size_t InputBuffer::read_records(
+    std::vector<klibpp::KSeq> &records1,
+    std::vector<klibpp::KSeq> &records2,
+    std::vector<klibpp::KSeq> &records3,
+    int to_read
+) {
     records1.clear();
     records2.clear();
     records3.clear();
@@ -97,7 +96,6 @@ size_t InputBuffer::read_records(std::vector<klibpp::KSeq> &records1,
     }
 
     unique_lock.unlock();
-    statistics.tot_read_file += timer.duration();
 
     return current_chunk_index;
 }
@@ -149,7 +147,9 @@ void perform_task(
         std::vector<klibpp::KSeq> records1;
         std::vector<klibpp::KSeq> records2;
         std::vector<klibpp::KSeq> records3;
-        auto chunk_index = input_buffer.read_records(records1, records2, records3, statistics);
+        Timer timer;
+        auto chunk_index = input_buffer.read_records(records1, records2, records3);
+        statistics.tot_read_file += timer.duration();
         assert(records1.size() == records2.size());
         if (records1.empty()
                 && records3.empty()

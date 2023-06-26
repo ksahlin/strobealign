@@ -17,8 +17,7 @@ int estimate_read_length(InputBuffer& input_buffer) {
     std::vector<klibpp::KSeq> records1;
     std::vector<klibpp::KSeq> records2;
     std::vector<klibpp::KSeq> records3;
-    AlignmentStatistics stats;
-    input_buffer.read_records(records1, records2, records3, stats, 500);
+    input_buffer.read_records(records1, records2, records3, 500);
     if (records1.empty() && records3.empty()) {
         return 150;
     }

@@ -39,11 +39,12 @@ public:
     bool is_interleaved{false};
 
     void rewind_reset();
-    size_t read_records(std::vector<klibpp::KSeq> &records1,
-            std::vector<klibpp::KSeq> &records2,
-            std::vector<klibpp::KSeq> &records3,
-            AlignmentStatistics &statistics,
-            int read_count=-1);
+    size_t read_records(
+        std::vector<klibpp::KSeq> &records1,
+        std::vector<klibpp::KSeq> &records2,
+        std::vector<klibpp::KSeq> &records3,
+        int read_count=-1
+    );
 };
 
 
