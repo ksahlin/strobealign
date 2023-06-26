@@ -72,4 +72,5 @@ When `--details` is provided, the following additional SAM tags are output for
 mapped reads.
 
 `na`: Number of NAMs found
-`re`: 0 or 1 indicating whether NAM rescue was done
+`re`: If 1, NAM rescue was needed
+`mr`: If 1, alignment was found through mate rescue (local alignment for a mate to the expected region)

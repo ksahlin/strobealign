@@ -44,8 +44,9 @@ enum struct CigarOps {
 
 /* Details about aligning a single or paired-end read */
 struct Details {
-    bool rescue{false}; // find_nams_rescue() was needed
+    bool nam_rescue{false}; // find_nams_rescue() was needed
     uint64_t nams{0};  // No. of NAMs found
+    bool mate_rescue{false}; // Rescued by local alignment to the expected region close to its mate
 };
 
 class Sam {
@@ -85,8 +86,9 @@ private:
         sam_string.append("\t");
         sam_string.append(qual.empty() ? "*" : qual);
     }
-    void append_rg_and_newline();
     void append_details(const Details& details);
+    void append_paired_details(const Details& details);
+    void append_rg_and_newline();
 
     std::string cigar_string(const Cigar& cigar) const;
     std::string& sam_string;

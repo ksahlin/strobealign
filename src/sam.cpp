@@ -46,7 +46,13 @@ void Sam::append_rg_and_newline() {
 void Sam::append_details(const Details& details) {
     std::stringstream s;
     s << "\tna:i:" << details.nams;
-    s << "\tre:i:" << details.rescue;
+    s << "\tre:i:" << details.nam_rescue;
+    sam_string.append(s.str());
+}
+
+void Sam::append_paired_details(const Details& details) {
+    std::stringstream s;
+    s << "\tmr:i:" << details.mate_rescue;
     sam_string.append(s.str());
 }
 
@@ -193,6 +199,9 @@ void Sam::add_record(
 
     if (show_details) {
         append_details(details);
+        if (flags & PAIRED) {
+            append_paired_details(details);
+        }
     }
     append_rg_and_newline();
 }

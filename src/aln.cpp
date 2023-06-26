@@ -845,7 +845,10 @@ void rescue_read(
         //////// Force SW alignment to rescue mate /////////
         Alignment a2;
 //            std::cerr << query_acc2 << " force rescue" << std::endl;
-        statistics.tot_rescued += rescue_mate(aligner, n, references, read1, read2, a2, mu, sigma, k);
+        bool rescued = rescue_mate(aligner, n, references, read1, read2, a2, mu, sigma, k);
+        details[1].mate_rescue = rescued;
+        statistics.tot_rescued += rescued;
+
         alignments2.emplace_back(a2);
 
         tries++;
@@ -1138,7 +1141,9 @@ inline void align_PE(
         } else {
             //////// Force SW alignment to rescue mate /////////
 //                    std::cerr << query_acc2 << " RESCUE MATE 1" << a1.is_rc << " " n1.is_rc << std::endl;
-            statistics.tot_rescued += rescue_mate(aligner, n2, references, read2, read1, a1, mu, sigma, k);
+            bool rescued = rescue_mate(aligner, n2, references, read2, read1, a1, mu, sigma, k);
+            details[0].mate_rescue = rescued;
+            statistics.tot_rescued += rescued;
 //                    is_aligned1[n1.nam_id] = a1;
             statistics.tot_all_tried ++;
         }
@@ -1172,7 +1177,9 @@ inline void align_PE(
 //                    std::cerr << "RESCUE HERE2" << std::endl;
             //////// Force SW alignment to rescue mate /////////
 //                    std::cerr << query_acc1 << " RESCUE MATE 2" << a1.is_rc << " " n1.is_rc << std::endl;
-            statistics.tot_rescued += rescue_mate(aligner, n1, references, read1, read2, a2, mu, sigma, k);
+            bool rescued = rescue_mate(aligner, n1, references, read1, read2, a2, mu, sigma, k);
+            details[1].mate_rescue = rescued;
+            statistics.tot_rescued += rescued;
 //                    is_aligned2[n2.nam_id] = a2;
             statistics.tot_all_tried ++;
         }
@@ -1374,12 +1381,12 @@ void align_PE_read(
         Timer rescue_timer;
         if (nams1.empty() || nonrepetitive_fraction1 < 0.7) {
             nams1 = find_nams_rescue(query_randstrobes1, index, map_param.rescue_cutoff);
-            details[0].rescue = true;
+            details[0].nam_rescue = true;
         }
 
         if (nams2.empty() || nonrepetitive_fraction2 < 0.7) {
             nams2 = find_nams_rescue(query_randstrobes2, index, map_param.rescue_cutoff);
-            details[1].rescue = true;
+            details[1].nam_rescue = true;
         }
         statistics.tot_time_rescue += rescue_timer.duration();
     }
@@ -1444,7 +1451,7 @@ void align_SE_read(
     if (map_param.R > 1) {
         Timer rescue_timer;
         if (nams.empty() || nonrepetitive_fraction < 0.7) {
-            details.rescue = true;
+            details.nam_rescue = true;
             nams = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff);
         }
         statistics.tot_time_rescue += rescue_timer.duration();
