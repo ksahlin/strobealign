@@ -46,7 +46,8 @@ enum struct CigarOps {
 struct Details {
     bool nam_rescue{false}; // find_nams_rescue() was needed
     uint64_t nams{0};  // No. of NAMs found
-    bool mate_rescue{false}; // Rescued by local alignment to the expected region close to its mate
+    uint64_t mate_rescue{false}; // No. of times rescue by local alignment was attempted
+    uint64_t tried_alignment{0}; // No. of computed alignments (get_alignment or rescue_mate)
 };
 
 class Sam {

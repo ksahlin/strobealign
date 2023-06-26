@@ -46,7 +46,8 @@ void Sam::append_rg_and_newline() {
 void Sam::append_details(const Details& details) {
     std::stringstream s;
     s << "\tna:i:" << details.nams;
-    s << "\tre:i:" << details.nam_rescue;
+    s << "\tnr:i:" << details.nam_rescue;
+    s << "\tal:i:" << details.tried_alignment;
     sam_string.append(s.str());
 }
 

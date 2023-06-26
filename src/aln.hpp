@@ -47,6 +47,8 @@ struct AlignmentStatistics {
 
     AlignmentStatistics operator+=(const Details& details) {
         this->nam_rescue += details.nam_rescue;
+        this->tot_rescued += details.mate_rescue;
+        this->tot_all_tried += details.tried_alignment;
 
         return *this;
     }

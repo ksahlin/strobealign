@@ -106,12 +106,12 @@ static inline void align_SE(
         if (tries >= max_tries || best_align_dist == 0 || score_dropoff < dropoff) { // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
             break;
         }
-        statistics.tot_all_tried ++;
         bool consistent_nam = reverse_nam_if_needed(n, read, references, k);
         if (!consistent_nam) {
             statistics.inconsistent_nam++;
         }
         auto sam_aln = get_alignment(aligner, n, references, read, consistent_nam);
+        details.tried_alignment++;
 
         int diff_to_best = std::abs(best_align_sw_score - sam_aln.sw_score);
         min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
@@ -709,7 +709,7 @@ bool has_shared_substring(const std::string& read_seq, const std::string& ref_se
     return false;
 }
 
-/* Return whether rescued */
+/* Return true iff rescue by alignment was actually attempted */
 static inline bool rescue_mate(
     const Aligner& aligner,
     Nam &n,
@@ -792,7 +792,7 @@ static inline bool rescue_mate(
     sam_aln.ed = info.edit_distance;
     sam_aln.sw_score = info.sw_score;
     sam_aln.aln_score = sam_aln.sw_score;
-    sam_aln.ref_start =  ref_start + info.ref_start;
+    sam_aln.ref_start = ref_start + info.ref_start;
     sam_aln.is_rc = a_is_rc;
     sam_aln.ref_id = n.ref_id;
     sam_aln.is_unaligned = info.cigar.empty();
@@ -832,27 +832,21 @@ void rescue_read(
         if (tries >= max_tries || score_dropoff1 < dropoff) { // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
             break;
         }
-        //////// the actual testing of base pair alignment part start /////////
-//            std::cerr << query_acc1 << " force rescue"  << std::endl;
+        //////// the actual testing of base pair alignment part start
 
         const bool consistent_nam = reverse_nam_if_needed(n, read1, references, k);
         if (!consistent_nam) {
             statistics.inconsistent_nam++;
         }
-        Alignment a1 = get_alignment(aligner, n, references, read1, consistent_nam);
-        alignments1.emplace_back(a1);
+        alignments1.emplace_back(get_alignment(aligner, n, references, read1, consistent_nam));
+        details[0].tried_alignment++;
 
-        //////// Force SW alignment to rescue mate /////////
+        // Force SW alignment to rescue mate
         Alignment a2;
-//            std::cerr << query_acc2 << " force rescue" << std::endl;
-        bool rescued = rescue_mate(aligner, n, references, read1, read2, a2, mu, sigma, k);
-        details[1].mate_rescue = rescued;
-        statistics.tot_rescued += rescued;
-
+        details[1].mate_rescue += rescue_mate(aligner, n, references, read1, read2, a2, mu, sigma, k);
         alignments2.emplace_back(a2);
 
         tries++;
-        statistics.tot_all_tried ++;
     }
     std::sort(alignments1.begin(), alignments1.end(), score_sw);
     std::sort(alignments2.begin(), alignments2.end(), score_sw);
@@ -1061,9 +1055,9 @@ inline void align_PE(
         }
 
         auto sam_aln1 = get_alignment(aligner, n_max1, references, read1, consistent_nam1);
-        statistics.tot_all_tried ++;
+        details[0].tried_alignment++;
         auto sam_aln2 = get_alignment(aligner, n_max2, references, read2, consistent_nam2);
-        statistics.tot_all_tried ++;
+        details[1].tried_alignment++;
         int mapq1 = get_MAPQ(all_nams1, n_max1);
         int mapq2 = get_MAPQ(all_nams2, n_max2);
         bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
@@ -1097,7 +1091,7 @@ inline void align_PE(
                                      consistent_nam1);
 //            a1_indv_max.sw_score = -10000;
     is_aligned1[n1_max.nam_id] = a1_indv_max;
-    statistics.tot_all_tried ++;
+    details[0].tried_alignment++;
     auto n2_max = all_nams2[0];
     bool consistent_nam2 = reverse_nam_if_needed(n2_max, read2, references, k);
     if (!consistent_nam2) {
@@ -1107,7 +1101,7 @@ inline void align_PE(
                                      consistent_nam2);
 //            a2_indv_max.sw_score = -10000;
     is_aligned2[n2_max.nam_id] = a2_indv_max;
-    statistics.tot_all_tried ++;
+    details[1].tried_alignment++;
 
 //            int a, b;
     std::string r_tmp;
@@ -1136,18 +1130,13 @@ inline void align_PE(
                 }
                 a1 = get_alignment(aligner, n1, references, read1, consistent_nam);
                 is_aligned1[n1.nam_id] = a1;
-                statistics.tot_all_tried++;
+                details[0].tried_alignment++;
             }
         } else {
-            //////// Force SW alignment to rescue mate /////////
-//                    std::cerr << query_acc2 << " RESCUE MATE 1" << a1.is_rc << " " n1.is_rc << std::endl;
-            bool rescued = rescue_mate(aligner, n2, references, read2, read1, a1, mu, sigma, k);
-            details[0].mate_rescue = rescued;
-            statistics.tot_rescued += rescued;
-//                    is_aligned1[n1.nam_id] = a1;
-            statistics.tot_all_tried ++;
+            // Force SW alignment to rescue mate
+            details[0].mate_rescue += rescue_mate(aligner, n2, references, read2, read1, a1, mu, sigma, k);
+            details[0].tried_alignment++;
         }
-
 
 //                a1_indv_max = a1.sw_score >  a1_indv_max.sw_score ? a1 : a1_indv_max;
 //                min_ed = a1.ed < min_ed ? a1.ed : min_ed;
@@ -1158,30 +1147,24 @@ inline void align_PE(
         }
 
         Alignment a2;
-        if(n2.ref_s >= 0) {
+        if (n2.ref_s >= 0) {
             if (is_aligned2.find(n2.nam_id) != is_aligned2.end() ){
-//                    std::cerr << "Already aligned a2! " << std::endl;
                 a2 = is_aligned2[n2.nam_id];
             } else {
-//                    std::cerr << query_acc2 << std::endl;
                 bool consistent_nam = reverse_nam_if_needed(n2, read2, references, k);
                 if (!consistent_nam) {
                     statistics.inconsistent_nam++;
                 }
-                a2 = get_alignment(aligner, n2, references, read2,
-                                   consistent_nam);
+                a2 = get_alignment(aligner, n2, references, read2, consistent_nam);
                 is_aligned2[n2.nam_id] = a2;
-                statistics.tot_all_tried++;
+                details[1].tried_alignment++;
             }
         } else{
 //                    std::cerr << "RESCUE HERE2" << std::endl;
-            //////// Force SW alignment to rescue mate /////////
+            // Force SW alignment to rescue mate
 //                    std::cerr << query_acc1 << " RESCUE MATE 2" << a1.is_rc << " " n1.is_rc << std::endl;
-            bool rescued = rescue_mate(aligner, n1, references, read1, read2, a2, mu, sigma, k);
-            details[1].mate_rescue = rescued;
-            statistics.tot_rescued += rescued;
-//                    is_aligned2[n2.nam_id] = a2;
-            statistics.tot_all_tried ++;
+            details[1].mate_rescue += rescue_mate(aligner, n1, references, read1, read2, a2, mu, sigma, k);
+            details[1].tried_alignment++;
         }
 //                a2_indv_max = a2.sw_score >  a2_indv_max.sw_score ? a2 : a2_indv_max;
 //                min_ed = a2.ed < min_ed ? a2.ed : min_ed;
