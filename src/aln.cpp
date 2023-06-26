@@ -566,11 +566,15 @@ static inline bool sort_scores(const std::tuple<double, Alignment, Alignment> &a
     return std::get<0>(a) > std::get<0>(b);
 }
 
-static inline void get_best_scoring_pair(
-    const std::vector<Alignment> &aln_scores1, const std::vector<Alignment> &aln_scores2, std::vector<std::tuple<double,Alignment,Alignment>> &high_scores, float mu, float sigma
+static inline std::vector<std::tuple<double,Alignment,Alignment>> get_best_scoring_pairs(
+    const std::vector<Alignment> &alignments1,
+    const std::vector<Alignment> &alignments2,
+    float mu,
+    float sigma
 ) {
-    for (auto &a1 : aln_scores1) {
-        for (auto &a2 : aln_scores2) {
+    std::vector<std::tuple<double,Alignment,Alignment>> pairs;
+    for (auto &a1 : alignments1) {
+        for (auto &a2 : alignments2) {
             float dist = std::abs(a1.ref_start - a2.ref_start);
             double score = a1.sw_score + a2.sw_score;
             if ((a1.is_rc ^ a2.is_rc) && (dist < mu + 4 * sigma)) {
@@ -580,10 +584,12 @@ static inline void get_best_scoring_pair(
                 // 10 corresponds to a value of log(normal_pdf(dist, mu, sigma)) of more than 4 stddevs away
                 score -= 10;
             }
-            high_scores.emplace_back(std::make_tuple(score, a1, a2));
+            pairs.emplace_back(std::make_tuple(score, a1, a2));
         }
     }
-    std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
+    std::sort(pairs.begin(), pairs.end(), sort_scores); // Sorting by highest score first
+
+    return pairs;
 }
 
 static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_NAM_locations(
@@ -817,8 +823,8 @@ void rescue_read(
     Nam n_max1 = all_nams1[0];
     int tries = 0;
 
-    std::vector<Alignment> aln_scores1;
-    std::vector<Alignment> aln_scores2;
+    std::vector<Alignment> alignments1;
+    std::vector<Alignment> alignments2;
     for (auto& n : all_nams1) {
         score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
         if (tries >= max_tries || score_dropoff1 < dropoff) { // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
@@ -832,23 +838,22 @@ void rescue_read(
             statistics.did_not_fit++;
         }
         Alignment a1 = get_alignment(aligner, n, references, read1, fits);
-        aln_scores1.emplace_back(a1);
+        alignments1.emplace_back(a1);
 
         //////// Force SW alignment to rescue mate /////////
         Alignment a2;
 //            std::cerr << query_acc2 << " force rescue" << std::endl;
         rescue_mate(aligner, n, references, read1, read2, a2, mu, sigma, statistics.tot_rescued, k);
-        aln_scores2.emplace_back(a2);
+        alignments2.emplace_back(a2);
 
         tries++;
         statistics.tot_all_tried ++;
     }
-    std::sort(aln_scores1.begin(), aln_scores1.end(), score_sw);
-    std::sort(aln_scores2.begin(), aln_scores2.end(), score_sw);
+    std::sort(alignments1.begin(), alignments1.end(), score_sw);
+    std::sort(alignments2.begin(), alignments2.end(), score_sw);
 
     // Calculate best combined score here
-    std::vector<std::tuple<double,Alignment,Alignment>> high_scores; // (score, aln1, aln2)
-    get_best_scoring_pair(aln_scores1, aln_scores2, high_scores, mu, sigma );
+    auto high_scores = get_best_scoring_pairs(alignments1, alignments2, mu, sigma );
 
     // Calculate joint MAPQ score
     int mapq1, mapq2;
