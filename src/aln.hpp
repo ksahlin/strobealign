@@ -53,7 +53,7 @@ struct mapping_params {
     int maxTries { 20 };
     int rescue_cutoff;
     bool is_sam_out { true };
-    bool cigar_eqx { true };
+    CigarOps cigar_ops{CigarOps::M};
     bool output_unmapped { true };
 };
 

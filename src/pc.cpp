@@ -151,7 +151,6 @@ void perform_task(
         std::vector<klibpp::KSeq> records3;
         auto chunk_index = input_buffer.read_records(records1, records2, records3, statistics);
         assert(records1.size() == records2.size());
-        i_dist_est isize_est;
         if (records1.empty()
                 && records3.empty()
                 && input_buffer.finished_reading){
@@ -160,8 +159,8 @@ void perform_task(
 
         std::string sam_out;
         sam_out.reserve(7*map_param.r * (records1.size() + records3.size()));
-        CigarOps cigar_ops = map_param.cigar_eqx ? CigarOps::EQX : CigarOps::M;
-        Sam sam{sam_out, references, cigar_ops, read_group_id, map_param.output_unmapped};
+        Sam sam{sam_out, references, map_param.cigar_ops, read_group_id, map_param.output_unmapped};
+        i_dist_est isize_est;
         for (size_t i = 0; i < records1.size(); ++i) {
             auto record1 = records1[i];
             auto record2 = records2[i];
