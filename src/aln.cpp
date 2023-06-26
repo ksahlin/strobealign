@@ -710,7 +710,8 @@ bool has_shared_substring(const std::string& read_seq, const std::string& ref_se
     return false;
 }
 
-static inline void rescue_mate(
+/* Return whether rescued */
+static inline bool rescue_mate(
     const Aligner& aligner,
     Nam &n,
     const References& references,
@@ -719,10 +720,9 @@ static inline void rescue_mate(
     Alignment &sam_aln,
     float mu,
     float sigma,
-    uint64_t &tot_rescued,
     int k
 ) {
-    int a, b, ref_start,ref_len,ref_end;
+    int a, b;
     std::string r_tmp;
     bool a_is_rc;
     auto read_len = read.size();
@@ -740,9 +740,9 @@ static inline void rescue_mate(
         a_is_rc = true;
     }
 
-    ref_len = references.lengths[n.ref_id];
-    ref_start = std::max(0, std::min(a,ref_len));
-    ref_end = std::min(ref_len, std::max(0, b));
+    auto ref_len = static_cast<int>(references.lengths[n.ref_id]);
+    auto ref_start = std::max(0, std::min(a, ref_len));
+    auto ref_end = std::min(ref_len, std::max(0, b));
 
     if (ref_end < ref_start + k){
         sam_aln.cigar = Cigar();
@@ -754,7 +754,7 @@ static inline void rescue_mate(
         sam_aln.ref_id = n.ref_id;
         sam_aln.is_unaligned = true;
 //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
-        return;
+        return false;
     }
     std::string ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_end - ref_start);
 
@@ -768,7 +768,7 @@ static inline void rescue_mate(
         sam_aln.ref_id = n.ref_id;
         sam_aln.is_unaligned = true;
 //        std::cerr << "Avoided!" << std::endl;
-        return;
+        return false;
 //        std::cerr << "Aligning anyway at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
     }
     auto info = aligner.align(r_tmp, ref_segm);
@@ -798,7 +798,7 @@ static inline void rescue_mate(
     sam_aln.ref_id = n.ref_id;
     sam_aln.is_unaligned = info.cigar.empty();
     sam_aln.aln_length = info.ref_span();
-    tot_rescued ++;
+    return true;
 }
 
 
@@ -846,7 +846,7 @@ void rescue_read(
         //////// Force SW alignment to rescue mate /////////
         Alignment a2;
 //            std::cerr << query_acc2 << " force rescue" << std::endl;
-        rescue_mate(aligner, n, references, read1, read2, a2, mu, sigma, statistics.tot_rescued, k);
+        statistics.tot_rescued += rescue_mate(aligner, n, references, read1, read2, a2, mu, sigma, k);
         alignments2.emplace_back(a2);
 
         tries++;
@@ -1141,7 +1141,7 @@ inline void align_PE(
         } else {
             //////// Force SW alignment to rescue mate /////////
 //                    std::cerr << query_acc2 << " RESCUE MATE 1" << a1.is_rc << " " n1.is_rc << std::endl;
-            rescue_mate(aligner, n2, references, read2, read1, a1, mu, sigma, statistics.tot_rescued, k);
+            statistics.tot_rescued += rescue_mate(aligner, n2, references, read2, read1, a1, mu, sigma, k);
 //                    is_aligned1[n1.nam_id] = a1;
             statistics.tot_all_tried ++;
         }
@@ -1175,7 +1175,7 @@ inline void align_PE(
 //                    std::cerr << "RESCUE HERE2" << std::endl;
             //////// Force SW alignment to rescue mate /////////
 //                    std::cerr << query_acc1 << " RESCUE MATE 2" << a1.is_rc << " " n1.is_rc << std::endl;
-            rescue_mate(aligner, n1, references, read1, read2, a2, mu, sigma, statistics.tot_rescued, k);
+            statistics.tot_rescued += rescue_mate(aligner, n1, references, read1, read2, a2, mu, sigma, k);
 //                    is_aligned2[n2.nam_id] = a2;
             statistics.tot_all_tried ++;
         }
