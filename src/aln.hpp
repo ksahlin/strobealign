@@ -24,7 +24,7 @@ struct AlignmentStatistics {
     uint64_t tot_aligner_calls{0};
     uint64_t tot_rescued{0};
     uint64_t tot_all_tried{0};
-    uint64_t did_not_fit{0};
+    uint64_t inconsistent_nam{0};
     uint64_t tried_rescue{0};
 
     AlignmentStatistics operator+=(const AlignmentStatistics& other) {
@@ -40,7 +40,7 @@ struct AlignmentStatistics {
         this->tot_aligner_calls += other.tot_aligner_calls;
         this->tot_rescued += other.tot_rescued;
         this->tot_all_tried += other.tot_all_tried;
-        this->did_not_fit += other.did_not_fit;
+        this->inconsistent_nam += other.inconsistent_nam;
         this->tried_rescue += other.tried_rescue;
         return *this;
     }

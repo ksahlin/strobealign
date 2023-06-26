@@ -313,7 +313,7 @@ int run_strobealign(int argc, char **argv) {
     logger.info() << "Total mapping sites tried: " << tot_statistics.tot_all_tried << std::endl
         << "Total calls to ssw: " << tot_statistics.tot_aligner_calls << std::endl
         << "Calls to ksw (rescue mode): " << tot_statistics.tot_rescued << std::endl
-        << "Did not fit strobe start site: " << tot_statistics.did_not_fit << std::endl
+        << "Inconsistent NAM ends: " << tot_statistics.inconsistent_nam << std::endl
         << "Tried rescue: " << tot_statistics.tried_rescue << std::endl
         << "Total time mapping: " << map_align_timer.elapsed() << " s." << std::endl
         << "Total time reading read-file(s): " << tot_statistics.tot_read_file.count() / opt.n_threads << " s." << std::endl
