@@ -48,6 +48,7 @@ void Sam::append_details(const Details& details) {
     s << "\tna:i:" << details.nams;
     s << "\tnr:i:" << details.nam_rescue;
     s << "\tal:i:" << details.tried_alignment;
+    s << "\tga:i:" << details.gapped;
     sam_string.append(s.str());
 }
 

@@ -109,6 +109,7 @@ static inline void align_SE(
         details.nam_inconsistent += !consistent_nam;
         auto sam_aln = get_alignment(aligner, n, references, read, consistent_nam);
         details.tried_alignment++;
+        details.gapped += sam_aln.gapped;
 
         int diff_to_best = std::abs(best_align_sw_score - sam_aln.sw_score);
         min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
@@ -236,7 +237,7 @@ static inline Alignment get_alignment(
 
     aln_info info;
     int result_ref_start;
-    bool has_result = false;
+    bool gapped = true;
     if (projected_ref_end - projected_ref_start == query.size() && consistent_nam) {
         std::string ref_segm_ham = ref.substr(projected_ref_start, query.size());
         auto hamming_dist = hamming_distance(query, ref_segm_ham);
@@ -244,10 +245,10 @@ static inline Alignment get_alignment(
         if (hamming_dist >= 0 && (((float) hamming_dist / query.size()) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
             info = hamming_align(query, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
             result_ref_start = projected_ref_start + info.ref_start;
-            has_result = true;
+            gapped = false;
         }
     }
-    if (!has_result) {
+    if (gapped) {
         const int diff = std::abs(n.ref_span() - n.query_span());
         const int ext_left = std::min(50, projected_ref_start);
         const int ref_start = projected_ref_start - ext_left;
@@ -269,6 +270,8 @@ static inline Alignment get_alignment(
     sam_aln.is_rc = n.is_rc;
     sam_aln.is_unaligned = false;
     sam_aln.ref_id = n.ref_id;
+    sam_aln.gapped = gapped;
+
     return sam_aln;
 }
 
@@ -605,7 +608,6 @@ static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_NAM_location
     robin_hood::unordered_set<int> added_n2;
     int joint_hits;
     int hjss = 0; // highest joint score seen
-//            std::cerr << "Scoring" << std::endl;
     int a,b;
     for (auto &n1 : all_nams1) {
         for (auto &n2 : all_nams2) {
@@ -832,7 +834,9 @@ void rescue_read(
 
         const bool consistent_nam = reverse_nam_if_needed(n, read1, references, k);
         details[0].nam_inconsistent += !consistent_nam;
-        alignments1.emplace_back(get_alignment(aligner, n, references, read1, consistent_nam));
+        auto alignment = get_alignment(aligner, n, references, read1, consistent_nam);
+        details[0].gapped += alignment.gapped;
+        alignments1.emplace_back(alignment);
         details[0].tried_alignment++;
 
         // Force SW alignment to rescue mate
@@ -1043,8 +1047,10 @@ inline void align_PE(
 
         auto sam_aln1 = get_alignment(aligner, n_max1, references, read1, consistent_nam1);
         details[0].tried_alignment++;
+        details[0].gapped += sam_aln1.gapped;
         auto sam_aln2 = get_alignment(aligner, n_max2, references, read2, consistent_nam2);
         details[1].tried_alignment++;
+        details[1].gapped += sam_aln2.gapped;
         int mapq1 = get_MAPQ(all_nams1, n_max1);
         int mapq2 = get_MAPQ(all_nams2, n_max2);
         bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
@@ -1077,6 +1083,7 @@ inline void align_PE(
 //            a1_indv_max.sw_score = -10000;
     is_aligned1[n1_max.nam_id] = a1_indv_max;
     details[0].tried_alignment++;
+    details[0].gapped += a1_indv_max.gapped;
     auto n2_max = all_nams2[0];
     bool consistent_nam2 = reverse_nam_if_needed(n2_max, read2, references, k);
     details[1].nam_inconsistent += !consistent_nam2;
@@ -1085,6 +1092,7 @@ inline void align_PE(
 //            a2_indv_max.sw_score = -10000;
     is_aligned2[n2_max.nam_id] = a2_indv_max;
     details[1].tried_alignment++;
+    details[1].gapped += a2_indv_max.gapped;
 
 //            int a, b;
     std::string r_tmp;
@@ -1112,6 +1120,7 @@ inline void align_PE(
                 a1 = get_alignment(aligner, n1, references, read1, consistent_nam);
                 is_aligned1[n1.nam_id] = a1;
                 details[0].tried_alignment++;
+                details[0].gapped += a1.gapped;
             }
         } else {
             // Force SW alignment to rescue mate
@@ -1137,6 +1146,7 @@ inline void align_PE(
                 a2 = get_alignment(aligner, n2, references, read2, consistent_nam);
                 is_aligned2[n2.nam_id] = a2;
                 details[1].tried_alignment++;
+                details[1].gapped += a2.gapped;
             }
         } else{
 //                    std::cerr << "RESCUE HERE2" << std::endl;

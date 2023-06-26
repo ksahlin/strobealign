@@ -75,4 +75,5 @@ mapped reads.
 `nr`: Whether NAM rescue was needed (1 if yes, 0 if not)
 `mr`: Number of times mate rescue was attempted (local alignment of a mate to
   the expected region given its mate)
-`al`: Number of sites for which a full alignment was computed
+`al`: Number of times an attempt was made to extend a seed (by gapped or ungapped alignment)
+`ga`: Number of times an attempt was made to extend a seed by gapped alignment

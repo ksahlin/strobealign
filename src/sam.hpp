@@ -19,7 +19,10 @@ struct Alignment {
     int mapq;
     int aln_length;
     bool is_rc;
-    bool is_unaligned = false;
+    bool is_unaligned{false};
+    // Whether a gapped alignment function was used to obtain this alignment
+    // (even if true, the alignment can still be without gaps)
+    bool gapped{false};
 };
 
 enum SamFlags {
@@ -46,9 +49,10 @@ enum struct CigarOps {
 struct Details {
     bool nam_rescue{false}; // find_nams_rescue() was needed
     uint64_t nams{0};  // No. of NAMs found
+    uint64_t nam_inconsistent{0};
     uint64_t mate_rescue{false}; // No. of times rescue by local alignment was attempted
     uint64_t tried_alignment{0}; // No. of computed alignments (get_alignment or rescue_mate)
-    uint64_t nam_inconsistent{0};
+    uint64_t gapped{0};  // No. of gapped alignments computed (in get_alignment)
 };
 
 class Sam {
