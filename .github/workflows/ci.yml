@@ -34,6 +34,12 @@ jobs:
           cd build
           make -j3
           make install
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get install samtools
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install samtools
       - name: Run
         run: tests/run.sh
 

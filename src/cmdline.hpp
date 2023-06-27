@@ -13,6 +13,7 @@ struct CommandLineOptions {
     std::string output_file_name;
     bool write_to_stdout { true };
     bool verbose { false };
+    bool details{false};
     bool show_progress { true };
     bool cigar_eqx { false };
     std::string read_group_id { "" };

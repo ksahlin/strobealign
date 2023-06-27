@@ -65,13 +65,12 @@ void distribute_interleaved(
     }
 }
 
-
-size_t InputBuffer::read_records(std::vector<klibpp::KSeq> &records1,
-        std::vector<klibpp::KSeq> &records2,
-        std::vector<klibpp::KSeq> &records3,
-        AlignmentStatistics &statistics,
-        int to_read) {
-    Timer timer;
+size_t InputBuffer::read_records(
+    std::vector<klibpp::KSeq> &records1,
+    std::vector<klibpp::KSeq> &records2,
+    std::vector<klibpp::KSeq> &records3,
+    int to_read
+) {
     records1.clear();
     records2.clear();
     records3.clear();
@@ -97,7 +96,6 @@ size_t InputBuffer::read_records(std::vector<klibpp::KSeq> &records1,
     }
 
     unique_lock.unlock();
-    statistics.tot_read_file += timer.duration();
 
     return current_chunk_index;
 }
@@ -149,9 +147,10 @@ void perform_task(
         std::vector<klibpp::KSeq> records1;
         std::vector<klibpp::KSeq> records2;
         std::vector<klibpp::KSeq> records3;
-        auto chunk_index = input_buffer.read_records(records1, records2, records3, statistics);
+        Timer timer;
+        auto chunk_index = input_buffer.read_records(records1, records2, records3);
+        statistics.tot_read_file += timer.duration();
         assert(records1.size() == records2.size());
-        i_dist_est isize_est;
         if (records1.empty()
                 && records3.empty()
                 && input_buffer.finished_reading){
@@ -160,8 +159,8 @@ void perform_task(
 
         std::string sam_out;
         sam_out.reserve(7*map_param.r * (records1.size() + records3.size()));
-        CigarOps cigar_ops = map_param.cigar_eqx ? CigarOps::EQX : CigarOps::M;
-        Sam sam{sam_out, references, cigar_ops, read_group_id, map_param.output_unmapped};
+        Sam sam{sam_out, references, map_param.cigar_ops, read_group_id, map_param.output_unmapped, map_param.details};
+        i_dist_est isize_est;
         for (size_t i = 0; i < records1.size(); ++i) {
             auto record1 = records1[i];
             auto record2 = records2[i];

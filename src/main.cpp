@@ -175,8 +175,9 @@ int run_strobealign(int argc, char **argv) {
     map_param.R = opt.R;
     map_param.maxTries = opt.maxTries;
     map_param.is_sam_out = opt.is_sam_out;
-    map_param.cigar_eqx = opt.cigar_eqx;
+    map_param.cigar_ops = opt.cigar_eqx ? CigarOps::EQX : CigarOps::M;
     map_param.output_unmapped = opt.output_unmapped;
+    map_param.details = opt.details;
 
     log_parameters(index_parameters, map_param, aln_params);
     logger.debug() << "Threads: " << opt.n_threads << std::endl;
@@ -311,9 +312,9 @@ int run_strobealign(int argc, char **argv) {
 
     logger.info() << "Total mapping sites tried: " << tot_statistics.tot_all_tried << std::endl
         << "Total calls to ssw: " << tot_statistics.tot_aligner_calls << std::endl
-        << "Calls to ksw (rescue mode): " << tot_statistics.tot_rescued << std::endl
-        << "Did not fit strobe start site: " << tot_statistics.did_not_fit << std::endl
-        << "Tried rescue: " << tot_statistics.tried_rescue << std::endl
+        << "Inconsistent NAM ends: " << tot_statistics.inconsistent_nams << std::endl
+        << "Tried NAM rescue: " << tot_statistics.nam_rescue << std::endl
+        << "Mates rescued by alignment: " << tot_statistics.tot_rescued << std::endl
         << "Total time mapping: " << map_align_timer.elapsed() << " s." << std::endl
         << "Total time reading read-file(s): " << tot_statistics.tot_read_file.count() / opt.n_threads << " s." << std::endl
         << "Total time creating strobemers: " << tot_statistics.tot_construct_strobemers.count() / opt.n_threads << " s." << std::endl

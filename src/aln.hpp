@@ -9,6 +9,7 @@
 #include "sam.hpp"
 #include "aligner.hpp"
 
+
 struct AlignmentStatistics {
     std::chrono::duration<double> tot_read_file{0};
     std::chrono::duration<double> tot_construct_strobemers{0};
@@ -19,12 +20,12 @@ struct AlignmentStatistics {
     std::chrono::duration<double> tot_extend{0};
     std::chrono::duration<double> tot_write_file{0};
 
-    uint64_t n_reads = 0;
-    uint64_t tot_aligner_calls = 0;
-    uint64_t tot_rescued = 0;
-    uint64_t tot_all_tried = 0;
-    uint64_t did_not_fit = 0;
-    uint64_t tried_rescue = 0;
+    uint64_t n_reads{0};
+    uint64_t tot_aligner_calls{0};
+    uint64_t tot_rescued{0};
+    uint64_t tot_all_tried{0};
+    uint64_t inconsistent_nams{0};
+    uint64_t nam_rescue{0};
 
     AlignmentStatistics operator+=(const AlignmentStatistics& other) {
         this->tot_read_file += other.tot_read_file;
@@ -39,8 +40,17 @@ struct AlignmentStatistics {
         this->tot_aligner_calls += other.tot_aligner_calls;
         this->tot_rescued += other.tot_rescued;
         this->tot_all_tried += other.tot_all_tried;
-        this->did_not_fit += other.did_not_fit;
-        this->tried_rescue += other.tried_rescue;
+        this->inconsistent_nams += other.inconsistent_nams;
+        this->nam_rescue += other.nam_rescue;
+        return *this;
+    }
+
+    AlignmentStatistics operator+=(const Details& details) {
+        this->nam_rescue += details.nam_rescue;
+        this->tot_rescued += details.mate_rescue;
+        this->tot_all_tried += details.tried_alignment;
+        this->inconsistent_nams += details.nam_inconsistent;
+
         return *this;
     }
 };
@@ -53,8 +63,9 @@ struct mapping_params {
     int maxTries { 20 };
     int rescue_cutoff;
     bool is_sam_out { true };
-    bool cigar_eqx { true };
+    CigarOps cigar_ops{CigarOps::M};
     bool output_unmapped { true };
+    bool details{false};
 };
 
 class i_dist_est {

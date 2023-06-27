@@ -65,3 +65,15 @@ style guide, but new code should follow it.
   should be `ClassName`, `variable_name`, `method_name`, `CONSTANT`.
 * The header guard of a file named `xyz.hpp` should be named
   `STROBEALIGN_XYZ_HPP`.
+
+## Detailed SAM output (`--details`)
+
+When `--details` or `-d` is provided, the following additional SAM tags are output for
+mapped reads.
+
+`na`: Number of NAMs (seeds) found
+`nr`: Whether NAM rescue was needed (1 if yes, 0 if not)
+`mr`: Number of times mate rescue was attempted (local alignment of a mate to
+  the expected region given its mate)
+`al`: Number of times an attempt was made to extend a seed (by gapped or ungapped alignment)
+`ga`: Number of times an attempt was made to extend a seed by gapped alignment

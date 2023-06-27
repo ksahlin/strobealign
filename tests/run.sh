@@ -20,6 +20,9 @@ if strobealign -G > /dev/null 2> /dev/null; then false; fi
 # should succeed when only printing help
 strobealign -h > /dev/null
 
+# Ensure the binary is available
+samtools --version > /dev/null
+
 # Single-end SAM
 strobealign --eqx --chunk-size 3 --rg-id 1 --rg SM:sample --rg LB:library -v tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > phix.se.sam
 diff tests/phix.se.sam phix.se.sam
@@ -60,3 +63,7 @@ rm without-sti.sam with-sti.sam
 
 # Create index requires -r or reads file
 if strobealign --create-index tests/phix.fasta > /dev/null 2> /dev/null; then false; fi
+
+# --details output is proper SAM
+strobealign --details tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq 2> /dev/null | samtools view -o /dev/null
+strobealign --details tests/phix.fasta tests/phix.1.fastq 2> /dev/null | samtools view -o /dev/null
