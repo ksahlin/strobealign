@@ -593,6 +593,22 @@ static inline std::vector<std::tuple<double,Alignment,Alignment>> get_best_scori
     return pairs;
 }
 
+bool is_proper_nam_pair(const Nam nam1, const Nam nam2, float mu, float sigma) {
+    if (nam1.ref_id != nam2.ref_id || nam1.is_rc == nam2.is_rc) {
+        return false;
+    }
+    int a = std::max(0, nam1.ref_s - nam2.query_s);
+    int b = std::max(0, nam2.ref_s - nam2.query_s);
+
+    // r1 ---> <---- r2
+    bool r1_r2 = nam2.is_rc && (a < b) && (b - a < mu + 10*sigma);
+
+     // r2 ---> <---- r1
+    bool r2_r1 = nam1.is_rc && (b < a) && (a - b < mu + 10*sigma);
+
+    return r1_r2 || r2_r1;
+}
+
 static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_NAM_locations(
     const std::vector<Nam> &all_nams1,
     const std::vector<Nam> &all_nams2,
@@ -608,32 +624,18 @@ static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_NAM_location
     robin_hood::unordered_set<int> added_n2;
     int joint_hits;
     int hjss = 0; // highest joint score seen
-    int a,b;
     for (auto &n1 : all_nams1) {
         for (auto &n2 : all_nams2) {
-            if ((n1.n_hits + n2.n_hits) < hjss/2){
+            if (n1.n_hits + n2.n_hits < hjss/2) {
                 break;
             }
-
-            if ((n1.is_rc ^ n2.is_rc) && (n1.ref_id == n2.ref_id)) {
-                a = std::max(0, n1.ref_s - n1.query_s);
-                b = std::max(0, n2.ref_s - n2.query_s);
-                bool r1_r2 = n2.is_rc && (a < b) && ((b-a) < mu+10*sigma); // r1 ---> <---- r2
-                bool r2_r1 = n1.is_rc && (b < a) && ((a-b) < mu+10*sigma); // r2 ---> <---- r1
-
-                if ( r1_r2 || r2_r1 ){
-//                    int diff1 = (n1.query_e - n1.query_s) - (n1.ref_e - n1.ref_s);
-//                    int  n1_penalty = diff1 > 0 ? diff1 : - diff1;
-//                    int diff2 = (n2.query_e - n2.query_s) - (n2.ref_e - n2.ref_s);
-//                    int  n2_penalty = diff2 > 0 ? diff2 : - diff2;
-                    joint_hits = n1.n_hits + n2.n_hits; // - n1_penalty - n2_penalty; // trying out idea about penalty but it needs to be on the individual seed level - to late on merged match level.
-                    std::tuple<int, Nam, Nam> t (joint_hits, n1, n2);
-                    joint_NAM_scores.push_back(t);
-                    added_n1.insert(n1.nam_id);
-                    added_n2.insert(n2.nam_id);
-                    if (joint_hits > hjss) {
-                        hjss = joint_hits;
-                    }
+            if (is_proper_nam_pair(n1, n2, mu, sigma)) {
+                joint_hits = n1.n_hits + n2.n_hits;
+                joint_NAM_scores.emplace_back(joint_hits, n1, n2);
+                added_n1.insert(n1.nam_id);
+                added_n2.insert(n2.nam_id);
+                if (joint_hits > hjss) {
+                    hjss = joint_hits;
                 }
             }
         }
@@ -1033,12 +1035,8 @@ inline void align_PE(
     score_dropoff1 = n_max1.n_hits > 2 ? score_dropoff1 : 1.0;
     score_dropoff2 = n_max2.n_hits > 2 ? score_dropoff2 : 1.0;
 
-    int a = std::max(0, n_max1.ref_s - n_max1.query_s);
-    int b = std::max(0, n_max2.ref_s - n_max2.query_s);
-    bool r1_r2 = n_max2.is_rc && (a < b) && ((b-a) < 2000); // r1 ---> <---- r2
-    bool r2_r1 = n_max1.is_rc && (b < a) && ((a-b) < 2000); // r2 ---> <---- r1
 
-    if (score_dropoff1 < dropoff && score_dropoff2 < dropoff && (n_max1.is_rc ^ n_max2.is_rc) && (r1_r2 || r2_r1)) { //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
+    if (score_dropoff1 < dropoff && score_dropoff2 < dropoff && is_proper_nam_pair(n_max1, n_max2, mu, sigma)) { //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
 
         bool consistent_nam1 = reverse_nam_if_needed(n_max1, read1, references, k);
         details[0].nam_inconsistent += !consistent_nam1;
