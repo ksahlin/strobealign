@@ -1,5 +1,11 @@
 # Strobealign Changelog
 
+## development version
+
+* #318: Added a `--details` option mainly intended for debugging. When used,
+  some strobealign-specific tags are added to the SAM output that inform about
+  things like no. of seeds found, whether mate rescue was performed etc.
+
 ## v0.11.0 (2023-06-22)
 
 * #278: Memory usage was reduced drastically due to a redesigned strobemer
