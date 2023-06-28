@@ -601,10 +601,10 @@ bool is_proper_nam_pair(const Nam nam1, const Nam nam2, float mu, float sigma) {
     int b = std::max(0, nam2.ref_s - nam2.query_s);
 
     // r1 ---> <---- r2
-    bool r1_r2 = nam2.is_rc && (a < b) && (b - a < mu + 10*sigma);
+    bool r1_r2 = nam2.is_rc && (a <= b) && (b - a < mu + 10*sigma);
 
      // r2 ---> <---- r1
-    bool r2_r1 = nam1.is_rc && (b < a) && (a - b < mu + 10*sigma);
+    bool r2_r1 = nam1.is_rc && (b <= a) && (a - b < mu + 10*sigma);
 
     return r1_r2 || r2_r1;
 }
@@ -1161,8 +1161,8 @@ inline void align_PE(
 //                    cnt = 0;
         }
 
-        bool r1_r2 = a2.is_rc && (a1.ref_start < a2.ref_start) && ((a2.ref_start - a1.ref_start) < mu+5*sigma); // r1 ---> <---- r2
-        bool r2_r1 = a1.is_rc && (a2.ref_start < a1.ref_start) && ((a1.ref_start - a2.ref_start) < mu+5*sigma); // r2 ---> <---- r1
+        bool r1_r2 = a2.is_rc && (a1.ref_start <= a2.ref_start) && ((a2.ref_start - a1.ref_start) < mu+5*sigma); // r1 ---> <---- r2
+        bool r2_r1 = a1.is_rc && (a2.ref_start <= a1.ref_start) && ((a1.ref_start - a2.ref_start) < mu+5*sigma); // r2 ---> <---- r1
 
         if (r1_r2 || r2_r1) {
             float x = std::abs(a1.ref_start - a2.ref_start);
