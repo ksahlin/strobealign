@@ -26,7 +26,7 @@ struct IndexCreationStatistics {
     uint64_t tot_mid_ab = 0;
     uint64_t index_cutoff = 0;
     uint64_t filter_cutoff = 0;
-    uint64_t unique_strobemers = 0;
+    uint64_t distinct_strobemers = 0;
 
     std::chrono::duration<double> elapsed_hash_index;
     std::chrono::duration<double> elapsed_generating_seeds;
