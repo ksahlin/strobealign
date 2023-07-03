@@ -105,7 +105,7 @@ uint64_t count_randstrobes(const std::string& seq, const IndexParameters& parame
     }
 }
 
-std::vector<uint64_t> count_randstrobes_parallel(const References& references, const IndexParameters& parameters, size_t n_threads) {
+std::vector<uint64_t> count_all_randstrobes(const References& references, const IndexParameters& parameters, size_t n_threads) {
     std::vector<std::thread> workers;
     std::atomic_size_t ref_index{0};
 
@@ -137,7 +137,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.tot_strobemer_count = 0;
 
     Timer count_hash;
-    auto randstrobe_counts = count_randstrobes_parallel(references, parameters, n_threads);
+    auto randstrobe_counts = count_all_randstrobes(references, parameters, n_threads);
     stats.elapsed_counting_hashes = count_hash.duration();
 
     uint64_t total_randstrobes = 0;
@@ -155,7 +155,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     Timer randstrobes_timer;
     logger.debug() << "  Generating randstrobes ...\n";
     randstrobes.assign(total_randstrobes, RefRandstrobe{0, 0, 0});
-    assign_all_randstrobes_parallel(randstrobe_counts, n_threads);
+    assign_all_randstrobes(randstrobe_counts, n_threads);
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     Timer sorting_timer;
@@ -237,15 +237,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     stats.unique_strobemers = unique_mers;
 }
 
-void StrobemerIndex::assign_all_randstrobes(const std::vector<uint64_t>& randstrobe_counts) {
-    size_t offset = 0;
-    for (size_t ref_index = 0; ref_index < references.size(); ++ref_index) {
-        assign_randstrobes(ref_index, offset);
-        offset += randstrobe_counts[ref_index];
-    }
-}
-
-void StrobemerIndex::assign_all_randstrobes_parallel(const std::vector<uint64_t>& randstrobe_counts, size_t n_threads) {
+void StrobemerIndex::assign_all_randstrobes(const std::vector<uint64_t>& randstrobe_counts, size_t n_threads) {
     // Compute offsets
     std::vector<size_t> offsets;
     size_t offset = 0;
