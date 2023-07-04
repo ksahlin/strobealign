@@ -26,7 +26,7 @@ struct IndexCreationStatistics {
     uint64_t tot_mid_ab = 0;
     uint64_t index_cutoff = 0;
     uint64_t filter_cutoff = 0;
-    uint64_t unique_strobemers = 0;
+    uint64_t distinct_strobemers = 0;
 
     std::chrono::duration<double> elapsed_hash_index;
     std::chrono::duration<double> elapsed_generating_seeds;
@@ -152,8 +152,7 @@ struct StrobemerIndex {
     }
 
 private:
-    void assign_all_randstrobes(const std::vector<uint64_t>& randstrobe_counts);
-    void assign_all_randstrobes_parallel(const std::vector<uint64_t>& randstrobe_counts, size_t n_threads);
+    void assign_all_randstrobes(const std::vector<uint64_t>& randstrobe_counts, size_t n_threads);
     void assign_randstrobes(size_t ref_index, size_t offset);
 
     const IndexParameters& parameters;
