@@ -134,8 +134,6 @@ std::vector<uint64_t> count_all_randstrobes(const References& references, const 
 }
 
 void StrobemerIndex::populate(float f, size_t n_threads) {
-    stats.tot_strobemer_count = 0;
-
     Timer count_hash;
     auto randstrobe_counts = count_all_randstrobes(references, parameters, n_threads);
     stats.elapsed_counting_hashes = count_hash.duration();
@@ -144,6 +142,7 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
     for (auto& count : randstrobe_counts) {
         total_randstrobes += count;
     }
+    stats.tot_strobemer_count = total_randstrobes;
 
     logger.debug() << "  Total number of randstrobes: " << total_randstrobes << '\n';
     uint64_t memory_bytes = references.total_length() + sizeof(RefRandstrobe) * total_randstrobes + sizeof(bucket_index_t) * (1u << bits);
@@ -295,7 +294,6 @@ void StrobemerIndex::assign_randstrobes(size_t ref_index, size_t offset) {
             }
             chunk.push_back(randstrobe);
         }
-        stats.tot_strobemer_count += chunk.size();
         for (auto randstrobe : chunk) {
             RefRandstrobe::packed_t packed = ref_index << 8;
             packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
