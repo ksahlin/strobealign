@@ -133,6 +133,46 @@ void Sam::add(
     add_record(record.name, flags, references.names[sam_aln.ref_id], sam_aln.ref_start, sam_aln.mapq, sam_aln.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, sam_aln.ed, sam_aln.aln_score, details);
 }
 
+struct SamRecord {
+    const std::string query_name;
+    const int flags;
+    const std::string reference_name;
+    const int pos;
+    const int mapq;
+    const Cigar cigar;
+    const std::string mate_reference_name;
+    const int mate_pos;
+    const int template_len;
+    const std::string query_sequence;
+    const std::string qual;
+    const int ed;
+    const int aln_score;
+    const Details details;
+
+    std::string to_string() const {
+        std::stringstream s;
+        s << query_name
+            << '\t' << flags
+            << '\t' << reference_name
+            << '\t' << pos + 1  // convert to 1-based coordinate
+            << '\t' << mapq
+            << '\t' << (cigar.empty() ? "*" : cigar.to_string())
+            << '\t' << mate_reference_name
+            << '\t' << mate_pos + 1
+            << '\t' << template_len
+            << '\t' << (flags & SECONDARY ? "*" : query_sequence)
+            << '\t' << (flags & SECONDARY ? "*" : qual)
+            ;
+        if (!(flags & UNMAP)) {
+            s
+                << "\tNM:i:" << ed
+                << "\tAS:i:" << aln_score
+            ;
+        }
+        return s.str();
+    }
+};
+
 // Add one individual record
 void Sam::add_record(
     const std::string& query_name,
@@ -151,53 +191,28 @@ void Sam::add_record(
     int aln_score,
     const Details& details
 ) {
-    sam_string.append(strip_suffix(query_name));
-    sam_string.append("\t");
-    sam_string.append(std::to_string(flags));
-    sam_string.append("\t");
-    sam_string.append(reference_name);
-    sam_string.append("\t");
-    sam_string.append(std::to_string(pos + 1));  // convert to 1-based coordinate
-    sam_string.append("\t");
-    sam_string.append(std::to_string(mapq));
-    sam_string.append("\t");
-    sam_string.append(cigar_string(cigar));
-    sam_string.append("\t");
-
-    sam_string.append(mate_reference_name);
-    sam_string.append("\t");
-    sam_string.append(std::to_string(mate_pos + 1));
-    sam_string.append("\t");
-    sam_string.append(std::to_string(template_len));
-    sam_string.append("\t");
-
-    if (flags & SECONDARY) {
-        sam_string.append("*");
-    } else if (flags & REVERSE) {
-        sam_string.append(query_sequence_rc);
-    } else {
-        sam_string.append(query_sequence);
+    auto qual_rev = qual;
+    if (flags & REVERSE) {
+        std::reverse(qual_rev.begin(), qual_rev.end());
     }
 
-    if (!(flags & UNMAP)) {
-        if (flags & SECONDARY) {
-            append_qual("");
-        } else if (flags & REVERSE) {
-            auto qual_rev = qual;
-            std::reverse(qual_rev.begin(), qual_rev.end());
-            append_qual(qual_rev);
-        } else {
-            append_qual(qual);
-        }
-        sam_string.append("\t");
-        sam_string.append("NM:i:");
-        sam_string.append(std::to_string(ed));
-        sam_string.append("\t");
-        sam_string.append("AS:i:");
-        sam_string.append(std::to_string(aln_score));
-    } else {
-        append_qual(qual);
-    }
+    SamRecord record{
+        strip_suffix(query_name),
+        flags,
+        reference_name,
+        pos,
+        mapq,
+        cigar_ops == CigarOps::EQX ? cigar : cigar.to_m(),
+        mate_reference_name,
+        mate_pos,
+        template_len,
+        flags & REVERSE ? query_sequence_rc : query_sequence,
+        flags & REVERSE ? qual_rev : qual,
+        ed,
+        aln_score,
+        details
+    };
+    sam_string.append(record.to_string());
 
     if (show_details) {
         append_details(details);
