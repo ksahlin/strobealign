@@ -134,20 +134,20 @@ void Sam::add(
 }
 
 struct SamRecord {
-    const std::string query_name;
+    const std::string& query_name;
     const int flags;
-    const std::string reference_name;
+    const std::string& reference_name;
     const int pos;
     const int mapq;
     const Cigar cigar;
-    const std::string mate_reference_name;
+    const std::string& mate_reference_name;
     const int mate_pos;
     const int template_len;
-    const std::string query_sequence;
-    const std::string qual;
+    const std::string& query_sequence;
+    const std::string& qual;
     const int ed;
     const int aln_score;
-    const Details details;
+    const Details& details;
 
     std::string to_string() const {
         std::stringstream s;
@@ -191,8 +191,9 @@ void Sam::add_record(
     int aln_score,
     const Details& details
 ) {
-    auto qual_rev = qual;
+    std::string qual_rev;
     if (flags & REVERSE) {
+        qual_rev = qual;
         std::reverse(qual_rev.begin(), qual_rev.end());
     }
 
