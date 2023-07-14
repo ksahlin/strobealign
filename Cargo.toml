@@ -1,5 +1,5 @@
 [package]
-name = "strobes"
+name = "rstrobes"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.1.4", features = ["derive"] }
 fxhash = "0.2.1"
+xxhash-rust = { version = "0.8.5", features = ["xxh64"] }
 
 [profile.release]
 debug = true

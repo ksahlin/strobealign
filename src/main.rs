@@ -8,8 +8,8 @@ use std::io::{BufReader, BufWriter, BufRead, Error, Write};
 use std::path::Path;
 use clap::Parser;
 use fxhash;
-use strobes::fastq::FastqReader;
-use strobes::strobes::{SyncmerIterator,RandstrobeIterator,RandstrobeParameters};
+use rstrobes::fastq::FastqReader;
+use rstrobes::strobes::{SyncmerIterator,RandstrobeIterator,RandstrobeParameters};
 
 #[derive(Parser, Debug)]
 #[command(long_about = None)]

@@ -1,5 +1,6 @@
 use std::cmp::min;
 use std::collections::VecDeque;
+use xxhash_rust::xxh64::xxh64;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Syncmer {
@@ -71,16 +72,13 @@ static NUCLEOTIDES: [u8; 256] = [
 ];
 
 fn syncmer_kmer_hash(hash: u64) -> u64 {
-    hash
+    xxh64(&hash.to_ne_bytes(), 0)
 }
 
 impl<'a> Iterator for SyncmerIterator<'a> {
     type Item = Syncmer;
 
     fn next(&mut self) -> Option<Self::Item> {
-
-
-
         while self.i < self.seq.len() {
             let ch = self.seq[self.i];
             let c = NUCLEOTIDES[ch as usize];
