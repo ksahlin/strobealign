@@ -1,6 +1,4 @@
-use std::cmp::min;
 use std::collections::VecDeque;
-use xxhash_rust::xxh64::xxh64;
 use crate::syncmers::{Syncmer, SyncmerIterator};
 
 pub struct RandstrobeParameters {

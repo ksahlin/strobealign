@@ -105,7 +105,7 @@ fn count_all_randstrobes(references: &Vec<RefSequence>, parameters: &IndexParame
 // TODO UnpopulatedStrobemerIndex
 pub struct StrobemerIndex<'a> {
     references: &'a Vec<RefSequence>,
-    parameters: IndexParameters,
+    pub parameters: IndexParameters,
     stats: IndexCreationStatistics,
 
     /// no. of bits of the hash to use when indexing a randstrobe bucket
@@ -308,85 +308,3 @@ impl<'a> StrobemerIndex<'a> {
         }*/
     }
 }
-/*
-void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) const {
-    // Prins to csv file the statistics on the number of seeds of a particular length and what fraction of them them are unique in the index:
-    // format:
-    // seed_length, count, percentage_unique
-
-    size_t max_size = 100000;
-    std::vector<int> log_count(max_size, 0);  // stores count and each index represents the length
-    std::vector<int> log_unique(max_size, 0);  // stores count unique and each index represents the length
-    std::vector<int> log_repetitive(max_size, 0);  // stores count unique and each index represents the length
-
-
-    std::vector<RandstrobeHash> log_count_squared(max_size,0);
-    RandstrobeHash tot_seed_count = 0;
-    RandstrobeHash tot_seed_count_sq = 0;
-
-    std::vector<RandstrobeHash> log_count_1000_limit(max_size, 0);  // stores count and each index represents the length
-    RandstrobeHash tot_seed_count_1000_limit = 0;
-
-    size_t seed_length = 0;
-
-    for (size_t it = 0; it < randstrobes.size(); it++) {
-        seed_length = strobe2_offset(it) + k;
-        auto count = get_count(it);
-
-        if (seed_length < max_size){
-            log_count[seed_length] ++;
-            log_count_squared[seed_length] += count;
-            tot_seed_count ++;
-            tot_seed_count_sq += count;
-            if (count <= 1000){
-                log_count_1000_limit[seed_length] ++;
-                tot_seed_count_1000_limit ++;
-            }
-        } else {
-            // TODO This function should not log anything
-            // logger.info() << "Detected seed size over " << max_size << " bp (can happen, e.g., over centromere): " << seed_length << std::endl;
-        }
-
-        if (count == 1 && seed_length < max_size) {
-            log_unique[seed_length]++;
-        }
-        if (count >= 10 && seed_length < max_size) {
-            log_repetitive[seed_length]++;
-        }
-    }
-
-    // printing
-    std::ofstream log_file;
-    log_file.open(logfile_name);
-
-    for (size_t i = 0; i < log_count.size(); ++i) {
-        if (log_count[i] > 0) {
-            double e_count = log_count_squared[i] / log_count[i];
-            log_file << i << ',' << log_count[i] << ',' << e_count << std::endl;
-        }
-    }
-
-    // Get median
-    size_t n = 0;
-    int median = 0;
-    for (size_t i = 0; i < log_count.size(); ++i) {
-        n += log_count[i];
-        if (n >= tot_seed_count/2) {
-            break;
-        }
-    }
-    // Get median 1000 limit
-    size_t n_lim = 0;
-    for (size_t i = 0; i < log_count_1000_limit.size(); ++i) {
-        n_lim += log_count_1000_limit[i];
-        if (n_lim >= tot_seed_count_1000_limit/2) {
-            break;
-        }
-    }
-
-    log_file << "E_size for total seeding wih max seed size m below (m, tot_seeds, E_hits)" << std::endl;
-    double e_hits = (double) tot_seed_count_sq/ (double) tot_seed_count;
-    double fraction_masked = 1.0 - (double) tot_seed_count_1000_limit/ (double) tot_seed_count;
-    log_file << median << ',' << tot_seed_count << ',' << e_hits << ',' << 100*fraction_masked << std::endl;
-}
-*/

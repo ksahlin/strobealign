@@ -9,6 +9,7 @@ use rstrobes::syncmers::SyncmerIterator;
 use rstrobes::fasta;
 use rstrobes::fasta::RefSequence;
 use rstrobes::index::{IndexParameters, StrobemerIndex};
+use rstrobes::mapper::map_single_end_read;
 
 #[derive(Parser, Debug)]
 #[command(long_about = None)]
@@ -75,6 +76,15 @@ fn main() -> Result<(), Error> {
 
     let mut index = StrobemerIndex::new(&references, parameters, args.bits);
     index.populate(args.filter_fraction);
+    let index = index;
+
+    // let mapper = Mapper::new(index);
+    let f = File::open(&args.fastq_path)?;
+    for record in FastqReader::new(f) {
+        let record = record?;
+        println!("Processing record {}", record.name);
+        map_single_end_read(&record.sequence, &index);
+    }
 
     Ok(())
 }
