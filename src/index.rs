@@ -1,4 +1,4 @@
-use std::cmp::{max, min, Reverse};
+use std::cmp::{max, Reverse};
 use rayon::prelude::*;
 use crate::strobes::{RandstrobeIterator, RandstrobeParameters};
 use crate::syncmers::{SyncmerParameters, SyncmerIterator};
@@ -48,41 +48,39 @@ struct IndexCreationStatistics {
 }
 
 #[derive(PartialEq,Eq,PartialOrd,Ord)]
-struct RefRandstrobe {
-    pub hash: RandstrobeHash,
-    pub position: u32,
-    /// packed representation of ref_index and strobe offset
+pub struct RefRandstrobe {
+    hash: RandstrobeHash,
+    position: u32,
+    /// packed representation of reference index and offset of second strobe
     packed: u32,
-/*
-    bool operator< (const RefRandstrobe& other) const {
-        return hash < other.hash;
-    }
-
-    int reference_index() const {
-        return m_packed >> bit_alloc;
-    }
-
-    int strobe2_offset() const {
-        return m_packed & mask;
-    }
-
-private:
-    static constexpr int bit_alloc = 8;
-    static constexpr int mask = (1 << bit_alloc) - 1;
- */
 }
+
+const REF_RANDSTROBE_OFFSET_BITS: u32 = 8;
+const REF_RANDSTROBE_MASK: u32 = (1 << REF_RANDSTROBE_OFFSET_BITS) - 1;
 
 impl RefRandstrobe {
     fn new(hash: RandstrobeHash, ref_index: u32, position: u32, offset: u8) -> Self {
-        let packed: u32 = ((ref_index as u32) << 8) + offset as u32;
+        let packed = ((ref_index as u32) << 8) + offset as u32;
         RefRandstrobe { hash, position, packed }
+    }
+
+    pub fn hash(&self) -> RandstrobeHash { self.hash }
+
+    pub fn position(&self) -> usize { self.position as usize }
+
+    pub fn reference_index(&self) -> usize {
+        (self.packed >> REF_RANDSTROBE_OFFSET_BITS) as usize
+    }
+
+    pub fn strobe2_offset(&self) -> usize {
+        (self.packed & REF_RANDSTROBE_MASK) as usize
     }
 }
 
 struct QueryRandstrobe {
     hash: RandstrobeHash,
-    start: u32,
-    end: u32,
+    start: usize,
+    end: usize,
     is_reverse: bool,
 }
 
@@ -91,11 +89,7 @@ fn count_randstrobes(seq: &[u8], parameters: &IndexParameters) -> usize {
     let n_syncmers = syncmer_iterator.count();
 
     // The last w_min syncmers do not result in a randstrobe
-    if n_syncmers < parameters.randstrobe.w_min {
-        0
-    } else {
-        n_syncmers - parameters.randstrobe.w_min
-    }
+    n_syncmers.saturating_sub(parameters.randstrobe.w_min)
 }
 
 fn count_all_randstrobes(references: &Vec<RefSequence>, parameters: &IndexParameters) -> Vec<usize> {
@@ -113,15 +107,15 @@ pub struct StrobemerIndex<'a> {
 
     filter_cutoff: usize,
 
-    ///The randstrobes vector contains all randstrobes sorted by hash.
+    /// The randstrobes vector contains all randstrobes sorted by hash.
     /// The randstrobe_start_indices vector points to entries in the
-    /// randstrobes vector. randstrobe_start_indices[x] is the index of the
+    /// randstrobes vector. `randstrobe_start_indices[x]` is the index of the
     /// first entry in randstrobes whose top *bits* bits of its hash value are
     /// greater than or equal to x.
     ///
     /// randstrobe_start_indices has one extra guard entry at the end that
-    /// is always randstrobes.size().
-    randstrobes: Vec<RefRandstrobe>,
+    /// is always randstrobes.len().
+    pub randstrobes: Vec<RefRandstrobe>,
     randstrobe_start_indices: Vec<bucket_index_t>,
 }
 
@@ -307,4 +301,47 @@ impl<'a> StrobemerIndex<'a> {
             randstrobes[offset++] = RefRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, packed};
         }*/
     }
+
+    /// Find index of first entry in randstrobe table that has the given hash value
+    pub fn get(&self, hash: RandstrobeHash) -> Option<usize> {
+        const MAX_LINEAR_SEARCH: usize = 4;
+        let top_n = (hash >> (64 - self.bits)) as usize;
+        let position_start = self.randstrobe_start_indices[top_n];
+        let position_end = self.randstrobe_start_indices[top_n + 1];
+        if position_start == position_end {
+            return None;
+        }
+        let bucket = &self.randstrobes[position_start as usize .. position_end as usize];
+        if bucket.len() < MAX_LINEAR_SEARCH {
+            for (pos, randstrobe) in bucket.iter().enumerate() {
+                if randstrobe.hash == hash { return Some(position_start as usize + pos); }
+                if randstrobe.hash > hash { return None; }
+            }
+            return None;
+        }
+
+        let pos = bucket.partition_point(|h| h.hash < hash);
+        if pos < bucket.len() && bucket[pos].hash == hash {
+            Some(position_start as usize + pos)
+        } else {
+            None
+        }
+        //auto cmp = [](const RefRandstrobe lhs, const RefRandstrobe rhs) {return lhs.hash < rhs.hash; };
+
+        // auto pos = std::lower_bound(randstrobes.begin() + position_start,
+        //                                        randstrobes.begin() + position_end,
+        //                                        RefRandstrobe{key, 0, 0},
+        //                                        cmp);
+        // if pos->hash == key) return pos - randstrobes.begin();
+//        return None;
+    }
+
+    pub fn is_filtered(&self, position: usize) -> bool {
+        if position + self.filter_cutoff < self.randstrobes.len() {
+            self.randstrobes[position].hash == self.randstrobes[position + self.filter_cutoff].hash
+        } else {
+            false
+        }
+    }
+
 }

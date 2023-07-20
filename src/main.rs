@@ -66,8 +66,6 @@ fn main() -> Result<(), Error> {
     let f = File::open(path)?;
     let mut reader = BufReader::new(f);
     let references = fasta::read_fasta(&mut reader).unwrap();
-    let k = 20usize;
-    let s = 16usize;
 
     // IndexParameters(r=150, k=20, s=16, l=1, u=7, q=255, max_dist=80, t_syncmer=3, w_min=5, w_max=11)
     let parameters = IndexParameters::new(150, 20, 16, 1, 7, 255, 80);
