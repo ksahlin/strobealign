@@ -21,6 +21,6 @@ const REVCOMP_TABLE: [u8; 256] = [
     b'N', b'N', b'N', b'N',  b'N', b'N', b'N', b'N',  b'N', b'N', b'N', b'N',  b'N', b'N', b'N', b'N'
 ];
 
-pub fn reverse_complement(s: &Vec<u8>) -> Vec<u8> {
+pub fn reverse_complement(s: &[u8]) -> Vec<u8> {
     s.iter().rev().map(|ch| REVCOMP_TABLE[*ch as usize]).collect()
 }

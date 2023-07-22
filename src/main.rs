@@ -3,13 +3,14 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Error, Write};
 use std::path::Path;
 use clap::Parser;
+use rstrobes::aligner::{Aligner, Scores};
 use rstrobes::fastq::FastqReader;
 use rstrobes::strobes::RandstrobeIterator;
 use rstrobes::syncmers::SyncmerIterator;
 use rstrobes::fasta;
 use rstrobes::fasta::RefSequence;
 use rstrobes::index::{IndexParameters, StrobemerIndex};
-use rstrobes::mapper::map_single_end_read;
+use rstrobes::mapper::{map_single_end_read, MappingParameters};
 
 #[derive(Parser, Debug)]
 #[command(long_about = None)]
@@ -76,12 +77,15 @@ fn main() -> Result<(), Error> {
     index.populate(args.filter_fraction);
     let index = index;
 
+    let mapping_parameters = MappingParameters::new();
+
+    let aligner = Aligner::new(Scores::default());
     // let mapper = Mapper::new(index);
     let f = File::open(&args.fastq_path)?;
     for record in FastqReader::new(f) {
         let record = record?;
         println!("Processing record {}", record.name);
-        map_single_end_read(&record.sequence, &index);
+        map_single_end_read(&record, &index, &references, &mapping_parameters, &aligner);
     }
 
     Ok(())

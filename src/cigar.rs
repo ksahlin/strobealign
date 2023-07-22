@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 #[derive(Debug,PartialEq,Eq,Clone,Copy)]
-enum CigarOperation {
+pub enum CigarOperation {
     Match = 0,
     Insertion = 1,
     Deletion = 2,
@@ -48,14 +48,14 @@ impl CigarOperation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 struct OpLen {
     op: CigarOperation,
-    len: u32,
+    len: usize,
 }
 
-#[derive(Default,Debug)]
-struct Cigar {
+#[derive(Default,Debug,Clone)]
+pub struct Cigar {
     ops: Vec<OpLen>,
 }
 
@@ -68,7 +68,7 @@ impl Cigar {
         self.ops.is_empty()
     }
 
-    pub fn push(&mut self, op: CigarOperation, len: u32) {
+    pub fn push(&mut self, op: CigarOperation, len: usize) {
         if self.ops.is_empty() || self.ops.last().unwrap().op != op {
             self.ops.push(OpLen { op, len });
         } else {
@@ -160,7 +160,7 @@ impl FromStr for Cigar {
             match ch {
                 ' ' => {},
                 ch if ch.is_ascii_digit() => {
-                    let val = ch as u32 - '0' as u32;
+                    let val = ch as usize - '0' as usize;
                     if let Some(n) = number {
                         number = Some(n * 10 + val)
                     } else {
