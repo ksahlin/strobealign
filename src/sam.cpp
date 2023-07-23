@@ -132,7 +132,7 @@ void Sam::add(
     if (!is_primary) {
         flags |= SECONDARY;
     }
-    add_record(record.name, flags, references.names[sam_aln.ref_id], sam_aln.ref_start, sam_aln.mapq, sam_aln.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, sam_aln.ed, sam_aln.score, details);
+    add_record(record.name, flags, references.names[sam_aln.ref_id], sam_aln.ref_start, sam_aln.mapq, sam_aln.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, sam_aln.edit_distance, sam_aln.score, details);
 }
 
 // Add one individual record
@@ -248,7 +248,7 @@ void Sam::add_pair(
 
     std::string reference_name1;
     int pos1 = sam_aln1.ref_start;
-    int edit_distance1 = sam_aln1.ed;
+    int edit_distance1 = sam_aln1.edit_distance;
     if (sam_aln1.is_unaligned) {
         f1 |= UNMAP;
         f2 |= MUNMAP;
@@ -264,7 +264,7 @@ void Sam::add_pair(
 
     std::string reference_name2;
     int pos2 = sam_aln2.ref_start;
-    int edit_distance2 = sam_aln2.ed;
+    int edit_distance2 = sam_aln2.edit_distance;
     if (sam_aln2.is_unaligned) {
         f2 |= UNMAP;
         f1 |= MUNMAP;

@@ -12,7 +12,7 @@ struct Alignment {
     int ref_id;
     int ref_start;
     Cigar cigar;
-    int ed;
+    int edit_distance;
     int global_ed;
     int score;
     int mapq;

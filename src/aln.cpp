@@ -180,7 +180,7 @@ static inline Alignment align_segment(
         if (hamming_dist >= 0 && (((float) hamming_dist / read_segm_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
             auto info = hamming_align(read_segm, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
             sam_aln_segm.cigar = std::move(info.cigar);
-            sam_aln_segm.ed = info.edit_distance;
+            sam_aln_segm.edit_distance = info.edit_distance;
             sam_aln_segm.score = info.sw_score;
             sam_aln_segm.ref_start = ref_start + ext_left + info.query_start;
             sam_aln_segm.is_rc = is_rc;
@@ -191,7 +191,7 @@ static inline Alignment align_segment(
     }
     auto info = aligner.align(read_segm, ref_segm);
     sam_aln_segm.cigar = std::move(info.cigar);
-    sam_aln_segm.ed = info.edit_distance;
+    sam_aln_segm.edit_distance = info.edit_distance;
     sam_aln_segm.score = info.sw_score;
     sam_aln_segm.ref_start = ref_start + info.ref_start;
     sam_aln_segm.is_rc = is_rc;
@@ -259,7 +259,7 @@ static inline Alignment get_alignment(
     int softclipped = info.query_start + (query.size() - info.query_end);
     Alignment sam_aln;
     sam_aln.cigar = std::move(info.cigar);
-    sam_aln.ed = info.edit_distance;
+    sam_aln.edit_distance = info.edit_distance;
     sam_aln.global_ed = info.edit_distance + softclipped;
     sam_aln.score = info.sw_score;
     sam_aln.ref_start = result_ref_start;
@@ -308,7 +308,7 @@ static inline Alignment get_alignment_unused(
         if (hamming_dist >= 0 && (((float) hamming_dist / ref_segm_size) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
             auto info = hamming_align(r_tmp, ref_segm, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
             sam_aln.cigar = std::move(info.cigar);
-            sam_aln.ed = info.edit_distance;
+            sam_aln.edit_distance = info.edit_distance;
             sam_aln.score = info.sw_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
             sam_aln.ref_start = ref_start + ext_left + info.query_start;
             sam_aln.is_rc = is_rc;
@@ -379,7 +379,7 @@ static inline Alignment get_alignment_unused(
         // Stitch together
         sam_aln.ref_id = n.ref_id;
         sam_aln.cigar = Cigar(sam_aln_segm_left.cigar.to_string() + sam_aln_segm_right.cigar.to_string());
-        sam_aln.ed = sam_aln_segm_left.ed + sam_aln_segm_right.ed;
+        sam_aln.edit_distance = sam_aln_segm_left.edit_distance + sam_aln_segm_right.edit_distance;
         sam_aln.score = sam_aln_segm_left.score + sam_aln_segm_right.score;
         sam_aln.ref_start =  sam_aln_segm_left.ref_start;
         sam_aln.is_rc = n.is_rc;
@@ -741,7 +741,7 @@ static inline bool rescue_mate(
 
     if (ref_end < ref_start + k){
         sam_aln.cigar = Cigar();
-        sam_aln.ed = read_len;
+        sam_aln.edit_distance = read_len;
         sam_aln.score = 0;
         sam_aln.ref_start =  0;
         sam_aln.is_rc = n.is_rc;
@@ -754,7 +754,7 @@ static inline bool rescue_mate(
 
     if (!has_shared_substring(r_tmp, ref_segm, k)){
         sam_aln.cigar = Cigar();
-        sam_aln.ed = read_len;
+        sam_aln.edit_distance = read_len;
         sam_aln.score = 0;
         sam_aln.ref_start =  0;
         sam_aln.is_rc = n.is_rc;
@@ -783,7 +783,7 @@ static inline bool rescue_mate(
 //    std::cerr << "Cigar: " << info.cigar << std::endl;
 
     sam_aln.cigar = info.cigar;
-    sam_aln.ed = info.edit_distance;
+    sam_aln.edit_distance = info.edit_distance;
     sam_aln.score = info.sw_score;
     sam_aln.ref_start = ref_start + info.ref_start;
     sam_aln.is_rc = a_is_rc;
@@ -1046,7 +1046,7 @@ inline void align_PE(
         bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
         sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, true, details);
 
-        if ((isize_est.sample_size < 400) && ((sam_aln1.ed + sam_aln2.ed) < 3) && is_proper) {
+        if ((isize_est.sample_size < 400) && ((sam_aln1.edit_distance + sam_aln2.edit_distance) < 3) && is_proper) {
             isize_est.update(std::abs(sam_aln1.ref_start - sam_aln2.ref_start));
         }
         return;

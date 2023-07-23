@@ -50,7 +50,7 @@ TEST_CASE("Sam::add") {
     aln.is_unaligned = false;
     aln.is_rc = true;
     aln.ref_start = 2;
-    aln.ed = 3;
+    aln.edit_distance = 3;
     aln.score = 9;
     aln.mapq = 55;
     aln.cigar = Cigar("2S2=1X3=3S");
@@ -87,7 +87,7 @@ TEST_CASE("Pair with one unmapped SAM record") {
     aln1.is_unaligned = false;
     aln1.ref_start = 2;
     aln1.is_rc = true;
-    aln1.ed = 17;
+    aln1.edit_distance = 17;
     aln1.score = 9;
     aln1.cigar = Cigar("2M");
 
@@ -143,7 +143,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     aln1.is_unaligned = false;
     aln1.ref_start = 2;
     aln1.is_rc = false;
-    aln1.ed = 17;
+    aln1.edit_distance = 17;
     aln1.score = 9;
     aln1.cigar = Cigar("2M");
 
@@ -152,7 +152,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     aln2.ref_id = 1;
     aln2.ref_start = 3;
     aln2.is_rc = false;
-    aln2.ed = 2;
+    aln2.edit_distance = 2;
     aln2.score = 4;
     aln2.cigar = Cigar("3M");
 
