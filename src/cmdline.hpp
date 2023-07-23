@@ -53,7 +53,7 @@ struct CommandLineOptions {
     float f { 0.0002 };
     float dropoff_threshold { 0.5 };
     int maxTries { 20 };
-    int R { 2 };
+    int rescue_level { 2 };
 
     // Reference and read files
     std::string ref_filename; // This is either a fasta file or an index file - if fasta, indexing will be run

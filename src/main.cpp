@@ -64,7 +64,7 @@ void log_parameters(const IndexParameters& index_parameters, const MappingParame
         << "w_max: " << index_parameters.randstrobe.w_max << std::endl
         << "Read length (r): " << map_param.r << std::endl
         << "Maximum seed length: " << index_parameters.randstrobe.max_dist + index_parameters.syncmer.k << std::endl
-        << "R: " << map_param.R << std::endl
+        << "R: " << map_param.rescue_level << std::endl
         << "Expected [w_min, w_max] in #syncmers: [" << index_parameters.randstrobe.w_min << ", " << index_parameters.randstrobe.w_max << "]" << std::endl
         << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_min << ", " << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_max << "]" << std::endl
         << "A: " << aln_params.match << std::endl
@@ -172,7 +172,7 @@ int run_strobealign(int argc, char **argv) {
     map_param.r = opt.r;
     map_param.max_secondary = opt.max_secondary;
     map_param.dropoff_threshold = opt.dropoff_threshold;
-    map_param.R = opt.R;
+    map_param.rescue_level = opt.rescue_level;
     map_param.maxTries = opt.maxTries;
     map_param.is_sam_out = opt.is_sam_out;
     map_param.cigar_ops = opt.cigar_eqx ? CigarOps::EQX : CigarOps::M;
@@ -257,7 +257,7 @@ int run_strobealign(int argc, char **argv) {
     // Map/align reads
         
     Timer map_align_timer;
-    map_param.rescue_cutoff = map_param.R < 100 ? map_param.R * index.filter_cutoff : 1000;
+    map_param.rescue_cutoff = map_param.rescue_level < 100 ? map_param.rescue_level * index.filter_cutoff : 1000;
     logger.debug() << "Using rescue cutoff: " << map_param.rescue_cutoff << std::endl;
 
     std::streambuf* buf;
