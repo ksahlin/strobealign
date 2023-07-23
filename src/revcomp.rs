@@ -22,10 +22,5 @@ const REVCOMP_TABLE: [u8; 256] = [
 ];
 
 pub fn reverse_complement(s: &Vec<u8>) -> Vec<u8> {
-    let mut rc = Vec::with_capacity(s.len());
-
-    for ch in s.iter().rev() {
-        rc.push(REVCOMP_TABLE[*ch as usize]);
-    }
-    rc
+    s.iter().rev().map(|ch| REVCOMP_TABLE[*ch as usize]).collect()
 }
