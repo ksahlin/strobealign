@@ -73,7 +73,7 @@ std::string Sam::cigar_string(const Cigar& cigar) const {
     }
 }
 
-void Sam::add_unmapped(const KSeq& record, int flags) {
+void Sam::add_unmapped(const KSeq& record, uint16_t flags) {
     if (!output_unmapped) {
         return;
     }
@@ -88,7 +88,7 @@ void Sam::add_unmapped(const KSeq& record, int flags) {
     append_rg_and_newline();
 }
 
-void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& mate_reference_name, int mate_pos) {
+void Sam::add_unmapped_mate(const KSeq& record, uint16_t flags, const std::string& mate_reference_name, uint32_t mate_pos) {
     assert(flags & (UNMAP|PAIRED));
     sam_string.append(strip_suffix(record.name));
     sam_string.append("\t");
@@ -138,14 +138,14 @@ void Sam::add(
 // Add one individual record
 void Sam::add_record(
     const std::string& query_name,
-    int flags,
+    uint16_t flags,
     const std::string& reference_name,
-    int pos,
-    int mapq,
+    uint32_t pos,
+    uint8_t mapq,
     const Cigar& cigar,
     const std::string& mate_reference_name,
-    int mate_pos,
-    int template_len,
+    uint32_t mate_pos,
+    int32_t template_len,
     const std::string& query_sequence,
     const std::string& query_sequence_rc,
     const std::string& qual,
@@ -217,8 +217,8 @@ void Sam::add_pair(
     const KSeq& record2,
     const std::string &read1_rc,
     const std::string &read2_rc,
-    int mapq1,
-    int mapq2,
+    uint8_t mapq1,
+    uint8_t mapq2,
     bool is_proper,
     bool is_primary,
     const std::array<Details, 2>& details

@@ -15,7 +15,7 @@ struct Alignment {
     int edit_distance;
     int global_ed;
     int score;
-    int mapq;
+    uint8_t mapq;
     int length;
     bool is_rc;
     bool is_unaligned{false};
@@ -80,13 +80,13 @@ public:
 
     /* Add an alignment */
     void add(const Alignment& sam_aln, const klibpp::KSeq& record, const std::string& sequence_rc, bool is_primary, const Details& details);
-    void add_pair(const Alignment& sam_aln1, const Alignment& sam_aln2, const klibpp::KSeq& record1, const klibpp::KSeq& record2, const std::string& read1_rc, const std::string& read2_rc, int mapq1, int mapq2, bool is_proper, bool is_primary, const std::array<Details, 2>& details);
-    void add_unmapped(const klibpp::KSeq& record, int flags = UNMAP);
+    void add_pair(const Alignment& sam_aln1, const Alignment& sam_aln2, const klibpp::KSeq& record1, const klibpp::KSeq& record2, const std::string& read1_rc, const std::string& read2_rc, uint8_t mapq1, uint8_t mapq2, bool is_proper, bool is_primary, const std::array<Details, 2>& details);
+    void add_unmapped(const klibpp::KSeq& record, uint16_t flags = UNMAP);
     void add_unmapped_pair(const klibpp::KSeq& r1, const klibpp::KSeq& r2);
-    void add_unmapped_mate(const klibpp::KSeq& record, int flags, const std::string& mate_reference_name, int mate_pos);
+    void add_unmapped_mate(const klibpp::KSeq& record, uint16_t flags, const std::string& mate_reference_name, uint32_t mate_pos);
 
 private:
-    void add_record(const std::string& query_name, int flags, const std::string& reference_name, int pos, int mapq, const Cigar& cigar, const std::string& mate_reference_name, int mate_pos, int template_len, const std::string& query_sequence, const std::string& query_sequence_rc, const std::string& qual, int ed, int aln_score, const Details& details);
+    void add_record(const std::string& query_name, uint16_t flags, const std::string& reference_name, uint32_t pos, uint8_t mapq, const Cigar& cigar, const std::string& mate_reference_name, uint32_t mate_pos, int32_t template_len, const std::string& query_sequence, const std::string& query_sequence_rc, const std::string& qual, int ed, int aln_score, const Details& details);
     void append_qual(const std::string& qual) {
         sam_string.append("\t");
         sam_string.append(qual.empty() ? "*" : qual);
