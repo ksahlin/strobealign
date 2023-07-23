@@ -135,7 +135,7 @@ void perform_task(
     AlignmentStatistics& statistics,
     int& done,
     const alignment_params &aln_params,
-    const mapping_params &map_param,
+    const MappingParameters &map_param,
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index,

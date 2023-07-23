@@ -1321,7 +1321,7 @@ void align_PE_read(
     AlignmentStatistics &statistics,
     i_dist_est &isize_est,
     const Aligner &aligner,
-    const mapping_params &map_param,
+    const MappingParameters &map_param,
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index
@@ -1393,7 +1393,7 @@ void align_SE_read(
     std::string &outstring,
     AlignmentStatistics &statistics,
     const Aligner &aligner,
-    const mapping_params &map_param,
+    const MappingParameters &map_param,
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index

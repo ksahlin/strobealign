@@ -56,7 +56,7 @@ void warn_if_no_optimizations() {
     }
 }
 
-void log_parameters(const IndexParameters& index_parameters, const mapping_params& map_param, const alignment_params& aln_params) {
+void log_parameters(const IndexParameters& index_parameters, const MappingParameters& map_param, const alignment_params& aln_params) {
     logger.debug() << "Using" << std::endl
         << "k: " << index_parameters.syncmer.k << std::endl
         << "s: " << index_parameters.syncmer.s << std::endl
@@ -168,7 +168,7 @@ int run_strobealign(int argc, char **argv) {
     aln_params.gap_extend = opt.E;
     aln_params.end_bonus = opt.end_bonus;
 
-    mapping_params map_param;
+    MappingParameters map_param;
     map_param.r = opt.r;
     map_param.max_secondary = opt.max_secondary;
     map_param.dropoff_threshold = opt.dropoff_threshold;
