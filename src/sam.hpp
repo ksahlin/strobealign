@@ -9,13 +9,12 @@
 
 
 struct Alignment {
-    Cigar cigar;
+    int ref_id;
     int ref_start;
+    Cigar cigar;
     int ed;
     int global_ed;
     int sw_score;
-    int aln_score;
-    int ref_id;
     int mapq;
     int length;
     bool is_rc;

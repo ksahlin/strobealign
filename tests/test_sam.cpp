@@ -51,7 +51,7 @@ TEST_CASE("Sam::add") {
     aln.is_rc = true;
     aln.ref_start = 2;
     aln.ed = 3;
-    aln.aln_score = 9;
+    aln.sw_score = 9;
     aln.mapq = 55;
     aln.cigar = Cigar("2S2=1X3=3S");
 
@@ -88,7 +88,7 @@ TEST_CASE("Pair with one unmapped SAM record") {
     aln1.ref_start = 2;
     aln1.is_rc = true;
     aln1.ed = 17;
-    aln1.aln_score = 9;
+    aln1.sw_score = 9;
     aln1.cigar = Cigar("2M");
 
     Alignment aln2;
@@ -144,7 +144,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     aln1.ref_start = 2;
     aln1.is_rc = false;
     aln1.ed = 17;
-    aln1.aln_score = 9;
+    aln1.sw_score = 9;
     aln1.cigar = Cigar("2M");
 
     Alignment aln2;
@@ -153,7 +153,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     aln2.ref_start = 3;
     aln2.is_rc = false;
     aln2.ed = 2;
-    aln2.aln_score = 4;
+    aln2.sw_score = 4;
     aln2.cigar = Cigar("3M");
 
     klibpp::KSeq record1;

@@ -185,7 +185,6 @@ static inline Alignment align_segment(
             sam_aln_segm.ref_start = ref_start + ext_left + info.query_start;
             sam_aln_segm.is_rc = is_rc;
             sam_aln_segm.is_unaligned = false;
-            sam_aln_segm.aln_score = info.sw_score;
             sam_aln_segm.length = read_segm_len;
             return sam_aln_segm;
         }
@@ -197,7 +196,6 @@ static inline Alignment align_segment(
     sam_aln_segm.ref_start = ref_start + info.ref_start;
     sam_aln_segm.is_rc = is_rc;
     sam_aln_segm.is_unaligned = false;
-    sam_aln_segm.aln_score = info.sw_score;
     sam_aln_segm.length = info.ref_span();
     return sam_aln_segm;
 }
@@ -264,7 +262,6 @@ static inline Alignment get_alignment(
     sam_aln.ed = info.edit_distance;
     sam_aln.global_ed = info.edit_distance + softclipped;
     sam_aln.sw_score = info.sw_score;
-    sam_aln.aln_score = info.sw_score;
     sam_aln.ref_start = result_ref_start;
     sam_aln.length = info.ref_span();
     sam_aln.is_rc = n.is_rc;
@@ -316,7 +313,6 @@ static inline Alignment get_alignment_unused(
             sam_aln.ref_start = ref_start + ext_left + info.query_start;
             sam_aln.is_rc = is_rc;
             sam_aln.is_unaligned = false;
-            sam_aln.aln_score = info.sw_score;
             return sam_aln;
         }
     }
@@ -388,7 +384,6 @@ static inline Alignment get_alignment_unused(
         sam_aln.ref_start =  sam_aln_segm_left.ref_start;
         sam_aln.is_rc = n.is_rc;
         sam_aln.is_unaligned = false;
-        sam_aln.aln_score = sam_aln.sw_score;
     } else {
 //            std::cerr << "NOOOO MAX BREAKPOINT " << break_point << " candidates: "  <<  n.query_s  << " " << n.query_e - k << std::endl;
         // full align
@@ -748,7 +743,6 @@ static inline bool rescue_mate(
         sam_aln.cigar = Cigar();
         sam_aln.ed = read_len;
         sam_aln.sw_score = 0;
-        sam_aln.aln_score = 0;
         sam_aln.ref_start =  0;
         sam_aln.is_rc = n.is_rc;
         sam_aln.ref_id = n.ref_id;
@@ -762,7 +756,6 @@ static inline bool rescue_mate(
         sam_aln.cigar = Cigar();
         sam_aln.ed = read_len;
         sam_aln.sw_score = 0;
-        sam_aln.aln_score = 0;
         sam_aln.ref_start =  0;
         sam_aln.is_rc = n.is_rc;
         sam_aln.ref_id = n.ref_id;
@@ -792,7 +785,6 @@ static inline bool rescue_mate(
     sam_aln.cigar = info.cigar;
     sam_aln.ed = info.edit_distance;
     sam_aln.sw_score = info.sw_score;
-    sam_aln.aln_score = sam_aln.sw_score;
     sam_aln.ref_start = ref_start + info.ref_start;
     sam_aln.is_rc = a_is_rc;
     sam_aln.ref_id = n.ref_id;
