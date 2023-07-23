@@ -96,7 +96,7 @@ static inline void align_SE(
     int best_align_sw_score = -1000;
 
     Alignment best_sam_aln;
-    best_sam_aln.sw_score = -100000;
+    best_sam_aln.score = -100000;
     best_sam_aln.is_unaligned = true;
     int min_mapq_diff = best_align_dist;
     for (auto &n : all_nams) {
@@ -111,15 +111,15 @@ static inline void align_SE(
         details.tried_alignment++;
         details.gapped += sam_aln.gapped;
 
-        int diff_to_best = std::abs(best_align_sw_score - sam_aln.sw_score);
+        int diff_to_best = std::abs(best_align_sw_score - sam_aln.score);
         min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
 
         if (max_secondary > 0) {
             alignments.emplace_back(sam_aln);
         }
-        if (sam_aln.sw_score > best_align_sw_score) {
-            min_mapq_diff = std::max(0, sam_aln.sw_score - best_align_sw_score); // new distance to next best match
-            best_align_sw_score = sam_aln.sw_score;
+        if (sam_aln.score > best_align_sw_score) {
+            min_mapq_diff = std::max(0, sam_aln.score - best_align_sw_score); // new distance to next best match
+            best_align_sw_score = sam_aln.score;
             best_sam_aln = std::move(sam_aln);
             if (max_secondary == 0) {
                 best_align_dist = best_sam_aln.global_ed;
@@ -136,7 +136,7 @@ static inline void align_SE(
     // Sort alignments by score, highest first
     std::sort(alignments.begin(), alignments.end(),
         [](const Alignment& a, const Alignment& b) -> bool {
-            return a.sw_score > b.sw_score;
+            return a.score > b.score;
         }
     );
 
@@ -144,7 +144,7 @@ static inline void align_SE(
     bool is_primary{true};
     for (size_t i = 0; i < max_out; ++i) {
         auto sam_aln = alignments[i];
-        if ((sam_aln.sw_score - best_align_sw_score) > (2*aligner.parameters.mismatch + aligner.parameters.gap_open) ){
+        if ((sam_aln.score - best_align_sw_score) > (2*aligner.parameters.mismatch + aligner.parameters.gap_open) ){
             break;
         }
         if (!is_primary) {
@@ -181,7 +181,7 @@ static inline Alignment align_segment(
             auto info = hamming_align(read_segm, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
             sam_aln_segm.cigar = std::move(info.cigar);
             sam_aln_segm.ed = info.edit_distance;
-            sam_aln_segm.sw_score = info.sw_score;
+            sam_aln_segm.score = info.sw_score;
             sam_aln_segm.ref_start = ref_start + ext_left + info.query_start;
             sam_aln_segm.is_rc = is_rc;
             sam_aln_segm.is_unaligned = false;
@@ -192,7 +192,7 @@ static inline Alignment align_segment(
     auto info = aligner.align(read_segm, ref_segm);
     sam_aln_segm.cigar = std::move(info.cigar);
     sam_aln_segm.ed = info.edit_distance;
-    sam_aln_segm.sw_score = info.sw_score;
+    sam_aln_segm.score = info.sw_score;
     sam_aln_segm.ref_start = ref_start + info.ref_start;
     sam_aln_segm.is_rc = is_rc;
     sam_aln_segm.is_unaligned = false;
@@ -261,7 +261,7 @@ static inline Alignment get_alignment(
     sam_aln.cigar = std::move(info.cigar);
     sam_aln.ed = info.edit_distance;
     sam_aln.global_ed = info.edit_distance + softclipped;
-    sam_aln.sw_score = info.sw_score;
+    sam_aln.score = info.sw_score;
     sam_aln.ref_start = result_ref_start;
     sam_aln.length = info.ref_span();
     sam_aln.is_rc = n.is_rc;
@@ -309,7 +309,7 @@ static inline Alignment get_alignment_unused(
             auto info = hamming_align(r_tmp, ref_segm, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
             sam_aln.cigar = std::move(info.cigar);
             sam_aln.ed = info.edit_distance;
-            sam_aln.sw_score = info.sw_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
+            sam_aln.score = info.sw_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
             sam_aln.ref_start = ref_start + ext_left + info.query_start;
             sam_aln.is_rc = is_rc;
             sam_aln.is_unaligned = false;
@@ -380,7 +380,7 @@ static inline Alignment get_alignment_unused(
         sam_aln.ref_id = n.ref_id;
         sam_aln.cigar = Cigar(sam_aln_segm_left.cigar.to_string() + sam_aln_segm_right.cigar.to_string());
         sam_aln.ed = sam_aln_segm_left.ed + sam_aln_segm_right.ed;
-        sam_aln.sw_score = sam_aln_segm_left.sw_score + sam_aln_segm_right.sw_score;
+        sam_aln.score = sam_aln_segm_left.score + sam_aln_segm_right.score;
         sam_aln.ref_start =  sam_aln_segm_left.ref_start;
         sam_aln.is_rc = n.is_rc;
         sam_aln.is_unaligned = false;
@@ -553,7 +553,7 @@ static inline float normal_pdf(float x, float m, float s)
 
 static inline bool score_sw(const Alignment &a, const Alignment &b)
 {
-    return a.sw_score > b.sw_score;
+    return a.score > b.score;
 }
 
 static inline bool sort_scores(const std::tuple<double, Alignment, Alignment> &a,
@@ -572,7 +572,7 @@ static inline std::vector<std::tuple<double,Alignment,Alignment>> get_best_scori
     for (auto &a1 : alignments1) {
         for (auto &a2 : alignments2) {
             float dist = std::abs(a1.ref_start - a2.ref_start);
-            double score = a1.sw_score + a2.sw_score;
+            double score = a1.score + a2.score;
             if ((a1.is_rc ^ a2.is_rc) && (dist < mu + 4 * sigma)) {
                 score += log(normal_pdf(dist, mu, sigma));
             }
@@ -742,7 +742,7 @@ static inline bool rescue_mate(
     if (ref_end < ref_start + k){
         sam_aln.cigar = Cigar();
         sam_aln.ed = read_len;
-        sam_aln.sw_score = 0;
+        sam_aln.score = 0;
         sam_aln.ref_start =  0;
         sam_aln.is_rc = n.is_rc;
         sam_aln.ref_id = n.ref_id;
@@ -755,7 +755,7 @@ static inline bool rescue_mate(
     if (!has_shared_substring(r_tmp, ref_segm, k)){
         sam_aln.cigar = Cigar();
         sam_aln.ed = read_len;
-        sam_aln.sw_score = 0;
+        sam_aln.score = 0;
         sam_aln.ref_start =  0;
         sam_aln.is_rc = n.is_rc;
         sam_aln.ref_id = n.ref_id;
@@ -784,7 +784,7 @@ static inline bool rescue_mate(
 
     sam_aln.cigar = info.cigar;
     sam_aln.ed = info.edit_distance;
-    sam_aln.sw_score = info.sw_score;
+    sam_aln.score = info.sw_score;
     sam_aln.ref_start = ref_start + info.ref_start;
     sam_aln.is_rc = a_is_rc;
     sam_aln.ref_id = n.ref_id;
@@ -1121,7 +1121,7 @@ inline void align_PE(
 //                a1_indv_max = a1.sw_score >  a1_indv_max.sw_score ? a1 : a1_indv_max;
 //                min_ed = a1.ed < min_ed ? a1.ed : min_ed;
 
-        if (a1.sw_score >  a1_indv_max.sw_score){
+        if (a1.score >  a1_indv_max.score){
             a1_indv_max = a1;
 //                    cnt = 0;
         }
@@ -1148,7 +1148,7 @@ inline void align_PE(
 //                a2_indv_max = a2.sw_score >  a2_indv_max.sw_score ? a2 : a2_indv_max;
 //                min_ed = a2.ed < min_ed ? a2.ed : min_ed;
 
-        if (a2.sw_score >  a2_indv_max.sw_score){
+        if (a2.score >  a2_indv_max.score){
             a2_indv_max = a2;
 //                    cnt = 0;
         }
@@ -1158,10 +1158,10 @@ inline void align_PE(
 
         if (r1_r2 || r2_r1) {
             float x = std::abs(a1.ref_start - a2.ref_start);
-            S = (double)a1.sw_score + (double)a2.sw_score + log(normal_pdf(x, mu, sigma));  //* (1 - s2 / s1) * min_matches * log(s1);
+            S = (double)a1.score + (double)a2.score + log(normal_pdf(x, mu, sigma));  //* (1 - s2 / s1) * min_matches * log(s1);
 //                    std::cerr << " CASE1: " << S << " " <<  log( normal_pdf(x, mu, sigma ) ) << " " << (double)a1.sw_score << " " << (double)a2.sw_score << std::endl;
         } else{ // individual score
-            S = (double)a1.sw_score + (double)a2.sw_score - 20; // 20 corresponds to a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
+            S = (double)a1.score + (double)a2.score - 20; // 20 corresponds to a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
 //                    std::cerr << " CASE2: " << S << " " << (double)a1.sw_score << " " << (double)a2.sw_score << std::endl;
         }
 
@@ -1172,7 +1172,7 @@ inline void align_PE(
     }
 
     // Finally, add highest scores of both mates as individually mapped
-    S = (double)a1_indv_max.sw_score + (double)a2_indv_max.sw_score - 20; // 20 corresponds to  a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
+    S = (double)a1_indv_max.score + (double)a2_indv_max.score - 20; // 20 corresponds to  a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
     std::tuple<double, Alignment, Alignment> aln_tuple (S, a1_indv_max, a2_indv_max);
     high_scores.push_back(aln_tuple);
     std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first

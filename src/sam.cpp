@@ -132,7 +132,7 @@ void Sam::add(
     if (!is_primary) {
         flags |= SECONDARY;
     }
-    add_record(record.name, flags, references.names[sam_aln.ref_id], sam_aln.ref_start, sam_aln.mapq, sam_aln.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, sam_aln.ed, sam_aln.sw_score, details);
+    add_record(record.name, flags, references.names[sam_aln.ref_id], sam_aln.ref_start, sam_aln.mapq, sam_aln.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, sam_aln.ed, sam_aln.score, details);
 }
 
 // Add one individual record
@@ -301,12 +301,12 @@ void Sam::add_pair(
     if (sam_aln1.is_unaligned) {
         add_unmapped_mate(record1, f1, reference_name2, pos2);
     } else {
-        add_record(record1.name, f1, reference_name1, sam_aln1.ref_start, mapq1, sam_aln1.cigar, mate_reference_name2, pos2, template_len1, record1.seq, read1_rc, record1.qual, edit_distance1, sam_aln1.sw_score, details[0]);
+        add_record(record1.name, f1, reference_name1, sam_aln1.ref_start, mapq1, sam_aln1.cigar, mate_reference_name2, pos2, template_len1, record1.seq, read1_rc, record1.qual, edit_distance1, sam_aln1.score, details[0]);
     }
     if (sam_aln2.is_unaligned) {
         add_unmapped_mate(record2, f2, reference_name1, pos1);
     } else {
-        add_record(record2.name, f2, reference_name2, sam_aln2.ref_start, mapq2, sam_aln2.cigar, mate_reference_name1, pos1, -template_len1, record2.seq, read2_rc, record2.qual, edit_distance2, sam_aln2.sw_score, details[1]);
+        add_record(record2.name, f2, reference_name2, sam_aln2.ref_start, mapq2, sam_aln2.cigar, mate_reference_name1, pos1, -template_len1, record2.seq, read2_rc, record2.qual, edit_distance2, sam_aln2.score, details[1]);
     }
 }
 

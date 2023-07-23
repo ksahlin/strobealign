@@ -14,7 +14,7 @@ struct Alignment {
     Cigar cigar;
     int ed;
     int global_ed;
-    int sw_score;
+    int score;
     int mapq;
     int length;
     bool is_rc;
