@@ -14,7 +14,7 @@ using namespace klibpp;
 
 static inline Alignment get_alignment(
     const Aligner& aligner,
-    const Nam &n,
+    const Nam &nam,
     const References& references,
     const Read& read,
     bool consistent_nam
@@ -34,36 +34,36 @@ static inline bool score(const Nam &a, const Nam &b) {
  *   in place and return true.
  * - If first and last strobe do not match consistently, return false.
  */
-bool reverse_nam_if_needed(Nam& n, const Read& read, const References& references, int k) {
+bool reverse_nam_if_needed(Nam& nam, const Read& read, const References& references, int k) {
     auto read_len = read.size();
-    std::string ref_start_kmer = references.sequences[n.ref_id].substr(n.ref_s, k);
-    std::string ref_end_kmer = references.sequences[n.ref_id].substr(n.ref_e-k, k);
+    std::string ref_start_kmer = references.sequences[nam.ref_id].substr(nam.ref_s, k);
+    std::string ref_end_kmer = references.sequences[nam.ref_id].substr(nam.ref_e-k, k);
 
     std::string seq, seq_rc;
-    if (n.is_rc) {
+    if (nam.is_rc) {
         seq = read.rc;
         seq_rc = read.seq;
     } else {
         seq = read.seq;
         seq_rc = read.rc;
     }
-    std::string read_start_kmer = seq.substr(n.query_s, k);
-    std::string read_end_kmer = seq.substr(n.query_e-k, k);
+    std::string read_start_kmer = seq.substr(nam.query_s, k);
+    std::string read_end_kmer = seq.substr(nam.query_e-k, k);
     if (ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer) {
         return true;
     }
 
     // False forward or false reverse (possible due to symmetrical hash values)
     //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
-    int q_start_tmp = read_len - n.query_e;
-    int q_end_tmp = read_len - n.query_s;
+    int q_start_tmp = read_len - nam.query_e;
+    int q_end_tmp = read_len - nam.query_s;
     // false reverse hit, change coordinates in nam to forward
     read_start_kmer = seq_rc.substr(q_start_tmp, k);
     read_end_kmer = seq_rc.substr(q_end_tmp - k, k);
     if (ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer) {
-        n.is_rc = !n.is_rc;
-        n.query_s = q_start_tmp;
-        n.query_e = q_end_tmp;
+        nam.is_rc = !nam.is_rc;
+        nam.query_s = q_start_tmp;
+        nam.query_e = q_end_tmp;
         return true;
     }
     return false;
@@ -99,15 +99,15 @@ static inline void align_SE(
     best_sam_aln.score = -100000;
     best_sam_aln.is_unaligned = true;
     int min_mapq_diff = best_align_dist;
-    for (auto &n : nams) {
-        score_dropoff = (float) n.n_hits / n_max.n_hits;
+    for (auto &nam : nams) {
+        score_dropoff = (float) nam.n_hits / n_max.n_hits;
 
         if (tries >= max_tries || best_align_dist == 0 || score_dropoff < dropoff) { // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
             break;
         }
-        bool consistent_nam = reverse_nam_if_needed(n, read, references, k);
+        bool consistent_nam = reverse_nam_if_needed(nam, read, references, k);
         details.nam_inconsistent += !consistent_nam;
-        auto sam_aln = get_alignment(aligner, n, references, read, consistent_nam);
+        auto sam_aln = get_alignment(aligner, nam, references, read, consistent_nam);
         details.tried_alignment++;
         details.gapped += sam_aln.gapped;
 
@@ -222,16 +222,16 @@ static inline Alignment align_segment(
 
 static inline Alignment get_alignment(
     const Aligner& aligner,
-    const Nam &n,
+    const Nam &nam,
     const References& references,
     const Read& read,
     bool consistent_nam
 ) {
-    const std::string query = n.is_rc ? read.rc : read.seq;
-    const std::string& ref = references.sequences[n.ref_id];
+    const std::string query = nam.is_rc ? read.rc : read.seq;
+    const std::string& ref = references.sequences[nam.ref_id];
 
-    const int projected_ref_start = std::max(0, n.ref_s - n.query_s);
-    const int projected_ref_end = std::min(n.ref_e + query.size() - n.query_e, ref.size());
+    const int projected_ref_start = std::max(0, nam.ref_s - nam.query_s);
+    const int projected_ref_end = std::min(nam.ref_e + query.size() - nam.query_e, ref.size());
 
     aln_info info;
     int result_ref_start;
@@ -247,10 +247,10 @@ static inline Alignment get_alignment(
         }
     }
     if (gapped) {
-        const int diff = std::abs(n.ref_span() - n.query_span());
+        const int diff = std::abs(nam.ref_span() - nam.query_span());
         const int ext_left = std::min(50, projected_ref_start);
         const int ref_start = projected_ref_start - ext_left;
-        const int ext_right = std::min(std::size_t(50), ref.size() - n.ref_e);
+        const int ext_right = std::min(std::size_t(50), ref.size() - nam.ref_e);
         const auto ref_segm_size = read.size() + diff + ext_left + ext_right;
         const auto ref_segm = ref.substr(ref_start, ref_segm_size);
         info = aligner.align(query, ref_segm);
@@ -264,9 +264,9 @@ static inline Alignment get_alignment(
     sam_aln.score = info.sw_score;
     sam_aln.ref_start = result_ref_start;
     sam_aln.length = info.ref_span();
-    sam_aln.is_rc = n.is_rc;
+    sam_aln.is_rc = nam.is_rc;
     sam_aln.is_unaligned = false;
-    sam_aln.ref_id = n.ref_id;
+    sam_aln.ref_id = nam.ref_id;
     sam_aln.gapped = gapped;
 
     return sam_aln;
@@ -274,7 +274,7 @@ static inline Alignment get_alignment(
 
 static inline Alignment get_alignment_unused(
     const Aligner& aligner,
-    const Nam &n,
+    const Nam &nam,
     const References& references,
     const Read& read,
     int k,
@@ -283,25 +283,25 @@ static inline Alignment get_alignment_unused(
     Alignment sam_aln;
 
     const auto read_len = read.size();
-    const int diff = std::abs(n.ref_span() - n.query_span());
+    const int diff = std::abs(nam.ref_span() - nam.query_span());
 
-    const std::string r_tmp = n.is_rc ? read.rc : read.seq;
-    const bool is_rc = n.is_rc;
+    const std::string r_tmp = nam.is_rc ? read.rc : read.seq;
+    const bool is_rc = nam.is_rc;
 
     int ext_left;
     int ext_right;
     int ref_tmp_segm_size;
-    const int ref_len = references.lengths[n.ref_id];
+    const int ref_len = references.lengths[nam.ref_id];
     int ref_tmp_start;
     std::string read_segm;
 
     // test full hamming based alignment first
-    ref_tmp_start = std::max(0, n.ref_s - n.query_s);
+    ref_tmp_start = std::max(0, nam.ref_s - nam.query_s);
     int ref_start = std::max(0, ref_tmp_start);
     ref_tmp_segm_size = read_len + diff;
     auto ref_segm_size = std::min(ref_tmp_segm_size, ref_len - ref_start + 1);
 
-    std::string ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_segm_size);
+    std::string ref_segm = references.sequences[nam.ref_id].substr(ref_start, ref_segm_size);
     if (ref_segm_size == read_len && consistent_nam) {
         int hamming_dist = hamming_distance(r_tmp, ref_segm);
 
@@ -322,11 +322,11 @@ static inline Alignment get_alignment_unused(
     // identify one or two split points within the read if the segment is  are larger than T
     int T = 20;
     // find the most central split point Use convex function result sum of squares
-    int left_outer =  pow (n.query_s, 2) + pow(read_len - n.query_s, 2);
-    int right_inner = pow (n.query_e - k, 2) + pow (read_len - (n.query_e - k), 2);
+    int left_outer =  pow (nam.query_s, 2) + pow(read_len - nam.query_s, 2);
+    int right_inner = pow (nam.query_e - k, 2) + pow (read_len - (nam.query_e - k), 2);
 
 
-    int global_max_bp = left_outer < right_inner ? n.query_s : n.query_e - k;
+    int global_max_bp = left_outer < right_inner ? nam.query_s : nam.query_e - k;
     int break_point = (global_max_bp >= T) && (global_max_bp <= (read_len - T)) ? global_max_bp : -1;
     if (break_point > 0 ){
 //            std::cerr << "MAX BREAKPOINT " << break_point << " candidates: " <<  n.query_s  << " " << n.query_e - k << std::endl;
@@ -334,22 +334,22 @@ static inline Alignment get_alignment_unused(
         int right_region_bp = break_point;
 //            std::cerr << "left_region_bp " << left_region_bp << " right_region_bp: " << right_region_bp << std::endl;
         int right_ref_start_bp = -1;
-        if (break_point == n.query_s){
-            right_ref_start_bp = n.ref_s;
-        } else if (break_point == (n.query_e - k)) {
-            right_ref_start_bp = n.ref_e-k;
+        if (break_point == nam.query_s){
+            right_ref_start_bp = nam.ref_s;
+        } else if (break_point == (nam.query_e - k)) {
+            right_ref_start_bp = nam.ref_e-k;
         } else  {
             std::cerr << "BUUUUUUG " << std::endl;
         }
 
         // Left region align
         read_segm = r_tmp.substr(0, left_region_bp);
-        ref_tmp_start = std::max(0, n.ref_s - n.query_s);
+        ref_tmp_start = std::max(0, nam.ref_s - nam.query_s);
         ext_left = std::min(50, ref_tmp_start);
         ext_right = 0;
         ref_start = ref_tmp_start - ext_left;
         ref_segm_size = left_region_bp + ext_left + diff;
-        ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_segm_size);
+        ref_segm = references.sequences[nam.ref_id].substr(ref_start, ref_segm_size);
 //            std::cerr << " "  << std::endl;
 //            std::cerr << "GOING IN LEFT: " << " read segm len " << read_segm.length() << " ref segm len " << ref_segm_size  << " ext_left: " << ext_left << std::endl;
 //            std::cerr << diff << std::endl;
@@ -365,7 +365,7 @@ static inline Alignment get_alignment_unused(
         ext_left = 0;
         ext_right = std::min(50, ref_len - (right_ref_start_bp + ref_tmp_segm_size));
         ref_segm_size = ref_tmp_segm_size + ext_right;
-        ref_segm = references.sequences[n.ref_id].substr(right_ref_start_bp, ref_segm_size);
+        ref_segm = references.sequences[nam.ref_id].substr(right_ref_start_bp, ref_segm_size);
 //            std::cerr << " "  << std::endl;
 //            std::cerr << "GOING IN RIGHT: " << " read segm len " << read_segm.length() << " ref segm len " << ref_segm_size  << " ext_right: " << ext_right << std::endl;
 //            std::cerr << diff << std::endl;
@@ -377,28 +377,28 @@ static inline Alignment get_alignment_unused(
 
 
         // Stitch together
-        sam_aln.ref_id = n.ref_id;
+        sam_aln.ref_id = nam.ref_id;
         sam_aln.cigar = Cigar(sam_aln_segm_left.cigar.to_string() + sam_aln_segm_right.cigar.to_string());
         sam_aln.edit_distance = sam_aln_segm_left.edit_distance + sam_aln_segm_right.edit_distance;
         sam_aln.score = sam_aln_segm_left.score + sam_aln_segm_right.score;
         sam_aln.ref_start =  sam_aln_segm_left.ref_start;
-        sam_aln.is_rc = n.is_rc;
+        sam_aln.is_rc = nam.is_rc;
         sam_aln.is_unaligned = false;
     } else {
 //            std::cerr << "NOOOO MAX BREAKPOINT " << break_point << " candidates: "  <<  n.query_s  << " " << n.query_e - k << std::endl;
         // full align
-        ref_tmp_start = std::max(0, n.ref_s - n.query_s);
+        ref_tmp_start = std::max(0, nam.ref_s - nam.query_s);
         ext_left = std::min(50, ref_tmp_start);
         ref_start = ref_tmp_start - ext_left;
 
         ref_tmp_segm_size = read_len + diff;
-        ext_right = std::min(50, ref_len - (n.ref_e +1));
+        ext_right = std::min(50, ref_len - (nam.ref_e +1));
 
         ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
-        ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_segm_size);
+        ref_segm = references.sequences[nam.ref_id].substr(ref_start, ref_segm_size);
 //        std::cerr << " ref_tmp_start " << ref_tmp_start << " ext left " << ext_left << " ext right " << ext_right << " ref_tmp_segm_size " << ref_tmp_segm_size << " ref_segm_size " << ref_segm_size << " ref_segm " << ref_segm << std::endl;
         sam_aln = align_segment(aligner, r_tmp, ref_segm, ref_start, ext_left, ext_right, consistent_nam, is_rc);
-        sam_aln.ref_id = n.ref_id;
+        sam_aln.ref_id = nam.ref_id;
     }
 
 
@@ -708,7 +708,7 @@ bool has_shared_substring(const std::string& read_seq, const std::string& ref_se
 /* Return true iff rescue by alignment was actually attempted */
 static inline bool rescue_mate(
     const Aligner& aligner,
-    Nam &n,
+    Nam &nam,
     const References& references,
     const Read& guide,
     const Read& read,
@@ -722,20 +722,20 @@ static inline bool rescue_mate(
     bool a_is_rc;
     auto read_len = read.size();
 
-    reverse_nam_if_needed(n, guide, references, k);
-    if (n.is_rc){
+    reverse_nam_if_needed(nam, guide, references, k);
+    if (nam.is_rc){
         r_tmp = read.seq;
-        a = n.ref_s - n.query_s - (mu+5*sigma);
-        b = n.ref_s - n.query_s + read_len/2; // at most half read overlap
+        a = nam.ref_s - nam.query_s - (mu+5*sigma);
+        b = nam.ref_s - nam.query_s + read_len/2; // at most half read overlap
         a_is_rc = false;
     } else {
         r_tmp = read.rc; // mate is rc since fr orientation
-        a = n.ref_e + (read_len - n.query_e) - read_len/2; // at most half read overlap
-        b = n.ref_e + (read_len - n.query_e) + (mu+5*sigma);
+        a = nam.ref_e + (read_len - nam.query_e) - read_len/2; // at most half read overlap
+        b = nam.ref_e + (read_len - nam.query_e) + (mu+5*sigma);
         a_is_rc = true;
     }
 
-    auto ref_len = static_cast<int>(references.lengths[n.ref_id]);
+    auto ref_len = static_cast<int>(references.lengths[nam.ref_id]);
     auto ref_start = std::max(0, std::min(a, ref_len));
     auto ref_end = std::min(ref_len, std::max(0, b));
 
@@ -744,21 +744,21 @@ static inline bool rescue_mate(
         sam_aln.edit_distance = read_len;
         sam_aln.score = 0;
         sam_aln.ref_start =  0;
-        sam_aln.is_rc = n.is_rc;
-        sam_aln.ref_id = n.ref_id;
+        sam_aln.is_rc = nam.is_rc;
+        sam_aln.ref_id = nam.ref_id;
         sam_aln.is_unaligned = true;
 //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return false;
     }
-    std::string ref_segm = references.sequences[n.ref_id].substr(ref_start, ref_end - ref_start);
+    std::string ref_segm = references.sequences[nam.ref_id].substr(ref_start, ref_end - ref_start);
 
     if (!has_shared_substring(r_tmp, ref_segm, k)){
         sam_aln.cigar = Cigar();
         sam_aln.edit_distance = read_len;
         sam_aln.score = 0;
         sam_aln.ref_start =  0;
-        sam_aln.is_rc = n.is_rc;
-        sam_aln.ref_id = n.ref_id;
+        sam_aln.is_rc = nam.is_rc;
+        sam_aln.ref_id = nam.ref_id;
         sam_aln.is_unaligned = true;
 //        std::cerr << "Avoided!" << std::endl;
         return false;
@@ -787,7 +787,7 @@ static inline bool rescue_mate(
     sam_aln.score = info.sw_score;
     sam_aln.ref_start = ref_start + info.ref_start;
     sam_aln.is_rc = a_is_rc;
-    sam_aln.ref_id = n.ref_id;
+    sam_aln.ref_id = nam.ref_id;
     sam_aln.is_unaligned = info.cigar.empty();
     sam_aln.length = info.ref_span();
     return true;
@@ -818,23 +818,23 @@ void rescue_read(
 
     std::vector<Alignment> alignments1;
     std::vector<Alignment> alignments2;
-    for (auto& n : nams1) {
-        float score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
+    for (auto& nam : nams1) {
+        float score_dropoff1 = (float) nam.n_hits / n_max1.n_hits;
         // only consider top hits (as minimap2 does) and break if below dropoff cutoff.
         if (tries >= max_tries || score_dropoff1 < dropoff) {
             break;
         }
 
-        const bool consistent_nam = reverse_nam_if_needed(n, read1, references, k);
+        const bool consistent_nam = reverse_nam_if_needed(nam, read1, references, k);
         details[0].nam_inconsistent += !consistent_nam;
-        auto alignment = get_alignment(aligner, n, references, read1, consistent_nam);
+        auto alignment = get_alignment(aligner, nam, references, read1, consistent_nam);
         details[0].gapped += alignment.gapped;
         alignments1.emplace_back(alignment);
         details[0].tried_alignment++;
 
         // Force SW alignment to rescue mate
         Alignment a2;
-        details[1].mate_rescue += rescue_mate(aligner, n, references, read1, read2, a2, mu, sigma, k);
+        details[1].mate_rescue += rescue_mate(aligner, nam, references, read1, read2, a2, mu, sigma, k);
         alignments2.emplace_back(a2);
 
         tries++;
