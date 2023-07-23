@@ -1273,13 +1273,13 @@ static inline bool sort_lowest_ed_scores_single(const std::tuple<int, Alignment>
 struct Hit {
     unsigned int count;
     unsigned int offset;
-    unsigned int query_s;
-    unsigned int query_e;
+    unsigned int query_start;
+    unsigned int query_end;
     bool is_rc;
 
     bool operator< (const Hit& rhs) const {
-        return std::tie(count, offset, query_s, query_e, is_rc)
-            < std::tie(rhs.count, rhs.offset, rhs.query_s, rhs.query_e, rhs.is_rc);
+        return std::tie(count, offset, query_start, query_end, is_rc)
+            < std::tie(rhs.count, rhs.offset, rhs.query_start, rhs.query_end, rhs.is_rc);
     }
 };
 
@@ -1386,8 +1386,8 @@ static inline void find_nams_rescue(
 //        std::cerr << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
         auto count = q.count;
         auto offset = q.offset;
-        h.query_s = q.query_s;
-        h.query_e = q.query_e; // h.query_s + read_length/2;
+        h.query_s = q.query_start;
+        h.query_e = q.query_end; // h.query_s + read_length/2;
         h.is_rc = q.is_rc;
 
         if ( ((count <= filter_cutoff) || (cnt < 5)) && (count <= 1000) ){
@@ -1430,8 +1430,8 @@ static inline void find_nams_rescue(
     {
         auto count = q.count;
         auto offset = q.offset;
-        h.query_s = q.query_s;
-        h.query_e = q.query_e; // h.query_s + read_length/2;
+        h.query_s = q.query_start;
+        h.query_e = q.query_end; // h.query_s + read_length/2;
         h.is_rc = q.is_rc;
 
         if ( ((count <= filter_cutoff) || (cnt < 5)) && (count <= 1000) ){
@@ -1489,10 +1489,10 @@ static inline void find_nams_rescue(
             for (auto & o : open_nams) {
 
                 // Extend NAM
-                if (( o.is_rc == h.is_rc) && (o.query_prev_hit_startpos < h.query_s) && (h.query_s <= o.query_e ) && (o.ref_prev_hit_startpos < h.ref_s) && (h.ref_s <= o.ref_e) ){
-                    if ( (h.query_e > o.query_e) && (h.ref_e > o.ref_e) ) {
-                        o.query_e = h.query_e;
-                        o.ref_e = h.ref_e;
+                if (( o.is_rc == h.is_rc) && (o.query_prev_hit_startpos < h.query_s) && (h.query_s <= o.query_end ) && (o.ref_prev_hit_startpos < h.ref_s) && (h.ref_s <= o.ref_end) ){
+                    if ( (h.query_e > o.query_end) && (h.ref_e > o.ref_end) ) {
+                        o.query_end = h.query_e;
+                        o.ref_end = h.ref_e;
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
                         o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
@@ -1502,7 +1502,7 @@ static inline void find_nams_rescue(
                         is_added = true;
                         break;
                     }
-                    else if ((h.query_e <= o.query_e) && (h.ref_e <= o.ref_e)) {
+                    else if ((h.query_e <= o.query_end) && (h.ref_e <= o.ref_end)) {
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
                         o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
@@ -1526,10 +1526,10 @@ static inline void find_nams_rescue(
                 Nam n;
                 n.nam_id = nam_id_cnt;
                 nam_id_cnt ++;
-                n.query_s = h.query_s;
-                n.query_e = h.query_e;
-                n.ref_s = h.ref_s;
-                n.ref_e = h.ref_e;
+                n.query_start = h.query_s;
+                n.query_end = h.query_e;
+                n.ref_start = h.ref_s;
+                n.ref_end = h.ref_e;
                 n.ref_id = ref_id;
 //                n.previous_query_start = h.query_s;
 //                n.previous_ref_start = h.ref_s;
@@ -1546,9 +1546,9 @@ static inline void find_nams_rescue(
 
                 // Output all NAMs from open_matches to final_nams that the current hit have passed
                 for (auto &n : open_nams) {
-                    if (n.query_e < h.query_s) {
-                        int n_max_span = std::max(n.query_e - n.query_s, n.ref_e - n.ref_s);
-                        int n_min_span = std::max(n.query_e - n.query_s, n.ref_e - n.ref_s);
+                    if (n.query_end < h.query_s) {
+                        int n_max_span = std::max(n.query_end - n.query_start, n.ref_end - n.ref_start);
+                        int n_min_span = std::max(n.query_end - n.query_start, n.ref_end - n.ref_start);
                         float n_score;
                         n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
 //                        n_score = n.n_hits * (n.query_e - n.query_s);
@@ -1560,7 +1560,7 @@ static inline void find_nams_rescue(
 
                 // Remove all NAMs from open_matches that the current hit have passed
                 unsigned int c = h.query_s;
-                auto predicate = [c](decltype(open_nams)::value_type const &nam) { return nam.query_e < c; };
+                auto predicate = [c](decltype(open_nams)::value_type const &nam) { return nam.query_end < c; };
                 open_nams.erase(std::remove_if(open_nams.begin(), open_nams.end(), predicate), open_nams.end());
                 prev_q_start = h.query_s;
             }
@@ -1568,8 +1568,8 @@ static inline void find_nams_rescue(
 
         // Add all current open_matches to final NAMs
         for (auto &n : open_nams){
-            int n_max_span = std::max(n.query_e - n.query_s, n.ref_e - n.ref_s);
-            int n_min_span = std::min(n.query_e - n.query_s, n.ref_e - n.ref_s);
+            int n_max_span = std::max(n.query_end - n.query_start, n.ref_end - n.ref_start);
+            int n_min_span = std::min(n.query_end - n.query_start, n.ref_end - n.ref_start);
             float n_score;
             n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
 //            n_score = n.n_hits * (n.query_e - n.query_s);
@@ -1715,10 +1715,10 @@ static inline std::pair<float,int> find_nams(
             for (auto & o : open_nams) {
 
                 // Extend NAM
-                if (( o.is_rc == h.is_rc) && (o.query_prev_hit_startpos < h.query_s) && (h.query_s <= o.query_e ) && (o.ref_prev_hit_startpos < h.ref_s) && (h.ref_s <= o.ref_e) ){
-                    if ( (h.query_e > o.query_e) && (h.ref_e > o.ref_e) ) {
-                        o.query_e = h.query_e;
-                        o.ref_e = h.ref_e;
+                if (( o.is_rc == h.is_rc) && (o.query_prev_hit_startpos < h.query_s) && (h.query_s <= o.query_end ) && (o.ref_prev_hit_startpos < h.ref_s) && (h.ref_s <= o.ref_end) ){
+                    if ( (h.query_e > o.query_end) && (h.ref_e > o.ref_end) ) {
+                        o.query_end = h.query_e;
+                        o.ref_end = h.ref_e;
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
                         o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
@@ -1728,7 +1728,7 @@ static inline std::pair<float,int> find_nams(
                         is_added = true;
                         break;
                     }
-                    else if ((h.query_e <= o.query_e) && (h.ref_e <= o.ref_e)) {
+                    else if ((h.query_e <= o.query_end) && (h.ref_e <= o.ref_end)) {
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
                         o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
@@ -1776,10 +1776,10 @@ static inline std::pair<float,int> find_nams(
                 Nam n;
                 n.nam_id = nam_id_cnt;
                 nam_id_cnt ++;
-                n.query_s = h.query_s;
-                n.query_e = h.query_e;
-                n.ref_s = h.ref_s;
-                n.ref_e = h.ref_e;
+                n.query_start = h.query_s;
+                n.query_end = h.query_e;
+                n.ref_start = h.ref_s;
+                n.ref_end = h.ref_e;
                 n.ref_id = ref_id;
 //                n.previous_query_start = h.query_s;
 //                n.previous_ref_start = h.ref_s;
@@ -1796,9 +1796,9 @@ static inline std::pair<float,int> find_nams(
 
                 // Output all NAMs from open_matches to final_nams that the current hit have passed
                 for (auto &n : open_nams) {
-                    if (n.query_e < h.query_s) {
-                        int n_max_span = std::max(n.query_e - n.query_s, n.ref_e - n.ref_s);
-                        int n_min_span = std::min(n.query_e - n.query_s, n.ref_e - n.ref_s);
+                    if (n.query_end < h.query_s) {
+                        int n_max_span = std::max(n.query_end - n.query_start, n.ref_end - n.ref_start);
+                        int n_min_span = std::min(n.query_end - n.query_start, n.ref_end - n.ref_start);
                         float n_score;
                         n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
 //                        n_score = n.n_hits * (n.query_e - n.query_s);
@@ -1810,7 +1810,7 @@ static inline std::pair<float,int> find_nams(
 
                 // Remove all NAMs from open_matches that the current hit have passed
                 unsigned int c = h.query_s;
-                auto predicate = [c](decltype(open_nams)::value_type const &nam) { return nam.query_e < c; };
+                auto predicate = [c](decltype(open_nams)::value_type const &nam) { return nam.query_end < c; };
                 open_nams.erase(std::remove_if(open_nams.begin(), open_nams.end(), predicate), open_nams.end());
                 prev_q_start = h.query_s;
             }
@@ -1818,8 +1818,8 @@ static inline std::pair<float,int> find_nams(
 
         // Add all current open_matches to final NAMs
         for (auto &n : open_nams){
-            int n_max_span = std::max(n.query_e - n.query_s, n.ref_e - n.ref_s);
-            int n_min_span = std::min(n.query_e - n.query_s, n.ref_e - n.ref_s);
+            int n_max_span = std::max(n.query_end - n.query_start, n.ref_end - n.ref_start);
+            int n_min_span = std::min(n.query_end - n.query_start, n.ref_end - n.ref_start);
             float n_score;
             n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
 //            n_score = n.n_hits * (n.query_e - n.query_s);

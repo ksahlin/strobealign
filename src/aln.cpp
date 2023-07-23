@@ -36,8 +36,8 @@ static inline bool score(const Nam &a, const Nam &b) {
  */
 bool reverse_nam_if_needed(Nam& nam, const Read& read, const References& references, int k) {
     auto read_len = read.size();
-    std::string ref_start_kmer = references.sequences[nam.ref_id].substr(nam.ref_s, k);
-    std::string ref_end_kmer = references.sequences[nam.ref_id].substr(nam.ref_e-k, k);
+    std::string ref_start_kmer = references.sequences[nam.ref_id].substr(nam.ref_start, k);
+    std::string ref_end_kmer = references.sequences[nam.ref_id].substr(nam.ref_end-k, k);
 
     std::string seq, seq_rc;
     if (nam.is_rc) {
@@ -47,23 +47,23 @@ bool reverse_nam_if_needed(Nam& nam, const Read& read, const References& referen
         seq = read.seq;
         seq_rc = read.rc;
     }
-    std::string read_start_kmer = seq.substr(nam.query_s, k);
-    std::string read_end_kmer = seq.substr(nam.query_e-k, k);
+    std::string read_start_kmer = seq.substr(nam.query_start, k);
+    std::string read_end_kmer = seq.substr(nam.query_end-k, k);
     if (ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer) {
         return true;
     }
 
     // False forward or false reverse (possible due to symmetrical hash values)
     //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
-    int q_start_tmp = read_len - nam.query_e;
-    int q_end_tmp = read_len - nam.query_s;
+    int q_start_tmp = read_len - nam.query_end;
+    int q_end_tmp = read_len - nam.query_start;
     // false reverse hit, change coordinates in nam to forward
     read_start_kmer = seq_rc.substr(q_start_tmp, k);
     read_end_kmer = seq_rc.substr(q_end_tmp - k, k);
     if (ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer) {
         nam.is_rc = !nam.is_rc;
-        nam.query_s = q_start_tmp;
-        nam.query_e = q_end_tmp;
+        nam.query_start = q_start_tmp;
+        nam.query_end = q_end_tmp;
         return true;
     }
     return false;
@@ -230,8 +230,8 @@ static inline Alignment get_alignment(
     const std::string query = nam.is_rc ? read.rc : read.seq;
     const std::string& ref = references.sequences[nam.ref_id];
 
-    const int projected_ref_start = std::max(0, nam.ref_s - nam.query_s);
-    const int projected_ref_end = std::min(nam.ref_e + query.size() - nam.query_e, ref.size());
+    const int projected_ref_start = std::max(0, nam.ref_start - nam.query_start);
+    const int projected_ref_end = std::min(nam.ref_end + query.size() - nam.query_end, ref.size());
 
     aln_info info;
     int result_ref_start;
@@ -250,7 +250,7 @@ static inline Alignment get_alignment(
         const int diff = std::abs(nam.ref_span() - nam.query_span());
         const int ext_left = std::min(50, projected_ref_start);
         const int ref_start = projected_ref_start - ext_left;
-        const int ext_right = std::min(std::size_t(50), ref.size() - nam.ref_e);
+        const int ext_right = std::min(std::size_t(50), ref.size() - nam.ref_end);
         const auto ref_segm_size = read.size() + diff + ext_left + ext_right;
         const auto ref_segm = ref.substr(ref_start, ref_segm_size);
         info = aligner.align(query, ref_segm);
@@ -296,7 +296,7 @@ static inline Alignment get_alignment_unused(
     std::string read_segm;
 
     // test full hamming based alignment first
-    ref_tmp_start = std::max(0, nam.ref_s - nam.query_s);
+    ref_tmp_start = std::max(0, nam.ref_start - nam.query_start);
     int ref_start = std::max(0, ref_tmp_start);
     ref_tmp_segm_size = read_len + diff;
     auto ref_segm_size = std::min(ref_tmp_segm_size, ref_len - ref_start + 1);
@@ -322,11 +322,11 @@ static inline Alignment get_alignment_unused(
     // identify one or two split points within the read if the segment is  are larger than T
     int T = 20;
     // find the most central split point Use convex function result sum of squares
-    int left_outer =  pow (nam.query_s, 2) + pow(read_len - nam.query_s, 2);
-    int right_inner = pow (nam.query_e - k, 2) + pow (read_len - (nam.query_e - k), 2);
+    int left_outer =  pow (nam.query_start, 2) + pow(read_len - nam.query_start, 2);
+    int right_inner = pow (nam.query_end - k, 2) + pow (read_len - (nam.query_end - k), 2);
 
 
-    int global_max_bp = left_outer < right_inner ? nam.query_s : nam.query_e - k;
+    int global_max_bp = left_outer < right_inner ? nam.query_start : nam.query_end - k;
     int break_point = (global_max_bp >= T) && (global_max_bp <= (read_len - T)) ? global_max_bp : -1;
     if (break_point > 0 ){
 //            std::cerr << "MAX BREAKPOINT " << break_point << " candidates: " <<  n.query_s  << " " << n.query_e - k << std::endl;
@@ -334,17 +334,17 @@ static inline Alignment get_alignment_unused(
         int right_region_bp = break_point;
 //            std::cerr << "left_region_bp " << left_region_bp << " right_region_bp: " << right_region_bp << std::endl;
         int right_ref_start_bp = -1;
-        if (break_point == nam.query_s){
-            right_ref_start_bp = nam.ref_s;
-        } else if (break_point == (nam.query_e - k)) {
-            right_ref_start_bp = nam.ref_e-k;
+        if (break_point == nam.query_start){
+            right_ref_start_bp = nam.ref_start;
+        } else if (break_point == (nam.query_end - k)) {
+            right_ref_start_bp = nam.ref_end-k;
         } else  {
             std::cerr << "BUUUUUUG " << std::endl;
         }
 
         // Left region align
         read_segm = r_tmp.substr(0, left_region_bp);
-        ref_tmp_start = std::max(0, nam.ref_s - nam.query_s);
+        ref_tmp_start = std::max(0, nam.ref_start - nam.query_start);
         ext_left = std::min(50, ref_tmp_start);
         ext_right = 0;
         ref_start = ref_tmp_start - ext_left;
@@ -387,12 +387,12 @@ static inline Alignment get_alignment_unused(
     } else {
 //            std::cerr << "NOOOO MAX BREAKPOINT " << break_point << " candidates: "  <<  n.query_s  << " " << n.query_e - k << std::endl;
         // full align
-        ref_tmp_start = std::max(0, nam.ref_s - nam.query_s);
+        ref_tmp_start = std::max(0, nam.ref_start - nam.query_start);
         ext_left = std::min(50, ref_tmp_start);
         ref_start = ref_tmp_start - ext_left;
 
         ref_tmp_segm_size = read_len + diff;
-        ext_right = std::min(50, ref_len - (nam.ref_e +1));
+        ext_right = std::min(50, ref_len - (nam.ref_end +1));
 
         ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
         ref_segm = references.sequences[nam.ref_id].substr(ref_start, ref_segm_size);
@@ -592,8 +592,8 @@ bool is_proper_nam_pair(const Nam nam1, const Nam nam2, float mu, float sigma) {
     if (nam1.ref_id != nam2.ref_id || nam1.is_rc == nam2.is_rc) {
         return false;
     }
-    int a = std::max(0, nam1.ref_s - nam2.query_s);
-    int b = std::max(0, nam2.ref_s - nam2.query_s);
+    int a = std::max(0, nam1.ref_start - nam2.query_start);
+    int b = std::max(0, nam2.ref_start - nam2.query_start);
 
     // r1 ---> <---- r2
     bool r1_r2 = nam2.is_rc && (a <= b) && (b - a < mu + 10*sigma);
@@ -637,7 +637,7 @@ static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_NAM_location
     }
 
     Nam dummy_nan;
-    dummy_nan.ref_s = -1;
+    dummy_nan.ref_start = -1;
     if (!nams1.empty()) {
         int hjss1 = hjss > 0 ? hjss : nams1[0].n_hits;
         for (auto &n1 : nams1) {
@@ -725,13 +725,13 @@ static inline bool rescue_mate(
     reverse_nam_if_needed(nam, guide, references, k);
     if (nam.is_rc){
         r_tmp = read.seq;
-        a = nam.ref_s - nam.query_s - (mu+5*sigma);
-        b = nam.ref_s - nam.query_s + read_len/2; // at most half read overlap
+        a = nam.ref_start - nam.query_start - (mu+5*sigma);
+        b = nam.ref_start - nam.query_start + read_len/2; // at most half read overlap
         a_is_rc = false;
     } else {
         r_tmp = read.rc; // mate is rc since fr orientation
-        a = nam.ref_e + (read_len - nam.query_e) - read_len/2; // at most half read overlap
-        b = nam.ref_e + (read_len - nam.query_e) + (mu+5*sigma);
+        a = nam.ref_end + (read_len - nam.query_end) - read_len/2; // at most half read overlap
+        b = nam.ref_end + (read_len - nam.query_end) + (mu+5*sigma);
         a_is_rc = true;
     }
 
@@ -1100,7 +1100,7 @@ inline void align_PE(
         //////// the actual testing of base pair alignment part start ////////
         //////////////////////////////////////////////////////////////////////
         Alignment a1;
-        if (n1.ref_s >= 0) {
+        if (n1.ref_start >= 0) {
             if (is_aligned1.find(n1.nam_id) != is_aligned1.end() ){
                 a1 = is_aligned1[n1.nam_id];
             } else {
@@ -1126,7 +1126,7 @@ inline void align_PE(
         }
 
         Alignment a2;
-        if (n2.ref_s >= 0) {
+        if (n2.ref_start >= 0) {
             if (is_aligned2.find(n2.nam_id) != is_aligned2.end() ){
                 a2 = is_aligned2[n2.nam_id];
             } else {
@@ -1248,8 +1248,8 @@ inline void get_best_map_location(std::vector<Nam> &nams1, std::vector<Nam> &nam
     Nam n1_joint_max, n2_joint_max, n1_indiv_max, n2_indiv_max;
     float score_joint = 0;
     float score_indiv = 0;
-    best_nam1.ref_s = -1; //Unmapped until proven mapped
-    best_nam2.ref_s = -1; //Unmapped until proven mapped
+    best_nam1.ref_start = -1; //Unmapped until proven mapped
+    best_nam2.ref_start = -1; //Unmapped until proven mapped
 
     if (joint_NAM_scores.empty()) {
         return;
@@ -1258,7 +1258,7 @@ inline void get_best_map_location(std::vector<Nam> &nams1, std::vector<Nam> &nam
     for (auto &t : joint_NAM_scores) { // already sorted by descending score
         auto n1 = std::get<1>(t);
         auto n2 = std::get<2>(t);
-        if ((n1.ref_s >=0) && (n2.ref_s >=0) ){ // Valid pair
+        if ((n1.ref_start >=0) && (n2.ref_start >=0) ){ // Valid pair
             score_joint =  n1.score + n2.score;
             n1_joint_max = n1;
             n2_joint_max = n2;
@@ -1283,7 +1283,7 @@ inline void get_best_map_location(std::vector<Nam> &nams1, std::vector<Nam> &nam
     }
 
     if (isize_est.sample_size < 400 && score_joint > score_indiv) {
-        isize_est.update(std::abs(n1_joint_max.ref_s - n2_joint_max.ref_s));
+        isize_est.update(std::abs(n1_joint_max.ref_start - n2_joint_max.ref_start));
     }
 }
 

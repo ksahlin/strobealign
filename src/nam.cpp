@@ -3,28 +3,28 @@
 namespace {
 
 struct Hit {
-    int query_s;
-    int query_e;
-    int ref_s;
-    int ref_e;
+    int query_start;
+    int query_end;
+    int ref_start;
+    int ref_end;
     bool is_rc = false;
 };
 
 void add_to_hits_per_ref(
     robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
-    int query_s,
-    int query_e,
+    int query_start,
+    int query_end,
     bool is_rc,
     const StrobemerIndex& index,
     size_t position,
     int min_diff
 ) {
     for (const auto hash = index.get_hash(position); index.get_hash(position) == hash; ++position) {
-        int ref_s = index.get_strobe1_position(position);
-        int ref_e = ref_s + index.strobe2_offset(position) + index.k();
-        int diff = std::abs((query_e - query_s) - (ref_e - ref_s));
+        int ref_start = index.get_strobe1_position(position);
+        int ref_end = ref_start + index.strobe2_offset(position) + index.k();
+        int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
         if (diff <= min_diff) {
-            hits_per_ref[index.reference_index(position)].push_back(Hit{query_s, query_e, ref_s, ref_e, is_rc});
+            hits_per_ref[index.reference_index(position)].push_back(Hit{query_start, query_end, ref_start, ref_end, is_rc});
             min_diff = diff;
         }
     }
@@ -41,7 +41,7 @@ std::vector<Nam> merge_hits_into_nams(
         if (sort) {
             std::sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) -> bool {
                     // first sort on query starts, then on reference starts
-                    return (a.query_s < b.query_s) || ( (a.query_s == b.query_s) && (a.ref_s < b.ref_s) );
+                    return (a.query_start < b.query_start) || ( (a.query_start == b.query_start) && (a.ref_start < b.ref_start) );
                 }
             );
         }
@@ -53,24 +53,24 @@ std::vector<Nam> merge_hits_into_nams(
             for (auto & o : open_nams) {
 
                 // Extend NAM
-                if (( o.is_rc == h.is_rc) && (o.query_prev_hit_startpos < h.query_s) && (h.query_s <= o.query_e ) && (o.ref_prev_hit_startpos < h.ref_s) && (h.ref_s <= o.ref_e) ){
-                    if ( (h.query_e > o.query_e) && (h.ref_e > o.ref_e) ) {
-                        o.query_e = h.query_e;
-                        o.ref_e = h.ref_e;
+                if (( o.is_rc == h.is_rc) && (o.query_prev_hit_startpos < h.query_start) && (h.query_start <= o.query_end ) && (o.ref_prev_hit_startpos < h.ref_start) && (h.ref_start <= o.ref_end) ){
+                    if ( (h.query_end > o.query_end) && (h.ref_end > o.ref_end) ) {
+                        o.query_end = h.query_end;
+                        o.ref_end = h.ref_end;
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
-                        o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
-                        o.ref_prev_hit_startpos = h.ref_s; // log the last strobemer hit in case of outputting paf
+                        o.query_prev_hit_startpos = h.query_start; // log the last strobemer hit in case of outputting paf
+                        o.ref_prev_hit_startpos = h.ref_start; // log the last strobemer hit in case of outputting paf
                         o.n_hits ++;
 //                        o.score += (float)1/ (float)h.count;
                         is_added = true;
                         break;
                     }
-                    else if ((h.query_e <= o.query_e) && (h.ref_e <= o.ref_e)) {
+                    else if ((h.query_end <= o.query_end) && (h.ref_end <= o.ref_end)) {
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
-                        o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
-                        o.ref_prev_hit_startpos = h.ref_s; // log the last strobemer hit in case of outputting paf
+                        o.query_prev_hit_startpos = h.query_start; // log the last strobemer hit in case of outputting paf
+                        o.ref_prev_hit_startpos = h.ref_start; // log the last strobemer hit in case of outputting paf
                         o.n_hits ++;
 //                        o.score += (float)1/ (float)h.count;
                         is_added = true;
@@ -84,15 +84,15 @@ std::vector<Nam> merge_hits_into_nams(
                 Nam n;
                 n.nam_id = nam_id_cnt;
                 nam_id_cnt ++;
-                n.query_s = h.query_s;
-                n.query_e = h.query_e;
-                n.ref_s = h.ref_s;
-                n.ref_e = h.ref_e;
+                n.query_start = h.query_start;
+                n.query_end = h.query_end;
+                n.ref_start = h.ref_start;
+                n.ref_end = h.ref_end;
                 n.ref_id = ref_id;
 //                n.previous_query_start = h.query_s;
 //                n.previous_ref_start = h.ref_s;
-                n.query_prev_hit_startpos = h.query_s;
-                n.ref_prev_hit_startpos = h.ref_s;
+                n.query_prev_hit_startpos = h.query_start;
+                n.ref_prev_hit_startpos = h.ref_start;
                 n.n_hits = 1;
                 n.is_rc = h.is_rc;
 //                n.score += (float)1 / (float)h.count;
@@ -100,11 +100,11 @@ std::vector<Nam> merge_hits_into_nams(
             }
 
             // Only filter if we have advanced at least k nucleotides
-            if (h.query_s > prev_q_start + k) {
+            if (h.query_start > prev_q_start + k) {
 
                 // Output all NAMs from open_matches to final_nams that the current hit have passed
                 for (auto &n : open_nams) {
-                    if (n.query_e < h.query_s) {
+                    if (n.query_end < h.query_start) {
                         int n_max_span = std::max(n.query_span(), n.ref_span());
                         int n_min_span = std::min(n.query_span(), n.ref_span());
                         float n_score;
@@ -116,10 +116,10 @@ std::vector<Nam> merge_hits_into_nams(
                 }
 
                 // Remove all NAMs from open_matches that the current hit have passed
-                auto c = h.query_s;
-                auto predicate = [c](decltype(open_nams)::value_type const &nam) { return nam.query_e < c; };
+                auto c = h.query_start;
+                auto predicate = [c](decltype(open_nams)::value_type const &nam) { return nam.query_end < c; };
                 open_nams.erase(std::remove_if(open_nams.begin(), open_nams.end(), predicate), open_nams.end());
-                prev_q_start = h.query_s;
+                prev_q_start = h.query_start;
             }
         }
 
@@ -180,13 +180,13 @@ std::vector<Nam> find_nams_rescue(
     struct RescueHit {
         unsigned int count;
         size_t position;
-        unsigned int query_s;
-        unsigned int query_e;
+        unsigned int query_start;
+        unsigned int query_end;
         bool is_rc;
 
         bool operator< (const RescueHit& rhs) const {
-            return std::tie(count, query_s, query_e, is_rc)
-                < std::tie(rhs.count, rhs.query_s, rhs.query_e, rhs.is_rc);
+            return std::tie(count, query_start, query_end, is_rc)
+                < std::tie(rhs.count, rhs.query_start, rhs.query_end, rhs.is_rc);
         }
     };
 
@@ -218,7 +218,7 @@ std::vector<Nam> find_nams_rescue(
             if ((rh.count > filter_cutoff && cnt >= 5) || rh.count > 1000) {
                 break;
             }
-            add_to_hits_per_ref(hits_per_ref, rh.query_s, rh.query_e, rh.is_rc, index, rh.position, 1000);
+            add_to_hits_per_ref(hits_per_ref, rh.query_start, rh.query_end, rh.is_rc, index, rh.position, 1000);
             cnt++;
         }
     }
@@ -227,6 +227,6 @@ std::vector<Nam> find_nams_rescue(
 }
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {
-    os << "Nam(ref_id=" << n.ref_id << ", query: " << n.query_s << ".." << n.query_e << ", ref: " << n.ref_s << ".." << n.ref_e << ", score=" << n.score << ")";
+    os << "Nam(ref_id=" << n.ref_id << ", query: " << n.query_start << ".." << n.query_end << ", ref: " << n.ref_start << ".." << n.ref_end << ", score=" << n.score << ")";
     return os;
 }
