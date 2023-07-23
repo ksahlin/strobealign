@@ -1379,7 +1379,7 @@ void align_PE_read(
                  record2,
                  index_parameters.syncmer.k,
                  references, details,
-                 map_param.dropoff_threshold, isize_est, map_param.maxTries, map_param.max_secondary);
+                 map_param.dropoff_threshold, isize_est, map_param.max_tries, map_param.max_secondary);
     }
     statistics.tot_extend += extend_timer.duration();
     statistics += details[0];
@@ -1429,7 +1429,7 @@ void align_SE_read(
     } else {
         align_SE(
             aligner, sam, nams, record, index_parameters.syncmer.k,
-            references, details, map_param.dropoff_threshold, map_param.maxTries,
+            references, details, map_param.dropoff_threshold, map_param.max_tries,
             map_param.max_secondary
         );
     }

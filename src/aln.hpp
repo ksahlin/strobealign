@@ -60,7 +60,7 @@ struct MappingParameters {
     int max_secondary { 0 };
     float dropoff_threshold { 0.5 };
     int rescue_level { 2 };
-    int maxTries { 20 };
+    int max_tries { 20 };
     int rescue_cutoff;
     bool is_sam_out { true };
     CigarOps cigar_ops{CigarOps::M};

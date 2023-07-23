@@ -173,7 +173,7 @@ int run_strobealign(int argc, char **argv) {
     map_param.max_secondary = opt.max_secondary;
     map_param.dropoff_threshold = opt.dropoff_threshold;
     map_param.rescue_level = opt.rescue_level;
-    map_param.maxTries = opt.maxTries;
+    map_param.max_tries = opt.max_tries;
     map_param.is_sam_out = opt.is_sam_out;
     map_param.cigar_ops = opt.cigar_eqx ? CigarOps::EQX : CigarOps::M;
     map_param.output_unmapped = opt.output_unmapped;

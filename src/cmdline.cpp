@@ -122,7 +122,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     // Search parameters
     if (f) { opt.f = args::get(f); }
     if (S) { opt.dropoff_threshold = args::get(S); }
-    if (M) { opt.maxTries = args::get(M); }
+    if (M) { opt.max_tries = args::get(M); }
     if (R) { opt.rescue_level = args::get(R); }
 
     // Reference and read files

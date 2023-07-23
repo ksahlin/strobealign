@@ -52,7 +52,7 @@ struct CommandLineOptions {
     // Search parameters
     float f { 0.0002 };
     float dropoff_threshold { 0.5 };
-    int maxTries { 20 };
+    int max_tries { 20 };
     int rescue_level { 2 };
 
     // Reference and read files
