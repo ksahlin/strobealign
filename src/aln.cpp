@@ -72,7 +72,7 @@ bool reverse_nam_if_needed(Nam& n, const Read& read, const References& reference
 static inline void align_SE(
     const Aligner& aligner,
     Sam& sam,
-    std::vector<Nam>& all_nams,
+    std::vector<Nam>& nams,
     const KSeq& record,
     int k,
     const References& references,
@@ -81,7 +81,7 @@ static inline void align_SE(
     int max_tries,
     unsigned max_secondary
 ) {
-    if (all_nams.empty()) {
+    if (nams.empty()) {
         sam.add_unmapped(record);
         return;
     }
@@ -90,7 +90,7 @@ static inline void align_SE(
     std::vector<Alignment> alignments;
     int tries = 0;
     float score_dropoff;
-    Nam n_max = all_nams[0];
+    Nam n_max = nams[0];
 
     int best_align_dist = ~0U >> 1;
     int best_align_sw_score = -1000;
@@ -99,7 +99,7 @@ static inline void align_SE(
     best_sam_aln.score = -100000;
     best_sam_aln.is_unaligned = true;
     int min_mapq_diff = best_align_dist;
-    for (auto &n : all_nams) {
+    for (auto &n : nams) {
         score_dropoff = (float) n.n_hits / n_max.n_hits;
 
         if (tries >= max_tries || best_align_dist == 0 || score_dropoff < dropoff) { // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
@@ -509,12 +509,12 @@ static inline Alignment get_alignment_unused(
 
 
 
-static inline int get_MAPQ(const std::vector<Nam> &all_nams, const Nam &n_max) {
+static inline int get_MAPQ(const std::vector<Nam> &nams, const Nam &n_max) {
     const float s1 = n_max.score;
-    if (all_nams.size() <= 1) {
+    if (nams.size() <= 1) {
         return 60;
     }
-    const Nam n_second = all_nams[1];
+    const Nam n_second = nams[1];
     const float s2 = n_second.score;
     // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
     const float min_matches = std::min(n_max.n_hits / 10.0, 1.0);
@@ -605,13 +605,13 @@ bool is_proper_nam_pair(const Nam nam1, const Nam nam2, float mu, float sigma) {
 }
 
 static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_NAM_locations(
-    const std::vector<Nam> &all_nams1,
-    const std::vector<Nam> &all_nams2,
+    const std::vector<Nam> &nams1,
+    const std::vector<Nam> &nams2,
     float mu,
     float sigma
 ) {
     std::vector<std::tuple<int,Nam,Nam>> joint_NAM_scores;
-    if (all_nams1.empty() && all_nams2.empty()) {
+    if (nams1.empty() && nams2.empty()) {
         return joint_NAM_scores;
     }
 
@@ -619,8 +619,8 @@ static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_NAM_location
     robin_hood::unordered_set<int> added_n2;
     int joint_hits;
     int hjss = 0; // highest joint score seen
-    for (auto &n1 : all_nams1) {
-        for (auto &n2 : all_nams2) {
+    for (auto &n1 : nams1) {
+        for (auto &n2 : nams2) {
             if (n1.n_hits + n2.n_hits < hjss/2) {
                 break;
             }
@@ -638,9 +638,9 @@ static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_NAM_location
 
     Nam dummy_nan;
     dummy_nan.ref_s = -1;
-    if (!all_nams1.empty()) {
-        int hjss1 = hjss > 0 ? hjss : all_nams1[0].n_hits;
-        for (auto &n1 : all_nams1) {
+    if (!nams1.empty()) {
+        int hjss1 = hjss > 0 ? hjss : nams1[0].n_hits;
+        for (auto &n1 : nams1) {
             if (n1.n_hits  < hjss1/2){
                 break;
             }
@@ -655,10 +655,10 @@ static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_NAM_location
         }
     }
 
-    if ( !all_nams2.empty() ){
-        int hjss2 = hjss  > 0 ? hjss : all_nams2[0].n_hits;
+    if ( !nams2.empty() ){
+        int hjss2 = hjss  > 0 ? hjss : nams2[0].n_hits;
         //    int hjss2 = all_nams2[0].n_hits;
-        for (auto &n2 : all_nams2) {
+        for (auto &n2 : nams2) {
             if (n2.n_hits  < hjss2/2){
                 break;
             }
@@ -799,7 +799,7 @@ void rescue_read(
     const Read& read1,  // read that has NAMs
     const Aligner& aligner,
     const References& references,
-    std::vector<Nam> &all_nams1,
+    std::vector<Nam> &nams1,
     int max_tries,
     float dropoff,
     std::array<Details, 2>& details,
@@ -813,18 +813,17 @@ void rescue_read(
     const klibpp::KSeq& record2,
     bool swap_r1r2  // TODO get rid of this
 ) {
-    float score_dropoff1;
-    Nam n_max1 = all_nams1[0];
+    Nam n_max1 = nams1[0];
     int tries = 0;
 
     std::vector<Alignment> alignments1;
     std::vector<Alignment> alignments2;
-    for (auto& n : all_nams1) {
-        score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
-        if (tries >= max_tries || score_dropoff1 < dropoff) { // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
+    for (auto& n : nams1) {
+        float score_dropoff1 = (float) n.n_hits / n_max1.n_hits;
+        // only consider top hits (as minimap2 does) and break if below dropoff cutoff.
+        if (tries >= max_tries || score_dropoff1 < dropoff) {
             break;
         }
-        //////// the actual testing of base pair alignment part start
 
         const bool consistent_nam = reverse_nam_if_needed(n, read1, references, k);
         details[0].nam_inconsistent += !consistent_nam;
@@ -942,8 +941,8 @@ static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<std::tu
 inline void align_PE(
     const Aligner& aligner,
     Sam &sam,
-    std::vector<Nam> &all_nams1,
-    std::vector<Nam> &all_nams2,
+    std::vector<Nam> &nams1,
+    std::vector<Nam> &nams2,
     const KSeq &record1,
     const KSeq &record2,
     int k,
@@ -960,20 +959,20 @@ inline void align_PE(
     Read read2(record2.seq);
     double secondary_dropoff = 2 * aligner.parameters.mismatch + aligner.parameters.gap_open;
 
-    if (all_nams1.empty() && all_nams2.empty()) {
+    if (nams1.empty() && nams2.empty()) {
          // None of the reads have any NAMs
         sam.add_unmapped_pair(record1, record2);
         return;
     }
 
-    if (!all_nams1.empty() && all_nams2.empty()) {
+    if (!nams1.empty() && nams2.empty()) {
         // Only read 1 has NAMS: attempt to rescue read 2
         rescue_read(
             read2,
             read1,
             aligner,
             references,
-            all_nams1,
+            nams1,
             max_tries,
             dropoff,
             details,
@@ -990,14 +989,14 @@ inline void align_PE(
         return;
     }
 
-    if (all_nams1.empty() && !all_nams2.empty()) {
+    if (nams1.empty() && !nams2.empty()) {
         // Only read 2 has NAMS: attempt to rescue read 1
         rescue_read(
             read1,
             read2,
             aligner,
             references,
-            all_nams2,
+            nams2,
             max_tries,
             dropoff,
             details,
@@ -1015,15 +1014,15 @@ inline void align_PE(
     }
 
     // If we get here, both reads have NAMs
-    assert(!all_nams1.empty() && !all_nams2.empty());
+    assert(!nams1.empty() && !nams2.empty());
 
     int tries = 0;
     double S = 0.0;
-    Nam n_max1 = all_nams1[0];
-    Nam n_max2 = all_nams2[0];
+    Nam n_max1 = nams1[0];
+    Nam n_max2 = nams2[0];
 
-    float score_dropoff1 = all_nams1.size() > 1 ? (float) all_nams1[1].n_hits / n_max1.n_hits : 0.0;
-    float score_dropoff2 = all_nams2.size() > 1 ? (float) all_nams2[1].n_hits / n_max2.n_hits : 0.0;
+    float score_dropoff1 = nams1.size() > 1 ? (float) nams1[1].n_hits / n_max1.n_hits : 0.0;
+    float score_dropoff2 = nams2.size() > 1 ? (float) nams2[1].n_hits / n_max2.n_hits : 0.0;
     score_dropoff1 = n_max1.n_hits > 2 ? score_dropoff1 : 1.0;
     score_dropoff2 = n_max2.n_hits > 2 ? score_dropoff2 : 1.0;
 
@@ -1041,8 +1040,8 @@ inline void align_PE(
         auto sam_aln2 = get_alignment(aligner, n_max2, references, read2, consistent_nam2);
         details[1].tried_alignment++;
         details[1].gapped += sam_aln2.gapped;
-        int mapq1 = get_MAPQ(all_nams1, n_max1);
-        int mapq2 = get_MAPQ(all_nams2, n_max2);
+        int mapq1 = get_MAPQ(nams1, n_max1);
+        int mapq2 = get_MAPQ(nams2, n_max2);
         bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
         sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, true, details);
 
@@ -1058,13 +1057,13 @@ inline void align_PE(
     // Get top hit counts for all locations. The joint hit count is the sum of hits of the two mates. Then align as long as score dropoff or cnt < 20
 
     // (score, aln1, aln2)
-    std::vector<std::tuple<int,Nam,Nam>> joint_NAM_scores = get_best_scoring_NAM_locations(all_nams1, all_nams2, mu, sigma);
+    std::vector<std::tuple<int,Nam,Nam>> joint_NAM_scores = get_best_scoring_NAM_locations(nams1, nams2, mu, sigma);
     auto nam_max = joint_NAM_scores[0];
     auto max_score = std::get<0>(nam_max);
 
     robin_hood::unordered_map<int,Alignment> is_aligned1;
     robin_hood::unordered_map<int,Alignment> is_aligned2;
-    auto n1_max = all_nams1[0];
+    auto n1_max = nams1[0];
 
     bool consistent_nam1 = reverse_nam_if_needed(n1_max, read1, references, k);
     details[0].nam_inconsistent += !consistent_nam1;
@@ -1074,7 +1073,7 @@ inline void align_PE(
     is_aligned1[n1_max.nam_id] = a1_indv_max;
     details[0].tried_alignment++;
     details[0].gapped += a1_indv_max.gapped;
-    auto n2_max = all_nams2[0];
+    auto n2_max = nams2[0];
     bool consistent_nam2 = reverse_nam_if_needed(n2_max, read2, references, k);
     details[1].nam_inconsistent += !consistent_nam2;
     auto a2_indv_max = get_alignment(aligner, n2_max, references, read2,
