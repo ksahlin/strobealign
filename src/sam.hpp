@@ -17,7 +17,7 @@ struct Alignment {
     int aln_score;
     int ref_id;
     int mapq;
-    int aln_length;
+    int length;
     bool is_rc;
     bool is_unaligned{false};
     // Whether a gapped alignment function was used to obtain this alignment

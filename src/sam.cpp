@@ -233,10 +233,10 @@ void Sam::add_pair(
     if (both_aligned && sam_aln1.ref_id == sam_aln2.ref_id) {
         const int dist = sam_aln2.ref_start - sam_aln1.ref_start;
         if (dist > 0) {
-            template_len1 = dist + sam_aln2.aln_length;
+            template_len1 = dist + sam_aln2.length;
         }
         else {
-            template_len1 = dist - sam_aln1.aln_length;
+            template_len1 = dist - sam_aln1.length;
         }
     }
     if (is_proper) {

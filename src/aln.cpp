@@ -186,7 +186,7 @@ static inline Alignment align_segment(
             sam_aln_segm.is_rc = is_rc;
             sam_aln_segm.is_unaligned = false;
             sam_aln_segm.aln_score = info.sw_score;
-            sam_aln_segm.aln_length = read_segm_len;
+            sam_aln_segm.length = read_segm_len;
             return sam_aln_segm;
         }
     }
@@ -198,7 +198,7 @@ static inline Alignment align_segment(
     sam_aln_segm.is_rc = is_rc;
     sam_aln_segm.is_unaligned = false;
     sam_aln_segm.aln_score = info.sw_score;
-    sam_aln_segm.aln_length = info.ref_span();
+    sam_aln_segm.length = info.ref_span();
     return sam_aln_segm;
 }
 
@@ -266,7 +266,7 @@ static inline Alignment get_alignment(
     sam_aln.sw_score = info.sw_score;
     sam_aln.aln_score = info.sw_score;
     sam_aln.ref_start = result_ref_start;
-    sam_aln.aln_length = info.ref_span();
+    sam_aln.length = info.ref_span();
     sam_aln.is_rc = n.is_rc;
     sam_aln.is_unaligned = false;
     sam_aln.ref_id = n.ref_id;
@@ -797,7 +797,7 @@ static inline bool rescue_mate(
     sam_aln.is_rc = a_is_rc;
     sam_aln.ref_id = n.ref_id;
     sam_aln.is_unaligned = info.cigar.empty();
-    sam_aln.aln_length = info.ref_span();
+    sam_aln.length = info.ref_span();
     return true;
 }
 
