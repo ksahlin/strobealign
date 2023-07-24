@@ -95,9 +95,9 @@ static inline void align_SE(
     int best_align_dist = ~0U >> 1;
     int best_align_sw_score = -1000;
 
-    Alignment best_sam_aln;
-    best_sam_aln.score = -100000;
-    best_sam_aln.is_unaligned = true;
+    Alignment best_alignment;
+    best_alignment.score = -100000;
+    best_alignment.is_unaligned = true;
     int min_mapq_diff = best_align_dist;
     for (auto &nam : nams) {
         score_dropoff = (float) nam.n_hits / n_max.n_hits;
@@ -107,30 +107,30 @@ static inline void align_SE(
         }
         bool consistent_nam = reverse_nam_if_needed(nam, read, references, k);
         details.nam_inconsistent += !consistent_nam;
-        auto sam_aln = get_alignment(aligner, nam, references, read, consistent_nam);
+        auto alignment = get_alignment(aligner, nam, references, read, consistent_nam);
         details.tried_alignment++;
-        details.gapped += sam_aln.gapped;
+        details.gapped += alignment.gapped;
 
-        int diff_to_best = std::abs(best_align_sw_score - sam_aln.score);
+        int diff_to_best = std::abs(best_align_sw_score - alignment.score);
         min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
 
         if (max_secondary > 0) {
-            alignments.emplace_back(sam_aln);
+            alignments.emplace_back(alignment);
         }
-        if (sam_aln.score > best_align_sw_score) {
-            min_mapq_diff = std::max(0, sam_aln.score - best_align_sw_score); // new distance to next best match
-            best_align_sw_score = sam_aln.score;
-            best_sam_aln = std::move(sam_aln);
+        if (alignment.score > best_align_sw_score) {
+            min_mapq_diff = std::max(0, alignment.score - best_align_sw_score); // new distance to next best match
+            best_align_sw_score = alignment.score;
+            best_alignment = std::move(alignment);
             if (max_secondary == 0) {
-                best_align_dist = best_sam_aln.global_ed;
+                best_align_dist = best_alignment.global_ed;
             }
         }
         tries++;
     }
 
     if (max_secondary == 0) {
-        best_sam_aln.mapq = std::min(min_mapq_diff, 60);
-        sam.add(best_sam_aln, record, read.rc, true, details);
+        best_alignment.mapq = std::min(min_mapq_diff, 60);
+        sam.add(best_alignment, record, read.rc, true, details);
         return;
     }
     // Sort alignments by score, highest first
@@ -143,16 +143,16 @@ static inline void align_SE(
     auto max_out = std::min(alignments.size(), static_cast<size_t>(max_secondary) + 1);
     bool is_primary{true};
     for (size_t i = 0; i < max_out; ++i) {
-        auto sam_aln = alignments[i];
-        if ((sam_aln.score - best_align_sw_score) > (2*aligner.parameters.mismatch + aligner.parameters.gap_open) ){
+        auto alignment = alignments[i];
+        if ((alignment.score - best_align_sw_score) > (2*aligner.parameters.mismatch + aligner.parameters.gap_open) ){
             break;
         }
         if (!is_primary) {
-            sam_aln.mapq = 255;
+            alignment.mapq = 255;
         } else {
-            sam_aln.mapq = std::min(min_mapq_diff, 60);
+            alignment.mapq = std::min(min_mapq_diff, 60);
         }
-        sam.add(sam_aln, record, read.rc, is_primary, details);
+        sam.add(alignment, record, read.rc, is_primary, details);
         is_primary = false;
     }
 }
@@ -167,7 +167,7 @@ static inline Alignment align_segment(
     bool consistent_nam,
     bool is_rc
 ) {
-    Alignment sam_aln_segm;
+    Alignment alignment_segm;
     auto ref_segm_len = ref_segm.size();
     auto read_segm_len = read_segm.size();
     // The ref_segm includes an extension of ext_left bases upstream and ext_right bases downstream
@@ -179,25 +179,25 @@ static inline Alignment align_segment(
 
         if (hamming_dist >= 0 && (((float) hamming_dist / read_segm_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
             auto info = hamming_align(read_segm, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
-            sam_aln_segm.cigar = std::move(info.cigar);
-            sam_aln_segm.edit_distance = info.edit_distance;
-            sam_aln_segm.score = info.sw_score;
-            sam_aln_segm.ref_start = ref_start + ext_left + info.query_start;
-            sam_aln_segm.is_rc = is_rc;
-            sam_aln_segm.is_unaligned = false;
-            sam_aln_segm.length = read_segm_len;
-            return sam_aln_segm;
+            alignment_segm.cigar = std::move(info.cigar);
+            alignment_segm.edit_distance = info.edit_distance;
+            alignment_segm.score = info.sw_score;
+            alignment_segm.ref_start = ref_start + ext_left + info.query_start;
+            alignment_segm.is_rc = is_rc;
+            alignment_segm.is_unaligned = false;
+            alignment_segm.length = read_segm_len;
+            return alignment_segm;
         }
     }
     auto info = aligner.align(read_segm, ref_segm);
-    sam_aln_segm.cigar = std::move(info.cigar);
-    sam_aln_segm.edit_distance = info.edit_distance;
-    sam_aln_segm.score = info.sw_score;
-    sam_aln_segm.ref_start = ref_start + info.ref_start;
-    sam_aln_segm.is_rc = is_rc;
-    sam_aln_segm.is_unaligned = false;
-    sam_aln_segm.length = info.ref_span();
-    return sam_aln_segm;
+    alignment_segm.cigar = std::move(info.cigar);
+    alignment_segm.edit_distance = info.edit_distance;
+    alignment_segm.score = info.sw_score;
+    alignment_segm.ref_start = ref_start + info.ref_start;
+    alignment_segm.is_rc = is_rc;
+    alignment_segm.is_unaligned = false;
+    alignment_segm.length = info.ref_span();
+    return alignment_segm;
 }
 
 
@@ -257,19 +257,19 @@ static inline Alignment get_alignment(
         result_ref_start = ref_start + info.ref_start;
     }
     int softclipped = info.query_start + (query.size() - info.query_end);
-    Alignment sam_aln;
-    sam_aln.cigar = std::move(info.cigar);
-    sam_aln.edit_distance = info.edit_distance;
-    sam_aln.global_ed = info.edit_distance + softclipped;
-    sam_aln.score = info.sw_score;
-    sam_aln.ref_start = result_ref_start;
-    sam_aln.length = info.ref_span();
-    sam_aln.is_rc = nam.is_rc;
-    sam_aln.is_unaligned = false;
-    sam_aln.ref_id = nam.ref_id;
-    sam_aln.gapped = gapped;
+    Alignment alignment;
+    alignment.cigar = std::move(info.cigar);
+    alignment.edit_distance = info.edit_distance;
+    alignment.global_ed = info.edit_distance + softclipped;
+    alignment.score = info.sw_score;
+    alignment.ref_start = result_ref_start;
+    alignment.length = info.ref_span();
+    alignment.is_rc = nam.is_rc;
+    alignment.is_unaligned = false;
+    alignment.ref_id = nam.ref_id;
+    alignment.gapped = gapped;
 
-    return sam_aln;
+    return alignment;
 }
 
 static inline Alignment get_alignment_unused(
@@ -280,7 +280,7 @@ static inline Alignment get_alignment_unused(
     int k,
     bool consistent_nam
 ) {
-    Alignment sam_aln;
+    Alignment alignment;
 
     const auto read_len = read.size();
     const int diff = std::abs(nam.ref_span() - nam.query_span());
@@ -307,13 +307,13 @@ static inline Alignment get_alignment_unused(
 
         if (hamming_dist >= 0 && (((float) hamming_dist / ref_segm_size) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
             auto info = hamming_align(r_tmp, ref_segm, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
-            sam_aln.cigar = std::move(info.cigar);
-            sam_aln.edit_distance = info.edit_distance;
-            sam_aln.score = info.sw_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
-            sam_aln.ref_start = ref_start + ext_left + info.query_start;
-            sam_aln.is_rc = is_rc;
-            sam_aln.is_unaligned = false;
-            return sam_aln;
+            alignment.cigar = std::move(info.cigar);
+            alignment.edit_distance = info.edit_distance;
+            alignment.score = info.sw_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
+            alignment.ref_start = ref_start + ext_left + info.query_start;
+            alignment.is_rc = is_rc;
+            alignment.is_unaligned = false;
+            return alignment;
         }
     }
 
@@ -356,8 +356,8 @@ static inline Alignment get_alignment_unused(
 //            std::cerr << read_segm << std::endl;
 //            std::cerr << ref_segm << std::endl;
 
-        auto sam_aln_segm_left = align_segment(aligner, read_segm, ref_segm, ref_start, ext_left, ext_right, consistent_nam, is_rc);
-//            std::cerr << "LEFT CIGAR: " << sam_aln_segm_left.cigar << std::endl;
+        auto alignment_segm_left = align_segment(aligner, read_segm, ref_segm, ref_start, ext_left, ext_right, consistent_nam, is_rc);
+//            std::cerr << "LEFT CIGAR: " << alignment_segm_left.cigar << std::endl;
 
         //Right region align
         read_segm = r_tmp.substr(right_region_bp, read_len - right_region_bp );
@@ -372,18 +372,18 @@ static inline Alignment get_alignment_unused(
 //            std::cerr << read_segm << std::endl;
 //            std::cerr << ref_segm << std::endl;
 //            std::cerr << "read_segm.length(): " << read_segm.length() << " ref_segm_size " << ref_segm_size << std::endl;
-        auto sam_aln_segm_right = align_segment(aligner, read_segm, ref_segm, ref_start, ext_left, ext_right, consistent_nam, is_rc);
-//            std::cerr << "RIGHT CIGAR: " << sam_aln_segm_right.cigar << std::endl;
+        auto alignment_segm_right = align_segment(aligner, read_segm, ref_segm, ref_start, ext_left, ext_right, consistent_nam, is_rc);
+//            std::cerr << "RIGHT CIGAR: " << alignment_segm_right.cigar << std::endl;
 
 
         // Stitch together
-        sam_aln.ref_id = nam.ref_id;
-        sam_aln.cigar = Cigar(sam_aln_segm_left.cigar.to_string() + sam_aln_segm_right.cigar.to_string());
-        sam_aln.edit_distance = sam_aln_segm_left.edit_distance + sam_aln_segm_right.edit_distance;
-        sam_aln.score = sam_aln_segm_left.score + sam_aln_segm_right.score;
-        sam_aln.ref_start =  sam_aln_segm_left.ref_start;
-        sam_aln.is_rc = nam.is_rc;
-        sam_aln.is_unaligned = false;
+        alignment.ref_id = nam.ref_id;
+        alignment.cigar = Cigar(alignment_segm_left.cigar.to_string() + alignment_segm_right.cigar.to_string());
+        alignment.edit_distance = alignment_segm_left.edit_distance + alignment_segm_right.edit_distance;
+        alignment.score = alignment_segm_left.score + alignment_segm_right.score;
+        alignment.ref_start =  alignment_segm_left.ref_start;
+        alignment.is_rc = nam.is_rc;
+        alignment.is_unaligned = false;
     } else {
 //            std::cerr << "NOOOO MAX BREAKPOINT " << break_point << " candidates: "  <<  n.query_s  << " " << n.query_e - k << std::endl;
         // full align
@@ -397,8 +397,8 @@ static inline Alignment get_alignment_unused(
         ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
         ref_segm = references.sequences[nam.ref_id].substr(ref_start, ref_segm_size);
 //        std::cerr << " ref_tmp_start " << ref_tmp_start << " ext left " << ext_left << " ext right " << ext_right << " ref_tmp_segm_size " << ref_tmp_segm_size << " ref_segm_size " << ref_segm_size << " ref_segm " << ref_segm << std::endl;
-        sam_aln = align_segment(aligner, r_tmp, ref_segm, ref_start, ext_left, ext_right, consistent_nam, is_rc);
-        sam_aln.ref_id = nam.ref_id;
+        alignment = align_segment(aligner, r_tmp, ref_segm, ref_start, ext_left, ext_right, consistent_nam, is_rc);
+        alignment.ref_id = nam.ref_id;
     }
 
 
@@ -448,13 +448,13 @@ static inline Alignment get_alignment_unused(
 //
 //        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
 //        ref_segm = ref_seqs[n.ref_id].substr(ref_end - ext_left, ref_segm_size);
-//        alignment sam_aln_segm_left;
-//        sam_aln_segm_left.ref_id = n.ref_id;
+//        alignment alignment_segm_left;
+//        alignment_segm_left.ref_id = n.ref_id;
 //        read_segm = r_tmp.substr(0, n.query_s+k);
 //
 //        std::cerr << "LEFT: ref_start:  " << ref_start << " LEFT: ref_end:  " << ref_end << " ref_segm_size  " << ref_segm_size << " read segm size: " << read_segm.length() << std::endl;
 //
-//        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, consistent_nam, is_rc, sam_aln_segm_left, tot_ksw_aligned);
+//        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, consistent_nam, is_rc, alignment_segm_left, tot_ksw_aligned);
 //
 //
 //        // center alignment
@@ -467,12 +467,12 @@ static inline Alignment get_alignment_unused(
 //
 //        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
 //        ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
-//        alignment sam_aln_segm_center;
-//        sam_aln_segm_center.ref_id = n.ref_id;
+//        alignment alignment_segm_center;
+//        alignment_segm_center.ref_id = n.ref_id;
 //        read_segm = r_tmp.substr(n.query_s, n.query_e - n.query_s);
 //        std::cerr << "CENTER: ref_start:  " << ref_start <<  " CENTER: ref_end:  " << ref_end << " ref_segm_size  " << ref_segm_size << " read segm size: " << read_segm.length() << std::endl;
 //
-//        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, consistent_nam, is_rc, sam_aln_segm_center, tot_ksw_aligned);
+//        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, consistent_nam, is_rc, alignment_segm_center, tot_ksw_aligned);
 //
 //
 //        // right alignment
@@ -484,26 +484,26 @@ static inline Alignment get_alignment_unused(
 //
 //        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
 //        ref_segm = ref_seqs[n.ref_id].substr(n.ref_e  - ext_left, ref_segm_size);
-//        alignment sam_aln_segm_right;
-//        sam_aln_segm_left.ref_id = n.ref_id;
+//        alignment alignment_segm_right;
+//        alignment_segm_left.ref_id = n.ref_id;
 //        read_segm = r_tmp.substr(0, n.query_s+k);
 //        std::cerr << "RIGHT: ref_start:  " << ref_start <<  " RIGHT: ref_end:  " << ref_end << " ref_segm_size  " << ref_segm_size << " read segm size: " << read_segm.length() << std::endl;
 //
-//        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, consistent_nam, is_rc, sam_aln_segm_right, tot_ksw_aligned);
+//        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, consistent_nam, is_rc, alignment_segm_right, tot_ksw_aligned);
 //
-//        std::cout << sam_aln_segm_left.cigar << " " << sam_aln_segm_center.cigar << " " << sam_aln_segm_right.cigar << std::endl;
+//        std::cout << alignment_segm_left.cigar << " " << alignment_segm_center.cigar << " " << alignment_segm_right.cigar << std::endl;
 //
-//        sam_aln.ref_id = n.ref_id;
-//        sam_aln.cigar = sam_aln_segm_left.cigar + sam_aln_segm_center.cigar + sam_aln_segm_right.cigar;
-//        sam_aln.ed = sam_aln_segm_left.ed + sam_aln_segm_center.ed + sam_aln_segm_right.ed;
-//        sam_aln.sw_score = sam_aln_segm_left.sw_score + sam_aln_segm_center.sw_score + sam_aln_segm_right.sw_score;
-//        sam_aln.ref_start =   sam_aln_segm_left.ref_start;
-//        sam_aln.is_rc = sam_aln_segm_left.is_rc;
-//        sam_aln.is_unaligned = false;
-//        sam_aln.aln_score = sam_aln.sw_score;
-//        std::cout << "Joint: " << sam_aln.cigar << std::endl;
+//        alignment.ref_id = n.ref_id;
+//        alignment.cigar = alignment_segm_left.cigar + alignment_segm_center.cigar + alignment_segm_right.cigar;
+//        alignment.ed = alignment_segm_left.ed + alignment_segm_center.ed + alignment_segm_right.ed;
+//        alignment.sw_score = alignment_segm_left.sw_score + alignment_segm_center.sw_score + alignment_segm_right.sw_score;
+//        alignment.ref_start =   alignment_segm_left.ref_start;
+//        alignment.is_rc = alignment_segm_left.is_rc;
+//        alignment.is_unaligned = false;
+//        alignment.aln_score = alignment.sw_score;
+//        std::cout << "Joint: " << alignment.cigar << std::endl;
 
-    return sam_aln;
+    return alignment;
 }
 
 
@@ -712,7 +712,7 @@ static inline bool rescue_mate(
     const References& references,
     const Read& guide,
     const Read& read,
-    Alignment &sam_aln,
+    Alignment &alignment,
     float mu,
     float sigma,
     int k
@@ -740,26 +740,26 @@ static inline bool rescue_mate(
     auto ref_end = std::min(ref_len, std::max(0, b));
 
     if (ref_end < ref_start + k){
-        sam_aln.cigar = Cigar();
-        sam_aln.edit_distance = read_len;
-        sam_aln.score = 0;
-        sam_aln.ref_start =  0;
-        sam_aln.is_rc = nam.is_rc;
-        sam_aln.ref_id = nam.ref_id;
-        sam_aln.is_unaligned = true;
+        alignment.cigar = Cigar();
+        alignment.edit_distance = read_len;
+        alignment.score = 0;
+        alignment.ref_start =  0;
+        alignment.is_rc = nam.is_rc;
+        alignment.ref_id = nam.ref_id;
+        alignment.is_unaligned = true;
 //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return false;
     }
     std::string ref_segm = references.sequences[nam.ref_id].substr(ref_start, ref_end - ref_start);
 
     if (!has_shared_substring(r_tmp, ref_segm, k)){
-        sam_aln.cigar = Cigar();
-        sam_aln.edit_distance = read_len;
-        sam_aln.score = 0;
-        sam_aln.ref_start =  0;
-        sam_aln.is_rc = nam.is_rc;
-        sam_aln.ref_id = nam.ref_id;
-        sam_aln.is_unaligned = true;
+        alignment.cigar = Cigar();
+        alignment.edit_distance = read_len;
+        alignment.score = 0;
+        alignment.ref_start =  0;
+        alignment.is_rc = nam.is_rc;
+        alignment.ref_id = nam.ref_id;
+        alignment.is_unaligned = true;
 //        std::cerr << "Avoided!" << std::endl;
         return false;
 //        std::cerr << "Aligning anyway at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
@@ -770,7 +770,7 @@ static inline bool rescue_mate(
 //        std::cerr<< "________________________________________" << std::endl;
 //        std::cerr<< "RESCUE MODE: " << mu << "  " << sigma << std::endl;
 //        std::cerr<< read << "   " << read_rc << std::endl;
-//        std::cerr << r_tmp << " " << n.n_hits << " " << n.score << " " << " " << sam_aln.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << " " << sam_aln.cigar << " " << info.sw_score << std::endl;
+//        std::cerr << r_tmp << " " << n.n_hits << " " << n.score << " " << " " << alignment.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << " " << alignment.cigar << " " << info.sw_score << std::endl;
 //        std::cerr << "a " << a << " b " << b << " ref_start " <<  ref_start << " ref_end " << ref_end << "  ref_end - ref_start "  <<  ref_end - ref_start << "  n.is_flipped " <<  n.is_flipped << std::endl;
 //        std::cerr<< "________________________________________" << std::endl;
 //    }
@@ -782,14 +782,14 @@ static inline bool rescue_mate(
 //    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
 //    std::cerr << "Cigar: " << info.cigar << std::endl;
 
-    sam_aln.cigar = info.cigar;
-    sam_aln.edit_distance = info.edit_distance;
-    sam_aln.score = info.sw_score;
-    sam_aln.ref_start = ref_start + info.ref_start;
-    sam_aln.is_rc = a_is_rc;
-    sam_aln.ref_id = nam.ref_id;
-    sam_aln.is_unaligned = info.cigar.empty();
-    sam_aln.length = info.ref_span();
+    alignment.cigar = info.cigar;
+    alignment.edit_distance = info.edit_distance;
+    alignment.score = info.sw_score;
+    alignment.ref_start = ref_start + info.ref_start;
+    alignment.is_rc = a_is_rc;
+    alignment.ref_id = nam.ref_id;
+    alignment.is_unaligned = info.cigar.empty();
+    alignment.length = info.ref_span();
     return true;
 }
 
@@ -861,12 +861,12 @@ void rescue_read(
     // append both alignments to string here
     if (max_secondary == 0) {
         auto best_aln_pair = high_scores[0];
-        Alignment sam_aln1 = std::get<1>(best_aln_pair);
-        Alignment sam_aln2 = std::get<2>(best_aln_pair);
+        Alignment alignment1 = std::get<1>(best_aln_pair);
+        Alignment alignment2 = std::get<2>(best_aln_pair);
         if (swap_r1r2) {
-            sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper_pair(sam_aln2, sam_aln1, mu, sigma), true, details);
+            sam.add_pair(alignment2, alignment1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper_pair(alignment2, alignment1, mu, sigma), true, details);
         } else {
-            sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper_pair(sam_aln1, sam_aln2, mu, sigma), true, details);
+            sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper_pair(alignment1, alignment2, mu, sigma), true, details);
         }
     } else {
         auto max_out = std::min(high_scores.size(), max_secondary);
@@ -881,16 +881,16 @@ void rescue_read(
             }
             auto aln_pair = high_scores[i];
             auto s_score = std::get<0>(aln_pair);
-            Alignment sam_aln1 = std::get<1>(aln_pair);
-            Alignment sam_aln2 = std::get<2>(aln_pair);
+            Alignment alignment1 = std::get<1>(aln_pair);
+            Alignment alignment2 = std::get<2>(aln_pair);
             if (s_max - s_score < secondary_dropoff) {
                 if (swap_r1r2) {
-                    bool is_proper = is_proper_pair(sam_aln2, sam_aln1, mu, sigma);
+                    bool is_proper = is_proper_pair(alignment2, alignment1, mu, sigma);
                     std::array<Details, 2> swapped_details{details[1], details[0]};
-                    sam.add_pair(sam_aln2, sam_aln1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper, is_primary, swapped_details);
+                    sam.add_pair(alignment2, alignment1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper, is_primary, swapped_details);
                 } else {
-                    bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
-                    sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary, details);
+                    bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
+                    sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary, details);
                 }
             } else {
                 break;
@@ -1034,19 +1034,19 @@ inline void align_PE(
         bool consistent_nam2 = reverse_nam_if_needed(n_max2, read2, references, k);
         details[1].nam_inconsistent += !consistent_nam2;
 
-        auto sam_aln1 = get_alignment(aligner, n_max1, references, read1, consistent_nam1);
+        auto alignment1 = get_alignment(aligner, n_max1, references, read1, consistent_nam1);
         details[0].tried_alignment++;
-        details[0].gapped += sam_aln1.gapped;
-        auto sam_aln2 = get_alignment(aligner, n_max2, references, read2, consistent_nam2);
+        details[0].gapped += alignment1.gapped;
+        auto alignment2 = get_alignment(aligner, n_max2, references, read2, consistent_nam2);
         details[1].tried_alignment++;
-        details[1].gapped += sam_aln2.gapped;
+        details[1].gapped += alignment2.gapped;
         int mapq1 = get_MAPQ(nams1, n_max1);
         int mapq2 = get_MAPQ(nams2, n_max2);
-        bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
-        sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, true, details);
+        bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
+        sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, true, details);
 
-        if ((isize_est.sample_size < 400) && ((sam_aln1.edit_distance + sam_aln2.edit_distance) < 3) && is_proper) {
-            isize_est.update(std::abs(sam_aln1.ref_start - sam_aln2.ref_start));
+        if ((isize_est.sample_size < 400) && ((alignment1.edit_distance + alignment2.edit_distance) < 3) && is_proper) {
+            isize_est.update(std::abs(alignment1.ref_start - alignment2.ref_start));
         }
         return;
     }
@@ -1196,49 +1196,49 @@ inline void align_PE(
     std::tie(mapq1, mapq2) = joint_mapq_from_high_scores(high_scores);
 
     auto best_aln_pair = high_scores[0];
-    auto sam_aln1 = std::get<1>(best_aln_pair);
-    auto sam_aln2 = std::get<2>(best_aln_pair);
+    auto alignment1 = std::get<1>(best_aln_pair);
+    auto alignment2 = std::get<2>(best_aln_pair);
     if (max_secondary == 0) {
-        bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
-        sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc,
+        bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
+        sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc,
                         mapq1, mapq2, is_proper, true, details);
     } else {
         int max_out = std::min(high_scores.size(), max_secondary);
         // remove eventual duplicates - comes from, e.g., adding individual best alignments above (if identical to joint best alignment)
         float s_max = std::get<0>(best_aln_pair);
-        int prev_start_m1 = sam_aln1.ref_start;
-        int prev_start_m2 = sam_aln2.ref_start;
-        int prev_ref_id_m1 = sam_aln1.ref_id;
-        int prev_ref_id_m2 = sam_aln2.ref_id;
+        int prev_start_m1 = alignment1.ref_start;
+        int prev_start_m2 = alignment2.ref_start;
+        int prev_ref_id_m1 = alignment1.ref_id;
+        int prev_ref_id_m2 = alignment2.ref_id;
         bool is_primary = true;
         for (int i = 0; i < max_out; ++i) {
             auto aln_pair = high_scores[i];
-            sam_aln1 = std::get<1>(aln_pair);
-            sam_aln2 = std::get<2>(aln_pair);
+            alignment1 = std::get<1>(aln_pair);
+            alignment2 = std::get<2>(aln_pair);
             float s_score = std::get<0>(aln_pair);
             if (i > 0) {
                 is_primary = false;
                 mapq1 = 255;
                 mapq2 = 255;
-                bool same_pos = (prev_start_m1 == sam_aln1.ref_start) && (prev_start_m2 == sam_aln2.ref_start);
-                bool same_ref = (prev_ref_id_m1 == sam_aln1.ref_id) && (prev_ref_id_m2 == sam_aln2.ref_id);
+                bool same_pos = (prev_start_m1 == alignment1.ref_start) && (prev_start_m2 == alignment2.ref_start);
+                bool same_ref = (prev_ref_id_m1 == alignment1.ref_id) && (prev_ref_id_m2 == alignment2.ref_id);
                 if ( same_pos && same_ref ){
                     continue;
                 }
             }
 
             if (s_max - s_score < secondary_dropoff) {
-                bool is_proper = is_proper_pair(sam_aln1, sam_aln2, mu, sigma);
-                sam.add_pair(sam_aln1, sam_aln2, record1, record2, read1.rc, read2.rc,
+                bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
+                sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc,
                                 mapq1, mapq2, is_proper, is_primary, details);
             } else {
                 break;
             }
 
-            prev_start_m1 = sam_aln1.ref_start;
-            prev_start_m2 = sam_aln2.ref_start;
-            prev_ref_id_m1 = sam_aln1.ref_id;
-            prev_ref_id_m2 = sam_aln2.ref_id;
+            prev_start_m1 = alignment1.ref_start;
+            prev_start_m2 = alignment2.ref_start;
+            prev_ref_id_m1 = alignment1.ref_id;
+            prev_ref_id_m2 = alignment2.ref_id;
         }
     }
 }
