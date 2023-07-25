@@ -77,7 +77,7 @@ static inline void align_SE(
     int k,
     const References& references,
     Details& details,
-    float dropoff,
+    float dropoff_threshold,
     int max_tries,
     unsigned max_secondary
 ) {
@@ -100,8 +100,7 @@ static inline void align_SE(
     int min_mapq_diff = best_edit_distance;
     for (auto &nam : nams) {
         float score_dropoff = (float) nam.n_hits / n_max.n_hits;
-
-        if (tries >= max_tries || best_edit_distance == 0 || score_dropoff < dropoff) { // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
+        if (tries >= max_tries || best_edit_distance == 0 || score_dropoff < dropoff_threshold) {
             break;
         }
         bool consistent_nam = reverse_nam_if_needed(nam, read, references, k);
