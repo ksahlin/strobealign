@@ -89,20 +89,19 @@ static inline void align_SE(
     Read read(record.seq);
     std::vector<Alignment> alignments;
     int tries = 0;
-    float score_dropoff;
     Nam n_max = nams[0];
 
-    int best_align_dist = ~0U >> 1;
-    int best_align_sw_score = -1000;
+    int best_edit_distance = std::numeric_limits<int>::max();
+    int best_score = -1000;
 
     Alignment best_alignment;
     best_alignment.score = -100000;
     best_alignment.is_unaligned = true;
-    int min_mapq_diff = best_align_dist;
+    int min_mapq_diff = best_edit_distance;
     for (auto &nam : nams) {
-        score_dropoff = (float) nam.n_hits / n_max.n_hits;
+        float score_dropoff = (float) nam.n_hits / n_max.n_hits;
 
-        if (tries >= max_tries || best_align_dist == 0 || score_dropoff < dropoff) { // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
+        if (tries >= max_tries || best_edit_distance == 0 || score_dropoff < dropoff) { // only consider top 20 hits as minimap2 and break if alignment is exact match to reference or the match below droppoff cutoff.
             break;
         }
         bool consistent_nam = reverse_nam_if_needed(nam, read, references, k);
@@ -111,18 +110,18 @@ static inline void align_SE(
         details.tried_alignment++;
         details.gapped += alignment.gapped;
 
-        int diff_to_best = std::abs(best_align_sw_score - alignment.score);
+        int diff_to_best = std::abs(best_score - alignment.score);
         min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
 
         if (max_secondary > 0) {
             alignments.emplace_back(alignment);
         }
-        if (alignment.score > best_align_sw_score) {
-            min_mapq_diff = std::max(0, alignment.score - best_align_sw_score); // new distance to next best match
-            best_align_sw_score = alignment.score;
+        if (alignment.score > best_score) {
+            min_mapq_diff = std::max(0, alignment.score - best_score); // new distance to next best match
+            best_score = alignment.score;
             best_alignment = std::move(alignment);
             if (max_secondary == 0) {
-                best_align_dist = best_alignment.global_ed;
+                best_edit_distance = best_alignment.global_ed;
             }
         }
         tries++;
@@ -141,19 +140,18 @@ static inline void align_SE(
     );
 
     auto max_out = std::min(alignments.size(), static_cast<size_t>(max_secondary) + 1);
-    bool is_primary{true};
     for (size_t i = 0; i < max_out; ++i) {
         auto alignment = alignments[i];
-        if ((alignment.score - best_align_sw_score) > (2*aligner.parameters.mismatch + aligner.parameters.gap_open) ){
+        if (alignment.score - best_score > 2*aligner.parameters.mismatch + aligner.parameters.gap_open) {
             break;
         }
-        if (!is_primary) {
-            alignment.mapq = 255;
-        } else {
+        bool is_primary = i == 0;
+        if (is_primary) {
             alignment.mapq = std::min(min_mapq_diff, 60);
+        } else {
+            alignment.mapq = 255;
         }
         sam.add(alignment, record, read.rc, is_primary, details);
-        is_primary = false;
     }
 }
 
@@ -167,7 +165,7 @@ static inline Alignment align_segment(
     bool consistent_nam,
     bool is_rc
 ) {
-    Alignment alignment_segm;
+    Alignment alignment;
     auto ref_segm_len = ref_segm.size();
     auto read_segm_len = read_segm.size();
     // The ref_segm includes an extension of ext_left bases upstream and ext_right bases downstream
@@ -179,25 +177,25 @@ static inline Alignment align_segment(
 
         if (hamming_dist >= 0 && (((float) hamming_dist / read_segm_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
             auto info = hamming_align(read_segm, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
-            alignment_segm.cigar = std::move(info.cigar);
-            alignment_segm.edit_distance = info.edit_distance;
-            alignment_segm.score = info.sw_score;
-            alignment_segm.ref_start = ref_start + ext_left + info.query_start;
-            alignment_segm.is_rc = is_rc;
-            alignment_segm.is_unaligned = false;
-            alignment_segm.length = read_segm_len;
-            return alignment_segm;
+            alignment.cigar = std::move(info.cigar);
+            alignment.edit_distance = info.edit_distance;
+            alignment.score = info.sw_score;
+            alignment.ref_start = ref_start + ext_left + info.query_start;
+            alignment.is_rc = is_rc;
+            alignment.is_unaligned = false;
+            alignment.length = read_segm_len;
+            return alignment;
         }
     }
     auto info = aligner.align(read_segm, ref_segm);
-    alignment_segm.cigar = std::move(info.cigar);
-    alignment_segm.edit_distance = info.edit_distance;
-    alignment_segm.score = info.sw_score;
-    alignment_segm.ref_start = ref_start + info.ref_start;
-    alignment_segm.is_rc = is_rc;
-    alignment_segm.is_unaligned = false;
-    alignment_segm.length = info.ref_span();
-    return alignment_segm;
+    alignment.cigar = std::move(info.cigar);
+    alignment.edit_distance = info.edit_distance;
+    alignment.score = info.sw_score;
+    alignment.ref_start = ref_start + info.ref_start;
+    alignment.is_rc = is_rc;
+    alignment.is_unaligned = false;
+    alignment.length = info.ref_span();
+    return alignment;
 }
 
 
@@ -506,34 +504,29 @@ static inline Alignment get_alignment_unused(
     return alignment;
 }
 
-
-
-
-static inline int get_MAPQ(const std::vector<Nam> &nams, const Nam &n_max) {
-    const float s1 = n_max.score;
+static inline uint8_t get_mapq(const std::vector<Nam> &nams, const Nam &n_max) {
     if (nams.size() <= 1) {
         return 60;
     }
-    const Nam n_second = nams[1];
-    const float s2 = n_second.score;
+    const float s1 = n_max.score;
+    const float s2 = nams[1].score;
     // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
     const float min_matches = std::min(n_max.n_hits / 10.0, 1.0);
     const int uncapped_mapq = 40 * (1 - s2 / s1) * min_matches * log(s1);
     return std::min(uncapped_mapq, 60);
 }
 
-
-static inline std::pair<int, int> joint_mapq_from_alignment_scores(float S1, float S2) {
+static inline std::pair<int, int> joint_mapq_from_alignment_scores(float score1, float score2) {
     int mapq;
-    if (S1 == S2) { // At least two identical placements
+    if (score1 == score2) { // At least two identical placements
         mapq = 0;
     } else {
-        const int diff = S1 - S2; // (1.0 - (S1 - S2) / S1);
+        const int diff = score1 - score2; // (1.0 - (S1 - S2) / S1);
 //        float log10_p = diff > 6 ? -6.0 : -diff; // Corresponds to: p_error= 0.1^diff // change in sw score times rough illumina error rate. This is highly heauristic, but so seem most computations of mapq scores
-        if (S1 > 0 && S2 > 0) {
+        if (score1 > 0 && score2 > 0) {
             mapq = std::min(60, diff);
 //            mapq1 = -10 * log10_p < 60 ? -10 * log10_p : 60;
-        } else if (S1 > 0 && S2 <= 0) {
+        } else if (score1 > 0 && score2 <= 0) {
             mapq = 60;
         } else { // both negative SW one is better
             mapq = 1;
@@ -541,7 +534,6 @@ static inline std::pair<int, int> joint_mapq_from_alignment_scores(float S1, flo
     }
     return std::make_pair(mapq, mapq);
 }
-
 
 static inline float normal_pdf(float x, float m, float s)
 {
@@ -1040,8 +1032,8 @@ inline void align_PE(
         auto alignment2 = get_alignment(aligner, n_max2, references, read2, consistent_nam2);
         details[1].tried_alignment++;
         details[1].gapped += alignment2.gapped;
-        int mapq1 = get_MAPQ(nams1, n_max1);
-        int mapq2 = get_MAPQ(nams2, n_max2);
+        int mapq1 = get_mapq(nams1, n_max1);
+        int mapq2 = get_mapq(nams2, n_max2);
         bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
         sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, true, details);
 
