@@ -166,10 +166,9 @@ static inline Alignment align_segment(
     bool is_rc
 ) {
     Alignment alignment;
-    auto ref_segm_len = ref_segm.size();
     auto read_segm_len = read_segm.size();
     // The ref_segm includes an extension of ext_left bases upstream and ext_right bases downstream
-    int ref_segm_len_ham = ref_segm_len - ext_left - ext_right; // we send in the already extended ref segment to save time. This is not true in center alignment if merged match have diff length
+    auto ref_segm_len_ham = ref_segm.size() - ext_left - ext_right; // we send in the already extended ref segment to save time. This is not true in center alignment if merged match have diff length
     if (ref_segm_len_ham == read_segm_len && consistent_nam) {
         std::string ref_segm_ham = ref_segm.substr(ext_left, read_segm_len);
 
@@ -228,8 +227,8 @@ static inline Alignment get_alignment(
     const std::string query = nam.is_rc ? read.rc : read.seq;
     const std::string& ref = references.sequences[nam.ref_id];
 
-    const int projected_ref_start = std::max(0, nam.ref_start - nam.query_start);
-    const int projected_ref_end = std::min(nam.ref_end + query.size() - nam.query_end, ref.size());
+    const auto projected_ref_start = std::max(0, nam.ref_start - nam.query_start);
+    const auto projected_ref_end = std::min(nam.ref_end + query.size() - nam.query_end, ref.size());
 
     aln_info info;
     int result_ref_start;
