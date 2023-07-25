@@ -178,6 +178,7 @@ int run_strobealign(int argc, char **argv) {
     map_param.cigar_ops = opt.cigar_eqx ? CigarOps::EQX : CigarOps::M;
     map_param.output_unmapped = opt.output_unmapped;
     map_param.details = opt.details;
+    map_param.verify();
 
     log_parameters(index_parameters, map_param, aln_params);
     logger.debug() << "Threads: " << opt.n_threads << std::endl;
@@ -331,7 +332,7 @@ int main(int argc, char **argv) {
     try {
         return run_strobealign(argc, argv);
     } catch (BadParameter& e) {
-        logger.error() << "A mapping or seeding parameter is invalid: " << e.what() << std::endl;
+        logger.error() << "A parameter is invalid: " << e.what() << std::endl;
     } catch (const std::runtime_error& e) {
         logger.error() << "strobealign: " << e.what() << std::endl;
     }

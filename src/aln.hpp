@@ -66,6 +66,12 @@ struct MappingParameters {
     CigarOps cigar_ops{CigarOps::M};
     bool output_unmapped { true };
     bool details{false};
+
+    void verify() const {
+        if (max_tries < 1) {
+            throw BadParameter("max_tries must be greater than zero");
+        }
+    }
 };
 
 class i_dist_est {
