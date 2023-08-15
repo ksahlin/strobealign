@@ -141,8 +141,7 @@ static inline void align_SE(
     uint8_t mapq = 60.0 * (best_score - second_best_score) / best_score;
 
     if (max_secondary == 0) {
-        best_alignment.mapq = mapq;
-        sam.add(best_alignment, record, read.rc, true, details);
+        sam.add(best_alignment, record, read.rc, mapq, true, details);
         return;
     }
     // Sort alignments by score, highest first
@@ -159,12 +158,7 @@ static inline void align_SE(
             break;
         }
         bool is_primary = i == 0;
-        if (is_primary) {
-            alignment.mapq = mapq;
-        } else {
-            alignment.mapq = 255;
-        }
-        sam.add(alignment, record, read.rc, is_primary, details);
+        sam.add(alignment, record, read.rc, mapq, is_primary, details);
     }
 }
 
