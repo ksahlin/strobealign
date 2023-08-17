@@ -17,6 +17,10 @@ impl SequenceRecord {
     pub fn len(&self) -> usize {
         self.sequence.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.sequence.is_empty()
+    }
 }
 
 impl fmt::Display for SequenceRecord {
@@ -86,7 +90,7 @@ impl<R: Read> Iterator for FastqReader<R> {
         let mut qualities = Vec::new();
         self.reader.read_until(b'\n', &mut qualities).unwrap();
         qualities.pop();
-        if qualities.len() > 0 && qualities[qualities.len() - 1] == b'\r' {
+        if !qualities.is_empty() && qualities[qualities.len() - 1] == b'\r' {
             qualities.pop();
         }
         assert_eq!(sequence.len(), qualities.len());
@@ -110,13 +114,13 @@ impl<W: Write> FastqWriter<W> {
     }
 
     pub fn write_record(&mut self, record: &SequenceRecord) {
-        self.writer.write(b"@").unwrap();
-        self.writer.write(&record.name.as_bytes()).unwrap();
-        self.writer.write(b"\n").unwrap();
-        self.writer.write(&record.sequence).unwrap();
-        self.writer.write(b"\n+\n").unwrap();
-        self.writer.write(&record.qualities).unwrap();
-        self.writer.write(b"\n").unwrap();
+        self.writer.write_all(b"@").unwrap();
+        self.writer.write_all(record.name.as_bytes()).unwrap();
+        self.writer.write_all(b"\n").unwrap();
+        self.writer.write_all(&record.sequence).unwrap();
+        self.writer.write_all(b"\n+\n").unwrap();
+        self.writer.write_all(&record.qualities).unwrap();
+        self.writer.write_all(b"\n").unwrap();
         //write!(self.writer, "@{}\n{:?}\n+\n{:?}\n", record.name, record.sequence, record.qualities);
     }
 }

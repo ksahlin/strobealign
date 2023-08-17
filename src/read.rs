@@ -11,7 +11,7 @@ impl<'a> Read<'a> {
     pub fn new(seq: &'a [u8]) -> Self {
         Read {
             seq,
-            rc: reverse_complement(&seq),
+            rc: reverse_complement(seq),
         }
     }
 
@@ -19,8 +19,12 @@ impl<'a> Read<'a> {
         self.seq.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.seq.is_empty()
+    }
+
     pub fn seq(&self) -> &[u8] {
-        &self.seq
+        self.seq
     }
 
     pub fn rc(&self) -> &[u8] {

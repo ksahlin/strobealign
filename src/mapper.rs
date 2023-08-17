@@ -13,7 +13,7 @@ use crate::aligner::Aligner;
 use crate::fastq::SequenceRecord;
 
 enum CigarMode {
-    M, EQX
+    M, Eqx
 }
 
 pub struct MappingParameters {
@@ -27,8 +27,8 @@ pub struct MappingParameters {
     output_unmapped: bool,
 }
 
-impl MappingParameters {
-    pub fn new() -> Self {
+impl Default for MappingParameters {
+    fn default() -> Self {
         MappingParameters {
             r: 150,
             max_secondary: 0,
@@ -113,7 +113,7 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> Vec<QueryR
 }
 
 // TODO details
-fn make_sam_record(alignment: &Alignment, references: &Vec<RefSequence>, record: &SequenceRecord, mut mapq: u8, is_primary: bool) -> SamRecord {
+fn make_sam_record(alignment: &Alignment, references: &[RefSequence], record: &SequenceRecord, mut mapq: u8, is_primary: bool) -> SamRecord {
     let mut flags = 0;
 
     if !alignment.is_unaligned && alignment.is_revcomp {
@@ -145,7 +145,7 @@ fn make_sam_record(alignment: &Alignment, references: &Vec<RefSequence>, record:
 pub fn map_single_end_read(
     record: &SequenceRecord,
     index: &StrobemerIndex,
-    references: &Vec<RefSequence>,
+    references: &[RefSequence],
     mapping_parameters: &MappingParameters,
     aligner: &Aligner,
 ) -> Vec<SamRecord> {
@@ -190,7 +190,6 @@ pub fn map_single_end_read(
     }
     let mut sam_records = Vec::new();
     let mut alignments = Vec::new();
-    let mut tries = 0;
     let nam_max = nams[0];
     let mut best_edit_distance = u32::MAX;
     let mut best_score = 0;
@@ -200,16 +199,16 @@ pub fn map_single_end_read(
     let k = index.parameters.syncmer.k;
     let read = Read::new(&record.sequence);
 
-    for nam in &mut nams {
+    for (tries, nam) in nams.iter_mut().enumerate() {
         let score_dropoff = nam.n_hits as f32 / nam_max.n_hits as f32;
 
         // TODO iterate over slice of nams instead of tracking tries
         if tries >= mapping_parameters.max_tries || (tries > 1 && best_edit_distance == 0) || score_dropoff < mapping_parameters.dropoff_threshold {
             break;
         }
-        let consistent_nam = reverse_nam_if_needed(nam, &read, &references, k);
+        let consistent_nam = reverse_nam_if_needed(nam, &read, references, k);
         // details.nam_inconsistent += !consistent_nam;
-        let alignment = get_alignment(&aligner, nam, &references, &read, consistent_nam);
+        let alignment = get_alignment(aligner, nam, references, &read, consistent_nam);
         // details.tried_alignment += 1;
         // details.gapped += sam_aln.gapped;
 
@@ -226,22 +225,20 @@ pub fn map_single_end_read(
         if mapping_parameters.max_secondary > 0 {
             alignments.push(alignment);
         }
-        tries += 1;
     }
     let mapq = (60.0 * (best_score - second_best_score) as f32 / best_score as f32) as u8;
 
     if mapping_parameters.max_secondary == 0 {
         sam_records.push(
-            make_sam_record(&best_alignment, references, &record, mapq, true) // TODO details
+            make_sam_record(&best_alignment, references, record, mapq, true) // TODO details
         );
     } else {
         // Highest score first
         alignments.sort_by_key(|k| Reverse(k.score));
 
         let max_out = min(alignments.len(), mapping_parameters.max_secondary + 1);
-        for i in 0..max_out {
+        for (i, alignment) in alignments.iter().enumerate().take(max_out) {
             let is_primary = i == 0;
-            let alignment = &alignments[i];
             if alignment.score - best_score > 2 * aligner.scores.mismatch + aligner.scores.gap_open {
                 break;
             }
@@ -261,7 +258,7 @@ pub fn map_single_end_read(
 fn get_alignment(
     aligner: &Aligner,
     nam: &Nam,
-    references: &Vec<RefSequence>,
+    references: &[RefSequence],
     read: &Read,
     consistent_nam: bool,
 ) -> Alignment {
@@ -297,7 +294,7 @@ fn get_alignment(
         }
     }
     if gapped {
-        let diff = (nam.ref_span() as isize - nam.query_span() as isize).abs() as usize;
+        let diff = (nam.ref_span() as isize - nam.query_span() as isize).unsigned_abs();
         let ext_left = min(50, projected_ref_start);
         let ref_start = projected_ref_start - ext_left;
         let ext_right = min(50, refseq.len() - nam.ref_end);

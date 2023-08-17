@@ -26,7 +26,7 @@ impl IndexParameters {
 impl SyncmerParameters {
     /// Pick a suitable number of bits for indexing randstrobe start indices
     fn pick_bits(&self, size: usize) -> u8 {
-        let estimated_number_of_randstrobes = size / (self.k - self.s + 1) as usize;
+        let estimated_number_of_randstrobes = size / (self.k - self.s + 1);
         // Two randstrobes per bucket on average
         // TOOD checked_ilog2 or ilog2
         ((estimated_number_of_randstrobes as f64).log2() as u32 - 1).clamp(8, 31) as u8
@@ -60,7 +60,7 @@ const REF_RANDSTROBE_MASK: u32 = (1 << REF_RANDSTROBE_OFFSET_BITS) - 1;
 
 impl RefRandstrobe {
     fn new(hash: RandstrobeHash, ref_index: u32, position: u32, offset: u8) -> Self {
-        let packed = ((ref_index as u32) << 8) + offset as u32;
+        let packed = (ref_index << 8) + offset as u32;
         RefRandstrobe { hash, position, packed }
     }
 
@@ -190,7 +190,7 @@ impl<'a> StrobemerIndex<'a> {
         self.stats.tot_occur_once = 0;
         self.randstrobe_start_indices.reserve((1usize << self.bits) + 1);
 
-        let mut unique_mers = if self.randstrobes.is_empty() { 0 } else { 1 };
+        let mut unique_mers = u64::from(!self.randstrobes.is_empty());
 
         let mut prev_hash: RandstrobeHash = if self.randstrobes.is_empty() { 0 } else { self.randstrobes[0].hash };
         let mut count = 0;
@@ -255,7 +255,7 @@ impl<'a> StrobemerIndex<'a> {
         self.stats.distinct_strobemers = unique_mers;
     }
 
-    fn assign_all_randstrobes(&mut self, randstrobe_counts: &Vec<usize>) {
+    fn assign_all_randstrobes(&mut self, randstrobe_counts: &[usize]) {
         let mut offset = 0;
         for ref_index in 0..self.references.len() {
             self.assign_randstrobes(ref_index, offset);

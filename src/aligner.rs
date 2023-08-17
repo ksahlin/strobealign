@@ -168,7 +168,7 @@ pub fn hamming_distance(s: &[u8], t: &[u8]) -> Option<u32> {
 
     let mismatches =
         s.iter().zip(t).map(
-            |(x, y)| if x != y { 1 } else { 0 }
+            |(x, y)| u32::from(x != y)
         ).sum();
 
     Some(mismatches)
@@ -183,16 +183,16 @@ fn highest_scoring_segment(query: &[u8], refseq: &[u8], match_: u32, mismatch: u
     let n = query.len();
 
     let mut start = 0; // start of the current segment
-    let mut score = end_bonus; // accumulated score so far in the current segment
+    let mut score = end_bonus as i32; // accumulated score so far in the current segment
 
     let mut best_start = 0;
     let mut best_end = 0;
     let mut best_score = 0;
     for i in 0..n {
         if query[i] == refseq[i] {
-            score += match_;
+            score += match_ as i32;
         } else {
-            score -= mismatch;
+            score -= mismatch as i32;
         }
         if score < 0 {
             start = i + 1;
@@ -204,13 +204,13 @@ fn highest_scoring_segment(query: &[u8], refseq: &[u8], match_: u32, mismatch: u
             best_end = i + 1;
         }
     }
-    if score + end_bonus > best_score {
-        best_score = score + end_bonus;
+    if score + end_bonus as i32 > best_score {
+        best_score = score + end_bonus as i32;
         best_end = query.len();
         best_start = start;
     }
 
-    (best_start, best_end, best_score)
+    (best_start, best_end, best_score as u32)
 }
 
 pub fn hamming_align(query: &[u8], refseq: &[u8], match_: u32, mismatch: u32, end_bonus: u32) -> Option<AlignmentInfo> {
@@ -232,7 +232,7 @@ pub fn hamming_align(query: &[u8], refseq: &[u8], match_: u32, mismatch: u32, en
     let mut first = true;
     for i in segment_start..segment_end {
         let is_match = query[i] == refseq[i];
-        mismatches += if is_match { 0 } else { 1 };
+        mismatches += u32::from(!is_match);
         if !first && is_match != prev_is_match {
             cigar.push(if prev_is_match { CigarOperation::Eq } else { CigarOperation::X }, counter);
             counter = 0;

@@ -77,7 +77,7 @@ fn main() -> Result<(), Error> {
     index.populate(args.filter_fraction);
     let index = index;
 
-    let mapping_parameters = MappingParameters::new();
+    let mapping_parameters = MappingParameters::default();
 
     let aligner = Aligner::new(Scores::default());
     // let mapper = Mapper::new(index);

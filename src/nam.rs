@@ -1,4 +1,5 @@
 use std::cmp::{max, min};
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use crate::fasta::RefSequence;
 use crate::index::StrobemerIndex;
@@ -68,7 +69,7 @@ pub fn find_nams(query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerInde
 /// Find a query’s NAMs, using also some of the randstrobes that occur more often
 /// than filter_cutoff.
 fn find_nams_rescue(
-    query_randstrobes: &Vec<QueryRandstrobe>,
+    query_randstrobes: &[QueryRandstrobe],
     index: &StrobemerIndex,
     filter_cutoff: u32
 ) -> Vec<Nam> {
@@ -144,16 +145,16 @@ fn add_to_hits_per_ref(
         let ref_start = randstrobe.position();
         let ref_end = ref_start + randstrobe.strobe2_offset() + index.parameters.syncmer.k;
         let ref_length = ref_end - ref_start;
-        let length_diff = (query_length as isize - ref_length as isize).abs() as usize;
+        let length_diff = (query_length as isize - ref_length as isize).unsigned_abs();
         if length_diff <= max_length_diff {
             let hit = Hit{query_start, query_end, ref_start, ref_end, is_revcomp};
             let ref_id = randstrobe.reference_index();
-            if hits_per_ref.contains_key(&ref_id) {
-                hits_per_ref.get_mut(&ref_id).unwrap().push(hit);
-            } else {
-                hits_per_ref.insert(ref_id, vec![hit]);
-            }
 
+            if let Entry::Vacant(e) = hits_per_ref.entry(ref_id) {
+                e.insert(vec![hit]);
+            } else {
+                hits_per_ref.get_mut(&ref_id).unwrap().push(hit);
+            }
             max_length_diff = length_diff;
         }
     }
@@ -233,7 +234,7 @@ fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, s
                                 1
                             } as u32;
 //                        n_score = n.n_hits * n.query_span();
-                        let mut nam = n.clone();
+                        let mut nam = *n;
                         nam.score = n_score;
                         nams.push(nam);
                     }
@@ -242,7 +243,7 @@ fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, s
                 // Remove all NAMs from open_matches that the current hit have passed
                 let c = h.query_start;
 
-                open_nams = open_nams.into_iter().filter(|&x| x.query_end >= c).collect();
+                open_nams.retain(|x| x.query_end >= c);
 
                 prev_q_start = h.query_start;
             }
@@ -275,18 +276,17 @@ fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, s
 /// - If first and last strobe match in reverse orientation, update the NAM
 ///   in place and return true.
 /// - If first and last strobe do not match consistently, return false.
-pub fn reverse_nam_if_needed(n: &mut Nam, read: &Read, references: &Vec<RefSequence>, k: usize) -> bool {
-    // TODO rename n to nam
-    let ref_start_kmer = &references[n.ref_id].sequence[n.ref_start..k];
-    let ref_end_kmer = &references[n.ref_id].sequence[n.ref_end - k..k];
+pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, references: &[RefSequence], k: usize) -> bool {
+    let ref_start_kmer = &references[nam.ref_id].sequence[nam.ref_start..k];
+    let ref_end_kmer = &references[nam.ref_id].sequence[nam.ref_end - k..k];
 
-    let (seq, seq_rc) = if n.is_revcomp {
+    let (seq, seq_rc) = if nam.is_revcomp {
         (read.rc(), read.seq())
     } else {
         (read.seq(), read.rc())
     };
-    let read_start_kmer = &seq[n.query_start..n.query_start + k];
-    let read_end_kmer = &seq[n.query_end - k.. n.query_end];
+    let read_start_kmer = &seq[nam.query_start..nam.query_start + k];
+    let read_end_kmer = &seq[nam.query_end - k.. nam.query_end];
     if ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer {
         return true;
     }
@@ -295,17 +295,17 @@ pub fn reverse_nam_if_needed(n: &mut Nam, read: &Read, references: &Vec<RefSeque
     // we need two extra checks for this - hopefully this will remove all the false hits we see
     // (true hash collisions should be very few)
     let read_len = read.len();
-    let q_start_tmp = read_len - n.query_end;
-    let q_end_tmp = read_len - n.query_start;
+    let q_start_tmp = read_len - nam.query_end;
+    let q_end_tmp = read_len - nam.query_start;
     // false reverse hit, change coordinates in nam to forward
     let read_start_kmer = &seq_rc[q_start_tmp..q_start_tmp + k];
     let read_end_kmer = &seq_rc[q_end_tmp - k..q_end_tmp];
     if ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer {
-        n.is_revcomp = !n.is_revcomp;
-        n.query_start = q_start_tmp;
-        n.query_end = q_end_tmp;
-        return true;
+        nam.is_revcomp = !nam.is_revcomp;
+        nam.query_start = q_start_tmp;
+        nam.query_end = q_end_tmp;
+        true
+    } else {
+        false
     }
-
-    false
 }
