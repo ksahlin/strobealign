@@ -153,7 +153,9 @@ impl<'a> Iterator for SyncmerIterator<'a> {
                 }
                 if self.qs_min_pos == self.i + self.t - self.k { // occurs at t:th position in k-mer
                     let yk = min(self.xk[0], self.xk[1]);
-                    let syncmer = Syncmer { hash: syncmer_kmer_hash(yk), position: self.i - self.k + 1 };
+                    dbg!(self.i);
+                    dbg!(self.k);
+                    let syncmer = Syncmer { hash: syncmer_kmer_hash(yk), position: self.i + 1 - self.k };
                     self.i += 1;
                     return Some(syncmer);
                 }

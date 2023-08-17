@@ -277,8 +277,8 @@ fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, s
 ///   in place and return true.
 /// - If first and last strobe do not match consistently, return false.
 pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, references: &[RefSequence], k: usize) -> bool {
-    let ref_start_kmer = &references[nam.ref_id].sequence[nam.ref_start..k];
-    let ref_end_kmer = &references[nam.ref_id].sequence[nam.ref_end - k..k];
+    let ref_start_kmer = &references[nam.ref_id].sequence[nam.ref_start..nam.ref_start + k];
+    let ref_end_kmer = &references[nam.ref_id].sequence[nam.ref_end - k..nam.ref_end];
 
     let (seq, seq_rc) = if nam.is_revcomp {
         (read.rc(), read.seq())

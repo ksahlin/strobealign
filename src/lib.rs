@@ -10,3 +10,4 @@ pub mod cigar;
 pub mod sam;
 pub mod read;
 pub mod aligner;
+pub mod ssw;

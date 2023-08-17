@@ -1,15 +1,17 @@
 //! Low-level alignment functions
 
 use std::cell::Cell;
+use std::error::Error;
 use crate::cigar::{Cigar, CigarOperation};
+use crate::ssw::SswAlignment;
 
 pub struct Scores {
     // match is a score, the others are penalties (all are nonnegative)
-    pub match_: u32,
-    pub mismatch: u32,
-    pub gap_open: u32,
-    pub gap_extend: u32,
-    pub end_bonus: u32,
+    pub match_: u8,
+    pub mismatch: u8,
+    pub gap_open: u8,
+    pub gap_extend: u8,
+    pub end_bonus: u8,
 }
 
 impl Default for Scores {
@@ -40,11 +42,24 @@ impl AlignmentInfo {
     }
 }
 
+impl From<SswAlignment> for AlignmentInfo {
+    fn from(ssw_alignment: SswAlignment) -> AlignmentInfo {
+        AlignmentInfo {
+            cigar: ssw_alignment.cigar,
+            edit_distance: 0, // TODO
+            ref_start: ssw_alignment.ref_start,
+            ref_end: ssw_alignment.ref_end,
+            query_start: ssw_alignment.query_start,
+            query_end: ssw_alignment.query_end,
+            score: ssw_alignment.score as u32,
+        }
+    }
+}
+
 pub struct Aligner {
     pub scores: Scores, // TODO should not be pub?
     call_count: Cell<usize>,
-    // ssw_aligner: StripedSmithWaterman::Aligner,
-    // ssw_filter: StripedSmithWaterman::Filter,
+    ssw_aligner: crate::ssw::Aligner,
 }
 
 impl Aligner {
@@ -54,8 +69,10 @@ impl Aligner {
     { }*/
 
     pub fn new(scores: Scores) -> Self {
+        let ssw_aligner = crate::ssw::Aligner::new(scores.match_, scores.mismatch, scores.gap_open, scores.gap_extend);
         Aligner {
             scores,
+            ssw_aligner,
             call_count: Cell::new(0usize),
         }
     }
@@ -66,98 +83,75 @@ impl Aligner {
 
     pub fn align(&self, query: &[u8], refseq: &[u8]) -> Option<AlignmentInfo> {
         self.call_count.set(self.call_count.get() + 1);
-        /*
-        // AlignmentInfo aln;
-        // int32_t maskLen = query.len() / 2;
-        maskLen = std::max(maskLen, 15);
+
         if refseq.len() > 2000 {
-            //        std::cerr << "ALIGNMENT TO REF LONGER THAN 2000bp - REPORT TO DEVELOPER. Happened for read: " <<  query << " ref len:" << ref.length() << std::endl;
+            // TODO
             return None;
         }
 
-        let alignment_ssw: StripedSmithWaterman::Alignment;
-
-        // query must be NULL-terminated
-        let flag = ssw_aligner.Align(query.c_str(), refseq.c_str(), refseq.len(), self.ssw_filter, &alignment_ssw, maskLen);
-        if flag != 0 {
-            return None;
-        }
-
-        let mut aln = AlignmentInfo { };
-        aln.edit_distance = alignment_ssw.mismatches;
-        aln.cigar = Cigar::parse(alignment_ssw.cigar);
-        aln.score = alignment_ssw.sw_score;
-        aln.ref_start = alignment_ssw.ref_begin;
-        // end positions are off by 1 in SSW
-        aln.ref_end = alignment_ssw.ref_end + 1;
-        aln.query_start = alignment_ssw.query_begin;
-        aln.query_end = alignment_ssw.query_end + 1;
+        let mut alignment: AlignmentInfo = self.ssw_aligner.align(query, refseq)?.into();
 
         // Try to extend to beginning of the query to get an end bonus
-        let mut qstart = aln.query_start;
-        let mut rstart = aln.ref_start;
-        let mut score = aln.score;
-        let mut edits = aln.edit_distance;
+        let mut qstart = alignment.query_start;
+        let mut rstart = alignment.ref_start;
+        let mut score = alignment.score as i32;
+        let mut edits = alignment.edit_distance;
         let mut front_cigar = Cigar::new();
         while qstart > 0 && rstart > 0 {
             qstart -= 1;
             rstart -= 1;
             if query[qstart] == refseq[rstart] {
-                score += self.scores.match_;
+                score += self.scores.match_ as i32;
                 front_cigar.push(CigarOperation::Eq, 1);
             } else {
-                score -= self.scores.mismatch;
+                score -= self.scores.mismatch as i32;
                 front_cigar.push(CigarOperation::X, 1);
                 edits += 1;
             }
         }
-        if qstart == 0 && score + self.scores.end_bonus > aln.score {
-            if aln.query_start > 0 {
-                // TODO assert_eq!(aln.cigar.m_ops[0] & 0xF, CIGAR_SOFTCLIP);
-                aln.cigar.m_ops.erase(aln.cigar.m_ops.begin());  // remove soft clipping
-                front_cigar.reverse();
-                front_cigar += aln.cigar;
-                aln.cigar = front_cigar;
+        let score_with_end_bonus = score + self.scores.end_bonus as i32;
+        if qstart == 0 && score_with_end_bonus > alignment.score as i32 {
+            if alignment.query_start > 0 {
+                let mut cigar = front_cigar.reversed();
+                cigar.extend(&alignment.cigar);
+                alignment.cigar = cigar;
             }
-            aln.query_start = 0;
-            aln.ref_start = rstart;
-            aln.score = score + self.scores.end_bonus;
-            aln.edit_distance = edits;
+            alignment.query_start = 0;
+            alignment.ref_start = rstart;
+            alignment.score = score_with_end_bonus as u32;
+            alignment.edit_distance = edits;
         }
 
         // Try to extend to end of query to get an end bonus
-        let mut qend = aln.query_end;
-        let mut rend = aln.ref_end;
-        score = aln.score;
-        edits = aln.edit_distance;
+        let mut qend = alignment.query_end;
+        let mut rend = alignment.ref_end;
+        score = alignment.score as i32;
+        edits = alignment.edit_distance;
         let mut back_cigar = Cigar::new();
         while qend < query.len() && rend < refseq.len() {
             if query[qend] == refseq[rend] {
-                score += self.scores.match_;
+                score += self.scores.match_ as i32;
                 back_cigar.push(CigarOperation::Eq, 1);
             } else {
-                score -= self.scores.mismatch;
+                score -= self.scores.mismatch as i32;
                 back_cigar.push(CigarOperation::X, 1);
                 edits += 1;
             }
             qend += 1;
             rend += 1;
         }
-        if qend == query.len() && score + self.scores.end_bonus > aln.score {
-            if aln.query_end < query.len() {
-                // TODO assert((aln.cigar.m_ops[aln.cigar.m_ops.size() - 1] & 0xf) == CIGAR_SOFTCLIP);
-                aln.cigar.m_ops.pop_back();
-                aln.cigar += back_cigar;
+        let score_with_end_bonus = score + self.scores.end_bonus as i32;
+        if qend == query.len() && score_with_end_bonus > alignment.score as i32 {
+            if alignment.query_end < query.len() {
+                alignment.cigar.extend(&back_cigar);
             }
-            aln.query_end = query.len();
-            aln.ref_end = rend;
-            aln.score = score + self.scores.end_bonus;
-            aln.edit_distance = edits;
+            alignment.query_end = query.len();
+            alignment.ref_end = rend;
+            alignment.score = score_with_end_bonus as u32;
+            alignment.edit_distance = edits;
         }
 
-        Some(aln)
-        */
-        None
+        Some(alignment)
     }
 }
 
@@ -179,7 +173,7 @@ pub fn hamming_distance(s: &[u8], t: &[u8]) -> Option<u32> {
 ///
 /// The end_bonus is added to the score if the segment extends until the end
 /// of the query, once for each end.
-fn highest_scoring_segment(query: &[u8], refseq: &[u8], match_: u32, mismatch: u32, end_bonus: u32) -> (usize, usize, u32) {
+fn highest_scoring_segment(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8, end_bonus: u8) -> (usize, usize, u32) {
     let n = query.len();
 
     let mut start = 0; // start of the current segment
@@ -213,7 +207,7 @@ fn highest_scoring_segment(query: &[u8], refseq: &[u8], match_: u32, mismatch: u
     (best_start, best_end, best_score as u32)
 }
 
-pub fn hamming_align(query: &[u8], refseq: &[u8], match_: u32, mismatch: u32, end_bonus: u32) -> Option<AlignmentInfo> {
+pub fn hamming_align(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8, end_bonus: u8) -> Option<AlignmentInfo> {
     if query.len() != refseq.len() {
         return None;
     }

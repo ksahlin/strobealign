@@ -6,12 +6,23 @@ pub enum CigarOperation {
     Match = 0,
     Insertion = 1,
     Deletion = 2,
-    Skip = 3,
+    Skip = 3,  // N
     Softclip = 4,
     Hardclip = 5,
     Pad = 6,
     Eq = 7,
     X = 8,
+}
+
+impl TryFrom<u8> for CigarOperation {
+    type Error = ();
+    fn try_from(value: u8) -> Result<CigarOperation, ()> {
+        let value = value & 0xf;
+        if value > 8 {
+            return Err(());
+        }
+        unsafe { std::mem::transmute(value & 0xf) }
+    }
 }
 
 impl Display for CigarOperation {
@@ -48,10 +59,19 @@ impl CigarOperation {
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone,Copy)]
 struct OpLen {
     op: CigarOperation,
     len: usize,
+}
+
+impl TryFrom<u32> for OpLen {
+    type Error = ();
+    fn try_from(value: u32) -> Result<Self, ()> {
+        let len = (value >> 4) as usize;
+        let op = CigarOperation::try_from((value & 0xf) as u8)?;
+        Ok(OpLen { len, op })
+    }
 }
 
 #[derive(Default,Debug,Clone)]
@@ -76,6 +96,10 @@ impl Cigar {
         }
     }
 
+    pub fn push_unnormalized(&mut self, op: CigarOperation, len: usize) {
+        self.ops.push(OpLen { op, len });
+    }
+
     /// Return a new Cigar that uses M operations instead of =/X
     fn with_m(&self) -> Self {
         let mut cigar = Cigar::new();
@@ -88,12 +112,16 @@ impl Cigar {
         }
         cigar
     }
-    // void operator+=(const Cigar& other) {
-    //     for (auto op_len : other.m_ops) {
-    //         push(op_len & 0xf, op_len >> 4);
-    //     }
-    // }
 
+    pub fn reversed(&self) -> Self {
+        Cigar {
+            ops: self.ops.iter().copied().rev().collect()
+        }
+    }
+
+    pub fn extend(&mut self, other: &Cigar) {
+        self.ops.extend(&other.ops);
+    }
     /* This works only if I, D, X, = are the only operations used */
     /*pub fn edit_distance(&self) -> usize {
         let dist = 0;
@@ -111,34 +139,47 @@ impl Cigar {
         dist
     }*/
 
-}
-
-    /*Cigar Cigar::to_eqx(const std::string& query, const std::string& ref) const {
-    size_t i = 0, j = 0;
-    Cigar cigar;
-    for (auto op_len : m_ops) {
-        auto op = op_len & 0xf;
-        auto len = op_len >> 4;
-        if (op == CIGAR_MATCH) {
-            for (size_t u = 0; u < len; ++u) {
-                if (query[i] == ref[j]) {
-                    cigar.push(CIGAR_EQ, 1);
-                } else {
-                    cigar.push(CIGAR_X, 1);
-                }
-                i++;
-                j++;
+    /// Return a new Cigar that uses = and X operations instead of M
+    pub fn with_eqx(&self, query: &[u8], refseq: &[u8]) -> Cigar {
+        let mut cigar = Cigar::new();
+        let mut q_i = 0;
+        let mut r_i = 0;
+        for oplen in &self.ops {
+            let (op, len) = (oplen.op, oplen.len);
+            match op {
+                CigarOperation::Match => {
+                    for _ in 0..len {
+                        if query[q_i] == refseq[r_i] {
+                            cigar.push(CigarOperation::Eq, 1);
+                        } else {
+                            cigar.push(CigarOperation::X, 1);
+                        }
+                        q_i += 1;
+                        r_i += 1;
+                    }
+                },
+                CigarOperation::Insertion|CigarOperation::Softclip => {
+                    cigar.push(op, len);
+                    q_i += len;
+                },
+                CigarOperation::Deletion|CigarOperation::Skip => {
+                    cigar.push(op, len);
+                    r_i += len;
+                },
+                CigarOperation::Hardclip|CigarOperation::Pad => {
+                    cigar.push(op, len);
+                },
+                CigarOperation::Eq|CigarOperation::X => {
+                    cigar.push(op, len);
+                    r_i += len;
+                    q_i += len;
+                },
             }
-        } else if (op == CIGAR_INS) {
-            cigar.push(op, len);
-            i += len;
-        } else if (op == CIGAR_DEL) {
-            cigar.push(op, len);
-            j += len;
         }
+
+        cigar
     }
-    return cigar;
-}*/
+}
 
 impl Display for Cigar {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -180,6 +221,15 @@ impl FromStr for Cigar {
         Ok(cigar)
     }
 }
+
+impl TryFrom<&[u32]> for Cigar {
+    type Error = ();
+    fn try_from(encoded: &[u32]) -> Result<Self, ()> {
+        let ops: Result<Vec<_>, _> = encoded.iter().map(|ol| OpLen::try_from(*ol)).collect();
+        Ok(Cigar { ops: ops? })
+    }
+}
+
 /*
 fn compress_cigar(ops: &String) -> String {
     char prev = 0;

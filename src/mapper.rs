@@ -156,11 +156,11 @@ pub fn map_single_end_read(
 
     // Timer nam_timer;
     let (nonrepetitive_fraction, mut nams) = find_nams(&query_randstrobes, index);
-    println!("nonrepetitive fraction: {}. nams.len(): {}", nonrepetitive_fraction, nams.len());
+    println!("nonrepetitive fraction: {}. nams.len(): {}. NAMS: ", nonrepetitive_fraction, nams.len());
     for nam in &nams {
-        println!("{:?}", nam);
+        println!("- {:?}", nam);
     }
-
+    println!("end of NAMs");
     // statistics.tot_find_nams += nam_timer.duration();
     /*
     TODO
@@ -239,7 +239,7 @@ pub fn map_single_end_read(
         let max_out = min(alignments.len(), mapping_parameters.max_secondary + 1);
         for (i, alignment) in alignments.iter().enumerate().take(max_out) {
             let is_primary = i == 0;
-            if alignment.score - best_score > 2 * aligner.scores.mismatch + aligner.scores.gap_open {
+            if alignment.score - best_score > 2 * aligner.scores.mismatch as u32 + aligner.scores.gap_open as u32 {
                 break;
             }
             // TODO details
@@ -265,7 +265,7 @@ fn get_alignment(
     let query = if nam.is_revcomp { read.rc() } else { read.seq() };
     let refseq = &references[nam.ref_id].sequence;
 
-    let projected_ref_start = max(0, nam.ref_start - nam.query_start);
+    let projected_ref_start = nam.ref_start.saturating_sub(nam.query_start);
     let projected_ref_end = min(nam.ref_end + query.len() - nam.query_end, refseq.len());
 
     // TODO ugly
