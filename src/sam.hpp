@@ -79,8 +79,8 @@ public:
         }
 
     /* Add an alignment */
-    void add(const Alignment& sam_aln, const klibpp::KSeq& record, const std::string& sequence_rc, bool is_primary, const Details& details);
-    void add_pair(const Alignment& sam_aln1, const Alignment& sam_aln2, const klibpp::KSeq& record1, const klibpp::KSeq& record2, const std::string& read1_rc, const std::string& read2_rc, uint8_t mapq1, uint8_t mapq2, bool is_proper, bool is_primary, const std::array<Details, 2>& details);
+    void add(const Alignment& alignment, const klibpp::KSeq& record, const std::string& sequence_rc, bool is_primary, const Details& details);
+    void add_pair(const Alignment& alignment1, const Alignment& alignment2, const klibpp::KSeq& record1, const klibpp::KSeq& record2, const std::string& read1_rc, const std::string& read2_rc, uint8_t mapq1, uint8_t mapq2, bool is_proper, bool is_primary, const std::array<Details, 2>& details);
     void add_unmapped(const klibpp::KSeq& record, uint16_t flags = UNMAP);
     void add_unmapped_pair(const klibpp::KSeq& r1, const klibpp::KSeq& r2);
     void add_unmapped_mate(const klibpp::KSeq& record, uint16_t flags, const std::string& mate_reference_name, uint32_t mate_pos);
@@ -104,6 +104,6 @@ private:
     bool show_details;
 };
 
-bool is_proper_pair(const Alignment& sam_aln1, const Alignment& sam_aln2, float mu, float sigma);
+bool is_proper_pair(const Alignment& alignment1, const Alignment& alignment2, float mu, float sigma);
 
 #endif
