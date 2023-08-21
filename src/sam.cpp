@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <ostream>
 #include <sstream>
+#include <iostream>
 
 #define SAM_UNMAPPED_MAPQ 0
 #define SAM_UNMAPPED_MAPQ_STRING "0"
@@ -72,7 +73,7 @@ std::string Sam::cigar_string(const Cigar& cigar) const {
     }
 }
 
-void Sam::add_unmapped(const KSeq& record, int flags) {
+void Sam::add_unmapped(const KSeq& record, uint16_t flags) {
     if (!output_unmapped) {
         return;
     }
@@ -87,7 +88,7 @@ void Sam::add_unmapped(const KSeq& record, int flags) {
     append_rg_and_newline();
 }
 
-void Sam::add_unmapped_mate(const KSeq& record, int flags, const std::string& mate_reference_name, int mate_pos) {
+void Sam::add_unmapped_mate(const KSeq& record, uint16_t flags, const std::string& mate_reference_name, uint32_t mate_pos) {
     assert(flags & (UNMAP|PAIRED));
     sam_string.append(strip_suffix(record.name));
     sam_string.append("\t");
@@ -116,34 +117,35 @@ void Sam::add_unmapped_pair(const KSeq& r1, const KSeq& r2) {
 
 // Add single-end alignment
 void Sam::add(
-    const Alignment& sam_aln,
+    const Alignment& alignment,
     const KSeq& record,
     const std::string& sequence_rc,
     bool is_primary,
     const Details& details
 ) {
-    assert(!sam_aln.is_unaligned);
+    assert(!alignment.is_unaligned);
+
     int flags = 0;
-    if (!sam_aln.is_unaligned && sam_aln.is_rc) {
+    if (!alignment.is_unaligned && alignment.is_rc) {
         flags |= REVERSE;
     }
     if (!is_primary) {
         flags |= SECONDARY;
     }
-    add_record(record.name, flags, references.names[sam_aln.ref_id], sam_aln.ref_start, sam_aln.mapq, sam_aln.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, sam_aln.ed, sam_aln.aln_score, details);
+    add_record(record.name, flags, references.names[alignment.ref_id], alignment.ref_start, alignment.mapq, alignment.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, alignment.edit_distance, alignment.score, details);
 }
 
 // Add one individual record
 void Sam::add_record(
     const std::string& query_name,
-    int flags,
+    uint16_t flags,
     const std::string& reference_name,
-    int pos,
-    int mapq,
+    uint32_t pos,
+    uint8_t mapq,
     const Cigar& cigar,
     const std::string& mate_reference_name,
-    int mate_pos,
-    int template_len,
+    uint32_t mate_pos,
+    int32_t template_len,
     const std::string& query_sequence,
     const std::string& query_sequence_rc,
     const std::string& qual,
@@ -209,14 +211,14 @@ void Sam::add_record(
 }
 
 void Sam::add_pair(
-    const Alignment &sam_aln1,
-    const Alignment &sam_aln2,
+    const Alignment &alignment1,
+    const Alignment &alignment2,
     const KSeq& record1,
     const KSeq& record2,
     const std::string &read1_rc,
     const std::string &read2_rc,
-    int mapq1,
-    int mapq2,
+    uint8_t mapq1,
+    uint8_t mapq2,
     bool is_proper,
     bool is_primary,
     const std::array<Details, 2>& details
@@ -229,14 +231,14 @@ void Sam::add_pair(
     }
 
     int template_len1 = 0;
-    bool both_aligned = !sam_aln1.is_unaligned && !sam_aln2.is_unaligned;
-    if (both_aligned && sam_aln1.ref_id == sam_aln2.ref_id) {
-        const int dist = sam_aln2.ref_start - sam_aln1.ref_start;
+    bool both_aligned = !alignment1.is_unaligned && !alignment2.is_unaligned;
+    if (both_aligned && alignment1.ref_id == alignment2.ref_id) {
+        const int dist = alignment2.ref_start - alignment1.ref_start;
         if (dist > 0) {
-            template_len1 = dist + sam_aln2.aln_length;
+            template_len1 = dist + alignment2.length;
         }
         else {
-            template_len1 = dist - sam_aln1.aln_length;
+            template_len1 = dist - alignment1.length;
         }
     }
     if (is_proper) {
@@ -245,35 +247,35 @@ void Sam::add_pair(
     }
 
     std::string reference_name1;
-    int pos1 = sam_aln1.ref_start;
-    int edit_distance1 = sam_aln1.ed;
-    if (sam_aln1.is_unaligned) {
+    int pos1 = alignment1.ref_start;
+    int edit_distance1 = alignment1.edit_distance;
+    if (alignment1.is_unaligned) {
         f1 |= UNMAP;
         f2 |= MUNMAP;
         pos1 = -1;
         reference_name1 = "*";
     } else {
-        if (sam_aln1.is_rc) {
+        if (alignment1.is_rc) {
             f1 |= REVERSE;
             f2 |= MREVERSE;
         }
-        reference_name1 = references.names[sam_aln1.ref_id];
+        reference_name1 = references.names[alignment1.ref_id];
     }
 
     std::string reference_name2;
-    int pos2 = sam_aln2.ref_start;
-    int edit_distance2 = sam_aln2.ed;
-    if (sam_aln2.is_unaligned) {
+    int pos2 = alignment2.ref_start;
+    int edit_distance2 = alignment2.edit_distance;
+    if (alignment2.is_unaligned) {
         f2 |= UNMAP;
         f1 |= MUNMAP;
         pos2 = -1;
         reference_name2 = "*";
     } else {
-        if (sam_aln2.is_rc) {
+        if (alignment2.is_rc) {
             f1 |= MREVERSE;
             f2 |= REVERSE;
         }
-        reference_name2 = references.names[sam_aln2.ref_id];
+        reference_name2 = references.names[alignment2.ref_id];
     }
 
     // Reference name as used in the RNEXT field;
@@ -281,39 +283,39 @@ void Sam::add_pair(
     std::string mate_reference_name1 = reference_name1;
     std::string mate_reference_name2 = reference_name2;
     if (
-        (!sam_aln1.is_unaligned && !sam_aln2.is_unaligned && sam_aln1.ref_id == sam_aln2.ref_id)
-        || (sam_aln1.is_unaligned != sam_aln2.is_unaligned)
+        (!alignment1.is_unaligned && !alignment2.is_unaligned && alignment1.ref_id == alignment2.ref_id)
+        || (alignment1.is_unaligned != alignment2.is_unaligned)
     ) {
         mate_reference_name1 = "=";
         mate_reference_name2 = "=";
     }
 
-    if (sam_aln1.is_unaligned != sam_aln2.is_unaligned) {
-        if (sam_aln1.is_unaligned) {
+    if (alignment1.is_unaligned != alignment2.is_unaligned) {
+        if (alignment1.is_unaligned) {
             pos1 = pos2;
         } else {
             pos2 = pos1;
         }
     }
 
-    if (sam_aln1.is_unaligned) {
+    if (alignment1.is_unaligned) {
         add_unmapped_mate(record1, f1, reference_name2, pos2);
     } else {
-        add_record(record1.name, f1, reference_name1, sam_aln1.ref_start, mapq1, sam_aln1.cigar, mate_reference_name2, pos2, template_len1, record1.seq, read1_rc, record1.qual, edit_distance1, sam_aln1.aln_score, details[0]);
+        add_record(record1.name, f1, reference_name1, alignment1.ref_start, mapq1, alignment1.cigar, mate_reference_name2, pos2, template_len1, record1.seq, read1_rc, record1.qual, edit_distance1, alignment1.score, details[0]);
     }
-    if (sam_aln2.is_unaligned) {
+    if (alignment2.is_unaligned) {
         add_unmapped_mate(record2, f2, reference_name1, pos1);
     } else {
-        add_record(record2.name, f2, reference_name2, sam_aln2.ref_start, mapq2, sam_aln2.cigar, mate_reference_name1, pos1, -template_len1, record2.seq, read2_rc, record2.qual, edit_distance2, sam_aln2.aln_score, details[1]);
+        add_record(record2.name, f2, reference_name2, alignment2.ref_start, mapq2, alignment2.cigar, mate_reference_name1, pos1, -template_len1, record2.seq, read2_rc, record2.qual, edit_distance2, alignment2.score, details[1]);
     }
 }
 
-bool is_proper_pair(const Alignment& sam_aln1, const Alignment& sam_aln2, float mu, float sigma) {
-    const int dist = sam_aln2.ref_start - sam_aln1.ref_start;
-    const bool same_reference = sam_aln1.ref_id == sam_aln2.ref_id;
-    const bool both_aligned = same_reference && !sam_aln1.is_unaligned && !sam_aln2.is_unaligned;
-    const bool r1_r2 = !sam_aln1.is_rc && sam_aln2.is_rc && dist >= 0; // r1 ---> <---- r2
-    const bool r2_r1 = !sam_aln2.is_rc && sam_aln1.is_rc && dist <= 0; // r2 ---> <---- r1
+bool is_proper_pair(const Alignment& alignment1, const Alignment& alignment2, float mu, float sigma) {
+    const int dist = alignment2.ref_start - alignment1.ref_start;
+    const bool same_reference = alignment1.ref_id == alignment2.ref_id;
+    const bool both_aligned = same_reference && !alignment1.is_unaligned && !alignment2.is_unaligned;
+    const bool r1_r2 = !alignment1.is_rc && alignment2.is_rc && dist >= 0; // r1 ---> <---- r2
+    const bool r2_r1 = !alignment2.is_rc && alignment1.is_rc && dist <= 0; // r2 ---> <---- r1
     const bool rel_orientation_good = r1_r2 || r2_r1;
     const bool insert_good = std::abs(dist) <= mu + 6 * sigma;
 

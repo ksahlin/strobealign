@@ -15,14 +15,14 @@
  * 12 mapping quality (0-255; 255 for missing)
  */
 void output_hits_paf_PE(std::string &paf_output, const Nam &n, const std::string &query_name, const References& references, int k, int read_len) {
-    if (n.ref_s < 0 ) {
+    if (n.ref_start < 0 ) {
         return;
     }
     paf_output.append(query_name);
     paf_output.append("\t");
     paf_output.append(std::to_string(read_len));
     paf_output.append("\t");
-    paf_output.append(std::to_string(n.query_s));
+    paf_output.append(std::to_string(n.query_start));
     paf_output.append("\t");
     paf_output.append(std::to_string(n.query_prev_hit_startpos + k));
     paf_output.append("\t");
@@ -32,13 +32,13 @@ void output_hits_paf_PE(std::string &paf_output, const Nam &n, const std::string
     paf_output.append("\t");
     paf_output.append(std::to_string(references.lengths[n.ref_id]));
     paf_output.append("\t");
-    paf_output.append(std::to_string(n.ref_s));
+    paf_output.append(std::to_string(n.ref_start));
     paf_output.append("\t");
     paf_output.append(std::to_string(n.ref_prev_hit_startpos + k));
     paf_output.append("\t");
     paf_output.append(std::to_string(n.n_hits));
     paf_output.append("\t");
-    paf_output.append(std::to_string(n.ref_prev_hit_startpos + k - n.ref_s));
+    paf_output.append(std::to_string(n.ref_prev_hit_startpos + k - n.ref_start));
     paf_output.append("\t255\n");
 }
 

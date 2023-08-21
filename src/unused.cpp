@@ -9,9 +9,22 @@
 #include "sam.hpp"
 #include "aln.hpp"
 #include "nam.hpp"
+#include "revcomp.hpp"
+
 
 int main() {
 }
+
+static inline Alignment align_segment(
+    const Aligner& aligner,
+    const std::string &read_segm,
+    const std::string &ref_segm,
+    int ref_start,
+    int ext_left,
+    int ext_right,
+    bool consistent_nam,
+    bool is_rc
+);
 
 class RefRandstrobeWithoutHash {
 public:
@@ -1273,13 +1286,13 @@ static inline bool sort_lowest_ed_scores_single(const std::tuple<int, Alignment>
 struct Hit {
     unsigned int count;
     unsigned int offset;
-    unsigned int query_s;
-    unsigned int query_e;
+    unsigned int query_start;
+    unsigned int query_end;
     bool is_rc;
 
     bool operator< (const Hit& rhs) const {
-        return std::tie(count, offset, query_s, query_e, is_rc)
-            < std::tie(rhs.count, rhs.offset, rhs.query_s, rhs.query_e, rhs.is_rc);
+        return std::tie(count, offset, query_start, query_end, is_rc)
+            < std::tie(rhs.count, rhs.offset, rhs.query_start, rhs.query_end, rhs.is_rc);
     }
 };
 
@@ -1386,8 +1399,8 @@ static inline void find_nams_rescue(
 //        std::cerr << "Q " << h.query_s << " " << h.query_e << " read length:" << read_length << std::endl;
         auto count = q.count;
         auto offset = q.offset;
-        h.query_s = q.query_s;
-        h.query_e = q.query_e; // h.query_s + read_length/2;
+        h.query_s = q.query_start;
+        h.query_e = q.query_end; // h.query_s + read_length/2;
         h.is_rc = q.is_rc;
 
         if ( ((count <= filter_cutoff) || (cnt < 5)) && (count <= 1000) ){
@@ -1430,8 +1443,8 @@ static inline void find_nams_rescue(
     {
         auto count = q.count;
         auto offset = q.offset;
-        h.query_s = q.query_s;
-        h.query_e = q.query_e; // h.query_s + read_length/2;
+        h.query_s = q.query_start;
+        h.query_e = q.query_end; // h.query_s + read_length/2;
         h.is_rc = q.is_rc;
 
         if ( ((count <= filter_cutoff) || (cnt < 5)) && (count <= 1000) ){
@@ -1489,10 +1502,10 @@ static inline void find_nams_rescue(
             for (auto & o : open_nams) {
 
                 // Extend NAM
-                if (( o.is_rc == h.is_rc) && (o.query_prev_hit_startpos < h.query_s) && (h.query_s <= o.query_e ) && (o.ref_prev_hit_startpos < h.ref_s) && (h.ref_s <= o.ref_e) ){
-                    if ( (h.query_e > o.query_e) && (h.ref_e > o.ref_e) ) {
-                        o.query_e = h.query_e;
-                        o.ref_e = h.ref_e;
+                if (( o.is_rc == h.is_rc) && (o.query_prev_hit_startpos < h.query_s) && (h.query_s <= o.query_end ) && (o.ref_prev_hit_startpos < h.ref_s) && (h.ref_s <= o.ref_end) ){
+                    if ( (h.query_e > o.query_end) && (h.ref_e > o.ref_end) ) {
+                        o.query_end = h.query_e;
+                        o.ref_end = h.ref_e;
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
                         o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
@@ -1502,7 +1515,7 @@ static inline void find_nams_rescue(
                         is_added = true;
                         break;
                     }
-                    else if ((h.query_e <= o.query_e) && (h.ref_e <= o.ref_e)) {
+                    else if ((h.query_e <= o.query_end) && (h.ref_e <= o.ref_end)) {
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
                         o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
@@ -1526,10 +1539,10 @@ static inline void find_nams_rescue(
                 Nam n;
                 n.nam_id = nam_id_cnt;
                 nam_id_cnt ++;
-                n.query_s = h.query_s;
-                n.query_e = h.query_e;
-                n.ref_s = h.ref_s;
-                n.ref_e = h.ref_e;
+                n.query_start = h.query_s;
+                n.query_end = h.query_e;
+                n.ref_start = h.ref_s;
+                n.ref_end = h.ref_e;
                 n.ref_id = ref_id;
 //                n.previous_query_start = h.query_s;
 //                n.previous_ref_start = h.ref_s;
@@ -1546,9 +1559,9 @@ static inline void find_nams_rescue(
 
                 // Output all NAMs from open_matches to final_nams that the current hit have passed
                 for (auto &n : open_nams) {
-                    if (n.query_e < h.query_s) {
-                        int n_max_span = std::max(n.query_e - n.query_s, n.ref_e - n.ref_s);
-                        int n_min_span = std::max(n.query_e - n.query_s, n.ref_e - n.ref_s);
+                    if (n.query_end < h.query_s) {
+                        int n_max_span = std::max(n.query_end - n.query_start, n.ref_end - n.ref_start);
+                        int n_min_span = std::max(n.query_end - n.query_start, n.ref_end - n.ref_start);
                         float n_score;
                         n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
 //                        n_score = n.n_hits * (n.query_e - n.query_s);
@@ -1560,7 +1573,7 @@ static inline void find_nams_rescue(
 
                 // Remove all NAMs from open_matches that the current hit have passed
                 unsigned int c = h.query_s;
-                auto predicate = [c](decltype(open_nams)::value_type const &nam) { return nam.query_e < c; };
+                auto predicate = [c](decltype(open_nams)::value_type const &nam) { return nam.query_end < c; };
                 open_nams.erase(std::remove_if(open_nams.begin(), open_nams.end(), predicate), open_nams.end());
                 prev_q_start = h.query_s;
             }
@@ -1568,8 +1581,8 @@ static inline void find_nams_rescue(
 
         // Add all current open_matches to final NAMs
         for (auto &n : open_nams){
-            int n_max_span = std::max(n.query_e - n.query_s, n.ref_e - n.ref_s);
-            int n_min_span = std::min(n.query_e - n.query_s, n.ref_e - n.ref_s);
+            int n_max_span = std::max(n.query_end - n.query_start, n.ref_end - n.ref_start);
+            int n_min_span = std::min(n.query_end - n.query_start, n.ref_end - n.ref_start);
             float n_score;
             n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
 //            n_score = n.n_hits * (n.query_e - n.query_s);
@@ -1715,10 +1728,10 @@ static inline std::pair<float,int> find_nams(
             for (auto & o : open_nams) {
 
                 // Extend NAM
-                if (( o.is_rc == h.is_rc) && (o.query_prev_hit_startpos < h.query_s) && (h.query_s <= o.query_e ) && (o.ref_prev_hit_startpos < h.ref_s) && (h.ref_s <= o.ref_e) ){
-                    if ( (h.query_e > o.query_e) && (h.ref_e > o.ref_e) ) {
-                        o.query_e = h.query_e;
-                        o.ref_e = h.ref_e;
+                if (( o.is_rc == h.is_rc) && (o.query_prev_hit_startpos < h.query_s) && (h.query_s <= o.query_end ) && (o.ref_prev_hit_startpos < h.ref_s) && (h.ref_s <= o.ref_end) ){
+                    if ( (h.query_e > o.query_end) && (h.ref_e > o.ref_end) ) {
+                        o.query_end = h.query_e;
+                        o.ref_end = h.ref_e;
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
                         o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
@@ -1728,7 +1741,7 @@ static inline std::pair<float,int> find_nams(
                         is_added = true;
                         break;
                     }
-                    else if ((h.query_e <= o.query_e) && (h.ref_e <= o.ref_e)) {
+                    else if ((h.query_e <= o.query_end) && (h.ref_e <= o.ref_end)) {
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
                         o.query_prev_hit_startpos = h.query_s; // log the last strobemer hit in case of outputting paf
@@ -1776,10 +1789,10 @@ static inline std::pair<float,int> find_nams(
                 Nam n;
                 n.nam_id = nam_id_cnt;
                 nam_id_cnt ++;
-                n.query_s = h.query_s;
-                n.query_e = h.query_e;
-                n.ref_s = h.ref_s;
-                n.ref_e = h.ref_e;
+                n.query_start = h.query_s;
+                n.query_end = h.query_e;
+                n.ref_start = h.ref_s;
+                n.ref_end = h.ref_e;
                 n.ref_id = ref_id;
 //                n.previous_query_start = h.query_s;
 //                n.previous_ref_start = h.ref_s;
@@ -1796,9 +1809,9 @@ static inline std::pair<float,int> find_nams(
 
                 // Output all NAMs from open_matches to final_nams that the current hit have passed
                 for (auto &n : open_nams) {
-                    if (n.query_e < h.query_s) {
-                        int n_max_span = std::max(n.query_e - n.query_s, n.ref_e - n.ref_s);
-                        int n_min_span = std::min(n.query_e - n.query_s, n.ref_e - n.ref_s);
+                    if (n.query_end < h.query_s) {
+                        int n_max_span = std::max(n.query_end - n.query_start, n.ref_end - n.ref_start);
+                        int n_min_span = std::min(n.query_end - n.query_start, n.ref_end - n.ref_start);
                         float n_score;
                         n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
 //                        n_score = n.n_hits * (n.query_e - n.query_s);
@@ -1810,7 +1823,7 @@ static inline std::pair<float,int> find_nams(
 
                 // Remove all NAMs from open_matches that the current hit have passed
                 unsigned int c = h.query_s;
-                auto predicate = [c](decltype(open_nams)::value_type const &nam) { return nam.query_e < c; };
+                auto predicate = [c](decltype(open_nams)::value_type const &nam) { return nam.query_end < c; };
                 open_nams.erase(std::remove_if(open_nams.begin(), open_nams.end(), predicate), open_nams.end());
                 prev_q_start = h.query_s;
             }
@@ -1818,8 +1831,8 @@ static inline std::pair<float,int> find_nams(
 
         // Add all current open_matches to final NAMs
         for (auto &n : open_nams){
-            int n_max_span = std::max(n.query_e - n.query_s, n.ref_e - n.ref_s);
-            int n_min_span = std::min(n.query_e - n.query_s, n.ref_e - n.ref_s);
+            int n_max_span = std::max(n.query_end - n.query_start, n.ref_end - n.ref_start);
+            int n_min_span = std::min(n.query_end - n.query_start, n.ref_end - n.ref_start);
             float n_score;
             n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
 //            n_score = n.n_hits * (n.query_e - n.query_s);
@@ -1834,4 +1847,239 @@ static inline std::pair<float,int> find_nams(
 //        std::cerr << "NAM ORG: nam_id: " << n.nam_id << " ref_id: " << n.ref_id << ": (" << n.score << ", " << n.n_hits << ", " << n.query_s << ", " << n.query_e << ", " << n.ref_s << ", " << n.ref_e  << ")" << " diff: " << diff << " is_rc: " << n.is_rc << std::endl;
 //    }
     return info;
+}
+
+
+static inline Alignment get_alignment_unused(
+    const Aligner& aligner,
+    const Nam &nam,
+    const References& references,
+    const Read& read,
+    int k,
+    bool consistent_nam
+) {
+    Alignment alignment;
+
+    const auto read_len = read.size();
+    const int diff = std::abs(nam.ref_span() - nam.query_span());
+
+    const std::string r_tmp = nam.is_rc ? read.rc : read.seq;
+    const bool is_rc = nam.is_rc;
+
+    int ext_left;
+    int ext_right;
+    int ref_tmp_segm_size;
+    const int ref_len = references.lengths[nam.ref_id];
+    int ref_tmp_start;
+    std::string read_segm;
+
+    // test full hamming based alignment first
+    ref_tmp_start = std::max(0, nam.ref_start - nam.query_start);
+    int ref_start = std::max(0, ref_tmp_start);
+    ref_tmp_segm_size = read_len + diff;
+    auto ref_segm_size = std::min(ref_tmp_segm_size, ref_len - ref_start + 1);
+
+    std::string ref_segm = references.sequences[nam.ref_id].substr(ref_start, ref_segm_size);
+    if (ref_segm_size == read_len && consistent_nam) {
+        int hamming_dist = hamming_distance(r_tmp, ref_segm);
+
+        if (hamming_dist >= 0 && (((float) hamming_dist / ref_segm_size) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
+            auto info = hamming_align(r_tmp, ref_segm, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
+            alignment.cigar = std::move(info.cigar);
+            alignment.edit_distance = info.edit_distance;
+            alignment.score = info.sw_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
+            alignment.ref_start = ref_start + ext_left + info.query_start;
+            alignment.is_rc = is_rc;
+            alignment.is_unaligned = false;
+            return alignment;
+        }
+    }
+
+    //// Didn't work with global Hamming - split into parts
+
+    // identify one or two split points within the read if the segment is  are larger than T
+    int T = 20;
+    // find the most central split point Use convex function result sum of squares
+    int left_outer =  pow (nam.query_start, 2) + pow(read_len - nam.query_start, 2);
+    int right_inner = pow (nam.query_end - k, 2) + pow (read_len - (nam.query_end - k), 2);
+
+
+    int global_max_bp = left_outer < right_inner ? nam.query_start : nam.query_end - k;
+    int break_point = (global_max_bp >= T) && (global_max_bp <= (read_len - T)) ? global_max_bp : -1;
+    if (break_point > 0 ){
+//            std::cerr << "MAX BREAKPOINT " << break_point << " candidates: " <<  n.query_s  << " " << n.query_e - k << std::endl;
+        int left_region_bp = break_point + k;
+        int right_region_bp = break_point;
+//            std::cerr << "left_region_bp " << left_region_bp << " right_region_bp: " << right_region_bp << std::endl;
+        int right_ref_start_bp = -1;
+        if (break_point == nam.query_start){
+            right_ref_start_bp = nam.ref_start;
+        } else if (break_point == (nam.query_end - k)) {
+            right_ref_start_bp = nam.ref_end-k;
+        } else  {
+            std::cerr << "BUUUUUUG " << std::endl;
+        }
+
+        // Left region align
+        read_segm = r_tmp.substr(0, left_region_bp);
+        ref_tmp_start = std::max(0, nam.ref_start - nam.query_start);
+        ext_left = std::min(50, ref_tmp_start);
+        ext_right = 0;
+        ref_start = ref_tmp_start - ext_left;
+        ref_segm_size = left_region_bp + ext_left + diff;
+        ref_segm = references.sequences[nam.ref_id].substr(ref_start, ref_segm_size);
+//            std::cerr << " "  << std::endl;
+//            std::cerr << "GOING IN LEFT: " << " read segm len " << read_segm.length() << " ref segm len " << ref_segm_size  << " ext_left: " << ext_left << std::endl;
+//            std::cerr << diff << std::endl;
+//            std::cerr << read_segm << std::endl;
+//            std::cerr << ref_segm << std::endl;
+
+        auto alignment_segm_left = align_segment(aligner, read_segm, ref_segm, ref_start, ext_left, ext_right, consistent_nam, is_rc);
+//            std::cerr << "LEFT CIGAR: " << alignment_segm_left.cigar << std::endl;
+
+        //Right region align
+        read_segm = r_tmp.substr(right_region_bp, read_len - right_region_bp );
+        ref_tmp_segm_size = right_ref_start_bp + (read_len + diff - right_region_bp) < ref_len ? (read_len + diff - right_region_bp) : ref_len - right_ref_start_bp;
+        ext_left = 0;
+        ext_right = std::min(50, ref_len - (right_ref_start_bp + ref_tmp_segm_size));
+        ref_segm_size = ref_tmp_segm_size + ext_right;
+        ref_segm = references.sequences[nam.ref_id].substr(right_ref_start_bp, ref_segm_size);
+//            std::cerr << " "  << std::endl;
+//            std::cerr << "GOING IN RIGHT: " << " read segm len " << read_segm.length() << " ref segm len " << ref_segm_size  << " ext_right: " << ext_right << std::endl;
+//            std::cerr << diff << std::endl;
+//            std::cerr << read_segm << std::endl;
+//            std::cerr << ref_segm << std::endl;
+//            std::cerr << "read_segm.length(): " << read_segm.length() << " ref_segm_size " << ref_segm_size << std::endl;
+        auto alignment_segm_right = align_segment(aligner, read_segm, ref_segm, ref_start, ext_left, ext_right, consistent_nam, is_rc);
+//            std::cerr << "RIGHT CIGAR: " << alignment_segm_right.cigar << std::endl;
+
+
+        // Stitch together
+        alignment.ref_id = nam.ref_id;
+        alignment.cigar = Cigar(alignment_segm_left.cigar.to_string() + alignment_segm_right.cigar.to_string());
+        alignment.edit_distance = alignment_segm_left.edit_distance + alignment_segm_right.edit_distance;
+        alignment.score = alignment_segm_left.score + alignment_segm_right.score;
+        alignment.ref_start =  alignment_segm_left.ref_start;
+        alignment.is_rc = nam.is_rc;
+        alignment.is_unaligned = false;
+    } else {
+//            std::cerr << "NOOOO MAX BREAKPOINT " << break_point << " candidates: "  <<  n.query_s  << " " << n.query_e - k << std::endl;
+        // full align
+        ref_tmp_start = std::max(0, nam.ref_start - nam.query_start);
+        ext_left = std::min(50, ref_tmp_start);
+        ref_start = ref_tmp_start - ext_left;
+
+        ref_tmp_segm_size = read_len + diff;
+        ext_right = std::min(50, ref_len - (nam.ref_end +1));
+
+        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
+        ref_segm = references.sequences[nam.ref_id].substr(ref_start, ref_segm_size);
+//        std::cerr << " ref_tmp_start " << ref_tmp_start << " ext left " << ext_left << " ext right " << ext_right << " ref_tmp_segm_size " << ref_tmp_segm_size << " ref_segm_size " << ref_segm_size << " ref_segm " << ref_segm << std::endl;
+        alignment = align_segment(aligner, r_tmp, ref_segm, ref_start, ext_left, ext_right, consistent_nam, is_rc);
+        alignment.ref_id = nam.ref_id;
+    }
+
+
+        // TODO: Several breakpoints. To complicated for probably little gain if short reads, maybe implement later..
+//        // Left and right breakpoint
+//        int left_bp_read = n.query_s + k;
+//        int right_bp_read = n.query_e - k;
+//        left_bp_read = left_bp_read > T ? left_bp_read : -1;
+//        right_bp_read = read_len - right_bp_read > T ? read_len - right_bp_read : -1;
+//
+//        // Decide where to break
+//        bool break1, break2;
+//        if ( ((read_len - right_bp_read - left_bp_read) > T) && (left_bp_read >= T) && (right_bp_read >= T) ){ // Use two breakpoints ---------------X|------------------X|---------------
+//            break1 = true;
+//            break2 = true;
+//            std::cerr << "CASE1 " << std::endl;
+//        } else if (  (left_bp_read >= T) && (right_bp_read >= T) ) { // Use one breakpoint  ---------------------------X--------X--------------------------
+//            break1 = left_bp_read >= right_bp_read ? true : false;  // ------------------------------------X|--------X--------------------
+//            break2 = left_bp_read < right_bp_read ? true : false;   // ---------------------X--------|X-----------------------------------
+//            std::cerr << "CASE2 " << std::endl;
+//        } else if ( (left_bp_read >= T) && ( (read_len - left_bp_read) >= T) ) { // Use one breakpoint  -----------------------X|-------------------X-------
+//            break1 = true;
+//            break2 = false;
+//            std::cerr << "CASE3 " << std::endl;
+//        } else if ( ((right_bp_read) > T) && (read_len - right_bp_read >= T)  ) { // Use one breakpoint  ----------X-------------------X|---------------------------
+//            break1 = false;
+//            break2 = true;
+//            std::cerr << "CASE4 " << std::endl;
+//        } else { // No breakpoints ------X--------------------------------------X--------
+//            break1 = false;
+//            break2 = false;
+//            std::cerr << "CASE5 " << std::endl;
+//        }
+//
+//        std::cerr << "BREAKPOINTS: LEFT:  " << left_bp_read << " RIGHT:  " << right_bp_read << " BREAKING LEFT:  " << break1 << " BREAKING RIGHT: " << break2 << std::endl;
+//        std::cerr << "MAPPING POS n.ref_s:  " << n.ref_s << " n.ref_e:  " << n.ref_e << " n.query_s  " << n.query_s << " n.query_e: " << n.query_e << std::endl;
+//        std::cerr << " " << std::endl;
+
+
+//        // left alignment
+//        ref_end = n.ref_s + k;
+//        ref_start = ref_end - ext_left;
+//        ext_left = ref_end < 50 ? ref_end : 50;
+//
+//        ref_tmp_segm_size = n.query_s + k;
+//        ext_right = 0;
+//
+//        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
+//        ref_segm = ref_seqs[n.ref_id].substr(ref_end - ext_left, ref_segm_size);
+//        alignment alignment_segm_left;
+//        alignment_segm_left.ref_id = n.ref_id;
+//        read_segm = r_tmp.substr(0, n.query_s+k);
+//
+//        std::cerr << "LEFT: ref_start:  " << ref_start << " LEFT: ref_end:  " << ref_end << " ref_segm_size  " << ref_segm_size << " read segm size: " << read_segm.length() << std::endl;
+//
+//        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, consistent_nam, is_rc, alignment_segm_left, tot_ksw_aligned);
+//
+//
+//        // center alignment
+//        ref_tmp_start = n.ref_s - n.query_s;
+//        ref_start = ref_tmp_start > 0 ? ref_tmp_start : 0;
+//        ext_left = 0;
+//
+//        ref_tmp_segm_size =  n.ref_e - n.ref_s;
+//        ext_right = 0;
+//
+//        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
+//        ref_segm = ref_seqs[n.ref_id].substr(ref_start, ref_segm_size);
+//        alignment alignment_segm_center;
+//        alignment_segm_center.ref_id = n.ref_id;
+//        read_segm = r_tmp.substr(n.query_s, n.query_e - n.query_s);
+//        std::cerr << "CENTER: ref_start:  " << ref_start <<  " CENTER: ref_end:  " << ref_end << " ref_segm_size  " << ref_segm_size << " read segm size: " << read_segm.length() << std::endl;
+//
+//        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, consistent_nam, is_rc, alignment_segm_center, tot_ksw_aligned);
+//
+//
+//        // right alignment
+//        ext_left = 0;
+//        ref_start = n.ref_e - k;
+//
+//        ext_right = ref_len - (n.ref_e +1) < 50 ? ref_len - (n.ref_e +1) : 50;
+//        ref_tmp_segm_size = n.ref_e + ext_right - ref_start;
+//
+//        ref_segm_size = ref_tmp_segm_size + ext_left + ext_right;
+//        ref_segm = ref_seqs[n.ref_id].substr(n.ref_e  - ext_left, ref_segm_size);
+//        alignment alignment_segm_right;
+//        alignment_segm_left.ref_id = n.ref_id;
+//        read_segm = r_tmp.substr(0, n.query_s+k);
+//        std::cerr << "RIGHT: ref_start:  " << ref_start <<  " RIGHT: ref_end:  " << ref_end << " ref_segm_size  " << ref_segm_size << " read segm size: " << read_segm.length() << std::endl;
+//
+//        align_segment(aln_params, read_segm, ref_segm, read_segm.length(), ref_segm_size, ref_start, ext_left, ext_right, consistent_nam, is_rc, alignment_segm_right, tot_ksw_aligned);
+//
+//        std::cout << alignment_segm_left.cigar << " " << alignment_segm_center.cigar << " " << alignment_segm_right.cigar << std::endl;
+//
+//        alignment.ref_id = n.ref_id;
+//        alignment.cigar = alignment_segm_left.cigar + alignment_segm_center.cigar + alignment_segm_right.cigar;
+//        alignment.ed = alignment_segm_left.ed + alignment_segm_center.ed + alignment_segm_right.ed;
+//        alignment.sw_score = alignment_segm_left.sw_score + alignment_segm_center.sw_score + alignment_segm_right.sw_score;
+//        alignment.ref_start =   alignment_segm_left.ref_start;
+//        alignment.is_rc = alignment_segm_left.is_rc;
+//        alignment.is_unaligned = false;
+//        alignment.aln_score = alignment.sw_score;
+//        std::cout << "Joint: " << alignment.cigar << std::endl;
+
+    return alignment;
 }

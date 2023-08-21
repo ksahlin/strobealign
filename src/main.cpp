@@ -56,7 +56,7 @@ void warn_if_no_optimizations() {
     }
 }
 
-void log_parameters(const IndexParameters& index_parameters, const mapping_params& map_param, const alignment_params& aln_params) {
+void log_parameters(const IndexParameters& index_parameters, const MappingParameters& map_param, const alignment_params& aln_params) {
     logger.debug() << "Using" << std::endl
         << "k: " << index_parameters.syncmer.k << std::endl
         << "s: " << index_parameters.syncmer.s << std::endl
@@ -64,7 +64,7 @@ void log_parameters(const IndexParameters& index_parameters, const mapping_param
         << "w_max: " << index_parameters.randstrobe.w_max << std::endl
         << "Read length (r): " << map_param.r << std::endl
         << "Maximum seed length: " << index_parameters.randstrobe.max_dist + index_parameters.syncmer.k << std::endl
-        << "R: " << map_param.R << std::endl
+        << "R: " << map_param.rescue_level << std::endl
         << "Expected [w_min, w_max] in #syncmers: [" << index_parameters.randstrobe.w_min << ", " << index_parameters.randstrobe.w_max << "]" << std::endl
         << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_min << ", " << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_max << "]" << std::endl
         << "A: " << aln_params.match << std::endl
@@ -168,16 +168,17 @@ int run_strobealign(int argc, char **argv) {
     aln_params.gap_extend = opt.E;
     aln_params.end_bonus = opt.end_bonus;
 
-    mapping_params map_param;
+    MappingParameters map_param;
     map_param.r = opt.r;
     map_param.max_secondary = opt.max_secondary;
     map_param.dropoff_threshold = opt.dropoff_threshold;
-    map_param.R = opt.R;
-    map_param.maxTries = opt.maxTries;
+    map_param.rescue_level = opt.rescue_level;
+    map_param.max_tries = opt.max_tries;
     map_param.is_sam_out = opt.is_sam_out;
     map_param.cigar_ops = opt.cigar_eqx ? CigarOps::EQX : CigarOps::M;
     map_param.output_unmapped = opt.output_unmapped;
     map_param.details = opt.details;
+    map_param.verify();
 
     log_parameters(index_parameters, map_param, aln_params);
     logger.debug() << "Threads: " << opt.n_threads << std::endl;
@@ -257,7 +258,7 @@ int run_strobealign(int argc, char **argv) {
     // Map/align reads
         
     Timer map_align_timer;
-    map_param.rescue_cutoff = map_param.R < 100 ? map_param.R * index.filter_cutoff : 1000;
+    map_param.rescue_cutoff = map_param.rescue_level < 100 ? map_param.rescue_level * index.filter_cutoff : 1000;
     logger.debug() << "Using rescue cutoff: " << map_param.rescue_cutoff << std::endl;
 
     std::streambuf* buf;
@@ -331,7 +332,7 @@ int main(int argc, char **argv) {
     try {
         return run_strobealign(argc, argv);
     } catch (BadParameter& e) {
-        logger.error() << "A mapping or seeding parameter is invalid: " << e.what() << std::endl;
+        logger.error() << "A parameter is invalid: " << e.what() << std::endl;
     } catch (const std::runtime_error& e) {
         logger.error() << "strobealign: " << e.what() << std::endl;
     }

@@ -144,10 +144,10 @@ NB_MODULE(strobealign_extension, m_) {
     nb::bind_vector<QueryRandstrobeVector>(m, "QueryRandstrobeVector");
 
     nb::class_<Nam>(m, "Nam")
-        .def_ro("query_start", &Nam::query_s)
-        .def_ro("query_end", &Nam::query_e)
-        .def_ro("ref_start", &Nam::ref_s)
-        .def_ro("ref_end", &Nam::ref_e)
+        .def_ro("query_start", &Nam::query_start)
+        .def_ro("query_end", &Nam::query_end)
+        .def_ro("ref_start", &Nam::ref_start)
+        .def_ro("ref_end", &Nam::ref_end)
         .def_ro("score", &Nam::score)
         .def_ro("n_hits", &Nam::n_hits)
         .def_ro("reference_index", &Nam::ref_id)

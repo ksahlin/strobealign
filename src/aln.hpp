@@ -55,17 +55,23 @@ struct AlignmentStatistics {
     }
 };
 
-struct mapping_params {
+struct MappingParameters {
     int r { 150 };
     int max_secondary { 0 };
     float dropoff_threshold { 0.5 };
-    int R { 2 };
-    int maxTries { 20 };
+    int rescue_level { 2 };
+    int max_tries { 20 };
     int rescue_cutoff;
     bool is_sam_out { true };
     CigarOps cigar_ops{CigarOps::M};
     bool output_unmapped { true };
     bool details{false};
+
+    void verify() const {
+        if (max_tries < 1) {
+            throw BadParameter("max_tries must be greater than zero");
+        }
+    }
 };
 
 class i_dist_est {
@@ -88,7 +94,7 @@ void align_PE_read(
     AlignmentStatistics& statistics,
     i_dist_est& isize_est,
     const Aligner& aligner,
-    const mapping_params& map_param,
+    const MappingParameters& map_param,
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index
@@ -100,7 +106,7 @@ void align_SE_read(
     std::string& outstring,
     AlignmentStatistics& statistics,
     const Aligner& aligner,
-    const mapping_params& map_param,
+    const MappingParameters& map_param,
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index
