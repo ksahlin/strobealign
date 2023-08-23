@@ -9,7 +9,7 @@ Strobealign is a read mapper that is typically significantly faster than other r
 
 - Map single-end and paired-end reads
 - Multithreading support
-- Fast indexing (2-5 minutes for a human-sized reference genome)
+- Fast indexing (1-2 minutes for a human-sized reference genome using four cores)
 - On-the-fly indexing by default. Optionally create an on-disk index.
 - Output in standard SAM format or produce even faster results by writing PAF (without alignments)
 - Strobealign is most suited for read lengths between 100 and 500 bp
