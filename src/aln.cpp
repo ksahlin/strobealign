@@ -98,9 +98,10 @@ static inline void align_SE(
     best_alignment.score = -100000;
     best_alignment.is_unaligned = true;
     int min_mapq_diff = best_edit_distance;
+
     for (auto &nam : nams) {
         float score_dropoff = (float) nam.n_hits / n_max.n_hits;
-        if (tries >= max_tries || best_edit_distance == 0 || score_dropoff < dropoff_threshold) {
+        if (tries >= max_tries || (tries > 1 && best_edit_distance == 0) || score_dropoff < dropoff_threshold) {
             break;
         }
         bool consistent_nam = reverse_nam_if_needed(nam, read, references, k);
@@ -125,7 +126,6 @@ static inline void align_SE(
         }
         tries++;
     }
-
     if (max_secondary == 0) {
         best_alignment.mapq = std::min(min_mapq_diff, 60);
         sam.add(best_alignment, record, read.rc, true, details);
