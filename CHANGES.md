@@ -2,6 +2,9 @@
 
 ## development version
 
+* #293: Fix: When mapping single-end reads, many multimappers were previously
+  assigned a high mapping quality. They now get assigned mapping quality zero
+  as intended.
 * #318: Added a `--details` option mainly intended for debugging. When used,
   some strobealign-specific tags are added to the SAM output that inform about
   things like no. of seeds found, whether mate rescue was performed etc.
