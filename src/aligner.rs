@@ -1,7 +1,4 @@
-//! Low-level alignment functions
-
 use std::cell::Cell;
-use std::error::Error;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::ssw::SswAlignment;
 
@@ -63,11 +60,6 @@ pub struct Aligner {
 }
 
 impl Aligner {
-    /*Aligner(Scores parameters)
-        : parameters(parameters)
-        , ssw_aligner(StripedSmithWaterman::Aligner(parameters.match_, parameters.mismatch, parameters.gap_open, parameters.gap_extend))
-    { }*/
-
     pub fn new(scores: Scores) -> Self {
         let ssw_aligner = crate::ssw::Aligner::new(scores.match_, scores.mismatch, scores.gap_open, scores.gap_extend);
         Aligner {

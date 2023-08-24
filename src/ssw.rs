@@ -1,26 +1,7 @@
-// partially based on ssw_cpp.h/.cpp by Wan-Ping Lee and Mengyao Zhao
-
 use std::marker::PhantomData;
 use crate::cigar::Cigar;
 
 mod raw;
-
-  // @function Align the query againt the reference.
-  //           [NOTICE] The reference won't replace the reference
-  //                      set by SetReferenceSequence.
-  // @param    query     The query sequence.
-  // @param    ref       The reference sequence.
-  //                     [NOTICE] It is not necessary null terminated.
-  // @param    ref_len   The length of the reference sequence.
-  // @param    filter    The filter for the alignment.
-  // @param    alignment The container contains the result.
-  // @param    maskLen   The distance between the optimal and suboptimal alignment ending position will >= maskLen. We suggest to
-  //                     use readLen/2, if you don't have special concerns. Note: maskLen has to be >= 15, otherwise this function
-  //                     will NOT return the suboptimal alignment information.
-  // @return   If the alignment path is accurate (or has missing part). 0: accurate; 1: banded_sw is totally failed; 2: banded_sw returned path has missing part
-  // =========
-  // uint16_t Align(const char* query, const char* ref, const int& ref_len,
-  //            const Filter& filter, Alignment* alignment, const int32_t maskLen) const;
 
 
 fn translate(query: &[u8]) -> Vec<i8> {
@@ -48,13 +29,10 @@ struct Profile<'a> {
 #[derive(Debug)]
 pub struct SswAlignment {
     pub score: u16,
-    //pub sw_score_next_best: u16, // The next best alignment score
     pub ref_start: usize,
     pub ref_end: usize,
     pub query_start: usize,
     pub query_end: usize,
-    //pub ref_end_next_best: usize,
-    //pub mismatches: i32,
     pub cigar: Cigar,
 }
 
@@ -80,36 +58,6 @@ impl<'a> From<Alignment<'a>> for SswAlignment {
         let raw = unsafe { alignment.raw.as_ref().expect("hm") };
         let cigar_slice = unsafe { std::slice::from_raw_parts(raw.cigar, raw.cigar_length as usize) };
         let cigar = Cigar::try_from(cigar_slice).expect("Invalid CIGAR");
-
-            /*al->cigar.clear();
-  al->cigar_string.clear();
-
-  if (s_al.cigarLen > 0) {
-    std::ostringstream cigar_string;
-    if (al->query_begin > 0) {
-      uint32_t cigar = to_cigar_int(al->query_begin, 'S');
-      al->cigar.push_back(cigar);
-      cigar_string << al->query_begin << 'S';
-    }
-
-    for (int i = 0; i < s_al.cigarLen; ++i) {
-      al->cigar.push_back(s_al.cigar[i]);
-      cigar_string << cigar_int_to_len(s_al.cigar[i]) << cigar_int_to_op(s_al.cigar[i]);
-    }
-
-    int end = query_len - al->query_end - 1;
-    if (end > 0) {
-      uint32_t cigar = to_cigar_int(end, 'S');
-      al->cigar.push_back(cigar);
-      cigar_string << end << 'S';
-    }
-
-  } // end if
-}
-*/
-/*  ConvertAlignment(*s_al, query_len, alignment);
-  alignment->mismatches = CalculateNumberMismatch(&*alignment, translated_ref, translated_query, query_len);
-*/
 
         SswAlignment {
             score: raw.score1,
