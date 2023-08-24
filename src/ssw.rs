@@ -98,8 +98,6 @@ impl<'a> Drop for Profile<'a> {
 
 pub struct Aligner {
     score_matrix: Vec<i8>,
-    match_score: u8,
-    mismatch_penalty: u8,
     gap_open_penalty: u8,
     gap_extend_penalty: u8,
 }
@@ -115,7 +113,7 @@ impl Aligner {
             mis, mis, mis, mat, mis,
             mis, mis, mis, mis, mis,
         ];
-        Aligner { score_matrix, match_score, mismatch_penalty, gap_open_penalty, gap_extend_penalty }
+        Aligner { score_matrix, gap_open_penalty, gap_extend_penalty }
     }
 
     pub fn align(&self, query: &[u8], refseq: &[u8]) -> Option<SswAlignment> {
