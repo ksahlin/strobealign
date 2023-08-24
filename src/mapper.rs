@@ -280,8 +280,8 @@ fn get_alignment(
     };
     let mut result_ref_start = 0;
     let mut gapped = true;
-    if projected_ref_end - projected_ref_start == query.len() && consistent_nam {
-        let ref_segm_ham = &refseq[projected_ref_start..projected_ref_start+query.len()];
+    if projected_ref_start + query.len() == projected_ref_end && consistent_nam {
+        let ref_segm_ham = &refseq[projected_ref_start..projected_ref_end];
         if let Some(hamming_dist) = hamming_distance(query, ref_segm_ham) {
             if (hamming_dist as f32 / query.len() as f32) < 0.05 {
                 // ungapped worked fine, no need to do gapped alignment
@@ -294,15 +294,13 @@ fn get_alignment(
         }
     }
     if gapped {
-        let diff = (nam.ref_span() as isize - nam.query_span() as isize).unsigned_abs();
-        let ext_left = min(50, projected_ref_start);
-        let ref_start = projected_ref_start - ext_left;
-        let ext_right = min(50, refseq.len() - nam.ref_end);
-        let ref_segm_size = read.len() + diff + ext_left + ext_right;
-        let ref_segm = &refseq[ref_start..ref_start+ref_segm_size];
-        info = aligner.align(query, ref_segm).expect("alignment failed");
+        let ref_start = projected_ref_start.saturating_sub(50);
+        let ref_end = min(nam.ref_end + 50, refseq.len());
+        let segment = &refseq[ref_start..ref_end];
+        info = aligner.align(query, segment).expect("alignment failed");
         result_ref_start = ref_start + info.ref_start;
     }
+    // TODO alignment cigar does not contain soft clipping
     let softclipped = info.query_start + (query.len() - info.query_end);
     Alignment {
         cigar: info.cigar.clone(),

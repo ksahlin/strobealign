@@ -85,7 +85,10 @@ fn main() -> Result<(), Error> {
     for record in FastqReader::new(f) {
         let record = record?;
         println!("Processing record {}", record.name);
-        map_single_end_read(&record, &index, &references, &mapping_parameters, &aligner);
+        let sam_records = map_single_end_read(&record, &index, &references, &mapping_parameters, &aligner);
+        for sam_record in sam_records {
+            println!("{}", sam_record);
+        }
     }
 
     Ok(())
