@@ -156,11 +156,6 @@ pub fn map_single_end_read(
 
     // Timer nam_timer;
     let (nonrepetitive_fraction, mut nams) = find_nams(&query_randstrobes, index);
-    println!("nonrepetitive fraction: {}. nams.len(): {}. NAMS: ", nonrepetitive_fraction, nams.len());
-    for nam in &nams {
-        println!("- {:?}", nam);
-    }
-    println!("end of NAMs");
     // statistics.tot_find_nams += nam_timer.duration();
     /*
     TODO
