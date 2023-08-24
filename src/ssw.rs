@@ -55,7 +55,7 @@ impl<'a> Drop for Alignment<'a> {
 
 impl<'a> From<Alignment<'a>> for SswAlignment {
     fn from(alignment: Alignment) -> SswAlignment {
-        let raw = unsafe { alignment.raw.as_ref().expect("hm") };
+        let raw = unsafe { alignment.raw.as_ref().unwrap() };
         let cigar_slice = unsafe { std::slice::from_raw_parts(raw.cigar, raw.cigar_length as usize) };
         let cigar = Cigar::try_from(cigar_slice).expect("Invalid CIGAR");
 
@@ -81,6 +81,7 @@ impl<'a> Profile<'a> {
         Profile { profile, query: translated_query, score_matrix }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn align(&self, translated_refseq: &[i8], gap_open_penalty: u8, gap_extend_penalty: u8, flag: u8, score_filter: u16, distance_filter: i32, mask_len: i32) -> Alignment {
         let alignment = unsafe {
             raw::ssw_align(self.profile, translated_refseq.as_ptr(), translated_refseq.len() as i32, gap_open_penalty, gap_extend_penalty, flag, score_filter, distance_filter, mask_len)

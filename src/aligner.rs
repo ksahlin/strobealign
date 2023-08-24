@@ -3,7 +3,7 @@ use crate::cigar::{Cigar, CigarOperation};
 use crate::ssw::SswAlignment;
 
 pub struct Scores {
-    // match is a score, the others are penalties (all are nonnegative)
+    // match is a score, the others are penalties
     pub match_: u8,
     pub mismatch: u8,
     pub gap_open: u8,

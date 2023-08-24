@@ -1,3 +1,5 @@
+//! Bindings for StripedSmithWaterman (SSW) library
+
 #[repr(C)]
 #[allow(non_camel_case_types)]
 #[derive(Debug)]
@@ -14,7 +16,7 @@ pub struct s_align {
     pub flag: u16,
 }
 
-#[repr(C)] // TODO probably not needed as this is an opaque struct
+#[repr(C)] // TODO possibly not needed as this is an opaque struct
 #[allow(non_camel_case_types)]
 pub struct s_profile {
     _data: [u8; 0],
