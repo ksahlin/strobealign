@@ -94,22 +94,6 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn dumpstrobes(references: &Vec<RefSequence>, parameters: IndexParameters) -> Result<(), Error> {
-    let mut writer = BufWriter::new(io::stdout());
-
-    let k = parameters.syncmer.k;
-    let s = parameters.syncmer.s;
-    for record in references {
-        let name = &record.name;
-        let mut syncmers = SyncmerIterator::new(&record.sequence, k, s, 3);
-        for randstrobe in RandstrobeIterator::new(&mut syncmers, &parameters.randstrobe) {
-            writeln!(writer, "{}\t{}\t{}", name, randstrobe.strobe1_pos, randstrobe.strobe2_pos + k)?;
-        }
-    }
-
-    Ok(())
-}
-
 #[test]
 fn verify_cli() {
     use clap::CommandFactory;
