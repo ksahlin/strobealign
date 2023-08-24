@@ -133,7 +133,7 @@ fn make_sam_record(alignment: &Alignment, references: &[RefSequence], record: &S
         cigar: Some(alignment.cigar.clone()),
         mate_reference_name: None,
         mate_pos: None,
-        template_len: Some(-1),
+        template_len: None,
         query_sequence: Some(record.sequence.clone()),
         query_qualities: Some(record.qualities.clone()),
         edit_distance: alignment.edit_distance,
