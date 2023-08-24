@@ -5,13 +5,14 @@ use std::str;
 #[derive(Debug, Clone)]
 pub struct SequenceRecord {
     pub name: String,
+    pub comment: Option<String>,
     pub sequence: Vec<u8>,
     pub qualities: Vec<u8>,
 }
 
 impl SequenceRecord {
-    pub fn new(name: String, sequence: Vec<u8>, qualities: Vec<u8>) -> Self {
-        SequenceRecord { name, sequence, qualities }
+    pub fn new(name: String, comment: Option<String>, sequence: Vec<u8>, qualities: Vec<u8>) -> Self {
+        SequenceRecord { name, comment, sequence, qualities }
     }
 
     pub fn len(&self) -> usize {
@@ -72,6 +73,10 @@ impl<R: Read> Iterator for FastqReader<R> {
             }
         }
         let name = name[1..].trim_end();
+        let (name, comment) = match name.split_once(' ') {
+            Some((name, comment)) => (name, Some(comment)),
+            None => (name, None),
+        };
         if name.is_empty() {
             //self.err = true;
             //return Some(Err("error"));
@@ -96,6 +101,7 @@ impl<R: Read> Iterator for FastqReader<R> {
         assert_eq!(sequence.len(), qualities.len());
         Some(Ok(SequenceRecord {
             name: name.to_string(),
+            comment: comment.map(|s| s.to_string()),
             sequence,
             qualities,
         }))
