@@ -12,6 +12,12 @@
 using namespace klibpp;
 
 
+struct NamPair {
+    int score;
+    Nam nam1;
+    Nam nam2;
+};
+
 static inline Alignment get_alignment(
     const Aligner& aligner,
     const Nam &nam,
@@ -365,13 +371,13 @@ bool is_proper_nam_pair(const Nam nam1, const Nam nam2, float mu, float sigma) {
  * high-scoring NAMs that could not be paired up are returned (these get a
  * "dummy" NAM as partner in the returned vector).
  */
-static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_nam_pairs(
+static inline std::vector<NamPair> get_best_scoring_nam_pairs(
     const std::vector<Nam> &nams1,
     const std::vector<Nam> &nams2,
     float mu,
     float sigma
 ) {
-    std::vector<std::tuple<int,Nam,Nam>> joint_nam_scores;
+    std::vector<NamPair> joint_nam_scores;
     if (nams1.empty() && nams2.empty()) {
         return joint_nam_scores;
     }
@@ -387,7 +393,7 @@ static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_nam_pairs(
                 break;
             }
             if (is_proper_nam_pair(nam1, nam2, mu, sigma)) {
-                joint_nam_scores.emplace_back(joint_hits, nam1, nam2);
+                joint_nam_scores.push_back(NamPair{joint_hits, nam1, nam2});
                 added_n1.insert(nam1.nam_id);
                 added_n2.insert(nam2.nam_id);
                 best_joint_hits = std::max(joint_hits, best_joint_hits);
@@ -408,7 +414,7 @@ static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_nam_pairs(
                 continue;
             }
 //            int n1_penalty = std::abs(nam1.query_span() - nam1.ref_span());
-            joint_nam_scores.emplace_back(nam1.n_hits, nam1, dummy_nan);
+            joint_nam_scores.push_back(NamPair{nam1.n_hits, nam1, dummy_nan});
         }
     }
 
@@ -423,7 +429,7 @@ static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_nam_pairs(
                 continue;
             }
 //            int n2_penalty = std::abs(nam2.query_span() - nam2.ref_span());
-            joint_nam_scores.emplace_back(nam2.n_hits, dummy_nan, nam2);
+            joint_nam_scores.push_back(NamPair{nam2.n_hits, dummy_nan, nam2});
         }
     }
 
@@ -433,9 +439,7 @@ static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_nam_pairs(
     std::sort(
         joint_nam_scores.begin(),
         joint_nam_scores.end(),
-        [](const std::tuple<int, Nam, Nam>& a, const std::tuple<int, Nam, Nam>& b) -> bool {
-            return std::get<0>(a) > std::get<0>(b);
-        }
+        [](const NamPair& a, const NamPair& b) -> bool { return a.score > b.score; }
     ); // Sort by highest score first
 
     return joint_nam_scores;
@@ -809,16 +813,13 @@ inline void align_PE(
         return;
     }
 
-    // do full search of highest scoring pair
+    // Do a full search for highest-scoring pair
     int tries = 0;
     double S = 0.0;
 
     // Get top hit counts for all locations. The joint hit count is the sum of hits of the two mates. Then align as long as score dropoff or cnt < 20
 
-    // (score, aln1, aln2)
-    std::vector<std::tuple<int,Nam,Nam>> joint_nam_scores = get_best_scoring_nam_pairs(nams1, nams2, mu, sigma);
-    auto nam_max = joint_nam_scores[0];
-    auto max_score = std::get<0>(nam_max);
+    std::vector<NamPair> joint_nam_scores = get_best_scoring_nam_pairs(nams1, nams2, mu, sigma);
 
     robin_hood::unordered_map<int,Alignment> is_aligned1;
     robin_hood::unordered_map<int,Alignment> is_aligned2;
@@ -826,8 +827,7 @@ inline void align_PE(
 
     bool consistent_nam1 = reverse_nam_if_needed(n1_max, read1, references, k);
     details[0].nam_inconsistent += !consistent_nam1;
-    auto a1_indv_max = get_alignment(aligner, n1_max, references, read1,
-                                     consistent_nam1);
+    auto a1_indv_max = get_alignment(aligner, n1_max, references, read1, consistent_nam1);
 //            a1_indv_max.sw_score = -10000;
     is_aligned1[n1_max.nam_id] = a1_indv_max;
     details[0].tried_alignment++;
@@ -835,8 +835,7 @@ inline void align_PE(
     auto n2_max = nams2[0];
     bool consistent_nam2 = reverse_nam_if_needed(n2_max, read2, references, k);
     details[1].nam_inconsistent += !consistent_nam2;
-    auto a2_indv_max = get_alignment(aligner, n2_max, references, read2,
-                                     consistent_nam2);
+    auto a2_indv_max = get_alignment(aligner, n2_max, references, read2, consistent_nam2);
 //            a2_indv_max.sw_score = -10000;
     is_aligned2[n2_max.nam_id] = a2_indv_max;
     details[1].tried_alignment++;
@@ -849,6 +848,7 @@ inline void align_PE(
 //            int ref_start, ref_len, ref_end;
 //            std::cerr << "LOOOOOOOOOOOOOOOOOOOL " << min_ed << std::endl;
     std::vector<std::tuple<double,Alignment,Alignment>> high_scores; // (score, aln1, aln2)
+    auto max_score = joint_nam_scores[0].score;
     for (auto &[score_, n1, n2] : joint_nam_scores) {
         float score_dropoff = (float) score_ / max_score;
         if (tries >= max_tries || score_dropoff < dropoff) {
@@ -987,8 +987,8 @@ inline void align_PE(
     }
 }
 
-inline void get_best_map_location(std::vector<Nam> &nams1, std::vector<Nam> &nams2, i_dist_est &isize_est, Nam &best_nam1,  Nam &best_nam2 ) {
-    std::vector<std::tuple<int,Nam,Nam>> joint_nam_scores = get_best_scoring_nam_pairs(nams1, nams2, isize_est.mu, isize_est.sigma);
+inline void get_best_map_location(std::vector<Nam> &nams1, std::vector<Nam> &nams2, i_dist_est &isize_est, Nam &best_nam1, Nam &best_nam2 ) {
+    std::vector<NamPair> joint_nam_scores = get_best_scoring_nam_pairs(nams1, nams2, isize_est.mu, isize_est.sigma);
     Nam n1_joint_max, n2_joint_max, n1_indiv_max, n2_indiv_max;
     float score_joint = 0;
     float score_indiv = 0;
@@ -1000,10 +1000,10 @@ inline void get_best_map_location(std::vector<Nam> &nams1, std::vector<Nam> &nam
     }
     // get best joint score
     for (auto &t : joint_nam_scores) { // already sorted by descending score
-        auto n1 = std::get<1>(t);
-        auto n2 = std::get<2>(t);
-        if ((n1.ref_start >=0) && (n2.ref_start >=0) ){ // Valid pair
-            score_joint =  n1.score + n2.score;
+        auto& n1 = t.nam1;
+        auto& n2 = t.nam2;
+        if (n1.ref_start >= 0 && n2.ref_start >=0) { // Valid pair
+            score_joint = n1.score + n2.score;
             n1_joint_max = n1;
             n2_joint_max = n2;
             break;
