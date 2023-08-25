@@ -182,7 +182,7 @@ pub fn map_single_end_read(
     // details.nams = nams.size();
     // Timer nam_sort_timer;
 
-    nams.sort_by_key(|&k| k.score);
+    nams.sort_by_key(|&k| -(k.score as i32));
     // statistics.tot_sort_nams += nam_sort_timer.duration();
 
     // Timer extend_timer;
