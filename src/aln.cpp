@@ -360,7 +360,12 @@ bool is_proper_nam_pair(const Nam nam1, const Nam nam2, float mu, float sigma) {
     return r1_r2 || r2_r1;
 }
 
-static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_nam_locations(
+/*
+ * Find high-scoring NAMs and NAM pairs. Proper pairs are preferred, but also
+ * high-scoring NAMs that could not be paired up are returned (these get a
+ * "dummy" NAM as partner in the returned vector).
+ */
+static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_nam_pairs(
     const std::vector<Nam> &nams1,
     const std::vector<Nam> &nams2,
     float mu,
@@ -371,62 +376,54 @@ static inline std::vector<std::tuple<int,Nam,Nam>> get_best_scoring_nam_location
         return joint_nam_scores;
     }
 
+    // Find NAM pairs that appear to be proper pairs
     robin_hood::unordered_set<int> added_n1;
     robin_hood::unordered_set<int> added_n2;
-    int joint_hits;
-    int hjss = 0; // highest joint score seen
-    for (auto &n1 : nams1) {
-        for (auto &n2 : nams2) {
-            if (n1.n_hits + n2.n_hits < hjss/2) {
+    int best_joint_hits = 0;
+    for (auto &nam1 : nams1) {
+        for (auto &nam2 : nams2) {
+            int joint_hits = nam1.n_hits + nam2.n_hits;
+            if (joint_hits < best_joint_hits / 2) {
                 break;
             }
-            if (is_proper_nam_pair(n1, n2, mu, sigma)) {
-                joint_hits = n1.n_hits + n2.n_hits;
-                joint_nam_scores.emplace_back(joint_hits, n1, n2);
-                added_n1.insert(n1.nam_id);
-                added_n2.insert(n2.nam_id);
-                if (joint_hits > hjss) {
-                    hjss = joint_hits;
-                }
+            if (is_proper_nam_pair(nam1, nam2, mu, sigma)) {
+                joint_nam_scores.emplace_back(joint_hits, nam1, nam2);
+                added_n1.insert(nam1.nam_id);
+                added_n2.insert(nam2.nam_id);
+                best_joint_hits = std::max(joint_hits, best_joint_hits);
             }
         }
     }
 
+    // Find high-scoring R1 NAMs that are not part of a proper pair
     Nam dummy_nan;
     dummy_nan.ref_start = -1;
     if (!nams1.empty()) {
-        int hjss1 = hjss > 0 ? hjss : nams1[0].n_hits;
-        for (auto &n1 : nams1) {
-            if (n1.n_hits  < hjss1/2){
+        int best_joint_hits1 = best_joint_hits > 0 ? best_joint_hits : nams1[0].n_hits;
+        for (auto &nam1 : nams1) {
+            if (nam1.n_hits < best_joint_hits1 / 2) {
                 break;
             }
-            if (added_n1.find(n1.nam_id) != added_n1.end()){
+            if (added_n1.find(nam1.nam_id) != added_n1.end()) {
                 continue;
             }
-//            int diff1 = (n1.query_e - n1.query_s) - (n1.ref_e - n1.ref_s);
-//            int  n1_penalty = diff1 > 0 ? diff1 : - diff1;
-            joint_hits = n1.n_hits;
-            std::tuple<int, Nam, Nam> t{joint_hits, n1, dummy_nan};
-            joint_nam_scores.push_back(t);
+//            int n1_penalty = std::abs(nam1.query_span() - nam1.ref_span());
+            joint_nam_scores.emplace_back(nam1.n_hits, nam1, dummy_nan);
         }
     }
 
-    if ( !nams2.empty() ){
-        int hjss2 = hjss  > 0 ? hjss : nams2[0].n_hits;
-        //    int hjss2 = all_nams2[0].n_hits;
-        for (auto &n2 : nams2) {
-            if (n2.n_hits  < hjss2/2){
+    // Find high-scoring R2 NAMs that are not part of a proper pair
+    if (!nams2.empty()) {
+        int best_joint_hits2 = best_joint_hits > 0 ? best_joint_hits : nams2[0].n_hits;
+        for (auto &nam2 : nams2) {
+            if (nam2.n_hits < best_joint_hits2 / 2) {
                 break;
             }
-            if (added_n2.find(n2.nam_id) != added_n2.end()){
+            if (added_n2.find(nam2.nam_id) != added_n2.end()){
                 continue;
             }
-//            int diff2 = (n2.query_e - n2.query_s) - (n2.ref_e - n2.ref_s);
-//            int  n2_penalty = diff2 > 0 ? diff2 : - diff2;
-            joint_hits = n2.n_hits;
-            //                        std::cerr << S << " individual score " << x << " " << std::endl;
-            std::tuple<int, Nam, Nam> t{joint_hits, dummy_nan, n2};
-            joint_nam_scores.push_back(t);
+//            int n2_penalty = std::abs(nam2.query_span() - nam2.ref_span());
+            joint_nam_scores.emplace_back(nam2.n_hits, dummy_nan, nam2);
         }
     }
 
@@ -784,6 +781,7 @@ inline void align_PE(
     // If we get here, both reads have NAMs
     assert(!nams1.empty() && !nams2.empty());
 
+    // Deal with the typical case that both reads map uniquely and form a proper pair
     if (top_dropoff(nams1) < dropoff && top_dropoff(nams2) < dropoff && is_proper_nam_pair(nams1[0], nams2[0], mu, sigma)) {
         Nam n_max1 = nams1[0];
         Nam n_max2 = nams2[0];
@@ -802,13 +800,15 @@ inline void align_PE(
         int mapq1 = get_mapq(nams1, n_max1);
         int mapq2 = get_mapq(nams2, n_max2);
         bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
-        sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, true, details);
+        bool is_primary = true;
+        sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary, details);
 
-        if ((isize_est.sample_size < 400) && ((alignment1.edit_distance + alignment2.edit_distance) < 3) && is_proper) {
+        if ((isize_est.sample_size < 400) && (alignment1.edit_distance + alignment2.edit_distance < 3) && is_proper) {
             isize_est.update(std::abs(alignment1.ref_start - alignment2.ref_start));
         }
         return;
     }
+
     // do full search of highest scoring pair
     int tries = 0;
     double S = 0.0;
@@ -816,7 +816,7 @@ inline void align_PE(
     // Get top hit counts for all locations. The joint hit count is the sum of hits of the two mates. Then align as long as score dropoff or cnt < 20
 
     // (score, aln1, aln2)
-    std::vector<std::tuple<int,Nam,Nam>> joint_nam_scores = get_best_scoring_nam_locations(nams1, nams2, mu, sigma);
+    std::vector<std::tuple<int,Nam,Nam>> joint_nam_scores = get_best_scoring_nam_pairs(nams1, nams2, mu, sigma);
     auto nam_max = joint_nam_scores[0];
     auto max_score = std::get<0>(nam_max);
 
@@ -988,7 +988,7 @@ inline void align_PE(
 }
 
 inline void get_best_map_location(std::vector<Nam> &nams1, std::vector<Nam> &nams2, i_dist_est &isize_est, Nam &best_nam1,  Nam &best_nam2 ) {
-    std::vector<std::tuple<int,Nam,Nam>> joint_nam_scores = get_best_scoring_nam_locations(nams1, nams2, isize_est.mu, isize_est.sigma);
+    std::vector<std::tuple<int,Nam,Nam>> joint_nam_scores = get_best_scoring_nam_pairs(nams1, nams2, isize_est.mu, isize_est.sigma);
     Nam n1_joint_max, n2_joint_max, n1_indiv_max, n2_indiv_max;
     float score_joint = 0;
     float score_indiv = 0;
