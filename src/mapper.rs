@@ -7,7 +7,7 @@ use crate::nam::{find_nams, find_nams_rescue, Nam, reverse_nam_if_needed};
 use crate::revcomp::reverse_complement;
 use crate::strobes::RandstrobeIterator;
 use crate::syncmers::SyncmerIterator;
-use crate::sam::{REVERSE, SamRecord, SECONDARY};
+use crate::sam::{REVERSE, SamRecord, SECONDARY, UNMAP};
 use crate::read::Read;
 use crate::aligner::Aligner;
 use crate::fastq::SequenceRecord;
@@ -58,12 +58,6 @@ struct Alignment {
 }
 
 impl Alignment {
-    /*fn new() -> Self {
-        Alignment {
-
-        }
-    }*/
-
     fn global_edit_distance(&self) -> u32 {
         self.edit_distance + self.soft_clipped
     }
@@ -141,14 +135,22 @@ fn make_sam_record(alignment: &Alignment, references: &[RefSequence], record: &S
         pos: Some(alignment.ref_start as u32),
         mapq,
         cigar: Some(alignment.cigar.clone()),
-        mate_reference_name: None,
-        mate_pos: None,
-        template_len: None,
         query_sequence: Some(query_sequence),
         query_qualities: Some(query_qualities),
         edit_distance: Some(alignment.edit_distance),
         alignment_score: Some(alignment.score),
+        .. SamRecord::default()
         // TODO details: details
+    }
+}
+
+fn make_unmapped_sam_record(record: &SequenceRecord) -> SamRecord {
+    SamRecord {
+        query_name: record.name.clone(),
+        flags: UNMAP,
+        query_sequence: Some(record.sequence.clone()),
+        query_qualities: Some(record.qualities.clone()),
+        .. SamRecord::default()
     }
 }
 
@@ -169,6 +171,7 @@ pub fn map_single_end_read(
     // statistics.tot_find_nams += nam_timer.duration();
 
     if mapping_parameters.rescue_level > 1 {
+
         // Timer rescue_timer;
         if nams.is_empty() || nonrepetitive_fraction < 0.7 {
             // details.nam_rescue = true;
@@ -190,7 +193,7 @@ pub fn map_single_end_read(
     // );
 
     if nams.is_empty() {
-        return Vec::new();
+        return vec![make_unmapped_sam_record(record)]; // TODO details
     }
     let mut sam_records = Vec::new();
     let mut alignments = Vec::new();

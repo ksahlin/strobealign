@@ -16,6 +16,7 @@ pub const DUP: u16 = 0x400;
 pub const SUPPLEMENTARY: u16 = 0x800;
 
 // TODO String and Vec<u8> fields should be references
+#[derive(Default)]
 pub struct SamRecord {
     pub query_name: String,
     pub flags: u16,
@@ -38,6 +39,10 @@ impl SamRecord {
     pub fn is_secondary(&self) -> bool {
         self.flags & SECONDARY != 0
     }
+
+    /*pub fn is_mapped(&self) -> bool {
+        self.flags & UNMAP == 0
+    }*/
 }
 
 impl Display for SamRecord {
