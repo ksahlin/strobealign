@@ -15,16 +15,6 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[derive(Parser, Debug)]
 #[command(version, long_about = None)]
 struct Args {
-
-    /// Print syncmers instead of randstrobes
-    //#[arg(long, default_value_t = false)]
-    //syncmers: bool,
-
-    /// Path to input FASTA
-    ref_path: String,
-
-    fastq_path: String,
-
     #[arg(short, default_value_t = 1)]
     threads: usize,
 
@@ -94,6 +84,11 @@ struct Args {
     /// R <= 1 deactivates rescue and is the fastest
     #[arg(short = 'R', default_value_t = 2)]
     rescue_level: usize,
+
+    /// Path to input reference (in FASTA format)
+    ref_path: String,
+
+    fastq_path: String,
 }
 
 fn main() -> Result<(), Error> {
