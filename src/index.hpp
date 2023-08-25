@@ -46,8 +46,7 @@ struct StrobemerIndex {
             throw BadParameter("Bits must be between 8 and 31");
         }
     }
-    unsigned int filter_cutoff; //This also exists in mapping_params, but is calculated during index generation,
-                                //therefore stored here since it needs to be saved with the index.
+    unsigned int filter_cutoff;
     mutable IndexCreationStatistics stats;
 
     void write(const std::string& filename) const;

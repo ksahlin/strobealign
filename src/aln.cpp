@@ -809,7 +809,6 @@ inline void align_PE(
 
     // do full search of highest scoring pair
 
-    //////////////////////////// NEW ////////////////////////////////////
     // Get top hit counts for all locations. The joint hit count is the sum of hits of the two mates. Then align as long as score dropoff or cnt < 20
 
     // (score, aln1, aln2)
@@ -839,7 +838,6 @@ inline void align_PE(
     details[1].tried_alignment++;
     details[1].gapped += a2_indv_max.gapped;
 
-//            int a, b;
     std::string r_tmp;
 //            int min_ed1, min_ed2 = 1000;
 //            bool new_opt1, new_opt2 = false;
@@ -853,8 +851,7 @@ inline void align_PE(
             break;
         }
 
-        //////// the actual testing of base pair alignment part start ////////
-        //////////////////////////////////////////////////////////////////////
+        //////// the actual testing of base pair alignment part start
         Alignment a1;
         if (n1.ref_start >= 0) {
             if (is_aligned1.find(n1.nam_id) != is_aligned1.end() ){
@@ -873,12 +870,8 @@ inline void align_PE(
             details[0].tried_alignment++;
         }
 
-//                a1_indv_max = a1.sw_score >  a1_indv_max.sw_score ? a1 : a1_indv_max;
-//                min_ed = a1.ed < min_ed ? a1.ed : min_ed;
-
         if (a1.score >  a1_indv_max.score){
             a1_indv_max = a1;
-//                    cnt = 0;
         }
 
         Alignment a2;
@@ -893,19 +886,14 @@ inline void align_PE(
                 details[1].tried_alignment++;
                 details[1].gapped += a2.gapped;
             }
-        } else{
-//                    std::cerr << "RESCUE HERE2" << std::endl;
+        } else {
             // Force SW alignment to rescue mate
-//                    std::cerr << query_acc1 << " RESCUE MATE 2" << a1.is_rc << " " n1.is_rc << std::endl;
             details[1].mate_rescue += rescue_mate(aligner, n1, references, read1, read2, a2, mu, sigma, k);
             details[1].tried_alignment++;
         }
-//                a2_indv_max = a2.sw_score >  a2_indv_max.sw_score ? a2 : a2_indv_max;
-//                min_ed = a2.ed < min_ed ? a2.ed : min_ed;
 
-        if (a2.score >  a2_indv_max.score){
+        if (a2.score > a2_indv_max.score){
             a2_indv_max = a2;
-//                    cnt = 0;
         }
 
         bool r1_r2 = a2.is_rc && (a1.ref_start <= a2.ref_start) && ((a2.ref_start - a1.ref_start) < mu + 10*sigma); // r1 ---> <---- r2
@@ -915,12 +903,12 @@ inline void align_PE(
             float x = std::abs(a1.ref_start - a2.ref_start);
             S = (double)a1.score + (double)a2.score + log(normal_pdf(x, mu, sigma));  //* (1 - s2 / s1) * min_matches * log(s1);
 //                    std::cerr << " CASE1: " << S << " " <<  log( normal_pdf(x, mu, sigma ) ) << " " << (double)a1.sw_score << " " << (double)a2.sw_score << std::endl;
-        } else{ // individual score
+        } else { // individual score
             S = (double)a1.score + (double)a2.score - 20; // 20 corresponds to a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
 //                    std::cerr << " CASE2: " << S << " " << (double)a1.sw_score << " " << (double)a2.sw_score << std::endl;
         }
 
-        std::tuple<double, Alignment, Alignment> aln_tuple (S, a1, a2);
+        std::tuple<double, Alignment, Alignment> aln_tuple(S, a1, a2);
         high_scores.push_back(aln_tuple);
 
         tries++;
@@ -931,10 +919,6 @@ inline void align_PE(
     std::tuple<double, Alignment, Alignment> aln_tuple (S, a1_indv_max, a2_indv_max);
     high_scores.push_back(aln_tuple);
     std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
-
-//            if (mapq1 != 60){
-//                std::cerr << query_acc1 << " " << mapq1 << std::endl;
-//            }
 
 //            std::cerr << x << " " << mu << " " << sigma << " " << log( normal_pdf(x, mu, sigma ) ) << std::endl;
 //            std::cerr << 200 << " " << 200 << " " << 30 << " " << log( normal_pdf(200, 200, 30 ) ) << std::endl;
