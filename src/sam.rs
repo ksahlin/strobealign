@@ -33,6 +33,12 @@ pub struct SamRecord {
     // details: Details,
 }
 
+impl SamRecord {
+    pub fn is_secondary(&self) -> bool {
+        self.flags & SECONDARY != 0
+    }
+}
+
 impl Display for SamRecord {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         // SAM columns
@@ -55,11 +61,11 @@ impl Display for SamRecord {
             None => 0,
         };
         let query_sequence = match &self.query_sequence {
-            Some(seq) if self.flags & SECONDARY != 0 => std::str::from_utf8(seq).unwrap(),
+            Some(seq) if !self.is_secondary() => std::str::from_utf8(seq).unwrap(),
             _ => "*",
         };
         let query_qualities = match &self.query_qualities {
-            Some(query_qualities) if self.flags & SECONDARY != 0 => std::str::from_utf8(query_qualities).unwrap(),
+            Some(query_qualities) if !self.is_secondary() => std::str::from_utf8(query_qualities).unwrap(),
             _ => "*",
         };
         let pos = match self.pos {
