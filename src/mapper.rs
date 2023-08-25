@@ -1,9 +1,9 @@
-use std::cmp::{max, min, Reverse};
+use std::cmp::{min, Reverse};
 use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
 use crate::cigar::Cigar;
 use crate::fasta::RefSequence;
 use crate::index::{IndexParameters, StrobemerIndex};
-use crate::nam::{find_nams, Nam, reverse_nam_if_needed};
+use crate::nam::{find_nams, find_nams_rescue, Nam, reverse_nam_if_needed};
 use crate::revcomp::reverse_complement;
 use crate::strobes::RandstrobeIterator;
 use crate::syncmers::SyncmerIterator;
@@ -22,7 +22,6 @@ pub struct MappingParameters {
     dropoff_threshold: f32,
     rescue_level: usize,
     max_tries: usize,
-    // rescue_cutoff,
     cigar_mode: CigarMode,
     output_unmapped: bool,
 }
@@ -35,7 +34,6 @@ impl Default for MappingParameters {
             dropoff_threshold: 0.5,
             rescue_level: 2,
             max_tries: 20,
-            // rescue_cutoff: ...,
             cigar_mode: CigarMode::M,
             output_unmapped: true,
             // details: false,
@@ -76,7 +74,7 @@ pub struct QueryRandstrobe {
     pub hash: u64,
     pub start: usize,
     pub end: usize,
-    pub is_reverse: bool,
+    pub is_revcomp: bool,
 }
 
     /// Generate randstrobes for a query sequence and its reverse complement.
@@ -103,7 +101,7 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> Vec<QueryR
                     hash: randstrobe.hash,
                     start: randstrobe.strobe1_pos,
                     end: randstrobe.strobe2_pos + parameters.syncmer.k,
-                    is_reverse
+                    is_revcomp: is_reverse
                 }
             );
         }
@@ -155,21 +153,20 @@ pub fn map_single_end_read(
     //statistics.tot_construct_strobemers += strobe_timer.duration();
 
     // Timer nam_timer;
-    let (nonrepetitive_fraction, mut nams) = find_nams(&query_randstrobes, index);
+    let (nonrepetitive_fraction, mut nams) = find_nams(&query_randstrobes, index, index.filter_cutoff);
     // statistics.tot_find_nams += nam_timer.duration();
-    /*
-    TODO
-    if (map_param.R > 1) {
-        Timer rescue_timer;
-        if (nams.empty() || nonrepetitive_fraction < 0.7) {
-            details.nam_rescue = true;
-            nams = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff);
+
+    if mapping_parameters.rescue_level > 1 {
+        // Timer rescue_timer;
+        if nams.is_empty() || nonrepetitive_fraction < 0.7 {
+            // details.nam_rescue = true;
+            nams = find_nams_rescue(&query_randstrobes, index, index.rescue_cutoff);
         }
-        statistics.tot_time_rescue += rescue_timer.duration();
+        // statistics.tot_time_rescue += rescue_timer.duration();
     }
-    details.nams = nams.size();
-    Timer nam_sort_timer;
-    */
+    // details.nams = nams.size();
+    // Timer nam_sort_timer;
+
     nams.sort_by_key(|&k| k.score);
     // statistics.tot_sort_nams += nam_sort_timer.duration();
 

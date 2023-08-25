@@ -45,19 +45,18 @@ struct Hit {
 ///
 /// Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
 ///
-pub fn find_nams(query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerIndex) -> (f32, Vec<Nam>) {
-    let mut hits_per_ref = HashMap::new();
-    hits_per_ref.reserve(100);
+pub fn find_nams(query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerIndex, filter_cutoff: usize) -> (f32, Vec<Nam>) {
+    let mut hits_per_ref = HashMap::with_capacity(100);
     let mut nr_good_hits = 0;
     let mut total_hits = 0;
     for randstrobe in query_randstrobes {
         if let Some(position) = index.get(randstrobe.hash) {
             total_hits += 1;
-            if index.is_filtered(position) {
+            if index.is_too_frequent(position, filter_cutoff) {
                 continue;
             }
             nr_good_hits += 1;
-            add_to_hits_per_ref(&mut hits_per_ref, randstrobe.start, randstrobe.end, randstrobe.is_reverse, index, position, 100_000);
+            add_to_hits_per_ref(&mut hits_per_ref, randstrobe.start, randstrobe.end, randstrobe.is_revcomp, index, position, 100_000);
         }
     }
     let nonrepetitive_fraction = if total_hits > 0 { (nr_good_hits as f32) / (total_hits as f32) } else { 1.0 };
@@ -67,64 +66,64 @@ pub fn find_nams(query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerInde
 }
 
 /// Find a query’s NAMs, using also some of the randstrobes that occur more often
-/// than filter_cutoff.
-fn find_nams_rescue(
+/// than the normal (non-rescue) filter cutoff.
+pub fn find_nams_rescue(
     query_randstrobes: &[QueryRandstrobe],
     index: &StrobemerIndex,
-    filter_cutoff: u32
+    rescue_cutoff: usize,
 ) -> Vec<Nam> {
-/*
-    struct RescueHit {
-        unsigned int count;
-        size_t position;
-        unsigned int query_s;
-        unsigned int query_e;
-        bool is_revcomp;
 
+    struct RescueHit {
+        count: usize,
+        position: usize,
+        query_start: usize,
+        query_end: usize,
+        is_revcomp: bool,
+    }
+/*
         bool operator< (const RescueHit& rhs) const {
             return std::tie(count, query_s, query_e, is_revcomp)
                 < std::tie(rhs.count, rhs.query_s, rhs.query_e, rhs.is_revcomp);
         }
-    };
+    }*/
 
-    robin_hood::unordered_map<unsigned int, std::vector<Hit>> hits_per_ref;
-    std::vector<RescueHit> hits_fw;
-    std::vector<RescueHit> hits_rc;
-    hits_per_ref.reserve(100);
-    hits_fw.reserve(5000);
-    hits_rc.reserve(5000);
+    let mut hits_per_ref = HashMap::with_capacity(100);
+    let mut hits_fw = Vec::with_capacity(5000);
+    let mut hits_rc = Vec::with_capacity(5000);
 
-    for (auto &qr : query_randstrobes) {
-        size_t position = index.find(qr.hash);
-        if (position != index.end()) {
-            unsigned int count = index.get_count(position);
-            RescueHit rh{count, position, qr.start, qr.end, qr.is_reverse};
-            if (qr.is_reverse){
-                hits_rc.push_back(rh);
+    for randstrobe in query_randstrobes {
+
+        if let Some(position) = index.get(randstrobe.hash) {
+            let count = index.get_count(position);
+            let rh = RescueHit {
+                count,
+                position,
+                query_start: randstrobe.start,
+                query_end: randstrobe.end,
+                is_revcomp: randstrobe.is_revcomp
+            };
+            if randstrobe.is_revcomp {
+                hits_rc.push(rh);
             } else {
-                hits_fw.push_back(rh);
+                hits_fw.push(rh);
             }
         }
     }
 
-    std::sort(hits_fw.begin(), hits_fw.end());
-    std::sort(hits_rc.begin(), hits_rc.end());
-    for (auto& rescue_hits : {hits_fw, hits_rc}) {
-        int cnt = 0;
-        for (auto &rh : rescue_hits) {
-            if ((rh.count > filter_cutoff && cnt >= 5) || rh.count > 1000) {
+    let cmp = |a: &RescueHit, b: &RescueHit| (a.count, a.query_start, a.query_end, a.is_revcomp).cmp(&(b.count, b.query_start, b.query_end, b.is_revcomp));
+    hits_fw.sort_by(cmp);
+    hits_rc.sort_by(cmp);
+
+    for rescue_hits in [hits_fw, hits_rc] {
+        for (i, rh) in rescue_hits.iter().enumerate() {
+            if (rh.count > rescue_cutoff && i >= 5) || rh.count > 1000 {
                 break;
             }
-            add_to_hits_per_ref(hits_per_ref, rh.query_s, rh.query_e, rh.is_revcomp, index, rh.position, 1000);
-            cnt++;
+            add_to_hits_per_ref(&mut hits_per_ref, rh.query_start, rh.query_end, rh.is_revcomp, index, rh.position, 1000);
         }
     }
 
-    return merge_hits_into_nams(hits_per_ref, index.k(), true);
-
- */
-
-    todo!()
+    merge_hits_into_nams(&mut hits_per_ref, index.parameters.syncmer.k, true)
 }
 
 fn add_to_hits_per_ref(

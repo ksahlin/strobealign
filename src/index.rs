@@ -1,4 +1,4 @@
-use std::cmp::{max, Reverse};
+use std::cmp::{max, min, Reverse};
 use rayon::prelude::*;
 use crate::strobes::{RandstrobeIterator, RandstrobeParameters};
 use crate::syncmers::{SyncmerParameters, SyncmerIterator};
@@ -105,7 +105,11 @@ pub struct StrobemerIndex<'a> {
     /// no. of bits of the hash to use when indexing a randstrobe bucket
     bits: u8,
 
-    filter_cutoff: usize,
+    /// Regular (non-rescue) NAM finding ignores randstrobes that occur more often than
+    /// this (see StrobemerIndex::is_filtered())
+    pub filter_cutoff: usize,
+
+    pub rescue_cutoff: usize,
 
     /// The randstrobes vector contains all randstrobes sorted by hash.
     /// The randstrobe_start_indices vector points to entries in the
@@ -127,10 +131,11 @@ impl<'a> StrobemerIndex<'a> {
         let randstrobe_start_indices = vec![];
         let stats = IndexCreationStatistics::default();
         let filter_cutoff = 0;
-        StrobemerIndex { references, parameters, stats, bits, filter_cutoff, randstrobes, randstrobe_start_indices }
+        let rescue_cutoff = 0;
+        StrobemerIndex { references, parameters, stats, bits, filter_cutoff, rescue_cutoff, randstrobes, randstrobe_start_indices }
     }
 
-    pub fn populate(&mut self, filter_fraction: f64) {
+    pub fn populate(&mut self, filter_fraction: f64, rescue_level: usize) {
         // Timer count_hash;
         let randstrobe_counts = count_all_randstrobes(self.references, &self.parameters);
         // stats.elapsed_counting_hashes = count_hash.duration();
@@ -242,15 +247,12 @@ impl<'a> StrobemerIndex<'a> {
         let index_cutoff = (unique_mers as f64 * filter_fraction) as usize;
         self.stats.index_cutoff = index_cutoff;
         self.filter_cutoff =
-            if !strobemer_counts.is_empty() {
-                usize::clamp(
-                    if index_cutoff < strobemer_counts.len() { strobemer_counts[index_cutoff] } else { *strobemer_counts.last().unwrap() },
-                    30,// cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
-                    100 // limit upper cutoff for normal NAM finding - use rescue mode instead
-                )
-            } else {
-                30usize
-            };
+            usize::clamp(
+                if index_cutoff < strobemer_counts.len() { strobemer_counts[index_cutoff] } else { *strobemer_counts.last().unwrap_or(&30) },
+                30,// cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
+                100 // limit upper cutoff for normal NAM finding - use rescue mode instead
+            );
+        self.rescue_cutoff = min(self.filter_cutoff * 2, 1000);
         //stats.elapsed_hash_index = hash_index_timer.duration();
         self.stats.distinct_strobemers = unique_mers;
     }
@@ -308,11 +310,10 @@ impl<'a> StrobemerIndex<'a> {
         let top_n = (hash >> (64 - self.bits)) as usize;
         let position_start = self.randstrobe_start_indices[top_n];
         let position_end = self.randstrobe_start_indices[top_n + 1];
-        if position_start == position_end {
-            return None;
-        }
         let bucket = &self.randstrobes[position_start as usize .. position_end as usize];
-        if bucket.len() < MAX_LINEAR_SEARCH {
+        if bucket.is_empty() {
+            return None;
+        } else if bucket.len() < MAX_LINEAR_SEARCH {
             for (pos, randstrobe) in bucket.iter().enumerate() {
                 if randstrobe.hash == hash { return Some(position_start as usize + pos); }
                 if randstrobe.hash > hash { return None; }
@@ -326,19 +327,34 @@ impl<'a> StrobemerIndex<'a> {
         } else {
             None
         }
-        //auto cmp = [](const RefRandstrobe lhs, const RefRandstrobe rhs) {return lhs.hash < rhs.hash; };
-
-        // auto pos = std::lower_bound(randstrobes.begin() + position_start,
-        //                                        randstrobes.begin() + position_end,
-        //                                        RefRandstrobe{key, 0, 0},
-        //                                        cmp);
-        // if pos->hash == key) return pos - randstrobes.begin();
-//        return None;
     }
 
-    pub fn is_filtered(&self, position: usize) -> bool {
+    pub fn get_count(&self, position: usize) -> usize {
+        const MAX_LINEAR_SEARCH: usize = 8;
+        let key = self.randstrobes[position].hash;
+        let top_n = (key >> (64 - self.bits)) as usize;
+        let position_end = self.randstrobe_start_indices[top_n + 1] as usize;
+
+        if position_end - position < MAX_LINEAR_SEARCH {
+            let mut count = 1;
+            for position_start in position+1..position_end {
+                if self.randstrobes[position_start].hash == key {
+                    count += 1;
+                } else {
+                    break;
+                }
+            }
+            count
+        } else {
+            let bucket = &self.randstrobes[position..position_end];
+            bucket.partition_point(|h| h.hash <= key)
+        }
+    }
+
+    /// Return whether the randstrobe at given position occurs more often than cutoff
+    pub fn is_too_frequent(&self, position: usize, cutoff: usize) -> bool {
         if position + self.filter_cutoff < self.randstrobes.len() {
-            self.randstrobes[position].hash == self.randstrobes[position + self.filter_cutoff].hash
+            self.randstrobes[position].hash == self.randstrobes[position + cutoff].hash
         } else {
             false
         }
