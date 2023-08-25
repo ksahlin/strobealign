@@ -694,6 +694,18 @@ static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<std::tu
     }
 }
 
+// compute dropoff of the first (top) NAM
+float top_dropoff(std::vector<Nam>& nams) {
+    auto& n_max = nams[0];
+    if (n_max.n_hits <= 2) {
+        return 1.0;
+    }
+    if (nams.size() > 1) {
+        return (float) nams[1].n_hits / n_max.n_hits;
+    }
+    return 0.0;
+}
+
 inline void align_PE(
     const Aligner& aligner,
     Sam &sam,
@@ -772,18 +784,9 @@ inline void align_PE(
     // If we get here, both reads have NAMs
     assert(!nams1.empty() && !nams2.empty());
 
-    int tries = 0;
-    double S = 0.0;
-    Nam n_max1 = nams1[0];
-    Nam n_max2 = nams2[0];
-
-    float score_dropoff1 = nams1.size() > 1 ? (float) nams1[1].n_hits / n_max1.n_hits : 0.0;
-    float score_dropoff2 = nams2.size() > 1 ? (float) nams2[1].n_hits / n_max2.n_hits : 0.0;
-    score_dropoff1 = n_max1.n_hits > 2 ? score_dropoff1 : 1.0;
-    score_dropoff2 = n_max2.n_hits > 2 ? score_dropoff2 : 1.0;
-
-
-    if (score_dropoff1 < dropoff && score_dropoff2 < dropoff && is_proper_nam_pair(n_max1, n_max2, mu, sigma)) { //( ((n_max1.ref_s - n_max2.ref_s) < mu + 4*sigma ) || ((n_max2.ref_s - n_max1.ref_s ) < mu + 4*sigma ) ) &&
+    if (top_dropoff(nams1) < dropoff && top_dropoff(nams2) < dropoff && is_proper_nam_pair(nams1[0], nams2[0], mu, sigma)) {
+        Nam n_max1 = nams1[0];
+        Nam n_max2 = nams2[0];
 
         bool consistent_nam1 = reverse_nam_if_needed(n_max1, read1, references, k);
         details[0].nam_inconsistent += !consistent_nam1;
@@ -806,8 +809,9 @@ inline void align_PE(
         }
         return;
     }
-
     // do full search of highest scoring pair
+    int tries = 0;
+    double S = 0.0;
 
     // Get top hit counts for all locations. The joint hit count is the sum of hits of the two mates. Then align as long as score dropoff or cnt < 20
 
@@ -846,8 +850,8 @@ inline void align_PE(
 //            std::cerr << "LOOOOOOOOOOOOOOOOOOOL " << min_ed << std::endl;
     std::vector<std::tuple<double,Alignment,Alignment>> high_scores; // (score, aln1, aln2)
     for (auto &[score_, n1, n2] : joint_NAM_scores) {
-        score_dropoff1 = (float) score_ / max_score;
-        if (tries >= max_tries || score_dropoff1 < dropoff) {
+        float score_dropoff = (float) score_ / max_score;
+        if (tries >= max_tries || score_dropoff < dropoff) {
             break;
         }
 
