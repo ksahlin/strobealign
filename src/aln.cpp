@@ -407,8 +407,8 @@ static inline std::vector<NamPair> get_best_scoring_nam_pairs(
     }
 
     // Find high-scoring R1 NAMs that are not part of a proper pair
-    Nam dummy_nan;
-    dummy_nan.ref_start = -1;
+    Nam dummy_nam;
+    dummy_nam.ref_start = -1;
     if (!nams1.empty()) {
         int best_joint_hits1 = best_joint_hits > 0 ? best_joint_hits : nams1[0].n_hits;
         for (auto &nam1 : nams1) {
@@ -419,7 +419,7 @@ static inline std::vector<NamPair> get_best_scoring_nam_pairs(
                 continue;
             }
 //            int n1_penalty = std::abs(nam1.query_span() - nam1.ref_span());
-            joint_nam_scores.push_back(NamPair{nam1.n_hits, nam1, dummy_nan});
+            joint_nam_scores.push_back(NamPair{nam1.n_hits, nam1, dummy_nam});
         }
     }
 
@@ -434,7 +434,7 @@ static inline std::vector<NamPair> get_best_scoring_nam_pairs(
                 continue;
             }
 //            int n2_penalty = std::abs(nam2.query_span() - nam2.ref_span());
-            joint_nam_scores.push_back(NamPair{nam2.n_hits, dummy_nan, nam2});
+            joint_nam_scores.push_back(NamPair{nam2.n_hits, dummy_nam, nam2});
         }
     }
 
