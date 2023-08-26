@@ -176,7 +176,7 @@ std::pair<float, std::vector<Nam>> find_nams(
 std::vector<Nam> find_nams_rescue(
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index,
-    unsigned int filter_cutoff
+    unsigned int rescue_cutoff
 ) {
     struct RescueHit {
         unsigned int count;
@@ -216,7 +216,7 @@ std::vector<Nam> find_nams_rescue(
     for (auto& rescue_hits : {hits_fw, hits_rc}) {
         int cnt = 0;
         for (auto &rh : rescue_hits) {
-            if ((rh.count > filter_cutoff && cnt >= 5) || rh.count > 1000) {
+            if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
                 break;
             }
             add_to_hits_per_ref(hits_per_ref, rh.query_start, rh.query_end, rh.is_rc, index, rh.position);
