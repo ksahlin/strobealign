@@ -910,7 +910,7 @@ inline void align_PE(
         if (r1_r2 || r2_r1) {
             // Treat a1/a2 as a pair
             float x = std::abs(a1.ref_start - a2.ref_start);
-            combined_score = (double)a1.score + (double)a2.score + log(normal_pdf(x, mu, sigma));
+            combined_score = (double)a1.score + (double)a2.score + std::max(-20.0f + 0.001f, log(normal_pdf(x, mu, sigma)));
             //* (1 - s2 / s1) * min_matches * log(s1);
         } else {
             // Treat a1/a2 as two single-end reads
