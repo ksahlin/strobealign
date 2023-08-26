@@ -16,9 +16,9 @@ void add_to_hits_per_ref(
     int query_end,
     bool is_rc,
     const StrobemerIndex& index,
-    size_t position,
-    int min_diff
+    size_t position
 ) {
+    int min_diff = std::numeric_limits<int>::max();
     for (const auto hash = index.get_hash(position); index.get_hash(position) == hash; ++position) {
         int ref_start = index.get_strobe1_position(position);
         int ref_end = ref_start + index.strobe2_offset(position) + index.k();
@@ -160,7 +160,7 @@ std::pair<float, std::vector<Nam>> find_nams(
                 continue;
             }
             nr_good_hits++;
-            add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, position, 100'000);
+            add_to_hits_per_ref(hits_per_ref, q.start, q.end, q.is_reverse, index, position);
         }
     }
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
@@ -171,6 +171,7 @@ std::pair<float, std::vector<Nam>> find_nams(
 /*
  * Find a query’s NAMs, using also some of the randstrobes that occur more often
  * than filter_cutoff.
+ *
  */
 std::vector<Nam> find_nams_rescue(
     const QueryRandstrobeVector &query_randstrobes,
@@ -218,7 +219,7 @@ std::vector<Nam> find_nams_rescue(
             if ((rh.count > filter_cutoff && cnt >= 5) || rh.count > 1000) {
                 break;
             }
-            add_to_hits_per_ref(hits_per_ref, rh.query_start, rh.query_end, rh.is_rc, index, rh.position, 1000);
+            add_to_hits_per_ref(hits_per_ref, rh.query_start, rh.query_end, rh.is_rc, index, rh.position);
             cnt++;
         }
     }
