@@ -18,6 +18,12 @@ struct NamPair {
     Nam nam2;
 };
 
+struct ScoredAlignmentPair {
+    double score;
+    Alignment alignment1;
+    Alignment alignment2;
+};
+
 static inline Alignment get_alignment(
     const Aligner& aligner,
     const Nam &nam,
@@ -318,19 +324,18 @@ static inline bool score_sw(const Alignment &a, const Alignment &b)
     return a.score > b.score;
 }
 
-static inline bool sort_scores(const std::tuple<double, Alignment, Alignment> &a,
-                               const std::tuple<double, Alignment, Alignment> &b)
+static inline bool sort_scores(const ScoredAlignmentPair& a, const ScoredAlignmentPair& b)
 {
-    return std::get<0>(a) > std::get<0>(b);
+    return a.score > b.score;
 }
 
-static inline std::vector<std::tuple<double,Alignment,Alignment>> get_best_scoring_pairs(
-    const std::vector<Alignment> &alignments1,
-    const std::vector<Alignment> &alignments2,
+static inline std::vector<ScoredAlignmentPair> get_best_scoring_pairs(
+    const std::vector<Alignment>& alignments1,
+    const std::vector<Alignment>& alignments2,
     float mu,
     float sigma
 ) {
-    std::vector<std::tuple<double,Alignment,Alignment>> pairs;
+    std::vector<ScoredAlignmentPair> pairs;
     for (auto &a1 : alignments1) {
         for (auto &a2 : alignments2) {
             float dist = std::abs(a1.ref_start - a2.ref_start);
@@ -342,7 +347,7 @@ static inline std::vector<std::tuple<double,Alignment,Alignment>> get_best_scori
                 // 10 corresponds to a value of log(normal_pdf(dist, mu, sigma)) of more than 4 stddevs away
                 score -= 10;
             }
-            pairs.emplace_back(std::make_tuple(score, a1, a2));
+            pairs.push_back(ScoredAlignmentPair{score, a1, a2});
         }
     }
     std::sort(pairs.begin(), pairs.end(), sort_scores); // Sorting by highest score first
@@ -606,9 +611,9 @@ void rescue_read(
     int mapq1, mapq2;
     if (high_scores.size() > 1) {
         auto best_aln_pair = high_scores[0];
-        auto S1 = std::get<0>(best_aln_pair);
+        auto S1 = best_aln_pair.score;
         auto second_aln_pair = high_scores[1];
-        auto S2 = std::get<0>(second_aln_pair);
+        auto S2 = second_aln_pair.score;
         std::tie(mapq1, mapq2) = joint_mapq_from_alignment_scores(S1, S2);
     } else {
         mapq1 = 60;
@@ -618,8 +623,8 @@ void rescue_read(
     // append both alignments to string here
     if (max_secondary == 0) {
         auto best_aln_pair = high_scores[0];
-        Alignment alignment1 = std::get<1>(best_aln_pair);
-        Alignment alignment2 = std::get<2>(best_aln_pair);
+        Alignment alignment1 = best_aln_pair.alignment1;
+        Alignment alignment2 = best_aln_pair.alignment2;
         if (swap_r1r2) {
             sam.add_pair(alignment2, alignment1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper_pair(alignment2, alignment1, mu, sigma), true, details);
         } else {
@@ -629,7 +634,7 @@ void rescue_read(
         auto max_out = std::min(high_scores.size(), max_secondary);
         bool is_primary = true;
         auto best_aln_pair = high_scores[0];
-        auto s_max = std::get<0>(best_aln_pair);
+        auto s_max = best_aln_pair.score;
         for (size_t i = 0; i < max_out; ++i) {
             if (i > 0) {
                 is_primary = false;
@@ -637,9 +642,9 @@ void rescue_read(
                 mapq2 = 0;
             }
             auto aln_pair = high_scores[i];
-            auto s_score = std::get<0>(aln_pair);
-            Alignment alignment1 = std::get<1>(aln_pair);
-            Alignment alignment2 = std::get<2>(aln_pair);
+            auto s_score = aln_pair.score;
+            Alignment alignment1 = aln_pair.alignment1;
+            Alignment alignment2 = aln_pair.alignment2;
             if (s_max - s_score < secondary_dropoff) {
                 if (swap_r1r2) {
                     bool is_proper = is_proper_pair(alignment2, alignment1, mu, sigma);
@@ -657,25 +662,25 @@ void rescue_read(
 }
 
 /* Compute paired-end mapping score given top alignments */
-static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<std::tuple<double,Alignment,Alignment>>& high_scores) {
+static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<ScoredAlignmentPair>& high_scores) {
     if (high_scores.size() <= 1) {
         return std::make_pair(60, 60);
     }
     // Calculate joint MAPQ score
     int n_mappings = high_scores.size();
     auto best_aln_pair = high_scores[0];
-    auto S1 = std::get<0>(best_aln_pair);
-    auto a1_m1 = std::get<1>(best_aln_pair);
-    auto a1_m2 = std::get<2>(best_aln_pair);
+    auto S1 = best_aln_pair.score;
+    auto a1_m1 = best_aln_pair.alignment1;
+    auto a1_m2 = best_aln_pair.alignment2;
     int a1_start_m1 = a1_m1.ref_start;
     int a1_start_m2 = a1_m2.ref_start;
     int a1_ref_id_m1 = a1_m1.ref_id;
     int a1_ref_id_m2 = a1_m2.ref_id;
 
     auto second_aln_pair = high_scores[1];
-    auto S2 = std::get<0>(second_aln_pair);
-    auto a2_m1 = std::get<1>(second_aln_pair);
-    auto a2_m2 = std::get<2>(second_aln_pair);
+    auto S2 = second_aln_pair.score;
+    auto a2_m1 = second_aln_pair.alignment1;
+    auto a2_m2 = second_aln_pair.alignment2;
     int a2_start_m1 = a2_m1.ref_start;
     int a2_start_m2 = a2_m2.ref_start;
     int a2_ref_id_m1 = a2_m1.ref_id;
@@ -687,7 +692,7 @@ static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<std::tu
     } else if (n_mappings > 2) {
         // individually highest alignment score was the same alignment as the joint highest score - calculate mapq relative to third best
         auto third_aln_pair = high_scores[2];
-        auto S2 = std::get<0>(third_aln_pair);
+        auto S2 = third_aln_pair.score;
         return joint_mapq_from_alignment_scores(S1, S2);
     } else {
         // there was no other alignment
@@ -844,7 +849,7 @@ inline void align_PE(
     }
 
     // Turn pairs of high-scoring NAMs into pairs of alignments
-    std::vector<std::tuple<double,Alignment,Alignment>> high_scores; // (score, aln1, aln2)
+    std::vector<ScoredAlignmentPair> high_scores;
     int tries = 0;
     auto max_score = joint_nam_scores[0].score;
     for (auto &[score_, n1, n2] : joint_nam_scores) {
@@ -913,53 +918,39 @@ inline void align_PE(
             combined_score = (double)a1.score + (double)a2.score - 20;
         }
 
-        std::tuple<double, Alignment, Alignment> aln_tuple(combined_score, a1, a2);
-        high_scores.push_back(aln_tuple);
+        ScoredAlignmentPair aln_pair{combined_score, a1, a2};
+        high_scores.push_back(aln_pair);
 
         tries++;
     }
 
     // Finally, add highest scores of both mates as individually mapped
     double combined_score = (double)a1_indv_max.score + (double)a2_indv_max.score - 20; // 20 corresponds to  a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
-    std::tuple<double, Alignment, Alignment> aln_tuple(combined_score, a1_indv_max, a2_indv_max);
+    ScoredAlignmentPair aln_tuple{combined_score, a1_indv_max, a2_indv_max};
     high_scores.push_back(aln_tuple);
     std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
 
-//            std::cerr << x << " " << mu << " " << sigma << " " << log( normal_pdf(x, mu, sigma ) ) << std::endl;
-//            std::cerr << 200 << " " << 200 << " " << 30 << " " << log( normal_pdf(200, 200, 30 ) ) << std::endl;
-//            std::cerr << 200 << " " << 200 << " " << 200 << " " << log( normal_pdf(200, 200, 200 ) ) << std::endl;
-//            std::cerr << 350 << " " << 200 << " " << 30 << " " << log( normal_pdf(350, 200, 30 ) ) << std::endl;
-//            std::cerr << 1000 << " " << 200 << " " << 200 << " " << log( normal_pdf(400, 200, 200 ) ) << std::endl;
-
-//            for (auto hsp: high_scores){
-//                auto score_ = std::get<0>(hsp);
-//                auto s1_tmp = std::get<1>(hsp);
-//                auto s2_tmp = std::get<2>(hsp);
-//                std::cerr << "HSP SCORE: " << score_ << " " << s1_tmp.ref_start << " " << s2_tmp.ref_start << " " << s1_tmp.sw_score <<  " " << s2_tmp.sw_score << std::endl;
-//            }
-    int mapq1, mapq2;
-    std::tie(mapq1, mapq2) = joint_mapq_from_high_scores(high_scores);
-
+    auto [mapq1, mapq2] = joint_mapq_from_high_scores(high_scores);
     auto best_aln_pair = high_scores[0];
-    auto alignment1 = std::get<1>(best_aln_pair);
-    auto alignment2 = std::get<2>(best_aln_pair);
+    auto alignment1 = best_aln_pair.alignment1;
+    auto alignment2 = best_aln_pair.alignment2;
     if (max_secondary == 0) {
         bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
         sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, true, details);
     } else {
-        int max_out = std::min(high_scores.size(), max_secondary);
+        auto max_out = std::min(high_scores.size(), max_secondary);
         // remove eventual duplicates - comes from, e.g., adding individual best alignments above (if identical to joint best alignment)
-        float s_max = std::get<0>(best_aln_pair);
+        float s_max = best_aln_pair.score;
         int prev_start_m1 = alignment1.ref_start;
         int prev_start_m2 = alignment2.ref_start;
         int prev_ref_id_m1 = alignment1.ref_id;
         int prev_ref_id_m2 = alignment2.ref_id;
         bool is_primary = true;
-        for (int i = 0; i < max_out; ++i) {
+        for (size_t i = 0; i < max_out; ++i) {
             auto aln_pair = high_scores[i];
-            alignment1 = std::get<1>(aln_pair);
-            alignment2 = std::get<2>(aln_pair);
-            float s_score = std::get<0>(aln_pair);
+            alignment1 = aln_pair.alignment1;
+            alignment2 = aln_pair.alignment2;
+            float s_score = aln_pair.score;
             if (i > 0) {
                 is_primary = false;
                 mapq1 = 255;
