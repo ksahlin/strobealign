@@ -305,12 +305,12 @@ static inline std::pair<int, int> joint_mapq_from_alignment_scores(float score1,
     return std::make_pair(mapq, mapq);
 }
 
-static inline float normal_pdf(float x, float m, float s)
+static inline float normal_pdf(float x, float mu, float sigma)
 {
     static const float inv_sqrt_2pi = 0.3989422804014327;
-    const float a = (x - m) / s;
+    const float a = (x - mu) / sigma;
 
-    return inv_sqrt_2pi / s * std::exp(-0.5f * a * a);
+    return inv_sqrt_2pi / sigma * std::exp(-0.5f * a * a);
 }
 
 static inline bool score_sw(const Alignment &a, const Alignment &b)
