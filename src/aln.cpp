@@ -814,40 +814,38 @@ inline void align_PE(
     }
 
     // Do a full search for highest-scoring pair
-    int tries = 0;
-    double S = 0.0;
-
     // Get top hit counts for all locations. The joint hit count is the sum of hits of the two mates. Then align as long as score dropoff or cnt < 20
 
     std::vector<NamPair> joint_nam_scores = get_best_scoring_nam_pairs(nams1, nams2, mu, sigma);
 
+    // Cache for already computed alignments. Maps NAM ids to alignments.
     robin_hood::unordered_map<int,Alignment> is_aligned1;
     robin_hood::unordered_map<int,Alignment> is_aligned2;
-    auto n1_max = nams1[0];
 
-    bool consistent_nam1 = reverse_nam_if_needed(n1_max, read1, references, k);
-    details[0].nam_inconsistent += !consistent_nam1;
-    auto a1_indv_max = get_alignment(aligner, n1_max, references, read1, consistent_nam1);
-//            a1_indv_max.sw_score = -10000;
-    is_aligned1[n1_max.nam_id] = a1_indv_max;
-    details[0].tried_alignment++;
-    details[0].gapped += a1_indv_max.gapped;
-    auto n2_max = nams2[0];
-    bool consistent_nam2 = reverse_nam_if_needed(n2_max, read2, references, k);
-    details[1].nam_inconsistent += !consistent_nam2;
-    auto a2_indv_max = get_alignment(aligner, n2_max, references, read2, consistent_nam2);
-//            a2_indv_max.sw_score = -10000;
-    is_aligned2[n2_max.nam_id] = a2_indv_max;
-    details[1].tried_alignment++;
-    details[1].gapped += a2_indv_max.gapped;
+    // These keep track of the alignments that would be best if we treated
+    // the paired-end read as two single-end reads.
+    Alignment a1_indv_max, a2_indv_max;
+    {
+        auto n1_max = nams1[0];
+        bool consistent_nam1 = reverse_nam_if_needed(n1_max, read1, references, k);
+        details[0].nam_inconsistent += !consistent_nam1;
+        a1_indv_max = get_alignment(aligner, n1_max, references, read1, consistent_nam1);
+        is_aligned1[n1_max.nam_id] = a1_indv_max;
+        details[0].tried_alignment++;
+        details[0].gapped += a1_indv_max.gapped;
 
-    std::string r_tmp;
-//            int min_ed1, min_ed2 = 1000;
-//            bool new_opt1, new_opt2 = false;
-//            bool a1_is_rc, a2_is_rc;
-//            int ref_start, ref_len, ref_end;
-//            std::cerr << "LOOOOOOOOOOOOOOOOOOOL " << min_ed << std::endl;
+        auto n2_max = nams2[0];
+        bool consistent_nam2 = reverse_nam_if_needed(n2_max, read2, references, k);
+        details[1].nam_inconsistent += !consistent_nam2;
+        a2_indv_max = get_alignment(aligner, n2_max, references, read2, consistent_nam2);
+        is_aligned2[n2_max.nam_id] = a2_indv_max;
+        details[1].tried_alignment++;
+        details[1].gapped += a2_indv_max.gapped;
+    }
+
+    // Turn pairs of high-scoring NAMs into pairs of alignments
     std::vector<std::tuple<double,Alignment,Alignment>> high_scores; // (score, aln1, aln2)
+    int tries = 0;
     auto max_score = joint_nam_scores[0].score;
     for (auto &[score_, n1, n2] : joint_nam_scores) {
         float score_dropoff = (float) score_ / max_score;
@@ -855,8 +853,11 @@ inline void align_PE(
             break;
         }
 
-        //////// the actual testing of base pair alignment part start
+        // Get alignments for the two NAMs, either by computing the alignment,
+        // retrieving it from the cache or by attempting a rescue (if the NAM
+        // actually is a dummy, that is, only the partner is available)
         Alignment a1;
+        // ref_start == -1 is a marker for a dummy NAM
         if (n1.ref_start >= 0) {
             if (is_aligned1.find(n1.nam_id) != is_aligned1.end() ){
                 a1 = is_aligned1[n1.nam_id];
@@ -869,16 +870,15 @@ inline void align_PE(
                 details[0].gapped += a1.gapped;
             }
         } else {
-            // Force SW alignment to rescue mate
             details[0].mate_rescue += rescue_mate(aligner, n2, references, read2, read1, a1, mu, sigma, k);
             details[0].tried_alignment++;
         }
-
-        if (a1.score >  a1_indv_max.score){
+        if (a1.score > a1_indv_max.score) {
             a1_indv_max = a1;
         }
 
         Alignment a2;
+        // ref_start == -1 is a marker for a dummy NAM
         if (n2.ref_start >= 0) {
             if (is_aligned2.find(n2.nam_id) != is_aligned2.end() ){
                 a2 = is_aligned2[n2.nam_id];
@@ -891,11 +891,9 @@ inline void align_PE(
                 details[1].gapped += a2.gapped;
             }
         } else {
-            // Force SW alignment to rescue mate
             details[1].mate_rescue += rescue_mate(aligner, n1, references, read1, read2, a2, mu, sigma, k);
             details[1].tried_alignment++;
         }
-
         if (a2.score > a2_indv_max.score){
             a2_indv_max = a2;
         }
@@ -903,24 +901,27 @@ inline void align_PE(
         bool r1_r2 = a2.is_rc && (a1.ref_start <= a2.ref_start) && ((a2.ref_start - a1.ref_start) < mu + 10*sigma); // r1 ---> <---- r2
         bool r2_r1 = a1.is_rc && (a2.ref_start <= a1.ref_start) && ((a1.ref_start - a2.ref_start) < mu + 10*sigma); // r2 ---> <---- r1
 
+        double combined_score;
         if (r1_r2 || r2_r1) {
+            // Treat a1/a2 as a pair
             float x = std::abs(a1.ref_start - a2.ref_start);
-            S = (double)a1.score + (double)a2.score + log(normal_pdf(x, mu, sigma));  //* (1 - s2 / s1) * min_matches * log(s1);
-//                    std::cerr << " CASE1: " << S << " " <<  log( normal_pdf(x, mu, sigma ) ) << " " << (double)a1.sw_score << " " << (double)a2.sw_score << std::endl;
-        } else { // individual score
-            S = (double)a1.score + (double)a2.score - 20; // 20 corresponds to a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
-//                    std::cerr << " CASE2: " << S << " " << (double)a1.sw_score << " " << (double)a2.sw_score << std::endl;
+            combined_score = (double)a1.score + (double)a2.score + log(normal_pdf(x, mu, sigma));
+            //* (1 - s2 / s1) * min_matches * log(s1);
+        } else {
+            // Treat a1/a2 as two single-end reads
+            // 20 corresponds to a value of log(normal_pdf(x, mu, sigma)) of more than 5 stddevs away (for most reasonable values of stddev)
+            combined_score = (double)a1.score + (double)a2.score - 20;
         }
 
-        std::tuple<double, Alignment, Alignment> aln_tuple(S, a1, a2);
+        std::tuple<double, Alignment, Alignment> aln_tuple(combined_score, a1, a2);
         high_scores.push_back(aln_tuple);
 
         tries++;
     }
 
     // Finally, add highest scores of both mates as individually mapped
-    S = (double)a1_indv_max.score + (double)a2_indv_max.score - 20; // 20 corresponds to  a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
-    std::tuple<double, Alignment, Alignment> aln_tuple (S, a1_indv_max, a2_indv_max);
+    double combined_score = (double)a1_indv_max.score + (double)a2_indv_max.score - 20; // 20 corresponds to  a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
+    std::tuple<double, Alignment, Alignment> aln_tuple(combined_score, a1_indv_max, a2_indv_max);
     high_scores.push_back(aln_tuple);
     std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
 
@@ -944,8 +945,7 @@ inline void align_PE(
     auto alignment2 = std::get<2>(best_aln_pair);
     if (max_secondary == 0) {
         bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
-        sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc,
-                        mapq1, mapq2, is_proper, true, details);
+        sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, true, details);
     } else {
         int max_out = std::min(high_scores.size(), max_secondary);
         // remove eventual duplicates - comes from, e.g., adding individual best alignments above (if identical to joint best alignment)
@@ -966,15 +966,14 @@ inline void align_PE(
                 mapq2 = 255;
                 bool same_pos = (prev_start_m1 == alignment1.ref_start) && (prev_start_m2 == alignment2.ref_start);
                 bool same_ref = (prev_ref_id_m1 == alignment1.ref_id) && (prev_ref_id_m2 == alignment2.ref_id);
-                if ( same_pos && same_ref ){
+                if (same_pos && same_ref) {
                     continue;
                 }
             }
 
             if (s_max - s_score < secondary_dropoff) {
                 bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
-                sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc,
-                                mapq1, mapq2, is_proper, is_primary, details);
+                sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary, details);
             } else {
                 break;
             }
