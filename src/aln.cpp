@@ -724,7 +724,7 @@ inline void align_PE(
     std::array<Details, 2>& details,
     float dropoff,
     i_dist_est &isize_est,
-    int max_tries,
+    unsigned max_tries,
     size_t max_secondary
 ) {
     const auto mu = isize_est.mu;
@@ -850,11 +850,11 @@ inline void align_PE(
 
     // Turn pairs of high-scoring NAMs into pairs of alignments
     std::vector<ScoredAlignmentPair> high_scores;
-    int tries = 0;
     auto max_score = joint_nam_scores[0].score;
     for (auto &[score_, n1, n2] : joint_nam_scores) {
         float score_dropoff = (float) score_ / max_score;
-        if (tries >= max_tries || score_dropoff < dropoff) {
+
+        if (high_scores.size() >= max_tries || score_dropoff < dropoff) {
             break;
         }
 
@@ -920,8 +920,6 @@ inline void align_PE(
 
         ScoredAlignmentPair aln_pair{combined_score, a1, a2};
         high_scores.push_back(aln_pair);
-
-        tries++;
     }
 
     // Finally, add highest scores of both mates as individually mapped
