@@ -38,7 +38,7 @@ std::vector<Nam> merge_hits_into_nams(
     std::vector<Nam> nams;
     int nam_id_cnt = 0;
     for (auto &[ref_id, hits] : hits_per_ref) {
-        if (sort) {
+        if (true) {
             std::sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) -> bool {
                     // first sort on query starts, then on reference starts
                     return (a.query_start < b.query_start) || ( (a.query_start == b.query_start) && (a.ref_start < b.ref_start) );
