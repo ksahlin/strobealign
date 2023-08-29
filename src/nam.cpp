@@ -66,26 +66,20 @@ std::vector<Nam> merge_hits_into_nams(
                 for (auto& o : open_nams) {
 
                     // Extend NAM
-                    if ((o.query_prev_hit_startpos < h.query_start) && (h.query_start <= o.query_end ) && (o.ref_prev_hit_startpos < h.ref_start) && (h.ref_start <= o.ref_end) ){
+                    if ((o.query_start < h.query_start) && (h.query_start <= o.query_end ) && (o.ref_start < h.ref_start) && (h.ref_start <= o.ref_end) ){
                         if ((h.query_end > o.query_end) && (h.ref_end > o.ref_end)) {
                             o.query_end = h.query_end;
                             o.ref_end = h.ref_end;
-    //                        o.previous_query_start = h.query_s;
-    //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
                             o.query_prev_hit_startpos = h.query_start; // log the last strobemer hit in case of outputting paf
                             o.ref_prev_hit_startpos = h.ref_start; // log the last strobemer hit in case of outputting paf
                             o.n_hits ++;
-    //                        o.score += (float)1/ (float)h.count;
                             is_added = true;
                             break;
                         }
                         else if ((h.query_end <= o.query_end) && (h.ref_end <= o.ref_end)) {
-    //                        o.previous_query_start = h.query_s;
-    //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
                             o.query_prev_hit_startpos = h.query_start; // log the last strobemer hit in case of outputting paf
                             o.ref_prev_hit_startpos = h.ref_start; // log the last strobemer hit in case of outputting paf
                             o.n_hits ++;
-    //                        o.score += (float)1/ (float)h.count;
                             is_added = true;
                             break;
                         }
