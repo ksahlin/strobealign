@@ -66,7 +66,7 @@ std::vector<Nam> merge_hits_into_nams(
                 for (auto& o : open_nams) {
 
                     // Extend NAM
-                    if ((o.query_start < h.query_start) && (h.query_start <= o.query_end ) && (o.ref_start < h.ref_start) && (h.ref_start <= o.ref_end) ){
+                    if ((o.query_start < h.query_start) && (h.query_start <= o.query_end + 10) && (o.ref_start < h.ref_start) && (h.ref_start <= o.ref_end + 10) ){
                         if ((h.query_end > o.query_end) && (h.ref_end > o.ref_end)) {
                             o.query_end = h.query_end;
                             o.ref_end = h.ref_end;
