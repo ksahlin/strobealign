@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 use crate::cigar::Cigar;
+use crate::fasta::RefSequence;
 
 pub const PAIRED: u16 = 1;
 pub const PROPER_PAIR: u16 = 2;
@@ -91,5 +92,49 @@ impl Display for SamRecord {
         )
         // TODO
         // alignment_score, edit_distance
+    }
+}
+
+pub struct SamHeader<'a> {
+    references: &'a [RefSequence],
+    cmd_line: &'a str,
+    version: &'a str,
+    read_group_id: Option<&'a str>,
+    read_group_fields: &'a [&'a str],
+}
+
+impl<'a> SamHeader<'a> {
+    pub fn new(
+        references: &'a [RefSequence],
+        cmd_line: &'a str,
+        version: &'a str,
+        read_group_id: Option<&'a str>,
+        read_group_fields: &'a [&'a str]
+    ) -> Self {
+        SamHeader {
+            references,
+            cmd_line,
+            version,
+            read_group_id,
+            read_group_fields,
+        }
+    }
+}
+
+impl<'a> Display for SamHeader<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "@HD\tVN:1.6\tSO:unsorted")?;
+
+        for refseq in self.references {
+            writeln!(f, "@SQ\tSN:{}\tLN:{}", refseq.name, refseq.sequence.len())?;
+        }
+        if let Some(read_group_id) = self.read_group_id {
+            write!(f, "@RG\tID:{}", read_group_id)?;
+            for field in self.read_group_fields {
+                write!(f, "\t{}", &field)?;
+            }
+            f.write_str("\n")?;
+        }
+        writeln!(f, "@PG\tID:strobealign\tPN:strobealign\tVN:{}\tCL:{}", &self.version, &self.cmd_line)
     }
 }

@@ -1,3 +1,4 @@
+use std::env;
 use std::fs::File;
 use std::io::{BufReader, Error};
 use std::path::Path;
@@ -7,6 +8,7 @@ use rstrobes::fastq::FastqReader;
 use rstrobes::fasta;
 use rstrobes::index::{IndexParameters, StrobemerIndex};
 use rstrobes::mapper::{map_single_end_read, MappingParameters};
+use rstrobes::sam::SamHeader;
 
 #[derive(Parser, Debug)]
 #[command(version, long_about = None)]
@@ -112,6 +114,18 @@ fn main() -> Result<(), Error> {
     let mapping_parameters = MappingParameters::default();
 
     let aligner = Aligner::new(Scores::default());
+
+    let cmd_line = env::args().skip(1).collect::<Vec<_>>().join(" ");
+    let read_group_fields = vec![];
+    let header = SamHeader::new(
+        &references,
+        &cmd_line,
+        "0.0.1",
+        None,
+        &read_group_fields,
+    );
+    print!("{}", header);
+
     // let mapper = Mapper::new(index);
     let f = File::open(&args.fastq_path)?;
     for record in FastqReader::new(f) {
