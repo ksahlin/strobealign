@@ -120,7 +120,9 @@ impl Cigar {
     }
 
     pub fn extend(&mut self, other: &Cigar) {
-        self.ops.extend(&other.ops);
+        for oplen in &other.ops {
+            self.push(oplen.op, oplen.len)
+        }
     }
     /* This works only if I, D, X, = are the only operations used */
     /*pub fn edit_distance(&self) -> usize {

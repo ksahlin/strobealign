@@ -82,6 +82,7 @@ impl Aligner {
         }
 
         let mut alignment: AlignmentInfo = self.ssw_aligner.align(query, refseq)?.into();
+        alignment.cigar = alignment.cigar.with_eqx(query, refseq);
 
         // Try to extend to beginning of the query to get an end bonus
         let mut qstart = alignment.query_start;

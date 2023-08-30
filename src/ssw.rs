@@ -122,19 +122,20 @@ impl Aligner {
             return None;
         }
 
-        let query = translate(query);
-        let refseq = translate(refseq);
-        let profile = Profile::new(&query, &self.score_matrix);
+        let translated_query = translate(query);
+        let translated_refseq = translate(refseq);
+        let profile = Profile::new(&translated_query, &self.score_matrix);
         let flag = 0x0f;
         let score_filter = 0;
         let distance_filter = i32::MAX;
-        let mask_len = std::cmp::max(query.len() / 2, 15);
+        let mask_len = std::cmp::max(translated_query.len() / 2, 15);
 
-        let alignment = profile.align(&refseq, self.gap_open_penalty, self.gap_extend_penalty, flag, score_filter, distance_filter, mask_len as i32);
+        let alignment = profile.align(&translated_refseq, self.gap_open_penalty, self.gap_extend_penalty, flag, score_filter, distance_filter, mask_len as i32);
         if !alignment.is_valid() {
             return None;
         }
-
-        Some(SswAlignment::from(alignment))
+        let mut alignment = SswAlignment::from(alignment);
+        alignment.cigar = alignment.cigar.with_eqx(query, refseq);
+        Some(alignment)
     }
 }
