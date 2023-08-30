@@ -222,6 +222,10 @@ pub fn map_single_end_read(
         let consistent_nam = reverse_nam_if_needed(nam, &read, references, k);
         // details.nam_inconsistent += !consistent_nam;
         let alignment = get_alignment(aligner, nam, references, &read, consistent_nam);
+        if alignment.is_none() {
+            continue;
+        }
+        let alignment = alignment.unwrap();
         // details.tried_alignment += 1;
         // details.gapped += sam_aln.gapped;
 
@@ -274,7 +278,7 @@ fn get_alignment(
     references: &[RefSequence],
     read: &Read,
     consistent_nam: bool,
-) -> Alignment {
+) -> Option<Alignment> {
     let query = if nam.is_revcomp { read.rc() } else { read.seq() };
     let refseq = &references[nam.ref_id].sequence;
 
@@ -310,10 +314,10 @@ fn get_alignment(
         let ref_start = projected_ref_start.saturating_sub(50);
         let ref_end = min(nam.ref_end + 50, refseq.len());
         let segment = &refseq[ref_start..ref_end];
-        info = aligner.align(query, segment).expect("alignment failed");
+        info = aligner.align(query, segment)?;
         result_ref_start = ref_start + info.ref_start;
     }
-    Alignment {
+    Some(Alignment {
         cigar: info.cigar.clone(),
         edit_distance: info.edit_distance,
         soft_clip_left: info.query_start,
@@ -325,5 +329,5 @@ fn get_alignment(
         is_unaligned: false,
         reference_id: nam.ref_id,
         gapped,
-    }
+    })
 }

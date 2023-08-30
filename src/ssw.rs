@@ -54,9 +54,9 @@ impl<'a> From<SswAlignment<'a>> for AlignmentInfo {
         AlignmentInfo {
             score: raw.score1 as u32,
             ref_start: raw.ref_begin1 as usize,
-            ref_end: raw.ref_end1 as usize + 1,
+            ref_end: (raw.ref_end1 + 1) as usize,
             query_start: raw.read_begin1 as usize,
-            query_end: raw.read_end1 as usize + 1,
+            query_end: (raw.read_end1 + 1) as usize,
             cigar,
             edit_distance: 0, // TODO
         }
@@ -76,11 +76,15 @@ impl<'a> Profile<'a> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn align(&self, translated_refseq: &[i8], gap_open_penalty: u8, gap_extend_penalty: u8, flag: u8, score_filter: u16, distance_filter: i32, mask_len: i32) -> SswAlignment {
-        let alignment = unsafe {
-            raw::ssw_align(self.profile, translated_refseq.as_ptr(), translated_refseq.len() as i32, gap_open_penalty, gap_extend_penalty, flag, score_filter, distance_filter, mask_len)
+    fn align(&self, translated_refseq: &[i8], gap_open_penalty: u8, gap_extend_penalty: u8, flag: u8, score_filter: u16, distance_filter: i32, mask_len: i32) -> Option<SswAlignment> {
+        let alignment;
+        unsafe {
+            alignment = raw::ssw_align(self.profile, translated_refseq.as_ptr(), translated_refseq.len() as i32, gap_open_penalty, gap_extend_penalty, flag, score_filter, distance_filter, mask_len);
+            if (*alignment).ref_begin1 == -1 || (*alignment).read_begin1 == -1 {
+                return None;
+            }
         };
-        SswAlignment { raw: alignment, _align: PhantomData }
+        Some(SswAlignment { raw: alignment, _align: PhantomData })
     }
 }
 
@@ -124,7 +128,7 @@ impl SswAligner {
         let distance_filter = i32::MAX;
         let mask_len = std::cmp::max(translated_query.len() / 2, 15);
 
-        let alignment = profile.align(&translated_refseq, self.gap_open_penalty, self.gap_extend_penalty, flag, score_filter, distance_filter, mask_len as i32);
+        let alignment = profile.align(&translated_refseq, self.gap_open_penalty, self.gap_extend_penalty, flag, score_filter, distance_filter, mask_len as i32)?;
         if !alignment.is_valid() {
             return None;
         }
