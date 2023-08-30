@@ -89,6 +89,7 @@ impl Cigar {
     }
 
     pub fn push(&mut self, op: CigarOperation, len: usize) {
+        if len == 0 { return; }
         if self.ops.is_empty() || self.ops.last().unwrap().op != op {
             self.ops.push(OpLen { op, len });
         } else {
@@ -120,26 +121,23 @@ impl Cigar {
     }
 
     pub fn extend(&mut self, other: &Cigar) {
+        // TODO use push only for first, then extend
         for oplen in &other.ops {
             self.push(oplen.op, oplen.len)
         }
     }
-    /* This works only if I, D, X, = are the only operations used */
-    /*pub fn edit_distance(&self) -> usize {
-        let dist = 0;
-        for op_len in self.ops {
-            let len = op_len >> 4;
-            match op_len & 0xf {
 
+    /// Return edit distance. Assumes =/X is used - M operations are not counted!
+    pub fn edit_distance(&self) -> usize {
+        let mut dist = 0;
+        for op_len in &self.ops {
+            match op_len.op {
+                CigarOperation::X|CigarOperation::Insertion|CigarOperation::Deletion => { dist += op_len.len; },
                 _ => {},
-            }
-            let op = op_len & 0xf;
-            if op == CigarOperation::Insertion || op == CIGAR_DEL || op == CIGAR_X) {
-                dist += len;
             }
         }
         dist
-    }*/
+    }
 
     /// Return a new Cigar that uses = and X operations instead of M
     pub fn with_eqx(&self, query: &[u8], refseq: &[u8]) -> Cigar {

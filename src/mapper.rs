@@ -1,6 +1,6 @@
 use std::cmp::{min, Reverse};
 use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
-use crate::cigar::Cigar;
+use crate::cigar::{Cigar, CigarOperation};
 use crate::fasta::RefSequence;
 use crate::index::{IndexParameters, StrobemerIndex};
 use crate::nam::{find_nams, find_nams_rescue, Nam, reverse_nam_if_needed};
@@ -46,8 +46,9 @@ struct Alignment {
     reference_id: usize,
     ref_start: usize,
     cigar: Cigar,
-    edit_distance: u32,
-    soft_clipped: u32,
+    edit_distance: usize,
+    soft_clip_left: usize,
+    soft_clip_right: usize,
     score: u32,
     length: usize,
     is_revcomp: bool,
@@ -58,8 +59,8 @@ struct Alignment {
 }
 
 impl Alignment {
-    fn global_edit_distance(&self) -> u32 {
-        self.edit_distance + self.soft_clipped
+    fn global_edit_distance(&self) -> usize {
+        self.edit_distance + self.soft_clip_left + self.soft_clip_right
     }
 }
 
@@ -128,16 +129,21 @@ fn make_sam_record(alignment: &Alignment, references: &[RefSequence], record: &S
     } else {
         record.qualities.clone()
     };
+    let mut cigar = Cigar::new();
+    cigar.push(CigarOperation::Softclip, alignment.soft_clip_left);
+    cigar.extend(&alignment.cigar);
+    cigar.push(CigarOperation::Softclip, alignment.soft_clip_right);
+
     SamRecord {
         query_name: record.name.clone(),
         flags,
         reference_name: Some(references[alignment.reference_id].name.clone()),
         pos: Some(alignment.ref_start as u32),
         mapq,
-        cigar: Some(alignment.cigar.clone()),
+        cigar: Some(cigar),
         query_sequence: Some(query_sequence),
         query_qualities: Some(query_qualities),
-        edit_distance: Some(alignment.edit_distance),
+        edit_distance: Some(alignment.edit_distance as u32),
         alignment_score: Some(alignment.score),
         .. SamRecord::default()
         // TODO details: details
@@ -198,7 +204,7 @@ pub fn map_single_end_read(
     let mut sam_records = Vec::new();
     let mut alignments = Vec::new();
     let nam_max = nams[0];
-    let mut best_edit_distance = u32::MAX;
+    let mut best_edit_distance = usize::MAX;
     let mut best_score = 0;
     let mut second_best_score = 0;
     let mut best_alignment = Alignment::default();
@@ -307,12 +313,11 @@ fn get_alignment(
         info = aligner.align(query, segment).expect("alignment failed");
         result_ref_start = ref_start + info.ref_start;
     }
-    // TODO alignment cigar does not contain soft clipping
-    let softclipped = info.query_start + (query.len() - info.query_end);
     Alignment {
         cigar: info.cigar.clone(),
         edit_distance: info.edit_distance,
-        soft_clipped: softclipped as u32,
+        soft_clip_left: info.query_start,
+        soft_clip_right: query.len() - info.query_end,
         score: info.score,
         ref_start: result_ref_start,
         length: info.ref_span(),

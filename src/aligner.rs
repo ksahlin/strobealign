@@ -26,7 +26,7 @@ impl Default for Scores {
 #[derive(Debug)]
 pub struct AlignmentInfo {
     pub cigar: Cigar,
-    pub edit_distance: u32,
+    pub edit_distance: usize,
     pub ref_start: usize,
     pub ref_end: usize,
     pub query_start: usize,
@@ -68,7 +68,7 @@ impl Aligner {
             return None;
         }
 
-        let mut alignment: AlignmentInfo = self.ssw_aligner.align(query, refseq)?.into();
+        let mut alignment = self.ssw_aligner.align(query, refseq)?;
 
         // Try to extend to beginning of the query to get an end bonus
         let mut qstart = alignment.query_start;
@@ -190,37 +190,18 @@ pub fn hamming_align(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8, end_
     if query.len() != refseq.len() {
         return None;
     }
-
     let (segment_start, segment_end, score) = highest_scoring_segment(query, refseq, match_, mismatch, end_bonus);
 
-    let mut cigar = Cigar::new();
-    if segment_start > 0 {
-        cigar.push(CigarOperation::Softclip, segment_start);
-    }
-
     // Create CIGAR string and count mismatches
-    let mut counter = 0;
-    let mut prev_is_match = false;
+    let mut cigar = Cigar::new();
     let mut mismatches = 0;
-    let mut first = true;
     for i in segment_start..segment_end {
-        let is_match = query[i] == refseq[i];
-        mismatches += u32::from(!is_match);
-        if !first && is_match != prev_is_match {
-            cigar.push(if prev_is_match { CigarOperation::Eq } else { CigarOperation::X }, counter);
-            counter = 0;
+        if query[i] != refseq[i] {
+            mismatches += 1;
+            cigar.push(CigarOperation::X, 1);
+        } else {
+            cigar.push(CigarOperation::Eq, 1);
         }
-        counter += 1;
-        prev_is_match = is_match;
-        first = false;
-    }
-    if !first {
-        cigar.push(if prev_is_match { CigarOperation::Eq } else { CigarOperation::X }, counter);
-    }
-
-    let soft_right = query.len() - segment_end;
-    if soft_right > 0 {
-        cigar.push(CigarOperation::Softclip, soft_right);
     }
 
     Some(AlignmentInfo {

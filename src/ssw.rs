@@ -130,6 +130,7 @@ impl SswAligner {
         }
         let mut alignment = AlignmentInfo::from(alignment);
         alignment.cigar = alignment.cigar.with_eqx(&query[alignment.query_start..alignment.query_end], &refseq[alignment.ref_start..alignment.ref_end]);
+        alignment.edit_distance = alignment.cigar.edit_distance();
         Some(alignment)
     }
 }
