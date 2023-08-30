@@ -23,6 +23,7 @@ impl Default for Scores {
     }
 }
 
+#[derive(Debug)]
 pub struct AlignmentInfo {
     pub cigar: Cigar,
     pub edit_distance: u32,
@@ -82,7 +83,6 @@ impl Aligner {
         }
 
         let mut alignment: AlignmentInfo = self.ssw_aligner.align(query, refseq)?.into();
-        alignment.cigar = alignment.cigar.with_eqx(query, refseq);
 
         // Try to extend to beginning of the query to get an end bonus
         let mut qstart = alignment.query_start;

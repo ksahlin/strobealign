@@ -51,7 +51,7 @@ struct Alignment {
     score: u32,
     length: usize,
     is_revcomp: bool,
-    is_unaligned: bool,
+    is_unaligned: bool, // TODO get rid of this
     /// Whether a gapped alignment function was used to obtain this alignment
     /// (even if true, the alignment can still be without gaps)
     gapped: bool,

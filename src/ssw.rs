@@ -135,7 +135,7 @@ impl Aligner {
             return None;
         }
         let mut alignment = SswAlignment::from(alignment);
-        alignment.cigar = alignment.cigar.with_eqx(query, refseq);
+        alignment.cigar = alignment.cigar.with_eqx(&query[alignment.query_start..alignment.query_end], &refseq[alignment.ref_start..alignment.ref_end]);
         Some(alignment)
     }
 }
