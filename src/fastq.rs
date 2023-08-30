@@ -102,7 +102,7 @@ impl<R: Read> Iterator for FastqReader<R> {
         Some(Ok(SequenceRecord {
             name: name.to_string(),
             comment: comment.map(|s| s.to_string()),
-            sequence,
+            sequence: sequence.iter().map(|&c| c.to_ascii_uppercase()).collect(),
             qualities,
         }))
     }
