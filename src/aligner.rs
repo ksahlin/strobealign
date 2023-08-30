@@ -1,6 +1,6 @@
 use std::cell::Cell;
 use crate::cigar::{Cigar, CigarOperation};
-use crate::ssw::SswAlignment;
+use crate::ssw::SswAligner;
 
 pub struct Scores {
     // match is a score, the others are penalties
@@ -40,29 +40,15 @@ impl AlignmentInfo {
     }
 }
 
-impl From<SswAlignment> for AlignmentInfo {
-    fn from(ssw_alignment: SswAlignment) -> AlignmentInfo {
-        AlignmentInfo {
-            cigar: ssw_alignment.cigar,
-            edit_distance: 0, // TODO
-            ref_start: ssw_alignment.ref_start,
-            ref_end: ssw_alignment.ref_end,
-            query_start: ssw_alignment.query_start,
-            query_end: ssw_alignment.query_end,
-            score: ssw_alignment.score as u32,
-        }
-    }
-}
-
 pub struct Aligner {
     pub scores: Scores, // TODO should not be pub?
     call_count: Cell<usize>,
-    ssw_aligner: crate::ssw::Aligner,
+    ssw_aligner: SswAligner,
 }
 
 impl Aligner {
     pub fn new(scores: Scores) -> Self {
-        let ssw_aligner = crate::ssw::Aligner::new(scores.match_, scores.mismatch, scores.gap_open, scores.gap_extend);
+        let ssw_aligner = SswAligner::new(scores.match_, scores.mismatch, scores.gap_open, scores.gap_extend);
         Aligner {
             scores,
             ssw_aligner,
