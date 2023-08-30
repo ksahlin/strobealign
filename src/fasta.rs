@@ -28,7 +28,7 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, Error>
             sequence = Vec::new();
             has_record = true;
         } else {
-            sequence.extend(line);
+            sequence.extend(line.iter().map(|&c| c.to_ascii_uppercase()));
         }
     }
     if has_record {
