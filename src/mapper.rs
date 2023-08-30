@@ -122,6 +122,18 @@ fn make_sam_record(alignment: &Alignment, references: &[RefSequence], record: &S
         flags |= SECONDARY;
     }
 
+    let query_sequence = if alignment.is_revcomp {
+        reverse_complement(&record.sequence)
+    } else {
+        record.sequence.clone()
+    };
+    let query_qualities = if alignment.is_revcomp {
+        let mut rev = record.qualities.clone();
+        rev.reverse();
+        rev
+    } else {
+        record.qualities.clone()
+    };
     SamRecord {
         query_name: record.name.clone(),
         flags,
@@ -132,10 +144,10 @@ fn make_sam_record(alignment: &Alignment, references: &[RefSequence], record: &S
         mate_reference_name: None,
         mate_pos: None,
         template_len: None,
-        query_sequence: Some(record.sequence.clone()),
-        query_qualities: Some(record.qualities.clone()),
-        edit_distance: alignment.edit_distance,
-        alignment_score: alignment.score,
+        query_sequence: Some(query_sequence),
+        query_qualities: Some(query_qualities),
+        edit_distance: Some(alignment.edit_distance),
+        alignment_score: Some(alignment.score),
         // TODO details: details
     }
 }

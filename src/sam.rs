@@ -29,8 +29,8 @@ pub struct SamRecord {
     pub template_len: Option<i32>,
     pub query_sequence: Option<Vec<u8>>,
     pub query_qualities: Option<Vec<u8>>,
-    pub edit_distance: u32,
-    pub alignment_score: u32,
+    pub edit_distance: Option<u32>,
+    pub alignment_score: Option<u32>,
     // details: Details,
 }
 
@@ -89,9 +89,14 @@ impl Display for SamRecord {
             self.template_len.unwrap_or(0),
             query_sequence,
             query_qualities,
-        )
-        // TODO
-        // alignment_score, edit_distance
+        )?;
+        if let Some(edit_distance) = self.edit_distance {
+            write!(f, "\tNM:i:{}", edit_distance)?;
+        }
+        if let Some(alignment_score) = self.alignment_score {
+            write!(f, "\tAS:i:{}", alignment_score)?;
+        }
+        Ok(())
     }
 }
 
