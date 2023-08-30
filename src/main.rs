@@ -10,6 +10,8 @@ use rstrobes::index::{IndexParameters, StrobemerIndex};
 use rstrobes::mapper::{map_single_end_read, MappingParameters};
 use rstrobes::sam::SamHeader;
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[derive(Parser, Debug)]
 #[command(version, long_about = None)]
 struct Args {
@@ -120,7 +122,7 @@ fn main() -> Result<(), Error> {
     let header = SamHeader::new(
         &references,
         &cmd_line,
-        "0.0.1",
+        VERSION,
         None,
         &read_group_fields,
     );
