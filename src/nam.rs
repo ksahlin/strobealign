@@ -252,14 +252,12 @@ fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, s
         for mut n in open_nams {
             let n_max_span = max(n.query_span(), n.ref_span());
             let n_min_span = min(n.query_span(), n.ref_span());
-            let n_score =
-                if 2 * n_min_span - n_max_span > 0 {
-                    // this is really just n_hits * (min_span - (offset_in_span) ) );
+            n.score =
+                if 2 * n_min_span > n_max_span {
                     n.n_hits * (2 * n_min_span - n_max_span)
                 } else {
                     1
                 } as u32;
-            n.score = n_score;
             nams.push(n);
         }
     }
