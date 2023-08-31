@@ -1,6 +1,6 @@
 use std::env;
 use std::fs::File;
-use std::io::{BufReader, Error};
+use std::io::{BufReader, BufWriter, Error, Write};
 use std::path::Path;
 use clap::Parser;
 use rstrobes::aligner::{Aligner, Scores};
@@ -122,14 +122,15 @@ fn main() -> Result<(), Error> {
         &read_group_fields,
     );
     print!("{}", header);
+    let out = std::io::stdout().lock();
+    let mut out = BufWriter::new(out);
 
-    // let mapper = Mapper::new(index);
     let f = File::open(&args.fastq_path)?;
     for record in FastqReader::new(f) {
         let record = record?;
         let sam_records = map_single_end_read(&record, &index, &references, &mapping_parameters, &aligner);
         for sam_record in sam_records {
-            println!("{}", sam_record);
+            writeln!(out, "{}", sam_record)?;
         }
     }
 
