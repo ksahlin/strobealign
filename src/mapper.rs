@@ -207,7 +207,7 @@ pub fn map_single_end_read(
     let mut best_edit_distance = usize::MAX;
     let mut best_score = 0;
     let mut second_best_score = 0;
-    let mut best_alignment = Alignment::default();
+    let mut best_alignment = None;
 
     let k = index.parameters.syncmer.k;
     let read = Read::new(&record.sequence);
@@ -232,9 +232,9 @@ pub fn map_single_end_read(
         if alignment.score > best_score {
             second_best_score = best_score;
             best_score = alignment.score;
-            best_alignment = alignment.clone();
+            best_alignment = Some(alignment.clone());
             if mapping_parameters.max_secondary == 0 {
-                best_edit_distance = best_alignment.global_edit_distance();
+                best_edit_distance = alignment.global_edit_distance();
             }
         } else if alignment.score > second_best_score {
             second_best_score = alignment.score;
@@ -245,6 +245,10 @@ pub fn map_single_end_read(
     }
     let mapq = (60.0 * (best_score - second_best_score) as f32 / best_score as f32) as u8;
 
+    if best_alignment.is_none() {
+        return vec![make_unmapped_sam_record(record)];
+    }
+    let best_alignment = best_alignment.unwrap();
     if mapping_parameters.max_secondary == 0 {
         sam_records.push(
             make_sam_record(&best_alignment, references, record, mapq, true) // TODO details
