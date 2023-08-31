@@ -11,6 +11,7 @@ use rstrobes::mapper::{map_single_end_read, MappingParameters};
 use rstrobes::sam::SamHeader;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+const NAME: &str = env!("CARGO_PKG_NAME");
 
 #[derive(Parser, Debug)]
 #[command(version, long_about = None)]
@@ -92,6 +93,7 @@ struct Args {
 }
 
 fn main() -> Result<(), Error> {
+    eprintln!("This is {} {}", NAME, VERSION);
     let args = Args::parse();
     rayon::ThreadPoolBuilder::new().num_threads(args.threads).build_global().unwrap();
     let path = Path::new(&args.ref_path);
