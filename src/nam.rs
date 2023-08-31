@@ -56,7 +56,7 @@ pub fn find_nams(query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerInde
                 continue;
             }
             nr_good_hits += 1;
-            add_to_hits_per_ref(&mut hits_per_ref, randstrobe.start, randstrobe.end, randstrobe.is_revcomp, index, position, 100_000);
+            add_to_hits_per_ref(&mut hits_per_ref, randstrobe.start, randstrobe.end, randstrobe.is_revcomp, index, position);
         }
     }
     let nonrepetitive_fraction = if total_hits > 0 { (nr_good_hits as f32) / (total_hits as f32) } else { 1.0 };
@@ -119,7 +119,7 @@ pub fn find_nams_rescue(
             if (rh.count > rescue_cutoff && i >= 5) || rh.count > 1000 {
                 break;
             }
-            add_to_hits_per_ref(&mut hits_per_ref, rh.query_start, rh.query_end, rh.is_revcomp, index, rh.position, 1000);
+            add_to_hits_per_ref(&mut hits_per_ref, rh.query_start, rh.query_end, rh.is_revcomp, index, rh.position);
         }
     }
 
@@ -133,10 +133,9 @@ fn add_to_hits_per_ref(
     is_revcomp: bool,
     index: &StrobemerIndex,
     position: usize,
-    max_length_diff: usize,
 ) {
     let query_length = query_end - query_start;
-    let mut max_length_diff = max_length_diff;
+    let mut max_length_diff = usize::MAX;
     for randstrobe in &index.randstrobes[position..] {
         if randstrobe.hash() != index.randstrobes[position].hash() {
             break;
