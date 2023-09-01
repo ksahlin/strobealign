@@ -97,6 +97,7 @@ struct Args {
 }
 
 fn main() -> Result<(), Error> {
+    sigpipe::reset();
     logger::init().unwrap();
     let args = Args::parse();
     info!("This is {} {}", NAME, VERSION);
