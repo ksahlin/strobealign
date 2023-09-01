@@ -2,7 +2,7 @@ use std::env;
 use std::fs::File;
 use std::io::{Error, BufReader, BufWriter, Write};
 use std::path::Path;
-use log::info;
+use log::{debug, info};
 use clap::Parser;
 use rstrobes::aligner::{Aligner, Scores};
 use rstrobes::fastq::FastqReader;
@@ -107,10 +107,8 @@ fn main() -> Result<(), Error> {
     let mut reader = BufReader::new(f);
     let references = fasta::read_fasta(&mut reader).unwrap();
 
-    // IndexParameters(r=150, k=20, s=16, l=1, u=7, q=255, max_dist=80, t_syncmer=3, w_min=5, w_max=11)
-    let parameters = IndexParameters::new(150, 20, 16, 1, 7, 255, 80);
-    debug_assert_eq!(parameters.randstrobe.w_min, 5);
-    debug_assert_eq!(parameters.randstrobe.w_max, 11);
+    let parameters = IndexParameters::from_read_length(100, None, None, None, None, None, None);
+    debug!("{:?}", parameters);
 
     let mut index = StrobemerIndex::new(&references, parameters, args.bits);
     index.populate(args.filter_fraction, args.rescue_level);

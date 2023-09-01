@@ -4,7 +4,29 @@ use crate::strobes::{RandstrobeIterator, RandstrobeParameters};
 use crate::syncmers::{SyncmerParameters, SyncmerIterator};
 use crate::fasta::RefSequence;
 
+/// Pre-defined index parameters that work well for a certain
+/// "canonical" read length (and similar read lengths)
+struct Profile {
+    canonical_read_length: usize,
+    r_threshold: usize,
+    k: usize,
+    s_offset: isize,
+    l: isize,
+    u: isize,
+}
+
+static PROFILES: [Profile; 7] = [
+    Profile { canonical_read_length:  50, r_threshold:  90, k: 20, s_offset: -4, l: -4, u:  2},
+    Profile { canonical_read_length: 100, r_threshold: 110, k: 20, s_offset: -4, l: -2, u:  2},
+    Profile { canonical_read_length: 125, r_threshold: 135, k: 20, s_offset: -4, l: -1, u:  4},
+    Profile { canonical_read_length: 150, r_threshold: 175, k: 20, s_offset: -4, l:  1, u:  7},
+    Profile { canonical_read_length: 250, r_threshold: 275, k: 20, s_offset: -4, l:  4, u: 13},
+    Profile { canonical_read_length: 300, r_threshold: 375, k: 22, s_offset: -4, l:  2, u: 12},
+    Profile { canonical_read_length: 400, r_threshold: usize::MAX, k: 23, s_offset: -6,  l: 2, u: 12},
+];
+
 /* Settings that influence index creation */
+#[derive(Debug)]
 pub struct IndexParameters {
     canonical_read_length: usize,
     pub syncmer: SyncmerParameters,
@@ -12,14 +34,61 @@ pub struct IndexParameters {
 }
 
 impl IndexParameters {
-    pub fn new(canonical_read_length: usize, k: usize, s: usize, l: usize, u: usize, q: u64, max_dist: u8) -> Self {
-        let w_min = max(1, k / (k - s + 1) + l);
-        let w_max = k / (k - s + 1) + u;
+    pub fn new(canonical_read_length: usize, k: usize, s: usize, l: isize, u: isize, q: u64, max_dist: u8) -> Self {
+        let w_min = max(1, (k / (k - s + 1)) as isize + l) as usize;
+        let w_max = ((k / (k - s + 1)) as isize + u) as usize;
         IndexParameters {
             canonical_read_length,
             syncmer: SyncmerParameters::new(k, s),
             randstrobe: RandstrobeParameters  { w_min, w_max, q, max_dist }
         }
+    }
+    /// Create an IndexParameters instance based on a given read length.
+    /// k, s, l, u, c and max_seed_len can be used to override determined parameters
+    /// by setting them to a value other than IndexParameters::DEFAULT.
+    pub fn from_read_length(
+        read_length: usize,
+        mut k: Option<usize>,
+        mut s: Option<usize>,
+        mut l: Option<isize>,
+        mut u: Option<isize>,
+        c: Option<u32>,
+        max_seed_len: Option<usize>,
+    ) -> IndexParameters {
+        let default_c = 8;
+        let mut canonical_read_length = 50;
+        for profile in &PROFILES {
+            if read_length <= profile.r_threshold {
+                if k.is_none() {
+                    k = Some(profile.k);
+                }
+                if s.is_none() {
+                    s = Some((k.unwrap() as isize + profile.s_offset) as usize);
+                }
+                if l.is_none() {
+                    l = Some(profile.l);
+                }
+                if u.is_none() {
+                    u = Some(profile.u);
+                }
+                canonical_read_length = profile.canonical_read_length;
+                break;
+            }
+        }
+
+        let k = k.unwrap();
+        let s = s.unwrap();
+        let l = l.unwrap();
+        let u = u.unwrap();
+
+        let max_dist;
+        max_dist = match max_seed_len {
+            Some(max_seed_len) => { (max_seed_len - k) as u8 },
+            None => { usize::clamp(canonical_read_length.saturating_sub(70), k, 255) as u8 }
+        };
+        let q = 2u64.pow(c.unwrap_or(default_c)) - 1;
+
+        IndexParameters::new(canonical_read_length, k, s, l, u, q, max_dist)
     }
 }
 
