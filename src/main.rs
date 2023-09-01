@@ -1,7 +1,8 @@
 use std::env;
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Error, Write};
+use std::io::{Error, BufReader, BufWriter, Write};
 use std::path::Path;
+use log::info;
 use clap::Parser;
 use rstrobes::aligner::{Aligner, Scores};
 use rstrobes::fastq::FastqReader;
@@ -10,8 +11,11 @@ use rstrobes::index::{IndexParameters, StrobemerIndex};
 use rstrobes::mapper::{map_single_end_read, MappingParameters};
 use rstrobes::sam::SamHeader;
 
+mod logger;
+
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const NAME: &str = env!("CARGO_PKG_NAME");
+
 
 #[derive(Parser, Debug)]
 #[command(version, long_about = None)]
@@ -93,8 +97,9 @@ struct Args {
 }
 
 fn main() -> Result<(), Error> {
-    eprintln!("This is {} {}", NAME, VERSION);
+    logger::init().unwrap();
     let args = Args::parse();
+    info!("This is {} {}", NAME, VERSION);
     rayon::ThreadPoolBuilder::new().num_threads(args.threads).build_global().unwrap();
     let path = Path::new(&args.ref_path);
     let f = File::open(path)?;

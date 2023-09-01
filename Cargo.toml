@@ -11,6 +11,7 @@ cc = "1.0"
 [dependencies]
 clap = { version = "4.1.4", features = ["derive"] }
 fxhash = "0.2.1"
+log = "0.4.20"
 pdqsort = "1.0.3"
 rayon = "1.7.0"
 xxhash-rust = { version = "0.8.5", features = ["xxh64"] }
