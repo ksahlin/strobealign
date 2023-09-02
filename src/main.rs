@@ -2,6 +2,7 @@ use std::env;
 use std::fs::File;
 use std::io::{Error, BufReader, BufWriter, Write};
 use std::path::Path;
+use std::time::Instant;
 use log::{debug, info};
 use clap::Parser;
 use rstrobes::aligner::{Aligner, Scores};
@@ -105,14 +106,26 @@ fn main() -> Result<(), Error> {
     let path = Path::new(&args.ref_path);
     let f = File::open(path)?;
     let mut reader = BufReader::new(f);
+    let timer = Instant::now();
     let references = fasta::read_fasta(&mut reader).unwrap();
-
+    info!("Time reading references: {:.2} s", timer.elapsed().as_secs_f64());
+    let total_ref_size = references.iter().map(|r| r.sequence.len()).sum::<usize>();
+    let max_contig_size = references.iter().map(|r| r.sequence.len()).max().expect("No reference found");
+    info!("Reference size: {:.2} Mbp ({} contig{}; largest: {:.2} Mbp)",
+        total_ref_size as f64 / 1E6,
+        references.len(),
+        if references.len() != 1 { "s" } else { "" },
+        max_contig_size as f64 / 1E6
+    );
     let parameters = IndexParameters::from_read_length(100, None, None, None, None, None, None);
+    info!("Indexing ...");
     debug!("{:?}", parameters);
 
+    let timer = Instant::now();
     let mut index = StrobemerIndex::new(&references, parameters, args.bits);
     index.populate(args.filter_fraction, args.rescue_level);
     let index = index;
+    info!("Total time indexing: {:.2} s", timer.elapsed().as_secs_f64());
 
     let mapping_parameters = MappingParameters::default();
 
