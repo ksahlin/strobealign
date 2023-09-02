@@ -195,8 +195,10 @@ pub fn hamming_align(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8, end_
     // Create CIGAR string and count mismatches
     let mut cigar = Cigar::new();
     let mut mismatches = 0;
-    for i in segment_start..segment_end {
-        if query[i] != refseq[i] {
+    let query_segment = &query[segment_start..segment_end];
+    let ref_segment = &refseq[segment_start..segment_end];
+    for (q_c, r_c) in query_segment.iter().zip(ref_segment.iter()) {
+        if q_c != r_c {
             mismatches += 1;
             cigar.push(CigarOperation::X, 1);
         } else {
