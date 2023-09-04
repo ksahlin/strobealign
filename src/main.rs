@@ -29,7 +29,11 @@ struct Args {
     //args::Flag no_progress(parser, "no-progress", "Disable progress report (enabled by default if output is a terminal)", {"no-progress"});
     //args::Flag eqx(parser, "eqx", "Emit =/X instead of M CIGAR operations", {"eqx"});
     //args::Flag x(parser, "x", "Only map reads, no base level alignment (produces PAF file)", {'x'});
-    // args::Flag U(parser, "U", "Suppress output of unmapped reads", {'U'});
+
+    /// Suppress output of unmapped reads
+    #[arg(short = 'U')]
+    only_mapped: bool,
+
     // args::Flag interleaved(parser, "interleaved", "Interleaved input", {"interleaved"});
     // args::ValueFlag<std::string> rgid(parser, "ID", "Read group ID", {"rg-id"});
     // args::ValueFlagList<std::string> rg(parser, "TAG:VALUE", "Add read group metadata to SAM header (can be specified multiple times). Example: SM:samplename", {"rg"});
@@ -39,13 +43,9 @@ struct Args {
     // args::ValueFlag<std::string> index_statistics(parser, "PATH", "Print statistics of indexing to PATH", {"index-statistics"});
     // args::Flag i(parser, "index", "Do not map reads; only generate the strobemer index and write it to disk. If read files are provided, they are used to estimate read length", {"create-index", 'i'});
     // args::Flag use_index(parser, "use_index", "Use a pre-generated index previously written with --create-index.", { "use-index" });
-    //
-    // args::Group seeding_group(parser, "Seeding:");
-    // auto seeding = SeedingArguments{parser};
 
-    // SeedingArguments(args::ArgumentParser& parser)
-    // : parser(parser)
-    // //n{parser, "INT", "Number of strobes [2]", {'n'}}
+    // Seeding arguments
+
     // , r{parser, "INT",
     //     "Mean read length. This parameter is estimated from the first 500 "
     //     "records in each read file. No need to set this explicitly unless you have a reason.", {'r'}}
@@ -64,7 +64,7 @@ struct Args {
     //     "understanding of syncmers as it will drastically change the memory usage and "
     //     "results with non default values.", {'s'}}
 
-    /// No. of top bits of hash to use as bucket indices (8-31). Default is determine automatically.
+    /// No. of top bits of hash to use as bucket indices (8-31). Default is to determine automatically.
     #[arg(short)]
     bits: Option<u8>,
 
@@ -149,7 +149,9 @@ fn main() -> Result<(), Error> {
         let record = record?;
         let sam_records = map_single_end_read(&record, &index, &references, &mapping_parameters, &aligner);
         for sam_record in sam_records {
-            writeln!(out, "{}", sam_record)?;
+            if sam_record.is_mapped() || !args.only_mapped {
+                writeln!(out, "{}", sam_record)?;
+            }
         }
     }
 

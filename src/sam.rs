@@ -40,9 +40,9 @@ impl SamRecord {
         self.flags & SECONDARY != 0
     }
 
-    /*pub fn is_mapped(&self) -> bool {
+    pub fn is_mapped(&self) -> bool {
         self.flags & UNMAP == 0
-    }*/
+    }
 }
 
 impl Display for SamRecord {
