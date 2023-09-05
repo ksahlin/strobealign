@@ -7,14 +7,12 @@ struct Hit {
     int query_end;
     int ref_start;
     int ref_end;
-    bool is_rc = false;
 };
 
 void add_to_hits_per_ref(
     robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
     int query_start,
     int query_end,
-    bool is_rc,
     const StrobemerIndex& index,
     size_t position
 ) {
@@ -24,7 +22,7 @@ void add_to_hits_per_ref(
         int ref_end = ref_start + index.strobe2_offset(position) + index.k();
         int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
         if (diff <= min_diff) {
-            hits_per_ref[index.reference_index(position)].push_back(Hit{query_start, query_end, ref_start, ref_end, is_rc});
+            hits_per_ref[index.reference_index(position)].push_back(Hit{query_start, query_end, ref_start, ref_end});
             min_diff = diff;
         }
     }
@@ -166,7 +164,7 @@ std::pair<float, std::vector<Nam>> find_nams(
                 continue;
             }
             nr_good_hits++;
-            add_to_hits_per_ref(hits_per_ref[q.is_reverse], q.start, q.end, q.is_reverse, index, position);
+            add_to_hits_per_ref(hits_per_ref[q.is_reverse], q.start, q.end, index, position);
         }
     }
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
@@ -226,7 +224,7 @@ std::vector<Nam> find_nams_rescue(
             if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
                 break;
             }
-            add_to_hits_per_ref(hits_per_ref[rh.is_rc], rh.query_start, rh.query_end, rh.is_rc, index, rh.position);
+            add_to_hits_per_ref(hits_per_ref[rh.is_rc], rh.query_start, rh.query_end, index, rh.position);
             cnt++;
         }
     }
