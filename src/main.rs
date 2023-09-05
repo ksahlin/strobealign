@@ -49,20 +49,32 @@ struct Args {
     /// Mean read length. Default: estimated from the first 500 records in the input file
     #[arg(short)]
     read_length: Option<usize>,
-    // , m{parser, "INT",
-    //     "Maximum seed length. Defaults to r - 50. For reasonable values on -l and -u, "
-    //     "the seed length distribution is usually determined by parameters l and u. "
-    //     "Then, this parameter is only active in regions where syncmers are very sparse.", {'m'}}
-    // , k{parser, "INT", "Strobe length, has to be below 32. [20]", {'k'}}
-    // , l{parser, "INT", "Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]", {'l'}}
-    // , u{parser, "INT", "Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [7]", {'u'}}
-    // , c{parser, "INT", "Bitcount length between 2 and 63. [8]", {'c'}}
-    // , s{parser, "INT",
-    //     "Submer size used for creating syncmers [k-4]. Only even numbers on k-s allowed. "
-    //     "A value of s=k-4 roughly represents w=10 as minimizer window [k-4]. "
-    //     "It is recommended not to change this parameter unless you have a good "
-    //     "understanding of syncmers as it will drastically change the memory usage and "
-    //     "results with non default values.", {'s'}}
+
+    /// Strobe length (must be less than 32). Default: chosen based on read length
+    #[arg(short)]
+    k: Option<usize>,
+
+    /// Submer size for creating syncmers. k-s must be even. Default: k-4
+    #[arg(short)]
+    s: Option<usize>,
+
+    /// Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]
+    #[arg(short)]
+    l: Option<isize>,
+
+    /// Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [7]
+    #[arg(short)]
+    u: Option<isize>,
+
+    /// Bitcount length between 2 and 63. [8]
+    #[arg(short)]
+    c: Option<u32>,
+
+    /// Maximum seed length. For reasonable values on -l and -u, the seed length distribution is
+    /// usually determined by parameters l and u. Then this parameter is only active in regions
+    /// where syncmers are very sparse. Default: read_length - 50
+    #[arg(short)]
+    max_seed_length: Option<usize>,
 
     /// No. of top bits of hash to use as bucket indices (8-31). Default is to determine automatically.
     #[arg(short)]
@@ -122,7 +134,7 @@ fn main() -> Result<(), Error> {
         Some(r) => r,
         None => estimate_read_length(&args.fastq_path)?,
     };
-    let parameters = IndexParameters::from_read_length(read_length, None, None, None, None, None, None);
+    let parameters = IndexParameters::from_read_length(read_length, args.k, args.s, args.l, args.u, args.c, args.max_seed_length);
     info!("Indexing ...");
     debug!("{:?}", parameters);
 
