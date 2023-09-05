@@ -46,9 +46,9 @@ struct Args {
 
     // Seeding arguments
 
-    // , r{parser, "INT",
-    //     "Mean read length. This parameter is estimated from the first 500 "
-    //     "records in each read file. No need to set this explicitly unless you have a reason.", {'r'}}
+    /// Mean read length. Default: estimated from the first 500 records in the input file
+    #[arg(short)]
+    read_length: Option<usize>,
     // , m{parser, "INT",
     //     "Maximum seed length. Defaults to r - 50. For reasonable values on -l and -u, "
     //     "the seed length distribution is usually determined by parameters l and u. "
@@ -117,7 +117,12 @@ fn main() -> Result<(), Error> {
         if references.len() != 1 { "s" } else { "" },
         max_contig_size as f64 / 1E6
     );
-    let parameters = IndexParameters::from_read_length(100, None, None, None, None, None, None);
+
+    let read_length = match args.read_length {
+        Some(r) => r,
+        None => estimate_read_length(&args.fastq_path)?,
+    };
+    let parameters = IndexParameters::from_read_length(read_length, None, None, None, None, None, None);
     info!("Indexing ...");
     debug!("{:?}", parameters);
 
@@ -156,6 +161,18 @@ fn main() -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+fn estimate_read_length<P: AsRef<Path>>(path: P) -> Result<usize, Error> {
+    let f = File::open(&path)?;
+    let mut s = 0;
+    let mut n = 0;
+    for record in FastqReader::new(f).take(500) {
+        let record = record?;
+        s += record.sequence.len();
+        n += 1;
+    }
+    Ok(s / n)
 }
 
 #[test]
