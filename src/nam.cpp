@@ -11,7 +11,7 @@ struct Hit {
 };
 
 void add_to_hits_per_ref(
-    robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
+    std::vector<std::vector<Hit>>& hits_per_ref,
     int query_start,
     int query_end,
     bool is_rc,
@@ -31,13 +31,14 @@ void add_to_hits_per_ref(
 }
 
 std::vector<Nam> merge_hits_into_nams(
-    robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
+    std::vector<std::vector<Hit>>& hits_per_ref,
     int k,
     bool sort
 ) {
     std::vector<Nam> nams;
     int nam_id_cnt = 0;
-    for (auto &[ref_id, hits] : hits_per_ref) {
+    for (size_t ref_index = 0; ref_index < hits_per_ref.size(); ++ref_index) {
+        auto& hits = hits_per_ref[ref_index];
         if (sort) {
             std::sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) -> bool {
                     // first sort on query starts, then on reference starts
@@ -88,7 +89,7 @@ std::vector<Nam> merge_hits_into_nams(
                 n.query_end = h.query_end;
                 n.ref_start = h.ref_start;
                 n.ref_end = h.ref_end;
-                n.ref_id = ref_id;
+                n.ref_id = ref_index;
 //                n.previous_query_start = h.query_s;
 //                n.previous_ref_start = h.ref_s;
                 n.query_prev_hit_startpos = h.query_start;
@@ -149,8 +150,9 @@ std::pair<float, std::vector<Nam>> find_nams(
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index
 ) {
-    robin_hood::unordered_map<unsigned int, std::vector<Hit>> hits_per_ref;
-    hits_per_ref.reserve(100);
+    std::vector<std::vector<Hit>> hits_per_ref;
+    hits_per_ref.assign(index.n_references(), std::vector<Hit>());
+    // hits_per_ref.reserve(100);
     int nr_good_hits = 0, total_hits = 0;
     for (const auto &q : query_randstrobes) {
         size_t position = index.find(q.hash);
@@ -191,10 +193,10 @@ std::vector<Nam> find_nams_rescue(
         }
     };
 
-    robin_hood::unordered_map<unsigned int, std::vector<Hit>> hits_per_ref;
+    std::vector<std::vector<Hit>> hits_per_ref;
     std::vector<RescueHit> hits_fw;
     std::vector<RescueHit> hits_rc;
-    hits_per_ref.reserve(100);
+    hits_per_ref.assign(index.n_references(), std::vector<Hit>());
     hits_fw.reserve(5000);
     hits_rc.reserve(5000);
 
