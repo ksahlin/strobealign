@@ -9,7 +9,7 @@ struct Hit {
     int ref_end;
 };
 
-void add_to_hits_per_ref(
+inline void add_to_hits_per_ref(
     robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
     int query_start,
     int query_end,
@@ -28,18 +28,15 @@ void add_to_hits_per_ref(
     }
 }
 
-std::vector<Nam> merge_hits_into_nams(
-    std::array<robin_hood::unordered_map<unsigned int, std::vector<Hit>>, 2>& hits_per_ref,
+void merge_hits_into_nams(
+    robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
     int k,
-    bool sort
+    bool sort,
+    bool is_revcomp,
+    std::vector<Nam>& nams  // inout
 ) {
-    std::vector<Nam> nams;
     int nam_id_cnt = 0;
-
-    for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
-        auto& hits_oriented = hits_per_ref[is_revcomp];
-
-    for (auto &[ref_id, hits] : hits_oriented) {
+    for (auto &[ref_id, hits] : hits_per_ref) {
         if (sort) {
             std::sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) -> bool {
                     // first sort on query starts, then on reference starts
@@ -135,7 +132,18 @@ std::vector<Nam> merge_hits_into_nams(
             n.score = n_score;
             nams.push_back(n);
         }
-        }
+    }
+}
+
+std::vector<Nam> merge_hits_into_nams_forward_and_reverse(
+    std::array<robin_hood::unordered_map<unsigned int, std::vector<Hit>>, 2>& hits_per_ref,
+    int k,
+    bool sort
+) {
+    std::vector<Nam> nams;
+    for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
+        auto& hits_oriented = hits_per_ref[is_revcomp];
+        merge_hits_into_nams(hits_oriented, k, sort, is_revcomp, nams);
     }
     return nams;
 }
@@ -168,7 +176,7 @@ std::pair<float, std::vector<Nam>> find_nams(
         }
     }
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
-    auto nams = merge_hits_into_nams(hits_per_ref, index.k(), false);
+    auto nams = merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), false);
     return make_pair(nonrepetitive_fraction, nams);
 }
 
@@ -229,7 +237,7 @@ std::vector<Nam> find_nams_rescue(
         }
     }
 
-    return merge_hits_into_nams(hits_per_ref, index.k(), true);
+    return merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), true);
 }
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {
