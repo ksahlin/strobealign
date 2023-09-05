@@ -3,6 +3,7 @@
 namespace {
 
 struct Hit {
+    size_t ref_index;
     int query_start;
     int query_end;
     int ref_start;
@@ -11,7 +12,7 @@ struct Hit {
 };
 
 void add_to_hits_per_ref(
-    robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
+    std::vector<Hit>& hits_per_ref,
     int query_start,
     int query_end,
     bool is_rc,
@@ -24,31 +25,53 @@ void add_to_hits_per_ref(
         int ref_end = ref_start + index.strobe2_offset(position) + index.k();
         int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
         if (diff <= min_diff) {
-            hits_per_ref[index.reference_index(position)].push_back(Hit{query_start, query_end, ref_start, ref_end, is_rc});
+            size_t ref_index = index.reference_index(position);
+            hits_per_ref.push_back(Hit{ref_index, query_start, query_end, ref_start, ref_end, is_rc});
             min_diff = diff;
         }
     }
 }
 
 std::vector<Nam> merge_hits_into_nams(
-    robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
+    std::vector<Hit>& hits_per_ref,
     int k,
     bool sort
 ) {
+    if (sort) {
+        std::sort(hits_per_ref.begin(), hits_per_ref.end(), [](const Hit& a, const Hit& b) -> bool {
+                return (a.ref_index < b.ref_index) || (a.ref_index == b.ref_index && a.query_start < b.query_start) || (a.ref_index == b.ref_index && (a.query_start == b.query_start) && (a.ref_start < b.ref_start));
+            }
+        );
+    } else {
+        std::stable_sort(hits_per_ref.begin(), hits_per_ref.end(), [](const Hit& a, const Hit& b) -> bool {
+                return a.ref_index < b.ref_index;
+            }
+        );
+    }
+
     std::vector<Nam> nams;
     int nam_id_cnt = 0;
-    for (auto &[ref_id, hits] : hits_per_ref) {
-        if (sort) {
-            std::sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) -> bool {
-                    // first sort on query starts, then on reference starts
-                    return (a.query_start < b.query_start) || ( (a.query_start == b.query_start) && (a.ref_start < b.ref_start) );
-                }
-            );
-        }
+    std::vector<Nam> open_nams;
+    unsigned int prev_q_start = 0;
+    size_t prev_ref_index = std::numeric_limits<size_t>::max();
 
-        std::vector<Nam> open_nams;
-        unsigned int prev_q_start = 0;
-        for (auto &h : hits) {
+    for (auto &h : hits_per_ref) {
+        if (h.ref_index != prev_ref_index && prev_ref_index != std::numeric_limits<size_t>::max()) {
+            // Add all current open_matches to final NAMs
+            for (auto &n : open_nams) {
+                int n_max_span = std::max(n.query_span(), n.ref_span());
+                int n_min_span = std::min(n.query_span(), n.ref_span());
+                float n_score;
+                n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
+    //            n_score = n.n_hits * n.query_span();
+                n.score = n_score;
+                nams.push_back(n);
+            }
+            open_nams.clear();
+            prev_q_start = 0;
+        }
+        prev_ref_index = h.ref_index;
+        {
             bool is_added = false;
             for (auto & o : open_nams) {
 
@@ -88,7 +111,7 @@ std::vector<Nam> merge_hits_into_nams(
                 n.query_end = h.query_end;
                 n.ref_start = h.ref_start;
                 n.ref_end = h.ref_end;
-                n.ref_id = ref_id;
+                n.ref_id = h.ref_index;
 //                n.previous_query_start = h.query_s;
 //                n.previous_ref_start = h.ref_s;
                 n.query_prev_hit_startpos = h.query_start;
@@ -122,18 +145,20 @@ std::vector<Nam> merge_hits_into_nams(
                 prev_q_start = h.query_start;
             }
         }
-
-        // Add all current open_matches to final NAMs
-        for (auto &n : open_nams) {
-            int n_max_span = std::max(n.query_span(), n.ref_span());
-            int n_min_span = std::min(n.query_span(), n.ref_span());
-            float n_score;
-            n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
-//            n_score = n.n_hits * n.query_span();
-            n.score = n_score;
-            nams.push_back(n);
-        }
     }
+
+    // Add all current open_matches to final NAMs
+    for (auto &n : open_nams) {
+        int n_max_span = std::max(n.query_span(), n.ref_span());
+        int n_min_span = std::min(n.query_span(), n.ref_span());
+        float n_score;
+        n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
+//            n_score = n.n_hits * n.query_span();
+        n.score = n_score;
+        nams.push_back(n);
+    }
+
+
     return nams;
 }
 
@@ -149,7 +174,7 @@ std::pair<float, std::vector<Nam>> find_nams(
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index
 ) {
-    robin_hood::unordered_map<unsigned int, std::vector<Hit>> hits_per_ref;
+    std::vector<Hit> hits_per_ref;
     hits_per_ref.reserve(100);
     int nr_good_hits = 0, total_hits = 0;
     for (const auto &q : query_randstrobes) {
@@ -191,7 +216,7 @@ std::vector<Nam> find_nams_rescue(
         }
     };
 
-    robin_hood::unordered_map<unsigned int, std::vector<Hit>> hits_per_ref;
+    std::vector<Hit> hits_per_ref;
     std::vector<RescueHit> hits_fw;
     std::vector<RescueHit> hits_rc;
     hits_per_ref.reserve(100);
