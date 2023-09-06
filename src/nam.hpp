@@ -2,6 +2,7 @@
 #define STROBEALIGN_NAM_HPP
 
 #include <vector>
+#include <array>
 #include "index.hpp"
 #include "randstrobes.hpp"
 
