@@ -515,7 +515,6 @@ void rescue_read(
 
         // Force SW alignment to rescue mate
         Alignment a2;
-        details[0].nam_inconsistent += reverse_nam_if_needed(nam, read1, references, k);
         details[1].mate_rescue += rescue_mate(aligner, nam, references, read2, a2, mu, sigma, k);
         alignments2.emplace_back(a2);
 
