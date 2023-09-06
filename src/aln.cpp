@@ -32,7 +32,9 @@ static inline Alignment extend_seed(
     bool consistent_nam
 );
 
-static inline bool score(const Nam &a, const Nam &b) {
+template <typename T>
+bool by_score(const T& a, const T& b)
+{
     return a.score > b.score;
 }
 
@@ -261,16 +263,6 @@ static inline float normal_pdf(float x, float mu, float sigma)
     return inv_sqrt_2pi / sigma * std::exp(-0.5f * a * a);
 }
 
-static inline bool score_sw(const Alignment &a, const Alignment &b)
-{
-    return a.score > b.score;
-}
-
-static inline bool sort_scores(const ScoredAlignmentPair& a, const ScoredAlignmentPair& b)
-{
-    return a.score > b.score;
-}
-
 static inline std::vector<ScoredAlignmentPair> get_best_scoring_pairs(
     const std::vector<Alignment>& alignments1,
     const std::vector<Alignment>& alignments2,
@@ -292,7 +284,7 @@ static inline std::vector<ScoredAlignmentPair> get_best_scoring_pairs(
             pairs.push_back(ScoredAlignmentPair{score, a1, a2});
         }
     }
-    std::sort(pairs.begin(), pairs.end(), sort_scores); // Sorting by highest score first
+    std::sort(pairs.begin(), pairs.end(), by_score<ScoredAlignmentPair>); // Sorting by highest score first
 
     return pairs;
 }
@@ -543,8 +535,8 @@ void rescue_read(
 
         tries++;
     }
-    std::sort(alignments1.begin(), alignments1.end(), score_sw);
-    std::sort(alignments2.begin(), alignments2.end(), score_sw);
+    std::sort(alignments1.begin(), alignments1.end(), by_score<Alignment>);
+    std::sort(alignments2.begin(), alignments2.end(), by_score<Alignment>);
 
     // Calculate best combined score here
     auto high_scores = get_best_scoring_pairs(alignments1, alignments2, mu, sigma );
@@ -868,7 +860,7 @@ inline void align_PE(
     double combined_score = (double)a1_indv_max.score + (double)a2_indv_max.score - 20; // 20 corresponds to  a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
     ScoredAlignmentPair aln_tuple{combined_score, a1_indv_max, a2_indv_max};
     high_scores.push_back(aln_tuple);
-    std::sort(high_scores.begin(), high_scores.end(), sort_scores); // Sorting by highest score first
+    std::sort(high_scores.begin(), high_scores.end(), by_score<ScoredAlignmentPair>); // Sorting by highest score first
 
     auto [mapq1, mapq2] = joint_mapq_from_high_scores(high_scores);
     auto best_aln_pair = high_scores[0];
@@ -1028,8 +1020,8 @@ void align_PE_read(
     details[1].nams = nams2.size();
 
     Timer nam_sort_timer;
-    std::sort(nams1.begin(), nams1.end(), score);
-    std::sort(nams2.begin(), nams2.end(), score);
+    std::sort(nams1.begin(), nams1.end(), by_score<Nam>);
+    std::sort(nams2.begin(), nams2.end(), by_score<Nam>);
     statistics.tot_sort_nams += nam_sort_timer.duration();
 
     Timer extend_timer;
@@ -1092,7 +1084,7 @@ void align_SE_read(
 
     details.nams = nams.size();
     Timer nam_sort_timer;
-    std::sort(nams.begin(), nams.end(), score);
+    std::sort(nams.begin(), nams.end(), by_score<Nam>);
     statistics.tot_sort_nams += nam_sort_timer.duration();
 
     Timer extend_timer;
