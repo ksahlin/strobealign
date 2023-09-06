@@ -404,9 +404,8 @@ bool has_shared_substring(const std::string& read_seq, const std::string& ref_se
 /* Return true iff rescue by alignment was actually attempted */
 static inline bool rescue_mate(
     const Aligner& aligner,
-    Nam &nam,
+    const Nam &nam,
     const References& references,
-    const Read& guide,
     const Read& read,
     Alignment &alignment,
     float mu,
@@ -418,7 +417,6 @@ static inline bool rescue_mate(
     bool a_is_rc;
     auto read_len = read.size();
 
-    reverse_nam_if_needed(nam, guide, references, k);
     if (nam.is_rc){
         r_tmp = read.seq;
         a = nam.ref_start - nam.query_start - (mu+5*sigma);
@@ -469,6 +467,7 @@ static inline bool rescue_mate(
     alignment.ref_id = nam.ref_id;
     alignment.is_unaligned = info.cigar.empty();
     alignment.length = info.ref_span();
+
     return true;
 }
 
@@ -516,7 +515,8 @@ void rescue_read(
 
         // Force SW alignment to rescue mate
         Alignment a2;
-        details[1].mate_rescue += rescue_mate(aligner, nam, references, read1, read2, a2, mu, sigma, k);
+        details[0].nam_inconsistent += reverse_nam_if_needed(nam, read1, references, k);
+        details[1].mate_rescue += rescue_mate(aligner, nam, references, read2, a2, mu, sigma, k);
         alignments2.emplace_back(a2);
 
         tries++;
@@ -795,7 +795,8 @@ inline void align_PE(
                 details[0].gapped += a1.gapped;
             }
         } else {
-            details[0].mate_rescue += rescue_mate(aligner, n2, references, read2, read1, a1, mu, sigma, k);
+            details[1].nam_inconsistent += !reverse_nam_if_needed(n2, read2, references, k);
+            details[0].mate_rescue += rescue_mate(aligner, n2, references, read1, a1, mu, sigma, k);
             details[0].tried_alignment++;
         }
         if (a1.score > a1_indv_max.score) {
@@ -816,7 +817,8 @@ inline void align_PE(
                 details[1].gapped += a2.gapped;
             }
         } else {
-            details[1].mate_rescue += rescue_mate(aligner, n1, references, read1, read2, a2, mu, sigma, k);
+            details[0].nam_inconsistent += !reverse_nam_if_needed(n1, read1, references, k);
+            details[1].mate_rescue += rescue_mate(aligner, n1, references, read2, a2, mu, sigma, k);
             details[1].tried_alignment++;
         }
         if (a2.score > a2_indv_max.score){
