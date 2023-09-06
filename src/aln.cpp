@@ -665,7 +665,7 @@ inline void align_PE(
     const References& references,
     std::array<Details, 2>& details,
     float dropoff,
-    i_dist_est &isize_est,
+    InsertSizeDistribution &isize_est,
     unsigned max_tries,
     size_t max_secondary
 ) {
@@ -917,7 +917,7 @@ inline void align_PE(
     }
 }
 
-inline void get_best_map_location(std::vector<Nam> &nams1, std::vector<Nam> &nams2, i_dist_est &isize_est, Nam &best_nam1, Nam &best_nam2 ) {
+inline void get_best_map_location(std::vector<Nam> &nams1, std::vector<Nam> &nams2, InsertSizeDistribution &isize_est, Nam &best_nam1, Nam &best_nam2 ) {
     std::vector<NamPair> joint_nam_scores = get_best_scoring_nam_pairs(nams1, nams2, isize_est.mu, isize_est.sigma);
     Nam n1_joint_max, n2_joint_max, n1_indiv_max, n2_indiv_max;
     float score_joint = 0;
@@ -962,8 +962,7 @@ inline void get_best_map_location(std::vector<Nam> &nams1, std::vector<Nam> &nam
 }
 
 /* Add a new observation */
-void i_dist_est::update(int dist)
-{
+void InsertSizeDistribution::update(int dist) {
     if (dist >= 2000) {
         return;
     }
@@ -993,7 +992,7 @@ void align_PE_read(
     Sam& sam,
     std::string& outstring,
     AlignmentStatistics &statistics,
-    i_dist_est &isize_est,
+    InsertSizeDistribution &isize_est,
     const Aligner &aligner,
     const MappingParameters &map_param,
     const IndexParameters& index_parameters,
