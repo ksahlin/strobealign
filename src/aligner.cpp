@@ -10,9 +10,9 @@
 #include <cassert>
 #include "aligner.hpp"
 
-aln_info Aligner::align(const std::string &query, const std::string &ref) const {
+AlignmentInfo Aligner::align(const std::string &query, const std::string &ref) const {
     m_align_calls++;
-    aln_info aln;
+    AlignmentInfo aln;
     int32_t maskLen = query.length() / 2;
     maskLen = std::max(maskLen, 15);
     if (ref.length() > 2000){
@@ -150,10 +150,10 @@ std::tuple<size_t, size_t, int> highest_scoring_segment(
     return std::make_tuple(best_start, best_end, best_score);
 }
 
-aln_info hamming_align(
+AlignmentInfo hamming_align(
     const std::string &query, const std::string &ref, int match, int mismatch, int end_bonus
 ) {
-    aln_info aln;
+    AlignmentInfo aln;
     if (query.length() != ref.length()) {
         return aln;
     }

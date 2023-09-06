@@ -63,7 +63,7 @@ public:
 
 
 void perform_task(InputBuffer &input_buffer, OutputBuffer &output_buffer,
-                  AlignmentStatistics& statistics, int& done, const alignment_params &aln_params,
+                  AlignmentStatistics& statistics, int& done, const AlignmentParameters &aln_params,
                   const MappingParameters &map_param, const IndexParameters& index_parameters, const References& references, const StrobemerIndex& index, const std::string& read_group_id);
 
 bool same_name(const std::string& n1, const std::string& n2);

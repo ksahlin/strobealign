@@ -7,7 +7,7 @@
 #include "cigar.hpp"
 
 
-struct alignment_params {
+struct AlignmentParameters {
     // match is a score, the others are penalties (all are nonnegative)
     int match;
     int mismatch;
@@ -16,7 +16,7 @@ struct alignment_params {
     int end_bonus;
 };
 
-struct aln_info {
+struct AlignmentInfo {
     Cigar cigar;
     unsigned int edit_distance{0};
     unsigned int ref_start{0};
@@ -30,14 +30,14 @@ struct aln_info {
 
 struct Aligner {
 public:
-    Aligner(alignment_params parameters)
+    Aligner(AlignmentParameters parameters)
         : parameters(parameters)
         , ssw_aligner(StripedSmithWaterman::Aligner(parameters.match, parameters.mismatch, parameters.gap_open, parameters.gap_extend))
     { }
 
-    aln_info align(const std::string &query, const std::string &ref) const;
+    AlignmentInfo align(const std::string &query, const std::string &ref) const;
 
-    alignment_params parameters;
+    AlignmentParameters parameters;
 
     unsigned calls_count() {
         return m_align_calls;
@@ -68,7 +68,7 @@ std::tuple<size_t, size_t, int> highest_scoring_segment(
     const std::string& query, const std::string& ref, int match, int mismatch, int end_bonus
 );
 
-aln_info hamming_align(
+AlignmentInfo hamming_align(
     const std::string &query, const std::string &ref, int match, int mismatch, int end_bonus
 );
 

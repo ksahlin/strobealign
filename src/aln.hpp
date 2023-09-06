@@ -74,7 +74,9 @@ struct MappingParameters {
     }
 };
 
-class i_dist_est {
+/* Estimator for a normal distribution, used for insert sizes.
+ */
+class InsertSizeDistribution {
 public:
     float sample_size = 1;
     float mu = 300;
@@ -92,7 +94,7 @@ void align_PE_read(
     Sam& sam,
     std::string& outstring,
     AlignmentStatistics& statistics,
-    i_dist_est& isize_est,
+    InsertSizeDistribution& isize_est,
     const Aligner& aligner,
     const MappingParameters& map_param,
     const IndexParameters& index_parameters,
