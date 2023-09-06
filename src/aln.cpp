@@ -166,49 +166,6 @@ static inline void align_SE(
     }
 }
 
-static inline Alignment align_segment(
-    const Aligner& aligner,
-    const std::string &read_segm,
-    const std::string &ref_segm,
-    int ref_start,
-    int ext_left,
-    int ext_right,
-    bool consistent_nam,
-    bool is_rc
-) {
-    Alignment alignment;
-    auto read_segm_len = read_segm.size();
-    // The ref_segm includes an extension of ext_left bases upstream and ext_right bases downstream
-    auto ref_segm_len_ham = ref_segm.size() - ext_left - ext_right; // we send in the already extended ref segment to save time. This is not true in center alignment if merged match have diff length
-    if (ref_segm_len_ham == read_segm_len && consistent_nam) {
-        std::string ref_segm_ham = ref_segm.substr(ext_left, read_segm_len);
-
-        auto hamming_dist = hamming_distance(read_segm, ref_segm_ham);
-
-        if (hamming_dist >= 0 && (((float) hamming_dist / read_segm_len) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-            auto info = hamming_align(read_segm, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
-            alignment.cigar = std::move(info.cigar);
-            alignment.edit_distance = info.edit_distance;
-            alignment.score = info.sw_score;
-            alignment.ref_start = ref_start + ext_left + info.query_start;
-            alignment.is_rc = is_rc;
-            alignment.is_unaligned = false;
-            alignment.length = read_segm_len;
-            return alignment;
-        }
-    }
-    auto info = aligner.align(read_segm, ref_segm);
-    alignment.cigar = std::move(info.cigar);
-    alignment.edit_distance = info.edit_distance;
-    alignment.score = info.sw_score;
-    alignment.ref_start = ref_start + info.ref_start;
-    alignment.is_rc = is_rc;
-    alignment.is_unaligned = false;
-    alignment.length = info.ref_span();
-    return alignment;
-}
-
-
 /*
  Extend a NAM so that it covers the entire read and return the resulting
  alignment.
