@@ -24,7 +24,7 @@ struct ScoredAlignmentPair {
     Alignment alignment2;
 };
 
-static inline Alignment get_alignment(
+static inline Alignment extend_seed(
     const Aligner& aligner,
     const Nam &nam,
     const References& references,
@@ -118,7 +118,7 @@ static inline void align_SE(
         }
         bool consistent_nam = reverse_nam_if_needed(nam, read, references, k);
         details.nam_inconsistent += !consistent_nam;
-        auto alignment = get_alignment(aligner, nam, references, read, consistent_nam);
+        auto alignment = extend_seed(aligner, nam, references, read, consistent_nam);
         details.tried_alignment++;
         details.gapped += alignment.gapped;
 
@@ -170,22 +170,7 @@ static inline void align_SE(
  Extend a NAM so that it covers the entire read and return the resulting
  alignment.
 */
-/*
- Only the following fields of the 'nam' struct are used:
- - is_rc (r/w)
- - ref_id (read)
- - ref_s (read)
- - ref_e (read)
- - query_s (r/w)
- - query_e (r/w)
- This is almost like a 'hit', except for ref_id.
-
- the nam is sent afterwards into
- - get_MAPQ, which only uses .score and .n_hits
- - rescue_mate, which ...?
-*/
-
-static inline Alignment get_alignment(
+static inline Alignment extend_seed(
     const Aligner& aligner,
     const Nam &nam,
     const References& references,
@@ -546,7 +531,7 @@ void rescue_read(
 
         const bool consistent_nam = reverse_nam_if_needed(nam, read1, references, k);
         details[0].nam_inconsistent += !consistent_nam;
-        auto alignment = get_alignment(aligner, nam, references, read1, consistent_nam);
+        auto alignment = extend_seed(aligner, nam, references, read1, consistent_nam);
         details[0].gapped += alignment.gapped;
         alignments1.emplace_back(alignment);
         details[0].tried_alignment++;
@@ -757,10 +742,10 @@ inline void align_PE(
         bool consistent_nam2 = reverse_nam_if_needed(n_max2, read2, references, k);
         details[1].nam_inconsistent += !consistent_nam2;
 
-        auto alignment1 = get_alignment(aligner, n_max1, references, read1, consistent_nam1);
+        auto alignment1 = extend_seed(aligner, n_max1, references, read1, consistent_nam1);
         details[0].tried_alignment++;
         details[0].gapped += alignment1.gapped;
-        auto alignment2 = get_alignment(aligner, n_max2, references, read2, consistent_nam2);
+        auto alignment2 = extend_seed(aligner, n_max2, references, read2, consistent_nam2);
         details[1].tried_alignment++;
         details[1].gapped += alignment2.gapped;
         int mapq1 = get_mapq(nams1, n_max1);
@@ -791,7 +776,7 @@ inline void align_PE(
         auto n1_max = nams1[0];
         bool consistent_nam1 = reverse_nam_if_needed(n1_max, read1, references, k);
         details[0].nam_inconsistent += !consistent_nam1;
-        a1_indv_max = get_alignment(aligner, n1_max, references, read1, consistent_nam1);
+        a1_indv_max = extend_seed(aligner, n1_max, references, read1, consistent_nam1);
         is_aligned1[n1_max.nam_id] = a1_indv_max;
         details[0].tried_alignment++;
         details[0].gapped += a1_indv_max.gapped;
@@ -799,7 +784,7 @@ inline void align_PE(
         auto n2_max = nams2[0];
         bool consistent_nam2 = reverse_nam_if_needed(n2_max, read2, references, k);
         details[1].nam_inconsistent += !consistent_nam2;
-        a2_indv_max = get_alignment(aligner, n2_max, references, read2, consistent_nam2);
+        a2_indv_max = extend_seed(aligner, n2_max, references, read2, consistent_nam2);
         is_aligned2[n2_max.nam_id] = a2_indv_max;
         details[1].tried_alignment++;
         details[1].gapped += a2_indv_max.gapped;
@@ -826,7 +811,7 @@ inline void align_PE(
             } else {
                 bool consistent_nam = reverse_nam_if_needed(n1, read1, references, k);
                 details[0].nam_inconsistent += !consistent_nam;
-                a1 = get_alignment(aligner, n1, references, read1, consistent_nam);
+                a1 = extend_seed(aligner, n1, references, read1, consistent_nam);
                 is_aligned1[n1.nam_id] = a1;
                 details[0].tried_alignment++;
                 details[0].gapped += a1.gapped;
@@ -847,7 +832,7 @@ inline void align_PE(
             } else {
                 bool consistent_nam = reverse_nam_if_needed(n2, read2, references, k);
                 details[1].nam_inconsistent += !consistent_nam;
-                a2 = get_alignment(aligner, n2, references, read2, consistent_nam);
+                a2 = extend_seed(aligner, n2, references, read2, consistent_nam);
                 is_aligned2[n2.nam_id] = a2;
                 details[1].tried_alignment++;
                 details[1].gapped += a2.gapped;
