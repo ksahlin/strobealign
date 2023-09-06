@@ -56,7 +56,7 @@ void warn_if_no_optimizations() {
     }
 }
 
-void log_parameters(const IndexParameters& index_parameters, const MappingParameters& map_param, const alignment_params& aln_params) {
+void log_parameters(const IndexParameters& index_parameters, const MappingParameters& map_param, const AlignmentParameters& aln_params) {
     logger.debug() << "Using" << std::endl
         << "k: " << index_parameters.syncmer.k << std::endl
         << "s: " << index_parameters.syncmer.s << std::endl
@@ -161,7 +161,7 @@ int run_strobealign(int argc, char **argv) {
         opt.max_seed_len_set ? opt.max_seed_len : IndexParameters::DEFAULT
     );
     logger.debug() << index_parameters << '\n';
-    alignment_params aln_params;
+    AlignmentParameters aln_params;
     aln_params.match = opt.A;
     aln_params.mismatch = opt.B;
     aln_params.gap_open = opt.O;

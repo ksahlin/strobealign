@@ -7,7 +7,7 @@
 #include "cigar.hpp"
 
 
-struct alignment_params {
+struct AlignmentParameters {
     // match is a score, the others are penalties (all are nonnegative)
     int match;
     int mismatch;
@@ -30,14 +30,14 @@ struct AlignmentInfo {
 
 struct Aligner {
 public:
-    Aligner(alignment_params parameters)
+    Aligner(AlignmentParameters parameters)
         : parameters(parameters)
         , ssw_aligner(StripedSmithWaterman::Aligner(parameters.match, parameters.mismatch, parameters.gap_open, parameters.gap_extend))
     { }
 
     AlignmentInfo align(const std::string &query, const std::string &ref) const;
 
-    alignment_params parameters;
+    AlignmentParameters parameters;
 
     unsigned calls_count() {
         return m_align_calls;

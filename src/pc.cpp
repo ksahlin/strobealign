@@ -134,7 +134,7 @@ void perform_task(
     OutputBuffer &output_buffer,
     AlignmentStatistics& statistics,
     int& done,
-    const alignment_params &aln_params,
+    const AlignmentParameters &aln_params,
     const MappingParameters &map_param,
     const IndexParameters& index_parameters,
     const References& references,
