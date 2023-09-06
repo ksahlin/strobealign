@@ -402,16 +402,16 @@ bool has_shared_substring(const std::string& read_seq, const std::string& ref_se
 }
 
 /* Return true iff rescue by alignment was actually attempted */
-static inline bool rescue_mate(
+static inline Alignment rescue_mate(
     const Aligner& aligner,
     const Nam &nam,
     const References& references,
     const Read& read,
-    Alignment &alignment,
     float mu,
     float sigma,
     int k
 ) {
+    Alignment alignment;
     int a, b;
     std::string r_tmp;
     auto read_len = read.size();
@@ -439,7 +439,7 @@ static inline bool rescue_mate(
         alignment.ref_id = nam.ref_id;
         alignment.is_unaligned = true;
 //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
-        return false;
+        return alignment;
     }
     std::string ref_segm = references.sequences[nam.ref_id].substr(ref_start, ref_end - ref_start);
 
@@ -452,7 +452,7 @@ static inline bool rescue_mate(
         alignment.ref_id = nam.ref_id;
         alignment.is_unaligned = true;
 //        std::cerr << "Avoided!" << std::endl;
-        return false;
+        return alignment;
     }
     auto info = aligner.align(r_tmp, ref_segm);
 
@@ -465,7 +465,7 @@ static inline bool rescue_mate(
     alignment.is_unaligned = info.cigar.empty();
     alignment.length = info.ref_span();
 
-    return true;
+    return alignment;
 }
 
 /*
@@ -511,8 +511,8 @@ void rescue_read(
         details[0].tried_alignment++;
 
         // Force SW alignment to rescue mate
-        Alignment a2;
-        details[1].mate_rescue += rescue_mate(aligner, nam, references, read2, a2, mu, sigma, k);
+        Alignment a2 = rescue_mate(aligner, nam, references, read2, mu, sigma, k);
+        details[1].mate_rescue += !a2.is_unaligned;
         alignments2.emplace_back(a2);
 
         tries++;
@@ -792,7 +792,8 @@ inline void align_PE(
             }
         } else {
             details[1].nam_inconsistent += !reverse_nam_if_needed(n2, read2, references, k);
-            details[0].mate_rescue += rescue_mate(aligner, n2, references, read1, a1, mu, sigma, k);
+            a1 = rescue_mate(aligner, n2, references, read1, mu, sigma, k);
+            details[0].mate_rescue += !a1.is_unaligned;
             details[0].tried_alignment++;
         }
         if (a1.score > a1_indv_max.score) {
@@ -814,7 +815,8 @@ inline void align_PE(
             }
         } else {
             details[0].nam_inconsistent += !reverse_nam_if_needed(n1, read1, references, k);
-            details[1].mate_rescue += rescue_mate(aligner, n1, references, read2, a2, mu, sigma, k);
+            a2 = rescue_mate(aligner, n1, references, read2, mu, sigma, k);
+            details[1].mate_rescue += !a2.is_unaligned;
             details[1].tried_alignment++;
         }
         if (a2.score > a2_indv_max.score){
