@@ -183,7 +183,7 @@ static inline Alignment extend_seed(
     const auto projected_ref_start = std::max(0, nam.ref_start - nam.query_start);
     const auto projected_ref_end = std::min(nam.ref_end + query.size() - nam.query_end, ref.size());
 
-    aln_info info;
+    AlignmentInfo info;
     int result_ref_start;
     bool gapped = true;
     if (projected_ref_end - projected_ref_start == query.size() && consistent_nam) {
