@@ -414,19 +414,16 @@ static inline bool rescue_mate(
 ) {
     int a, b;
     std::string r_tmp;
-    bool a_is_rc;
     auto read_len = read.size();
 
     if (nam.is_rc){
         r_tmp = read.seq;
         a = nam.ref_start - nam.query_start - (mu+5*sigma);
         b = nam.ref_start - nam.query_start + read_len/2; // at most half read overlap
-        a_is_rc = false;
     } else {
         r_tmp = read.rc; // mate is rc since fr orientation
         a = nam.ref_end + (read_len - nam.query_end) - read_len/2; // at most half read overlap
         b = nam.ref_end + (read_len - nam.query_end) + (mu+5*sigma);
-        a_is_rc = true;
     }
 
     auto ref_len = static_cast<int>(references.lengths[nam.ref_id]);
@@ -463,7 +460,7 @@ static inline bool rescue_mate(
     alignment.edit_distance = info.edit_distance;
     alignment.score = info.sw_score;
     alignment.ref_start = ref_start + info.ref_start;
-    alignment.is_rc = a_is_rc;
+    alignment.is_rc = !nam.is_rc;
     alignment.ref_id = nam.ref_id;
     alignment.is_unaligned = info.cigar.empty();
     alignment.length = info.ref_span();
