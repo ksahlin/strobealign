@@ -458,25 +458,8 @@ static inline bool rescue_mate(
         alignment.is_unaligned = true;
 //        std::cerr << "Avoided!" << std::endl;
         return false;
-//        std::cerr << "Aligning anyway at: " << ref_start << " to " << ref_end << "ref len:" << ref_len << " ref_id:" << n.ref_id << std::endl;
     }
     auto info = aligner.align(r_tmp, ref_segm);
-
-//    if (info.ed == 100000){
-//        std::cerr<< "________________________________________" << std::endl;
-//        std::cerr<< "RESCUE MODE: " << mu << "  " << sigma << std::endl;
-//        std::cerr<< read << "   " << read_rc << std::endl;
-//        std::cerr << r_tmp << " " << n.n_hits << " " << n.score << " " << " " << alignment.ed << " "  <<  n.query_s << " "  << n.query_e << " "<<  n.ref_s << " "  << n.ref_e << " " << n.is_rc << " " << " " << alignment.cigar << " " << info.sw_score << std::endl;
-//        std::cerr << "a " << a << " b " << b << " ref_start " <<  ref_start << " ref_end " << ref_end << "  ref_end - ref_start "  <<  ref_end - ref_start << "  n.is_flipped " <<  n.is_flipped << std::endl;
-//        std::cerr<< "________________________________________" << std::endl;
-//    }
-//    info = parasail_align(ref_segm, ref_segm.size(), r_tmp, read_len, 1, 4, 6, 1);
-
-//    ksw_extz_t ez;
-//    const char *ref_ptr = ref_segm.c_str();
-//    const char *read_ptr = r_tmp.c_str();
-//    info = ksw_align(ref_ptr, ref_segm.size(), read_ptr, r_tmp.size(), 1, 4, 6, 1, ez);
-//    std::cerr << "Cigar: " << info.cigar << std::endl;
 
     alignment.cigar = info.cigar;
     alignment.edit_distance = info.edit_distance;
@@ -489,7 +472,10 @@ static inline bool rescue_mate(
     return true;
 }
 
-
+/*
+ * Align a pair of reads for which only one has NAMs. For the other, rescue
+ * is attempted by aligning it locally.
+ */
 void rescue_read(
     const Read& read2,  // read to be rescued
     const Read& read1,  // read that has NAMs
@@ -909,6 +895,7 @@ inline void align_PE(
     }
 }
 
+// Only used for PAF output
 inline void get_best_map_location(std::vector<Nam> &nams1, std::vector<Nam> &nams2, InsertSizeDistribution &isize_est, Nam &best_nam1, Nam &best_nam2 ) {
     std::vector<NamPair> joint_nam_scores = get_best_scoring_nam_pairs(nams1, nams2, isize_est.mu, isize_est.sigma);
     Nam n1_joint_max, n2_joint_max, n1_indiv_max, n2_indiv_max;
@@ -976,7 +963,6 @@ void InsertSizeDistribution::update(int dist) {
         std::cerr << "SSE negative, mu: " << mu << " sigma: " << sigma << " SSE: " << SSE << " sample size: " << sample_size << std::endl;
     }
 }
-
 
 void align_PE_read(
     const KSeq &record1,
