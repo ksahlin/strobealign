@@ -191,15 +191,14 @@ std::vector<Nam> find_nams_rescue(
     unsigned int rescue_cutoff
 ) {
     struct RescueHit {
-        unsigned int count;
         size_t position;
+        unsigned int count;
         unsigned int query_start;
         unsigned int query_end;
-        bool is_rc;
 
         bool operator< (const RescueHit& rhs) const {
-            return std::tie(count, query_start, query_end, is_rc)
-                < std::tie(rhs.count, rhs.query_start, rhs.query_end, rhs.is_rc);
+            return std::tie(count, query_start, query_end)
+                < std::tie(rhs.count, rhs.query_start, rhs.query_end);
         }
     };
 
@@ -215,7 +214,7 @@ std::vector<Nam> find_nams_rescue(
         size_t position = index.find(qr.hash);
         if (position != index.end()) {
             unsigned int count = index.get_count(position);
-            RescueHit rh{count, position, qr.start, qr.end, qr.is_reverse};
+            RescueHit rh{position, count, qr.start, qr.end};
             if (qr.is_reverse){
                 hits_rc.push_back(rh);
             } else {
@@ -226,15 +225,17 @@ std::vector<Nam> find_nams_rescue(
 
     std::sort(hits_fw.begin(), hits_fw.end());
     std::sort(hits_rc.begin(), hits_rc.end());
+    size_t is_revcomp = 0;
     for (auto& rescue_hits : {hits_fw, hits_rc}) {
         int cnt = 0;
         for (auto &rh : rescue_hits) {
             if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
                 break;
             }
-            add_to_hits_per_ref(hits_per_ref[rh.is_rc], rh.query_start, rh.query_end, index, rh.position);
+            add_to_hits_per_ref(hits_per_ref[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
             cnt++;
         }
+        is_revcomp++;
     }
 
     return merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), true);
