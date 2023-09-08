@@ -80,7 +80,7 @@ public:
     IndexParameters(size_t canonical_read_length, int k, int s, int l, int u, int q, int max_dist)
         : canonical_read_length(canonical_read_length)
         , syncmer(k, s)
-        , randstrobe(l, u, q, max_dist, std::max(1, k / (k - s + 1) + l), k / (k - s + 1) + u)
+        , randstrobe(l, u, q, max_dist, std::max(0, k / (k - s + 1) + l), k / (k - s + 1) + u)
     {
     }
 
