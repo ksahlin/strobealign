@@ -62,6 +62,9 @@ private:
         if (max_dist > 255) {
             throw BadParameter("maximum seed length (-m <max_dist>) is larger than 255");
         }
+        if (w_min > w_max) {
+            throw BadParameter("w_min is greater than w_max (choose different -l/-u parameters)");
+        }
     }
 };
 
@@ -77,7 +80,7 @@ public:
     IndexParameters(size_t canonical_read_length, int k, int s, int l, int u, int q, int max_dist)
         : canonical_read_length(canonical_read_length)
         , syncmer(k, s)
-        , randstrobe(l, u, q, max_dist, std::max(1, k / (k - s + 1) + l), k / (k - s + 1) + u)
+        , randstrobe(l, u, q, max_dist, std::max(0, k / (k - s + 1) + l), k / (k - s + 1) + u)
     {
     }
 
