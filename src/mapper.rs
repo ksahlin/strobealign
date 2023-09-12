@@ -10,6 +10,7 @@ use crate::syncmers::SyncmerIterator;
 use crate::sam::{REVERSE, SamRecord, SECONDARY, UNMAP};
 use crate::read::Read;
 use crate::aligner::Aligner;
+use crate::details::Details;
 use crate::fastq::SequenceRecord;
 
 enum CigarMode {
@@ -105,8 +106,7 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> Vec<QueryR
     randstrobes
 }
 
-// TODO details
-fn make_sam_record(alignment: &Alignment, references: &[RefSequence], record: &SequenceRecord, mut mapq: u8, is_primary: bool) -> SamRecord {
+fn make_sam_record(alignment: &Alignment, references: &[RefSequence], record: &SequenceRecord, mut mapq: u8, is_primary: bool, details: Details) -> SamRecord {
     let mut flags = 0;
 
     if !alignment.is_unaligned && alignment.is_revcomp {
@@ -145,17 +145,18 @@ fn make_sam_record(alignment: &Alignment, references: &[RefSequence], record: &S
         query_qualities: Some(query_qualities),
         edit_distance: Some(alignment.edit_distance as u32),
         alignment_score: Some(alignment.score),
+        details,
         .. SamRecord::default()
-        // TODO details: details
     }
 }
 
-fn make_unmapped_sam_record(record: &SequenceRecord) -> SamRecord {
+fn make_unmapped_sam_record(record: &SequenceRecord, details: Details) -> SamRecord {
     SamRecord {
         query_name: record.name.clone(),
         flags: UNMAP,
         query_sequence: Some(record.sequence.clone()),
         query_qualities: Some(record.qualities.clone()),
+        details,
         .. SamRecord::default()
     }
 }
@@ -167,7 +168,7 @@ pub fn map_single_end_read(
     mapping_parameters: &MappingParameters,
     aligner: &Aligner,
 ) -> Vec<SamRecord> {
-    //Details details;
+    let mut details = Details::default();
     //Timer strobe_timer;
     let query_randstrobes = randstrobes_query(&record.sequence, &index.parameters);
     //statistics.tot_construct_strobemers += strobe_timer.duration();
@@ -180,12 +181,12 @@ pub fn map_single_end_read(
 
         // Timer rescue_timer;
         if nams.is_empty() || nonrepetitive_fraction < 0.7 {
-            // details.nam_rescue = true;
+            details.nam_rescue = true;
             nams = find_nams_rescue(&query_randstrobes, index, index.rescue_cutoff);
         }
         // statistics.tot_time_rescue += rescue_timer.duration();
     }
-    // details.nams = nams.size();
+    details.nams = nams.len();
     // Timer nam_sort_timer;
 
     nams.sort_by_key(|&k| -(k.score as i32));
@@ -199,7 +200,7 @@ pub fn map_single_end_read(
     // );
 
     if nams.is_empty() {
-        return vec![make_unmapped_sam_record(record)]; // TODO details
+        return vec![make_unmapped_sam_record(record, details)]; // TODO details
     }
     let mut sam_records = Vec::new();
     let mut alignments = Vec::new();
@@ -220,14 +221,14 @@ pub fn map_single_end_read(
             break;
         }
         let consistent_nam = reverse_nam_if_needed(nam, &read, references, k);
-        // details.nam_inconsistent += !consistent_nam;
+        details.nam_inconsistent += (!consistent_nam) as usize;
         let alignment = get_alignment(aligner, nam, references, &read, consistent_nam);
         if alignment.is_none() {
             continue;
         }
         let alignment = alignment.unwrap();
-        // details.tried_alignment += 1;
-        // details.gapped += sam_aln.gapped;
+        details.tried_alignment += 1;
+        details.gapped += alignment.gapped as usize;
 
         if alignment.score > best_score {
             second_best_score = best_score;
@@ -246,12 +247,12 @@ pub fn map_single_end_read(
     let mapq = (60.0 * (best_score - second_best_score) as f32 / best_score as f32) as u8;
 
     if best_alignment.is_none() {
-        return vec![make_unmapped_sam_record(record)];
+        return vec![make_unmapped_sam_record(record, details)];
     }
     let best_alignment = best_alignment.unwrap();
     if mapping_parameters.max_secondary == 0 {
         sam_records.push(
-            make_sam_record(&best_alignment, references, record, mapq, true) // TODO details
+            make_sam_record(&best_alignment, references, record, mapq, true, details)
         );
     } else {
         // Highest score first
@@ -263,8 +264,8 @@ pub fn map_single_end_read(
             if alignment.score - best_score > 2 * aligner.scores.mismatch as u32 + aligner.scores.gap_open as u32 {
                 break;
             }
-            // TODO details
-            sam_records.push(make_sam_record(alignment, references, record, mapq, is_primary));
+            // TODO .clone()
+            sam_records.push(make_sam_record(alignment, references, record, mapq, is_primary, details.clone()));
         }
     }
     // statistics.tot_extend += extend_timer.duration();

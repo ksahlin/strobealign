@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 use crate::cigar::Cigar;
+use crate::details::Details;
 use crate::fasta::RefSequence;
 
 pub const PAIRED: u16 = 1;
@@ -32,7 +33,7 @@ pub struct SamRecord {
     pub query_qualities: Option<Vec<u8>>,
     pub edit_distance: Option<u32>,
     pub alignment_score: Option<u32>,
-    // details: Details,
+    pub details: Details,
 }
 
 impl SamRecord {
