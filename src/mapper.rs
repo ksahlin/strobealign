@@ -18,12 +18,11 @@ enum CigarMode {
 }
 
 pub struct MappingParameters {
-    r: usize, // { 150 },
+    r: usize,
     max_secondary: usize,
     dropoff_threshold: f32,
     rescue_level: usize,
     max_tries: usize,
-    cigar_mode: CigarMode,
     output_unmapped: bool,
 }
 
@@ -35,9 +34,7 @@ impl Default for MappingParameters {
             dropoff_threshold: 0.5,
             rescue_level: 2,
             max_tries: 20,
-            cigar_mode: CigarMode::M,
             output_unmapped: true,
-            // details: false,
         }
     }
 }
@@ -106,58 +103,86 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> Vec<QueryR
     randstrobes
 }
 
-fn make_sam_record(alignment: &Alignment, references: &[RefSequence], record: &SequenceRecord, mut mapq: u8, is_primary: bool, details: Details) -> SamRecord {
-    let mut flags = 0;
+/// Conversion of an Alignment into a SamRecord
+pub struct SamOutput {
+    cigar_mode: CigarMode,
+    details: bool,
+}
 
-    if !alignment.is_unaligned && alignment.is_revcomp {
-        flags |= REVERSE;
-    }
-    if !is_primary {
-        mapq = 255;
-        flags |= SECONDARY;
-    }
-
-    let query_sequence = if alignment.is_revcomp {
-        reverse_complement(&record.sequence)
-    } else {
-        record.sequence.clone()
-    };
-    let query_qualities = if alignment.is_revcomp {
-        let mut rev = record.qualities.clone();
-        rev.reverse();
-        rev
-    } else {
-        record.qualities.clone()
-    };
-    let mut cigar = Cigar::new();
-    cigar.push(CigarOperation::Softclip, alignment.soft_clip_left);
-    cigar.extend(&alignment.cigar);
-    cigar.push(CigarOperation::Softclip, alignment.soft_clip_right);
-
-    SamRecord {
-        query_name: record.name.clone(),
-        flags,
-        reference_name: Some(references[alignment.reference_id].name.clone()),
-        pos: Some(alignment.ref_start as u32),
-        mapq,
-        cigar: Some(cigar),
-        query_sequence: Some(query_sequence),
-        query_qualities: Some(query_qualities),
-        edit_distance: Some(alignment.edit_distance as u32),
-        alignment_score: Some(alignment.score),
-        details,
-        .. SamRecord::default()
+impl Default for SamOutput {
+    fn default() -> Self {
+        SamOutput {
+            cigar_mode: CigarMode::M,
+            details: false,
+        }
     }
 }
 
-fn make_unmapped_sam_record(record: &SequenceRecord, details: Details) -> SamRecord {
-    SamRecord {
-        query_name: record.name.clone(),
-        flags: UNMAP,
-        query_sequence: Some(record.sequence.clone()),
-        query_qualities: Some(record.qualities.clone()),
-        details,
-        .. SamRecord::default()
+impl SamOutput {
+    pub fn new(details: bool) -> Self {
+        SamOutput {
+            details,
+            .. SamOutput::default()
+        }
+    }
+
+    /// Convert the alignment into a SamRecord
+    fn make_record(&self, alignment: &Alignment, references: &[RefSequence], record: &SequenceRecord, mut mapq: u8, is_primary: bool, details: Details) -> SamRecord {
+        let mut flags = 0;
+
+        if !alignment.is_unaligned && alignment.is_revcomp {
+            flags |= REVERSE;
+        }
+        if !is_primary {
+            mapq = 255;
+            flags |= SECONDARY;
+        }
+
+        let query_sequence = if alignment.is_revcomp {
+            reverse_complement(&record.sequence)
+        } else {
+            record.sequence.clone()
+        };
+        let query_qualities = if alignment.is_revcomp {
+            let mut rev = record.qualities.clone();
+            rev.reverse();
+            rev
+        } else {
+            record.qualities.clone()
+        };
+        let mut cigar = Cigar::new();
+        cigar.push(CigarOperation::Softclip, alignment.soft_clip_left);
+        cigar.extend(&alignment.cigar);
+        cigar.push(CigarOperation::Softclip, alignment.soft_clip_right);
+
+        let reference_name = Some(references[alignment.reference_id].name.clone());
+        let details = if self.details { Some(details) } else { None };
+        SamRecord {
+            query_name: record.name.clone(),
+            flags,
+            reference_name,
+            pos: Some(alignment.ref_start as u32),
+            mapq,
+            cigar: Some(cigar),
+            query_sequence: Some(query_sequence),
+            query_qualities: Some(query_qualities),
+            edit_distance: Some(alignment.edit_distance as u32),
+            alignment_score: Some(alignment.score),
+            details,
+            ..SamRecord::default()
+        }
+    }
+
+    fn make_unmapped_record(&self, record: &SequenceRecord, details: Details) -> SamRecord {
+        let details = if self.details { Some(details) } else { None };
+        SamRecord {
+            query_name: record.name.clone(),
+            flags: UNMAP,
+            query_sequence: Some(record.sequence.clone()),
+            query_qualities: Some(record.qualities.clone()),
+            details,
+            ..SamRecord::default()
+        }
     }
 }
 
@@ -166,6 +191,7 @@ pub fn map_single_end_read(
     index: &StrobemerIndex,
     references: &[RefSequence],
     mapping_parameters: &MappingParameters,
+    sam_output: &SamOutput,
     aligner: &Aligner,
 ) -> Vec<SamRecord> {
     let mut details = Details::default();
@@ -200,7 +226,7 @@ pub fn map_single_end_read(
     // );
 
     if nams.is_empty() {
-        return vec![make_unmapped_sam_record(record, details)]; // TODO details
+        return vec![sam_output.make_unmapped_record(record, details)];
     }
     let mut sam_records = Vec::new();
     let mut alignments = Vec::new();
@@ -247,12 +273,12 @@ pub fn map_single_end_read(
     let mapq = (60.0 * (best_score - second_best_score) as f32 / best_score as f32) as u8;
 
     if best_alignment.is_none() {
-        return vec![make_unmapped_sam_record(record, details)];
+        return vec![sam_output.make_unmapped_record(record, details)];
     }
     let best_alignment = best_alignment.unwrap();
     if mapping_parameters.max_secondary == 0 {
         sam_records.push(
-            make_sam_record(&best_alignment, references, record, mapq, true, details)
+            sam_output.make_record(&best_alignment, references, record, mapq, true, details)
         );
     } else {
         // Highest score first
@@ -265,7 +291,7 @@ pub fn map_single_end_read(
                 break;
             }
             // TODO .clone()
-            sam_records.push(make_sam_record(alignment, references, record, mapq, is_primary, details.clone()));
+            sam_records.push(sam_output.make_record(alignment, references, record, mapq, is_primary, details.clone()));
         }
     }
     // statistics.tot_extend += extend_timer.duration();

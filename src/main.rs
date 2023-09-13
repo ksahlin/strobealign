@@ -9,7 +9,7 @@ use rstrobes::aligner::{Aligner, Scores};
 use rstrobes::fastq::FastqReader;
 use rstrobes::fasta;
 use rstrobes::index::{IndexParameters, StrobemerIndex};
-use rstrobes::mapper::{map_single_end_read, MappingParameters};
+use rstrobes::mapper::{map_single_end_read, MappingParameters, SamOutput};
 use rstrobes::sam::SamHeader;
 
 mod logger;
@@ -37,8 +37,11 @@ struct Args {
     // args::Flag interleaved(parser, "interleaved", "Interleaved input", {"interleaved"});
     // args::ValueFlag<std::string> rgid(parser, "ID", "Read group ID", {"rg-id"});
     // args::ValueFlagList<std::string> rg(parser, "TAG:VALUE", "Add read group metadata to SAM header (can be specified multiple times). Example: SM:samplename", {"rg"});
-    // args::Flag details(parser, "details", "Add debugging details to SAM records", {"details"});
-    //
+
+    /// Add debugging details to SAM records
+    #[arg(long)]
+    details: bool,
+
     // args::ValueFlag<int> N(parser, "INT", "Retain at most INT secondary alignments (is upper bounded by -M and depends on -S) [0]", {'N'});
     // args::ValueFlag<std::string> index_statistics(parser, "PATH", "Print statistics of indexing to PATH", {"index-statistics"});
     // args::Flag i(parser, "index", "Do not map reads; only generate the strobemer index and write it to disk. If read files are provided, they are used to estimate read length", {"create-index", 'i'});
@@ -148,6 +151,7 @@ fn main() -> Result<(), Error> {
 
     let aligner = Aligner::new(Scores::default());
 
+    let sam_output = SamOutput::new(args.details);
     let cmd_line = env::args().skip(1).collect::<Vec<_>>().join(" ");
     let read_group_fields = vec![];
     let header = SamHeader::new(
@@ -164,7 +168,7 @@ fn main() -> Result<(), Error> {
     let f = File::open(&args.fastq_path)?;
     for record in FastqReader::new(f) {
         let record = record?;
-        let sam_records = map_single_end_read(&record, &index, &references, &mapping_parameters, &aligner);
+        let sam_records = map_single_end_read(&record, &index, &references, &mapping_parameters, &sam_output, &aligner);
         for sam_record in sam_records {
             if sam_record.is_mapped() || !args.only_mapped {
                 writeln!(out, "{}", sam_record)?;

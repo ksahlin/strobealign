@@ -33,7 +33,7 @@ pub struct SamRecord {
     pub query_qualities: Option<Vec<u8>>,
     pub edit_distance: Option<u32>,
     pub alignment_score: Option<u32>,
-    pub details: Details,
+    pub details: Option<Details>,
 }
 
 impl SamRecord {
@@ -101,6 +101,14 @@ impl Display for SamRecord {
         }
         if let Some(alignment_score) = self.alignment_score {
             write!(f, "\tAS:i:{}", alignment_score)?;
+        }
+        if let Some(details) = &self.details {
+            write!(f, "\tna:i:{}\tnr:i:{}\tal:i:{}\tga:i:{}",
+                details.nams,
+                details.nam_rescue as u8,
+                details.tried_alignment,
+                details.gapped
+            )?;
         }
         Ok(())
     }
