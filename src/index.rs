@@ -1,4 +1,7 @@
 use std::cmp::{max, min, Reverse};
+use std::mem;
+use std::time::Instant;
+use log::debug;
 use rayon::prelude::*;
 use crate::strobes::{RandstrobeIterator, RandstrobeParameters};
 use crate::syncmers::{SyncmerParameters, SyncmerIterator};
@@ -205,22 +208,24 @@ impl<'a> StrobemerIndex<'a> {
     }
 
     pub fn populate(&mut self, filter_fraction: f64, rescue_level: usize) {
-        // Timer count_hash;
+        let timer = Instant::now();
         let randstrobe_counts = count_all_randstrobes(self.references, &self.parameters);
+        debug!("  Counting hashes: {:.2} s", timer.elapsed().as_secs_f64());
         // stats.elapsed_counting_hashes = count_hash.duration();
 
         let total_randstrobes = randstrobe_counts.iter().sum();
         // stats.tot_strobemer_count = total_randstrobes;
 
-        // logger.debug() << "  Total number of randstrobes: " << total_randstrobes << '\n';
-        // uint64_t memory_bytes = references.total_length() + sizeof(RefRandstrobe) * total_randstrobes + sizeof(bucket_index_t) * (1u << bits);
-        // logger.debug() << "  Estimated total memory usage: " << memory_bytes / 1E9 << " GB\n";
+        debug!("  Total number of randstrobes: {}", total_randstrobes);
+        let total_length: usize = self.references.iter().map(|refseq| refseq.sequence.len()).sum();
+        let memory_bytes: usize = total_length + mem::size_of::<RefRandstrobe>() * total_randstrobes + mem::size_of::<bucket_index_t>() * (1usize << self.bits);
+        debug!("  Estimated total memory usage: {:.3} GB", memory_bytes as f64 / 1E9);
 
-        // if (total_randstrobes > std::numeric_limits<bucket_index_t>::max()) {
-        //     throw std::range_error("Too many randstrobes");
-        // }
-        // Timer randstrobes_timer;
-        // logger.debug() << "  Generating randstrobes ...\n";
+        if total_randstrobes > bucket_index_t::MAX as usize {
+            panic!("Too many randstrobes");
+        }
+        let timer = Instant::now();
+        debug!("  Generating randstrobes ...");
         self.randstrobes.reserve_exact(total_randstrobes);
         // TODO  self.assign_all_randstrobes(&randstrobe_counts);
 
@@ -245,17 +250,19 @@ impl<'a> StrobemerIndex<'a> {
                 );
             }
         }
+        debug!("  Generating seeds: {:.2} s", timer.elapsed().as_secs_f64());
         // stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
-        // Timer sorting_timer;
-        // logger.debug() << "  Sorting ...\n";
+        let timer = Instant::now();
+        debug!("  Sorting ...");
         // sort by hash values
         // TODO sort_unstable (stdlib) is also pdqsort
         pdqsort::sort(&mut self.randstrobes);
+        debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
         // stats.elapsed_sorting_seeds = sorting_timer.duration();
 
-        // Timer hash_index_timer;
-        // logger.debug() << "  Indexing ...\n";
+        let timer = Instant::now();
+        debug!("  Indexing ...");
 
         let mut tot_high_ab = 0;
         let mut tot_mid_ab = 0;
@@ -323,6 +330,7 @@ impl<'a> StrobemerIndex<'a> {
             );
         self.rescue_cutoff = min(self.filter_cutoff * 2, 1000);
         //stats.elapsed_hash_index = hash_index_timer.duration();
+        debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
         self.stats.distinct_strobemers = unique_mers;
     }
 
