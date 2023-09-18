@@ -105,8 +105,8 @@ impl<'a> Iterator for SyncmerIterator<'a> {
     type Item = Syncmer;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.i < self.seq.len() {
-            let ch = self.seq[self.i];
+        for i in self.i..self.seq.len() {
+            let ch = self.seq[i];
             let c = NUCLEOTIDES[ch as usize];
             if c < 4 { // not an "N" base
                 self.xk[0] = (self.xk[0] << 2 | (c as u64)) & self.kmask;        // forward strand
@@ -115,7 +115,6 @@ impl<'a> Iterator for SyncmerIterator<'a> {
                 self.xs[1] = self.xs[1] >> 2 | ((3 - c) as u64) << self.sshift;  // reverse strand
                 self.l += 1;
                 if self.l < self.s {
-                    self.i += 1;
                     continue;
                 }
                 // we find an s-mer
@@ -124,7 +123,6 @@ impl<'a> Iterator for SyncmerIterator<'a> {
                 self.qs.push_back(hash_s);
                 // not enough hashes in the queue, yet
                 if self.qs.len() < self.k - self.s + 1 {
-                    self.i += 1;
                     continue;
                 }
                 if self.qs.len() == (self.k - self.s + 1) { // We are at the last s-mer within the first k-mer, need to decide if we add it
@@ -132,30 +130,30 @@ impl<'a> Iterator for SyncmerIterator<'a> {
                     for j in 0..self.qs.len() {
                         if self.qs[j] < self.qs_min_val {
                             self.qs_min_val = self.qs[j];
-                            self.qs_min_pos = self.i + j + 1 - self.k;
+                            self.qs_min_pos = i + j + 1 - self.k;
                         }
                     }
                 } else {
                     // update queue and current minimum and position
                     self.qs.pop_front();
-                    if self.qs_min_pos == self.i - self.k { // we popped the previous minimizer, find new brute force
+                    if self.qs_min_pos == i - self.k { // we popped the previous minimizer, find new brute force
                         self.qs_min_val = u64::MAX;
-                        self.qs_min_pos = self.i - self.s + 1;
+                        self.qs_min_pos = i - self.s + 1;
                         for j in (0..self.qs.len()).rev() { //Iterate in reverse to choose the rightmost minimizer in a window
                             if self.qs[j] < self.qs_min_val {
                                 self.qs_min_val = self.qs[j];
-                                self.qs_min_pos = self.i + j + 1 - self.k;
+                                self.qs_min_pos = i + j + 1 - self.k;
                             }
                         }
                     } else if hash_s < self.qs_min_val { // the new value added to queue is the new minimum
                         self.qs_min_val = hash_s;
-                        self.qs_min_pos = self.i - self.s + 1;
+                        self.qs_min_pos = i - self.s + 1;
                     }
                 }
-                if self.qs_min_pos == self.i + self.t - self.k { // occurs at t:th position in k-mer
+                if self.qs_min_pos == i + self.t - self.k { // occurs at t:th position in k-mer
                     let yk = min(self.xk[0], self.xk[1]);
-                    let syncmer = Syncmer { hash: syncmer_kmer_hash(yk), position: self.i + 1 - self.k };
-                    self.i += 1;
+                    let syncmer = Syncmer { hash: syncmer_kmer_hash(yk), position: i + 1 - self.k };
+                    self.i = i + 1;
                     return Some(syncmer);
                 }
             } else {
@@ -167,7 +165,6 @@ impl<'a> Iterator for SyncmerIterator<'a> {
                 self.xk = [0, 0];
                 self.qs.clear();
             }
-            self.i += 1;
         }
         None
     }
