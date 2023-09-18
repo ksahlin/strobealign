@@ -219,7 +219,7 @@ impl<'a> StrobemerIndex<'a> {
         debug!("  Total number of randstrobes: {}", total_randstrobes);
         let total_length: usize = self.references.iter().map(|refseq| refseq.sequence.len()).sum();
         let memory_bytes: usize = total_length + mem::size_of::<RefRandstrobe>() * total_randstrobes + mem::size_of::<bucket_index_t>() * (1usize << self.bits);
-        debug!("  Estimated total memory usage: {:.3} GB", memory_bytes as f64 / 1E9);
+        debug!("  Estimated total memory usage: {:.1} GB", memory_bytes as f64 / 1E9);
 
         if total_randstrobes > bucket_index_t::MAX as usize {
             panic!("Too many randstrobes");
@@ -255,9 +255,8 @@ impl<'a> StrobemerIndex<'a> {
 
         let timer = Instant::now();
         debug!("  Sorting ...");
-        // sort by hash values
-        // TODO sort_unstable (stdlib) is also pdqsort
-        pdqsort::sort(&mut self.randstrobes);
+        self.randstrobes.sort_unstable_by_key(|r| r.hash);
+
         debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
         // stats.elapsed_sorting_seeds = sorting_timer.duration();
 
