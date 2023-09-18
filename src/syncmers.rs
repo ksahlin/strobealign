@@ -101,6 +101,10 @@ fn syncmer_kmer_hash(hash: u64) -> u64 {
     xxh64(&hash.to_ne_bytes(), 0)
 }
 
+fn syncmer_smer_hash(hash: u64) -> u64 {
+    xxh64(&hash.to_ne_bytes(), 0)
+}
+
 impl<'a> Iterator for SyncmerIterator<'a> {
     type Item = Syncmer;
 
@@ -119,7 +123,7 @@ impl<'a> Iterator for SyncmerIterator<'a> {
                 }
                 // we find an s-mer
                 let ys = min(self.xs[0], self.xs[1]);
-                let hash_s = ys;
+                let hash_s = syncmer_smer_hash(ys);
                 self.qs.push_back(hash_s);
                 // not enough hashes in the queue, yet
                 if self.qs.len() < self.k - self.s + 1 {
