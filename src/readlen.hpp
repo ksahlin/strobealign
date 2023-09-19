@@ -5,6 +5,6 @@
 #include <zlib.h>
 #include "pc.hpp"
 
-int estimate_read_length(InputBuffer& input_buffer);
+uint64_t estimate_read_length(InputBuffer& input_buffer);
 
 #endif
