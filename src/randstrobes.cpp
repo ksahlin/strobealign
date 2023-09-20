@@ -47,6 +47,10 @@ static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
     return XXH64(&packed, 8, 0);
 }
 
+static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_hash_t hash2) {
+    return hash1 + hash2;
+}
+
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
     os << "Syncmer(hash=" << syncmer.hash << ", position=" << syncmer.position << ")";
     return os;
@@ -165,7 +169,7 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
         }
     }
 
-    return Randstrobe{strobe1.hash + strobe2.hash, static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
+    return Randstrobe{randstrobe_hash(strobe1.hash, strobe2.hash), static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
 }
 
 Randstrobe RandstrobeGenerator::next() {
@@ -196,7 +200,7 @@ Randstrobe RandstrobeGenerator::next() {
         }
     }
     syncmers.pop_front();
-    return Randstrobe{strobe1.hash + strobe2.hash, static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
+    return Randstrobe{randstrobe_hash(strobe1.hash, strobe2.hash), static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
 }
 
 /*
