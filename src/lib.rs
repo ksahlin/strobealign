@@ -12,3 +12,4 @@ pub mod read;
 pub mod aligner;
 pub mod ssw;
 pub mod details;
+pub mod hash;
