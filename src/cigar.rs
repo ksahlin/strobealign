@@ -102,7 +102,7 @@ impl Cigar {
     }
 
     /// Return a new Cigar that uses M operations instead of =/X
-    fn with_m(&self) -> Self {
+    pub fn with_m(&self) -> Self {
         let mut cigar = Cigar::new();
         for oplen in &self.ops {
             cigar.push(

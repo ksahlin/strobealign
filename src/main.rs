@@ -27,7 +27,11 @@ struct Args {
     //args::ValueFlag<int> chunk_size(parser, "INT", "Number of reads processed by a worker thread at once [10000]", {"chunk-size"}, args::Options::Hidden);
     //args::Flag v(parser, "v", "Verbose output", {'v'});
     //args::Flag no_progress(parser, "no-progress", "Disable progress report (enabled by default if output is a terminal)", {"no-progress"});
-    //args::Flag eqx(parser, "eqx", "Emit =/X instead of M CIGAR operations", {"eqx"});
+
+    /// Emit =/X instead of M CIGAR operations
+    #[arg(long)]
+    eqx: bool,
+
     //args::Flag x(parser, "x", "Only map reads, no base level alignment (produces PAF file)", {'x'});
 
     /// Suppress output of unmapped reads
@@ -151,7 +155,7 @@ fn main() -> Result<(), Error> {
 
     let aligner = Aligner::new(Scores::default());
 
-    let sam_output = SamOutput::new(args.details);
+    let sam_output = SamOutput::new(args.details, args.eqx);
     let cmd_line = env::args().skip(1).collect::<Vec<_>>().join(" ");
     let read_group_fields = vec![];
     let header = SamHeader::new(

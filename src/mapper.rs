@@ -7,15 +7,12 @@ use crate::nam::{find_nams, find_nams_rescue, Nam, reverse_nam_if_needed};
 use crate::revcomp::reverse_complement;
 use crate::strobes::RandstrobeIterator;
 use crate::syncmers::SyncmerIterator;
-use crate::sam::{REVERSE, SamRecord, SECONDARY, UNMAP};
+use crate::sam::{SamRecord, REVERSE, SECONDARY, UNMAP};
 use crate::read::Read;
 use crate::aligner::Aligner;
 use crate::details::Details;
 use crate::fastq::SequenceRecord;
 
-enum CigarMode {
-    M, Eqx
-}
 
 pub struct MappingParameters {
     r: usize,
@@ -105,24 +102,24 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> Vec<QueryR
 
 /// Conversion of an Alignment into a SamRecord
 pub struct SamOutput {
-    cigar_mode: CigarMode,
+    cigar_eqx: bool,
     details: bool,
 }
 
 impl Default for SamOutput {
     fn default() -> Self {
         SamOutput {
-            cigar_mode: CigarMode::M,
+            cigar_eqx: false,
             details: false,
         }
     }
 }
 
 impl SamOutput {
-    pub fn new(details: bool) -> Self {
+    pub fn new(details: bool, cigar_eqx: bool) -> Self {
         SamOutput {
+            cigar_eqx,
             details,
-            .. SamOutput::default()
         }
     }
 
@@ -157,13 +154,15 @@ impl SamOutput {
 
         let reference_name = Some(references[alignment.reference_id].name.clone());
         let details = if self.details { Some(details) } else { None };
+
+        let cigar = if self.cigar_eqx { Some(cigar) } else { Some(cigar.with_m()) };
         SamRecord {
             query_name: record.name.clone(),
             flags,
             reference_name,
             pos: Some(alignment.ref_start as u32),
             mapq,
-            cigar: Some(cigar),
+            cigar,
             query_sequence: Some(query_sequence),
             query_qualities: Some(query_qualities),
             edit_distance: Some(alignment.edit_distance as u32),
@@ -299,10 +298,8 @@ pub fn map_single_end_read(
     sam_records
 }
 
-/*
- Extend a NAM so that it covers the entire read and return the resulting
- alignment.
-*/
+/// Extend a NAM so that it covers the entire read and return the resulting
+/// alignment.
 fn get_alignment(
     aligner: &Aligner,
     nam: &Nam,
