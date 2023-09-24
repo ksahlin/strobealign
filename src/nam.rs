@@ -37,7 +37,6 @@ struct Hit {
     query_end: usize,
     ref_start: usize,
     ref_end: usize,
-    is_revcomp: bool,
 }
 
 /// Find a query’s NAMs, ignoring randstrobes that occur too often in the
@@ -56,7 +55,7 @@ pub fn find_nams(query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerInde
                 continue;
             }
             nr_good_hits += 1;
-            add_to_hits_per_ref(&mut hits_per_ref[randstrobe.is_revcomp as usize], randstrobe.start, randstrobe.end, randstrobe.is_revcomp, index, position);
+            add_to_hits_per_ref(&mut hits_per_ref[randstrobe.is_revcomp as usize], randstrobe.start, randstrobe.end, index, position);
         }
     }
     let nonrepetitive_fraction = if total_hits > 0 { (nr_good_hits as f32) / (total_hits as f32) } else { 1.0 };
@@ -119,7 +118,7 @@ pub fn find_nams_rescue(
             if (rh.count > rescue_cutoff && i >= 5) || rh.count > 1000 {
                 break;
             }
-            add_to_hits_per_ref(&mut hits_per_ref[rh.is_revcomp as usize], rh.query_start, rh.query_end, rh.is_revcomp, index, rh.position);
+            add_to_hits_per_ref(&mut hits_per_ref[rh.is_revcomp as usize], rh.query_start, rh.query_end, index, rh.position);
         }
     }
 
@@ -130,7 +129,6 @@ fn add_to_hits_per_ref(
     hits_per_ref: &mut HashMap<usize, Vec<Hit>>,
     query_start: usize,
     query_end: usize,
-    is_revcomp: bool,
     index: &StrobemerIndex,
     position: usize,
 ) {
@@ -145,7 +143,7 @@ fn add_to_hits_per_ref(
         let ref_length = ref_end - ref_start;
         let length_diff = (query_length as isize - ref_length as isize).unsigned_abs();
         if length_diff <= max_length_diff {
-            let hit = Hit{query_start, query_end, ref_start, ref_end, is_revcomp};
+            let hit = Hit{query_start, query_end, ref_start, ref_end};
             let ref_id = randstrobe.reference_index();
 
             if let Entry::Vacant(e) = hits_per_ref.entry(ref_id) {
@@ -210,7 +208,7 @@ fn merge_hits_into_nams(hits_per_ref: &mut [HashMap<usize, Vec<Hit>>; 2], k: usi
                     query_prev_hit_startpos: h.query_start,
                     ref_prev_hit_startpos: h.ref_start,
                     n_hits: 1,
-                    is_revcomp: h.is_revcomp,
+                    is_revcomp,
                     score: 0,
                 });
                 nam_id_cnt += 1;
