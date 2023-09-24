@@ -19,7 +19,7 @@ struct Profile {
 }
 
 static PROFILES: [Profile; 7] = [
-    Profile { canonical_read_length:  50, r_threshold:  90, k: 20, s_offset: -4, l: -4, u:  2},
+    Profile { canonical_read_length:  50, r_threshold:  90, k: 20, s_offset: -4, l: -3, u:  2},
     Profile { canonical_read_length: 100, r_threshold: 110, k: 20, s_offset: -4, l: -2, u:  2},
     Profile { canonical_read_length: 125, r_threshold: 135, k: 20, s_offset: -4, l: -1, u:  4},
     Profile { canonical_read_length: 150, r_threshold: 175, k: 20, s_offset: -4, l:  1, u:  7},
@@ -38,7 +38,7 @@ pub struct IndexParameters {
 
 impl IndexParameters {
     pub fn new(canonical_read_length: usize, k: usize, s: usize, l: isize, u: isize, q: u64, max_dist: u8) -> Self {
-        let w_min = max(1, (k / (k - s + 1)) as isize + l) as usize;
+        let w_min = max(0, (k / (k - s + 1)) as isize + l) as usize;
         let w_max = ((k / (k - s + 1)) as isize + u) as usize;
         IndexParameters {
             canonical_read_length,
