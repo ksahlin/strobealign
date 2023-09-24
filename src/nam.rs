@@ -46,7 +46,7 @@ struct Hit {
 /// Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
 ///
 pub fn find_nams(query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerIndex, filter_cutoff: usize) -> (f32, Vec<Nam>) {
-    let mut hits_per_ref = HashMap::with_capacity(100);
+    let mut hits_per_ref = [HashMap::with_capacity(100), HashMap::with_capacity(100)];
     let mut nr_good_hits = 0;
     let mut total_hits = 0;
     for randstrobe in query_randstrobes {
@@ -56,7 +56,7 @@ pub fn find_nams(query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerInde
                 continue;
             }
             nr_good_hits += 1;
-            add_to_hits_per_ref(&mut hits_per_ref, randstrobe.start, randstrobe.end, randstrobe.is_revcomp, index, position);
+            add_to_hits_per_ref(&mut hits_per_ref[randstrobe.is_revcomp as usize], randstrobe.start, randstrobe.end, randstrobe.is_revcomp, index, position);
         }
     }
     let nonrepetitive_fraction = if total_hits > 0 { (nr_good_hits as f32) / (total_hits as f32) } else { 1.0 };
@@ -87,7 +87,7 @@ pub fn find_nams_rescue(
         }
     }*/
 
-    let mut hits_per_ref = HashMap::with_capacity(100);
+    let mut hits_per_ref = [HashMap::with_capacity(100), HashMap::with_capacity(100)];
     let mut hits_fw = Vec::with_capacity(5000);
     let mut hits_rc = Vec::with_capacity(5000);
 
@@ -119,7 +119,7 @@ pub fn find_nams_rescue(
             if (rh.count > rescue_cutoff && i >= 5) || rh.count > 1000 {
                 break;
             }
-            add_to_hits_per_ref(&mut hits_per_ref, rh.query_start, rh.query_end, rh.is_revcomp, index, rh.position);
+            add_to_hits_per_ref(&mut hits_per_ref[rh.is_revcomp as usize], rh.query_start, rh.query_end, rh.is_revcomp, index, rh.position);
         }
     }
 
@@ -159,10 +159,13 @@ fn add_to_hits_per_ref(
 }
 
 // TODO should not be mut
-fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, sort: bool) -> Vec<Nam> {
+fn merge_hits_into_nams(hits_per_ref: &mut [HashMap<usize, Vec<Hit>>; 2], k: usize, sort: bool) -> Vec<Nam> {
     let mut nams: Vec<Nam> = Vec::new();
     let mut nam_id_cnt = 0;
-    for (ref_id, hits) in hits_per_ref.iter_mut() {
+    for is_revcomp in [false, true] {
+        let hits_oriented = &mut hits_per_ref[is_revcomp as usize];
+
+    for (ref_id, hits) in hits_oriented.iter_mut() {
         if sort {
             hits.sort_by_key(|k| (k.query_start, k.ref_start));
         }
@@ -173,8 +176,7 @@ fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, s
             let mut is_added = false;
             for o in &mut open_nams {
                 // Extend NAM
-                if (o.is_revcomp == h.is_revcomp)
-                    && (o.query_prev_hit_startpos < h.query_start)
+                if (o.query_prev_hit_startpos < h.query_start)
                     && (h.query_start <= o.query_end)
                     && (o.ref_prev_hit_startpos < h.ref_start)
                     && (h.ref_start <= o.ref_end)
@@ -187,8 +189,7 @@ fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, s
                         o.n_hits += 1;
                         is_added = true;
                         break;
-                    }
-                    else if (h.query_end <= o.query_end) && (h.ref_end <= o.ref_end) {
+                    } else if (h.query_end <= o.query_end) && (h.ref_end <= o.ref_end) {
                         o.query_prev_hit_startpos = h.query_start; // log the last strobemer hit in case of outputting paf
                         o.ref_prev_hit_startpos = h.ref_start; // log the last strobemer hit in case of outputting paf
                         o.n_hits += 1;
@@ -196,7 +197,6 @@ fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, s
                         break;
                     }
                 }
-
             }
             // Add the hit to open matches
             if !is_added {
@@ -259,6 +259,7 @@ fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, s
                 } as u32;
             nams.push(n);
         }
+    }
     }
 
     nams
