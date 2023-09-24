@@ -18,3 +18,4 @@ xxhash-rust = { version = "0.8.5", features = ["xxh64"] }
 
 [profile.release]
 debug = true
+codegen-units = 1
