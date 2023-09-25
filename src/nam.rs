@@ -77,7 +77,6 @@ pub fn find_nams_rescue(
         position: usize,
         query_start: usize,
         query_end: usize,
-        is_revcomp: bool,
     }
 /*
         bool operator< (const RescueHit& rhs) const {
@@ -99,7 +98,6 @@ pub fn find_nams_rescue(
                 position,
                 query_start: randstrobe.start,
                 query_end: randstrobe.end,
-                is_revcomp: randstrobe.is_revcomp
             };
             if randstrobe.is_revcomp {
                 hits_rc.push(rh);
@@ -109,16 +107,16 @@ pub fn find_nams_rescue(
         }
     }
 
-    let cmp = |a: &RescueHit, b: &RescueHit| (a.count, a.query_start, a.query_end, a.is_revcomp).cmp(&(b.count, b.query_start, b.query_end, b.is_revcomp));
+    let cmp = |a: &RescueHit, b: &RescueHit| (a.count, a.query_start, a.query_end).cmp(&(b.count, b.query_start, b.query_end));
     hits_fw.sort_by(cmp);
     hits_rc.sort_by(cmp);
 
-    for rescue_hits in [hits_fw, hits_rc] {
+    for (is_revcomp, rescue_hits) in [(false, hits_fw), (true, hits_rc)] {
         for (i, rh) in rescue_hits.iter().enumerate() {
             if (rh.count > rescue_cutoff && i >= 5) || rh.count > 1000 {
                 break;
             }
-            add_to_hits_per_ref(&mut hits_per_ref[rh.is_revcomp as usize], rh.query_start, rh.query_end, index, rh.position);
+            add_to_hits_per_ref(&mut hits_per_ref[is_revcomp as usize], rh.query_start, rh.query_end, index, rh.position);
         }
     }
 
