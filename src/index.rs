@@ -2,7 +2,6 @@ use std::cmp::{max, min, Reverse};
 use std::mem;
 use std::time::Instant;
 use log::debug;
-use rayon::prelude::*;
 use crate::strobes::{RandstrobeIterator, RandstrobeParameters};
 use crate::syncmers::{SyncmerParameters, SyncmerIterator};
 use crate::fasta::RefSequence;
@@ -164,8 +163,8 @@ fn count_randstrobes(seq: &[u8], parameters: &IndexParameters) -> usize {
     n_syncmers.saturating_sub(parameters.randstrobe.w_min)
 }
 
-fn count_all_randstrobes(references: &Vec<RefSequence>, parameters: &IndexParameters) -> Vec<usize> {
-    references.par_iter().map(|refseq| count_randstrobes(&refseq.sequence, parameters)).collect()
+fn count_all_randstrobes(references: &[RefSequence], parameters: &IndexParameters) -> Vec<usize> {
+    references.iter().map(|refseq| count_randstrobes(&refseq.sequence, parameters)).collect()
 }
 
 // TODO UnpopulatedStrobemerIndex
