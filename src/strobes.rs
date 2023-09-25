@@ -13,6 +13,9 @@ pub struct RandstrobeParameters {
 //     if (max_dist > 255) {
 //         throw BadParameter("maximum seed length (-m <max_dist>) is larger than 255");
 //     }
+//     if (w_min > w_max) {
+//         throw BadParameter("w_min is greater than w_max (choose different -l/-u parameters)");
+//     }
 // }
 }
 
