@@ -83,8 +83,7 @@ impl IndexParameters {
         let l = l.unwrap();
         let u = u.unwrap();
 
-        let max_dist;
-        max_dist = match max_seed_len {
+        let max_dist = match max_seed_len {
             Some(max_seed_len) => { (max_seed_len - k) as u8 },
             None => { usize::clamp(canonical_read_length.saturating_sub(70), k, 255) as u8 }
         };
