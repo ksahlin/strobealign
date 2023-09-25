@@ -168,7 +168,7 @@ fn count_all_randstrobes(references: &[RefSequence], parameters: &IndexParameter
 
 // TODO UnpopulatedStrobemerIndex
 pub struct StrobemerIndex<'a> {
-    references: &'a Vec<RefSequence>,
+    references: &'a [RefSequence],
     pub parameters: IndexParameters,
     stats: IndexCreationStatistics,
 
@@ -194,7 +194,7 @@ pub struct StrobemerIndex<'a> {
 }
 
 impl<'a> StrobemerIndex<'a> {
-    pub fn new(references: &'a Vec<RefSequence>, parameters: IndexParameters, bits: Option<u8>) -> Self {
+    pub fn new(references: &'a [RefSequence], parameters: IndexParameters, bits: Option<u8>) -> Self {
         let total_reference_length = references.iter().map(|r| r.sequence.len()).sum();
         let bits = bits.unwrap_or_else(|| parameters.syncmer.pick_bits(total_reference_length));
         let randstrobes = vec![];
