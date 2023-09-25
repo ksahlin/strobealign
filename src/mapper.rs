@@ -247,7 +247,7 @@ pub fn map_single_end_read(
         }
         let consistent_nam = reverse_nam_if_needed(nam, &read, references, k);
         details.nam_inconsistent += (!consistent_nam) as usize;
-        let alignment = get_alignment(aligner, nam, references, &read, consistent_nam);
+        let alignment = extend_seed(aligner, nam, references, &read, consistent_nam);
         if alignment.is_none() {
             continue;
         }
@@ -300,7 +300,7 @@ pub fn map_single_end_read(
 
 /// Extend a NAM so that it covers the entire read and return the resulting
 /// alignment.
-fn get_alignment(
+fn extend_seed(
     aligner: &Aligner,
     nam: &Nam,
     references: &[RefSequence],
