@@ -4,9 +4,7 @@
 #include <algorithm>
 #include <cassert>
 
-#define XXH_INLINE_ALL
-#include <xxhash.h>
-
+#include "hash.hpp"
 #include "randstrobes.hpp"
 
 // a, A -> 0
@@ -37,14 +35,14 @@ static inline syncmer_hash_t syncmer_kmer_hash(uint64_t packed) {
     // return yk;
     // return hash64(yk, mask);
     // return sahlin_dna_hash(yk, mask);
-    return XXH64(&packed, sizeof(uint64_t), 0);
+    return xxh64(packed);
 }
 
 static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
     // return ys;
     // return robin_hash(ys);
     // return hash64(ys, mask);
-    return XXH64(&packed, 8, 0);
+    return xxh64(packed);
 }
 
 static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_hash_t hash2) {
