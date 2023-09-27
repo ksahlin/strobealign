@@ -271,7 +271,7 @@ void StrobemerIndex::assign_all_randstrobes(const std::vector<uint64_t>& randstr
  * vector starting from the given offset
  */
 void StrobemerIndex::assign_randstrobes(size_t ref_index, size_t offset) {
-    auto seq = references.sequences[ref_index];
+    auto& seq = references.sequences[ref_index];
     if (seq.length() < parameters.randstrobe.w_max) {
         return;
     }
