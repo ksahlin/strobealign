@@ -1,6 +1,8 @@
 #!/bin/bash
 set -xeuo pipefail
 
+strobealign=build/strobealign
+
 if [[ $OSTYPE = linux-gnu ]]; then
     color="--color=always"
 else
@@ -15,55 +17,55 @@ function diff() {
 build/test-strobealign
 
 # should fail when unknown command-line option used
-if strobealign -G > /dev/null 2> /dev/null; then false; fi
+if ${strobealign} -G > /dev/null 2> /dev/null; then false; fi
 
 # should succeed when only printing help
-strobealign -h > /dev/null
+${strobealign} -h > /dev/null
 
 # Ensure the binary is available
 samtools --version > /dev/null
 
 # Single-end SAM
-strobealign --eqx --chunk-size 3 --rg-id 1 --rg SM:sample --rg LB:library -v tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > phix.se.sam
+${strobealign} --eqx --chunk-size 3 --rg-id 1 --rg SM:sample --rg LB:library -v tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > phix.se.sam
 diff tests/phix.se.sam phix.se.sam
 rm phix.se.sam
 
 # Single-end SAM, M CIGAR operators
-strobealign tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > phix.se.m.sam
+${strobealign} tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > phix.se.m.sam
 if samtools view phix.se.m.sam | cut -f6 | grep -q '[X=]'; then false; fi
 
 rm phix.se.m.sam
 
 # Paired-end SAM
-strobealign --eqx --chunk-size 3 --rg-id 1 --rg SM:sample --rg LB:library tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq | grep -v '^@PG' > phix.pe.sam
+${strobealign} --eqx --chunk-size 3 --rg-id 1 --rg SM:sample --rg LB:library tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq | grep -v '^@PG' > phix.pe.sam
 diff tests/phix.pe.sam phix.pe.sam
 rm phix.pe.sam
 
 # Single-end PAF
-strobealign -x tests/phix.fasta tests/phix.1.fastq | tail -n 11 > phix.se.paf
+${strobealign} -x tests/phix.fasta tests/phix.1.fastq | tail -n 11 > phix.se.paf
 diff tests/phix.se.paf phix.se.paf
 rm phix.se.paf
 
 # Single-end PAF (stdin input)
-cat tests/phix.1.fastq | strobealign -x tests/phix.fasta - | tail -n 11 > phix.se.paf
+cat tests/phix.1.fastq | ${strobealign} -x tests/phix.fasta - | tail -n 11 > phix.se.paf
 diff tests/phix.se.paf phix.se.paf
 rm phix.se.paf
 
 # Paired-end PAF
-strobealign -x tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq | tail -n 11 > phix.pe.paf
+${strobealign} -x tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq | tail -n 11 > phix.pe.paf
 diff tests/phix.pe.paf phix.pe.paf
 rm phix.pe.paf
 
 # Build a separate index
-strobealign -r 150 tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > without-sti.sam
-strobealign -r 150 -i tests/phix.fasta
-strobealign -r 150 --use-index tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > with-sti.sam
+${strobealign} -r 150 tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > without-sti.sam
+${strobealign} -r 150 -i tests/phix.fasta
+${strobealign} -r 150 --use-index tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > with-sti.sam
 diff without-sti.sam with-sti.sam
 rm without-sti.sam with-sti.sam
 
 # Create index requires -r or reads file
-if strobealign --create-index tests/phix.fasta > /dev/null 2> /dev/null; then false; fi
+if ${strobealign} --create-index tests/phix.fasta > /dev/null 2> /dev/null; then false; fi
 
 # --details output is proper SAM
-strobealign --details tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq 2> /dev/null | samtools view -o /dev/null
-strobealign --details tests/phix.fasta tests/phix.1.fastq 2> /dev/null | samtools view -o /dev/null
+${strobealign} --details tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq 2> /dev/null | samtools view -o /dev/null
+${strobealign} --details tests/phix.fasta tests/phix.1.fastq 2> /dev/null | samtools view -o /dev/null
