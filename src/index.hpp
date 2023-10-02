@@ -104,6 +104,14 @@ struct StrobemerIndex {
         return randstrobes[position].reference_index();
     }
 
+    RefRandstrobe get_randstrobe(bucket_index_t position) const {
+        return randstrobes[position];
+    }
+
+    size_t size() const {
+        return randstrobes.size();
+    }
+
     unsigned int get_count(bucket_index_t position) const {
         // For 95% of cases, the result will be small and a brute force search
         // is the best option. Once, we go over MAX_LINEAR_SEARCH, though, we
