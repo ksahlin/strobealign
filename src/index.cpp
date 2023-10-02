@@ -22,6 +22,54 @@
 static Logger& logger = Logger::get();
 static const uint32_t STI_FILE_FORMAT_VERSION = 2;
 
+
+namespace {
+
+uint64_t count_randstrobes(const std::string& seq, const IndexParameters& parameters) {
+    uint64_t n_syncmers = 0;
+    SyncmerIterator syncmer_iterator(seq, parameters.syncmer);
+    Syncmer syncmer;
+    while (!(syncmer = syncmer_iterator.next()).is_end()) {
+        n_syncmers++;
+    }
+    // The last w_min syncmers do not result in a randstrobe
+    if (n_syncmers < parameters.randstrobe.w_min) {
+        return 0;
+    } else {
+        return n_syncmers - parameters.randstrobe.w_min;
+    }
+}
+
+std::vector<uint64_t> count_all_randstrobes(const References& references, const IndexParameters& parameters, size_t n_threads) {
+    std::vector<std::thread> workers;
+    std::atomic_size_t ref_index{0};
+
+    std::vector<uint64_t> counts;
+    counts.assign(references.size(), 0);
+
+    for (size_t i = 0; i < n_threads; ++i) {
+        workers.push_back(
+            std::thread(
+                [&ref_index](const References& references, const IndexParameters& parameters, std::vector<uint64_t>& counts) {
+                    while (true) {
+                        size_t j = ref_index.fetch_add(1);
+                        if (j >= references.size()) {
+                            break;
+                        }
+                        counts[j] = count_randstrobes(references.sequences[j], parameters);
+                    }
+                }, std::ref(references), std::ref(parameters), std::ref(counts))
+        );
+    }
+    for (auto& worker : workers) {
+        worker.join();
+    }
+
+    return counts;
+}
+
+}
+
 void StrobemerIndex::write(const std::string& filename) const {
     std::ofstream ofs(filename, std::ios::binary);
 
@@ -88,49 +136,6 @@ int StrobemerIndex::pick_bits(size_t size) const {
     size_t estimated_number_of_randstrobes = size / (parameters.syncmer.k - parameters.syncmer.s + 1);
     // Two randstrobes per bucket on average
     return std::clamp(static_cast<int>(log2(estimated_number_of_randstrobes)) - 1, 8, 31);
-}
-
-uint64_t count_randstrobes(const std::string& seq, const IndexParameters& parameters) {
-    uint64_t n_syncmers = 0;
-    SyncmerIterator syncmer_iterator(seq, parameters.syncmer);
-    Syncmer syncmer;
-    while (!(syncmer = syncmer_iterator.next()).is_end()) {
-        n_syncmers++;
-    }
-    // The last w_min syncmers do not result in a randstrobe
-    if (n_syncmers < parameters.randstrobe.w_min) {
-        return 0;
-    } else {
-        return n_syncmers - parameters.randstrobe.w_min;
-    }
-}
-
-std::vector<uint64_t> count_all_randstrobes(const References& references, const IndexParameters& parameters, size_t n_threads) {
-    std::vector<std::thread> workers;
-    std::atomic_size_t ref_index{0};
-
-    std::vector<uint64_t> counts;
-    counts.assign(references.size(), 0);
-
-    for (size_t i = 0; i < n_threads; ++i) {
-        workers.push_back(
-            std::thread(
-                [&ref_index](const References& references, const IndexParameters& parameters, std::vector<uint64_t>& counts) {
-                    while (true) {
-                        size_t j = ref_index.fetch_add(1);
-                        if (j >= references.size()) {
-                            break;
-                        }
-                        counts[j] = count_randstrobes(references.sequences[j], parameters);
-                    }
-                }, std::ref(references), std::ref(parameters), std::ref(counts))
-        );
-    }
-    for (auto& worker : workers) {
-        worker.join();
-    }
-
-    return counts;
 }
 
 void StrobemerIndex::populate(float f, size_t n_threads) {
