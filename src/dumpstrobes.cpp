@@ -78,12 +78,17 @@ int run_dumpstrobes(int argc, char **argv) {
 
     args::HelpFlag help(parser, "help", "Print help and exit", {'h', "help"});
     args::Flag syncmers(parser, "syncmers", "Dump syncmers instead of randstrobes", {"syncmers"});
+    args::Flag seeds(parser, "seeds", "Dump sorted seed vector (format: hash, position, ref_index, strobe2_offset)", {"seeds"});
     args::Flag count(parser, "count", "Count only", {"count"});
+    args::ValueFlag<int> threads(parser, "INT", "Number of threads [8]", {'t', "threads"});
     auto seeding = SeedingArguments{parser};
     args::Positional<std::string> ref_filename(parser, "reference", "Reference in FASTA format", args::Options::Required);
 
     try {
         parser.ParseCLI(argc, argv);
+        if ((seeds && syncmers) || (seeds && count)) {
+            throw args::Error("Cannot combine --seeds with --syncmers or --count");
+        }
     }
     catch (const args::Help&) {
         std::cout << parser;
@@ -148,6 +153,16 @@ int run_dumpstrobes(int argc, char **argv) {
             }
         }
         std::cout << n << std::endl;
+    } else if (seeds) {
+        float top_filter_fraction = 0.0002;
+        int bits = -1;  // autodetermine
+        int n_threads = threads ? args::get(threads) : 8;
+        StrobemerIndex index(references, index_parameters, bits);
+        index.populate(top_filter_fraction, n_threads);
+        for (size_t i = 0; i < index.size(); ++i) {
+            auto rs = index.get_randstrobe(i);
+            std::cout << rs.hash << "," << rs.position << "," << rs.reference_index() << "," << rs.strobe2_offset() << '\n';
+        }
     } else {
         for (size_t i = 0; i < references.size(); ++i) {
             auto& seq = references.sequences[i];
