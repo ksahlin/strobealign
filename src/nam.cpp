@@ -35,7 +35,6 @@ void merge_hits_into_nams(
     bool is_revcomp,
     std::vector<Nam>& nams  // inout
 ) {
-    int nam_id_cnt = 0;
     for (auto &[ref_id, hits] : hits_per_ref) {
         if (sort) {
             std::sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) -> bool {
@@ -81,8 +80,6 @@ void merge_hits_into_nams(
             // Add the hit to open matches
             if (!is_added){
                 Nam n;
-                n.nam_id = nam_id_cnt;
-                nam_id_cnt ++;
                 n.query_start = h.query_start;
                 n.query_end = h.query_end;
                 n.ref_start = h.ref_start;
@@ -110,6 +107,7 @@ void merge_hits_into_nams(
                         n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
 //                        n_score = n.n_hits * n.query_span();
                         n.score = n_score;
+                        n.nam_id = nams.size();
                         nams.push_back(n);
                     }
                 }
@@ -130,6 +128,7 @@ void merge_hits_into_nams(
             n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
 //            n_score = n.n_hits * n.query_span();
             n.score = n_score;
+            n.nam_id = nams.size();
             nams.push_back(n);
         }
     }
