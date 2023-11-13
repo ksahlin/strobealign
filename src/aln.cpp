@@ -116,7 +116,19 @@ static inline void align_SE(
 
     for (auto &nam : nams) {
         float score_dropoff = (float) nam.n_hits / n_max.n_hits;
-        if (tries >= max_tries || (tries > 1 && best_edit_distance == 0) || score_dropoff < dropoff_threshold) {
+        if (score_dropoff < dropoff_threshold) {
+            break;
+        }
+        // If an exact match was found, we can stop early, but only if we
+        // already have at least two alignments (which we need for correct mapq
+        // computation) and as long as we have seen all alignments that have
+        // the same best score (which we need because we want to pick one of
+        // them randomly).
+        if (
+            best_edit_distance == 0 &&
+            tries >= 2 &&
+            second_best_score < best_score
+        ) {
             break;
         }
         bool consistent_nam = reverse_nam_if_needed(nam, read, references, k);
@@ -153,6 +165,9 @@ static inline void align_SE(
             second_best_score = alignment.score;
         }
         tries++;
+        if (tries >= max_tries) {
+            break;
+        }
     }
     uint8_t mapq = 60.0 * (best_score - second_best_score) / best_score;
 
