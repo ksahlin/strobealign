@@ -145,7 +145,7 @@ def main():
 
     print(f"  {single_total:>9} total reads")
 
-    if unmapped_same + identical < single_total:
+    if unmapped_same + identical < single_total or single_total == 0:
         sys.exit(1)
 
 
