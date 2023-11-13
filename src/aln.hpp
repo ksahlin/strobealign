@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <random>
 #include "kseq++/kseq++.hpp"
 #include "index.hpp"
 #include "refs.hpp"
@@ -111,7 +112,8 @@ void align_SE_read(
     const MappingParameters& map_param,
     const IndexParameters& index_parameters,
     const References& references,
-    const StrobemerIndex& index
+    const StrobemerIndex& index,
+    std::minstd_rand& random_engine
 );
 
 // Private declarations, only here because we need them in tests

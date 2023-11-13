@@ -17,6 +17,8 @@
 * #318: Added a `--details` option mainly intended for debugging. When used,
   some strobealign-specific tags are added to the SAM output that inform about
   things like no. of seeds found, whether mate rescue was performed etc.
+* #359: Assign single-end multimappers randomly to one of the candidate
+  mapping locations. This should reduce biases.
 
 ## v0.11.0 (2023-06-22)
 
