@@ -50,19 +50,15 @@ void merge_hits_into_nams(
             bool is_added = false;
             for (auto & o : open_nams) {
                 // Extend NAM
-                if ((o.query_prev_hit_startpos < h.query_start) && (h.query_start <= o.query_end ) && (o.ref_prev_hit_startpos < h.ref_start) && (h.ref_start <= o.ref_end) ){
+                if ((o.query_start < h.query_start) && (h.query_start <= o.query_end ) && (o.ref_start < h.ref_start) && (h.ref_start <= o.ref_end) ){
                     if ( (h.query_end > o.query_end) && (h.ref_end > o.ref_end) ) {
                         o.query_end = h.query_end;
                         o.ref_end = h.ref_end;
-                        o.query_prev_hit_startpos = h.query_start;
-                        o.ref_prev_hit_startpos = h.ref_start;
                         o.n_hits ++;
                         is_added = true;
                         break;
                     }
                     else if ((h.query_end <= o.query_end) && (h.ref_end <= o.ref_end)) {
-                        o.query_prev_hit_startpos = h.query_start;
-                        o.ref_prev_hit_startpos = h.ref_start;
                         o.n_hits ++;
                         is_added = true;
                         break;
@@ -78,8 +74,6 @@ void merge_hits_into_nams(
                 n.ref_start = h.ref_start;
                 n.ref_end = h.ref_end;
                 n.ref_id = ref_id;
-                n.query_prev_hit_startpos = h.query_start;
-                n.ref_prev_hit_startpos = h.ref_start;
                 n.n_hits = 1;
                 n.is_rc = is_revcomp;
                 open_nams.push_back(n);
