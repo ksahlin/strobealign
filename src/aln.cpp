@@ -1019,11 +1019,9 @@ void align_PE_read(
                               nam_read2);
         output_hits_paf_PE(outstring, nam_read1, record1.name,
                            references,
-                           index_parameters.syncmer.k,
                            record1.seq.length());
         output_hits_paf_PE(outstring, nam_read2, record2.name,
                            references,
-                           index_parameters.syncmer.k,
                            record2.seq.length());
     } else {
         align_PE(aligner, sam, nams1, nams2, record1,
@@ -1075,7 +1073,7 @@ void align_SE_read(
 
     Timer extend_timer;
     if (!map_param.is_sam_out) {
-        output_hits_paf(outstring, nams, record.name, references, index_parameters.syncmer.k,
+        output_hits_paf(outstring, nams, record.name, references,
                         record.seq.length());
     } else {
         align_SE(

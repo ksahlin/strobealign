@@ -11,6 +11,7 @@
 * #318: Added a `--details` option mainly intended for debugging. When used,
   some strobealign-specific tags are added to the SAM output that inform about
   things like no. of seeds found, whether mate rescue was performed etc.
+* #333: Fix matches ending too early in PAF output.
 
 ## v0.11.0 (2023-06-22)
 
