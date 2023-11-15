@@ -28,6 +28,12 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v3
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get install libisal-dev
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install isa-l
       - name: Build
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
@@ -54,6 +60,12 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get install libisal-dev
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install isa-l
       - name: Install Python dependencies
         run: pip install pytest
       - name: Install Python bindings
@@ -101,6 +113,12 @@ jobs:
           make -j3 -C baseline/build
           baseline/build/strobealign tests/drosophila/ref.fasta tests/drosophila/reads.1.fastq.gz tests/drosophila/reads.2.fastq.gz | samtools view -o baseline.bam
 
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get install libisal-dev
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install isa-l
       - name: Build HEAD version
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo

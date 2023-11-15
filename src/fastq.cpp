@@ -1,20 +1,55 @@
 #include "fastq.hpp"
 
+namespace {
+    bool check_ext(const std::string& filename, const std::string& target_ext)
+    {
+        auto ext_pos = filename.find_last_of(".");
+        if(ext_pos == std::string::npos) {
+            return false;
+        }
+        auto ext = filename.substr(ext_pos, filename.size() - ext_pos);
+        if(ext == target_ext) {
+            return true;
+        }
+
+        return false;
+    }
+
+    inline bool is_gzip(const std::string& filename)
+    {
+        return check_ext(filename, ".gz");
+    }
+
+    inline bool is_raw(const std::string& filename)
+    {
+        return check_ext(filename, ".fq") || check_ext(filename, ".fastq");
+    }
+
+    std::unique_ptr<Reader> create_io(const std::string& filename)
+    {
+        std::unique_ptr<Reader> io;
+        if(is_gzip(filename)) {
+            io = std::make_unique<IsalGzipReader>(filename);
+        } else if(is_raw(filename)) {
+            io = std::make_unique<UncompressReader>(filename);
+        } else {
+            io = std::make_unique<GzipReader>(filename);
+        }
+        return io;
+    }
+};
+
 RewindableFile::RewindableFile(const std::string& filename)
     : file(nullptr),
     rewindable(true),
     stream_(klibpp::make_ikstream(this, rewind_read, 16384)) {
-    if (filename != "") {
-        file = gzopen(filename.c_str(), "r");
-        if (file == nullptr) {
-            throw InvalidFile("Could not open FASTQ file: " + filename);
-        }
-    }
+
+    file = create_io(filename);
+
     stream_ = klibpp::make_ikstream(this, rewind_read, 16384);
 }
 
 RewindableFile::~RewindableFile() {
-    if (file) gzclose(file);
 }
 
 void RewindableFile::rewind() {
@@ -41,7 +76,7 @@ int RewindableFile::read(void* buffer, const int length) {
         return can_read +
             this->read(static_cast<char*>(buffer) + can_read, length - can_read);
     }
-    const int bytes_read = gzread(file, buffer, length);
+    const auto bytes_read = file->read(buffer, length);
     if (bytes_read < 0) {
         throw std::runtime_error("Error reading FASTQ file");
     }
