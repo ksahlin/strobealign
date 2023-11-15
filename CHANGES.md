@@ -2,9 +2,6 @@
 
 ## development version
 
-* #345: Improve mapping accuracy for read lengths <=100 by optimizing
-  parameters. Highest increase is for read length 50, which gains 1-2
-  percentage points accuracy.
 * #293: Fix: When mapping single-end reads, many multimappers were previously
   assigned a high mapping quality. They now get assigned mapping quality zero
   as intended.
