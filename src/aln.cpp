@@ -106,12 +106,11 @@ static inline void align_SE(
     Nam n_max = nams[0];
 
     int best_edit_distance = std::numeric_limits<int>::max();
-    int best_score = -1000;
+    int best_score = 0;
+    int second_best_score = 0;
 
     Alignment best_alignment;
-    best_alignment.score = -100000;
     best_alignment.is_unaligned = true;
-    int min_mapq_diff = best_edit_distance;
 
     for (auto &nam : nams) {
         float score_dropoff = (float) nam.n_hits / n_max.n_hits;
@@ -124,25 +123,25 @@ static inline void align_SE(
         details.tried_alignment++;
         details.gapped += alignment.gapped;
 
-        int diff_to_best = std::abs(best_score - alignment.score);
-        min_mapq_diff = std::min(min_mapq_diff, diff_to_best);
-
         if (max_secondary > 0) {
             alignments.emplace_back(alignment);
         }
         if (alignment.score > best_score) {
-            min_mapq_diff = std::max(0, alignment.score - best_score); // new distance to next best match
+            second_best_score = best_score;
             best_score = alignment.score;
             best_alignment = std::move(alignment);
             if (max_secondary == 0) {
                 best_edit_distance = best_alignment.global_ed;
             }
+        } else if (alignment.score > second_best_score) {
+            second_best_score = alignment.score;
         }
         tries++;
     }
+    uint8_t mapq = (60.0 * (best_score - second_best_score) + best_score - 1) / best_score;
+
     if (max_secondary == 0) {
-        best_alignment.mapq = std::min(min_mapq_diff, 60);
-        sam.add(best_alignment, record, read.rc, true, details);
+        sam.add(best_alignment, record, read.rc, mapq, true, details);
         return;
     }
     // Sort alignments by score, highest first
@@ -159,12 +158,7 @@ static inline void align_SE(
             break;
         }
         bool is_primary = i == 0;
-        if (is_primary) {
-            alignment.mapq = std::min(min_mapq_diff, 60);
-        } else {
-            alignment.mapq = 255;
-        }
-        sam.add(alignment, record, read.rc, is_primary, details);
+        sam.add(alignment, record, read.rc, mapq, is_primary, details);
     }
 }
 

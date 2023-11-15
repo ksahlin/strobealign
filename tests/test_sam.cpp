@@ -52,7 +52,6 @@ TEST_CASE("Sam::add") {
     aln.ref_start = 2;
     aln.edit_distance = 3;
     aln.score = 9;
-    aln.mapq = 55;
     aln.cigar = Cigar("2S2=1X3=3S");
 
     std::string read_rc = reverse_complement(record.seq);
@@ -61,7 +60,7 @@ TEST_CASE("Sam::add") {
     SUBCASE("Cigar =/X") {
         std::string sam_string;
         Sam sam(sam_string, references);
-        sam.add(aln, record, read_rc, is_primary, details);
+        sam.add(aln, record, read_rc, 55, is_primary, details);
         CHECK(sam_string ==
             "readname\t16\tcontig1\t3\t55\t2S2=1X3=3S\t*\t0\t0\tACGTT\tBB#>\tNM:i:3\tAS:i:9\n"
         );
@@ -69,7 +68,7 @@ TEST_CASE("Sam::add") {
     SUBCASE("Cigar M") {
         std::string sam_string;
         Sam sam(sam_string, references, CigarOps::M);
-        sam.add(aln, record, read_rc, is_primary, details);
+        sam.add(aln, record, read_rc, 55, is_primary, details);
         CHECK(sam_string ==
             "readname\t16\tcontig1\t3\t55\t2S6M3S\t*\t0\t0\tACGTT\tBB#>\tNM:i:3\tAS:i:9\n"
         );

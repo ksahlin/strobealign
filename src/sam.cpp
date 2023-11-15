@@ -120,6 +120,7 @@ void Sam::add(
     const Alignment& alignment,
     const KSeq& record,
     const std::string& sequence_rc,
+    uint8_t mapq,
     bool is_primary,
     const Details& details
 ) {
@@ -131,8 +132,9 @@ void Sam::add(
     }
     if (!is_primary) {
         flags |= SECONDARY;
+        mapq = 255;
     }
-    add_record(record.name, flags, references.names[alignment.ref_id], alignment.ref_start, alignment.mapq, alignment.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, alignment.edit_distance, alignment.score, details);
+    add_record(record.name, flags, references.names[alignment.ref_id], alignment.ref_start, mapq, alignment.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, alignment.edit_distance, alignment.score, details);
 }
 
 // Add one individual record

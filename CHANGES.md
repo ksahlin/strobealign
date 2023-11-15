@@ -8,6 +8,7 @@
 * #321: Fix: For paired-end reads that cannot be placed as proper pairs, we now
   prefer placing them onto the same chrosome instead of on different ones if
   there is a choice.
+* #328: Adjust MAPQ computation for single-end reads.
 * #318: Added a `--details` option mainly intended for debugging. When used,
   some strobealign-specific tags are added to the SAM output that inform about
   things like no. of seeds found, whether mate rescue was performed etc.
