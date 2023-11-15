@@ -57,8 +57,8 @@ void merge_hits_into_nams(
                         o.ref_end = h.ref_end;
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
-                        o.query_prev_hit_startpos = h.query_start; // log the last strobemer hit in case of outputting paf
-                        o.ref_prev_hit_startpos = h.ref_start; // log the last strobemer hit in case of outputting paf
+                        o.query_prev_hit_startpos = h.query_start;
+                        o.ref_prev_hit_startpos = h.ref_start;
                         o.n_hits ++;
 //                        o.score += (float)1/ (float)h.count;
                         is_added = true;
@@ -67,8 +67,8 @@ void merge_hits_into_nams(
                     else if ((h.query_end <= o.query_end) && (h.ref_end <= o.ref_end)) {
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
-                        o.query_prev_hit_startpos = h.query_start; // log the last strobemer hit in case of outputting paf
-                        o.ref_prev_hit_startpos = h.ref_start; // log the last strobemer hit in case of outputting paf
+                        o.query_prev_hit_startpos = h.query_start;
+                        o.ref_prev_hit_startpos = h.ref_start;
                         o.n_hits ++;
 //                        o.score += (float)1/ (float)h.count;
                         is_added = true;

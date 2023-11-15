@@ -14,7 +14,7 @@
  * 11 alignment block length
  * 12 mapping quality (0-255; 255 for missing)
  */
-void output_hits_paf_PE(std::string &paf_output, const Nam &n, const std::string &query_name, const References& references, int k, int read_len) {
+void output_hits_paf_PE(std::string &paf_output, const Nam &n, const std::string &query_name, const References& references, int read_len) {
     if (n.ref_start < 0 ) {
         return;
     }
@@ -24,7 +24,7 @@ void output_hits_paf_PE(std::string &paf_output, const Nam &n, const std::string
     paf_output.append("\t");
     paf_output.append(std::to_string(n.query_start));
     paf_output.append("\t");
-    paf_output.append(std::to_string(n.query_prev_hit_startpos + k));
+    paf_output.append(std::to_string(n.query_end));
     paf_output.append("\t");
     paf_output.append(n.is_rc ? "-" : "+");
     paf_output.append("\t");
@@ -34,21 +34,21 @@ void output_hits_paf_PE(std::string &paf_output, const Nam &n, const std::string
     paf_output.append("\t");
     paf_output.append(std::to_string(n.ref_start));
     paf_output.append("\t");
-    paf_output.append(std::to_string(n.ref_prev_hit_startpos + k));
+    paf_output.append(std::to_string(n.ref_end));
     paf_output.append("\t");
     paf_output.append(std::to_string(n.n_hits));
     paf_output.append("\t");
-    paf_output.append(std::to_string(n.ref_prev_hit_startpos + k - n.ref_start));
+    paf_output.append(std::to_string(n.ref_end - n.ref_start));
     paf_output.append("\t255\n");
 }
 
 
-void output_hits_paf(std::string &paf_output, const std::vector<Nam> &all_nams, const std::string& query_name, const References& references, int k, int read_len) {
+void output_hits_paf(std::string &paf_output, const std::vector<Nam> &all_nams, const std::string& query_name, const References& references, int read_len) {
     // Output results
     if (all_nams.empty()) {
         return;
     }
     // Only output single best hit based on: number of randstrobe-matches times span of the merged match.
     Nam n = all_nams[0];
-    output_hits_paf_PE(paf_output, n, query_name, references, k, read_len);
+    output_hits_paf_PE(paf_output, n, query_name, references, read_len);
 }
