@@ -138,7 +138,7 @@ static inline void align_SE(
         }
         tries++;
     }
-    uint8_t mapq = 60.0 * (best_score - second_best_score) / best_score;
+    uint8_t mapq = (60.0 * (best_score - second_best_score) + best_score - 1) / best_score;
 
     if (max_secondary == 0) {
         sam.add(best_alignment, record, read.rc, mapq, true, details);
