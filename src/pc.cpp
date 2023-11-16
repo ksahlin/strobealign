@@ -170,7 +170,7 @@ void perform_task(
             to_uppercase(record1.seq);
             to_uppercase(record2.seq);
             align_PE_read(record1, record2, sam, sam_out, statistics, isize_est, aligner,
-                        map_param, index_parameters, references, index);
+                        map_param, index_parameters, references, index, random_engine);
             statistics.n_reads += 2;
         }
         for (size_t i = 0; i < records3.size(); ++i) {

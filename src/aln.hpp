@@ -100,7 +100,8 @@ void align_PE_read(
     const MappingParameters& map_param,
     const IndexParameters& index_parameters,
     const References& references,
-    const StrobemerIndex& index
+    const StrobemerIndex& index,
+    std::minstd_rand& random_engine
 );
 
 void align_SE_read(

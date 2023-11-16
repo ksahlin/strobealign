@@ -986,7 +986,8 @@ void align_PE_read(
     const MappingParameters &map_param,
     const IndexParameters& index_parameters,
     const References& references,
-    const StrobemerIndex& index
+    const StrobemerIndex& index,
+    std::minstd_rand& random_engine
 ) {
     std::array<Details, 2> details;
     std::array<std::vector<Nam>, 2> nams_pair;
@@ -1014,6 +1015,7 @@ void align_PE_read(
         details[is_revcomp].nams = nams.size();
         Timer nam_sort_timer;
         std::sort(nams.begin(), nams.end(), by_score<Nam>);
+        shuffle_top_nams(nams, random_engine);
         statistics.tot_sort_nams += nam_sort_timer.duration();
         nams_pair[is_revcomp] = nams;
     }
