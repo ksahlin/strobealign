@@ -1,5 +1,6 @@
 #include "aln.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <math.h>
 #include <sstream>
@@ -958,6 +959,22 @@ void InsertSizeDistribution::update(int dist) {
     }
 }
 
+/* Shuffle the top-scoring NAMs. Input must be sorted by score.
+ *
+ * This helps to ensure we pick a random location in case there are multiple
+ * equally good ones.
+ */
+void shuffle_top_nams(std::vector<Nam>& nams, std::minstd_rand& random_engine) {
+    if (nams.empty()) {
+        return;
+    }
+    auto best_score = nams[0].score;
+    auto it = std::find_if(nams.begin(), nams.end(), [&](const Nam& nam) { return nam.score != best_score; });
+    if (it != nams.end()) {
+        std::shuffle(nams.begin(), it, random_engine);
+    }
+}
+
 void align_PE_read(
     const KSeq &record1,
     const KSeq &record2,
@@ -1039,7 +1056,8 @@ void align_SE_read(
     const MappingParameters &map_param,
     const IndexParameters& index_parameters,
     const References& references,
-    const StrobemerIndex& index
+    const StrobemerIndex& index,
+    std::minstd_rand& random_engine
 ) {
     Details details;
     Timer strobe_timer;
@@ -1059,11 +1077,13 @@ void align_SE_read(
         }
         statistics.tot_time_rescue += rescue_timer.duration();
     }
-
     details.nams = nams.size();
+
     Timer nam_sort_timer;
     std::sort(nams.begin(), nams.end(), by_score<Nam>);
+    shuffle_top_nams(nams, random_engine);
     statistics.tot_sort_nams += nam_sort_timer.duration();
+
 
     Timer extend_timer;
     if (!map_param.is_sam_out) {

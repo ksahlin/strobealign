@@ -143,6 +143,7 @@ void perform_task(
 ) {
     bool eof = false;
     Aligner aligner{aln_params};
+    std::minstd_rand random_engine;
     while (!eof) {
         std::vector<klibpp::KSeq> records1;
         std::vector<klibpp::KSeq> records2;
@@ -161,6 +162,8 @@ void perform_task(
         sam_out.reserve(7*map_param.r * (records1.size() + records3.size()));
         Sam sam{sam_out, references, map_param.cigar_ops, read_group_id, map_param.output_unmapped, map_param.details};
         InsertSizeDistribution isize_est;
+        // Use chunk index as random seed for reproducibility
+        random_engine.seed(chunk_index);
         for (size_t i = 0; i < records1.size(); ++i) {
             auto record1 = records1[i];
             auto record2 = records2[i];
@@ -172,7 +175,7 @@ void perform_task(
         }
         for (size_t i = 0; i < records3.size(); ++i) {
             auto record = records3[i];
-            align_SE_read(record, sam, sam_out, statistics, aligner, map_param, index_parameters, references, index);
+            align_SE_read(record, sam, sam_out, statistics, aligner, map_param, index_parameters, references, index, random_engine);
             statistics.n_reads++;
         }
         output_buffer.output_records(std::move(sam_out), chunk_index);
