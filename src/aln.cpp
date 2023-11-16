@@ -989,43 +989,40 @@ void align_PE_read(
     const StrobemerIndex& index
 ) {
     std::array<Details, 2> details;
+    std::array<std::vector<Nam>, 2> nams_pair;
 
-    Timer strobe_timer;
-    auto query_randstrobes1 = randstrobes_query(record1.seq, index_parameters);
-    auto query_randstrobes2 = randstrobes_query(record2.seq, index_parameters);
-    statistics.tot_construct_strobemers += strobe_timer.duration();
+    for (size_t is_revcomp : {0, 1}) {
+        const auto& record = is_revcomp == 0 ? record1 : record2;
 
-    // Find NAMs
-    Timer nam_timer;
-    auto [nonrepetitive_fraction1, nams1] = find_nams(query_randstrobes1, index);
-    auto [nonrepetitive_fraction2, nams2] = find_nams(query_randstrobes2, index);
-    statistics.tot_find_nams += nam_timer.duration();
-    if (map_param.rescue_level > 1) {
-        Timer rescue_timer;
-        if (nams1.empty() || nonrepetitive_fraction1 < 0.7) {
-            nams1 = find_nams_rescue(query_randstrobes1, index, map_param.rescue_cutoff);
-            details[0].nam_rescue = true;
+        Timer strobe_timer;
+        auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
+        statistics.tot_construct_strobemers += strobe_timer.duration();
+
+        // Find NAMs
+        Timer nam_timer;
+        auto [nonrepetitive_fraction, nams] = find_nams(query_randstrobes, index);
+        statistics.tot_find_nams += nam_timer.duration();
+
+        if (map_param.rescue_level > 1) {
+            Timer rescue_timer;
+            if (nams.empty() || nonrepetitive_fraction < 0.7) {
+                nams = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff);
+                details[is_revcomp].nam_rescue = true;
+            }
+            statistics.tot_time_rescue += rescue_timer.duration();
         }
-
-        if (nams2.empty() || nonrepetitive_fraction2 < 0.7) {
-            nams2 = find_nams_rescue(query_randstrobes2, index, map_param.rescue_cutoff);
-            details[1].nam_rescue = true;
-        }
-        statistics.tot_time_rescue += rescue_timer.duration();
+        details[is_revcomp].nams = nams.size();
+        Timer nam_sort_timer;
+        std::sort(nams.begin(), nams.end(), by_score<Nam>);
+        statistics.tot_sort_nams += nam_sort_timer.duration();
+        nams_pair[is_revcomp] = nams;
     }
-    details[0].nams = nams1.size();
-    details[1].nams = nams2.size();
-
-    Timer nam_sort_timer;
-    std::sort(nams1.begin(), nams1.end(), by_score<Nam>);
-    std::sort(nams2.begin(), nams2.end(), by_score<Nam>);
-    statistics.tot_sort_nams += nam_sort_timer.duration();
 
     Timer extend_timer;
     if (!map_param.is_sam_out) {
         Nam nam_read1;
         Nam nam_read2;
-        get_best_map_location(nams1, nams2, isize_est,
+        get_best_map_location(nams_pair[0], nams_pair[1], isize_est,
                               nam_read1,
                               nam_read2);
         output_hits_paf_PE(outstring, nam_read1, record1.name,
@@ -1035,7 +1032,7 @@ void align_PE_read(
                            references,
                            record2.seq.length());
     } else {
-        align_PE(aligner, sam, nams1, nams2, record1,
+        align_PE(aligner, sam, nams_pair[0], nams_pair[1], record1,
                  record2,
                  index_parameters.syncmer.k,
                  references, details,
