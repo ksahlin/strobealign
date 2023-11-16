@@ -38,6 +38,7 @@ source tests/baseline-commit.txt
 baseline_bam=baseline/baseline-${baseline_commit}.${ends}.bam
 baseline_binary=baseline/strobealign-${baseline_commit}
 cmake_options=-DCMAKE_BUILD_TYPE=RelWithDebInfo
+strobealign_options="-t 4"
 
 # Generate the baseline BAM if necessary
 mkdir -p baseline
@@ -53,7 +54,7 @@ if ! test -f ${baseline_bam}; then
     mv ${srcdir}/build/strobealign ${baseline_binary}
     rm -rf "${srcdir}"
   fi
-  ${baseline_binary} -t 4 ${ref} ${reads[@]} | samtools view -o ${baseline_bam}
+  ${baseline_binary} ${strobealign_options} ${ref} ${reads[@]} | samtools view -o ${baseline_bam}
 fi
 
 # Run strobealign. This recompiles from scratch to ensure we use consistent
@@ -62,7 +63,7 @@ builddir=$(mktemp -p . -d build.XXXXXXX)
 cmake . -B ${builddir} ${cmake_options}
 make -j 4 -C ${builddir} strobealign
 set -x
-${builddir}/strobealign --eqx -t 4 ${ref} ${reads[@]} | samtools view -o head.bam
+${builddir}/strobealign ${strobealign_options} ${ref} ${reads[@]} | samtools view -o head.bam
 rm -rf ${builddir}
 
 # Do the actual comparison
