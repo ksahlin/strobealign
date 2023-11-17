@@ -86,6 +86,11 @@ public:
 
 private:
     void add_record(const std::string& query_name, uint16_t flags, const std::string& reference_name, uint32_t pos, uint8_t mapq, const Cigar& cigar, const std::string& mate_reference_name, uint32_t mate_pos, int32_t template_len, const std::string& query_sequence, const std::string& query_sequence_rc, const std::string& qual, int ed, int aln_score, const Details& details);
+
+    void append_seq(const std::string& seq) {
+        sam_string.append(seq.empty() ? "*" : seq);
+    }
+
     void append_qual(const std::string& qual) {
         sam_string.append("\t");
         sam_string.append(qual.empty() ? "*" : qual);
