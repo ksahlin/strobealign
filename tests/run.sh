@@ -69,3 +69,24 @@ if ${strobealign} --create-index tests/phix.fasta > /dev/null 2> /dev/null; then
 # --details output is proper SAM
 ${strobealign} --details tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq 2> /dev/null | samtools view -o /dev/null
 ${strobealign} --details tests/phix.fasta tests/phix.1.fastq 2> /dev/null | samtools view -o /dev/null
+
+# Secondary alignments
+
+# No secondary alignments on phix
+${strobealign} tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > no-secondary.sam
+${strobealign} -N 5 tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > with-secondary.sam
+test $(samtools view -f 0x100 -c with-secondary.sam) -eq 0
+rm no-secondary.sam with-secondary.sam
+
+# Secondary alignments for repeated phiX
+cp tests/phix.fasta repeated-phix.fasta
+echo ">repeated_NC_001422" >> repeated-phix.fasta
+sed 1d tests/phix.fasta >> repeated-phix.fasta
+${strobealign} repeated-phix.fasta tests/phix.1.fastq | grep -v '^@PG' > no-secondary.sam
+${strobealign} -N 5 repeated-phix.fasta tests/phix.1.fastq | grep -v '^@PG' > with-secondary.sam
+test $(samtools view -f 0x100 -c with-secondary.sam) -gt 0
+
+# Removing secondary alignments gives same result as not producing them in the first place
+samtools view -h --no-PG -F 0x100 with-secondary.sam > with-secondary-only-primary.sam
+diff no-secondary.sam with-secondary-only-primary.sam
+rm no-secondary.sam with-secondary.sam with-secondary-only-primary.sam repeated-phix.fasta
