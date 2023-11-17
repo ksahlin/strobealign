@@ -94,7 +94,8 @@ static inline void align_SE(
     Details& details,
     float dropoff_threshold,
     int max_tries,
-    unsigned max_secondary
+    unsigned max_secondary,
+    std::minstd_rand& random_engine
 ) {
     if (nams.empty()) {
         sam.add_unmapped(record);
@@ -109,6 +110,7 @@ static inline void align_SE(
     int best_edit_distance = std::numeric_limits<int>::max();
     int best_score = 0;
     int second_best_score = 0;
+    int alignments_with_best_score = 0;
 
     Alignment best_alignment;
     best_alignment.is_unaligned = true;
@@ -127,13 +129,28 @@ static inline void align_SE(
         if (max_secondary > 0) {
             alignments.emplace_back(alignment);
         }
-        if (alignment.score > best_score) {
+
+        if (alignment.score == best_score) {
+            second_best_score = best_score;
+            // Two or more alignments have the same best score - count them
+            alignments_with_best_score++;
+
+            // Pick one randomly using reservoir sampling
+            std::uniform_int_distribution<> distrib(1, alignments_with_best_score);
+            if (distrib(random_engine) == 1) {
+                best_alignment = std::move(alignment);
+                if (max_secondary == 0) {
+                    best_edit_distance = best_alignment.global_ed;
+                }
+            }
+        } else if (alignment.score > best_score) {
             second_best_score = best_score;
             best_score = alignment.score;
             best_alignment = std::move(alignment);
             if (max_secondary == 0) {
                 best_edit_distance = best_alignment.global_ed;
             }
+            alignments_with_best_score = 1;
         } else if (alignment.score > second_best_score) {
             second_best_score = alignment.score;
         }
@@ -145,12 +162,16 @@ static inline void align_SE(
         sam.add(best_alignment, record, read.rc, mapq, true, details);
         return;
     }
+
+    // Secondary alignments
+
     // Sort alignments by score, highest first
     std::sort(alignments.begin(), alignments.end(),
         [](const Alignment& a, const Alignment& b) -> bool {
             return a.score > b.score;
         }
     );
+    // TODO Ensure the best_alignment is output as the primary
 
     auto max_out = std::min(alignments.size(), static_cast<size_t>(max_secondary) + 1);
     for (size_t i = 0; i < max_out; ++i) {
@@ -1092,7 +1113,7 @@ void align_SE_read(
         align_SE(
             aligner, sam, nams, record, index_parameters.syncmer.k,
             references, details, map_param.dropoff_threshold, map_param.max_tries,
-            map_param.max_secondary
+            map_param.max_secondary, random_engine
         );
     }
     statistics.tot_extend += extend_timer.duration();
