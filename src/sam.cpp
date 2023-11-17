@@ -83,7 +83,7 @@ void Sam::add_unmapped(const KSeq& record, uint16_t flags) {
     sam_string.append("\t");
     sam_string.append(std::to_string(flags));
     sam_string.append("\t*\t0\t" SAM_UNMAPPED_MAPQ_STRING "\t*\t*\t0\t0\t");
-    sam_string.append(record.seq);
+    append_seq(record.seq);
     append_qual(record.qual);
     append_rg_and_newline();
 }
@@ -105,7 +105,7 @@ void Sam::add_unmapped_mate(const KSeq& record, uint16_t flags, const std::strin
     sam_string.append("\t");
     sam_string.append(std::to_string(mate_pos + 1));
     sam_string.append("\t0\t");
-    sam_string.append(record.seq);
+    append_seq(record.seq);
     append_qual(record.qual);
     append_rg_and_newline();
 }
@@ -176,11 +176,11 @@ void Sam::add_record(
     sam_string.append("\t");
 
     if (flags & SECONDARY) {
-        sam_string.append("*");
+        append_seq("");
     } else if (flags & REVERSE) {
-        sam_string.append(query_sequence_rc);
+        append_seq(query_sequence_rc);
     } else {
-        sam_string.append(query_sequence);
+        append_seq(query_sequence);
     }
 
     if (!(flags & UNMAP)) {
