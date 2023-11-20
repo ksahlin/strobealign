@@ -439,10 +439,14 @@ bool has_shared_substring(const std::string& read_seq, const std::string& ref_se
     return false;
 }
 
-/* Return true iff rescue by alignment was actually attempted */
-static inline Alignment rescue_mate(
+/*
+ * Align a read to the reference given the mapping location of its mate.
+ *
+ * Return true if rescue by alignment was actually attempted
+ */
+static inline Alignment rescue_align(
     const Aligner& aligner,
-    const Nam &nam,
+    const Nam &mate_nam,
     const References& references,
     const Read& read,
     float mu,
@@ -454,42 +458,41 @@ static inline Alignment rescue_mate(
     std::string r_tmp;
     auto read_len = read.size();
 
-    if (nam.is_rc){
+    if (mate_nam.is_rc) {
         r_tmp = read.seq;
-        a = nam.ref_start - nam.query_start - (mu+5*sigma);
-        b = nam.ref_start - nam.query_start + read_len/2; // at most half read overlap
+        a = mate_nam.ref_start - mate_nam.query_start - (mu+5*sigma);
+        b = mate_nam.ref_start - mate_nam.query_start + read_len/2; // at most half read overlap
     } else {
         r_tmp = read.rc; // mate is rc since fr orientation
-        a = nam.ref_end + (read_len - nam.query_end) - read_len/2; // at most half read overlap
-        b = nam.ref_end + (read_len - nam.query_end) + (mu+5*sigma);
+        a = mate_nam.ref_end + (read_len - mate_nam.query_end) - read_len/2; // at most half read overlap
+        b = mate_nam.ref_end + (read_len - mate_nam.query_end) + (mu+5*sigma);
     }
 
-    auto ref_len = static_cast<int>(references.lengths[nam.ref_id]);
+    auto ref_len = static_cast<int>(references.lengths[mate_nam.ref_id]);
     auto ref_start = std::max(0, std::min(a, ref_len));
     auto ref_end = std::min(ref_len, std::max(0, b));
 
-    if (ref_end < ref_start + k){
+    if (ref_end < ref_start + k) {
         alignment.cigar = Cigar();
         alignment.edit_distance = read_len;
         alignment.score = 0;
         alignment.ref_start =  0;
-        alignment.is_rc = nam.is_rc;
-        alignment.ref_id = nam.ref_id;
+        alignment.is_rc = mate_nam.is_rc;
+        alignment.ref_id = mate_nam.ref_id;
         alignment.is_unaligned = true;
 //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return alignment;
     }
-    std::string ref_segm = references.sequences[nam.ref_id].substr(ref_start, ref_end - ref_start);
+    std::string ref_segm = references.sequences[mate_nam.ref_id].substr(ref_start, ref_end - ref_start);
 
-    if (!has_shared_substring(r_tmp, ref_segm, k)){
+    if (!has_shared_substring(r_tmp, ref_segm, k)) {
         alignment.cigar = Cigar();
         alignment.edit_distance = read_len;
         alignment.score = 0;
         alignment.ref_start =  0;
-        alignment.is_rc = nam.is_rc;
-        alignment.ref_id = nam.ref_id;
+        alignment.is_rc = mate_nam.is_rc;
+        alignment.ref_id = mate_nam.ref_id;
         alignment.is_unaligned = true;
-//        std::cerr << "Avoided!" << std::endl;
         return alignment;
     }
     auto info = aligner.align(r_tmp, ref_segm);
@@ -498,8 +501,8 @@ static inline Alignment rescue_mate(
     alignment.edit_distance = info.edit_distance;
     alignment.score = info.sw_score;
     alignment.ref_start = ref_start + info.ref_start;
-    alignment.is_rc = !nam.is_rc;
-    alignment.ref_id = nam.ref_id;
+    alignment.is_rc = !mate_nam.is_rc;
+    alignment.ref_id = mate_nam.ref_id;
     alignment.is_unaligned = info.cigar.empty();
     alignment.length = info.ref_span();
 
@@ -605,7 +608,7 @@ void rescue_read(
         details[0].tried_alignment++;
 
         // Force SW alignment to rescue mate
-        Alignment a2 = rescue_mate(aligner, nam, references, read2, mu, sigma, k);
+        Alignment a2 = rescue_align(aligner, nam, references, read2, mu, sigma, k);
         details[1].mate_rescue += !a2.is_unaligned;
         alignments2.emplace_back(a2);
 
@@ -843,7 +846,7 @@ inline void align_PE(
             }
         } else {
             details[1].nam_inconsistent += !reverse_nam_if_needed(n2, read2, references, k);
-            a1 = rescue_mate(aligner, n2, references, read1, mu, sigma, k);
+            a1 = rescue_align(aligner, n2, references, read1, mu, sigma, k);
             details[0].mate_rescue += !a1.is_unaligned;
             details[0].tried_alignment++;
         }
@@ -866,7 +869,7 @@ inline void align_PE(
             }
         } else {
             details[0].nam_inconsistent += !reverse_nam_if_needed(n1, read1, references, k);
-            a2 = rescue_mate(aligner, n1, references, read2, mu, sigma, k);
+            a2 = rescue_align(aligner, n1, references, read2, mu, sigma, k);
             details[1].mate_rescue += !a2.is_unaligned;
             details[1].tried_alignment++;
         }
