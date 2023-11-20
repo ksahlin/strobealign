@@ -410,9 +410,6 @@ static inline std::vector<NamPair> get_best_scoring_nam_pairs(
         }
     }
 
-    added_n1.clear();
-    added_n2.clear();
-
     std::sort(
         nam_pairs.begin(),
         nam_pairs.end(),
