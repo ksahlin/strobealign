@@ -963,11 +963,11 @@ inline void get_best_map_location(
     // get individual best scores
     float score_indiv = 0;
     if (!nams1.empty()) {
-        score_indiv += nams1[0].score - nams1[0].score / 2.0; //Penalty for being mapped individually
+        score_indiv += nams1[0].score / 2.0; //Penalty for being mapped individually
         best_nam1 = nams1[0];
     }
     if (!nams2.empty()) {
-        score_indiv += nams2[0].score - nams2[0].score / 2.0; //Penalty for being mapped individually
+        score_indiv += nams2[0].score / 2.0; //Penalty for being mapped individually
         best_nam2 = nams2[0];
     }
     if (score_joint > score_indiv) { // joint score is better than individual
