@@ -354,9 +354,9 @@ static inline std::vector<NamPair> get_best_scoring_nam_pairs(
     float mu,
     float sigma
 ) {
-    std::vector<NamPair> joint_nam_scores;
+    std::vector<NamPair> nam_pairs;
     if (nams1.empty() && nams2.empty()) {
-        return joint_nam_scores;
+        return nam_pairs;
     }
 
     // Find NAM pairs that appear to be proper pairs
@@ -370,7 +370,7 @@ static inline std::vector<NamPair> get_best_scoring_nam_pairs(
                 break;
             }
             if (is_proper_nam_pair(nam1, nam2, mu, sigma)) {
-                joint_nam_scores.push_back(NamPair{joint_hits, nam1, nam2});
+                nam_pairs.push_back(NamPair{joint_hits, nam1, nam2});
                 added_n1.insert(nam1.nam_id);
                 added_n2.insert(nam2.nam_id);
                 best_joint_hits = std::max(joint_hits, best_joint_hits);
@@ -391,7 +391,7 @@ static inline std::vector<NamPair> get_best_scoring_nam_pairs(
                 continue;
             }
 //            int n1_penalty = std::abs(nam1.query_span() - nam1.ref_span());
-            joint_nam_scores.push_back(NamPair{nam1.n_hits, nam1, dummy_nam});
+            nam_pairs.push_back(NamPair{nam1.n_hits, nam1, dummy_nam});
         }
     }
 
@@ -406,7 +406,7 @@ static inline std::vector<NamPair> get_best_scoring_nam_pairs(
                 continue;
             }
 //            int n2_penalty = std::abs(nam2.query_span() - nam2.ref_span());
-            joint_nam_scores.push_back(NamPair{nam2.n_hits, dummy_nam, nam2});
+            nam_pairs.push_back(NamPair{nam2.n_hits, dummy_nam, nam2});
         }
     }
 
@@ -414,12 +414,12 @@ static inline std::vector<NamPair> get_best_scoring_nam_pairs(
     added_n2.clear();
 
     std::sort(
-        joint_nam_scores.begin(),
-        joint_nam_scores.end(),
+        nam_pairs.begin(),
+        nam_pairs.end(),
         [](const NamPair& a, const NamPair& b) -> bool { return a.score > b.score; }
     ); // Sort by highest score first
 
-    return joint_nam_scores;
+    return nam_pairs;
 }
 
 /*
@@ -788,7 +788,7 @@ inline void align_PE(
     // Do a full search for highest-scoring pair
     // Get top hit counts for all locations. The joint hit count is the sum of hits of the two mates. Then align as long as score dropoff or cnt < 20
 
-    std::vector<NamPair> joint_nam_scores = get_best_scoring_nam_pairs(nams1, nams2, mu, sigma);
+    std::vector<NamPair> nam_pairs = get_best_scoring_nam_pairs(nams1, nams2, mu, sigma);
 
     // Cache for already computed alignments. Maps NAM ids to alignments.
     robin_hood::unordered_map<int,Alignment> is_aligned1;
@@ -817,8 +817,8 @@ inline void align_PE(
 
     // Turn pairs of high-scoring NAMs into pairs of alignments
     std::vector<ScoredAlignmentPair> high_scores;
-    auto max_score = joint_nam_scores[0].score;
-    for (auto &[score_, n1, n2] : joint_nam_scores) {
+    auto max_score = nam_pairs[0].score;
+    for (auto &[score_, n1, n2] : nam_pairs) {
         float score_dropoff = (float) score_ / max_score;
 
         if (high_scores.size() >= max_tries || score_dropoff < dropoff) {
