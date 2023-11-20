@@ -89,7 +89,7 @@ public:
     void update(int dist);
 };
 
-void align_PE_read(
+void align_or_map_paired(
     const klibpp::KSeq& record1,
     const klibpp::KSeq& record2,
     Sam& sam,
@@ -104,7 +104,7 @@ void align_PE_read(
     std::minstd_rand& random_engine
 );
 
-void align_SE_read(
+void align_or_map_single(
     const klibpp::KSeq& record,
     Sam& sam,
     std::string& outstring,

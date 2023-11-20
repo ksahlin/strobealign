@@ -84,7 +84,7 @@ bool reverse_nam_if_needed(Nam& nam, const Read& read, const References& referen
     return false;
 }
 
-static inline void align_SE(
+static inline void align_single(
     const Aligner& aligner,
     Sam& sam,
     std::vector<Nam>& nams,
@@ -679,7 +679,7 @@ float top_dropoff(std::vector<Nam>& nams) {
     return 0.0;
 }
 
-inline void align_PE(
+inline void align_paired(
     const Aligner& aligner,
     Sam &sam,
     std::vector<Nam> &nams1,
@@ -1026,7 +1026,7 @@ void shuffle_top_nams(std::vector<Nam>& nams, std::minstd_rand& random_engine) {
     }
 }
 
-void align_PE_read(
+void align_or_map_paired(
     const KSeq &record1,
     const KSeq &record2,
     Sam& sam,
@@ -1085,7 +1085,7 @@ void align_PE_read(
                            references,
                            record2.seq.length());
     } else {
-        align_PE(aligner, sam, nams_pair[0], nams_pair[1], record1,
+        align_paired(aligner, sam, nams_pair[0], nams_pair[1], record1,
                  record2,
                  index_parameters.syncmer.k,
                  references, details,
@@ -1097,7 +1097,7 @@ void align_PE_read(
 }
 
 
-void align_SE_read(
+void align_or_map_single(
     const KSeq &record,
     Sam& sam,
     std::string &outstring,
@@ -1140,7 +1140,7 @@ void align_SE_read(
         output_hits_paf(outstring, nams, record.name, references,
                         record.seq.length());
     } else {
-        align_SE(
+        align_single(
             aligner, sam, nams, record, index_parameters.syncmer.k,
             references, details, map_param.dropoff_threshold, map_param.max_tries,
             map_param.max_secondary, random_engine
