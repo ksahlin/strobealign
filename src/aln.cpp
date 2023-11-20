@@ -933,41 +933,44 @@ inline void align_PE(
 }
 
 // Only used for PAF output
-inline void get_best_map_location(std::vector<Nam> &nams1, std::vector<Nam> &nams2, InsertSizeDistribution &isize_est, Nam &best_nam1, Nam &best_nam2 ) {
-    std::vector<NamPair> joint_nam_scores = get_best_scoring_nam_pairs(nams1, nams2, isize_est.mu, isize_est.sigma);
-    Nam n1_joint_max, n2_joint_max, n1_indiv_max, n2_indiv_max;
-    float score_joint = 0;
-    float score_indiv = 0;
+inline void get_best_map_location(
+    std::vector<Nam> &nams1,
+    std::vector<Nam> &nams2,
+    InsertSizeDistribution &isize_est,
+    Nam &best_nam1,
+    Nam &best_nam2
+) {
+    std::vector<NamPair> nam_pairs = get_best_scoring_nam_pairs(nams1, nams2, isize_est.mu, isize_est.sigma);
     best_nam1.ref_start = -1; //Unmapped until proven mapped
     best_nam2.ref_start = -1; //Unmapped until proven mapped
 
-    if (joint_nam_scores.empty()) {
+    if (nam_pairs.empty()) {
         return;
     }
+
     // get best joint score
-    for (auto &t : joint_nam_scores) { // already sorted by descending score
-        auto& n1 = t.nam1;
-        auto& n2 = t.nam2;
-        if (n1.ref_start >= 0 && n2.ref_start >=0) { // Valid pair
-            score_joint = n1.score + n2.score;
-            n1_joint_max = n1;
-            n2_joint_max = n2;
+    float score_joint = 0;
+    Nam n1_joint_max, n2_joint_max;
+    for (auto &[score, nam1, nam2] : nam_pairs) { // already sorted by descending score
+        if (nam1.ref_start >= 0 && nam2.ref_start >=0) { // Valid pair
+            score_joint = score;
+            n1_joint_max = nam1;
+            n2_joint_max = nam2;
             break;
         }
     }
 
     // get individual best scores
+    float score_indiv = 0;
     if (!nams1.empty()) {
-        auto n1_indiv_max = nams1[0];
-        score_indiv += n1_indiv_max.score - (n1_indiv_max.score/2.0); //Penalty for being mapped individually
-        best_nam1 = n1_indiv_max;
+        score_indiv += nams1[0].score - nams1[0].score / 2.0; //Penalty for being mapped individually
+        best_nam1 = nams1[0];
     }
     if (!nams2.empty()) {
-        auto n2_indiv_max = nams2[0];
-        score_indiv += n2_indiv_max.score - (n2_indiv_max.score/2.0); //Penalty for being mapped individually
-        best_nam2 = n2_indiv_max;
+        score_indiv += nams2[0].score - nams2[0].score / 2.0; //Penalty for being mapped individually
+        best_nam2 = nams2[0];
     }
-    if ( score_joint > score_indiv ){ // joint score is better than individual
+    if (score_joint > score_indiv) { // joint score is better than individual
         best_nam1 = n1_joint_max;
         best_nam2 = n2_joint_max;
     }
