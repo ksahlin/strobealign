@@ -1,5 +1,6 @@
 #include "aln.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <math.h>
 #include <sstream>
@@ -93,7 +94,8 @@ static inline void align_SE(
     Details& details,
     float dropoff_threshold,
     int max_tries,
-    unsigned max_secondary
+    unsigned max_secondary,
+    std::minstd_rand& random_engine
 ) {
     if (nams.empty()) {
         sam.add_unmapped(record);
@@ -108,6 +110,8 @@ static inline void align_SE(
     int best_edit_distance = std::numeric_limits<int>::max();
     int best_score = 0;
     int second_best_score = 0;
+    int alignments_with_best_score = 0;
+    size_t best_index = 0;
 
     Alignment best_alignment;
     best_alignment.is_unaligned = true;
@@ -126,12 +130,31 @@ static inline void align_SE(
         if (max_secondary > 0) {
             alignments.emplace_back(alignment);
         }
-        if (alignment.score > best_score) {
+
+        if (alignment.score >= best_score) {
             second_best_score = best_score;
-            best_score = alignment.score;
-            best_alignment = std::move(alignment);
-            if (max_secondary == 0) {
-                best_edit_distance = best_alignment.global_ed;
+            bool update_best = false;
+            if (alignment.score > best_score) {
+                alignments_with_best_score = 1;
+                update_best = true;
+            } else {
+                assert(alignment.score == best_score);
+                // Two or more alignments have the same best score - count them
+                alignments_with_best_score++;
+
+                // Pick one randomly using reservoir sampling
+                std::uniform_int_distribution<> distrib(1, alignments_with_best_score);
+                if (distrib(random_engine) == 1) {
+                    update_best = true;
+                }
+            }
+            if (update_best) {
+                best_score = alignment.score;
+                best_alignment = std::move(alignment);
+                best_index = tries;
+                if (max_secondary == 0) {
+                    best_edit_distance = best_alignment.global_ed;
+                }
             }
         } else if (alignment.score > second_best_score) {
             second_best_score = alignment.score;
@@ -139,26 +162,40 @@ static inline void align_SE(
         tries++;
     }
     uint8_t mapq = (60.0 * (best_score - second_best_score) + best_score - 1) / best_score;
+    bool is_primary = true;
+    sam.add(best_alignment, record, read.rc, mapq, is_primary, details);
 
     if (max_secondary == 0) {
-        sam.add(best_alignment, record, read.rc, mapq, true, details);
         return;
     }
-    // Sort alignments by score, highest first
+
+    // Secondary alignments
+
+    // Remove the alignment that was already output
+    if (alignments.size() > 1) {
+        std::swap(alignments[best_index], alignments[alignments.size() - 1]);
+    }
+    alignments.resize(alignments.size() - 1);
+
+    // Sort remaining alignments by score, highest first
     std::sort(alignments.begin(), alignments.end(),
         [](const Alignment& a, const Alignment& b) -> bool {
             return a.score > b.score;
         }
     );
 
-    auto max_out = std::min(alignments.size(), static_cast<size_t>(max_secondary) + 1);
-    for (size_t i = 0; i < max_out; ++i) {
-        auto alignment = alignments[i];
-        if (alignment.score - best_score > 2*aligner.parameters.mismatch + aligner.parameters.gap_open) {
+    // Output secondary alignments
+    size_t n = 0;
+    for (const auto& alignment : alignments) {
+        if (
+            n >= max_secondary
+            || alignment.score - best_score > 2*aligner.parameters.mismatch + aligner.parameters.gap_open
+        ) {
             break;
         }
-        bool is_primary = i == 0;
+        bool is_primary = false;
         sam.add(alignment, record, read.rc, mapq, is_primary, details);
+        n++;
     }
 }
 
@@ -958,6 +995,22 @@ void InsertSizeDistribution::update(int dist) {
     }
 }
 
+/* Shuffle the top-scoring NAMs. Input must be sorted by score.
+ *
+ * This helps to ensure we pick a random location in case there are multiple
+ * equally good ones.
+ */
+void shuffle_top_nams(std::vector<Nam>& nams, std::minstd_rand& random_engine) {
+    if (nams.empty()) {
+        return;
+    }
+    auto best_score = nams[0].score;
+    auto it = std::find_if(nams.begin(), nams.end(), [&](const Nam& nam) { return nam.score != best_score; });
+    if (it != nams.end()) {
+        std::shuffle(nams.begin(), it, random_engine);
+    }
+}
+
 void align_PE_read(
     const KSeq &record1,
     const KSeq &record2,
@@ -969,46 +1022,45 @@ void align_PE_read(
     const MappingParameters &map_param,
     const IndexParameters& index_parameters,
     const References& references,
-    const StrobemerIndex& index
+    const StrobemerIndex& index,
+    std::minstd_rand& random_engine
 ) {
     std::array<Details, 2> details;
+    std::array<std::vector<Nam>, 2> nams_pair;
 
-    Timer strobe_timer;
-    auto query_randstrobes1 = randstrobes_query(record1.seq, index_parameters);
-    auto query_randstrobes2 = randstrobes_query(record2.seq, index_parameters);
-    statistics.tot_construct_strobemers += strobe_timer.duration();
+    for (size_t is_revcomp : {0, 1}) {
+        const auto& record = is_revcomp == 0 ? record1 : record2;
 
-    // Find NAMs
-    Timer nam_timer;
-    auto [nonrepetitive_fraction1, nams1] = find_nams(query_randstrobes1, index);
-    auto [nonrepetitive_fraction2, nams2] = find_nams(query_randstrobes2, index);
-    statistics.tot_find_nams += nam_timer.duration();
-    if (map_param.rescue_level > 1) {
-        Timer rescue_timer;
-        if (nams1.empty() || nonrepetitive_fraction1 < 0.7) {
-            nams1 = find_nams_rescue(query_randstrobes1, index, map_param.rescue_cutoff);
-            details[0].nam_rescue = true;
+        Timer strobe_timer;
+        auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
+        statistics.tot_construct_strobemers += strobe_timer.duration();
+
+        // Find NAMs
+        Timer nam_timer;
+        auto [nonrepetitive_fraction, nams] = find_nams(query_randstrobes, index);
+        statistics.tot_find_nams += nam_timer.duration();
+
+        if (map_param.rescue_level > 1) {
+            Timer rescue_timer;
+            if (nams.empty() || nonrepetitive_fraction < 0.7) {
+                nams = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff);
+                details[is_revcomp].nam_rescue = true;
+            }
+            statistics.tot_time_rescue += rescue_timer.duration();
         }
-
-        if (nams2.empty() || nonrepetitive_fraction2 < 0.7) {
-            nams2 = find_nams_rescue(query_randstrobes2, index, map_param.rescue_cutoff);
-            details[1].nam_rescue = true;
-        }
-        statistics.tot_time_rescue += rescue_timer.duration();
+        details[is_revcomp].nams = nams.size();
+        Timer nam_sort_timer;
+        std::sort(nams.begin(), nams.end(), by_score<Nam>);
+        shuffle_top_nams(nams, random_engine);
+        statistics.tot_sort_nams += nam_sort_timer.duration();
+        nams_pair[is_revcomp] = nams;
     }
-    details[0].nams = nams1.size();
-    details[1].nams = nams2.size();
-
-    Timer nam_sort_timer;
-    std::sort(nams1.begin(), nams1.end(), by_score<Nam>);
-    std::sort(nams2.begin(), nams2.end(), by_score<Nam>);
-    statistics.tot_sort_nams += nam_sort_timer.duration();
 
     Timer extend_timer;
     if (!map_param.is_sam_out) {
         Nam nam_read1;
         Nam nam_read2;
-        get_best_map_location(nams1, nams2, isize_est,
+        get_best_map_location(nams_pair[0], nams_pair[1], isize_est,
                               nam_read1,
                               nam_read2);
         output_hits_paf_PE(outstring, nam_read1, record1.name,
@@ -1018,7 +1070,7 @@ void align_PE_read(
                            references,
                            record2.seq.length());
     } else {
-        align_PE(aligner, sam, nams1, nams2, record1,
+        align_PE(aligner, sam, nams_pair[0], nams_pair[1], record1,
                  record2,
                  index_parameters.syncmer.k,
                  references, details,
@@ -1039,7 +1091,8 @@ void align_SE_read(
     const MappingParameters &map_param,
     const IndexParameters& index_parameters,
     const References& references,
-    const StrobemerIndex& index
+    const StrobemerIndex& index,
+    std::minstd_rand& random_engine
 ) {
     Details details;
     Timer strobe_timer;
@@ -1059,11 +1112,13 @@ void align_SE_read(
         }
         statistics.tot_time_rescue += rescue_timer.duration();
     }
-
     details.nams = nams.size();
+
     Timer nam_sort_timer;
     std::sort(nams.begin(), nams.end(), by_score<Nam>);
+    shuffle_top_nams(nams, random_engine);
     statistics.tot_sort_nams += nam_sort_timer.duration();
+
 
     Timer extend_timer;
     if (!map_param.is_sam_out) {
@@ -1073,7 +1128,7 @@ void align_SE_read(
         align_SE(
             aligner, sam, nams, record, index_parameters.syncmer.k,
             references, details, map_param.dropoff_threshold, map_param.max_tries,
-            map_param.max_secondary
+            map_param.max_secondary, random_engine
         );
     }
     statistics.tot_extend += extend_timer.duration();
