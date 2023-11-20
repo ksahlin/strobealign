@@ -258,14 +258,14 @@ static inline Alignment extend_seed(
 /*
  * Return mapping quality for a read mapped in a proper pair
  */
-static inline uint8_t proper_pair_mapq(const std::vector<Nam> &nams, const Nam &n_max) {
+static inline uint8_t proper_pair_mapq(const std::vector<Nam> &nams) {
     if (nams.size() <= 1) {
         return 60;
     }
-    const float s1 = n_max.score;
+    const float s1 = nams[0].score;
     const float s2 = nams[1].score;
     // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
-    const float min_matches = std::min(n_max.n_hits / 10.0, 1.0);
+    const float min_matches = std::min(nams[0].n_hits / 10.0, 1.0);
     const int uncapped_mapq = 40 * (1 - s2 / s1) * min_matches * log(s1);
     return std::min(uncapped_mapq, 60);
 }
@@ -773,8 +773,8 @@ inline void align_PE(
         auto alignment2 = extend_seed(aligner, n_max2, references, read2, consistent_nam2);
         details[1].tried_alignment++;
         details[1].gapped += alignment2.gapped;
-        int mapq1 = proper_pair_mapq(nams1, n_max1);
-        int mapq2 = proper_pair_mapq(nams2, n_max2);
+        int mapq1 = proper_pair_mapq(nams1);
+        int mapq2 = proper_pair_mapq(nams2);
         bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
         bool is_primary = true;
         sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary, details);
