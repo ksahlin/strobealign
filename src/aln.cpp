@@ -672,7 +672,8 @@ inline void align_PE(
     float dropoff,
     InsertSizeDistribution &isize_est,
     unsigned max_tries,
-    size_t max_secondary
+    size_t max_secondary,
+    std::minstd_rand& random_engine
 ) {
     const auto mu = isize_est.mu;
     const auto sigma = isize_est.sigma;
@@ -912,6 +913,23 @@ inline void align_PE(
         high_scores.resize(j);
     }
 
+    // If there are multiple top-scoring alignments with the same score,
+    // pick one randomly
+    {
+        size_t i = 1;
+        for ( ; i < high_scores.size(); ++i) {
+            if (high_scores[i].score != high_scores[0].score) {
+                break;
+            }
+        }
+        if (i > 1) {
+            size_t random_index = std::uniform_int_distribution<>(0, i - 1)(random_engine);
+            if (random_index != 0) {
+                std::swap(high_scores[0], high_scores[random_index]);
+            }
+        }
+    }
+
     auto [mapq1, mapq2] = joint_mapq_from_high_scores(high_scores);
     auto best_aln_pair = high_scores[0];
     auto alignment1 = best_aln_pair.alignment1;
@@ -1093,7 +1111,7 @@ void align_PE_read(
                  record2,
                  index_parameters.syncmer.k,
                  references, details,
-                 map_param.dropoff_threshold, isize_est, map_param.max_tries, map_param.max_secondary);
+                 map_param.dropoff_threshold, isize_est, map_param.max_tries, map_param.max_secondary, random_engine);
     }
     statistics.tot_extend += extend_timer.duration();
     statistics += details[0];
