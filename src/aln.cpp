@@ -879,6 +879,39 @@ inline void align_PE(
     high_scores.push_back(aln_tuple);
     std::sort(high_scores.begin(), high_scores.end(), by_score<ScoredAlignmentPair>); // Sorting by highest score first
 
+    // Deduplicate (duplicates come from, e.g., adding individual best alignments if identical to joint best alignment)
+    {
+        int prev_ref_start1 = high_scores[0].alignment1.ref_start;
+        int prev_ref_start2 = high_scores[0].alignment2.ref_start;
+        int prev_ref_id1 = high_scores[0].alignment1.ref_id;
+        int prev_ref_id2 = high_scores[0].alignment2.ref_id;
+        size_t j = 1;
+        for (size_t i = 1; i < high_scores.size(); i++) {
+            int ref_start1 = high_scores[i].alignment1.ref_start;
+            int ref_start2 = high_scores[i].alignment2.ref_start;
+            int ref_id1 = high_scores[i].alignment1.ref_id;
+            int ref_id2 = high_scores[i].alignment2.ref_id;
+            if (
+                ref_start1 != prev_ref_start1 ||
+                ref_start2 != prev_ref_start2 ||
+                ref_id1 != prev_ref_id1 ||
+                ref_id2 != prev_ref_id2
+            ) {
+                prev_ref_start1 = ref_start1;
+                prev_ref_start2 = ref_start2;
+                prev_ref_id1 = ref_id1;
+                prev_ref_id2 = ref_id2;
+                high_scores[j] = high_scores[i];
+                j++;
+            }
+            if (j > max_secondary + 2) {
+                // joint_mapq_from_high_scores needs up to three alignments
+                break;
+            }
+        }
+        high_scores.resize(j);
+    }
+
     auto [mapq1, mapq2] = joint_mapq_from_high_scores(high_scores);
     auto best_aln_pair = high_scores[0];
     auto alignment1 = best_aln_pair.alignment1;
@@ -890,10 +923,6 @@ inline void align_PE(
         auto max_out = std::min(high_scores.size(), max_secondary);
         // remove eventual duplicates - comes from, e.g., adding individual best alignments above (if identical to joint best alignment)
         float s_max = best_aln_pair.score;
-        int prev_start_m1 = alignment1.ref_start;
-        int prev_start_m2 = alignment2.ref_start;
-        int prev_ref_id_m1 = alignment1.ref_id;
-        int prev_ref_id_m2 = alignment2.ref_id;
         bool is_primary = true;
         for (size_t i = 0; i < max_out; ++i) {
             auto aln_pair = high_scores[i];
@@ -904,11 +933,6 @@ inline void align_PE(
                 is_primary = false;
                 mapq1 = 255;
                 mapq2 = 255;
-                bool same_pos = (prev_start_m1 == alignment1.ref_start) && (prev_start_m2 == alignment2.ref_start);
-                bool same_ref = (prev_ref_id_m1 == alignment1.ref_id) && (prev_ref_id_m2 == alignment2.ref_id);
-                if (same_pos && same_ref) {
-                    continue;
-                }
             }
 
             if (s_max - s_score < secondary_dropoff) {
@@ -917,11 +941,6 @@ inline void align_PE(
             } else {
                 break;
             }
-
-            prev_start_m1 = alignment1.ref_start;
-            prev_start_m2 = alignment2.ref_start;
-            prev_ref_id_m1 = alignment1.ref_id;
-            prev_ref_id_m2 = alignment2.ref_id;
         }
     }
 }
