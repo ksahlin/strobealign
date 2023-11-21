@@ -13,8 +13,8 @@
   some strobealign-specific tags are added to the SAM output that inform about
   things like no. of seeds found, whether mate rescue was performed etc.
 * #333: Fix matches ending too early in PAF output.
-* #359: Assign single-end multimappers randomly to one of the candidate
-  mapping locations to reduce biases.
+* #359, #367: Assign (single-end and paired-end) multimappers randomly to one
+  of the candidate mapping locations to reduce biases.
 
 ## v0.11.0 (2023-06-22)
 
