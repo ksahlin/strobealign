@@ -905,10 +905,6 @@ inline void align_PE(
                 high_scores[j] = high_scores[i];
                 j++;
             }
-            if (j > max_secondary + 2) {
-                // joint_mapq_from_high_scores needs up to three alignments
-                break;
-            }
         }
         high_scores.resize(j);
     }
