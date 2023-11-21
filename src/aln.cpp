@@ -267,21 +267,26 @@ static inline uint8_t get_mapq(const std::vector<Nam> &nams, const Nam &n_max) {
     return std::min(uncapped_mapq, 60);
 }
 
-static inline std::pair<int, int> joint_mapq_from_alignment_scores(float score1, float score2) {
+/* Compute paired-end mapping score given best alignments (sorted by score) */
+static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<ScoredAlignmentPair>& pairs) {
+    if (pairs.size() <= 1) {
+        return std::make_pair(60, 60);
+    }
+    auto score1 = pairs[0].score;
+    auto score2 = pairs[1].score;
+    if (score1 == score2) {
+        return std::make_pair(0, 0);
+    }
     int mapq;
-    if (score1 == score2) { // At least two identical placements
-        mapq = 0;
-    } else {
-        const int diff = score1 - score2; // (1.0 - (S1 - S2) / S1);
-//        float log10_p = diff > 6 ? -6.0 : -diff; // Corresponds to: p_error= 0.1^diff // change in sw score times rough illumina error rate. This is highly heauristic, but so seem most computations of mapq scores
-        if (score1 > 0 && score2 > 0) {
-            mapq = std::min(60, diff);
+    const int diff = score1 - score2; // (1.0 - (S1 - S2) / S1);
+//  float log10_p = diff > 6 ? -6.0 : -diff; // Corresponds to: p_error= 0.1^diff // change in sw score times rough illumina error rate. This is highly heauristic, but so seem most computations of mapq scores
+    if (score1 > 0 && score2 > 0) {
+        mapq = std::min(60, diff);
 //            mapq1 = -10 * log10_p < 60 ? -10 * log10_p : 60;
-        } else if (score1 > 0 && score2 <= 0) {
-            mapq = 60;
-        } else { // both negative SW one is better
-            mapq = 1;
-        }
+    } else if (score1 > 0 && score2 <= 0) {
+        mapq = 60;
+    } else { // both negative SW one is better
+        mapq = 1;
     }
     return std::make_pair(mapq, mapq);
 }
@@ -499,15 +504,6 @@ static inline Alignment rescue_mate(
     return alignment;
 }
 
-/* Compute paired-end mapping score given top alignments */
-static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<ScoredAlignmentPair>& high_scores) {
-    if (high_scores.size() <= 1) {
-        return std::make_pair(60, 60);
-    }
-    return joint_mapq_from_alignment_scores(
-        high_scores[0].score, high_scores[1].score
-    );
-}
 
 /*
  * Align a pair of reads for which only one has NAMs. For the other, rescue
