@@ -613,38 +613,9 @@ static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<ScoredA
     if (high_scores.size() <= 1) {
         return std::make_pair(60, 60);
     }
-    // Calculate joint MAPQ score
-    int n_mappings = high_scores.size();
-    auto best_aln_pair = high_scores[0];
-    auto S1 = best_aln_pair.score;
-    auto a1_m1 = best_aln_pair.alignment1;
-    auto a1_m2 = best_aln_pair.alignment2;
-    int a1_start_m1 = a1_m1.ref_start;
-    int a1_start_m2 = a1_m2.ref_start;
-    int a1_ref_id_m1 = a1_m1.ref_id;
-    int a1_ref_id_m2 = a1_m2.ref_id;
-
-    auto second_aln_pair = high_scores[1];
-    auto S2 = second_aln_pair.score;
-    auto a2_m1 = second_aln_pair.alignment1;
-    auto a2_m2 = second_aln_pair.alignment2;
-    int a2_start_m1 = a2_m1.ref_start;
-    int a2_start_m2 = a2_m2.ref_start;
-    int a2_ref_id_m1 = a2_m1.ref_id;
-    int a2_ref_id_m2 = a2_m2.ref_id;
-    bool same_pos = (a1_start_m1 == a2_start_m1) && (a1_start_m2 == a2_start_m2);
-    bool same_ref = (a1_ref_id_m1 == a2_ref_id_m1) && (a1_ref_id_m2 == a2_ref_id_m2);
-    if (!same_pos || !same_ref) {
-        return joint_mapq_from_alignment_scores(S1, S2);
-    } else if (n_mappings > 2) {
-        // individually highest alignment score was the same alignment as the joint highest score - calculate mapq relative to third best
-        auto third_aln_pair = high_scores[2];
-        auto S2 = third_aln_pair.score;
-        return joint_mapq_from_alignment_scores(S1, S2);
-    } else {
-        // there was no other alignment
-        return std::make_pair(60, 60);
-    }
+    return joint_mapq_from_alignment_scores(
+        high_scores[0].score, high_scores[1].score
+    );
 }
 
 // compute dropoff of the first (top) NAM
