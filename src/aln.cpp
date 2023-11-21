@@ -499,6 +499,16 @@ static inline Alignment rescue_mate(
     return alignment;
 }
 
+/* Compute paired-end mapping score given top alignments */
+static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<ScoredAlignmentPair>& high_scores) {
+    if (high_scores.size() <= 1) {
+        return std::make_pair(60, 60);
+    }
+    return joint_mapq_from_alignment_scores(
+        high_scores[0].score, high_scores[1].score
+    );
+}
+
 /*
  * Align a pair of reads for which only one has NAMs. For the other, rescue
  * is attempted by aligning it locally.
@@ -554,18 +564,7 @@ void rescue_read(
     // Calculate best combined score here
     auto high_scores = get_best_scoring_pairs(alignments1, alignments2, mu, sigma );
 
-    // Calculate joint MAPQ score
-    int mapq1, mapq2;
-    if (high_scores.size() > 1) {
-        auto best_aln_pair = high_scores[0];
-        auto S1 = best_aln_pair.score;
-        auto second_aln_pair = high_scores[1];
-        auto S2 = second_aln_pair.score;
-        std::tie(mapq1, mapq2) = joint_mapq_from_alignment_scores(S1, S2);
-    } else {
-        mapq1 = 60;
-        mapq2 = 60;
-    }
+    auto [mapq1, mapq2] = joint_mapq_from_high_scores(high_scores);
 
     // append both alignments to string here
     if (max_secondary == 0) {
@@ -606,16 +605,6 @@ void rescue_read(
             }
         }
     }
-}
-
-/* Compute paired-end mapping score given top alignments */
-static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<ScoredAlignmentPair>& high_scores) {
-    if (high_scores.size() <= 1) {
-        return std::make_pair(60, 60);
-    }
-    return joint_mapq_from_alignment_scores(
-        high_scores[0].score, high_scores[1].score
-    );
 }
 
 // compute dropoff of the first (top) NAM
