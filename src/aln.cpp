@@ -659,6 +659,41 @@ float top_dropoff(std::vector<Nam>& nams) {
     return 0.0;
 }
 
+/*
+ * Turn a vector of scored alignment pairs into one that
+ * is sorted by score (highest first) and contains only unique entries.
+ */
+void deduplicate_scored_pairs(std::vector<ScoredAlignmentPair>& pairs) {
+
+    std::sort(pairs.begin(), pairs.end(), by_score<ScoredAlignmentPair>);
+
+    int prev_ref_start1 = pairs[0].alignment1.ref_start;
+    int prev_ref_start2 = pairs[0].alignment2.ref_start;
+    int prev_ref_id1 = pairs[0].alignment1.ref_id;
+    int prev_ref_id2 = pairs[0].alignment2.ref_id;
+    size_t j = 1;
+    for (size_t i = 1; i < pairs.size(); i++) {
+        int ref_start1 = pairs[i].alignment1.ref_start;
+        int ref_start2 = pairs[i].alignment2.ref_start;
+        int ref_id1 = pairs[i].alignment1.ref_id;
+        int ref_id2 = pairs[i].alignment2.ref_id;
+        if (
+            ref_start1 != prev_ref_start1 ||
+            ref_start2 != prev_ref_start2 ||
+            ref_id1 != prev_ref_id1 ||
+            ref_id2 != prev_ref_id2
+        ) {
+            prev_ref_start1 = ref_start1;
+            prev_ref_start2 = ref_start2;
+            prev_ref_id1 = ref_id1;
+            prev_ref_id2 = ref_id2;
+            pairs[j] = pairs[i];
+            j++;
+        }
+    }
+    pairs.resize(j);
+}
+
 inline void align_PE(
     const Aligner& aligner,
     Sam &sam,
@@ -878,36 +913,8 @@ inline void align_PE(
     double combined_score = (double)a1_indv_max.score + (double)a2_indv_max.score - 20; // 20 corresponds to  a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
     ScoredAlignmentPair aln_tuple{combined_score, a1_indv_max, a2_indv_max};
     high_scores.push_back(aln_tuple);
-    std::sort(high_scores.begin(), high_scores.end(), by_score<ScoredAlignmentPair>); // Sorting by highest score first
 
-    // Deduplicate (duplicates come from, e.g., adding individual best alignments if identical to joint best alignment)
-    {
-        int prev_ref_start1 = high_scores[0].alignment1.ref_start;
-        int prev_ref_start2 = high_scores[0].alignment2.ref_start;
-        int prev_ref_id1 = high_scores[0].alignment1.ref_id;
-        int prev_ref_id2 = high_scores[0].alignment2.ref_id;
-        size_t j = 1;
-        for (size_t i = 1; i < high_scores.size(); i++) {
-            int ref_start1 = high_scores[i].alignment1.ref_start;
-            int ref_start2 = high_scores[i].alignment2.ref_start;
-            int ref_id1 = high_scores[i].alignment1.ref_id;
-            int ref_id2 = high_scores[i].alignment2.ref_id;
-            if (
-                ref_start1 != prev_ref_start1 ||
-                ref_start2 != prev_ref_start2 ||
-                ref_id1 != prev_ref_id1 ||
-                ref_id2 != prev_ref_id2
-            ) {
-                prev_ref_start1 = ref_start1;
-                prev_ref_start2 = ref_start2;
-                prev_ref_id1 = ref_id1;
-                prev_ref_id2 = ref_id2;
-                high_scores[j] = high_scores[i];
-                j++;
-            }
-        }
-        high_scores.resize(j);
-    }
+    deduplicate_scored_pairs(high_scores);
 
     // If there are multiple top-scoring alignments with the same score,
     // pick one randomly
