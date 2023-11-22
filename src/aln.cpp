@@ -12,6 +12,7 @@
 
 using namespace klibpp;
 
+namespace {
 
 struct NamPair {
     int score;
@@ -25,7 +26,7 @@ struct ScoredAlignmentPair {
     Alignment alignment2;
 };
 
-static inline Alignment extend_seed(
+inline Alignment extend_seed(
     const Aligner& aligner,
     const Nam &nam,
     const References& references,
@@ -84,7 +85,7 @@ bool reverse_nam_if_needed(Nam& nam, const Read& read, const References& referen
     return false;
 }
 
-static inline void align_single(
+inline void align_single(
     const Aligner& aligner,
     Sam& sam,
     std::vector<Nam>& nams,
@@ -203,7 +204,7 @@ static inline void align_single(
  Extend a NAM so that it covers the entire read and return the resulting
  alignment.
 */
-static inline Alignment extend_seed(
+inline Alignment extend_seed(
     const Aligner& aligner,
     const Nam &nam,
     const References& references,
@@ -258,7 +259,7 @@ static inline Alignment extend_seed(
 /*
  * Return mapping quality for a read mapped in a proper pair
  */
-static inline uint8_t proper_pair_mapq(const std::vector<Nam> &nams) {
+inline uint8_t proper_pair_mapq(const std::vector<Nam> &nams) {
     if (nams.size() <= 1) {
         return 60;
     }
@@ -271,7 +272,7 @@ static inline uint8_t proper_pair_mapq(const std::vector<Nam> &nams) {
 }
 
 /* Compute paired-end mapping score given best alignments (sorted by score) */
-static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<ScoredAlignmentPair>& pairs) {
+std::pair<int, int> joint_mapq_from_high_scores(const std::vector<ScoredAlignmentPair>& pairs) {
     if (pairs.size() <= 1) {
         return std::make_pair(60, 60);
     }
@@ -294,7 +295,7 @@ static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<ScoredA
     return std::make_pair(mapq, mapq);
 }
 
-static inline float normal_pdf(float x, float mu, float sigma)
+inline float normal_pdf(float x, float mu, float sigma)
 {
     static const float inv_sqrt_2pi = 0.3989422804014327;
     const float a = (x - mu) / sigma;
@@ -302,7 +303,7 @@ static inline float normal_pdf(float x, float mu, float sigma)
     return inv_sqrt_2pi / sigma * std::exp(-0.5f * a * a);
 }
 
-static inline std::vector<ScoredAlignmentPair> get_best_scoring_pairs(
+inline std::vector<ScoredAlignmentPair> get_best_scoring_pairs(
     const std::vector<Alignment>& alignments1,
     const std::vector<Alignment>& alignments2,
     float mu,
@@ -348,7 +349,7 @@ bool is_proper_nam_pair(const Nam nam1, const Nam nam2, float mu, float sigma) {
  * high-scoring NAMs that could not be paired up are returned (these get a
  * "dummy" NAM as partner in the returned vector).
  */
-static inline std::vector<NamPair> get_best_scoring_nam_pairs(
+inline std::vector<NamPair> get_best_scoring_nam_pairs(
     const std::vector<Nam> &nams1,
     const std::vector<Nam> &nams2,
     float mu,
@@ -420,28 +421,11 @@ static inline std::vector<NamPair> get_best_scoring_nam_pairs(
 }
 
 /*
- * Determine (roughly) whether the read sequence has some l-mer (with l = k*2/3)
- * in common with the reference sequence
- */
-bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k) {
-    int sub_size = 2 * k / 3;
-    int step_size = k / 3;
-    std::string submer;
-    for (size_t i = 0; i + sub_size < read_seq.size(); i += step_size) {
-        submer = read_seq.substr(i, sub_size);
-        if (ref_seq.find(submer) != std::string::npos) {
-            return true;
-        }
-    }
-    return false;
-}
-
-/*
  * Align a read to the reference given the mapping location of its mate.
  *
  * Return true if rescue by alignment was actually attempted
  */
-static inline Alignment rescue_align(
+inline Alignment rescue_align(
     const Aligner& aligner,
     const Nam &mate_nam,
     const References& references,
@@ -997,6 +981,25 @@ void shuffle_top_nams(std::vector<Nam>& nams, std::minstd_rand& random_engine) {
     if (it != nams.end()) {
         std::shuffle(nams.begin(), it, random_engine);
     }
+}
+
+} // end of anonymous namespace
+
+/*
+ * Determine (roughly) whether the read sequence has some l-mer (with l = k*2/3)
+ * in common with the reference sequence
+ */
+bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k) {
+    int sub_size = 2 * k / 3;
+    int step_size = k / 3;
+    std::string submer;
+    for (size_t i = 0; i + sub_size < read_seq.size(); i += step_size) {
+        submer = read_seq.substr(i, sub_size);
+        if (ref_seq.find(submer) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void align_or_map_paired(

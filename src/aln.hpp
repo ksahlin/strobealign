@@ -103,10 +103,8 @@ void align_or_map_single(
     std::minstd_rand& random_engine
 );
 
-// Private declarations, only here because we need them in tests
+// Private declarations, only needed for tests
 
 bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k);
-
-std::pair<size_t, size_t> highest_scoring_segment(const std::string& query, const std::string& ref, int match, int mismatch);
 
 #endif
