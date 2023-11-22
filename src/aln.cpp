@@ -549,7 +549,7 @@ void pick_random_top_pair(
  * Align a pair of reads for which only one has NAMs. For the other, rescue
  * is attempted by aligning it locally.
  */
-void rescue_read(
+std::vector<ScoredAlignmentPair> rescue_read(
     const Read& read2,  // read to be rescued
     const Read& read1,  // read that has NAMs
     const Aligner& aligner,
@@ -560,14 +560,7 @@ void rescue_read(
     std::array<Details, 2>& details,
     int k,
     float mu,
-    float sigma,
-    size_t max_secondary,
-    double secondary_dropoff,
-    Sam& sam,
-    const klibpp::KSeq& record1,
-    const klibpp::KSeq& record2,
-    bool swap_r1r2,  // TODO get rid of this
-    std::minstd_rand& random_engine
+    float sigma
 ) {
     Nam n_max1 = nams1[0];
     int tries = 0;
@@ -601,46 +594,59 @@ void rescue_read(
     // Calculate best combined score here
     auto high_scores = get_best_scoring_pairs(alignments1, alignments2, mu, sigma );
 
+    return high_scores;
+}
+
+void output_aligned_pairs(
+    std::vector<ScoredAlignmentPair>& high_scores,
+    Sam& sam,
+    size_t max_secondary,
+    double secondary_dropoff,
+    const KSeq& record1,
+    const KSeq& record2,
+    const Read& read1,
+    const Read& read2,
+    float mu,
+    float sigma,
+    const std::array<Details, 2>& details,
+    std::minstd_rand& random_engine
+) {
+
+    if (high_scores.empty()) {
+        sam.add_unmapped_pair(record1, record2);
+        return;
+    }
     std::sort(high_scores.begin(), high_scores.end(), by_score<ScoredAlignmentPair>);
     deduplicate_scored_pairs(high_scores);
     pick_random_top_pair(high_scores, random_engine);
 
     auto [mapq1, mapq2] = joint_mapq_from_high_scores(high_scores);
+    auto best_aln_pair = high_scores[0];
+
 
     // append both alignments to string here
     if (max_secondary == 0) {
-        auto best_aln_pair = high_scores[0];
         Alignment alignment1 = best_aln_pair.alignment1;
         Alignment alignment2 = best_aln_pair.alignment2;
-        if (swap_r1r2) {
-            sam.add_pair(alignment2, alignment1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper_pair(alignment2, alignment1, mu, sigma), true, details);
-        } else {
-            sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper_pair(alignment1, alignment2, mu, sigma), true, details);
-        }
+
+        sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper_pair(alignment1, alignment2, mu, sigma), true, details);
     } else {
         auto max_out = std::min(high_scores.size(), max_secondary);
         bool is_primary = true;
-        auto best_aln_pair = high_scores[0];
-        auto s_max = best_aln_pair.score;
+        float s_max = best_aln_pair.score;
         for (size_t i = 0; i < max_out; ++i) {
+            auto aln_pair = high_scores[i];
+            Alignment alignment1 = aln_pair.alignment1;
+            Alignment alignment2 = aln_pair.alignment2;
+            float s_score = aln_pair.score;
             if (i > 0) {
                 is_primary = false;
                 mapq1 = 0;
                 mapq2 = 0;
             }
-            auto aln_pair = high_scores[i];
-            auto s_score = aln_pair.score;
-            Alignment alignment1 = aln_pair.alignment1;
-            Alignment alignment2 = aln_pair.alignment2;
             if (s_max - s_score < secondary_dropoff) {
-                if (swap_r1r2) {
-                    bool is_proper = is_proper_pair(alignment2, alignment1, mu, sigma);
-                    std::array<Details, 2> swapped_details{details[1], details[0]};
-                    sam.add_pair(alignment2, alignment1, record2, record1, read2.rc, read1.rc, mapq2, mapq1, is_proper, is_primary, swapped_details);
-                } else {
-                    bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
-                    sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary, details);
-                }
+                bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
+                sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary, details);
             } else {
                 break;
             }
@@ -660,37 +666,30 @@ float top_dropoff(std::vector<Nam>& nams) {
     return 0.0;
 }
 
-inline void align_paired(
+std::vector<ScoredAlignmentPair> align_paired(
     const Aligner& aligner,
-    Sam &sam,
     std::vector<Nam> &nams1,
     std::vector<Nam> &nams2,
-    const KSeq &record1,
-    const KSeq &record2,
+    const Read& read1,
+    const Read& read2,
     int k,
     const References& references,
     std::array<Details, 2>& details,
     float dropoff,
     InsertSizeDistribution &isize_est,
-    unsigned max_tries,
-    size_t max_secondary,
-    std::minstd_rand& random_engine
+    unsigned max_tries
 ) {
     const auto mu = isize_est.mu;
     const auto sigma = isize_est.sigma;
-    Read read1(record1.seq);
-    Read read2(record2.seq);
-    double secondary_dropoff = 2 * aligner.parameters.mismatch + aligner.parameters.gap_open;
 
     if (nams1.empty() && nams2.empty()) {
          // None of the reads have any NAMs
-        sam.add_unmapped_pair(record1, record2);
-        return;
+        return std::vector<ScoredAlignmentPair>{};
     }
 
     if (!nams1.empty() && nams2.empty()) {
         // Only read 1 has NAMS: attempt to rescue read 2
-        rescue_read(
+        return rescue_read(
             read2,
             read1,
             aligner,
@@ -701,21 +700,14 @@ inline void align_paired(
             details,
             k,
             mu,
-            sigma,
-            max_secondary,
-            secondary_dropoff,
-            sam,
-            record1,
-            record2,
-            false,
-            random_engine
+            sigma
         );
-        return;
     }
 
     if (nams1.empty() && !nams2.empty()) {
         // Only read 2 has NAMS: attempt to rescue read 1
-        rescue_read(
+        std::array<Details, 2> swapped_details{details[1], details[0]};
+        std::vector<ScoredAlignmentPair> pairs = rescue_read(
             read1,
             read2,
             aligner,
@@ -723,19 +715,18 @@ inline void align_paired(
             nams2,
             max_tries,
             dropoff,
-            details,
+            swapped_details,
             k,
             mu,
-            sigma,
-            max_secondary,
-            secondary_dropoff,
-            sam,
-            record2,
-            record1,
-            true,
-            random_engine
+            sigma
         );
-        return;
+        details[0] += swapped_details[1];
+        details[1] += swapped_details[0];
+        for (auto& pair : pairs) {
+            std::swap(pair.alignment1, pair.alignment2);
+        }
+
+        return pairs;
     }
 
     // If we get here, both reads have NAMs
@@ -757,16 +748,8 @@ inline void align_paired(
         auto alignment2 = extend_seed(aligner, n_max2, references, read2, consistent_nam2);
         details[1].tried_alignment++;
         details[1].gapped += alignment2.gapped;
-        int mapq1 = proper_pair_mapq(nams1);
-        int mapq2 = proper_pair_mapq(nams2);
-        bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
-        bool is_primary = true;
-        sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary, details);
 
-        if ((isize_est.sample_size < 400) && (alignment1.edit_distance + alignment2.edit_distance < 3) && is_proper) {
-            isize_est.update(std::abs(alignment1.ref_start - alignment2.ref_start));
-        }
-        return;
+        return std::vector<ScoredAlignmentPair>{{-1, alignment1, alignment2}};
     }
 
     // Do a full search for highest-scoring pair
@@ -882,41 +865,7 @@ inline void align_paired(
     ScoredAlignmentPair aln_tuple{combined_score, a1_indv_max, a2_indv_max};
     high_scores.push_back(aln_tuple);
 
-    std::sort(high_scores.begin(), high_scores.end(), by_score<ScoredAlignmentPair>);
-    deduplicate_scored_pairs(high_scores);
-    pick_random_top_pair(high_scores, random_engine);
-
-    auto [mapq1, mapq2] = joint_mapq_from_high_scores(high_scores);
-    auto best_aln_pair = high_scores[0];
-    auto alignment1 = best_aln_pair.alignment1;
-    auto alignment2 = best_aln_pair.alignment2;
-    if (max_secondary == 0) {
-        bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
-        sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, true, details);
-    } else {
-        auto max_out = std::min(high_scores.size(), max_secondary);
-        // remove eventual duplicates - comes from, e.g., adding individual best alignments above (if identical to joint best alignment)
-        float s_max = best_aln_pair.score;
-        bool is_primary = true;
-        for (size_t i = 0; i < max_out; ++i) {
-            auto aln_pair = high_scores[i];
-            alignment1 = aln_pair.alignment1;
-            alignment2 = aln_pair.alignment2;
-            float s_score = aln_pair.score;
-            if (i > 0) {
-                is_primary = false;
-                mapq1 = 255;
-                mapq2 = 255;
-            }
-
-            if (s_max - s_score < secondary_dropoff) {
-                bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
-                sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary, details);
-            } else {
-                break;
-            }
-        }
-    }
+    return high_scores;
 }
 
 // Only used for PAF output
@@ -1061,11 +1010,51 @@ void align_or_map_paired(
                            references,
                            record2.seq.length());
     } else {
-        align_paired(aligner, sam, nams_pair[0], nams_pair[1], record1,
-                 record2,
-                 index_parameters.syncmer.k,
-                 references, details,
-                 map_param.dropoff_threshold, isize_est, map_param.max_tries, map_param.max_secondary, random_engine);
+        Read read1(record1.seq);
+        Read read2(record2.seq);
+        auto alignment_pairs = align_paired(
+            aligner, nams_pair[0], nams_pair[1], read1, read2,
+            index_parameters.syncmer.k, references, details,
+            map_param.dropoff_threshold, isize_est,
+            map_param.max_tries
+        );
+
+        // -1 marks the typical case that both reads map uniquely and form a
+        // proper pair. Then the mapping quality is computed based on the NAMs.
+        if (alignment_pairs.size() == 1 && alignment_pairs[0].score == -1) {
+            Alignment& alignment1 = alignment_pairs[0].alignment1;
+            Alignment& alignment2 = alignment_pairs[0].alignment2;
+            bool is_proper = is_proper_pair(alignment1, alignment2, isize_est.mu, isize_est.sigma);
+            if (
+                is_proper
+                && isize_est.sample_size < 400
+                && alignment1.edit_distance + alignment2.edit_distance < 3
+            ) {
+                isize_est.update(std::abs(alignment1.ref_start - alignment2.ref_start));
+            }
+
+            uint8_t mapq1 = proper_pair_mapq(nams_pair[0]);
+            uint8_t mapq2 = proper_pair_mapq(nams_pair[1]);
+
+            bool is_primary = true;
+            sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary, details);
+        } else {
+            double secondary_dropoff = 2 * aligner.parameters.mismatch + aligner.parameters.gap_open;
+            output_aligned_pairs(
+                alignment_pairs,
+                sam,
+                map_param.max_secondary,
+                secondary_dropoff,
+                record1,
+                record2,
+                read1,
+                read2,
+                isize_est.mu,
+                isize_est.sigma,
+                details,
+                random_engine
+            );
+        }
     }
     statistics.tot_extend += extend_timer.duration();
     statistics += details[0];
