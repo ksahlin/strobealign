@@ -267,21 +267,26 @@ static inline uint8_t get_mapq(const std::vector<Nam> &nams, const Nam &n_max) {
     return std::min(uncapped_mapq, 60);
 }
 
-static inline std::pair<int, int> joint_mapq_from_alignment_scores(float score1, float score2) {
+/* Compute paired-end mapping score given best alignments (sorted by score) */
+static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<ScoredAlignmentPair>& pairs) {
+    if (pairs.size() <= 1) {
+        return std::make_pair(60, 60);
+    }
+    auto score1 = pairs[0].score;
+    auto score2 = pairs[1].score;
+    if (score1 == score2) {
+        return std::make_pair(0, 0);
+    }
     int mapq;
-    if (score1 == score2) { // At least two identical placements
-        mapq = 0;
-    } else {
-        const int diff = score1 - score2; // (1.0 - (S1 - S2) / S1);
-//        float log10_p = diff > 6 ? -6.0 : -diff; // Corresponds to: p_error= 0.1^diff // change in sw score times rough illumina error rate. This is highly heauristic, but so seem most computations of mapq scores
-        if (score1 > 0 && score2 > 0) {
-            mapq = std::min(60, diff);
+    const int diff = score1 - score2; // (1.0 - (S1 - S2) / S1);
+//  float log10_p = diff > 6 ? -6.0 : -diff; // Corresponds to: p_error= 0.1^diff // change in sw score times rough illumina error rate. This is highly heauristic, but so seem most computations of mapq scores
+    if (score1 > 0 && score2 > 0) {
+        mapq = std::min(60, diff);
 //            mapq1 = -10 * log10_p < 60 ? -10 * log10_p : 60;
-        } else if (score1 > 0 && score2 <= 0) {
-            mapq = 60;
-        } else { // both negative SW one is better
-            mapq = 1;
-        }
+    } else if (score1 > 0 && score2 <= 0) {
+        mapq = 60;
+    } else { // both negative SW one is better
+        mapq = 1;
     }
     return std::make_pair(mapq, mapq);
 }
@@ -315,7 +320,6 @@ static inline std::vector<ScoredAlignmentPair> get_best_scoring_pairs(
             pairs.push_back(ScoredAlignmentPair{score, a1, a2});
         }
     }
-    std::sort(pairs.begin(), pairs.end(), by_score<ScoredAlignmentPair>); // Sorting by highest score first
 
     return pairs;
 }
@@ -500,6 +504,61 @@ static inline Alignment rescue_mate(
 }
 
 /*
+ * Turn a vector of scored alignment pairs into one that
+ * is sorted by score (highest first) and contains only unique entries.
+ */
+void deduplicate_scored_pairs(std::vector<ScoredAlignmentPair>& pairs) {
+
+    int prev_ref_start1 = pairs[0].alignment1.ref_start;
+    int prev_ref_start2 = pairs[0].alignment2.ref_start;
+    int prev_ref_id1 = pairs[0].alignment1.ref_id;
+    int prev_ref_id2 = pairs[0].alignment2.ref_id;
+    size_t j = 1;
+    for (size_t i = 1; i < pairs.size(); i++) {
+        int ref_start1 = pairs[i].alignment1.ref_start;
+        int ref_start2 = pairs[i].alignment2.ref_start;
+        int ref_id1 = pairs[i].alignment1.ref_id;
+        int ref_id2 = pairs[i].alignment2.ref_id;
+        if (
+            ref_start1 != prev_ref_start1 ||
+            ref_start2 != prev_ref_start2 ||
+            ref_id1 != prev_ref_id1 ||
+            ref_id2 != prev_ref_id2
+        ) {
+            prev_ref_start1 = ref_start1;
+            prev_ref_start2 = ref_start2;
+            prev_ref_id1 = ref_id1;
+            prev_ref_id2 = ref_id2;
+            pairs[j] = pairs[i];
+            j++;
+        }
+    }
+    pairs.resize(j);
+}
+
+/*
+ * If there are multiple top-scoring alignments (all with the same score),
+ * pick one randomly and move it to the front.
+ */
+void pick_random_top_pair(
+    std::vector<ScoredAlignmentPair>& high_scores,
+    std::minstd_rand& random_engine
+) {
+    size_t i = 1;
+    for ( ; i < high_scores.size(); ++i) {
+        if (high_scores[i].score != high_scores[0].score) {
+            break;
+        }
+    }
+    if (i > 1) {
+        size_t random_index = std::uniform_int_distribution<>(0, i - 1)(random_engine);
+        if (random_index != 0) {
+            std::swap(high_scores[0], high_scores[random_index]);
+        }
+    }
+}
+
+/*
  * Align a pair of reads for which only one has NAMs. For the other, rescue
  * is attempted by aligning it locally.
  */
@@ -520,7 +579,8 @@ void rescue_read(
     Sam& sam,
     const klibpp::KSeq& record1,
     const klibpp::KSeq& record2,
-    bool swap_r1r2  // TODO get rid of this
+    bool swap_r1r2,  // TODO get rid of this
+    std::minstd_rand& random_engine
 ) {
     Nam n_max1 = nams1[0];
     int tries = 0;
@@ -554,18 +614,11 @@ void rescue_read(
     // Calculate best combined score here
     auto high_scores = get_best_scoring_pairs(alignments1, alignments2, mu, sigma );
 
-    // Calculate joint MAPQ score
-    int mapq1, mapq2;
-    if (high_scores.size() > 1) {
-        auto best_aln_pair = high_scores[0];
-        auto S1 = best_aln_pair.score;
-        auto second_aln_pair = high_scores[1];
-        auto S2 = second_aln_pair.score;
-        std::tie(mapq1, mapq2) = joint_mapq_from_alignment_scores(S1, S2);
-    } else {
-        mapq1 = 60;
-        mapq2 = 60;
-    }
+    std::sort(high_scores.begin(), high_scores.end(), by_score<ScoredAlignmentPair>);
+    deduplicate_scored_pairs(high_scores);
+    pick_random_top_pair(high_scores, random_engine);
+
+    auto [mapq1, mapq2] = joint_mapq_from_high_scores(high_scores);
 
     // append both alignments to string here
     if (max_secondary == 0) {
@@ -608,45 +661,6 @@ void rescue_read(
     }
 }
 
-/* Compute paired-end mapping score given top alignments */
-static std::pair<int, int> joint_mapq_from_high_scores(const std::vector<ScoredAlignmentPair>& high_scores) {
-    if (high_scores.size() <= 1) {
-        return std::make_pair(60, 60);
-    }
-    // Calculate joint MAPQ score
-    int n_mappings = high_scores.size();
-    auto best_aln_pair = high_scores[0];
-    auto S1 = best_aln_pair.score;
-    auto a1_m1 = best_aln_pair.alignment1;
-    auto a1_m2 = best_aln_pair.alignment2;
-    int a1_start_m1 = a1_m1.ref_start;
-    int a1_start_m2 = a1_m2.ref_start;
-    int a1_ref_id_m1 = a1_m1.ref_id;
-    int a1_ref_id_m2 = a1_m2.ref_id;
-
-    auto second_aln_pair = high_scores[1];
-    auto S2 = second_aln_pair.score;
-    auto a2_m1 = second_aln_pair.alignment1;
-    auto a2_m2 = second_aln_pair.alignment2;
-    int a2_start_m1 = a2_m1.ref_start;
-    int a2_start_m2 = a2_m2.ref_start;
-    int a2_ref_id_m1 = a2_m1.ref_id;
-    int a2_ref_id_m2 = a2_m2.ref_id;
-    bool same_pos = (a1_start_m1 == a2_start_m1) && (a1_start_m2 == a2_start_m2);
-    bool same_ref = (a1_ref_id_m1 == a2_ref_id_m1) && (a1_ref_id_m2 == a2_ref_id_m2);
-    if (!same_pos || !same_ref) {
-        return joint_mapq_from_alignment_scores(S1, S2);
-    } else if (n_mappings > 2) {
-        // individually highest alignment score was the same alignment as the joint highest score - calculate mapq relative to third best
-        auto third_aln_pair = high_scores[2];
-        auto S2 = third_aln_pair.score;
-        return joint_mapq_from_alignment_scores(S1, S2);
-    } else {
-        // there was no other alignment
-        return std::make_pair(60, 60);
-    }
-}
-
 // compute dropoff of the first (top) NAM
 float top_dropoff(std::vector<Nam>& nams) {
     auto& n_max = nams[0];
@@ -672,7 +686,8 @@ inline void align_PE(
     float dropoff,
     InsertSizeDistribution &isize_est,
     unsigned max_tries,
-    size_t max_secondary
+    size_t max_secondary,
+    std::minstd_rand& random_engine
 ) {
     const auto mu = isize_est.mu;
     const auto sigma = isize_est.sigma;
@@ -705,7 +720,8 @@ inline void align_PE(
             sam,
             record1,
             record2,
-            false
+            false,
+            random_engine
         );
         return;
     }
@@ -729,7 +745,8 @@ inline void align_PE(
             sam,
             record2,
             record1,
-            true
+            true,
+            random_engine
         );
         return;
     }
@@ -877,7 +894,10 @@ inline void align_PE(
     double combined_score = (double)a1_indv_max.score + (double)a2_indv_max.score - 20; // 20 corresponds to  a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
     ScoredAlignmentPair aln_tuple{combined_score, a1_indv_max, a2_indv_max};
     high_scores.push_back(aln_tuple);
-    std::sort(high_scores.begin(), high_scores.end(), by_score<ScoredAlignmentPair>); // Sorting by highest score first
+
+    std::sort(high_scores.begin(), high_scores.end(), by_score<ScoredAlignmentPair>);
+    deduplicate_scored_pairs(high_scores);
+    pick_random_top_pair(high_scores, random_engine);
 
     auto [mapq1, mapq2] = joint_mapq_from_high_scores(high_scores);
     auto best_aln_pair = high_scores[0];
@@ -890,10 +910,6 @@ inline void align_PE(
         auto max_out = std::min(high_scores.size(), max_secondary);
         // remove eventual duplicates - comes from, e.g., adding individual best alignments above (if identical to joint best alignment)
         float s_max = best_aln_pair.score;
-        int prev_start_m1 = alignment1.ref_start;
-        int prev_start_m2 = alignment2.ref_start;
-        int prev_ref_id_m1 = alignment1.ref_id;
-        int prev_ref_id_m2 = alignment2.ref_id;
         bool is_primary = true;
         for (size_t i = 0; i < max_out; ++i) {
             auto aln_pair = high_scores[i];
@@ -904,11 +920,6 @@ inline void align_PE(
                 is_primary = false;
                 mapq1 = 255;
                 mapq2 = 255;
-                bool same_pos = (prev_start_m1 == alignment1.ref_start) && (prev_start_m2 == alignment2.ref_start);
-                bool same_ref = (prev_ref_id_m1 == alignment1.ref_id) && (prev_ref_id_m2 == alignment2.ref_id);
-                if (same_pos && same_ref) {
-                    continue;
-                }
             }
 
             if (s_max - s_score < secondary_dropoff) {
@@ -917,11 +928,6 @@ inline void align_PE(
             } else {
                 break;
             }
-
-            prev_start_m1 = alignment1.ref_start;
-            prev_start_m2 = alignment2.ref_start;
-            prev_ref_id_m1 = alignment1.ref_id;
-            prev_ref_id_m2 = alignment2.ref_id;
         }
     }
 }
@@ -1074,7 +1080,7 @@ void align_PE_read(
                  record2,
                  index_parameters.syncmer.k,
                  references, details,
-                 map_param.dropoff_threshold, isize_est, map_param.max_tries, map_param.max_secondary);
+                 map_param.dropoff_threshold, isize_est, map_param.max_tries, map_param.max_secondary, random_engine);
     }
     statistics.tot_extend += extend_timer.duration();
     statistics += details[0];
