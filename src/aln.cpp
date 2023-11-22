@@ -676,7 +676,7 @@ std::vector<ScoredAlignmentPair> align_paired(
     const References& references,
     std::array<Details, 2>& details,
     float dropoff,
-    InsertSizeDistribution &isize_est,
+    const InsertSizeDistribution &isize_est,
     unsigned max_tries
 ) {
     const auto mu = isize_est.mu;
