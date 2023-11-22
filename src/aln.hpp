@@ -9,7 +9,7 @@
 #include "refs.hpp"
 #include "sam.hpp"
 #include "aligner.hpp"
-
+#include "insertsizedistribution.hpp"
 
 struct AlignmentStatistics {
     std::chrono::duration<double> tot_read_file{0};
@@ -73,20 +73,6 @@ struct MappingParameters {
             throw BadParameter("max_tries must be greater than zero");
         }
     }
-};
-
-/* Estimator for a normal distribution, used for insert sizes.
- */
-class InsertSizeDistribution {
-public:
-    float sample_size = 1;
-    float mu = 300;
-    float sigma = 100;
-    float V = 10000;
-    float SSE = 10000;
-
-    // Add a new observation
-    void update(int dist);
 };
 
 void align_or_map_paired(

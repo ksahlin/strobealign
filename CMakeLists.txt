@@ -63,6 +63,7 @@ add_library(salib STATIC ${SOURCES}
   src/readlen.cpp
   src/version.cpp
   src/io.cpp
+  src/insertsizedistribution.cpp
   ext/xxhash.c
   ext/ssw/ssw_cpp.cpp
   ext/ssw/ssw.c
