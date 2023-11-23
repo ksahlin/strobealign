@@ -15,6 +15,8 @@
 * #333: Fix matches ending too early in PAF output.
 * #359, #367: Assign (single-end and paired-end) multimappers randomly to one
   of the candidate mapping locations to reduce biases.
+* #347: Reduce memory usage by avoiding an unnecessary copy of reference
+  contigs.
 
 ## v0.11.0 (2023-06-22)
 
