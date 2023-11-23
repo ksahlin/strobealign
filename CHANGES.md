@@ -1,6 +1,6 @@
 # Strobealign Changelog
 
-## development version
+## v0.12.0 (2023-11-23)
 
 * #293: Fix: When mapping single-end reads, many multimappers were previously
   assigned a high mapping quality. They now get assigned mapping quality zero
