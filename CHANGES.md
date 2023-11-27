@@ -1,5 +1,10 @@
 # Strobealign Changelog
 
+## development version
+
+* If `--details` is used, output `X0:i` SAM tag with the number of
+  identically-scored best alignments
+
 ## v0.12.0 (2023-11-23)
 
 * #293: Fix: When mapping single-end reads, many multimappers were previously
