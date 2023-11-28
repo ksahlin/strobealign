@@ -26,18 +26,18 @@ ${strobealign} -h > /dev/null
 samtools --version > /dev/null
 
 # Single-end SAM
-${strobealign} --eqx --chunk-size 3 --rg-id 1 --rg SM:sample --rg LB:library -v tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > phix.se.sam
+${strobealign} --no-PG --eqx --chunk-size 3 --rg-id 1 --rg SM:sample --rg LB:library -v tests/phix.fasta tests/phix.1.fastq > phix.se.sam
 diff tests/phix.se.sam phix.se.sam
 rm phix.se.sam
 
 # Single-end SAM, M CIGAR operators
-${strobealign} tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > phix.se.m.sam
+${strobealign} --no-PG tests/phix.fasta tests/phix.1.fastq > phix.se.m.sam
 if samtools view phix.se.m.sam | cut -f6 | grep -q '[X=]'; then false; fi
 
 rm phix.se.m.sam
 
 # Paired-end SAM
-${strobealign} --eqx --chunk-size 3 --rg-id 1 --rg SM:sample --rg LB:library tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq | grep -v '^@PG' > phix.pe.sam
+${strobealign} --no-PG --eqx --chunk-size 3 --rg-id 1 --rg SM:sample --rg LB:library tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq > phix.pe.sam
 diff tests/phix.pe.sam phix.pe.sam
 rm phix.pe.sam
 
@@ -57,9 +57,9 @@ diff tests/phix.pe.paf phix.pe.paf
 rm phix.pe.paf
 
 # Build a separate index
-${strobealign} -r 150 tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > without-sti.sam
+${strobealign} --no-PG -r 150 tests/phix.fasta tests/phix.1.fastq > without-sti.sam
 ${strobealign} -r 150 -i tests/phix.fasta
-${strobealign} -r 150 --use-index tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > with-sti.sam
+${strobealign} --no-PG -r 150 --use-index tests/phix.fasta tests/phix.1.fastq > with-sti.sam
 diff without-sti.sam with-sti.sam
 rm without-sti.sam with-sti.sam
 
@@ -73,8 +73,8 @@ ${strobealign} --details tests/phix.fasta tests/phix.1.fastq 2> /dev/null | samt
 # Secondary alignments
 
 # No secondary alignments on phix
-${strobealign} tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > no-secondary.sam
-${strobealign} -N 5 tests/phix.fasta tests/phix.1.fastq | grep -v '^@PG' > with-secondary.sam
+${strobealign} --no-PG tests/phix.fasta tests/phix.1.fastq > no-secondary.sam
+${strobealign} --no-PG -N 5 tests/phix.fasta tests/phix.1.fastq > with-secondary.sam
 test $(samtools view -f 0x100 -c with-secondary.sam) -eq 0
 rm no-secondary.sam with-secondary.sam
 
@@ -82,8 +82,8 @@ rm no-secondary.sam with-secondary.sam
 cp tests/phix.fasta repeated-phix.fasta
 echo ">repeated_NC_001422" >> repeated-phix.fasta
 sed 1d tests/phix.fasta >> repeated-phix.fasta
-${strobealign} repeated-phix.fasta tests/phix.1.fastq | grep -v '^@PG' > no-secondary.sam
-${strobealign} -N 5 repeated-phix.fasta tests/phix.1.fastq | grep -v '^@PG' > with-secondary.sam
+${strobealign} --no-PG repeated-phix.fasta tests/phix.1.fastq > no-secondary.sam
+${strobealign} --no-PG -N 5 repeated-phix.fasta tests/phix.1.fastq > with-secondary.sam
 test $(samtools view -f 0x100 -c with-secondary.sam) -gt 0
 
 # Removing secondary alignments gives same result as not producing them in the first place

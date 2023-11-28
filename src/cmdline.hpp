@@ -22,6 +22,7 @@ struct CommandLineOptions {
     bool only_gen_index { false };
     bool use_index { false };
     bool is_sam_out { true };
+    bool pg_header { true };
     bool output_unmapped { true };
     int max_secondary { 0 };
 

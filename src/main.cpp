@@ -33,7 +33,11 @@ static Logger& logger = Logger::get();
 /*
  * Return formatted SAM header as a string
  */
-std::string sam_header(const References& references, const std::string& read_group_id, const std::vector<std::string>& read_group_fields, const std::string& cmd_line) {
+std::string sam_header(
+    const References& references,
+    const std::string& read_group_id,
+    const std::vector<std::string>& read_group_fields
+) {
     std::stringstream out;
     out << "@HD\tVN:1.6\tSO:unsorted\n";
     for (size_t i = 0; i < references.size(); ++i) {
@@ -46,6 +50,11 @@ std::string sam_header(const References& references, const std::string& read_gro
         }
         out << '\n';
     }
+    return out.str();
+}
+
+std::string pg_header(const std::string& cmd_line) {
+    std::stringstream out;
     out << "@PG\tID:strobealign\tPN:strobealign\tVN:" << version_string() << "\tCL:" << cmd_line << std::endl;
     return out.str();
 }
@@ -280,7 +289,10 @@ int run_strobealign(int argc, char **argv) {
             cmd_line << argv[i] << " ";
         }
 
-        out << sam_header(references, opt.read_group_id, opt.read_group_fields, cmd_line.str());
+        out << sam_header(references, opt.read_group_id, opt.read_group_fields);
+        if (opt.pg_header) {
+            out << pg_header(cmd_line.str());
+        }
     }
 
     std::vector<AlignmentStatistics> log_stats_vec(opt.n_threads);
