@@ -9,7 +9,7 @@
 #include "refs.hpp"
 #include "sam.hpp"
 #include "aligner.hpp"
-
+#include "insertsizedistribution.hpp"
 
 struct AlignmentStatistics {
     std::chrono::duration<double> tot_read_file{0};
@@ -75,21 +75,7 @@ struct MappingParameters {
     }
 };
 
-/* Estimator for a normal distribution, used for insert sizes.
- */
-class InsertSizeDistribution {
-public:
-    float sample_size = 1;
-    float mu = 300;
-    float sigma = 100;
-    float V = 10000;
-    float SSE = 10000;
-
-    // Add a new observation
-    void update(int dist);
-};
-
-void align_PE_read(
+void align_or_map_paired(
     const klibpp::KSeq& record1,
     const klibpp::KSeq& record2,
     Sam& sam,
@@ -104,7 +90,7 @@ void align_PE_read(
     std::minstd_rand& random_engine
 );
 
-void align_SE_read(
+void align_or_map_single(
     const klibpp::KSeq& record,
     Sam& sam,
     std::string& outstring,
@@ -117,10 +103,8 @@ void align_SE_read(
     std::minstd_rand& random_engine
 );
 
-// Private declarations, only here because we need them in tests
+// Private declarations, only needed for tests
 
 bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k);
-
-std::pair<size_t, size_t> highest_scoring_segment(const std::string& query, const std::string& ref, int match, int mismatch);
 
 #endif

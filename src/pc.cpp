@@ -169,13 +169,13 @@ void perform_task(
             auto record2 = records2[i];
             to_uppercase(record1.seq);
             to_uppercase(record2.seq);
-            align_PE_read(record1, record2, sam, sam_out, statistics, isize_est, aligner,
+            align_or_map_paired(record1, record2, sam, sam_out, statistics, isize_est, aligner,
                         map_param, index_parameters, references, index, random_engine);
             statistics.n_reads += 2;
         }
         for (size_t i = 0; i < records3.size(); ++i) {
             auto record = records3[i];
-            align_SE_read(record, sam, sam_out, statistics, aligner, map_param, index_parameters, references, index, random_engine);
+            align_or_map_single(record, sam, sam_out, statistics, aligner, map_param, index_parameters, references, index, random_engine);
             statistics.n_reads++;
         }
         output_buffer.output_records(std::move(sam_out), chunk_index);
