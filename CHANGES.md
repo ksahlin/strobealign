@@ -4,6 +4,7 @@
 
 * If `--details` is used, output `X0:i` SAM tag with the number of
   identically-scored best alignments
+* #371: Add `--no-PG` option for not outputting the PG SAM header
 
 ## v0.12.0 (2023-11-23)
 
