@@ -68,7 +68,7 @@ style guide, but new code should follow it.
 
 ## Detailed SAM output (`--details`)
 
-When `--details` or `-d` is provided, the following additional SAM tags are output for
+When `--details` is provided, the following additional SAM tags are output for
 mapped reads.
 
 `na`: Number of NAMs (seeds) found
@@ -77,3 +77,6 @@ mapped reads.
   the expected region given its mate)
 `al`: Number of times an attempt was made to extend a seed (by gapped or ungapped alignment)
 `ga`: Number of times an attempt was made to extend a seed by gapped alignment
+`X0`: Number of equally scored best alignments (greater than 1 for multimappers).
+ For paired-end reads, the tag is output for both reads, but the value is
+ identical and is the number of equally scored best alignment *pairs*.

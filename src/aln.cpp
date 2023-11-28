@@ -162,6 +162,7 @@ inline void align_single(
         }
         tries++;
     }
+    details.best_alignments = alignments_with_best_score;
     uint8_t mapq = (60.0 * (best_score - second_best_score) + best_score - 1) / best_score;
     bool is_primary = true;
     sam.add(best_alignment, record, read.rc, mapq, is_primary, details);
@@ -491,11 +492,12 @@ inline Alignment rescue_align(
 }
 
 /*
- * Turn a vector of scored alignment pairs into one that
- * is sorted by score (highest first) and contains only unique entries.
+ * Remove consecutive identical alignment pairs and leave only the first.
  */
 void deduplicate_scored_pairs(std::vector<ScoredAlignmentPair>& pairs) {
-
+    if (pairs.size() < 2) {
+        return;
+    }
     int prev_ref_start1 = pairs[0].alignment1.ref_start;
     int prev_ref_start2 = pairs[0].alignment2.ref_start;
     int prev_ref_id1 = pairs[0].alignment1.ref_id;
@@ -523,27 +525,23 @@ void deduplicate_scored_pairs(std::vector<ScoredAlignmentPair>& pairs) {
     pairs.resize(j);
 }
 
+
 /*
- * If there are multiple top-scoring alignments (all with the same score),
- * pick one randomly and move it to the front.
+ * Count how many best alignments there are that all have the same score
  */
-void pick_random_top_pair(
-    std::vector<ScoredAlignmentPair>& high_scores,
-    std::minstd_rand& random_engine
-) {
+size_t count_best_alignment_pairs(const std::vector<ScoredAlignmentPair>& pairs) {
+    if (pairs.empty()) {
+        return 0;
+    }
     size_t i = 1;
-    for ( ; i < high_scores.size(); ++i) {
-        if (high_scores[i].score != high_scores[0].score) {
+    for ( ; i < pairs.size(); ++i) {
+        if (pairs[i].score != pairs[0].score) {
             break;
         }
     }
-    if (i > 1) {
-        size_t random_index = std::uniform_int_distribution<>(0, i - 1)(random_engine);
-        if (random_index != 0) {
-            std::swap(high_scores[0], high_scores[random_index]);
-        }
-    }
+    return i;
 }
+
 
 /*
  * Align a pair of reads for which only one has NAMs. For the other, rescue
@@ -598,7 +596,7 @@ std::vector<ScoredAlignmentPair> rescue_read(
 }
 
 void output_aligned_pairs(
-    std::vector<ScoredAlignmentPair>& high_scores,
+    const std::vector<ScoredAlignmentPair>& high_scores,
     Sam& sam,
     size_t max_secondary,
     double secondary_dropoff,
@@ -608,17 +606,13 @@ void output_aligned_pairs(
     const Read& read2,
     float mu,
     float sigma,
-    const std::array<Details, 2>& details,
-    std::minstd_rand& random_engine
+    const std::array<Details, 2>& details
 ) {
 
     if (high_scores.empty()) {
         sam.add_unmapped_pair(record1, record2);
         return;
     }
-    std::sort(high_scores.begin(), high_scores.end(), by_score<ScoredAlignmentPair>);
-    deduplicate_scored_pairs(high_scores);
-    pick_random_top_pair(high_scores, random_engine);
 
     auto [mapq1, mapq2] = joint_mapq_from_high_scores(high_scores);
     auto best_aln_pair = high_scores[0];
@@ -1036,9 +1030,26 @@ void align_or_map_paired(
             uint8_t mapq1 = proper_pair_mapq(nams_pair[0]);
             uint8_t mapq2 = proper_pair_mapq(nams_pair[1]);
 
+            details[0].best_alignments = 1;
+            details[1].best_alignments = 1;
             bool is_primary = true;
             sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary, details);
         } else {
+            std::sort(alignment_pairs.begin(), alignment_pairs.end(), by_score<ScoredAlignmentPair>);
+            deduplicate_scored_pairs(alignment_pairs);
+
+            // If there are multiple top-scoring alignments (all with the same score),
+            // pick one randomly and move it to the front.
+            size_t i = count_best_alignment_pairs(alignment_pairs);
+            details[0].best_alignments = i;
+            details[1].best_alignments = i;
+            if (i > 1) {
+                size_t random_index = std::uniform_int_distribution<>(0, i - 1)(random_engine);
+                if (random_index != 0) {
+                    std::swap(alignment_pairs[0], alignment_pairs[random_index]);
+                }
+            }
+
             double secondary_dropoff = 2 * aligner.parameters.mismatch + aligner.parameters.gap_open;
             output_aligned_pairs(
                 alignment_pairs,
@@ -1051,8 +1062,7 @@ void align_or_map_paired(
                 read2,
                 isize_est.mu,
                 isize_est.sigma,
-                details,
-                random_engine
+                details
             );
         }
     }
