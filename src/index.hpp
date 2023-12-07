@@ -51,7 +51,7 @@ struct StrobemerIndex {
 
     void write(const std::string& filename) const;
     void read(const std::string& filename);
-    void populate(float f, size_t n_threads);
+    void populate(float f, unsigned n_threads);
     void print_diagnostics(const std::string& logfile_name, int k) const;
     int pick_bits(size_t size) const;
     size_t find(randstrobe_hash_t key) const {
