@@ -192,7 +192,7 @@ fn estimate_read_length<P: AsRef<Path>>(path: P) -> Result<usize, Error> {
         s += record.sequence.len();
         n += 1;
     }
-    Ok(s / n)
+    Ok(if n == 0 { 0 } else { s / n})
 }
 
 #[test]
