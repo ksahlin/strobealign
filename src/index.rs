@@ -1,7 +1,10 @@
 use std::cmp::{max, min, Reverse};
 use std::mem;
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 use log::debug;
+use crossbeam_utils::thread;
 use crate::strobes::{RandstrobeIterator, RandstrobeParameters};
 use crate::syncmers::{SyncmerParameters, SyncmerIterator};
 use crate::fasta::RefSequence;
@@ -147,13 +150,6 @@ impl RefRandstrobe {
     }
 }
 
-struct QueryRandstrobe {
-    hash: RandstrobeHash,
-    start: usize,
-    end: usize,
-    is_reverse: bool,
-}
-
 fn count_randstrobes(seq: &[u8], parameters: &IndexParameters) -> usize {
     let syncmer_iterator = SyncmerIterator::new(seq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t);
     let n_syncmers = syncmer_iterator.count();
@@ -162,8 +158,25 @@ fn count_randstrobes(seq: &[u8], parameters: &IndexParameters) -> usize {
     n_syncmers.saturating_sub(parameters.randstrobe.w_min)
 }
 
-fn count_all_randstrobes(references: &[RefSequence], parameters: &IndexParameters) -> Vec<usize> {
-    references.iter().map(|refseq| count_randstrobes(&refseq.sequence, parameters)).collect()
+fn count_all_randstrobes(references: &[RefSequence], parameters: &IndexParameters, n_threads: usize) -> Vec<usize> {
+    let counts = vec![0; references.len()];
+    let mutex = Mutex::new(counts);
+    let ref_index = AtomicUsize::new(0);
+    thread::scope(|s| {
+         for _ in 0..n_threads {
+             s.spawn(|_| {
+                 loop {
+                     let j = ref_index.fetch_add(1, Ordering::SeqCst);
+                     if j >= references.len() {
+                         break;
+                     }
+                     mutex.lock().unwrap()[j] = count_randstrobes(&references[j].sequence, parameters);
+                 }
+             });
+         }
+    }).unwrap();
+
+    mutex.into_inner().unwrap()
 }
 
 // TODO UnpopulatedStrobemerIndex
@@ -205,9 +218,9 @@ impl<'a> StrobemerIndex<'a> {
         StrobemerIndex { references, parameters, stats, bits, filter_cutoff, rescue_cutoff, randstrobes, randstrobe_start_indices }
     }
 
-    pub fn populate(&mut self, filter_fraction: f64, rescue_level: usize) {
+    pub fn populate(&mut self, filter_fraction: f64, rescue_level: usize, n_threads: usize) {
         let timer = Instant::now();
-        let randstrobe_counts = count_all_randstrobes(self.references, &self.parameters);
+        let randstrobe_counts = count_all_randstrobes(self.references, &self.parameters, n_threads);
         debug!("  Counting hashes: {:.2} s", timer.elapsed().as_secs_f64());
         // stats.elapsed_counting_hashes = count_hash.duration();
 

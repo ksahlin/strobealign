@@ -147,7 +147,7 @@ fn main() -> Result<(), Error> {
 
     let timer = Instant::now();
     let mut index = StrobemerIndex::new(&references, parameters, args.bits);
-    index.populate(args.filter_fraction, args.rescue_level);
+    index.populate(args.filter_fraction, args.rescue_level, args.threads);
     let index = index;
     info!("Total time indexing: {:.2} s", timer.elapsed().as_secs_f64());
 
