@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 use log::debug;
-use crossbeam_utils::thread;
+use std::thread;
 use crate::strobes::{RandstrobeIterator, RandstrobeParameters};
 use crate::syncmers::{SyncmerParameters, SyncmerIterator};
 use crate::fasta::RefSequence;
@@ -164,7 +164,7 @@ fn count_all_randstrobes(references: &[RefSequence], parameters: &IndexParameter
     let ref_index = AtomicUsize::new(0);
     thread::scope(|s| {
          for _ in 0..n_threads {
-             s.spawn(|_| {
+             s.spawn(|| {
                  loop {
                      let j = ref_index.fetch_add(1, Ordering::SeqCst);
                      if j >= references.len() {
@@ -174,7 +174,7 @@ fn count_all_randstrobes(references: &[RefSequence], parameters: &IndexParameter
                  }
              });
          }
-    }).unwrap();
+    });
 
     mutex.into_inner().unwrap()
 }

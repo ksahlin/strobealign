@@ -10,7 +10,6 @@ cc = "1.0"
 
 [dependencies]
 clap = { version = "4.1.4", features = ["derive"] }
-crossbeam-utils = "0.8.16"
 fxhash = "0.2.1"
 log = "0.4.20"
 rayon = "1.7.0"
