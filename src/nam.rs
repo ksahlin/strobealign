@@ -59,7 +59,7 @@ pub fn find_nams(query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerInde
         }
     }
     let nonrepetitive_fraction = if total_hits > 0 { (nr_good_hits as f32) / (total_hits as f32) } else { 1.0 };
-    let nams = merge_hits_into_nams(&mut hits_per_ref, index.parameters.syncmer.k, false);
+    let nams = merge_hits_into_nams_forward_and_reverse(&mut hits_per_ref, index.parameters.syncmer.k, false);
 
     (nonrepetitive_fraction, nams)
 }
@@ -120,7 +120,7 @@ pub fn find_nams_rescue(
         }
     }
 
-    merge_hits_into_nams(&mut hits_per_ref, index.parameters.syncmer.k, true)
+    merge_hits_into_nams_forward_and_reverse(&mut hits_per_ref, index.parameters.syncmer.k, true)
 }
 
 fn add_to_hits_per_ref(
@@ -155,13 +155,11 @@ fn add_to_hits_per_ref(
 }
 
 // TODO should not be mut
-fn merge_hits_into_nams(hits_per_ref: &mut [HashMap<usize, Vec<Hit>>; 2], k: usize, sort: bool) -> Vec<Nam> {
+fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, sort: bool, is_revcomp: bool) -> Vec<Nam> {
     let mut nams: Vec<Nam> = Vec::new();
     let mut nam_id_cnt = 0;
-    for is_revcomp in [false, true] {
-        let hits_oriented = &mut hits_per_ref[is_revcomp as usize];
 
-    for (ref_id, hits) in hits_oriented.iter_mut() {
+    for (ref_id, hits) in hits_per_ref.iter_mut() {
         if sort {
             hits.sort_by_key(|k| (k.query_start, k.ref_start));
         }
@@ -256,6 +254,14 @@ fn merge_hits_into_nams(hits_per_ref: &mut [HashMap<usize, Vec<Hit>>; 2], k: usi
             nams.push(n);
         }
     }
+
+    nams
+}
+
+fn merge_hits_into_nams_forward_and_reverse(hits_per_ref: &mut [HashMap<usize, Vec<Hit>>; 2], k: usize, sort: bool) -> Vec<Nam> {
+    let mut nams = Vec::new();
+    for is_revcomp in [false, true] {
+        nams.extend(merge_hits_into_nams(&mut hits_per_ref[is_revcomp as usize], k, sort, is_revcomp));
     }
 
     nams
