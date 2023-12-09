@@ -45,7 +45,7 @@ impl IndexParameters {
         IndexParameters {
             canonical_read_length,
             syncmer: SyncmerParameters::new(k, s),
-            randstrobe: RandstrobeParameters  { w_min, w_max, q, max_dist }
+            randstrobe: RandstrobeParameters { w_min, w_max, q, max_dist }
         }
     }
     /// Create an IndexParameters instance based on a given read length.

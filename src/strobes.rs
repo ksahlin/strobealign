@@ -74,9 +74,13 @@ impl<'a> Iterator for RandstrobeIterator<'a> {
         }
         self.syncmers.pop_front();
         Some(Randstrobe {
-            hash: strobe1.hash.wrapping_add(strobe2.hash),
+            hash: randstrobe_hash(strobe1.hash, strobe2.hash),
             strobe1_pos: strobe1.position,
             strobe2_pos: strobe2.position,
         })
     }
+}
+
+fn randstrobe_hash(hash1: u64, hash2: u64) -> u64 {
+    hash1.wrapping_add(hash2)
 }

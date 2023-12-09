@@ -155,10 +155,7 @@ fn add_to_hits_per_ref(
 }
 
 // TODO should not be mut
-fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, sort: bool, is_revcomp: bool) -> Vec<Nam> {
-    let mut nams: Vec<Nam> = Vec::new();
-    let mut nam_id_cnt = 0;
-
+fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, sort: bool, is_revcomp: bool, nams: &mut Vec<Nam>) {
     for (ref_id, hits) in hits_per_ref.iter_mut() {
         if sort {
             hits.sort_by_key(|k| (k.query_start, k.ref_start));
@@ -195,7 +192,7 @@ fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, s
             // Add the hit to open matches
             if !is_added {
                 open_nams.push(Nam {
-                    nam_id: nam_id_cnt,
+                    nam_id: nams.len(),
                     query_start: h.query_start,
                     query_end: h.query_end,
                     ref_start: h.ref_start,
@@ -207,7 +204,6 @@ fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, s
                     is_revcomp,
                     score: 0,
                 });
-                nam_id_cnt += 1;
             }
 
             // Only filter if we have advanced at least k nucleotides
@@ -254,14 +250,12 @@ fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, s
             nams.push(n);
         }
     }
-
-    nams
 }
 
 fn merge_hits_into_nams_forward_and_reverse(hits_per_ref: &mut [HashMap<usize, Vec<Hit>>; 2], k: usize, sort: bool) -> Vec<Nam> {
     let mut nams = Vec::new();
     for is_revcomp in [false, true] {
-        nams.extend(merge_hits_into_nams(&mut hits_per_ref[is_revcomp as usize], k, sort, is_revcomp));
+        merge_hits_into_nams(&mut hits_per_ref[is_revcomp as usize], k, sort, is_revcomp, &mut nams);
     }
 
     nams
