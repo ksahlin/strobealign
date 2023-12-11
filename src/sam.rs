@@ -69,11 +69,11 @@ impl Display for SamRecord {
             None => 0,
         };
         let query_sequence = match &self.query_sequence {
-            Some(seq) if !self.is_secondary() => std::str::from_utf8(seq).unwrap(),
+            Some(seq) if !self.is_secondary() && !seq.is_empty() => std::str::from_utf8(seq).unwrap(),
             _ => "*",
         };
         let query_qualities = match &self.query_qualities {
-            Some(query_qualities) if !self.is_secondary() => std::str::from_utf8(query_qualities).unwrap(),
+            Some(query_qualities) if !self.is_secondary() && !query_qualities.is_empty() => std::str::from_utf8(query_qualities).unwrap(),
             _ => "*",
         };
         let pos = match self.pos {
