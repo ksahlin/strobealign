@@ -21,6 +21,7 @@ const NAME: &str = env!("CARGO_PKG_NAME");
 #[derive(Parser, Debug)]
 #[command(version, long_about = None)]
 struct Args {
+    /// Number of threads
     #[arg(short, default_value_t = 1)]
     threads: usize,
 
@@ -34,6 +35,10 @@ struct Args {
 
     //args::Flag x(parser, "x", "Only map reads, no base level alignment (produces PAF file)", {'x'});
 
+    /// Do not output the PG header line
+    #[arg(long="no-PG")]
+    no_pg: bool,
+
     /// Suppress output of unmapped reads
     #[arg(short = 'U')]
     only_mapped: bool,
@@ -42,7 +47,7 @@ struct Args {
     // args::ValueFlag<std::string> rgid(parser, "ID", "Read group ID", {"rg-id"});
     // args::ValueFlagList<std::string> rg(parser, "TAG:VALUE", "Add read group metadata to SAM header (can be specified multiple times). Example: SM:samplename", {"rg"});
 
-    /// Add debugging details to SAM records
+    /// Add extra details to SAM records (helpful for debugging)
     #[arg(long)]
     details: bool,
 
@@ -160,7 +165,7 @@ fn main() -> Result<(), Error> {
     let read_group_fields = vec![];
     let header = SamHeader::new(
         &references,
-        &cmd_line,
+        if args.no_pg { None } else { Some(&cmd_line) },
         VERSION,
         None,
         &read_group_fields,

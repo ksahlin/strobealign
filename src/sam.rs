@@ -116,7 +116,7 @@ impl Display for SamRecord {
 
 pub struct SamHeader<'a> {
     references: &'a [RefSequence],
-    cmd_line: &'a str,
+    cmd_line: Option<&'a str>,
     version: &'a str,
     read_group_id: Option<&'a str>,
     read_group_fields: &'a [&'a str],
@@ -125,7 +125,7 @@ pub struct SamHeader<'a> {
 impl<'a> SamHeader<'a> {
     pub fn new(
         references: &'a [RefSequence],
-        cmd_line: &'a str,
+        cmd_line: Option<&'a str>,
         version: &'a str,
         read_group_id: Option<&'a str>,
         read_group_fields: &'a [&'a str]
@@ -154,6 +154,10 @@ impl<'a> Display for SamHeader<'a> {
             }
             f.write_str("\n")?;
         }
-        writeln!(f, "@PG\tID:strobealign\tPN:strobealign\tVN:{}\tCL:{}", &self.version, &self.cmd_line)
+        if let Some(cmd_line) = self.cmd_line {
+            writeln!(f, "@PG\tID:strobealign\tPN:strobealign\tVN:{}\tCL:{}", &self.version, &cmd_line)?;
+        };
+
+        Ok(())
     }
 }
