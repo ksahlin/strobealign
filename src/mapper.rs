@@ -101,18 +101,10 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> Vec<QueryR
 }
 
 /// Conversion of an Alignment into a SamRecord
+#[derive(Default)]
 pub struct SamOutput {
     cigar_eqx: bool,
     details: bool,
-}
-
-impl Default for SamOutput {
-    fn default() -> Self {
-        SamOutput {
-            cigar_eqx: false,
-            details: false,
-        }
-    }
 }
 
 impl SamOutput {
