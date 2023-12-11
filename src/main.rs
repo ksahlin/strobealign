@@ -10,7 +10,7 @@ use rstrobes::fastq::FastqReader;
 use rstrobes::fasta;
 use rstrobes::index::{IndexParameters, StrobemerIndex};
 use rstrobes::mapper::{map_single_end_read, MappingParameters, SamOutput};
-use rstrobes::sam::SamHeader;
+use rstrobes::sam::{ReadGroup, SamHeader};
 
 mod logger;
 
@@ -22,7 +22,7 @@ const NAME: &str = env!("CARGO_PKG_NAME");
 #[command(version, long_about = None)]
 struct Args {
     /// Number of threads
-    #[arg(short, default_value_t = 1)]
+    #[arg(short, default_value_t = 1, value_name = "N")]
     threads: usize,
 
     //args::ValueFlag<int> chunk_size(parser, "INT", "Number of reads processed by a worker thread at once [10000]", {"chunk-size"}, args::Options::Hidden);
@@ -44,8 +44,14 @@ struct Args {
     only_mapped: bool,
 
     // args::Flag interleaved(parser, "interleaved", "Interleaved input", {"interleaved"});
-    // args::ValueFlag<std::string> rgid(parser, "ID", "Read group ID", {"rg-id"});
-    // args::ValueFlagList<std::string> rg(parser, "TAG:VALUE", "Add read group metadata to SAM header (can be specified multiple times). Example: SM:samplename", {"rg"});
+
+    /// Read group ID
+    #[arg(long)]
+    rg_id: Option<String>,
+
+    /// Add read group metadata to SAM header (can be specified multiple times). Example: SM:samplename
+    #[arg(long)]
+    rg: Vec<String>,
 
     /// Add extra details to SAM records (helpful for debugging)
     #[arg(long)]
@@ -160,15 +166,20 @@ fn main() -> Result<(), Error> {
 
     let aligner = Aligner::new(Scores::default());
 
-    let sam_output = SamOutput::new(args.details, args.eqx);
     let cmd_line = env::args().skip(1).collect::<Vec<_>>().join(" ");
-    let read_group_fields = vec![];
+    let rg_id = match args.rg_id {
+        Some(rg_id) => Some(rg_id),
+        None if !args.rg.is_empty() => Some("1".to_string()),
+        None => None,
+    };
+    let sam_output = SamOutput::new(args.details, args.eqx, rg_id.clone());
+    let read_group = rg_id.map(|s| ReadGroup::new(&s, args.rg));
+
     let header = SamHeader::new(
         &references,
         if args.no_pg { None } else { Some(&cmd_line) },
         VERSION,
-        None,
-        &read_group_fields,
+        read_group,
     );
     print!("{}", header);
     let out = std::io::stdout().lock();

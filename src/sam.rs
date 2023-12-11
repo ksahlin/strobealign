@@ -34,6 +34,7 @@ pub struct SamRecord {
     pub edit_distance: Option<u32>,
     pub alignment_score: Option<u32>,
     pub details: Option<Details>,
+    pub rg_id: Option<String>,
 }
 
 impl SamRecord {
@@ -110,7 +111,24 @@ impl Display for SamRecord {
                 details.gapped
             )?;
         }
+        if let Some(rg_id) = &self.rg_id {
+            write!(f, "\tRG:Z:{}", rg_id)?;
+        }
         Ok(())
+    }
+}
+
+pub struct ReadGroup {
+    id: String,
+    fields: Vec<String>,
+}
+
+impl ReadGroup {
+    pub fn new(id: &str, fields: Vec<String>) -> Self {
+        ReadGroup {
+            id: id.to_string(),
+            fields,
+        }
     }
 }
 
@@ -118,8 +136,7 @@ pub struct SamHeader<'a> {
     references: &'a [RefSequence],
     cmd_line: Option<&'a str>,
     version: &'a str,
-    read_group_id: Option<&'a str>,
-    read_group_fields: &'a [&'a str],
+    read_group: Option<ReadGroup>,
 }
 
 impl<'a> SamHeader<'a> {
@@ -127,15 +144,13 @@ impl<'a> SamHeader<'a> {
         references: &'a [RefSequence],
         cmd_line: Option<&'a str>,
         version: &'a str,
-        read_group_id: Option<&'a str>,
-        read_group_fields: &'a [&'a str]
+        read_group: Option<ReadGroup>,
     ) -> Self {
         SamHeader {
             references,
             cmd_line,
             version,
-            read_group_id,
-            read_group_fields,
+            read_group,
         }
     }
 }
@@ -147,9 +162,9 @@ impl<'a> Display for SamHeader<'a> {
         for refseq in self.references {
             writeln!(f, "@SQ\tSN:{}\tLN:{}", refseq.name, refseq.sequence.len())?;
         }
-        if let Some(read_group_id) = self.read_group_id {
-            write!(f, "@RG\tID:{}", read_group_id)?;
-            for field in self.read_group_fields {
+        if let Some(read_group) = &self.read_group {
+            write!(f, "@RG\tID:{}", read_group.id)?;
+            for field in &read_group.fields {
                 write!(f, "\t{}", &field)?;
             }
             f.write_str("\n")?;

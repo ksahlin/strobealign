@@ -105,13 +105,15 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> Vec<QueryR
 pub struct SamOutput {
     cigar_eqx: bool,
     details: bool,
+    rg_id: Option<String>,
 }
 
 impl SamOutput {
-    pub fn new(details: bool, cigar_eqx: bool) -> Self {
+    pub fn new(details: bool, cigar_eqx: bool, rg_id: Option<String>) -> Self {
         SamOutput {
             cigar_eqx,
             details,
+            rg_id,
         }
     }
 
@@ -160,6 +162,7 @@ impl SamOutput {
             edit_distance: Some(alignment.edit_distance as u32),
             alignment_score: Some(alignment.score),
             details,
+            rg_id: self.rg_id.clone(),
             ..SamRecord::default()
         }
     }
@@ -172,6 +175,7 @@ impl SamOutput {
             query_sequence: Some(record.sequence.clone()),
             query_qualities: Some(record.qualities.clone()),
             details,
+            rg_id: self.rg_id.clone(),
             ..SamRecord::default()
         }
     }
