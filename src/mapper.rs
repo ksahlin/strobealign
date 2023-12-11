@@ -269,7 +269,7 @@ pub fn map_single_end_read(
             alignments.push(alignment);
         }
     }
-    let mapq = (60.0 * (best_score - second_best_score) as f32 / best_score as f32) as u8;
+    let mapq = ((60 * (best_score - second_best_score) + best_score - 1) / best_score) as u8;
 
     if best_alignment.is_none() {
         return vec![sam_output.make_unmapped_record(record, details)];
