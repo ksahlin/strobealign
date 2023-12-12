@@ -67,6 +67,7 @@ struct MappingParameters {
     CigarOps cigar_ops{CigarOps::M};
     bool output_unmapped { true };
     bool details{false};
+    bool fastq_comments{false};
 
     void verify() const {
         if (max_tries < 1) {

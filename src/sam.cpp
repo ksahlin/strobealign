@@ -40,7 +40,7 @@ std::string strip_suffix(const std::string& name) {
     }
 }
 
-void Sam::append_rg_and_newline() {
+void Sam::append_rg() {
     sam_string.append(tail);
 }
 
@@ -86,7 +86,12 @@ void Sam::add_unmapped(const KSeq& record, uint16_t flags) {
     sam_string.append("\t*\t0\t" SAM_UNMAPPED_MAPQ_STRING "\t*\t*\t0\t0\t");
     append_seq(record.seq);
     append_qual(record.qual);
-    append_rg_and_newline();
+    append_rg();
+    if (this->fastq_comments) {
+        sam_string.append("\t");
+        sam_string.append(record.comment);
+    }
+    sam_string.append("\n");
 }
 
 void Sam::add_unmapped_mate(const KSeq& record, uint16_t flags, const std::string& mate_reference_name, uint32_t mate_pos) {
@@ -108,7 +113,12 @@ void Sam::add_unmapped_mate(const KSeq& record, uint16_t flags, const std::strin
     sam_string.append("\t0\t");
     append_seq(record.seq);
     append_qual(record.qual);
-    append_rg_and_newline();
+    append_rg();
+    if (this->fastq_comments) {
+        sam_string.append("\t");
+        sam_string.append(record.comment);
+    }
+    sam_string.append("\n");
 }
 
 void Sam::add_unmapped_pair(const KSeq& r1, const KSeq& r2) {
@@ -135,12 +145,13 @@ void Sam::add(
         flags |= SECONDARY;
         mapq = 255;
     }
-    add_record(record.name, flags, references.names[alignment.ref_id], alignment.ref_start, mapq, alignment.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, alignment.edit_distance, alignment.score, details);
+    add_record(record.name, record.comment, flags, references.names[alignment.ref_id], alignment.ref_start, mapq, alignment.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, alignment.edit_distance, alignment.score, details);
 }
 
 // Add one individual record
 void Sam::add_record(
     const std::string& query_name,
+    const std::string& comment,
     uint16_t flags,
     const std::string& reference_name,
     uint32_t pos,
@@ -210,7 +221,12 @@ void Sam::add_record(
             append_paired_details(details);
         }
     }
-    append_rg_and_newline();
+    append_rg();
+    if (this->fastq_comments) {
+        sam_string.append("\t");
+        sam_string.append(comment);
+    }
+    sam_string.append("\n");
 }
 
 void Sam::add_pair(
@@ -304,12 +320,12 @@ void Sam::add_pair(
     if (alignment1.is_unaligned) {
         add_unmapped_mate(record1, f1, reference_name2, pos2);
     } else {
-        add_record(record1.name, f1, reference_name1, alignment1.ref_start, mapq1, alignment1.cigar, mate_reference_name2, pos2, template_len1, record1.seq, read1_rc, record1.qual, edit_distance1, alignment1.score, details[0]);
+        add_record(record1.name, record1.comment, f1, reference_name1, alignment1.ref_start, mapq1, alignment1.cigar, mate_reference_name2, pos2, template_len1, record1.seq, read1_rc, record1.qual, edit_distance1, alignment1.score, details[0]);
     }
     if (alignment2.is_unaligned) {
         add_unmapped_mate(record2, f2, reference_name1, pos1);
     } else {
-        add_record(record2.name, f2, reference_name2, alignment2.ref_start, mapq2, alignment2.cigar, mate_reference_name1, pos1, -template_len1, record2.seq, read2_rc, record2.qual, edit_distance2, alignment2.score, details[1]);
+        add_record(record2.name, record2.comment, f2, reference_name2, alignment2.ref_start, mapq2, alignment2.cigar, mate_reference_name1, pos1, -template_len1, record2.seq, read2_rc, record2.qual, edit_distance2, alignment2.score, details[1]);
     }
 }
 

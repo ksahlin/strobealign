@@ -74,18 +74,20 @@ public:
         CigarOps cigar_ops = CigarOps::EQX,
         const std::string& read_group_id = "",
         bool output_unmapped = true,
-        bool show_details = false
+        bool show_details = false,
+        bool fastq_comments = false
     )
         : sam_string(sam_string)
         , references(references)
         , cigar_ops(cigar_ops)
         , output_unmapped(output_unmapped)
         , show_details(show_details)
+        , fastq_comments(fastq_comments)
     {
             if (read_group_id.empty()) {
-                tail = "\n";
+                tail = "";
             } else {
-                tail = "\tRG:Z:" + read_group_id + "\n";
+                tail = "\tRG:Z:" + read_group_id;
             }
         }
 
@@ -97,7 +99,7 @@ public:
     void add_unmapped_mate(const klibpp::KSeq& record, uint16_t flags, const std::string& mate_reference_name, uint32_t mate_pos);
 
 private:
-    void add_record(const std::string& query_name, uint16_t flags, const std::string& reference_name, uint32_t pos, uint8_t mapq, const Cigar& cigar, const std::string& mate_reference_name, uint32_t mate_pos, int32_t template_len, const std::string& query_sequence, const std::string& query_sequence_rc, const std::string& qual, int ed, int aln_score, const Details& details);
+    void add_record(const std::string& query_name, const std::string& comment, uint16_t flags, const std::string& reference_name, uint32_t pos, uint8_t mapq, const Cigar& cigar, const std::string& mate_reference_name, uint32_t mate_pos, int32_t template_len, const std::string& query_sequence, const std::string& query_sequence_rc, const std::string& qual, int ed, int aln_score, const Details& details);
 
     void append_seq(const std::string& seq) {
         sam_string.append(seq.empty() ? "*" : seq);
@@ -109,7 +111,7 @@ private:
     }
     void append_details(const Details& details);
     void append_paired_details(const Details& details);
-    void append_rg_and_newline();
+    void append_rg();
 
     std::string cigar_string(const Cigar& cigar) const;
     std::string& sam_string;
@@ -118,6 +120,7 @@ private:
     std::string tail;
     bool output_unmapped;
     bool show_details;
+    bool fastq_comments;
 };
 
 bool is_proper_pair(const Alignment& alignment1, const Alignment& alignment2, float mu, float sigma);

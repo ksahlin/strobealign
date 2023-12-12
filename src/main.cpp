@@ -187,6 +187,7 @@ int run_strobealign(int argc, char **argv) {
     map_param.cigar_ops = opt.cigar_eqx ? CigarOps::EQX : CigarOps::M;
     map_param.output_unmapped = opt.output_unmapped;
     map_param.details = opt.details;
+    map_param.fastq_comments = opt.fastq_comments;
     map_param.verify();
 
     log_parameters(index_parameters, map_param, aln_params);

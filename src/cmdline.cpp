@@ -39,6 +39,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlag<std::string> rgid(parser, "ID", "Read group ID", {"rg-id"});
     args::ValueFlagList<std::string> rg(parser, "TAG:VALUE", "Add read group metadata to SAM header (can be specified multiple times). Example: SM:samplename", {"rg"});
     args::Flag details(parser, "details", "Add debugging details to SAM records", {"details"});
+    args::Flag fastq_comments(parser, "fastq_comments", "Append FASTQ comment to SAM record", {'C'});
     args::ValueFlag<int> N(parser, "INT", "Retain at most INT secondary alignments (is upper bounded by -M and depends on -S) [0]", {'N'});
 
     args::Group seeding_group(parser, "Seeding:");
@@ -104,6 +105,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (rgid) { opt.read_group_id = args::get(rgid); }
     if (rg) { opt.read_group_fields = args::get(rg); }
     if (details) { opt.details = true; }
+    if (fastq_comments) { opt.fastq_comments = true; }
     if (N) { opt.max_secondary = args::get(N); }
 
     // Seeding

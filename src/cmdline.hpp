@@ -26,6 +26,7 @@ struct CommandLineOptions {
     std::string read_group_id { "" };
     std::vector<std::string> read_group_fields;
     bool details{false};
+    bool fastq_comments{false};
     int max_secondary { 0 };
 
     // Seeding
