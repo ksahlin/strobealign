@@ -147,7 +147,7 @@ it can map reads to it.
 The optimal indexing parameters depend on the length of the input reads.
 There are currently seven different pre-defined sets of parameters that are
 optimized for different read lengths. These *canonical read lengths* are
-50, 100, 125, 150, 250, 300 and 400. When deciding which of the pre-defined
+50, 100, 125, 150, 250 and 400. When deciding which of the pre-defined
 indexing parameter sets to use, strobealign chooses one whose canonical
 read length is close to the average read length of the input.
 

@@ -2,6 +2,9 @@
 
 ## development version
 
+* #376: Improve accuracy for read length 50 by optimizing the default
+  indexing parameters. Paired-end accuracy increases by 0.3 percentage
+  points on average. Single-end accuracy increases by 1 percentage point.
 * If `--details` is used, output `X0:i` SAM tag with the number of
   identically-scored best alignments
 * #371: Add `--no-PG` option for not outputting the PG SAM header
