@@ -39,8 +39,7 @@ static std::vector<Profile> profiles = {
         Profile{100, 110, 20, -4, -2,  2},
         Profile{125, 135, 20, -4, -1,  4},
         Profile{150, 175, 20, -4,  1,  7},
-        Profile{250, 275, 22, -4,  2, 12},
-        Profile{300, 375, 22, -4,  2, 12},
+        Profile{250, 375, 22, -4,  2, 12},
         Profile{400, max, 23, -6,  2, 12},
     };
 
