@@ -26,19 +26,21 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlag<std::string> o(parser, "PATH", "redirect output to file [stdout]", {'o'});
     args::Flag v(parser, "v", "Verbose output", {'v'});
     args::Flag no_progress(parser, "no-progress", "Disable progress report (enabled by default if output is a terminal)", {"no-progress"});
-    args::Flag eqx(parser, "eqx", "Emit =/X instead of M CIGAR operations", {"eqx"});
     args::Flag x(parser, "x", "Only map reads, no base level alignment (produces PAF file)", {'x'});
-    args::Flag no_pg(parser, "no-PG", "Do not output PG header", {"no-PG"});
-    args::Flag U(parser, "U", "Suppress output of unmapped reads", {'U'});
     args::Flag interleaved(parser, "interleaved", "Interleaved input", {"interleaved"});
-    args::ValueFlag<std::string> rgid(parser, "ID", "Read group ID", {"rg-id"});
-    args::ValueFlagList<std::string> rg(parser, "TAG:VALUE", "Add read group metadata to SAM header (can be specified multiple times). Example: SM:samplename", {"rg"});
-    args::Flag details(parser, "details", "Add debugging details to SAM records", {"details"});
-
-    args::ValueFlag<int> N(parser, "INT", "Retain at most INT secondary alignments (is upper bounded by -M and depends on -S) [0]", {'N'});
     args::ValueFlag<std::string> index_statistics(parser, "PATH", "Print statistics of indexing to PATH", {"index-statistics"});
     args::Flag i(parser, "index", "Do not map reads; only generate the strobemer index and write it to disk. If read files are provided, they are used to estimate read length", {"create-index", 'i'});
     args::Flag use_index(parser, "use_index", "Use a pre-generated index previously written with --create-index.", { "use-index" });
+
+    args::Group sam(parser, "SAM output:");
+    args::Flag eqx(parser, "eqx", "Emit =/X instead of M CIGAR operations", {"eqx"});
+    args::Flag no_pg(parser, "no-PG", "Do not output PG header", {"no-PG"});
+    args::Flag U(parser, "U", "Suppress output of unmapped reads", {'U'});
+    args::ValueFlag<std::string> rgid(parser, "ID", "Read group ID", {"rg-id"});
+    args::ValueFlagList<std::string> rg(parser, "TAG:VALUE", "Add read group metadata to SAM header (can be specified multiple times). Example: SM:samplename", {"rg"});
+    args::Flag details(parser, "details", "Add debugging details to SAM records", {"details"});
+    args::Flag fastq_comments(parser, "fastq_comments", "Append FASTQ comment to SAM record", {'C'});
+    args::ValueFlag<int> N(parser, "INT", "Retain at most INT secondary alignments (is upper bounded by -M and depends on -S) [0]", {'N'});
 
     args::Group seeding_group(parser, "Seeding:");
     auto seeding = SeedingArguments{parser};
@@ -90,18 +92,21 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     // Input/output
     if (o) { opt.output_file_name = args::get(o); opt.write_to_stdout = false; }
     if (v) { opt.verbose = true; }
-    if (details) { opt.details = true; }
     if (no_progress) { opt.show_progress = false; }
-    if (no_pg) { opt.pg_header = false; }
-    if (eqx) { opt.cigar_eqx = true; }
     if (x) { opt.is_sam_out = false; }
-    if (U) { opt.output_unmapped = false; }
-    if (rgid) { opt.read_group_id = args::get(rgid); }
-    if (rg) { opt.read_group_fields = args::get(rg); }
-    if (N) { opt.max_secondary = args::get(N); }
     if (index_statistics) { opt.logfile_name = args::get(index_statistics); }
     if (i) { opt.only_gen_index = true; }
     if (use_index) { opt.use_index = true; }
+
+    // SAM output
+    if (eqx) { opt.cigar_eqx = true; }
+    if (no_pg) { opt.pg_header = false; }
+    if (U) { opt.output_unmapped = false; }
+    if (rgid) { opt.read_group_id = args::get(rgid); }
+    if (rg) { opt.read_group_fields = args::get(rg); }
+    if (details) { opt.details = true; }
+    if (fastq_comments) { opt.fastq_comments = true; }
+    if (N) { opt.max_secondary = args::get(N); }
 
     // Seeding
     if (seeding.r) { opt.r = args::get(seeding.r); opt.r_set = true; }

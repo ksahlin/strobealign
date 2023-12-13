@@ -13,17 +13,20 @@ struct CommandLineOptions {
     std::string output_file_name;
     bool write_to_stdout { true };
     bool verbose { false };
-    bool details{false};
     bool show_progress { true };
-    bool cigar_eqx { false };
-    std::string read_group_id { "" };
-    std::vector<std::string> read_group_fields;
     std::string logfile_name { "" };
     bool only_gen_index { false };
     bool use_index { false };
     bool is_sam_out { true };
+
+    // SAM output
+    bool cigar_eqx { false };
     bool pg_header { true };
     bool output_unmapped { true };
+    std::string read_group_id { "" };
+    std::vector<std::string> read_group_fields;
+    bool details{false};
+    bool fastq_comments{false};
     int max_secondary { 0 };
 
     // Seeding

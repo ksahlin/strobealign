@@ -7,7 +7,9 @@
   points on average. Single-end accuracy increases by 1 percentage point.
 * If `--details` is used, output `X0:i` SAM tag with the number of
   identically-scored best alignments
-* #371: Add `--no-PG` option for not outputting the PG SAM header
+* #378: Added `-C` option for appending the FASTA or FASTQ comment to SAM
+  output. (Idea and name of the option taken from BWA-MEM.)
+* #371: Added `--no-PG` option for not outputting the PG SAM header
 
 ## v0.12.0 (2023-11-23)
 

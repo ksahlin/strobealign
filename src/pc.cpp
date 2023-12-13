@@ -160,7 +160,7 @@ void perform_task(
 
         std::string sam_out;
         sam_out.reserve(7*map_param.r * (records1.size() + records3.size()));
-        Sam sam{sam_out, references, map_param.cigar_ops, read_group_id, map_param.output_unmapped, map_param.details};
+        Sam sam{sam_out, references, map_param.cigar_ops, read_group_id, map_param.output_unmapped, map_param.details, map_param.fastq_comments};
         InsertSizeDistribution isize_est;
         // Use chunk index as random seed for reproducibility
         random_engine.seed(chunk_index);
