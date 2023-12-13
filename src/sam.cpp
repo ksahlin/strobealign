@@ -143,7 +143,7 @@ void Sam::add(
     }
     if (!is_primary) {
         flags |= SECONDARY;
-        mapq = 255;
+        mapq = 0;
     }
     add_record(record.name, record.comment, flags, references.names[alignment.ref_id], alignment.ref_start, mapq, alignment.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, alignment.edit_distance, alignment.score, details);
 }
