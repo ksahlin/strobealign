@@ -39,8 +39,9 @@ public:
         ksw_gen_simple_mat(ksw_matrix_m, ksw_matrix, parameters.match, -parameters.mismatch);
     }
 
-    AlignmentInfo align(const std::string &query, const std::string &ref) const;
+    AlignmentInfo align(const std::string& query, const std::string_view ref) const;
     AlignmentInfo ksw_extend(const std::string& query, const std::string& ref, bool right_align) const;
+
     AlignmentParameters parameters;
 
     unsigned calls_count() {
@@ -55,7 +56,7 @@ private:
     int8_t ksw_matrix[25];
 };
 
-inline int hamming_distance(const std::string &s, const std::string &t) {
+inline int hamming_distance(const std::string& s, const std::string_view t) {
     if (s.length() != t.length()){
         return -1;
     }
@@ -71,11 +72,11 @@ inline int hamming_distance(const std::string &s, const std::string &t) {
 }
 
 std::tuple<size_t, size_t, int> highest_scoring_segment(
-    const std::string& query, const std::string& ref, int match, int mismatch, int end_bonus
+    const std::string& query, const std::string_view ref, int match, int mismatch, int end_bonus
 );
 
 AlignmentInfo hamming_align(
-    const std::string &query, const std::string &ref, int match, int mismatch, int end_bonus
+    const std::string& query, const std::string_view ref, int match, int mismatch, int end_bonus
 );
 
 #endif

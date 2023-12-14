@@ -213,7 +213,7 @@ inline Alignment extend_seed(
     bool consistent_nam
 ) {
     const std::string query = nam.is_rc ? read.rc : read.seq;
-    const std::string& ref = references.sequences[nam.ref_id];
+    const std::string_view ref = references.sequences[nam.ref_id];
 
     const auto projected_ref_start = nam.projected_ref_start();
     const auto projected_ref_end = std::min(nam.ref_end + query.size() - nam.query_end, ref.size());
@@ -222,7 +222,7 @@ inline Alignment extend_seed(
     int result_ref_start;
     bool gapped = true;
     if (projected_ref_end - projected_ref_start == query.size() && consistent_nam) {
-        std::string ref_segm_ham = ref.substr(projected_ref_start, query.size());
+        std::string_view ref_segm_ham = ref.substr(projected_ref_start, query.size());
         auto hamming_dist = hamming_distance(query, ref_segm_ham);
 
         if (hamming_dist >= 0 && (((float) hamming_dist / query.size()) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
