@@ -21,6 +21,9 @@
 * Include [ZStr](https://github.com/mateidavid/zstr/) in our own repository
   instead of downloading it at build time. This should make it possible to
   build strobealign without internet access.
+* #357: Fix some suboptimal alignment ends. Sometimes an end was soft-clipped
+  although a better alignment with an insertion or deletion existed that
+  extends to the end of the read.
 
 ## v0.12.0 (2023-11-23)
 

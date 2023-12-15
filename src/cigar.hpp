@@ -93,6 +93,10 @@ public:
         std::reverse(m_ops.begin(), m_ops.end());
     }
 
+    void pop_oplen() {
+        m_ops.pop_back();
+    }
+
     /* Return a new Cigar that uses M instead of =/X */
     Cigar to_m() const;
 

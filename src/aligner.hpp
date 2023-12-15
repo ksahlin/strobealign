@@ -26,6 +26,7 @@ struct AlignmentInfo {
     int sw_score{0};
 
     int ref_span() const { return ref_end - ref_start; }
+    int query_span() const { return query_end - query_start; }
 };
 
 std::ostream& operator<<(std::ostream& os, const AlignmentInfo& info);

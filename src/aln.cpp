@@ -222,11 +222,48 @@ inline Alignment extend_seed(
     int result_ref_start;
     bool gapped = true;
     if (projected_ref_end - projected_ref_start == query.size() && consistent_nam) {
-        std::string_view ref_segm_ham = ref.substr(projected_ref_start, query.size());
-        auto hamming_dist = hamming_distance(query, ref_segm_ham);
+        const std::string_view projected_ref = ref.substr(projected_ref_start, query.size());
+        info = hamming_align(query, projected_ref, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
 
-        if (hamming_dist >= 0 && (((float) hamming_dist / query.size()) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-            info = hamming_align(query, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
+        if (info.edit_distance + (query.length() - info.query_span()) < 0.05 * query.length()) {
+            if (info.query_end < query.length()) {
+                // Right end is soft clipped, do gapped alignment on it
+                const std::string query_right = query.substr(info.query_end);
+                const int ext_right = std::min(ref.size() - projected_ref_end, size_t(50));
+                const std::string_view ref_right = ref.substr(projected_ref_start + info.ref_end, ext_right);
+                auto right = aligner.ksw_extend(query_right, ref_right, false);
+                info.query_end += right.query_end;
+                info.ref_end += right.ref_end;
+                info.edit_distance += right.edit_distance;
+                info.sw_score += right.sw_score;
+                assert(!info.cigar.empty());
+                info.cigar.pop_oplen();
+                info.cigar += right.cigar;
+            }
+
+            if (info.query_start > 0) {
+                // Left end is soft clipped, do gapped alignment on it
+                std::string query_left = query.substr(0, info.query_start);
+                const int ext_left = std::min(50, projected_ref_start);
+                const int ref_start = projected_ref_start - ext_left;
+                std::string ref_left{ref.substr(ref_start, ext_left + info.ref_start)};
+                std::reverse(query_left.begin(), query_left.end());
+                std::reverse(ref_left.begin(), ref_left.end());
+                auto left = aligner.ksw_extend(query_left, ref_left, true);
+                info.query_start -= left.query_end;
+                info.ref_start -= left.ref_end;
+                info.edit_distance += left.edit_distance;
+                info.sw_score += left.sw_score;
+
+                // TODO this just removes the soft-clipping from the beginning,
+                // a bit too complicated
+                info.cigar.reverse();
+                info.cigar.pop_oplen();
+                info.cigar += left.cigar;
+                info.cigar.reverse();
+            }
+
+            assert(info.cigar.derived_sequence_length() == query.length());
             result_ref_start = projected_ref_start + info.ref_start;
             gapped = false;
         }
