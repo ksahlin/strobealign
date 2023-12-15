@@ -265,6 +265,18 @@ std::ostream& operator<<(std::ostream& os, const ksw_extz_t& ez) {
 }
 
 AlignmentInfo Aligner::ksw_extend(const std::string& query, const std::string_view ref, bool right_align) const {
+    AlignmentInfo info;
+    if (query.size() == 0) {
+        info.cigar = Cigar();
+        info.edit_distance = 0;
+        info.ref_start = 0;
+        info.query_start = 0;
+        info.ref_end = 0;
+        info.query_end = 0;
+        info.sw_score = parameters.end_bonus;
+        return info;
+    }
+
     int w = -1; // band width; -1 is inf
     int zdrop = -1; // -1 to disable
     int flag = KSW_EZ_EXTZ_ONLY | KSW_EZ_GENERIC_SC;
@@ -292,8 +304,6 @@ AlignmentInfo Aligner::ksw_extend(const std::string& query, const std::string_vi
     free(qseq);
     free(tseq);
 
-
-    AlignmentInfo info;
     auto cigar = Cigar(ez.cigar, ez.n_cigar).to_eqx(query, ref);
     info.edit_distance = cigar.edit_distance();
     info.cigar = std::move(cigar);
