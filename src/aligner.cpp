@@ -311,3 +311,13 @@ AlignmentInfo Aligner::ksw_extend(const std::string& query, const std::string& r
     kfree(km, ez.cigar);
     return info;
 }
+
+std::ostream& operator<<(std::ostream& os, const AlignmentInfo& info) {
+    os << "AlignmentInfo(cigar='" << info.cigar
+        << "', ref=" << info.ref_start << ".." << info.ref_end
+        << ", query=" << info.query_start << ".." << info.query_end
+        << ", NM=" << info.edit_distance
+        << ", AS=" << info.sw_score
+        << ")";
+    return os;
+}

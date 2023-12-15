@@ -28,6 +28,8 @@ struct AlignmentInfo {
     int ref_span() const { return ref_end - ref_start; }
 };
 
+std::ostream& operator<<(std::ostream& os, const AlignmentInfo& info);
+
 void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b);
 
 struct Aligner {
