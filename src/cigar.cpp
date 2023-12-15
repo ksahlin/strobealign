@@ -17,7 +17,7 @@ Cigar Cigar::to_m() const {
     return cigar;
 }
 
-Cigar Cigar::to_eqx(const std::string& query, const std::string& ref) const {
+Cigar Cigar::to_eqx(const std::string& query, const std::string_view ref) const {
     size_t i = 0, j = 0;
     Cigar cigar;
     for (auto op_len : m_ops) {

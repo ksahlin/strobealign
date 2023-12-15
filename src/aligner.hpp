@@ -43,7 +43,7 @@ public:
     }
 
     AlignmentInfo align(const std::string& query, const std::string_view ref) const;
-    AlignmentInfo ksw_extend(const std::string& query, const std::string& ref, bool right_align) const;
+    AlignmentInfo ksw_extend(const std::string& query, const std::string_view ref, bool right_align) const;
 
     AlignmentParameters parameters;
 

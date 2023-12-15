@@ -264,7 +264,7 @@ std::ostream& operator<<(std::ostream& os, const ksw_extz_t& ez) {
     return os;
 }
 
-AlignmentInfo Aligner::ksw_extend(const std::string& query, const std::string& ref, bool right_align) const {
+AlignmentInfo Aligner::ksw_extend(const std::string& query, const std::string_view ref, bool right_align) const {
     int w = -1; // band width; -1 is inf
     int zdrop = -1; // -1 to disable
     int flag = KSW_EZ_EXTZ_ONLY;

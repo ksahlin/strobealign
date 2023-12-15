@@ -85,7 +85,7 @@ public:
     Cigar to_m() const;
 
     /* Return a new Cigar that uses =/X instead of M */
-    Cigar to_eqx(const std::string& query, const std::string& ref) const;
+    Cigar to_eqx(const std::string& query, const std::string_view ref) const;
 
     std::string to_string() const;
 
