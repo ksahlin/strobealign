@@ -30,7 +30,7 @@ struct AlignmentInfo {
 
 std::ostream& operator<<(std::ostream& os, const AlignmentInfo& info);
 
-void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b);
+void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b, int8_t wildcard_score);
 
 struct Aligner {
 public:
@@ -38,7 +38,8 @@ public:
         : parameters(parameters)
         , ssw_aligner(StripedSmithWaterman::Aligner(parameters.match, parameters.mismatch, parameters.gap_open, parameters.gap_extend))
     {
-        ksw_gen_simple_mat(ksw_matrix_m, ksw_matrix, parameters.match, -parameters.mismatch);
+        int8_t wildcard_score = -parameters.mismatch;
+        ksw_gen_simple_mat(ksw_matrix_m, ksw_matrix, parameters.match, -parameters.mismatch, wildcard_score);
     }
 
     AlignmentInfo align(const std::string& query, const std::string_view ref) const;

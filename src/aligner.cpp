@@ -228,18 +228,19 @@ unsigned char seq_nt4_table[256] = {
 
 }  // namespace
 
-void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b)
+void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b, int8_t wildcard_score)
 {
     int i, j;
     a = a < 0? -a : a;
     b = b > 0? -b : b;
+    wildcard_score = wildcard_score > 0 ? -wildcard_score : wildcard_score;
     for (i = 0; i < m - 1; ++i) {
         for (j = 0; j < m - 1; ++j)
             mat[i * m + j] = i == j? a : b;
-        mat[i * m + m - 1] = 0;
+        mat[i * m + m - 1] = wildcard_score;
     }
     for (j = 0; j < m; ++j)
-        mat[(m - 1) * m + j] = 0;
+        mat[(m - 1) * m + j] = wildcard_score;
 }
 
 std::ostream& operator<<(std::ostream& os, const ksw_extz_t& ez) {
