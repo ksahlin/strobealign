@@ -77,6 +77,18 @@ public:
         return dist;
     }
 
+    size_t derived_sequence_length() const {
+        size_t length = 0;
+        for (auto op_len : m_ops) {
+            auto op = op_len & 0xf;
+            auto len = op_len >> 4;
+            if (op == CIGAR_MATCH || op == CIGAR_EQ || op == CIGAR_X || op == CIGAR_INS || op == CIGAR_SOFTCLIP) {
+                length += len;
+            }
+        }
+        return length;
+    }
+
     void reverse() {
         std::reverse(m_ops.begin(), m_ops.end());
     }

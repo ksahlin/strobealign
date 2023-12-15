@@ -317,7 +317,9 @@ AlignmentInfo Aligner::ksw_extend(const std::string& query, const std::string_vi
         info.ref_end = ez.max_t + 1;
         info.query_end = ez.max_q + 1;
         info.sw_score = ez.max;
+        info.cigar.push(CIGAR_SOFTCLIP, query.length() - info.query_end);
     }
+    assert(info.cigar.derived_sequence_length() == query.length());
 
     kfree(km, ez.cigar);
     return info;
