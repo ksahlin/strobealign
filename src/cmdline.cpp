@@ -8,7 +8,7 @@ class Version {};
 
 CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
 
-    args::ArgumentParser parser("strobelign " + version_string());
+    args::ArgumentParser parser("strobealign " + version_string());
     parser.helpParams.showTerminator = false;
     parser.helpParams.helpindent = 20;
     parser.helpParams.width = 90;
