@@ -165,13 +165,8 @@ void StrobemerIndex::populate(float f, unsigned n_threads) {
 
     Timer sorting_timer;
     logger.debug() << "  Sorting ...\n";
-    if (true) {
-        task_thread_pool::task_thread_pool pool{n_threads};
-        std::sort(poolstl::par.on(pool), randstrobes.begin(), randstrobes.end());
-    } else {
-        // sort by hash values
-        pdqsort_branchless(randstrobes.begin(), randstrobes.end());
-    }
+    task_thread_pool::task_thread_pool pool{n_threads};
+    poolstl::pluggable_sort(poolstl::par.on(pool), randstrobes.begin(), randstrobes.end(), pdqsort_branchless);
     stats.elapsed_sorting_seeds = sorting_timer.duration();
 
     Timer hash_index_timer;
