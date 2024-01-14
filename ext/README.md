@@ -27,6 +27,12 @@ Homepage: https://github.com/orlp/pdqsort
 Commit used: b1ef26a55cdb60d236a5cb199c4234c704f46726
 License: See pdqsort/license.txt
 
+## poolstl
+
+Homepage: https://github.com/alugowski/poolSTL/
+Downloaded file: https://github.com/alugowski/poolSTL/releases/download/v0.3.3/poolstl.hpp
+Version: 0.3.3
+License: See poolstl.hpp
 
 ## robin_hood
 
