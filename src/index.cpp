@@ -241,6 +241,7 @@ void StrobemerIndex::populate(float f, unsigned n_threads) {
         filter_cutoff = 30;
     }
     stats.filter_cutoff = filter_cutoff;
+    partial_filter_cutoff = 100;
     stats.elapsed_hash_index = hash_index_timer.duration();
     stats.distinct_strobemers = unique_mers;
 }

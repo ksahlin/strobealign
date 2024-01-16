@@ -65,6 +65,8 @@ struct QueryRandstrobe {
     randstrobe_hash_t hash;
     unsigned int start;
     unsigned int end;
+    unsigned int partial_start;
+    unsigned int partial_end;
     bool is_reverse;
 };
 
