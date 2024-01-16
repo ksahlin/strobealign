@@ -179,7 +179,8 @@ int run_strobealign(int argc, char **argv) {
         opt.l_set ? opt.l : IndexParameters::DEFAULT,
         opt.u_set ? opt.u : IndexParameters::DEFAULT,
         opt.c_set ? opt.c : IndexParameters::DEFAULT,
-        opt.max_seed_len_set ? opt.max_seed_len : IndexParameters::DEFAULT
+        opt.max_seed_len_set ? opt.max_seed_len : IndexParameters::DEFAULT,
+        opt.aux_len ? opt.aux_len : IndexParameters::DEFAULT
     );
     logger.debug() << index_parameters << '\n';
     AlignmentParameters aln_params;
@@ -228,6 +229,7 @@ int run_strobealign(int argc, char **argv) {
         throw InvalidFasta("Too many reference sequences. Current maximum is " + std::to_string(RefRandstrobe::max_number_of_references));
     }
 
+    logger.debug() << "Auxiliary hash length: " << index_parameters.randstrobe.aux_len << "\n";
     StrobemerIndex index(references, index_parameters, opt.bits);
     if (opt.use_index) {
         // Read the index from a file

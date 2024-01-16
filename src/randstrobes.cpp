@@ -45,8 +45,12 @@ static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
     return xxh64(packed);
 }
 
-static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_hash_t hash2) {
-    return hash1 + hash2;
+static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_hash_t hash2, size_t aux_len) {
+    // Make the function symmetric
+    if (hash1 > hash2) {
+        std::swap(hash1, hash2);
+    }
+    return ((hash1 >> aux_len) << aux_len) ^ (hash2 >> (64 - aux_len));
 }
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
@@ -131,7 +135,8 @@ std::vector<Syncmer> canonical_syncmers(
 }
 
 std::ostream& operator<<(std::ostream& os, const Randstrobe& randstrobe) {
-    os << "Randstrobe(hash=" << randstrobe.hash << ", strobe1_pos=" << randstrobe.strobe1_pos << ", strobe2_pos=" << randstrobe.strobe2_pos << ")";
+    os << "Randstrobe(hash=" << randstrobe.hash << ", strobe1_pos=" << randstrobe.strobe1_pos << ", strobe2_pos="
+       << randstrobe.strobe2_pos << ", main_is_first=" << randstrobe.main_is_first << ")";
     return os;
 }
 
@@ -145,11 +150,13 @@ std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe) {
     return os;
 }
 
-Randstrobe make_randstrobe(Syncmer strobe1, Syncmer strobe2) {
+Randstrobe make_randstrobe(Syncmer strobe1, Syncmer strobe2, int aux_len) {
+    bool main_is_first = strobe1.hash < strobe2.hash;
     return Randstrobe{
-        randstrobe_hash(strobe1.hash, strobe2.hash),
+        randstrobe_hash(strobe1.hash, strobe2.hash, aux_len),
         static_cast<uint32_t>(strobe1.position),
-        static_cast<uint32_t>(strobe2.position)
+        static_cast<uint32_t>(strobe2.position),
+        main_is_first
     };
 }
 
@@ -175,7 +182,7 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
         }
     }
 
-    return make_randstrobe(strobe1, strobe2);
+    return make_randstrobe(strobe1, strobe2, aux_len);
 }
 
 Randstrobe RandstrobeGenerator::next() {
@@ -207,7 +214,7 @@ Randstrobe RandstrobeGenerator::next() {
     }
     syncmers.pop_front();
 
-    return make_randstrobe(strobe1, strobe2);
+    return make_randstrobe(strobe1, strobe2, aux_len);
 }
 
 /*

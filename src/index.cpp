@@ -304,7 +304,7 @@ void StrobemerIndex::assign_randstrobes(size_t ref_index, size_t offset) {
             chunk.push_back(randstrobe);
         }
         for (auto randstrobe : chunk) {
-            RefRandstrobe::packed_t packed = ref_index << 8;
+            RefRandstrobe::packed_t packed = (ref_index << 9) | (randstrobe.main_is_first << 8);
             packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
             randstrobes[offset++] = RefRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, packed};
         }
