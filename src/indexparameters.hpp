@@ -43,14 +43,16 @@ struct RandstrobeParameters {
     const int max_dist;
     const unsigned w_min;
     const unsigned w_max;
+    const unsigned digest;
 
-    RandstrobeParameters(int l, int u, uint64_t q, int max_dist, unsigned w_min, unsigned w_max)
+    RandstrobeParameters(int l, int u, uint64_t q, int max_dist, unsigned w_min, unsigned w_max, unsigned digest)
         : l(l)
         , u(u)
         , q(q)
         , max_dist(max_dist)
         , w_min(w_min)
         , w_max(w_max)
+        , digest(digest)
     {
         verify();
     }
@@ -65,6 +67,9 @@ private:
         if (w_min > w_max) {
             throw BadParameter("w_min is greater than w_max (choose different -l/-u parameters)");
         }
+        if (digest > 63) {
+            throw BadParameter("digest size is larger than 63");
+        }
     }
 };
 
@@ -77,15 +82,15 @@ public:
 
     static const int DEFAULT = std::numeric_limits<int>::min();
 
-    IndexParameters(size_t canonical_read_length, int k, int s, int l, int u, int q, int max_dist)
+    IndexParameters(size_t canonical_read_length, int k, int s, int l, int u, int q, int max_dist, int digest)
         : canonical_read_length(canonical_read_length)
         , syncmer(k, s)
-        , randstrobe(l, u, q, max_dist, std::max(0, k / (k - s + 1) + l), k / (k - s + 1) + u)
+        , randstrobe(l, u, q, max_dist, std::max(0, k / (k - s + 1) + l), k / (k - s + 1) + u, digest)
     {
     }
 
     static IndexParameters from_read_length(
-        int read_length, int k = DEFAULT, int s = DEFAULT, int l = DEFAULT, int u = DEFAULT, int c = DEFAULT, int max_seed_len = DEFAULT
+        int read_length, int k = DEFAULT, int s = DEFAULT, int l = DEFAULT, int u = DEFAULT, int c = DEFAULT, int max_seed_len = DEFAULT, int digest = DEFAULT
     );
     static IndexParameters read(std::istream& os);
     std::string filename_extension() const;

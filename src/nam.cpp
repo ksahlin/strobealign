@@ -1,4 +1,5 @@
 #include "nam.hpp"
+static Logger& logger = Logger::get();
 
 namespace {
 
@@ -14,12 +15,14 @@ inline void add_to_hits_per_ref(
     int query_start,
     int query_end,
     const StrobemerIndex& index,
-    size_t position
+    size_t position,
+    bool is_partial
 ) {
     int min_diff = std::numeric_limits<int>::max();
     for (const auto hash = index.get_hash(position); index.get_hash(position) == hash; ++position) {
         int ref_start = index.get_strobe1_position(position);
-        int ref_end = ref_start + index.strobe2_offset(position) + index.k();
+        uint strobe2_position = is_partial ? 0 : index.strobe2_offset(position);
+        int ref_end = ref_start + strobe2_position + index.k();
         int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
         if (diff <= min_diff) {
             hits_per_ref[index.reference_index(position)].push_back(Hit{query_start, query_end, ref_start, ref_end});
@@ -171,7 +174,17 @@ std::pair<float, std::vector<Nam>> find_nams(
                 continue;
             }
             nr_good_hits++;
-            add_to_hits_per_ref(hits_per_ref[q.is_reverse], q.start, q.end, index, position);
+            add_to_hits_per_ref(hits_per_ref[q.is_reverse], q.start, q.end, index, position, false);
+        } else {
+            size_t partial_pos = index.partial_find(q.hash);
+            if (partial_pos != index.end()) {
+                total_hits++;
+                if (index.is_partial_filtered(position)) {
+                    continue;
+                }
+                nr_good_hits++;
+                add_to_hits_per_ref(hits_per_ref[q.is_reverse], q.start, q.end, index, partial_pos, true);
+            }
         }
     }
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
@@ -231,11 +244,13 @@ std::vector<Nam> find_nams_rescue(
             if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
                 break;
             }
-            add_to_hits_per_ref(hits_per_ref[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
+            add_to_hits_per_ref(hits_per_ref[is_revcomp], rh.query_start, rh.query_end, index, rh.position, false);
             cnt++;
         }
         is_revcomp++;
     }
+
+
 
     return merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), true);
 }

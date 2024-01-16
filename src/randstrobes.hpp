@@ -16,6 +16,7 @@
 
 using syncmer_hash_t = uint64_t;
 using randstrobe_hash_t = uint64_t;
+using digest_hash_t = uint64_t;
 
 struct RefRandstrobe {
     using packed_t = uint32_t;
@@ -97,6 +98,7 @@ public:
       , w_max(parameters.w_max)
       , q(parameters.q)
       , max_dist(parameters.max_dist)
+      , digest(parameters.digest)
     {
         if (w_min > w_max) {
             throw std::invalid_argument("w_min is greater than w_max");
@@ -118,6 +120,7 @@ private:
     const unsigned w_max;
     const uint64_t q;
     const unsigned int max_dist;
+    uint digest;
     unsigned int strobe1_index = 0;
 };
 
@@ -166,6 +169,7 @@ public:
       , w_max(randstrobe_parameters.w_max)
       , q(randstrobe_parameters.q)
       , max_dist(randstrobe_parameters.max_dist)
+      , digest(randstrobe_parameters.digest)
     { }
 
     Randstrobe next();
@@ -177,6 +181,7 @@ private:
     const unsigned w_max;
     const uint64_t q;
     const unsigned int max_dist;
+    uint digest;
     std::deque<Syncmer> syncmers;
 };
 

@@ -49,6 +49,12 @@ static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_ha
     return hash1 + hash2;
 }
 
+static inline digest_hash_t digest_hash(syncmer_hash_t hash1, syncmer_hash_t hash2, size_t digest_size) {
+    syncmer_hash_t main_hash = std::min(hash1, hash2);
+    syncmer_hash_t aux_hash = std::max(hash1, hash2);
+    return ((main_hash >> digest_size) << digest_size) ^ (aux_hash >> (64 - digest_size));
+}
+
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
     os << "Syncmer(hash=" << syncmer.hash << ", position=" << syncmer.position << ")";
     return os;
@@ -167,7 +173,10 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
         }
     }
 
-    return Randstrobe{randstrobe_hash(strobe1.hash, strobe2.hash), static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
+//    return Randstrobe{randstrobe_hash(strobe1.hash, strobe2.hash), static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
+    return Randstrobe{digest_hash(strobe1.hash, strobe2.hash, digest),
+                      static_cast<uint32_t>(strobe1.position),
+                      static_cast<uint32_t>(strobe2.position)};
 }
 
 Randstrobe RandstrobeGenerator::next() {
@@ -198,7 +207,10 @@ Randstrobe RandstrobeGenerator::next() {
         }
     }
     syncmers.pop_front();
-    return Randstrobe{randstrobe_hash(strobe1.hash, strobe2.hash), static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
+//    return Randstrobe{randstrobe_hash(strobe1.hash, strobe2.hash), static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
+    return Randstrobe{digest_hash(strobe1.hash, strobe2.hash, digest),
+                      static_cast<uint32_t>(strobe1.position),
+                      static_cast<uint32_t>(strobe2.position)};
 }
 
 /*

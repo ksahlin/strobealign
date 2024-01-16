@@ -26,10 +26,11 @@ struct SeedingArguments {
             "results with non default values.", {'s'}}
         , bits{parser, "INT", "No. of top bits of hash to use as bucket indices (8-31)"
             "[determined from reference size]", {'b'}}
+        , digest{parser, "INT", "Number of bits to be selected from the second strobe hash [24]", {"digest"}}
     {
     }
     args::ArgumentParser& parser;
-    args::ValueFlag<int> r, m, k, l, u, c, s, bits;
+    args::ValueFlag<int> r, m, k, l, u, c, s, bits, digest;
 };
 
 #endif
