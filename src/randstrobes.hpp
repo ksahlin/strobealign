@@ -39,8 +39,12 @@ struct RefRandstrobe {
         return lhs < rhs;
     }
 
+    bool main_is_first() const {
+        return (m_packed >> bit_alloc) & 1;
+    }
+
     int reference_index() const {
-        return m_packed >> bit_alloc;
+        return m_packed >> (bit_alloc + 1);
     }
 
     int strobe2_offset() const {
@@ -61,6 +65,8 @@ struct QueryRandstrobe {
     randstrobe_hash_t hash;
     unsigned int start;
     unsigned int end;
+    unsigned int partial_start;
+    unsigned int partial_end;
     bool is_reverse;
 };
 
@@ -74,6 +80,7 @@ struct Randstrobe {
     randstrobe_hash_t hash;
     unsigned int strobe1_pos;
     unsigned int strobe2_pos;
+    bool main_is_first;
 
     bool operator==(const Randstrobe& other) const {
         return hash == other.hash && strobe1_pos == other.strobe1_pos && strobe2_pos == other.strobe2_pos;
@@ -107,6 +114,7 @@ public:
       , w_max(parameters.w_max)
       , q(parameters.q)
       , max_dist(parameters.max_dist)
+      , aux_len(parameters.aux_len)
     {
         if (w_min > w_max) {
             throw std::invalid_argument("w_min is greater than w_max");
@@ -128,7 +136,8 @@ private:
     const unsigned w_max;
     const uint64_t q;
     const unsigned int max_dist;
-    unsigned int strobe1_index = 0;
+    const unsigned int aux_len;
+    unsigned strobe1_index = 0;
 };
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer);
@@ -176,10 +185,11 @@ public:
       , w_max(randstrobe_parameters.w_max)
       , q(randstrobe_parameters.q)
       , max_dist(randstrobe_parameters.max_dist)
+      , aux_len(randstrobe_parameters.aux_len)
     { }
 
     Randstrobe next();
-    Randstrobe end() const { return Randstrobe{0, 0, 0}; }
+    Randstrobe end() const { return Randstrobe{0, 0, 0, false}; }
 
 private:
     SyncmerIterator syncmer_iterator;
@@ -187,6 +197,7 @@ private:
     const unsigned w_max;
     const uint64_t q;
     const unsigned int max_dist;
+    const unsigned int aux_len;
     std::deque<Syncmer> syncmers;
 };
 

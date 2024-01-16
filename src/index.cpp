@@ -150,6 +150,8 @@ void StrobemerIndex::populate(float f, unsigned n_threads) {
     }
     stats.tot_strobemer_count = total_randstrobes;
 
+    logger.info() << "Auxiliary hash length is : " << parameters.randstrobe.aux_len;
+
     logger.debug() << "  Total number of randstrobes: " << total_randstrobes << '\n';
     uint64_t memory_bytes = references.total_length() + sizeof(RefRandstrobe) * total_randstrobes + sizeof(bucket_index_t) * (1u << bits);
     logger.debug() << "  Estimated total memory usage: " << memory_bytes / 1E9 << " GB\n";
@@ -241,6 +243,7 @@ void StrobemerIndex::populate(float f, unsigned n_threads) {
         filter_cutoff = 30;
     }
     stats.filter_cutoff = filter_cutoff;
+    partial_filter_cutoff = 100;
     stats.elapsed_hash_index = hash_index_timer.duration();
     stats.distinct_strobemers = unique_mers;
 }
@@ -304,7 +307,7 @@ void StrobemerIndex::assign_randstrobes(size_t ref_index, size_t offset) {
             chunk.push_back(randstrobe);
         }
         for (auto randstrobe : chunk) {
-            RefRandstrobe::packed_t packed = ref_index << 8;
+            RefRandstrobe::packed_t packed = (ref_index << 9) | (randstrobe.main_is_first << 8);
             packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
             randstrobes[offset++] = RefRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, packed};
         }
