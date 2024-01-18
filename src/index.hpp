@@ -121,6 +121,18 @@ struct StrobemerIndex {
             return end();
         }
     }
+
+    randstrobe_hash_t get_partial_hash(bucket_index_t position) const {
+        if (position < randstrobes.size()) {
+            return randstrobes[position].hash >> parameters.randstrobe.digest;
+        } else {
+            return end();
+        }
+    }
+
+    bool is_first_strobe_main(bucket_index_t position) const {
+        return (randstrobes[position].hash & 1) == 1;
+    }
     
     bool is_filtered(bucket_index_t position) const {
         return get_hash(position) == get_hash(position + filter_cutoff);

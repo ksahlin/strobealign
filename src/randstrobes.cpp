@@ -50,9 +50,10 @@ static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_ha
 }
 
 static inline digest_hash_t digest_hash(syncmer_hash_t hash1, syncmer_hash_t hash2, size_t digest_size) {
-    syncmer_hash_t main_hash = std::min(hash1, hash2);
-    syncmer_hash_t aux_hash = std::max(hash1, hash2);
-    return ((main_hash >> digest_size) << digest_size) ^ (aux_hash >> (64 - digest_size));
+    if (hash1 <= hash2) {
+        return (((hash1 >> digest_size) << digest_size) ^ (hash2 >> (64 - digest_size))) | 1;
+    }
+    return (((hash2 >> digest_size) << digest_size) ^ (hash1 >> (64 - digest_size))) & ~1;
 }
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
@@ -232,9 +233,12 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     RandstrobeIterator randstrobe_fwd_iter{syncmers, parameters.randstrobe};
     while (randstrobe_fwd_iter.has_next()) {
         auto randstrobe = randstrobe_fwd_iter.next();
+        bool is_first_main = (randstrobe.hash & 1) == 1;
+        uint partial_start = is_first_main ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
         randstrobes.push_back(
-            QueryRandstrobe{
-                randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k, false
+            QueryRandstrobe {
+                randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k,
+                partial_start, partial_start + parameters.syncmer.k, false
             }
         );
     }
@@ -255,9 +259,12 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     RandstrobeIterator randstrobe_rc_iter{syncmers, parameters.randstrobe};
     while (randstrobe_rc_iter.has_next()) {
         auto randstrobe = randstrobe_rc_iter.next();
+        bool is_first_main = (randstrobe.hash & 1) == 1;
+        uint partial_start = is_first_main ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
         randstrobes.push_back(
-            QueryRandstrobe{
-                randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k, true
+            QueryRandstrobe {
+                randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k,
+                partial_start, partial_start + parameters.syncmer.k, true
             }
         );
     }

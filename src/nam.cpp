@@ -19,14 +19,39 @@ inline void add_to_hits_per_ref(
     bool is_partial
 ) {
     int min_diff = std::numeric_limits<int>::max();
-    for (const auto hash = index.get_hash(position); index.get_hash(position) == hash; ++position) {
-        int ref_start = index.get_strobe1_position(position);
-        uint strobe2_position = is_partial ? 0 : index.strobe2_offset(position);
-        int ref_end = ref_start + strobe2_position + index.k();
-        int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
-        if (diff <= min_diff) {
-            hits_per_ref[index.reference_index(position)].push_back(Hit{query_start, query_end, ref_start, ref_end});
-            min_diff = diff;
+    if (not is_partial) {
+        for (const auto hash = index.get_hash(position); index.get_hash(position) == hash; ++position) {
+            int ref_start = index.get_strobe1_position(position);
+            int ref_end = ref_start + index.strobe2_offset(position) + index.k();
+            int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
+            if (diff <= min_diff) {
+                hits_per_ref[index.reference_index(position)].push_back(
+                    Hit{query_start, query_end, ref_start, ref_end}
+                );
+                min_diff = diff;
+            }
+        }
+    } else {
+        for (const auto hash = index.get_partial_hash(position);
+             index.get_partial_hash(position) == hash;
+             ++position) {
+            bool is_first_strobe_main = index.is_first_strobe_main(position);
+            // Construct the match from the strobe that was selected as the main part of the hash
+            int adj_ref_start = 0, adj_ref_end = 0;
+            if (is_first_strobe_main) {
+                adj_ref_start = index.get_strobe1_position(position);
+            }
+            else {
+                adj_ref_start = index.get_strobe1_position(position) + index.strobe2_offset(position);
+            }
+            adj_ref_end = adj_ref_start + index.k();
+            int diff = std::abs((query_end - query_start) - (adj_ref_end - adj_ref_start));
+            if (diff <= min_diff) {
+                hits_per_ref[index.reference_index(position)].push_back(
+                    Hit{query_start, query_end, adj_ref_start, adj_ref_end}
+                );
+                min_diff = diff;
+            }
         }
     }
 }
@@ -183,7 +208,9 @@ std::pair<float, std::vector<Nam>> find_nams(
                     continue;
                 }
                 nr_good_hits++;
-                add_to_hits_per_ref(hits_per_ref[q.is_reverse], q.start, q.end, index, partial_pos, true);
+                add_to_hits_per_ref(
+                    hits_per_ref[q.is_reverse], q.partial_start, q.partial_end, index, partial_pos, true
+                );
             }
         }
     }
