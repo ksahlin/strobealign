@@ -29,6 +29,10 @@ struct Nam {
     int query_span() const {
         return query_end - query_start;
     }
+
+    int projected_ref_start() const {
+        return std::max(0, ref_start - query_start);
+    }
 };
 
 std::pair<float, std::vector<Nam>> find_nams(

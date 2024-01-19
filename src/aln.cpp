@@ -215,7 +215,7 @@ inline Alignment extend_seed(
     const std::string query = nam.is_rc ? read.rc : read.seq;
     const std::string& ref = references.sequences[nam.ref_id];
 
-    const auto projected_ref_start = std::max(0, nam.ref_start - nam.query_start);
+    const auto projected_ref_start = nam.projected_ref_start();
     const auto projected_ref_end = std::min(nam.ref_end + query.size() - nam.query_end, ref.size());
 
     AlignmentInfo info;
@@ -333,14 +333,14 @@ bool is_proper_nam_pair(const Nam nam1, const Nam nam2, float mu, float sigma) {
     if (nam1.ref_id != nam2.ref_id || nam1.is_rc == nam2.is_rc) {
         return false;
     }
-    int a = std::max(0, nam1.ref_start - nam1.query_start);
-    int b = std::max(0, nam2.ref_start - nam2.query_start);
+    int r1_ref_start = nam1.projected_ref_start();
+    int r2_ref_start = nam2.projected_ref_start();
 
     // r1 ---> <---- r2
-    bool r1_r2 = nam2.is_rc && (a <= b) && (b - a < mu + 10*sigma);
+    bool r1_r2 = nam2.is_rc && (r1_ref_start <= r2_ref_start) && (r2_ref_start - r1_ref_start < mu + 10*sigma);
 
      // r2 ---> <---- r1
-    bool r2_r1 = nam1.is_rc && (b <= a) && (a - b < mu + 10*sigma);
+    bool r2_r1 = nam1.is_rc && (r2_ref_start <= r1_ref_start) && (r1_ref_start - r2_ref_start < mu + 10*sigma);
 
     return r1_r2 || r2_r1;
 }
@@ -442,8 +442,8 @@ inline Alignment rescue_align(
 
     if (mate_nam.is_rc) {
         r_tmp = read.seq;
-        a = mate_nam.ref_start - mate_nam.query_start - (mu+5*sigma);
-        b = mate_nam.ref_start - mate_nam.query_start + read_len/2; // at most half read overlap
+        a = mate_nam.projected_ref_start() - (mu+5*sigma);
+        b = mate_nam.projected_ref_start() + read_len/2; // at most half read overlap
     } else {
         r_tmp = read.rc; // mate is rc since fr orientation
         a = mate_nam.ref_end + (read_len - mate_nam.query_end) - read_len/2; // at most half read overlap
