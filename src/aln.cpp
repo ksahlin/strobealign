@@ -15,7 +15,7 @@ using namespace klibpp;
 namespace {
 
 struct NamPair {
-    int score;
+    int n_hits;
     Nam nam1;
     Nam nam2;
 };
@@ -415,7 +415,7 @@ inline std::vector<NamPair> get_best_scoring_nam_pairs(
     std::sort(
         nam_pairs.begin(),
         nam_pairs.end(),
-        [](const NamPair& a, const NamPair& b) -> bool { return a.score > b.score; }
+        [](const NamPair& a, const NamPair& b) -> bool { return a.n_hits > b.n_hits; }
     ); // Sort by highest score first
 
     return nam_pairs;
@@ -778,7 +778,7 @@ std::vector<ScoredAlignmentPair> align_paired(
 
     // Turn pairs of high-scoring NAMs into pairs of alignments
     std::vector<ScoredAlignmentPair> high_scores;
-    auto max_score = nam_pairs[0].score;
+    auto max_score = nam_pairs[0].n_hits;
     for (auto &[score_, n1, n2] : nam_pairs) {
         float score_dropoff = (float) score_ / max_score;
 
