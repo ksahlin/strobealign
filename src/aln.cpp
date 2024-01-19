@@ -333,7 +333,7 @@ bool is_proper_nam_pair(const Nam nam1, const Nam nam2, float mu, float sigma) {
     if (nam1.ref_id != nam2.ref_id || nam1.is_rc == nam2.is_rc) {
         return false;
     }
-    int a = std::max(0, nam1.ref_start - nam2.query_start);
+    int a = std::max(0, nam1.ref_start - nam1.query_start);
     int b = std::max(0, nam2.ref_start - nam2.query_start);
 
     // r1 ---> <---- r2
