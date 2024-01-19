@@ -883,7 +883,7 @@ inline void get_best_map_location(
     Nam n1_joint_max, n2_joint_max;
     for (auto &[score, nam1, nam2] : nam_pairs) { // already sorted by descending score
         if (nam1.ref_start >= 0 && nam2.ref_start >=0) { // Valid pair
-            score_joint = score;
+            score_joint = nam1.score + nam2.score;
             n1_joint_max = nam1;
             n2_joint_max = nam2;
             break;
