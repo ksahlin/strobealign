@@ -2,6 +2,10 @@
 
 ## development version
 
+* #386: Parallelize indexing even more by using @alugowski’s
+  [poolSTL](https://github.com/alugowski/) `pluggable_sort`.
+  Indexing a human reference (measured on CHM13) now takes only ~45 s on a
+  recent machine (using 8 threads).
 * #376: Improve accuracy for read length 50 by optimizing the default
   indexing parameters. Paired-end accuracy increases by 0.3 percentage
   points on average. Single-end accuracy increases by 1 percentage point.
