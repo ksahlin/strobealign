@@ -14,7 +14,7 @@ jobs:
       github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Check for tab characters
         run: "! grep -P -R '\\t' src/ tests/*.{cpp,py}"
 
@@ -27,7 +27,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Build
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
@@ -49,7 +49,7 @@ jobs:
       github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -67,48 +67,28 @@ jobs:
       github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - run: "echo baseline_commit=$(< tests/baseline-commit.txt) >> $GITHUB_ENV"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ env.baseline_commit }}
-          path: baseline
+          fetch-depth: 0  # Baseline comparison needs older commits
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get install samtools python3-pysam picard-tools
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: brew install samtools pysam picard-tools
-
       - name: Cache test dataset
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           key: test-data-${{ hashFiles('tests/download.sh') }}
           path: tests/drosophila/
-      - name: Download test dataset
-        run: tests/download.sh
-
       - name: Cache baseline BAM
         id: cache-baseline-bam
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           key: baseline-bam-${{ hashFiles('tests/baseline-commit.txt') }}
-          path: baseline.bam
-      - name: Generate baseline BAM
-        if: ${{ steps.cache-baseline-bam.outputs.cache-hit != 'true' }}
-        run: |
-          ( cd baseline && cmake -B build )
-          make -j3 -C baseline/build
-          baseline/build/strobealign tests/drosophila/ref.fasta tests/drosophila/reads.1.fastq.gz tests/drosophila/reads.2.fastq.gz | samtools view -o baseline.bam
-
-      - name: Build HEAD version
-        run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
-          make -j3 -C build
-      - name: Generate HEAD BAM
-        run: build/strobealign tests/drosophila/ref.fasta tests/drosophila/reads.1.fastq.gz tests/drosophila/reads.2.fastq.gz | samtools view -o head.bam
-      - name: Compare
-        run: python3 tests/samdiff.py baseline.bam head.bam
+          path: baseline/bam/
+      - name: Compare to baseline
+        run: tests/compare-baseline.sh
       - name: Validate with Picard
         run: |
           PicardCommandLine ValidateSamFile IGNORE=RECORD_MISSING_READ_GROUP IGNORE=MISSING_READ_GROUP I=head.bam
