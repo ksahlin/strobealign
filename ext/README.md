@@ -30,8 +30,8 @@ License: See pdqsort/license.txt
 ## poolstl
 
 Homepage: https://github.com/alugowski/poolSTL/
-Downloaded file: https://github.com/alugowski/poolSTL/releases/download/v0.3.3/poolstl.hpp
-Version: 0.3.3
+Downloaded file: https://github.com/alugowski/poolSTL/releases/download/v0.3.4/poolstl.hpp
+Version: 0.3.4
 License: See poolstl.hpp
 
 ## robin_hood
