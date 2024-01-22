@@ -10,6 +10,9 @@
 * #378: Added `-C` option for appending the FASTA or FASTQ comment to SAM
   output. (Idea and name of the option taken from BWA-MEM.)
 * #371: Added `--no-PG` option for not outputting the PG SAM header
+* Include [ZStr](https://github.com/mateidavid/zstr/) in our own repository
+  instead of downloading it at build time. This should make it possible to
+  build strobealign without internet access.
 
 ## v0.12.0 (2023-11-23)
 

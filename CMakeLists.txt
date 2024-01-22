@@ -25,11 +25,7 @@ endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 add_compile_options(-Wall -Wextra -Werror=maybe-uninitialized)
 
-FetchContent_Declare(ZStrGitRepo
-  GIT_REPOSITORY    "https://github.com/mateidavid/zstr"
-  GIT_TAG           "755da7890ea22478a702e3139092e6c964fab1f5"
-)
-FetchContent_MakeAvailable(ZStrGitRepo)
+add_subdirectory(ext/zstr)
 
 # Obtain version from Git or fall back to PROJECT_VERSION if not building
 # from a Git repository
