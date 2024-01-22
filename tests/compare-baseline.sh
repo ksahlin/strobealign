@@ -35,18 +35,18 @@ tests/download.sh
 
 baseline_commit=$(< tests/baseline-commit.txt)
 
-baseline_bam=baseline/baseline-${baseline_commit}.${ends}.bam
+baseline_bam=baseline/bam/${baseline_commit}.${ends}.bam
 baseline_binary=baseline/strobealign-${baseline_commit}
 cmake_options=-DCMAKE_BUILD_TYPE=RelWithDebInfo
 strobealign_options="-t 4"
 
 # Generate the baseline BAM if necessary
-mkdir -p baseline
+mkdir -p baseline/bam
 if ! test -f ${baseline_bam}; then
   if ! test -f ${baseline_binary}; then
     srcdir=$(mktemp -p . -d compile.XXXXXXX)
     git clone . ${srcdir}
-    ( cd ${srcdir} && git checkout ${baseline_commit} )
+    ( cd ${srcdir} && git checkout -d ${baseline_commit} )
     cmake ${srcdir} -B ${srcdir}/build ${cmake_options}
     if ! make -j 4 -C ${srcdir}/build strobealign; then
       exit 1
