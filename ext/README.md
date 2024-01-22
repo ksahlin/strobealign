@@ -47,3 +47,10 @@ License: See ssw/README.md
 Homepage: https://www.xxhash.com
 Version: ?
 License: See xxhash.c
+
+
+## zstr
+
+Homepage: https://github.com/mateidavid/zstr
+Commit used: 755da7890ea22478a702e3139092e6c964fab1f5
+License: See zstr/LICENSE
