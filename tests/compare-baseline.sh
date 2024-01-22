@@ -33,7 +33,7 @@ fi
 # Ensure test data is available
 tests/download.sh
 
-source tests/baseline-commit.txt
+baseline_commit=$(< tests/baseline-commit.txt)
 
 baseline_bam=baseline/baseline-${baseline_commit}.${ends}.bam
 baseline_binary=baseline/strobealign-${baseline_commit}

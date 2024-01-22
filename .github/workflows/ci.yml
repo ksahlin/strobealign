@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: cat tests/baseline-commit.txt >> $GITHUB_ENV
+      - run: "echo baseline_commit=$(< tests/baseline-commit.txt) >> $GITHUB_ENV"
       - uses: actions/checkout@v3
         with:
           ref: ${{ env.baseline_commit }}
