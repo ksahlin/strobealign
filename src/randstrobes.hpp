@@ -34,8 +34,12 @@ struct RefRandstrobe {
         return hash < other.hash;
     }
 
+    bool is_first_main() const {
+        return (m_packed >> bit_alloc) & 1;
+    }
+
     int reference_index() const {
-        return m_packed >> bit_alloc;
+        return m_packed >> (bit_alloc + 1);
     }
 
     int strobe2_offset() const {
@@ -54,6 +58,7 @@ struct QueryRandstrobe {
     unsigned int end;
     unsigned int partial_start;
     unsigned int partial_end;
+    bool is_first_main;
     bool is_reverse;
 };
 
@@ -67,6 +72,7 @@ struct Randstrobe {
     randstrobe_hash_t hash;
     unsigned int strobe1_pos;
     unsigned int strobe2_pos;
+    bool is_first_main;
 
     bool operator==(const Randstrobe& other) const {
         return hash == other.hash && strobe1_pos == other.strobe1_pos && strobe2_pos == other.strobe2_pos;
@@ -175,7 +181,7 @@ public:
     { }
 
     Randstrobe next();
-    Randstrobe end() const { return Randstrobe{0, 0, 0}; }
+    Randstrobe end() const { return Randstrobe{0, 0, 0, false}; }
 
 private:
     SyncmerIterator syncmer_iterator;

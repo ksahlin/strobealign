@@ -200,7 +200,8 @@ std::pair<float, std::vector<Nam>> find_nams(
             }
             nr_good_hits++;
             add_to_hits_per_ref(hits_per_ref[q.is_reverse], q.start, q.end, index, position, false);
-        } else {
+        }
+        else {
             size_t partial_pos = index.partial_find(q.hash);
             if (partial_pos != index.end()) {
                 total_hits++;
