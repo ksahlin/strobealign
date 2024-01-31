@@ -505,7 +505,7 @@ namespace task_thread_pool {
 // Version macros.
 #define POOLSTL_VERSION_MAJOR 0
 #define POOLSTL_VERSION_MINOR 3
-#define POOLSTL_VERSION_PATCH 4
+#define POOLSTL_VERSION_PATCH 5
 
 #include <cstddef>
 #include <iterator>
@@ -1287,7 +1287,7 @@ namespace task_thread_pool {
 // Version macros.
 #define POOLSTL_VERSION_MAJOR 0
 #define POOLSTL_VERSION_MINOR 3
-#define POOLSTL_VERSION_PATCH 4
+#define POOLSTL_VERSION_PATCH 5
 
 #include <cstddef>
 #include <iterator>
@@ -1679,7 +1679,7 @@ namespace poolstl {
                 auto iter_chunk_size = get_iter_chunk_size(first, last, chunk_size);
                 RandIt loop_end = advanced(first, iter_chunk_size);
 
-                futures.emplace_back(task_pool.submit(std::forward<Chunk>(chunk), first, loop_end));
+                futures.emplace_back(task_pool.submit(chunk, first, loop_end));
 
                 first = loop_end;
             }
@@ -1702,8 +1702,7 @@ namespace poolstl {
                 auto iter_chunk_size = get_iter_chunk_size(first, last, chunk_size);
                 RandIt loop_end = advanced(first, iter_chunk_size);
 
-                futures.emplace_back(task_pool.submit(std::forward<Chunk>(chunk), first, loop_end,
-                                                      std::forward<A>(chunk_args)...));
+                futures.emplace_back(task_pool.submit(chunk, first, loop_end, chunk_args...));
 
                 first = loop_end;
             }
@@ -1719,8 +1718,7 @@ namespace poolstl {
         parallel_chunk_for_1_wait(ExecPolicy &&policy, RandIt first, RandIt last,
                                   Chunk chunk, ChunkRet* rettype, int extra_split_factor, A&&... chunk_args) {
             auto futures = parallel_chunk_for_1(std::forward<ExecPolicy>(policy), first, last,
-                                                std::forward<Chunk>(chunk), rettype, extra_split_factor,
-                                                std::forward<A>(chunk_args)...);
+                                                chunk, rettype, extra_split_factor, chunk_args...);
             get_futures(futures);
         }
 
@@ -1739,8 +1737,7 @@ namespace poolstl {
                 auto iter_chunk_size = get_iter_chunk_size(first1, last1, chunk_size);
                 RandIt1 loop_end = advanced(first1, iter_chunk_size);
 
-                futures.emplace_back(task_pool.submit(std::forward<Chunk>(chunk), first1, loop_end, first2,
-                                                      std::forward<A>(chunk_args)...));
+                futures.emplace_back(task_pool.submit(chunk, first1, loop_end, first2, chunk_args...));
 
                 first1 = loop_end;
                 std::advance(first2, iter_chunk_size);
@@ -1765,8 +1762,7 @@ namespace poolstl {
                 auto iter_chunk_size = get_iter_chunk_size(first1, last1, chunk_size);
                 RandIt1 loop_end = advanced(first1, iter_chunk_size);
 
-                futures.emplace_back(task_pool.submit(std::forward<Chunk>(chunk), first1, loop_end, first2, first3,
-                                                      std::forward<A>(chunk_args)...));
+                futures.emplace_back(task_pool.submit(chunk, first1, loop_end, first2, first3, chunk_args...));
 
                 first1 = loop_end;
                 std::advance(first2, iter_chunk_size);
@@ -1896,8 +1892,13 @@ namespace poolstl {
             // Target partition size. Range will be recursively partitioned into partitions no bigger than this
             // size. Target approximately twice as many partitions as threads to reduce impact of uneven pivot
             // selection.
-            std::ptrdiff_t target_leaf_size = std::max(std::distance(first, last) / (task_pool.get_num_threads() * 2),
+            auto num_threads = task_pool.get_num_threads();
+            std::ptrdiff_t target_leaf_size = std::max(std::distance(first, last) / (num_threads * 2),
                                                        (std::ptrdiff_t)5);
+
+            if (num_threads == 1) {
+                target_leaf_size = std::distance(first, last);
+            }
 
             // task_thread_pool does not support creating task DAGs, so organize the code such that
             // all parallel tasks are independent. The parallel tasks can spawn additional parallel tasks, and they
@@ -1926,6 +1927,39 @@ namespace poolstl {
 
             // Wait on all the parallel tasks.
             get_futures(futures);
+        }
+
+        /**
+         * Partition range according to predicate. Unstable.
+         *
+         * This implementation only parallelizes with p=2; will spawn and wait for only one task.
+         */
+        template <class RandIt, class Predicate>
+        RandIt partition_p2(task_thread_pool::task_thread_pool &task_pool, RandIt first, RandIt last, Predicate pred) {
+            auto range_size = std::distance(first, last);
+            if (range_size < 4) {
+                return std::partition(first, last, pred);
+            }
+
+            // approach should be generalizable to arbitrary p
+
+            RandIt mid = std::next(first + range_size / 2);
+
+            // partition left and right halves in parallel
+            auto left_future = task_pool.submit(std::partition<RandIt, Predicate>, first, mid, pred);
+            RandIt right_mid = std::partition(mid, last, pred);
+            RandIt left_mid = left_future.get();
+
+            // merge the two partitioned halves
+            auto left_highs_size = std::distance(left_mid, mid);
+            auto right_lows_size = std::distance(mid, right_mid);
+            if (left_highs_size <= right_lows_size) {
+                std::swap_ranges(left_mid, mid, right_mid - left_highs_size);
+                return right_mid - left_highs_size;
+            } else {
+                std::swap_ranges(mid, right_mid, left_mid);
+                return left_mid + right_lows_size;
+            }
         }
     }
 }
@@ -1965,8 +1999,7 @@ namespace poolstl {
                 auto iter_chunk_size = get_iter_chunk_size(first, last, chunk_size);
                 RandIt loop_end = advanced(first, iter_chunk_size);
 
-                threads.emplace_back(std::thread(std::forward<Chunk>(chunk), first, loop_end,
-                                                 std::forward<A>(chunk_args)...));
+                threads.emplace_back(std::thread(chunk, first, loop_end, chunk_args...));
 
                 first = loop_end;
             }
@@ -1981,6 +2014,66 @@ namespace poolstl {
 }
 
 #endif
+
+namespace poolstl {
+    /**
+     * NOTE: Iterators are expected to be random access.
+     *
+     * Like `std::sort`, but allows specifying the sequential sort method, which must have the
+     * same signature as the comparator version of `std::sort`.
+     *
+     * Implemented as a high-level quicksort that delegates to `sort_func`, in parallel, once the range has been
+     * sufficiently partitioned.
+     */
+    template <class ExecPolicy, class RandIt, class Compare>
+    poolstl::internal::enable_if_poolstl_policy<ExecPolicy, void>
+    pluggable_sort(ExecPolicy &&policy, RandIt first, RandIt last, Compare comp,
+                   void (sort_func)(RandIt, RandIt, Compare) = std::sort) {
+        if (poolstl::internal::is_seq<ExecPolicy>(policy)) {
+            sort_func(first, last, comp);
+            return;
+        }
+
+        // Parallel partition.
+        // The partition_p2 method spawns and waits for its own child task. A deadlock is possible if all worker
+        // threads are waiting for tasks that in turn have to workers to execute them. This is only an issue because
+        // our thread pool does not have the concept of dependencies.
+        // So ensure
+        auto& task_pool = *policy.pool();
+        std::atomic<int> allowed_parallel_partitions{(int)task_pool.get_num_threads() / 2};
+
+        auto part_func = [&task_pool, &allowed_parallel_partitions](RandIt chunk_first, RandIt chunk_last,
+                                   poolstl::internal::pivot_predicate<Compare,
+                                   typename std::iterator_traits<RandIt>::value_type> pred) {
+            if (allowed_parallel_partitions.fetch_sub(1) > 0) {
+                return poolstl::internal::partition_p2(task_pool, chunk_first, chunk_last, pred);
+            } else {
+                return std::partition(chunk_first, chunk_last, pred);
+            }
+        };
+
+        poolstl::internal::parallel_quicksort(std::forward<ExecPolicy>(policy), first, last, comp, sort_func, part_func,
+                                              poolstl::internal::quicksort_pivot<RandIt>);
+    }
+
+    /**
+     * NOTE: Iterators are expected to be random access.
+     *
+     * Like `std::sort`, but allows specifying the sequential sort method, which must have the
+     * same signature as the comparator version of `std::sort`.
+     *
+     * Implemented as a parallel high-level quicksort that delegates to `sort_func` once the range has been
+     * sufficiently partitioned.
+     */
+    template <class ExecPolicy, class RandIt>
+    poolstl::internal::enable_if_poolstl_policy<ExecPolicy, void>
+    pluggable_sort(ExecPolicy &&policy, RandIt first, RandIt last,
+                   void (sort_func)(RandIt, RandIt,
+                                    std::less<typename std::iterator_traits<RandIt>::value_type>) = std::sort){
+        using T = typename std::iterator_traits<RandIt>::value_type;
+        pluggable_sort(std::forward<ExecPolicy>(policy), first, last, std::less<T>(), sort_func);
+    }
+}
 
 namespace std {
 
@@ -2181,6 +2274,22 @@ namespace std {
 
     /**
      * NOTE: Iterators are expected to be random access.
+     * See std::partition https://en.cppreference.com/w/cpp/algorithm/partition
+     *
+     * Current implementation uses at most 2 threads.
+     */
+    template <class ExecPolicy, class RandIt, class Predicate>
+    poolstl::internal::enable_if_poolstl_policy<ExecPolicy, RandIt>
+    partition(ExecPolicy &&policy, RandIt first, RandIt last, Predicate pred) {
+        if (poolstl::internal::is_seq<ExecPolicy>(policy)) {
+            return std::partition(first, last, pred);
+        }
+
+        return poolstl::internal::partition_p2(*policy.pool(), first, last, pred);
+    }
+
+    /**
+     * NOTE: Iterators are expected to be random access.
      * See std::sort https://en.cppreference.com/w/cpp/algorithm/sort
      */
     template <class ExecPolicy, class RandIt, class Compare>
@@ -2191,11 +2300,7 @@ namespace std {
             return;
         }
 
-        poolstl::internal::parallel_quicksort(std::forward<ExecPolicy>(policy), first, last, comp,
-                                              std::sort<RandIt, Compare>,
-                                              std::partition<RandIt, poolstl::internal::pivot_predicate<Compare,
-                                                  typename std::iterator_traits<RandIt>::value_type>>,
-                                              poolstl::internal::quicksort_pivot<RandIt>);
+        poolstl::pluggable_sort(std::forward<ExecPolicy>(policy), first, last, comp, std::sort<RandIt, Compare>);
     }
 
     /**
@@ -2345,48 +2450,6 @@ namespace poolstl {
         poolstl::internal::parallel_chunk_for_1_wait(std::forward<ExecPolicy>(policy), first, last,
                                                      for_each_chunk <RandIt, ChunkConstructor, UnaryFunction>,
                                                      (void*)nullptr, 1, construct, f);
-    }
-
-    /**
-     * NOTE: Iterators are expected to be random access.
-     *
-     * Like `std::sort`, but allows specifying the sequential sort method, which must have the
-     * same signature as the comparator version of `std::sort`.
-     *
-     * Implemented as a high-level quicksort that delegates to `sort_func`, in parallel, once the range has been
-     * sufficiently partitioned.
-     */
-    template <class ExecPolicy, class RandIt, class Compare>
-    poolstl::internal::enable_if_poolstl_policy<ExecPolicy, void>
-    pluggable_sort(ExecPolicy &&policy, RandIt first, RandIt last, Compare comp,
-                   void (sort_func)(RandIt, RandIt, Compare) = std::sort) {
-        if (poolstl::internal::is_seq<ExecPolicy>(policy)) {
-            sort_func(first, last, comp);
-            return;
-        }
-
-        poolstl::internal::parallel_quicksort(std::forward<ExecPolicy>(policy), first, last, comp, sort_func,
-                                              std::partition<RandIt, poolstl::internal::pivot_predicate<Compare,
-                                                  typename std::iterator_traits<RandIt>::value_type>>,
-                                              poolstl::internal::quicksort_pivot<RandIt>);
-    }
-
-    /**
-     * NOTE: Iterators are expected to be random access.
-     *
-     * Like `std::sort`, but allows specifying the sequential sort method, which must have the
-     * same signature as the comparator version of `std::sort`.
-     *
-     * Implemented as a parallel high-level quicksort that delegates to `sort_func` once the range has been
-     * sufficiently partitioned.
-     */
-    template <class ExecPolicy, class RandIt>
-    poolstl::internal::enable_if_poolstl_policy<ExecPolicy, void>
-    pluggable_sort(ExecPolicy &&policy, RandIt first, RandIt last,
-                   void (sort_func)(RandIt, RandIt,
-                                    std::less<typename std::iterator_traits<RandIt>::value_type>) = std::sort){
-        using T = typename std::iterator_traits<RandIt>::value_type;
-        pluggable_sort(std::forward<ExecPolicy>(policy), first, last, std::less<T>(), sort_func);
     }
 
     /**
