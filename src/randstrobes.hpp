@@ -47,10 +47,14 @@ struct RefRandstrobe {
         return m_packed & mask;
     }
 
+
 private:
     static constexpr int bit_alloc = 8;
     static constexpr int mask = (1 << bit_alloc) - 1;
     packed_t m_packed; // packed representation of ref_index and strobe offset
+
+public:
+    static constexpr uint32_t max_number_of_references = (1 << (32 - bit_alloc)) - 1;
 };
 
 struct QueryRandstrobe {

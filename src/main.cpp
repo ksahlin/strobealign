@@ -25,6 +25,7 @@
 #include "timer.hpp"
 #include "readlen.hpp"
 #include "version.hpp"
+#include "randstrobes.hpp"
 #include "buildconfig.hpp"
 
 
@@ -207,6 +208,10 @@ int run_strobealign(int argc, char **argv) {
         << (*std::max_element(references.lengths.begin(), references.lengths.end()) / 1E6) << " Mbp)\n";
     if (references.total_length() == 0) {
         throw InvalidFasta("No reference sequences found");
+    }
+
+    if (references.size() > RefRandstrobe::max_number_of_references) {
+        throw InvalidFasta("Too many reference sequences. Current maximum is " + std::to_string(RefRandstrobe::max_number_of_references));
     }
 
     StrobemerIndex index(references, index_parameters, opt.bits);
