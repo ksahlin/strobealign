@@ -64,6 +64,7 @@ struct MappingParameters {
     int max_tries { 20 };
     int rescue_cutoff;
     bool is_sam_out { true };
+    bool is_abundance_out {false};
     CigarOps cigar_ops{CigarOps::M};
     bool output_unmapped { true };
     bool details{false};
@@ -88,7 +89,8 @@ void align_or_map_paired(
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index,
-    std::minstd_rand& random_engine
+    std::minstd_rand& random_engine,
+    std::vector<float> &abundance
 );
 
 void align_or_map_single(
@@ -101,7 +103,8 @@ void align_or_map_single(
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index,
-    std::minstd_rand& random_engine
+    std::minstd_rand& random_engine,
+    std::vector<float> &abundance
 );
 
 // Private declarations, only needed for tests

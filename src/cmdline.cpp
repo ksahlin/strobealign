@@ -31,6 +31,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlag<std::string> index_statistics(parser, "PATH", "Print statistics of indexing to PATH", {"index-statistics"});
     args::Flag i(parser, "index", "Do not map reads; only generate the strobemer index and write it to disk. If read files are provided, they are used to estimate read length", {"create-index", 'i'});
     args::Flag use_index(parser, "use_index", "Use a pre-generated index previously written with --create-index.", { "use-index" });
+    args::Flag aemb(parser, "aemb", "Only output abundance value of contigs for metagenomic binning", {"aemb"});
 
     args::Group sam(parser, "SAM output:");
     args::Flag eqx(parser, "eqx", "Emit =/X instead of M CIGAR operations", {"eqx"});
@@ -97,6 +98,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (index_statistics) { opt.logfile_name = args::get(index_statistics); }
     if (i) { opt.only_gen_index = true; }
     if (use_index) { opt.use_index = true; }
+    if (aemb) {opt.is_abundance_out = true; }
 
     // SAM output
     if (eqx) { opt.cigar_eqx = true; }
