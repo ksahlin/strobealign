@@ -868,11 +868,18 @@ inline void get_best_map_location(
     std::vector<Nam> &nams2,
     InsertSizeDistribution &isize_est,
     Nam &best_nam1,
-    Nam &best_nam2
+    Nam &best_nam2,
+    std::vector<float> &abundance, 
+    int read1_len, 
+    int read2_len,
+    bool output_abundance      
 ) {
     std::vector<NamPair> nam_pairs = get_best_scoring_nam_pairs(nams1, nams2, isize_est.mu, isize_est.sigma);
     best_nam1.ref_start = -1; //Unmapped until proven mapped
     best_nam2.ref_start = -1; //Unmapped until proven mapped
+
+    std::vector<Nam> best_ref1;
+    std::vector<Nam> best_ref2;
 
     if (nam_pairs.empty()) {
         return;
@@ -903,6 +910,73 @@ inline void get_best_map_location(
     if (score_joint > score_indiv) { // joint score is better than individual
         best_nam1 = n1_joint_max;
         best_nam2 = n2_joint_max;
+
+        if (output_abundance){
+            for (auto &[score, n1, n2] : nam_pairs){
+                if ((n1.score + n2.score) == score_joint){
+                    best_ref1.push_back(n1);
+                    best_ref2.push_back(n2);
+                }else{
+                    break;
+                }
+            }
+
+            int ref_size1 = best_ref1.size();
+            for (auto &t: best_ref1){
+                if (t.ref_start < 0) {
+                    continue;
+                }
+                abundance[t.ref_id] += float(read1_len) / float(ref_size1);
+            }
+
+            int ref_size2 = best_ref2.size();
+            for (auto &t: best_ref2){
+                if (t.ref_start < 0) {
+                    continue;
+                }
+                abundance[t.ref_id] += float(read2_len) / float(ref_size2);
+            }
+            }
+
+    }
+    else{
+        if (output_abundance){
+            if (!nams1.empty()){
+                for (auto &t : nams1){
+                    if (t.score == nams1[0].score){
+                        best_ref1.push_back(t);
+                    }else{
+                        break;
+                    }
+                }
+
+                int ref_size1 = best_ref1.size();
+                for (auto &t: best_ref1){
+                    if (t.ref_start < 0) {
+                        continue;
+                    }
+                    abundance[t.ref_id] += float(read1_len) / float(ref_size1);
+                }
+        }
+
+            if (!nams2.empty()){
+                for (auto &t : nams2){
+                    if (t.score == nams2[0].score){
+                        best_ref2.push_back(t);
+                    }else{
+                        break;
+                    }
+                }
+
+                int ref_size2 = best_ref2.size();
+                for (auto &t: best_ref2){
+                    if (t.ref_start < 0) {
+                        continue;
+                    }
+                    abundance[t.ref_id] += float(read2_len) / float(ref_size2);
+                }
+            }
+        }
     }
 
     if (isize_est.sample_size < 400 && score_joint > score_indiv) {
@@ -957,7 +1031,8 @@ void align_or_map_paired(
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index,
-    std::minstd_rand& random_engine
+    std::minstd_rand& random_engine,    
+    std::vector<float> &abundance
 ) {
     std::array<Details, 2> details;
     std::array<std::vector<Nam>, 2> nams_pair;
@@ -991,12 +1066,19 @@ void align_or_map_paired(
     }
 
     Timer extend_timer;
+    if (map_param.is_abundance_out){
+        Nam nam_read1;
+        Nam nam_read2;
+        get_best_map_location(nams_pair[0], nams_pair[1], isize_est,nam_read1, nam_read2, abundance, record1.seq.length(), record2.seq.length(), map_param.is_abundance_out);
+    }
+    else{
     if (!map_param.is_sam_out) {
         Nam nam_read1;
         Nam nam_read2;
         get_best_map_location(nams_pair[0], nams_pair[1], isize_est,
                               nam_read1,
-                              nam_read2);
+                              nam_read2, abundance, record1.seq.length(), 
+                              record2.seq.length(), map_param.is_abundance_out);
         output_hits_paf_PE(outstring, nam_read1, record1.name,
                            references,
                            record1.seq.length());
@@ -1066,6 +1148,7 @@ void align_or_map_paired(
             );
         }
     }
+    }
     statistics.tot_extend += extend_timer.duration();
     statistics += details[0];
     statistics += details[1];
@@ -1082,7 +1165,8 @@ void align_or_map_single(
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index,
-    std::minstd_rand& random_engine
+    std::minstd_rand& random_engine,
+    std::vector<float> &abundance
 ) {
     Details details;
     Timer strobe_timer;
@@ -1111,15 +1195,36 @@ void align_or_map_single(
 
 
     Timer extend_timer;
-    if (!map_param.is_sam_out) {
-        output_hits_paf(outstring, nams, record.name, references,
-                        record.seq.length());
-    } else {
-        align_single(
-            aligner, sam, nams, record, index_parameters.syncmer.k,
-            references, details, map_param.dropoff_threshold, map_param.max_tries,
-            map_param.max_secondary, random_engine
-        );
+    std::vector<Nam> best_ref;
+    if (map_param.is_abundance_out){
+        if (!nams.empty()){
+            for (auto &t : nams){
+                if (t.score == nams[0].score){
+                    best_ref.push_back(t);
+                }else{
+                    break;
+                }
+            }
+            int ref_size = best_ref.size();
+            for (auto &t: best_ref){
+                if (t.ref_start < 0) {
+                    continue;
+                }
+                abundance[t.ref_id] += float(record.seq.length()) / float(ref_size);
+            }
+        }
+    }
+    else{
+        if (!map_param.is_sam_out) {
+            output_hits_paf(outstring, nams, record.name, references,
+                            record.seq.length());
+        } else {
+            align_single(
+                aligner, sam, nams, record, index_parameters.syncmer.k,
+                references, details, map_param.dropoff_threshold, map_param.max_tries,
+                map_param.max_secondary, random_engine
+            );
+        }
     }
     statistics.tot_extend += extend_timer.duration();
     statistics += details;
