@@ -30,7 +30,13 @@ struct RefRandstrobe {
         , m_packed(packed) { }
 
     bool operator< (const RefRandstrobe& other) const {
-        return hash < other.hash;
+        // Compare both hash and position to ensure that the order of the
+        // RefRandstrobes in the index is reproducible no matter which sorting
+        // function is used. This branchless comparison is faster than the
+        // equivalent one using std::tie.
+        __uint128_t lhs = (static_cast<__uint128_t>(hash) << 64) | position;
+        __uint128_t rhs = (static_cast<__uint128_t>(other.hash) << 64) | other.position;
+        return lhs < rhs;
     }
 
     int reference_index() const {
