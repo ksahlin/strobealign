@@ -35,7 +35,8 @@ struct Profile {
 static auto max{std::numeric_limits<int>::max()};
 
 static std::vector<Profile> profiles = {
-        Profile{ 50,  90, 18, -4, -2,  1},
+        Profile{ 50,  70, 18, -4, -2,  1},
+        Profile{ 75,  90, 20, -4, -3,  2},
         Profile{100, 110, 20, -4, -2,  2},
         Profile{125, 135, 20, -4, -1,  4},
         Profile{150, 175, 20, -4,  1,  7},
