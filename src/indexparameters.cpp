@@ -126,7 +126,7 @@ std::string IndexParameters::filename_extension() const {
         // nothing was overridden
         sstream << ".r" << canonical_read_length;
     }
-    sstream << ".stimc";
+    sstream << ".sti";
     return sstream.str();
 }
 

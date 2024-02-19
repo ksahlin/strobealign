@@ -39,7 +39,7 @@ struct StrobemerIndex {
     using bucket_index_t = uint64_t;
     StrobemerIndex(const References& references, const IndexParameters& parameters, int bits=-1)
         : filter_cutoff(0)
-        , partial_filter_cutoff(2000) //fixme initialize somewhere else
+        , partial_filter_cutoff(0)
         , parameters(parameters)
         , references(references)
         , bits(bits == -1 ? pick_bits(references.total_length()) : bits)
