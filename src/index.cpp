@@ -11,6 +11,7 @@
 #include <cassert>
 #include <algorithm>
 #include "pdqsort/pdqsort.h"
+#include "poolstl/poolstl.hpp"
 #include <iostream>
 #include <thread>
 #include <atomic>
@@ -138,7 +139,7 @@ int StrobemerIndex::pick_bits(size_t size) const {
     return std::clamp(static_cast<int>(log2(estimated_number_of_randstrobes)) - 1, 8, 31);
 }
 
-void StrobemerIndex::populate(float f, size_t n_threads) {
+void StrobemerIndex::populate(float f, unsigned n_threads) {
     Timer count_hash;
     auto randstrobe_counts = count_all_randstrobes(references, parameters, n_threads);
     stats.elapsed_counting_hashes = count_hash.duration();
@@ -164,8 +165,8 @@ void StrobemerIndex::populate(float f, size_t n_threads) {
 
     Timer sorting_timer;
     logger.debug() << "  Sorting ...\n";
-    // sort by hash values
-    pdqsort_branchless(randstrobes.begin(), randstrobes.end());
+    task_thread_pool::task_thread_pool pool{n_threads};
+    poolstl::pluggable_sort(poolstl::par.on(pool), randstrobes.begin(), randstrobes.end(), pdqsort_branchless);
     stats.elapsed_sorting_seeds = sorting_timer.duration();
 
     Timer hash_index_timer;

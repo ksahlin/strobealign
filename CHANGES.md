@@ -2,9 +2,17 @@
 
 ## development version
 
+* #386: Parallelize indexing even more by using @alugowski’s
+  [poolSTL](https://github.com/alugowski/) `pluggable_sort`.
+  Indexing a human reference (measured on CHM13) now takes only ~45 s on a
+  recent machine (using 8 threads).
 * #376: Improve accuracy for read length 50 by optimizing the default
   indexing parameters. Paired-end accuracy increases by 0.3 percentage
   points on average. Single-end accuracy increases by 1 percentage point.
+* #395: Previously, read length 75 used the same indexing parameters as length
+  50, but the improved settings for length 50 are not the best for length 75.
+  To avoid a decrease in accuracy, we introduced a new set of pre-defined
+  indexing parameters for read length 75 (a new canonical read length).
 * If `--details` is used, output `X0:i` SAM tag with the number of
   identically-scored best alignments
 * #378: Added `-C` option for appending the FASTA or FASTQ comment to SAM

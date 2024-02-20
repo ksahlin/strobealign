@@ -9,7 +9,7 @@ Strobealign is a read mapper that is typically significantly faster than other r
 
 - Map single-end and paired-end reads
 - Multithreading support
-- Fast indexing (1-2 minutes for a human-sized reference genome using four cores)
+- Fast indexing (<1 minute for a human-sized reference genome using four cores)
 - On-the-fly indexing by default. Optionally create an on-disk index.
 - Output in standard SAM format or produce even faster results by writing PAF (without alignments)
 - Strobealign is most suited for read lengths between 100 and 500 bp
@@ -151,9 +151,9 @@ options. Some important ones are:
 Strobealign needs to build an index (strobemer index) of the reference before
 it can map reads to it.
 The optimal indexing parameters depend on the length of the input reads.
-There are currently seven different pre-defined sets of parameters that are
-optimized for different read lengths. These *canonical read lengths* are
-50, 100, 125, 150, 250 and 400. When deciding which of the pre-defined
+There are pre-defined sets of parameters that are optimized for different read
+lengths. These *canonical read lengths* are
+50, 75, 100, 125, 150, 250 and 400. When deciding which of the pre-defined
 indexing parameter sets to use, strobealign chooses one whose canonical
 read length is close to the average read length of the input.
 

@@ -30,7 +30,13 @@ struct RefRandstrobe {
         , m_packed(packed) { }
 
     bool operator< (const RefRandstrobe& other) const {
-        return hash < other.hash;
+        // Compare both hash and position to ensure that the order of the
+        // RefRandstrobes in the index is reproducible no matter which sorting
+        // function is used. This branchless comparison is faster than the
+        // equivalent one using std::tie.
+        __uint128_t lhs = (static_cast<__uint128_t>(hash) << 64) | position;
+        __uint128_t rhs = (static_cast<__uint128_t>(other.hash) << 64) | other.position;
+        return lhs < rhs;
     }
 
     int reference_index() const {
@@ -41,10 +47,14 @@ struct RefRandstrobe {
         return m_packed & mask;
     }
 
+
 private:
     static constexpr int bit_alloc = 8;
     static constexpr int mask = (1 << bit_alloc) - 1;
     packed_t m_packed; // packed representation of ref_index and strobe offset
+
+public:
+    static constexpr uint32_t max_number_of_references = (1 << (32 - bit_alloc)) - 1;
 };
 
 struct QueryRandstrobe {
