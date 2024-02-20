@@ -27,11 +27,11 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::Flag v(parser, "v", "Verbose output", {'v'});
     args::Flag no_progress(parser, "no-progress", "Disable progress report (enabled by default if output is a terminal)", {"no-progress"});
     args::Flag x(parser, "x", "Only map reads, no base level alignment (produces PAF file)", {'x'});
+    args::Flag aemb(parser, "aemb", "Output the estimated abundance value of contigs, the format of output file is: contig_id \t abundance_value", {"aemb"});
     args::Flag interleaved(parser, "interleaved", "Interleaved input", {"interleaved"});
     args::ValueFlag<std::string> index_statistics(parser, "PATH", "Print statistics of indexing to PATH", {"index-statistics"});
     args::Flag i(parser, "index", "Do not map reads; only generate the strobemer index and write it to disk. If read files are provided, they are used to estimate read length", {"create-index", 'i'});
     args::Flag use_index(parser, "use_index", "Use a pre-generated index previously written with --create-index.", { "use-index" });
-    args::Flag aemb(parser, "aemb", "Only output abundance value of contigs for metagenomic binning", {"aemb"});
 
     args::Group sam(parser, "SAM output:");
     args::Flag eqx(parser, "eqx", "Emit =/X instead of M CIGAR operations", {"eqx"});

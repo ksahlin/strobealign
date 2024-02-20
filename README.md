@@ -113,6 +113,11 @@ strobealign ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools sort -o sorted.b
 This is usually faster than doing the two steps separately because fewer
 intermediate files are created.
 
+To output the estimated abundance of every contig, the format of output file is: contig_id \t abundance_value:
+```
+strobealign ref.fa reads.fq --aemb > abundance.txt                # Single-end reads
+strobealign ref.fa reads1.fq reads2.fq --aemb > abundance.txt     # Paired-end reads
+```
 
 ## Command-line options
 
@@ -127,6 +132,7 @@ options. Some important ones are:
 * `--eqx`: Emit `=` and `X` CIGAR operations instead of `M`.
 * `-x`: Only map reads, do not do no base-level alignment. This switches the
   output format from SAM to [PAF](https://github.com/lh3/miniasm/blob/master/PAF.md).
+* `--aemb`: Output the estimated abundance value of every contig, the format of output file is: contig_id \t abundance_value.
 * `--rg-id=ID`: Add RG tag to each SAM record.
 * `--rg=TAG:VALUE`: Add read group metadata to the SAM header. This can be
   specified multiple times. Example: `--rg-id=1 --rg=SM:mysamle --rg=LB:mylibrary`.

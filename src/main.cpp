@@ -105,6 +105,12 @@ InputBuffer get_input_buffer(const CommandLineOptions& opt) {
     }
 }
 
+void output_abundance(std::vector<double> abundances, References references){
+        for (size_t i = 0; i < references.size(); ++i) {
+            std::cout << references.names[i] << '\t' << std::fixed << std::setprecision(6) << abundances[i] / double(references.sequences[i].size()) << std::endl;
+        }
+}
+
 void show_progress_until_done(std::vector<int>& worker_done, std::vector<AlignmentStatistics>& stats) {
     Timer timer;
     bool reported = false;
@@ -155,6 +161,11 @@ int run_strobealign(int argc, char **argv) {
     if (opt.c >= 64 || opt.c <= 0) {
         throw BadParameter("c must be greater than 0 and less than 64");
     }
+
+    if (!opt.is_sam_out && opt.is_abundance_out){
+        throw BadParameter("Can not use -x and --aemb at the same time");
+    }
+
     InputBuffer input_buffer = get_input_buffer(opt);
     if (!opt.r_set && !opt.reads_filename1.empty()) {
         opt.r = estimate_read_length(input_buffer);
@@ -290,18 +301,15 @@ int run_strobealign(int argc, char **argv) {
 
     std::ostream out(buf);
 
-    if (!map_param.is_abundance_out){
-        if (map_param.is_sam_out) {
+    if (map_param.is_sam_out && !map_param.is_abundance_out){ 
             std::stringstream cmd_line;
             for(int i = 0; i < argc; ++i) {
                 cmd_line << argv[i] << " ";
             }
-
             out << sam_header(references, opt.read_group_id, opt.read_group_fields);
             if (opt.pg_header) {
                 out << pg_header(cmd_line.str());
             }
-        }
     }
 
     std::vector<AlignmentStatistics> log_stats_vec(opt.n_threads);
@@ -311,12 +319,12 @@ int run_strobealign(int argc, char **argv) {
     OutputBuffer output_buffer(out);
     std::vector<std::thread> workers;
     std::vector<int> worker_done(opt.n_threads);  // each thread sets its entry to 1 when it’s done
-    std::vector<std::vector<float>> align_abundances(opt.n_threads, std::vector<float>(references.size(), 0));
+    std::vector<std::vector<double>> worker_abundances(opt.n_threads, std::vector<double>(references.size(), 0));
     for (int i = 0; i < opt.n_threads; ++i) {
         std::thread consumer(perform_task, std::ref(input_buffer), std::ref(output_buffer),
             std::ref(log_stats_vec[i]), std::ref(worker_done[i]), std::ref(aln_params),
             std::ref(map_param), std::ref(index_parameters), std::ref(references),
-            std::ref(index), std::ref(opt.read_group_id), std::ref(align_abundances[i]));
+            std::ref(index), std::ref(opt.read_group_id), std::ref(worker_abundances[i]));
         workers.push_back(std::move(consumer));
     }
     if (opt.show_progress && isatty(2)) {
@@ -333,17 +341,15 @@ int run_strobealign(int argc, char **argv) {
     }
 
     if (map_param.is_abundance_out){
-            std::vector<float> abundances(references.size(), 0);
-            std::vector<float> abundances_norm(references.size(), 0);
-            for (size_t i = 0; i < align_abundances.size(); ++i) {
-                for (size_t j = 0; j < align_abundances[i].size(); ++j) {
-                    abundances[j] += align_abundances[i][j];
-                }
+        std::vector<double> abundances(references.size(), 0);
+        for (size_t i = 0; i < worker_abundances.size(); ++i) {
+            for (size_t j = 0; j < worker_abundances[i].size(); ++j) {
+                abundances[j] += worker_abundances[i][j];
             }
+        }
 
-            for (size_t i = 0; i < references.size(); ++i) {
-                std::cout << references.names[i] << '\t' << std::fixed << std::setprecision(6) << abundances[i] / float(references.sequences[i].size()) << std::endl;
-            }
+        // output the abundance file
+        output_abundance(abundances, references);
     }
     
 

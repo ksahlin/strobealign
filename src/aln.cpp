@@ -869,7 +869,7 @@ inline void get_best_map_location(
     InsertSizeDistribution &isize_est,
     Nam &best_nam1,
     Nam &best_nam2,
-    std::vector<float> &abundance, 
+    std::vector<double> &abundances, 
     int read1_len, 
     int read2_len,
     bool output_abundance      
@@ -878,8 +878,8 @@ inline void get_best_map_location(
     best_nam1.ref_start = -1; //Unmapped until proven mapped
     best_nam2.ref_start = -1; //Unmapped until proven mapped
 
-    std::vector<Nam> best_ref1;
-    std::vector<Nam> best_ref2;
+    std::vector<Nam> best_contig1;
+    std::vector<Nam> best_contig2;
 
     if (nam_pairs.empty()) {
         return;
@@ -912,68 +912,70 @@ inline void get_best_map_location(
         best_nam2 = n2_joint_max;
 
         if (output_abundance){
+            // find all NAM pairs that have the same best score
             for (auto &[score, n1, n2] : nam_pairs){
                 if ((n1.score + n2.score) == score_joint){
-                    best_ref1.push_back(n1);
-                    best_ref2.push_back(n2);
+                    best_contig1.push_back(n1);
+                    best_contig2.push_back(n2);
                 }else{
                     break;
                 }
             }
 
-            int ref_size1 = best_ref1.size();
-            for (auto &t: best_ref1){
+            size_t contig_size1 = best_contig1.size();
+            for (auto &t: best_contig1){
                 if (t.ref_start < 0) {
                     continue;
                 }
-                abundance[t.ref_id] += float(read1_len) / float(ref_size1);
+                abundances[t.ref_id] += float(read1_len) / float(contig_size1);
             }
 
-            int ref_size2 = best_ref2.size();
-            for (auto &t: best_ref2){
+            int contig_size2 = best_contig2.size();
+            for (auto &t: best_contig2){
                 if (t.ref_start < 0) {
                     continue;
                 }
-                abundance[t.ref_id] += float(read2_len) / float(ref_size2);
+                abundances[t.ref_id] += float(read2_len) / float(contig_size2);
             }
-            }
-
+        }
     }
     else{
         if (output_abundance){
             if (!nams1.empty()){
+                // find all NAM1 that have the same best score
                 for (auto &t : nams1){
                     if (t.score == nams1[0].score){
-                        best_ref1.push_back(t);
+                        best_contig1.push_back(t);
                     }else{
                         break;
                     }
                 }
 
-                int ref_size1 = best_ref1.size();
-                for (auto &t: best_ref1){
+                size_t contig_size1 = best_contig1.size();
+                for (auto &t: best_contig1){
                     if (t.ref_start < 0) {
                         continue;
                     }
-                    abundance[t.ref_id] += float(read1_len) / float(ref_size1);
+                    abundances[t.ref_id] += float(read1_len) / float(contig_size1);
                 }
         }
 
             if (!nams2.empty()){
+                // find all NAM2 that have the same best score
                 for (auto &t : nams2){
                     if (t.score == nams2[0].score){
-                        best_ref2.push_back(t);
+                        best_contig2.push_back(t);
                     }else{
                         break;
                     }
                 }
 
-                int ref_size2 = best_ref2.size();
-                for (auto &t: best_ref2){
+                int contig_size2 = best_contig2.size();
+                for (auto &t: best_contig2){
                     if (t.ref_start < 0) {
                         continue;
                     }
-                    abundance[t.ref_id] += float(read2_len) / float(ref_size2);
+                    abundances[t.ref_id] += float(read2_len) / float(contig_size2);
                 }
             }
         }
@@ -1032,7 +1034,7 @@ void align_or_map_paired(
     const References& references,
     const StrobemerIndex& index,
     std::minstd_rand& random_engine,    
-    std::vector<float> &abundance
+    std::vector<double> &abundances
 ) {
     std::array<Details, 2> details;
     std::array<std::vector<Nam>, 2> nams_pair;
@@ -1069,22 +1071,22 @@ void align_or_map_paired(
     if (map_param.is_abundance_out){
         Nam nam_read1;
         Nam nam_read2;
-        get_best_map_location(nams_pair[0], nams_pair[1], isize_est,nam_read1, nam_read2, abundance, record1.seq.length(), record2.seq.length(), map_param.is_abundance_out);
+        get_best_map_location(nams_pair[0], nams_pair[1], isize_est,nam_read1, nam_read2, abundances, record1.seq.length(), record2.seq.length(), map_param.is_abundance_out);
     }
     else{
-    if (!map_param.is_sam_out) {
-        Nam nam_read1;
-        Nam nam_read2;
-        get_best_map_location(nams_pair[0], nams_pair[1], isize_est,
-                              nam_read1,
-                              nam_read2, abundance, record1.seq.length(), 
-                              record2.seq.length(), map_param.is_abundance_out);
-        output_hits_paf_PE(outstring, nam_read1, record1.name,
-                           references,
-                           record1.seq.length());
-        output_hits_paf_PE(outstring, nam_read2, record2.name,
-                           references,
-                           record2.seq.length());
+        if (!map_param.is_sam_out) {
+            Nam nam_read1;
+            Nam nam_read2;
+            get_best_map_location(nams_pair[0], nams_pair[1], isize_est,
+                                nam_read1,
+                                nam_read2, abundances, record1.seq.length(), 
+                                record2.seq.length(), map_param.is_abundance_out);
+            output_hits_paf_PE(outstring, nam_read1, record1.name,
+                            references,
+                            record1.seq.length());
+            output_hits_paf_PE(outstring, nam_read2, record2.name,
+                            references,
+                            record2.seq.length());
     } else {
         Read read1(record1.seq);
         Read read2(record2.seq);
@@ -1166,7 +1168,7 @@ void align_or_map_single(
     const References& references,
     const StrobemerIndex& index,
     std::minstd_rand& random_engine,
-    std::vector<float> &abundance
+    std::vector<double> &abundances
 ) {
     Details details;
     Timer strobe_timer;
@@ -1195,22 +1197,22 @@ void align_or_map_single(
 
 
     Timer extend_timer;
-    std::vector<Nam> best_ref;
+    std::vector<Nam> best_contig;
     if (map_param.is_abundance_out){
         if (!nams.empty()){
             for (auto &t : nams){
                 if (t.score == nams[0].score){
-                    best_ref.push_back(t);
+                    best_contig.push_back(t);
                 }else{
                     break;
                 }
             }
-            int ref_size = best_ref.size();
-            for (auto &t: best_ref){
+            int contig_size = best_contig.size();
+            for (auto &t: best_contig){
                 if (t.ref_start < 0) {
                     continue;
                 }
-                abundance[t.ref_id] += float(record.seq.length()) / float(ref_size);
+                abundances[t.ref_id] += float(record.seq.length()) / float(contig_size);
             }
         }
     }
