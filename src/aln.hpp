@@ -90,7 +90,7 @@ void align_or_map_paired(
     const References& references,
     const StrobemerIndex& index,
     std::minstd_rand& random_engine,
-    std::vector<float> &abundance
+    std::vector<double> &abundances
 );
 
 void align_or_map_single(
@@ -104,7 +104,7 @@ void align_or_map_single(
     const References& references,
     const StrobemerIndex& index,
     std::minstd_rand& random_engine,
-    std::vector<float> &abundance
+    std::vector<double> &abundances
 );
 
 // Private declarations, only needed for tests

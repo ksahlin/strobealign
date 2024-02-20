@@ -140,7 +140,7 @@ void perform_task(
     const References& references,
     const StrobemerIndex& index,
     const std::string& read_group_id,
-    std::vector<float> &abundance
+    std::vector<double> &abundances
 ) {
     bool eof = false;
     Aligner aligner{aln_params};
@@ -171,12 +171,12 @@ void perform_task(
             to_uppercase(record1.seq);
             to_uppercase(record2.seq);
             align_or_map_paired(record1, record2, sam, sam_out, statistics, isize_est, aligner,
-                        map_param, index_parameters, references, index, random_engine, abundance);
+                        map_param, index_parameters, references, index, random_engine, abundances);
             statistics.n_reads += 2;
         }
         for (size_t i = 0; i < records3.size(); ++i) {
             auto record = records3[i];
-            align_or_map_single(record, sam, sam_out, statistics, aligner, map_param, index_parameters, references, index, random_engine, abundance);
+            align_or_map_single(record, sam, sam_out, statistics, aligner, map_param, index_parameters, references, index, random_engine, abundances);
             statistics.n_reads++;
         }
 
