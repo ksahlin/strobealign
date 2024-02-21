@@ -878,6 +878,9 @@ inline void get_best_map_location(
     best_nam1.ref_start = -1; //Unmapped until proven mapped
     best_nam2.ref_start = -1; //Unmapped until proven mapped
 
+    std::vector<Nam> best_contig1;
+    std::vector<Nam> best_contig2;
+
     if (nam_pairs.empty()) {
         return;
     }
@@ -918,7 +921,6 @@ inline void get_best_map_location(
                     break;
                 }
             }
-
             for (auto &[score, n1, n2] : nam_pairs){
                 if ((n1.score + n2.score) == score_joint){
                     if (n1.ref_start >= 0) {
@@ -1123,6 +1125,7 @@ void align_or_map_paired(
                 details
             );
         }
+    }
     }
     statistics.tot_extend += extend_timer.duration();
     statistics += details[0];
