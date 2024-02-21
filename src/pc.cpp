@@ -180,9 +180,9 @@ void perform_task(
             statistics.n_reads++;
         }
 
-        if (!map_param.is_abundance_out){
-        output_buffer.output_records(std::move(sam_out), chunk_index);
-        assert(sam_out == "");
+        if (map_param.output_format != OutputFormat::Abundance) {
+            output_buffer.output_records(std::move(sam_out), chunk_index);
+            assert(sam_out == "");
         }
     }
     statistics.tot_aligner_calls += aligner.calls_count();

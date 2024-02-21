@@ -1043,25 +1043,23 @@ void align_or_map_paired(
     }
 
     Timer extend_timer;
-    if (map_param.is_abundance_out){
+    if (map_param.output_format == OutputFormat::Abundance) {
         Nam nam_read1;
         Nam nam_read2;
-        get_best_map_location(nams_pair[0], nams_pair[1], isize_est,nam_read1, nam_read2, abundances, record1.seq.length(), record2.seq.length(), map_param.is_abundance_out);
-    }
-    else{
-        if (!map_param.is_sam_out) {
-            Nam nam_read1;
-            Nam nam_read2;
-            get_best_map_location(nams_pair[0], nams_pair[1], isize_est,
-                                nam_read1,
-                                nam_read2, abundances, record1.seq.length(),
-                                record2.seq.length(), map_param.is_abundance_out);
-            output_hits_paf_PE(outstring, nam_read1, record1.name,
-                            references,
-                            record1.seq.length());
-            output_hits_paf_PE(outstring, nam_read2, record2.name,
-                            references,
-                            record2.seq.length());
+        get_best_map_location(nams_pair[0], nams_pair[1], isize_est,nam_read1, nam_read2, abundances, record1.seq.length(), record2.seq.length(), true);
+    } else if (map_param.output_format == OutputFormat::PAF) {
+        Nam nam_read1;
+        Nam nam_read2;
+        get_best_map_location(nams_pair[0], nams_pair[1], isize_est,
+                            nam_read1,
+                            nam_read2, abundances, record1.seq.length(),
+                            record2.seq.length(), false);
+        output_hits_paf_PE(outstring, nam_read1, record1.name,
+                        references,
+                        record1.seq.length());
+        output_hits_paf_PE(outstring, nam_read2, record2.name,
+                        references,
+                        record2.seq.length());
     } else {
         Read read1(record1.seq);
         Read read2(record2.seq);
@@ -1125,7 +1123,6 @@ void align_or_map_paired(
             );
         }
     }
-    }
     statistics.tot_extend += extend_timer.duration();
     statistics += details[0];
     statistics += details[1];
@@ -1173,35 +1170,37 @@ void align_or_map_single(
 
     Timer extend_timer;
     std::vector<Nam> best_contig;
-    if (map_param.is_abundance_out){
-        if (!nams.empty()){
-            for (auto &t : nams){
-                if (t.score == nams[0].score){
-                    best_contig.push_back(t);
-                }else{
-                    break;
+    switch (map_param.output_format) {
+        case OutputFormat::Abundance: {
+            if (!nams.empty()){
+                for (auto &t : nams){
+                    if (t.score == nams[0].score){
+                        best_contig.push_back(t);
+                    }else{
+                        break;
+                    }
                 }
-            }
-            int contig_size = best_contig.size();
-            for (auto &t: best_contig){
-                if (t.ref_start < 0) {
-                    continue;
+                int contig_size = best_contig.size();
+                for (auto &t: best_contig){
+                    if (t.ref_start < 0) {
+                        continue;
+                    }
+                    abundances[t.ref_id] += float(record.seq.length()) / float(contig_size);
                 }
-                abundances[t.ref_id] += float(record.seq.length()) / float(contig_size);
             }
         }
-    }
-    else{
-        if (!map_param.is_sam_out) {
+        break;
+        case OutputFormat::PAF:
             output_hits_paf(outstring, nams, record.name, references,
                             record.seq.length());
-        } else {
+            break;
+        case OutputFormat::SAM:
             align_single(
                 aligner, sam, nams, record, index_parameters.syncmer.k,
                 references, details, map_param.dropoff_threshold, map_param.max_tries,
                 map_param.max_secondary, random_engine
             );
-        }
+            break;
     }
     statistics.tot_extend += extend_timer.duration();
     statistics += details;
