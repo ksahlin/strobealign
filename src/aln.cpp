@@ -878,9 +878,6 @@ inline void get_best_map_location(
     best_nam1.ref_start = -1; //Unmapped until proven mapped
     best_nam2.ref_start = -1; //Unmapped until proven mapped
 
-    std::vector<Nam> best_contig1;
-    std::vector<Nam> best_contig2;
-
     if (nam_pairs.empty()) {
         return;
     }
@@ -1172,23 +1169,26 @@ void align_or_map_single(
 
 
     Timer extend_timer;
-    std::vector<Nam> best_contig;
+    size_t n_best = 0;
     switch (map_param.output_format) {
         case OutputFormat::Abundance: {
             if (!nams.empty()){
                 for (auto &t : nams){
                     if (t.score == nams[0].score){
-                        best_contig.push_back(t);
+                        ++n_best;
                     }else{
                         break;
                     }
                 }
-                int contig_size = best_contig.size();
-                for (auto &t: best_contig){
+
+                for (auto &t: nams) {
                     if (t.ref_start < 0) {
                         continue;
                     }
-                    abundances[t.ref_id] += float(record.seq.length()) / float(contig_size);
+                    if (t.score != nams[0].score){
+                        break;
+                    }
+                    abundances[t.ref_id] += float(record.seq.length()) / float(n_best);
                 }
             }
         }
