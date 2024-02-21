@@ -195,7 +195,10 @@ int run_strobealign(int argc, char **argv) {
     map_param.dropoff_threshold = opt.dropoff_threshold;
     map_param.rescue_level = opt.rescue_level;
     map_param.max_tries = opt.max_tries;
-    map_param.is_sam_out = opt.is_sam_out;
+    map_param.output_format = (
+            opt.is_abundance_out ? OutputFormat::Abundance :
+            opt.is_sam_out ? OutputFormat::SAM :
+                OutputFormat::PAF);
     map_param.cigar_ops = opt.cigar_eqx ? CigarOps::EQX : CigarOps::M;
     map_param.output_unmapped = opt.output_unmapped;
     map_param.details = opt.details;
@@ -300,8 +303,8 @@ int run_strobealign(int argc, char **argv) {
     }
 
     std::ostream out(buf);
-
-    if (map_param.is_sam_out && !map_param.is_abundance_out){ 
+    
+    if (map_param.output_format == OutputFormat::SAM) {
             std::stringstream cmd_line;
             for(int i = 0; i < argc; ++i) {
                 cmd_line << argv[i] << " ";
@@ -340,7 +343,7 @@ int run_strobealign(int argc, char **argv) {
         tot_statistics += it;
     }
 
-    if (map_param.is_abundance_out){
+    if (map_param.output_format == OutputFormat::Abundance) {
         std::vector<double> abundances(references.size(), 0);
         for (size_t i = 0; i < worker_abundances.size(); ++i) {
             for (size_t j = 0; j < worker_abundances[i].size(); ++j) {
