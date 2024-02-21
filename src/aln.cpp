@@ -862,16 +862,16 @@ std::vector<ScoredAlignmentPair> align_paired(
     return high_scores;
 }
 
-// Only used for PAF output
+// Used for PAF and abundances output
 inline void get_best_map_location(
     std::vector<Nam> &nams1,
     std::vector<Nam> &nams2,
     InsertSizeDistribution &isize_est,
     Nam &best_nam1,
     Nam &best_nam2,
-    std::vector<double> &abundances,
     int read1_len,
     int read2_len,
+    std::vector<double> &abundances,
     bool output_abundance
 ) {
     std::vector<NamPair> nam_pairs = get_best_scoring_nam_pairs(nams1, nams2, isize_est.mu, isize_est.sigma);
@@ -1043,23 +1043,24 @@ void align_or_map_paired(
     }
 
     Timer extend_timer;
-    if (map_param.output_format == OutputFormat::Abundance) {
+    if (map_param.output_format != OutputFormat::SAM) { // PAF or abundance
         Nam nam_read1;
         Nam nam_read2;
-        get_best_map_location(nams_pair[0], nams_pair[1], isize_est,nam_read1, nam_read2, abundances, record1.seq.length(), record2.seq.length(), true);
-    } else if (map_param.output_format == OutputFormat::PAF) {
-        Nam nam_read1;
-        Nam nam_read2;
-        get_best_map_location(nams_pair[0], nams_pair[1], isize_est,
-                            nam_read1,
-                            nam_read2, abundances, record1.seq.length(),
-                            record2.seq.length(), false);
-        output_hits_paf_PE(outstring, nam_read1, record1.name,
-                        references,
-                        record1.seq.length());
-        output_hits_paf_PE(outstring, nam_read2, record2.name,
-                        references,
-                        record2.seq.length());
+        get_best_map_location(
+                nams_pair[0], nams_pair[1],
+                isize_est,
+                nam_read1, nam_read2,
+                record1.seq.length(), record2.seq.length(),
+                abundances,
+                map_param.output_format == OutputFormat::Abundance);
+        if (map_param.output_format == OutputFormat::PAF) {
+            output_hits_paf_PE(outstring, nam_read1, record1.name,
+                            references,
+                            record1.seq.length());
+            output_hits_paf_PE(outstring, nam_read2, record2.name,
+                            references,
+                            record2.seq.length());
+        }
     } else {
         Read read1(record1.seq);
         Read read2(record2.seq);
