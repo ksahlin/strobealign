@@ -1126,7 +1126,6 @@ void align_or_map_paired(
             );
         }
     }
-    }
     statistics.tot_extend += extend_timer.duration();
     statistics += details[0];
     statistics += details[1];
