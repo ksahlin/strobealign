@@ -10,5 +10,6 @@ BreakConstructorInitializers: BeforeComma
 BreakInheritanceList: BeforeComma
 SpaceAfterCStyleCast: true
 SpaceInEmptyBlock: true
+AccessModifierOffset: -2
 
 # Possibly configure IncludeCategories
