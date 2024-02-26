@@ -124,6 +124,34 @@ void merge_hits_into_nams_one_ref(
     }
 }
 
+void merge_nearby_nams(std::vector<Nam>& nams) {
+    if (nams.empty()) {
+        return;
+    }
+    std::sort(nams.begin(), nams.end(), [](const Nam& a, const Nam& b) -> bool {
+        // by diagonal
+        // TODO make branchless
+        return (a.diagonal() < b.diagonal()) || ((a.diagonal() == b.diagonal()) && (a.ref_start < b.ref_start));
+    });
+    if (nams.empty()) {
+        return;
+    }
+    size_t j = 0;
+    for (size_t i = 1; i < nams.size(); i++) {
+        if (nams[j].ref_id == nams[i].ref_id && nams[j].diagonal() == nams[i].diagonal() && nams[j].is_rc == nams[i].is_rc) {
+            assert(nams[j].is_rc == nams[i].is_rc);
+            // merge // TODO turn into method
+            nams[j].query_end = nams[i].query_end;
+            nams[j].ref_end = nams[i].ref_end;
+            nams[j].n_hits += nams[i].n_hits;
+            nams[j].score += nams[i].score;
+        } else {
+            j++;
+        }
+    }
+    nams.resize(j + 1);
+}
+
 std::vector<Nam> merge_hits_into_nams(
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Hit>>, 2>& hits_per_ref,
     int k,
@@ -141,6 +169,7 @@ std::vector<Nam> merge_hits_into_nams(
                 );
             }
             merge_hits_into_nams_one_ref(hits, ref_id, k, is_revcomp, nams);
+            merge_nearby_nams(nams);
         }
     }
     return nams;

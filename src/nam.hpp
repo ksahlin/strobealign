@@ -33,6 +33,10 @@ struct Nam {
     int projected_ref_start() const {
         return std::max(0, ref_start - query_start);
     }
+
+    int diagonal() const {
+        return ref_start - query_start;
+    }
 };
 
 std::pair<float, std::vector<Nam>> find_nams(
