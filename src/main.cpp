@@ -105,7 +105,7 @@ InputBuffer get_input_buffer(const CommandLineOptions& opt) {
     }
 }
 
-void output_abundance(std::vector<double> abundances, References references){
+void output_abundance(const std::vector<double> abundances, const References references){
         for (size_t i = 0; i < references.size(); ++i) {
             std::cout << references.names[i] << '\t' << std::fixed << std::setprecision(6) << abundances[i] / double(references.sequences[i].size()) << std::endl;
         }

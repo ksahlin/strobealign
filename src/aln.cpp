@@ -936,21 +936,21 @@ inline void get_best_map_location(
                                         std::make_pair(std::cref(nams2), read2_len) }) {
             size_t best_score = 0;
             // We loop twice because we need to count the number of NAMs with best score
-            for (auto &t : nams) {
-                if (t.score == nams[0].score){
+            for (auto &nam : nams) {
+                if (nam.score == nams[0].score){
                     ++best_score;
                 } else {
                     break;
                 }
             }
-            for (auto &t: nams) {
-                if (t.ref_start < 0) {
+            for (auto &nam: nams) {
+                if (nam.ref_start < 0) {
                     continue;
                 }
-                if (t.score != nams[0].score){
+                if (nam.score != nams[0].score){
                     break;
                 }
-                abundances[t.ref_id] += float(read_len) / float(best_score);
+                abundances[nam.ref_id] += float(read_len) / float(best_score);
             }
         }
     }
@@ -1181,14 +1181,14 @@ void align_or_map_single(
                     }
                 }
 
-                for (auto &t: nams) {
-                    if (t.ref_start < 0) {
+                for (auto &nam: nams) {
+                    if (nam.ref_start < 0) {
                         continue;
                     }
-                    if (t.score != nams[0].score){
+                    if (nam.score != nams[0].score){
                         break;
                     }
-                    abundances[t.ref_id] += float(record.seq.length()) / float(n_best);
+                    abundances[nam.ref_id] += float(record.seq.length()) / float(n_best);
                 }
             }
         }
