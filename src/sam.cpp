@@ -50,7 +50,9 @@ void Sam::append_details(const Details& details) {
         << "\tnr:i:" << details.nam_rescue
         << "\tal:i:" << details.tried_alignment
         << "\tga:i:" << details.gapped
-        << "\tX0:i:" << details.best_alignments;
+        << "\tX0:i:" << details.best_alignments
+        << "\tat:i:" << static_cast<int>(details.align_duration.count() * 1000000)
+        ;
     sam_string.append(s.str());
 }
 

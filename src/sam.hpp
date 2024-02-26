@@ -52,6 +52,7 @@ struct Details {
     uint64_t tried_alignment{0}; // No. of computed alignments (get_alignment or rescue_mate)
     uint64_t gapped{0};  // No. of gapped alignments computed (in get_alignment)
     uint64_t best_alignments{0}; // No. of best alignments with same score
+    std::chrono::duration<double> align_duration{0};  // Time spent on extension alignment
 
     Details& operator+=(const Details& other) {
         nam_rescue = nam_rescue || other.nam_rescue;
@@ -61,6 +62,7 @@ struct Details {
         tried_alignment += other.tried_alignment;
         gapped += other.gapped;
         best_alignments += other.best_alignments;
+        align_duration += other.align_duration;
         return *this;
     }
 };

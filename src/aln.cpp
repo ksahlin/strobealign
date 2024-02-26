@@ -98,6 +98,7 @@ inline void align_single(
     unsigned max_secondary,
     std::minstd_rand& random_engine
 ) {
+    Timer align_single_timer;
     if (nams.empty()) {
         sam.add_unmapped(record);
         return;
@@ -165,6 +166,7 @@ inline void align_single(
     details.best_alignments = alignments_with_best_score;
     uint8_t mapq = (60.0 * (best_score - second_best_score) + best_score - 1) / best_score;
     bool is_primary = true;
+    details.align_duration = align_single_timer.duration();
     sam.add(best_alignment, record, read.rc, mapq, is_primary, details);
 
     if (max_secondary == 0) {
