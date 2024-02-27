@@ -1104,7 +1104,17 @@ void align_or_map_single(
         }
         statistics.tot_time_rescue += rescue_timer.duration();
     }
+
+    Read read(record.seq);
+    for (size_t i = 0; i < nams.size(); ++i) {
+        reverse_nam_if_needed(nams[i], read, references, index.k());
+    }
+    //merge_nearby_nams(nams);
+
     details.nams = nams.size();
+
+
+
 
     Timer nam_sort_timer;
     std::sort(nams.begin(), nams.end(), by_score<Nam>);

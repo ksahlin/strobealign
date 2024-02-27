@@ -39,6 +39,8 @@ struct Nam {
     }
 };
 
+void merge_nearby_nams(std::vector<Nam>& nams);
+
 std::pair<float, std::vector<Nam>> find_nams(
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index

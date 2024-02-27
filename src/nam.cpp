@@ -124,6 +124,30 @@ void merge_hits_into_nams_one_ref(
     }
 }
 
+std::vector<Nam> merge_hits_into_nams(
+    std::array<robin_hood::unordered_map<unsigned int, std::vector<Hit>>, 2>& hits_per_ref,
+    int k,
+    bool sort
+) {
+    std::vector<Nam> nams;
+    for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
+        auto& hits_oriented = hits_per_ref[is_revcomp];
+        for (auto &[ref_id, hits] : hits_oriented) {
+            if (sort) {
+                std::sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) -> bool {
+                        // first sort on query starts, then on reference starts
+                        return (a.query_start < b.query_start) || ( (a.query_start == b.query_start) && (a.ref_start < b.ref_start) );
+                    }
+                );
+            }
+            merge_hits_into_nams_one_ref(hits, ref_id, k, is_revcomp, nams);
+        }
+    }
+    return nams;
+}
+
+} // namespace
+
 void merge_nearby_nams(std::vector<Nam>& nams) {
     static uint64_t dist;
     static uint64_t count;
@@ -144,12 +168,11 @@ void merge_nearby_nams(std::vector<Nam>& nams) {
     if (nams.empty()) {
         return;
     }
+
     size_t j = 0;
     for (size_t i = 1; i < nams.size(); i++) {
         if (nams[j].ref_id == nams[i].ref_id && nams[j].diagonal() == nams[i].diagonal() && nams[j].is_rc == nams[i].is_rc
             && nams[j].query_end + 50 <= nams[i].query_start
-            && false
-
         ) {
             assert(nams[j].is_rc == nams[i].is_rc);
             // merge // TODO turn into method
@@ -168,31 +191,6 @@ void merge_nearby_nams(std::vector<Nam>& nams) {
     }
     nams.resize(j + 1);
 }
-
-std::vector<Nam> merge_hits_into_nams(
-    std::array<robin_hood::unordered_map<unsigned int, std::vector<Hit>>, 2>& hits_per_ref,
-    int k,
-    bool sort
-) {
-    std::vector<Nam> nams;
-    for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
-        auto& hits_oriented = hits_per_ref[is_revcomp];
-        for (auto &[ref_id, hits] : hits_oriented) {
-            if (sort) {
-                std::sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) -> bool {
-                        // first sort on query starts, then on reference starts
-                        return (a.query_start < b.query_start) || ( (a.query_start == b.query_start) && (a.ref_start < b.ref_start) );
-                    }
-                );
-            }
-            merge_hits_into_nams_one_ref(hits, ref_id, k, is_revcomp, nams);
-            merge_nearby_nams(nams);
-        }
-    }
-    return nams;
-}
-
-} // namespace
 
 /*
  * Find a query’s NAMs, ignoring randstrobes that occur too often in the
