@@ -1109,7 +1109,7 @@ void align_or_map_single(
     for (size_t i = 0; i < nams.size(); ++i) {
         reverse_nam_if_needed(nams[i], read, references, index.k());
     }
-    //merge_nearby_nams(nams);
+    merge_nearby_nams(nams);
 
     details.nams = nams.size();
 
