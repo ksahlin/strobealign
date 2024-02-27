@@ -144,7 +144,12 @@ void merge_nearby_nams(std::vector<Nam>& nams) {
             nams[j].query_end = nams[i].query_end;
             nams[j].ref_end = nams[i].ref_end;
             nams[j].n_hits += nams[i].n_hits;
-            nams[j].score += nams[i].score;
+            int n_max_span = std::max(nams[j].query_span(), nams[j].ref_span());
+            int n_min_span = std::min(nams[j].query_span(), nams[j].ref_span());
+            float n_score;
+            n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (nams[j].n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
+//            n_score = n.n_hits * n.query_span();
+            nams[j].score = n_score;
         } else {
             j++;
         }
