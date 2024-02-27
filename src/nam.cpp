@@ -141,7 +141,7 @@ void merge_nearby_nams(std::vector<Nam>& nams) {
     size_t j = 0;
     for (size_t i = 1; i < nams.size(); i++) {
         if (nams[j].ref_id == nams[i].ref_id && nams[j].diagonal() == nams[i].diagonal() && nams[j].is_rc == nams[i].is_rc
-            && nams[j].query_end + 20 <= nams[i].query_start
+            && nams[j].query_end + 50 <= nams[i].query_start
 
         ) {
             assert(nams[j].is_rc == nams[i].is_rc);
