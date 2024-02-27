@@ -131,6 +131,12 @@ void merge_nearby_nams(std::vector<Nam>& nams) {
         return;
     }
     std::sort(nams.begin(), nams.end(), [](const Nam& a, const Nam& b) -> bool {
+        if (a.is_rc < b.is_rc) {
+            return true;
+        }
+        if (a.is_rc > b.is_rc) {
+            return false;
+        }
         // by diagonal
         // TODO make branchless
         return (a.diagonal() < b.diagonal()) || ((a.diagonal() == b.diagonal()) && (a.ref_start < b.ref_start));
