@@ -125,6 +125,8 @@ void merge_hits_into_nams_one_ref(
 }
 
 void merge_nearby_nams(std::vector<Nam>& nams) {
+    static uint64_t dist;
+    static uint64_t count;
     if (nams.empty()) {
         return;
     }
@@ -139,7 +141,7 @@ void merge_nearby_nams(std::vector<Nam>& nams) {
     size_t j = 0;
     for (size_t i = 1; i < nams.size(); i++) {
         if (nams[j].ref_id == nams[i].ref_id && nams[j].diagonal() == nams[i].diagonal() && nams[j].is_rc == nams[i].is_rc
-            && nams[j].query_end + 10 <= nams[i].query_start
+            && nams[j].query_end + 5 <= nams[i].query_start
 
         ) {
             assert(nams[j].is_rc == nams[i].is_rc);
