@@ -34,8 +34,12 @@ struct Nam {
         return std::max(0, ref_start - query_start);
     }
 
-    int diagonal() const {
+    int start_diagonal() const {
         return ref_start - query_start;
+    }
+
+    int end_diagonal() const {
+        return ref_end - query_end;
     }
 };
 

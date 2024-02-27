@@ -163,7 +163,7 @@ void merge_nearby_nams(std::vector<Nam>& nams) {
         }
         // by diagonal
         // TODO make branchless
-        return (a.diagonal() < b.diagonal()) || ((a.diagonal() == b.diagonal()) && (a.ref_start < b.ref_start));
+        return (a.start_diagonal() < b.start_diagonal()) || ((a.start_diagonal() == b.start_diagonal()) && (a.ref_start < b.ref_start));
     });
     if (nams.empty()) {
         return;
@@ -171,8 +171,8 @@ void merge_nearby_nams(std::vector<Nam>& nams) {
 
     size_t j = 0;
     for (size_t i = 1; i < nams.size(); i++) {
-        if (nams[j].ref_id == nams[i].ref_id && nams[j].diagonal() == nams[i].diagonal() && nams[j].is_rc == nams[i].is_rc
-            && nams[j].query_end + 100 <= nams[i].query_start
+        if (nams[j].ref_id == nams[i].ref_id && nams[j].end_diagonal() == nams[i].start_diagonal() && nams[j].is_rc == nams[i].is_rc
+            && nams[j].query_end + 10 <= nams[i].query_start
         ) {
             assert(nams[j].is_rc == nams[i].is_rc);
             // merge // TODO turn into method
