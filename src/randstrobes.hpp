@@ -34,8 +34,8 @@ struct RefRandstrobe {
         // RefRandstrobes in the index is reproducible no matter which sorting
         // function is used. This branchless comparison is faster than the
         // equivalent one using std::tie.
-        __uint128_t lhs = (static_cast<__uint128_t>(hash) << 64) | position;
-        __uint128_t rhs = (static_cast<__uint128_t>(other.hash) << 64) | other.position;
+        __uint128_t lhs = (static_cast<__uint128_t>(hash) << 64) | ((static_cast<uint64_t>(position) << 32) | m_packed);
+        __uint128_t rhs = (static_cast<__uint128_t>(other.hash) << 64) | ((static_cast<uint64_t>(other.position) << 32) | m_packed);
         return lhs < rhs;
     }
 
