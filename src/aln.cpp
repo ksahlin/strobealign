@@ -972,6 +972,11 @@ void align_or_map_paired(
         // Find NAMs
         Timer nam_timer;
         auto [nonrepetitive_fraction, nams] = find_nams(query_randstrobes, index);
+
+        if (nams.empty()) {
+            query_randstrobes = randstrobes_query_rescue(record.seq, index_parameters);
+            std::tie(nonrepetitive_fraction, nams) = find_nams(query_randstrobes, index);
+        }
         statistics.tot_find_nams += nam_timer.duration();
 
         if (map_param.rescue_level > 1) {
@@ -1092,6 +1097,12 @@ void align_or_map_single(
     // Find NAMs
     Timer nam_timer;
     auto [nonrepetitive_fraction, nams] = find_nams(query_randstrobes, index);
+
+    if (nams.empty()) {
+        query_randstrobes = randstrobes_query_rescue(record.seq, index_parameters);
+        std::tie(nonrepetitive_fraction, nams) = find_nams(query_randstrobes, index);
+    }
+
     statistics.tot_find_nams += nam_timer.duration();
 
     if (map_param.rescue_level > 1) {

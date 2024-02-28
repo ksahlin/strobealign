@@ -253,3 +253,61 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     }
     return randstrobes;
 }
+
+/*
+ * Generate all possible strobes using a pre-computed vector of syncmers
+ */
+void randstrobes_rescue(const std::vector<Syncmer>& syncmers, std::vector<QueryRandstrobe>& randstrobes, bool is_rc, RandstrobeParameters parameters, int k) {
+    const unsigned w_min = parameters.w_min;
+    const unsigned w_max = parameters.w_max;
+    const unsigned int max_dist = parameters.max_dist;
+    if (w_min > w_max) {
+        throw std::invalid_argument("w_min is greater than w_max");
+    }
+    unsigned int strobe1_index = 0;
+
+    while (strobe1_index + w_min < syncmers.size()) {
+        unsigned int w_end = std::min(static_cast<size_t>(strobe1_index + w_max), syncmers.size() - 1);
+        auto strobe1 = syncmers[strobe1_index];
+        auto max_position = strobe1.position + max_dist;
+        unsigned int w_start = strobe1_index + w_min;
+        Syncmer strobe2 = strobe1;
+
+        for (auto i = w_start; i <= w_end && syncmers[i].position <= max_position; i++) {
+            strobe2 = syncmers[i];
+            randstrobes.push_back(
+                QueryRandstrobe{
+                    randstrobe_hash(strobe1.hash, strobe2.hash), static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position + k), is_rc
+                }
+            );
+        }
+        strobe1_index++;
+    }
+}
+
+/*
+ * Generate randstrobes for a query sequence and its reverse complement.
+ */
+QueryRandstrobeVector randstrobes_query_rescue(const std::string_view seq, const IndexParameters& parameters) {
+    QueryRandstrobeVector randstrobes;
+    if (seq.length() < parameters.randstrobe.w_max) {
+        return randstrobes;
+    }
+
+    // Generate syncmers for the forward sequence
+    auto syncmers = canonical_syncmers(seq, parameters.syncmer);
+    if (syncmers.empty()) {
+        return randstrobes;
+    }
+
+    randstrobes_rescue(syncmers, randstrobes, false, parameters.randstrobe, parameters.syncmer.k);
+
+    std::reverse(syncmers.begin(), syncmers.end());
+    for (size_t i = 0; i < syncmers.size(); i++) {
+        syncmers[i].position = seq.length() - syncmers[i].position - parameters.syncmer.k;
+    }
+
+    randstrobes_rescue(syncmers, randstrobes, true, parameters.randstrobe, parameters.syncmer.k);
+
+    return randstrobes;
+}
