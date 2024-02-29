@@ -41,3 +41,24 @@ def test_indexing_and_nams_finding():
         ref_aligned = ref[nam.ref_start:nam.ref_end]
         query_aligned = query[nam.query_start:nam.query_end]
         score = nam.score
+
+
+def test_index_find():
+    refs = strobealign.References.from_fasta("tests/phix.fasta")
+    index_parameters = strobealign.IndexParameters.from_read_length(100)
+    index = strobealign.StrobemerIndex(refs, index_parameters)
+    index.populate()
+
+    query = "TGCGTTTATGGTACGCTGGACTTTGTGGGATACCCTCGCTTTCCTGCTCCTGTTGAGTTTATTGCTGCCG"
+    query_randstrobes = strobealign.randstrobes_query(query, index_parameters)
+    assert query_randstrobes
+    # First randstrobe must be found
+    assert index.find(query_randstrobes[0].hash)
+
+    n = 0
+    for qr in query_randstrobes:
+        for rs in index.find(qr.hash):
+            n += 1
+            assert rs.hash == qr.hash
+    # Ensure the for loop did test something
+    assert n > 1
