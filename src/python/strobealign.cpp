@@ -108,8 +108,9 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("syncmer", &IndexParameters::syncmer)
         .def_ro("randstrobe", &IndexParameters::randstrobe)
     ;
-    nb::class_<RefRandstrobe>(m, "RefRandstrobeWithHash", "Randstrobe on a reference")
+    nb::class_<RefRandstrobe>(m, "RefRandstrobe", "Randstrobe on a reference")
         .def_ro("position", &RefRandstrobe::position)
+        .def_ro("hash", &RefRandstrobe::hash)
         .def_prop_ro("reference_index", &RefRandstrobe::reference_index)
         .def_prop_ro("strobe2_offset", &RefRandstrobe::strobe2_offset)
     ;
@@ -119,11 +120,9 @@ NB_MODULE(strobealign_extension, m_) {
         .def("find", [](const StrobemerIndex& index, uint64_t key) -> std::vector<RefRandstrobe> {
             std::vector<RefRandstrobe> v;
             auto position = index.find(key);
-            if (position != index.end()) {
-                /*while (index.randstrobes[position].hash == key) {
-                    v.push_back(index.randstrobes[position]);
-                    position++;
-                }*/
+            while (position != index.end() && index.get_hash(position) == key) {
+                v.push_back(index.get_randstrobe(position));
+                position++;
             }
             return v;
         })
