@@ -2,6 +2,10 @@
 
 ## development version
 
+* #394: Added option `--aemb` (abundance estimation for metagenomic binning),
+  which makes strobealign output a table with estimated abundance values for
+  each contig (instead of SAM or PAF). This was contributed by Shaojun Pan
+  (@psj1997).
 * #386: Parallelize indexing even more by using @alugowski’s
   [poolSTL](https://github.com/alugowski/) `pluggable_sort`.
   Indexing a human reference (measured on CHM13) now takes only ~45 s on a
