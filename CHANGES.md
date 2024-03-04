@@ -1,6 +1,6 @@
 # Strobealign Changelog
 
-## development version
+## v0.13.0 (2024-03-04)
 
 * #394: Added option `--aemb` (abundance estimation for metagenomic binning),
   which makes strobealign output a table with estimated abundance values for
