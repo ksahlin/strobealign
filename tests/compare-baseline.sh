@@ -52,7 +52,7 @@ if ! test -f ${baseline_bam}; then
     git clone . ${srcdir}
     ( cd ${srcdir} && git checkout -d ${baseline_commit} )
     cmake ${srcdir} -B ${srcdir}/build ${cmake_options}
-    if ! make -j 4 -C ${srcdir}/build strobealign; then
+    if ! make -s -j 4 -C ${srcdir}/build strobealign; then
       exit 1
     fi
     mv ${srcdir}/build/strobealign ${baseline_binary}
@@ -65,7 +65,7 @@ fi
 # compiler options.
 builddir=$(mktemp -p . -d build.XXXXXXX)
 cmake . -B ${builddir} ${cmake_options}
-make -j 4 -C ${builddir} strobealign
+make -s -j 4 -C ${builddir} strobealign
 set -x
 ${builddir}/strobealign ${strobealign_options} ${ref} ${reads[@]} | samtools view -o head.bam
 rm -rf ${builddir}
