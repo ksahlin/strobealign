@@ -58,6 +58,16 @@ strobealign -x tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq | tail -n 
 diff tests/phix.pe.paf phix.pe.paf
 rm phix.pe.paf
 
+# Single-end abundance estimation 
+strobealign --aemb tests/phix.fasta tests/phix.1.fastq > phix.abun.se.txt
+diff tests/phix.abun.se.txt phix.abun.se.txt
+rm phix.abun.se.txt
+
+# Paired-end abundance estimation
+strobealign --aemb tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq > phix.abun.pe.txt
+diff tests/phix.abun.pe.txt phix.abun.pe.txt
+rm phix.abun.pe.txt
+
 # Build a separate index
 strobealign --no-PG -r 150 tests/phix.fasta tests/phix.1.fastq > without-sti.sam
 strobealign -r 150 -i tests/phix.fasta

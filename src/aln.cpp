@@ -862,13 +862,17 @@ std::vector<ScoredAlignmentPair> align_paired(
     return high_scores;
 }
 
-// Only used for PAF output
+// Used for PAF and abundances output
 inline void get_best_map_location(
     std::vector<Nam> &nams1,
     std::vector<Nam> &nams2,
     InsertSizeDistribution &isize_est,
     Nam &best_nam1,
-    Nam &best_nam2
+    Nam &best_nam2,
+    int read1_len,
+    int read2_len,
+    std::vector<double> &abundances,
+    bool output_abundance
 ) {
     std::vector<NamPair> nam_pairs = get_best_scoring_nam_pairs(nams1, nams2, isize_est.mu, isize_est.sigma);
     best_nam1.ref_start = -1; //Unmapped until proven mapped
@@ -903,6 +907,52 @@ inline void get_best_map_location(
     if (score_joint > score_indiv) { // joint score is better than individual
         best_nam1 = n1_joint_max;
         best_nam2 = n2_joint_max;
+
+        if (output_abundance){
+            // we loop twice because we need to count the number of best pairs
+            size_t n_best = 0;
+            for (auto &[score, n1, n2] : nam_pairs){
+                if ((n1.score + n2.score) == score_joint){
+                    ++n_best;
+                } else {
+                    break;
+                }
+            }
+            for (auto &[score, n1, n2] : nam_pairs){
+                if ((n1.score + n2.score) == score_joint){
+                    if (n1.ref_start >= 0) {
+                        abundances[n1.ref_id] += float(read1_len) / float(n_best);
+                    }
+                    if (n2.ref_start >= 0) {
+                        abundances[n2.ref_id] += float(read2_len) / float(n_best);
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+    } else if (output_abundance) {
+        for (auto &[nams, read_len]: {  std::make_pair(std::cref(nams1), read1_len),
+                                        std::make_pair(std::cref(nams2), read2_len) }) {
+            size_t best_score = 0;
+            // We loop twice because we need to count the number of NAMs with best score
+            for (auto &nam : nams) {
+                if (nam.score == nams[0].score){
+                    ++best_score;
+                } else {
+                    break;
+                }
+            }
+            for (auto &nam: nams) {
+                if (nam.ref_start < 0) {
+                    continue;
+                }
+                if (nam.score != nams[0].score){
+                    break;
+                }
+                abundances[nam.ref_id] += float(read_len) / float(best_score);
+            }
+        }
     }
 
     if (isize_est.sample_size < 400 && score_joint > score_indiv) {
@@ -957,7 +1007,8 @@ void align_or_map_paired(
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index,
-    std::minstd_rand& random_engine
+    std::minstd_rand& random_engine,
+    std::vector<double> &abundances
 ) {
     std::array<Details, 2> details;
     std::array<std::vector<Nam>, 2> nams_pair;
@@ -991,18 +1042,24 @@ void align_or_map_paired(
     }
 
     Timer extend_timer;
-    if (!map_param.is_sam_out) {
+    if (map_param.output_format != OutputFormat::SAM) { // PAF or abundance
         Nam nam_read1;
         Nam nam_read2;
-        get_best_map_location(nams_pair[0], nams_pair[1], isize_est,
-                              nam_read1,
-                              nam_read2);
-        output_hits_paf_PE(outstring, nam_read1, record1.name,
-                           references,
-                           record1.seq.length());
-        output_hits_paf_PE(outstring, nam_read2, record2.name,
-                           references,
-                           record2.seq.length());
+        get_best_map_location(
+                nams_pair[0], nams_pair[1],
+                isize_est,
+                nam_read1, nam_read2,
+                record1.seq.length(), record2.seq.length(),
+                abundances,
+                map_param.output_format == OutputFormat::Abundance);
+        if (map_param.output_format == OutputFormat::PAF) {
+            output_hits_paf_PE(outstring, nam_read1, record1.name,
+                            references,
+                            record1.seq.length());
+            output_hits_paf_PE(outstring, nam_read2, record2.name,
+                            references,
+                            record2.seq.length());
+        }
     } else {
         Read read1(record1.seq);
         Read read2(record2.seq);
@@ -1082,7 +1139,8 @@ void align_or_map_single(
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index,
-    std::minstd_rand& random_engine
+    std::minstd_rand& random_engine,
+    std::vector<double> &abundances
 ) {
     Details details;
     Timer strobe_timer;
@@ -1111,15 +1169,41 @@ void align_or_map_single(
 
 
     Timer extend_timer;
-    if (!map_param.is_sam_out) {
-        output_hits_paf(outstring, nams, record.name, references,
-                        record.seq.length());
-    } else {
-        align_single(
-            aligner, sam, nams, record, index_parameters.syncmer.k,
-            references, details, map_param.dropoff_threshold, map_param.max_tries,
-            map_param.max_secondary, random_engine
-        );
+    size_t n_best = 0;
+    switch (map_param.output_format) {
+        case OutputFormat::Abundance: {
+            if (!nams.empty()){
+                for (auto &t : nams){
+                    if (t.score == nams[0].score){
+                        ++n_best;
+                    }else{
+                        break;
+                    }
+                }
+
+                for (auto &nam: nams) {
+                    if (nam.ref_start < 0) {
+                        continue;
+                    }
+                    if (nam.score != nams[0].score){
+                        break;
+                    }
+                    abundances[nam.ref_id] += float(record.seq.length()) / float(n_best);
+                }
+            }
+        }
+        break;
+        case OutputFormat::PAF:
+            output_hits_paf(outstring, nams, record.name, references,
+                            record.seq.length());
+            break;
+        case OutputFormat::SAM:
+            align_single(
+                aligner, sam, nams, record, index_parameters.syncmer.k,
+                references, details, map_param.dropoff_threshold, map_param.max_tries,
+                map_param.max_secondary, random_engine
+            );
+            break;
     }
     statistics.tot_extend += extend_timer.duration();
     statistics += details;

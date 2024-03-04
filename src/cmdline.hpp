@@ -18,6 +18,7 @@ struct CommandLineOptions {
     bool only_gen_index { false };
     bool use_index { false };
     bool is_sam_out { true };
+    bool is_abundance_out {false};
 
     // SAM output
     bool cigar_eqx { false };
