@@ -323,7 +323,7 @@ int run_strobealign(int argc, char **argv) {
     if (map_param.output_format == OutputFormat::Abundance) {
         logger.info() << "in abundance estimation mode ";
     }
-    logger.info() << "using " << opt.n_threads << " worker thread" << (opt.n_threads != 1 ? "s" : "") << std::endl;
+    logger.info() << "using " << opt.n_threads << " thread" << (opt.n_threads != 1 ? "s" : "") << std::endl;
 
     OutputBuffer output_buffer(out);
     std::vector<std::thread> workers;
