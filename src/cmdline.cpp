@@ -19,7 +19,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ActionFlag version(parser, "version", "Print version and exit", {"version"}, []() { throw Version(); });
 
     // Threading
-    args::ValueFlag<int> threads(parser, "INT", "Number of threads [3]", {'t', "threads"});
+    args::ValueFlag<int> threads(parser, "INT", "Number of threads [1]", {'t', "threads"});
     args::ValueFlag<int> chunk_size(parser, "INT", "Number of reads processed by a worker thread at once [10000]", {"chunk-size"}, args::Options::Hidden);
 
     args::Group io(parser, "Input/output:");

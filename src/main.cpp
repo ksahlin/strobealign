@@ -316,7 +316,14 @@ int run_strobealign(int argc, char **argv) {
 
     std::vector<AlignmentStatistics> log_stats_vec(opt.n_threads);
     
-    logger.info() << "Running in " << (opt.is_SE ? "single-end" : "paired-end") << " mode" << std::endl;
+    logger.info() << "Processing " << (opt.is_SE ? "single-end" : "paired-end") << " reads ";
+    if (map_param.output_format == OutputFormat::PAF) {
+        logger.info() << "in mapping-only mode ";
+    }
+    if (map_param.output_format == OutputFormat::Abundance) {
+        logger.info() << "in abundance estimation mode ";
+    }
+    logger.info() << "using " << opt.n_threads << " thread" << (opt.n_threads != 1 ? "s" : "") << std::endl;
 
     OutputBuffer output_buffer(out);
     std::vector<std::thread> workers;

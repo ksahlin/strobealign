@@ -1,5 +1,9 @@
 # Strobealign Changelog
 
+## development version
+
+* #401: The default number of threads is now 1 instead of 3.
+
 ## v0.13.0 (2024-03-04)
 
 * #394: Added option `--aemb` (abundance estimation for metagenomic binning),
