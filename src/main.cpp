@@ -105,9 +105,9 @@ InputBuffer get_input_buffer(const CommandLineOptions& opt) {
     }
 }
 
-void output_abundance(const std::vector<double>& abundances, const References& references){
+void output_abundance(std::ostream& out, const std::vector<double>& abundances, const References& references){
         for (size_t i = 0; i < references.size(); ++i) {
-            std::cout << references.names[i] << '\t' << std::fixed << std::setprecision(6) << abundances[i] / double(references.sequences[i].size()) << std::endl;
+            out << references.names[i] << '\t' << std::fixed << std::setprecision(6) << abundances[i] / double(references.sequences[i].size()) << std::endl;
         }
 }
 
@@ -356,11 +356,8 @@ int run_strobealign(int argc, char **argv) {
                 abundances[j] += worker_abundances[i][j];
             }
         }
-
-        // output the abundance file
-        output_abundance(abundances, references);
+        output_abundance(out, abundances, references);
     }
-    
 
     logger.info() << "Total mapping sites tried: " << tot_statistics.tot_all_tried << std::endl
         << "Total calls to ssw: " << tot_statistics.tot_aligner_calls << std::endl
