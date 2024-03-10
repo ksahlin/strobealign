@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use crate::syncmers::{Syncmer, SyncmerIterator};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RandstrobeParameters {
     pub w_min: usize,
     pub w_max: usize,

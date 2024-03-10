@@ -5,11 +5,13 @@ use std::path::Path;
 use std::time::Instant;
 use log::{debug, info};
 use clap::Parser;
+use fastrand::Rng;
 use rstrobes::aligner::{Aligner, Scores};
 use rstrobes::fastq::FastqReader;
 use rstrobes::fasta;
 use rstrobes::index::{IndexParameters, StrobemerIndex};
-use rstrobes::mapper::{map_single_end_read, MappingParameters, SamOutput};
+use rstrobes::insertsize::InsertSizeDistribution;
+use rstrobes::mapper::{map_paired_end_read, map_single_end_read, MappingParameters, SamOutput};
 use rstrobes::sam::{ReadGroup, SamHeader};
 
 mod logger;
@@ -124,7 +126,11 @@ struct Args {
     /// Path to input reference (in FASTA format)
     ref_path: String,
 
+    /// Path to input FASTQ
     fastq_path: String,
+
+    /// Path to input FASTQ with R2 reads (if paired end)
+    fastq_path2: Option<String>,
 }
 
 fn main() -> Result<(), Error> {
@@ -157,7 +163,7 @@ fn main() -> Result<(), Error> {
     debug!("{:?}", parameters);
 
     let timer = Instant::now();
-    let mut index = StrobemerIndex::new(&references, parameters, args.bits);
+    let mut index = StrobemerIndex::new(&references, parameters.clone(), args.bits);
     index.populate(args.filter_fraction, args.rescue_level, args.threads);
     let index = index;
     info!("Total time indexing: {:.2} s", timer.elapsed().as_secs_f64());
@@ -185,13 +191,36 @@ fn main() -> Result<(), Error> {
     let out = std::io::stdout().lock();
     let mut out = BufWriter::new(out);
 
-    let f = File::open(&args.fastq_path)?;
-    for record in FastqReader::new(f) {
-        let record = record?;
-        let sam_records = map_single_end_read(&record, &index, &references, &mapping_parameters, &sam_output, &aligner);
-        for sam_record in sam_records {
-            if sam_record.is_mapped() || !args.only_mapped {
-                writeln!(out, "{}", sam_record)?;
+    let mut rng = Rng::with_seed(0);
+    if let Some(r2_path) = args.fastq_path2 {
+        // paired-end reads
+        let f1 = File::open(&args.fastq_path)?;
+        let f2 = File::open(r2_path)?;
+        let mut isizedist = InsertSizeDistribution::new();
+
+        for (r1, r2) in FastqReader::new(f1).into_iter().zip(FastqReader::new(f2)) {
+            let r1 = r1?;
+            let r2 = r2?;
+            let sam_records = map_paired_end_read(
+                &r1, &r2, &index, &references, &mapping_parameters, &sam_output, &parameters, &mut isizedist, &aligner, &mut rng
+            );
+            for sam_record in sam_records {
+                if sam_record.is_mapped() || !args.only_mapped {
+                    writeln!(out, "{}", sam_record)?;
+                }
+            }
+        }
+
+    } else {
+        let f1 = File::open(&args.fastq_path)?;
+
+        for record in FastqReader::new(f1) {
+            let record = record?;
+            let sam_records = map_single_end_read(&record, &index, &references, &mapping_parameters, &sam_output, &aligner);
+            for sam_record in sam_records {
+                if sam_record.is_mapped() || !args.only_mapped {
+                    writeln!(out, "{}", sam_record)?;
+                }
             }
         }
     }

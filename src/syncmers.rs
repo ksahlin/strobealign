@@ -8,7 +8,7 @@ pub struct Syncmer {
     pub position: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SyncmerParameters {
     pub k: usize,
     pub s: usize,

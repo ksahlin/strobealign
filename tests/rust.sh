@@ -43,7 +43,8 @@ if samtools view phix.se.m.sam | cut -f6 | grep -q '[X=]'; then false; fi
 rm phix.se.m.sam
 
 # Paired-end SAM
-rstrobes --no-PG --eqx --chunk-size 3 --rg-id 1 --rg SM:sample --rg LB:library tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq > phix.pe.sam
+# TODO --chunk-size 3
+rstrobes --no-PG --eqx --rg-id 1 --rg SM:sample --rg LB:library tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq > phix.pe.sam
 diff tests/phix.pe.sam phix.pe.sam
 rm phix.pe.sam
 
