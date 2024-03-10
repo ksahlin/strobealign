@@ -41,7 +41,7 @@ impl Default for MappingParameters {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 struct Alignment {
     reference_id: usize,
     ref_start: usize,
@@ -128,6 +128,10 @@ impl SamOutput {
     ) -> SamRecord {
         let mut flags = 0;
 
+        if alignment.is_unaligned {
+            flags |= UNMAP;
+        }
+
         if !alignment.is_unaligned && alignment.is_revcomp {
             flags |= REVERSE;
         }
@@ -212,8 +216,8 @@ impl SamOutput {
     ) -> [SamRecord; 2] {
         // Create single-end records
         let mut sam_records = [
-            self.make_record(&alignments[0], references, &records[0], mapq[0], is_primary, details[0].clone()),
-            self.make_record(&alignments[1], references, &records[1], mapq[1], is_primary, details[1].clone()),
+            self.make_record(alignments[0], references, records[0], mapq[0], is_primary, details[0].clone()),
+            self.make_record(alignments[1], references, records[1], mapq[1], is_primary, details[1].clone()),
         ];
 
         // Then make them paired
@@ -238,32 +242,21 @@ impl SamOutput {
         }
 
         // 2. RNEXT (reference name of mate); must be "=" if identical to reference_name
-        let reference_name1;
-        let mut pos1 = Some(alignments[0].ref_start);
+        let mut pos1 = Some(alignments[0].ref_start as u32);
         if alignments[0].is_unaligned {
             pos1 = None;
-            reference_name1 = "*";
-        } else {
-            reference_name1 = &references[alignments[0].reference_id].name;
         }
 
-        let reference_name2;
-        let mut pos2 = Some(alignments[1].ref_start);
+        let mut pos2 = Some(alignments[1].ref_start as u32);
         if alignments[1].is_unaligned {
             pos2 = None;
-            reference_name2 = "*";
-        } else {
-            reference_name2 = &references[alignments[1].reference_id].name;
         }
 
-        let mut mate_reference_name1 = reference_name1;
-        let mut mate_reference_name2 = reference_name2;
-        if
-        (!alignments[0].is_unaligned && !alignments[1].is_unaligned && alignments[0].reference_id == alignments[1].reference_id)
+        if (!alignments[0].is_unaligned && !alignments[1].is_unaligned && alignments[0].reference_id == alignments[1].reference_id)
             || (alignments[0].is_unaligned != alignments[1].is_unaligned)
         {
-            mate_reference_name1 = "=";
-            mate_reference_name2 = "=";
+            sam_records[0].mate_reference_name = Some("=".to_string());
+            sam_records[1].mate_reference_name = Some("=".to_string());
         }
 
         if alignments[0].is_unaligned != alignments[1].is_unaligned {
@@ -273,6 +266,8 @@ impl SamOutput {
                 pos2 = pos1;
             }
         }
+        sam_records[0].mate_pos = pos2;
+        sam_records[1].mate_pos = pos1;
 
         // 4. TLEN
         let both_aligned = !alignments[0].is_unaligned && !alignments[1].is_unaligned;
@@ -489,7 +484,7 @@ pub fn map_paired_end_read(
 
     for is_revcomp in [0, 1] {
         let record = if is_revcomp == 0 { r1 } else { r2 };
-        let (was_rescued, mut nams) = get_nams(&record.sequence, &index, &mapping_parameters);
+        let (was_rescued, nams) = get_nams(&record.sequence, index, mapping_parameters);
         details[is_revcomp].nam_rescue = was_rescued;
         details[is_revcomp].nams = nams.len();
         nams_pair[is_revcomp] = nams;
@@ -498,7 +493,7 @@ pub fn map_paired_end_read(
     // Timer extend_timer;
     let read1 = Read::new(&r1.sequence); // TODO pass r1, r2 to align_paired instead
     let read2 = Read::new(&r2.sequence);
-    let mut alignment_pairs = align_paired(
+    let alignment_pairs = align_paired(
         aligner, &mut nams_pair, &read1, &read2,
         index_parameters.syncmer.k, references, &mut details,
         mapping_parameters.dropoff_threshold, insert_size_distribution,
@@ -541,22 +536,18 @@ pub fn map_paired_end_read(
             details[1].best_alignments = i;
             if i > 1 {
                 let random_index = rng.usize(..i);
-                if random_index != 0 {
-                    alignment_pairs.swap(0, random_index);
-                }
+                alignment_pairs.swap(0, random_index);
             }
 
             let secondary_dropoff = 2 * aligner.scores.mismatch + aligner.scores.gap_open;
             sam_records.extend(aligned_pairs_to_sam(
                 &alignment_pairs,
-                &sam_output,
+                sam_output,
                 references,
                 mapping_parameters.max_secondary,
                 secondary_dropoff as f64,
-                &r1,
-                &r2,
-                &read1,
-                &read2,
+                r1,
+                r2,
                 insert_size_distribution.mu,
                 insert_size_distribution.sigma,
                 &details
@@ -571,6 +562,7 @@ pub fn map_paired_end_read(
     sam_records
 }
 
+#[derive(Debug)]
 enum AlignedPairs {
     Proper((Alignment, Alignment)),
     WithScores(Vec<ScoredAlignmentPair>),
@@ -678,10 +670,11 @@ fn align_paired(
     // the paired-end read as two single-end reads.
     let mut a_indv_max= [Alignment::default(), Alignment::default()];
     for i in 0..2 {
+        dbg!(i);
         let consistent_nam = reverse_nam_if_needed(&mut nams[i][0], reads[i], references, k);
+        dbg!(&nams[i][0]);
         details[i].nam_inconsistent += !consistent_nam as usize;
-        // TODO unwrap
-        a_indv_max[0] = extend_seed(aligner, &nams[i][0], references, reads[i], consistent_nam).unwrap();
+        a_indv_max[i] = extend_seed(aligner, &nams[i][0], references, reads[i], consistent_nam).unwrap();
         details[i].tried_alignment += 1;
         details[i].gapped += a_indv_max[i].gapped as usize;
         is_aligned[i].insert(nams[i][0].nam_id, a_indv_max[i].clone());
@@ -693,7 +686,7 @@ fn align_paired(
     let max_score = nam_pairs[0].n_hits;
     for nam_pair in nam_pairs {
         let score_ = nam_pair.n_hits;
-        let mut namsp = [nam_pair.nam1, nam_pair.nam2];
+        let namsp = [nam_pair.nam1, nam_pair.nam2];
         let score_dropoff = score_ as f32 / max_score as f32;
 
         if alignment_pairs.len() >= max_tries || score_dropoff < dropoff {
@@ -706,9 +699,8 @@ fn align_paired(
 
         let mut alignments = [Alignment::default(), Alignment::default()];
         for i in 0..2 {
-            let mut alignment;
+            let alignment;
             if let Some(mut this_nam) = namsp[i].clone() {
-                // TODO combine .contains_key + .get, avoid unwrap
                 if is_aligned[i].contains_key(&this_nam.nam_id) {
                     alignment = is_aligned[i].get(&this_nam.nam_id).unwrap().clone();
                 } else {
@@ -1044,7 +1036,7 @@ struct NamPair {
     nam2: Option<Nam>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ScoredAlignmentPair {
     score: f64,
     alignment1: Alignment,
@@ -1099,8 +1091,6 @@ fn aligned_pairs_to_sam(
     secondary_dropoff: f64,
     record1: &SequenceRecord,
     record2: &SequenceRecord,
-    read1: &Read,
-    read2: &Read,
     mu: f32,
     sigma: f32,
     details: &[Details; 2],

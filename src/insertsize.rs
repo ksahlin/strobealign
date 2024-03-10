@@ -1,4 +1,5 @@
 /// Estimator for a normal distribution, used for insert sizes.
+#[derive(Debug)]
 pub struct InsertSizeDistribution {
     pub sample_size: usize,
     pub mu: f32,
@@ -29,17 +30,20 @@ impl InsertSizeDistribution {
         if insert_size >= 2000 {
             return;
         }
-        let insert_size = insert_size as f32;
-        let e = insert_size - self.mu;
-        self.mu += e / self.sample_size as f32;
-        self.SSE += e * (insert_size - self.mu);
-        if self.sample_size > 1 {
-            self.V = self.SSE / (self.sample_size as f32 - 1.0);
-        } else {
-            self.V = self.SSE;
+        if self.sample_size > 0 {
+            let insert_size = insert_size as f32;
+            let e = insert_size - self.mu;
+            self.mu += e / self.sample_size as f32;
+            self.SSE += e * (insert_size - self.mu);
+            if self.sample_size > 1 {
+                self.V = self.SSE / (self.sample_size as f32 - 1.0);
+            } else {
+                self.V = self.SSE;
+            }
+            self.sigma = self.V.sqrt();
         }
-        self.sigma = self.V.sqrt();
         self.sample_size += 1;
+        dbg!("after update", &self);
         /*
         TODO
         if self.mu < 0 {

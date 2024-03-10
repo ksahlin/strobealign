@@ -1,7 +1,7 @@
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::str::FromStr;
 
-#[derive(Debug,PartialEq,Eq,Clone,Copy)]
+#[derive(Debug,PartialEq, Eq, Clone, Copy)]
 pub enum CigarOperation {
     Match = 0,
     Insertion = 1,
@@ -74,7 +74,7 @@ impl TryFrom<u32> for OpLen {
     }
 }
 
-#[derive(Default,Debug,Clone)]
+#[derive(Default,Clone)]
 pub struct Cigar {
     ops: Vec<OpLen>,
 }
@@ -187,6 +187,12 @@ impl Display for Cigar {
             write!(f, "{}{}", op_len.len, op_len.op)?;
         }
         Ok(())
+    }
+}
+
+impl Debug for Cigar {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self, f)
     }
 }
 
