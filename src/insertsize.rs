@@ -43,7 +43,6 @@ impl InsertSizeDistribution {
             self.sigma = self.V.sqrt();
         }
         self.sample_size += 1;
-        dbg!("after update", &self);
         /*
         TODO
         if self.mu < 0 {

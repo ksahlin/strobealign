@@ -670,9 +670,7 @@ fn align_paired(
     // the paired-end read as two single-end reads.
     let mut a_indv_max= [Alignment::default(), Alignment::default()];
     for i in 0..2 {
-        dbg!(i);
         let consistent_nam = reverse_nam_if_needed(&mut nams[i][0], reads[i], references, k);
-        dbg!(&nams[i][0]);
         details[i].nam_inconsistent += !consistent_nam as usize;
         a_indv_max[i] = extend_seed(aligner, &nams[i][0], references, reads[i], consistent_nam).unwrap();
         details[i].tried_alignment += 1;
