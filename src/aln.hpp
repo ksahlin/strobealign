@@ -56,6 +56,12 @@ struct AlignmentStatistics {
     }
 };
 
+enum class OutputFormat {
+    SAM,
+    PAF,
+    Abundance
+};
+
 struct MappingParameters {
     int r { 150 };
     int max_secondary { 0 };
@@ -63,7 +69,7 @@ struct MappingParameters {
     int rescue_level { 2 };
     int max_tries { 20 };
     int rescue_cutoff;
-    bool is_sam_out { true };
+    OutputFormat output_format {OutputFormat::SAM};
     CigarOps cigar_ops{CigarOps::M};
     bool output_unmapped { true };
     bool details{false};
@@ -88,7 +94,8 @@ void align_or_map_paired(
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index,
-    std::minstd_rand& random_engine
+    std::minstd_rand& random_engine,
+    std::vector<double> &abundances
 );
 
 void align_or_map_single(
@@ -101,7 +108,8 @@ void align_or_map_single(
     const IndexParameters& index_parameters,
     const References& references,
     const StrobemerIndex& index,
-    std::minstd_rand& random_engine
+    std::minstd_rand& random_engine,
+    std::vector<double> &abundances
 );
 
 // Private declarations, only needed for tests

@@ -24,7 +24,7 @@ If needed, run `make` with `VERBOSE=1` to get more logging output.
 After CMake has been run, you can use this one-liner to compile strobealign and
 run the tests:
 ```
-make -j -C build && tests/run.sh
+make -s -j -C build && tests/run.sh
 ```
 
 Whenever you make changes that could potentially affect mapping results, you can

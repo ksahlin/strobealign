@@ -9,7 +9,7 @@ Strobealign is a read mapper that is typically significantly faster than other r
 
 - Map single-end and paired-end reads
 - Multithreading support
-- Fast indexing (1-2 minutes for a human-sized reference genome using four cores)
+- Fast indexing (<1 minute for a human-sized reference genome using four cores)
 - On-the-fly indexing by default. Optionally create an on-disk index.
 - Output in standard SAM format or produce even faster results by writing PAF (without alignments)
 - Strobealign is most suited for read lengths between 100 and 500 bp
@@ -77,41 +77,67 @@ as a developer.
 
 ### Python bindings
 
-Experimental and incomplete Python bindings can be installed with
+Experimental Python bindings can be installed with
 `pip install .`. The only documentation for the moment are the tests in
 `tests/*.py`.
 
 ## Usage
 
+To align paired-reads against a reference FASTA and produce a sorted BAM file,
+using eight threads:
 ```
-strobealign ref.fa reads.fq > output.sam                # Single-end reads
-strobealign ref.fa reads1.fq reads2.fq > output.sam     # Paired-end reads
-
-strobealign -x ref.fa reads.fq > output.paf             # Single-end reads mapping only (PAF)
-strobealign -x ref.fa reads1.fq reads2.fq > output.paf  # Paired-end reads mapping only (PAF)
+strobealign -t 8 ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools sort -o sorted.bam
 ```
 
-To use interleaved files, use the `--interleaved` flag:
+For single-end reads:
+```
+strobealign -t 8 ref.fa reads.fastq.gz | samtools sort -o sorted.bam
+```
 
+For mixed reads (the input file can contain both single and paired-end reads):
 ```
-strobealign ref.fa reads.fq --interleaved > output.sam  # Single and/or paired-end reads
+strobealign -t 8 ref.fa --interleaved reads.fastq.gz | samtools sort -o sorted.bam
 ```
 
-To report secondary alignments, set parameter `-N [INT]` for a maximum of `[INT]` secondary alignments.
+In alignment mode, strobealign produces SAM output. By piping the output
+directly into `samtools`, the above commands avoid creating potentially large
+intermediate SAM files and also reduce disk I/O.
 
-The above commands are suitable for interactive use and test runs.
-For normal use, avoid creating SAM files on disk as they get very large compared
-to their compressed BAM counterparts. Instead, either pipe strobealign’s output
-into `samtools view` to create unsorted BAM files:
+To produce unsorted BAM, use `samtools view` instead of `samtools sort`.
+
+
+### Mapping-only mode
+
+The command-line option `-x` switches strobealign into mapping-only mode,
+in which it will output [PAF](https://github.com/lh3/miniasm/blob/master/PAF.md)
+files instead of SAM. For example:
 ```
-strobealign ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools view -o mapped.bam
+strobealign -x -t 8 ref.fa reads.1.fastq.gz reads.2.fastq.gz | igzip > output.paf.gz
 ```
-Or use `samtools sort` to create a sorted BAM file:
+`igzip` is a faster version of gzip that is part of
+[ISA-L](https://github.com/intel/isa-l/).
+If it is not available, replace it with `pigz` or regular `gzip` in the
+command.
+
+
+## Abundance estimation mode (for metagenomic binning)
+
+The command-line option `--aemb` switches strobealign into abundance estimation
+mode, intended for metagenomic binning.
+In this mode, strobealign outputs a single table with abundance values in
+tab-separated value format instead of SAM or PAF.
+
+Paired-end example:
 ```
-strobealign ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools sort -o sorted.bam
+strobealign -t 8 --aemb ref.fa reads.1.fastq.gz reads.2.fastq.gz > abundances.tsv
 ```
-This is usually faster than doing the two steps separately because fewer
-intermediate files are created.
+The output table contains one row for each contig of the reference.
+The first column is the reference/contig id and the second its abundance.
+
+The abundance is the number of bases mapped to a contig, divided by the length
+of the contig. Reads mapping to *n* different locations are weighted 1/*n*.
+
+Further columns may be added to this table in future versions of strobealign.
 
 
 ## Command-line options
@@ -122,11 +148,11 @@ options. Some important ones are:
 * `-r`: Mean read length. If given, this overrides the read length estimated
   from the input file(s). This is usually only required in combination with
   `--create-index`, see [index files](#index-files).
-* `-t N`, `--threads=N`: Use N threads. This mainly applies to the mapping step
-  as the indexing step is only partially parallelized.
+* `-t N`, `--threads=N`: Use N threads (both for mapping and indexing).
 * `--eqx`: Emit `=` and `X` CIGAR operations instead of `M`.
 * `-x`: Only map reads, do not do no base-level alignment. This switches the
   output format from SAM to [PAF](https://github.com/lh3/miniasm/blob/master/PAF.md).
+* `--aemb`: Output estimated abundance value of each contig, see section above.
 * `--rg-id=ID`: Add RG tag to each SAM record.
 * `--rg=TAG:VALUE`: Add read group metadata to the SAM header. This can be
   specified multiple times. Example: `--rg-id=1 --rg=SM:mysamle --rg=LB:mylibrary`.
@@ -145,9 +171,9 @@ options. Some important ones are:
 Strobealign needs to build an index (strobemer index) of the reference before
 it can map reads to it.
 The optimal indexing parameters depend on the length of the input reads.
-There are currently seven different pre-defined sets of parameters that are
-optimized for different read lengths. These *canonical read lengths* are
-50, 100, 125, 150, 250 and 400. When deciding which of the pre-defined
+There are pre-defined sets of parameters that are optimized for different read
+lengths. These *canonical read lengths* are
+50, 75, 100, 125, 150, 250 and 400. When deciding which of the pre-defined
 indexing parameter sets to use, strobealign chooses one whose canonical
 read length is close to the average read length of the input.
 
@@ -166,11 +192,11 @@ To create an index, use the `--create-index` option.
 Since strobealign needs to know the read length, either provide it with
 read file(s) as if you wanted to map them:
 
-    strobealign --create-index ref.fa reads.1.fastq.gz reads.2.fastq.gz
+    strobealign --create-index -t 8 ref.fa reads.1.fastq.gz reads.2.fastq.gz
 
 Or set the read length explicitly with `-r`:
 
-    strobealign --create-index ref.fa -r 150
+    strobealign --create-index -t 8 ref.fa -r 150
 
 This creates a file named `ref.fa.rX.sti` containing the strobemer index,
 where `X` is the canonical read length that the index is optimized for (see
@@ -178,7 +204,7 @@ above).
 To use the index when mapping, provide option `--use-index` when doing the
 actual mapping:
 
-    strobealign --use-index ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools ...
+    strobealign --use-index -t 8 ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools ...
 
 - Note that the `.sti` files are usually tied to a specific strobealign version.
   That is, when upgrading strobealign, the `.sti` files need to be regenerated.

@@ -6,7 +6,7 @@
 #include <utility>
 
 struct CommandLineOptions {
-    int n_threads { 3 };
+    int n_threads { 1 };
     int chunk_size { 10000 };
 
     // Input/output
@@ -18,6 +18,7 @@ struct CommandLineOptions {
     bool only_gen_index { false };
     bool use_index { false };
     bool is_sam_out { true };
+    bool is_abundance_out {false};
 
     // SAM output
     bool cigar_eqx { false };

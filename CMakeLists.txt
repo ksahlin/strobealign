@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(strobealign VERSION 0.12.0)
+project(strobealign VERSION 0.13.0)
 include(FetchContent)
 
 option(ENABLE_AVX "Enable AVX2 support" OFF)

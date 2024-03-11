@@ -13,8 +13,12 @@ set -euo pipefail
 python3 -c 'import pysam'
 
 ends="pe"
-while getopts "s" opt; do
+threads=4
+while getopts "st:" opt; do
   case "${opt}" in
+    t)
+      threads=$OPTARG
+      ;;
     s)
       ends=se  # single-end reads
       ;;
@@ -38,7 +42,7 @@ baseline_commit=$(< tests/baseline-commit.txt)
 baseline_bam=baseline/bam/${baseline_commit}.${ends}.bam
 baseline_binary=baseline/strobealign-${baseline_commit}
 cmake_options=-DCMAKE_BUILD_TYPE=RelWithDebInfo
-strobealign_options="-t 4"
+strobealign_options="-t ${threads}"
 
 # Generate the baseline BAM if necessary
 mkdir -p baseline/bam
@@ -48,7 +52,7 @@ if ! test -f ${baseline_bam}; then
     git clone . ${srcdir}
     ( cd ${srcdir} && git checkout -d ${baseline_commit} )
     cmake ${srcdir} -B ${srcdir}/build ${cmake_options}
-    if ! make -j 4 -C ${srcdir}/build strobealign; then
+    if ! make -s -j 4 -C ${srcdir}/build strobealign; then
       exit 1
     fi
     mv ${srcdir}/build/strobealign ${baseline_binary}
@@ -61,7 +65,7 @@ fi
 # compiler options.
 builddir=$(mktemp -p . -d build.XXXXXXX)
 cmake . -B ${builddir} ${cmake_options}
-make -j 4 -C ${builddir} strobealign
+make -s -j 4 -C ${builddir} strobealign
 set -x
 ${builddir}/strobealign ${strobealign_options} ${ref} ${reads[@]} | samtools view -o head.bam
 rm -rf ${builddir}

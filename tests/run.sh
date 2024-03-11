@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xeuo pipefail
+set -euo pipefail
 
 if [[ $OSTYPE = linux-gnu ]]; then
     color="--color=always"
@@ -8,15 +8,18 @@ else
 fi
 
 function strobealign() {
-    build/strobealign "${@}"
+    echo "Testing '${@}'" >&2
+    build/strobealign "${@}" 2> testlog.txt
 }
 
 function diff() {
-    env diff -u ${color} "$1" "$2"
+    if ! env diff -u ${color} "$1" "$2"; then
+      echo "Failure running 'diff $1 $2'"
+      exit 1
+    fi
 }
 
-# Unit tests
-build/test-strobealign
+build/test-strobealign --no-intro
 
 # should fail when unknown command-line option used
 if strobealign -G > /dev/null 2> /dev/null; then false; fi
@@ -58,6 +61,16 @@ strobealign -x tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq | tail -n 
 diff tests/phix.pe.paf phix.pe.paf
 rm phix.pe.paf
 
+# Single-end abundance estimation 
+strobealign --aemb tests/phix.fasta tests/phix.1.fastq > phix.abun.se.txt
+diff tests/phix.abun.se.txt phix.abun.se.txt
+rm phix.abun.se.txt
+
+# Paired-end abundance estimation
+strobealign --aemb tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq > phix.abun.pe.txt
+diff tests/phix.abun.pe.txt phix.abun.pe.txt
+rm phix.abun.pe.txt
+
 # Build a separate index
 strobealign --no-PG -r 150 tests/phix.fasta tests/phix.1.fastq > without-sti.sam
 strobealign -r 150 -i tests/phix.fasta
@@ -96,3 +109,5 @@ rm no-secondary.sam with-secondary.sam with-secondary-only-primary.sam repeated-
 strobealign -C --no-PG --rg-id=1 --rg=SM:sample --rg=LB:library tests/phix.fasta tests/phix.tags.fastq > with-tags.sam
 diff tests/phix.tags.sam with-tags.sam
 rm with-tags.sam
+
+echo "Success"
