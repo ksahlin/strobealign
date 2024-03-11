@@ -17,7 +17,7 @@ pub const DUP: u16 = 0x400;
 pub const SUPPLEMENTARY: u16 = 0x800;
 
 // TODO String and Vec<u8> fields should be references
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct SamRecord {
     pub query_name: String,
     pub flags: u16,
