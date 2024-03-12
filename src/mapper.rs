@@ -756,17 +756,15 @@ fn rescue_read(
     sigma: f32
 ) -> Vec<ScoredAlignmentPair> {
     let n_max1_hits = nams1[0].n_hits;
-    let mut tries = 0;
 
     let mut alignments1 = vec![];
     let mut alignments2 = vec![];
-    for nam in nams1 {
+    for nam in nams1.iter_mut().take(max_tries) {
         let score_dropoff1 = nam.n_hits as f32 / n_max1_hits as f32;
         // only consider top hits (as minimap2 does) and break if below dropoff cutoff.
-        if tries >= max_tries || score_dropoff1 < dropoff {
+        if score_dropoff1 < dropoff {
             break;
         }
-
         let consistent_nam = reverse_nam_if_needed(nam, read1, references, k);
         details[0].nam_inconsistent += !consistent_nam as usize;
         if let Some(alignment) = extend_seed(aligner, nam, references, read1, consistent_nam) {
@@ -780,15 +778,11 @@ fn rescue_read(
                 alignments2.push(a2);
             }
         }
-        tries += 1;
     }
     alignments1.sort_by_key(|a| Reverse(a.score));
     alignments2.sort_by_key(|a| Reverse(a.score));
 
-    // Calculate best combined score here
-    let high_scores = get_best_scoring_pairs(&alignments1, &alignments2, mu, sigma);
-
-    return high_scores;
+    get_best_scoring_pairs(&alignments1, &alignments2, mu, sigma)
 }
 
 /// Align a read to the reference given the mapping location of its mate.
@@ -876,8 +870,7 @@ fn get_best_scoring_pairs(
             let mut score = (a1.score + a2.score) as f32;
             if (a1.is_revcomp ^ a2.is_revcomp) && (dist as f32) < mu + 4.0 * sigma {
                 score += normal_pdf(dist as f32, mu, sigma).ln();
-            }
-            else { // individual score
+            } else { // individual score
                 // 10 corresponds to a value of log(normal_pdf(dist, mu, sigma)) of more than 4 stddevs away
                 score -= 10.0;
             }
