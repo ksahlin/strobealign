@@ -249,12 +249,10 @@ impl SamOutput {
                                 (mate.ref_start - this.ref_start + mate.length) as isize
                             } else if this.ref_start > mate.ref_start {
                                 -((this.ref_start - mate.ref_start + this.length) as isize)
+                            } else if i == 0 {
+                                -(mate.length as isize)
                             } else {
-                                if i == 0 {
-                                    -(mate.length as isize)
-                                } else {
-                                    this.length as isize
-                                }
+                                this.length as isize
                             };
                         sam_records[i].template_len = Some(template_length as i32);
                     }
@@ -294,7 +292,7 @@ pub fn map_single_end_read(
 ) -> Vec<SamRecord> {
     let mut details = Details::default();
 
-    let (was_rescued, mut nams) = get_nams(&record.sequence, &index, &mapping_parameters);
+    let (was_rescued, mut nams) = get_nams(&record.sequence, index, mapping_parameters);
     details.nam_rescue = was_rescued;
     details.nams = nams.len();
 
@@ -376,7 +374,7 @@ pub fn map_single_end_read(
 // TODO rename
 fn get_nams(sequence: &[u8], index: &StrobemerIndex, mapping_parameters: &MappingParameters) -> (bool, Vec<Nam>) {
     //Timer strobe_timer;
-    let query_randstrobes = randstrobes_query(&sequence, &index.parameters);
+    let query_randstrobes = randstrobes_query(sequence, &index.parameters);
     //statistics.tot_construct_strobemers += strobe_timer.duration();
 
     // Timer nam_timer;
@@ -639,8 +637,8 @@ fn align_paired(
         let consistent_nam2 = reverse_nam_if_needed(&mut n_max2, read2, references, k);
         details[1].nam_inconsistent += !consistent_nam2 as usize;
 
-        let alignment1 = extend_seed(aligner, &mut n_max1, references, read1, consistent_nam1);
-        let alignment2 = extend_seed(aligner, &mut n_max2, references, read2, consistent_nam2);
+        let alignment1 = extend_seed(aligner, &n_max1, references, read1, consistent_nam1);
+        let alignment2 = extend_seed(aligner, &n_max2, references, read2, consistent_nam2);
         if let (Some(alignment1), Some(alignment2)) = (alignment1, alignment2) {
             details[0].tried_alignment += 1;
             details[0].gapped += alignment1.gapped as usize;
@@ -724,17 +722,16 @@ fn align_paired(
         let r1_r2 = a2.is_revcomp && !a1.is_revcomp && (a1.ref_start <= a2.ref_start) && ((a2.ref_start - a1.ref_start) < (mu + 10.0 * sigma) as usize); // r1 ---> <---- r2
         let r2_r1 = a1.is_revcomp && !a2.is_revcomp && (a2.ref_start <= a1.ref_start) && ((a1.ref_start - a2.ref_start) < (mu + 10.0 * sigma) as usize); // r2 ---> <---- r1
 
-        let combined_score;
-        if r1_r2 || r2_r1 {
-            // Treat a1/a2 as a pair
-            let x = a1.ref_start.abs_diff(a2.ref_start);
-            combined_score = a1.score as f64 + a2.score as f64 + (-20.0f64 + 0.001).max(normal_pdf(x as f32, mu, sigma).ln() as f64);
-            //* (1 - s2 / s1) * min_matches * log(s1);
-        } else {
-            // Treat a1/a2 as two single-end reads
-            // 20 corresponds to a value of log(normal_pdf(x, mu, sigma)) of more than 5 stddevs away (for most reasonable values of stddev)
-            combined_score = a1.score as f64 + a2.score as f64 - 20.0;
-        }
+        let combined_score=
+            if r1_r2 || r2_r1 {
+                // Treat as a pair
+                let x = a1.ref_start.abs_diff(a2.ref_start);
+                a1.score as f64 + a2.score as f64 + (-20.0f64 + 0.001).max(normal_pdf(x as f32, mu, sigma).ln() as f64)
+            } else {
+                // Treat as two single-end reads
+                // 20 corresponds to a value of log(normal_pdf(x, mu, sigma)) of more than 5 stddevs away (for most reasonable values of stddev)
+                a1.score as f64 + a2.score as f64 - 20.0
+            };
 
         let aln_pair = ScoredAlignmentPair { score: combined_score, alignment1: Some(a1.clone()), alignment2: Some(a2.clone()) };
         alignment_pairs.push(aln_pair);
@@ -781,7 +778,7 @@ fn rescue_read(
             details[0].tried_alignment += 1;
 
             let a2 = rescue_align(aligner, nam, references, read2, mu, sigma, k);
-            if !a2.is_none() {
+            if a2.is_some() {
                 details[1].mate_rescue += 1;
             }
             alignments2.push(a2);
@@ -921,7 +918,7 @@ fn is_proper_nam_pair(nam1: &Nam, nam2: &Nam, mu: f32, sigma: f32) -> bool {
      // r2 ---> <---- r1
     let r2_r1 = nam1.is_revcomp && (r2_ref_start <= r1_ref_start) && ((r1_ref_start - r2_ref_start) as f32) < mu + 10.0 * sigma;
 
-    return r1_r2 || r2_r1;
+    r1_r2 || r2_r1
 }
 
 /// Find high-scoring NAMs and NAM pairs. Proper pairs are preferred, but also
@@ -1071,7 +1068,7 @@ fn aligned_pairs_to_sam(
         return records;
     }
 
-    let mapq = joint_mapq_from_high_scores(&high_scores);
+    let mapq = joint_mapq_from_high_scores(high_scores);
     let best_aln_pair = &high_scores[0];
 
     if max_secondary == 0 {
@@ -1115,14 +1112,11 @@ fn joint_mapq_from_high_scores(pairs: &[ScoredAlignmentPair]) -> u8 {
     if score1 == score2 {
         return 0;
     }
-    let diff = score1 - score2; // (1.0 - (S1 - S2) / S1);
-    //  float log10_p = diff > 6 ? -6.0 : -diff; // Corresponds to: p_error= 0.1^diff // change in sw score times rough illumina error rate. This is highly heauristic, but so seem most computations of mapq scores
     if score1 > 0.0 && score2 > 0.0 {
         (score1 - score2).min(60.0) as u8
-        //            mapq1 = -10 * log10_p < 60 ? -10 * log10_p : 60;
     } else if score1 > 0.0 && score2 <= 0.0 {
         60
-    } else { // both negative SW one is better
+    } else {
         1
     }
 }
