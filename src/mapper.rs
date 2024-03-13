@@ -122,7 +122,7 @@ impl SamOutput {
     }
 
     fn make_record(
-        &self, alignment: &Option<Alignment>, references: &[RefSequence], record: &SequenceRecord, mut mapq: u8, is_primary: bool, details: Details
+        &self, alignment: Option<&Alignment>, references: &[RefSequence], record: &SequenceRecord, mapq: u8, is_primary: bool, details: Details
     ) -> SamRecord {
         match alignment {
             Some(alignment) => self.make_mapped_record(alignment, references, record, mapq, is_primary, details.clone()),
@@ -209,7 +209,7 @@ impl SamOutput {
     // alignment: &Alignment, references: &[RefSequence], record: &SequenceRecord, mut mapq: u8, is_primary: bool, details: Details) -> SamRecord {
     fn make_paired_records(
         &self,
-        alignments: [&Option<Alignment>; 2],
+        alignments: [Option<&Alignment>; 2],
         references: &[RefSequence],
         records: [&SequenceRecord; 2],
         mapq: [u8; 2],
@@ -238,9 +238,8 @@ impl SamOutput {
                 }
                 // RNEXT (reference name of mate)
                 if let Some(this) = alignments[i] {
-
+                    // both aligned
                     if this.reference_id == mate.reference_id {
-                        // both aligned
                         sam_records[i].mate_reference_name = Some("=".to_string());
 
                         // TLEN
@@ -251,15 +250,14 @@ impl SamOutput {
                             else {
                                 -((this.ref_start - mate.ref_start) as isize) - this.length as isize
                             };
-                        // sam_records[0].template_len = Some(template_length as i32);
                         sam_records[i].template_len = Some(template_length as i32);
                     }
                 } else {
-                    sam_records[i].mate_reference_name = Some(references[mate.reference_id].name.clone());
 
                     // The SAM specification recommends: "For a[n] unmapped paired-end or
                     // mate-pair read whose mate is mapped, the unmapped read should have
                     // RNAME and POS identical to its mate."
+                    sam_records[i].mate_reference_name = Some("=".to_string());
                     sam_records[i].reference_name = Some(references[mate.reference_id].name.clone());
                     sam_records[i].pos = Some(mate.ref_start as u32);
                 }
@@ -267,8 +265,12 @@ impl SamOutput {
                 sam_records[i].mate_pos = Some(mate.ref_start as u32);
             } else {
                 // mate unmapped
-                assert_ne!(sam_records[i].flags & UNMAP, 0);
                 sam_records[i].flags |= MUNMAP;
+                // Set RNAME and POS identical to mate
+                if let Some(this) = alignments[i] {
+                    sam_records[i].mate_reference_name = Some("=".to_string());
+                    sam_records[i].mate_pos = Some(this.ref_start as u32);
+                }
             }
         }
 
@@ -494,7 +496,7 @@ pub fn map_paired_end_read(
         // Typical case: both reads map uniquely and form a proper pair.
         // Then the mapping quality is computed based on the NAMs.
         AlignedPairs::Proper((alignment1, alignment2)) => {
-            let is_proper = is_proper_pair(&alignment1, &alignment2, insert_size_distribution.mu, insert_size_distribution.sigma);
+            let is_proper = is_proper_pair(Some(&alignment1), Some(&alignment2), insert_size_distribution.mu, insert_size_distribution.sigma);
             if is_proper
                 && insert_size_distribution.sample_size < 400
                 && alignment1.edit_distance + alignment2.edit_distance < 3
@@ -510,7 +512,7 @@ pub fn map_paired_end_read(
             let is_primary = true;
 
             sam_records.extend(
-                sam_output.make_paired_records([&Some(alignment1), &Some(alignment2)], references, [r1, r2], [mapq1, mapq2], &details, is_primary, is_proper)
+                sam_output.make_paired_records([Some(&alignment1), Some(&alignment2)], references, [r1, r2], [mapq1, mapq2], &details, is_primary, is_proper)
             );
         },
         AlignedPairs::WithScores(mut alignment_pairs) => {
@@ -728,14 +730,14 @@ fn align_paired(
             combined_score = a1.score as f64 + a2.score as f64 - 20.0;
         }
 
-        let aln_pair = ScoredAlignmentPair { score: combined_score, alignment1: a1.clone(), alignment2: a2.clone() };
+        let aln_pair = ScoredAlignmentPair { score: combined_score, alignment1: Some(a1.clone()), alignment2: Some(a2.clone()) };
         alignment_pairs.push(aln_pair);
     }
 
     // Finally, add highest scores of both mates as individually mapped
     // 20 corresponds to  a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
     let combined_score = a_indv_max[0].score as f64 + a_indv_max[1].score as f64 - 20.0;
-    alignment_pairs.push(ScoredAlignmentPair {score: combined_score, alignment1: a_indv_max[0].clone(), alignment2: a_indv_max[1].clone()});
+    alignment_pairs.push(ScoredAlignmentPair {score: combined_score, alignment1: Some(a_indv_max[0].clone()), alignment2: Some(a_indv_max[1].clone())});
 
     AlignedPairs::WithScores(alignment_pairs)
 }
@@ -772,17 +774,39 @@ fn rescue_read(
             alignments1.push(alignment);
             details[0].tried_alignment += 1;
 
-            // Force SW alignment to rescue mate
-            if let Some(a2) = rescue_align(aligner, nam, references, read2, mu, sigma, k) {
+            let a2 = rescue_align(aligner, nam, references, read2, mu, sigma, k);
+            if !a2.is_none() {
                 details[1].mate_rescue += 1;
-                alignments2.push(a2);
+            }
+            alignments2.push(a2);
+        }
+    }
+    /*
+    TODO This should not be necessary because we later sort the pairs by score
+    alignments1.sort_by_key(|a| Reverse(a.score));
+    alignments2.sort_by_key(|a| Reverse(a.score));
+    */
+    let mut pairs = vec![];
+    for a1 in alignments1 {
+        for a2 in &alignments2 {
+            if let Some(a2) = a2 {
+                let dist = a1.ref_start.abs_diff(a2.ref_start);
+                let mut score = (a1.score + a2.score) as f32;
+                if (a1.is_revcomp ^ a2.is_revcomp) && (dist as f32) < mu + 4.0 * sigma {
+                    score += normal_pdf(dist as f32, mu, sigma).ln();
+                } else {
+                    // 10 corresponds to a value of log(normal_pdf(dist, mu, sigma)) of more than 4 stddevs away
+                    score -= 10.0;
+                }
+                pairs.push(ScoredAlignmentPair {score: score as f64, alignment1: Some(a1.clone()), alignment2: Some(a2.clone())});
+            } else {
+                let score = a1.score - 10;
+                pairs.push(ScoredAlignmentPair {score: score as f64, alignment1: Some(a1.clone()), alignment2: None});
             }
         }
     }
-    alignments1.sort_by_key(|a| Reverse(a.score));
-    alignments2.sort_by_key(|a| Reverse(a.score));
 
-    get_best_scoring_pairs(&alignments1, &alignments2, mu, sigma)
+    pairs
 }
 
 /// Align a read to the reference given the mapping location of its mate.
@@ -860,36 +884,22 @@ fn has_shared_substring(
     false
 }
 
-fn get_best_scoring_pairs(
-    alignments1: &[Alignment], alignments2: &[Alignment], mu: f32, sigma: f32
-) -> Vec<ScoredAlignmentPair> {
-    let mut pairs = vec![];
-    for a1 in alignments1 {
-        for a2 in alignments2 {
-            let dist = a1.ref_start.abs_diff(a2.ref_start);
-            let mut score = (a1.score + a2.score) as f32;
-            if (a1.is_revcomp ^ a2.is_revcomp) && (dist as f32) < mu + 4.0 * sigma {
-                score += normal_pdf(dist as f32, mu, sigma).ln();
-            } else { // individual score
-                // 10 corresponds to a value of log(normal_pdf(dist, mu, sigma)) of more than 4 stddevs away
-                score -= 10.0;
-            }
-            pairs.push(ScoredAlignmentPair {score: score as f64, alignment1: a1.clone(), alignment2: a2.clone()});
+fn is_proper_pair(alignment1: Option<&Alignment>, alignment2: Option<&Alignment>, mu: f32, sigma: f32) -> bool {
+    match (alignment1, alignment2) {
+        (None, None) => false,
+        (Some(_), None) => false,
+        (None, Some(_)) => false,
+        (Some(a1), Some(a2)) => {
+            let dist = a2.ref_start as isize - a1.ref_start as isize;
+            let same_reference = a1.reference_id == a2.reference_id;
+            let r1_r2 = !a1.is_revcomp && a2.is_revcomp && dist >= 0; // r1 ---> <---- r2
+            let r2_r1 = !a2.is_revcomp && a1.is_revcomp && dist <= 0; // r2 ---> <---- r1
+            let rel_orientation_good = r1_r2 || r2_r1;
+            let insert_good = dist.unsigned_abs() <= (mu + sigma * 6.0) as usize;
+
+            same_reference && insert_good && rel_orientation_good
         }
     }
-
-    pairs
-}
-
-fn is_proper_pair(alignment1: &Alignment, alignment2: &Alignment, mu: f32, sigma: f32) -> bool {
-    let dist = alignment2.ref_start as isize - alignment1.ref_start as isize;
-    let same_reference = alignment1.reference_id == alignment2.reference_id;
-    let r1_r2 = !alignment1.is_revcomp && alignment2.is_revcomp && dist >= 0; // r1 ---> <---- r2
-    let r2_r1 = !alignment2.is_revcomp && alignment1.is_revcomp && dist <= 0; // r2 ---> <---- r1
-    let rel_orientation_good = r1_r2 || r2_r1;
-    let insert_good = dist.unsigned_abs() <= (mu + sigma * 6.0) as usize;
-
-    same_reference && insert_good && rel_orientation_good
 }
 
 fn is_proper_nam_pair(nam1: &Nam, nam2: &Nam, mu: f32, sigma: f32) -> bool {
@@ -995,8 +1005,8 @@ struct NamPair {
 #[derive(Debug, Clone)]
 pub struct ScoredAlignmentPair {
     score: f64,
-    alignment1: Alignment,
-    alignment2: Alignment,
+    alignment1: Option<Alignment>,
+    alignment2: Option<Alignment>,
 }
 
 /// Remove consecutive identical alignment pairs and leave only the first.
@@ -1005,27 +1015,24 @@ fn deduplicate_scored_pairs(pairs: &mut Vec<ScoredAlignmentPair>) {
     if pairs.len() < 2 {
         return;
     }
-    let mut prev_ref_start1 = pairs[0].alignment1.ref_start;
-    let mut prev_ref_start2 = pairs[0].alignment2.ref_start;
-    let mut prev_ref_id1 = pairs[0].alignment1.reference_id;
-    let mut prev_ref_id2 = pairs[0].alignment2.reference_id;
+
+    fn is_same(p1: &ScoredAlignmentPair, p2: &ScoredAlignmentPair) -> bool {
+        match (&p1.alignment1, &p2.alignment2) {
+            (None, Some(_)) => false,
+            (Some(_), None) => false,
+            (None, None) => true,
+            (Some(a1), Some(a2)) => {
+                a1.ref_start != a2.ref_start || a1.reference_id != a2.reference_id
+            },
+        }
+    }
+    let mut k = 0;
     let mut j = 1;
     for i in 1..pairs.len() {
-        let ref_start1 = pairs[i].alignment1.ref_start;
-        let ref_start2 = pairs[i].alignment2.ref_start;
-        let ref_id1 = pairs[i].alignment1.reference_id;
-        let ref_id2 = pairs[i].alignment2.reference_id;
-        if  ref_start1 != prev_ref_start1 ||
-            ref_start2 != prev_ref_start2 ||
-            ref_id1 != prev_ref_id1 ||
-            ref_id2 != prev_ref_id2
-        {
-            prev_ref_start1 = ref_start1;
-            prev_ref_start2 = ref_start2;
-            prev_ref_id1 = ref_id1;
-            prev_ref_id2 = ref_id2;
+        if !is_same(&pairs[k], &pairs[i]) {
             pairs[j] = pairs[i].clone();
             j += 1;
+            k = i;
         }
     }
     pairs.truncate(j);
@@ -1065,10 +1072,10 @@ fn aligned_pairs_to_sam(
         let alignment1 = &best_aln_pair.alignment1;
         let alignment2 = &best_aln_pair.alignment2;
 
-        let is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
+        let is_proper = is_proper_pair(alignment1.as_ref(), alignment2.as_ref(), mu, sigma);
         let is_primary = true;
         records.extend(sam_output.make_paired_records(
-            [&Some(alignment1.clone()), &Some(alignment2.clone())], references, [record1, record2], [mapq, mapq], details, is_primary, is_proper
+            [alignment1.as_ref(), alignment2.as_ref()], references, [record1, record2], [mapq, mapq], details, is_primary, is_proper
         ));
     } else {
         let mut is_primary = true;
@@ -1078,10 +1085,10 @@ fn aligned_pairs_to_sam(
             let alignment2 = &aln_pair.alignment2;
             let s_score = aln_pair.score;
             if s_max - s_score < secondary_dropoff {
-                let is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
+                let is_proper = is_proper_pair(alignment1.as_ref(), alignment2.as_ref(), mu, sigma);
                 let mapq = if is_primary { mapq } else { 0 };
                 records.extend(sam_output.make_paired_records(
-                    [&Some(alignment1.clone()), &Some(alignment2.clone())], references, [record1, record2], [mapq, mapq], details, is_proper, is_primary
+                    [alignment1.as_ref(), alignment2.as_ref()], references, [record1, record2], [mapq, mapq], details, is_proper, is_primary
                 ));
             } else {
                 break;
@@ -1143,7 +1150,7 @@ mod tests {
     fn test_count_best_alignment_pairs() {
         let mut pairs = vec![];
         fn add_alignment(pairs: &mut Vec<ScoredAlignmentPair>, score: f64) {
-            pairs.push(ScoredAlignmentPair { score, alignment1: Alignment::default(), alignment2: Alignment::default() });
+            pairs.push(ScoredAlignmentPair { score, alignment1: Some(Alignment::default()), alignment2: Some(Alignment::default()) });
         }
 
         assert_eq!(count_best_alignment_pairs(&pairs), 0);
