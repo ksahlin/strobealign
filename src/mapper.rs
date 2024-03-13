@@ -813,7 +813,6 @@ fn rescue_read(
 }
 
 /// Align a read to the reference given the mapping location of its mate.
-/// Return true if rescue by alignment was actually attempted
 fn rescue_align(
     aligner: &Aligner,
     mate_nam: &Nam,
@@ -858,8 +857,8 @@ fn rescue_align(
         reference_id: mate_nam.ref_id,
         ref_start: ref_start + info.ref_start,
         edit_distance: info.edit_distance,
-        soft_clip_left: 0,
-        soft_clip_right: 0,
+        soft_clip_left: info.query_start,
+        soft_clip_right: read_len - info.query_end,
         score: info.score,
         length: info.ref_span(),
         cigar: info.cigar,
