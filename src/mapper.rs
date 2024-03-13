@@ -246,9 +246,14 @@ impl SamOutput {
                         let template_length =
                             if mate.ref_start > this.ref_start {
                                 (mate.ref_start - this.ref_start + mate.length) as isize
-                            }
-                            else {
-                                -((this.ref_start - mate.ref_start) as isize) - this.length as isize
+                            } else if this.ref_start > mate.ref_start {
+                                -((this.ref_start - mate.ref_start + this.length) as isize)
+                            } else {
+                                if i == 0 {
+                                    -(mate.length as isize)
+                                } else {
+                                    this.length as isize
+                                }
                             };
                         sam_records[i].template_len = Some(template_length as i32);
                     }
