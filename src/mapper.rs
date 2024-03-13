@@ -998,6 +998,7 @@ fn proper_pair_mapq(nams: &[Nam]) -> u8 {
     uncapped_mapq.min(60.0) as u8
 }
 
+#[derive(Debug)]
 struct NamPair {
     n_hits: usize,
     nam1: Option<Nam>,

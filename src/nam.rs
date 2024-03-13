@@ -196,7 +196,7 @@ fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, s
             // Add the hit to open matches
             if !is_added {
                 open_nams.push(Nam {
-                    nam_id: nams.len(),
+                    nam_id: nams.len() + open_nams.len(),
                     query_start: h.query_start,
                     query_end: h.query_end,
                     ref_start: h.ref_start,
