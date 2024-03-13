@@ -1021,20 +1021,20 @@ fn deduplicate_scored_pairs(pairs: &mut Vec<ScoredAlignmentPair>) {
         return;
     }
 
-    fn is_same(p1: &ScoredAlignmentPair, p2: &ScoredAlignmentPair) -> bool {
-        match (&p1.alignment1, &p2.alignment2) {
+    fn is_same(a1: Option<&Alignment>, a2: Option<&Alignment>) -> bool {
+        match (a1, a2) {
             (None, Some(_)) => false,
             (Some(_), None) => false,
             (None, None) => true,
             (Some(a1), Some(a2)) => {
-                a1.ref_start != a2.ref_start || a1.reference_id != a2.reference_id
+                a1.ref_start == a2.ref_start && a1.reference_id == a2.reference_id
             },
         }
     }
     let mut k = 0;
     let mut j = 1;
     for i in 1..pairs.len() {
-        if !is_same(&pairs[k], &pairs[i]) {
+        if !is_same(pairs[k].alignment1.as_ref(), pairs[i].alignment1.as_ref()) || !is_same(pairs[k].alignment2.as_ref(), pairs[i].alignment2.as_ref()) {
             pairs[j] = pairs[i].clone();
             j += 1;
             k = i;
@@ -1149,7 +1149,7 @@ fn normal_pdf(x: f32, mu: f32, sigma: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use crate::mapper::{Alignment, count_best_alignment_pairs, ScoredAlignmentPair};
+    use crate::mapper::{Alignment, count_best_alignment_pairs, deduplicate_scored_pairs, ScoredAlignmentPair};
 
     #[test]
     fn test_count_best_alignment_pairs() {
@@ -1170,5 +1170,37 @@ mod tests {
 
         pairs[1].score = 5.0;
         assert_eq!(count_best_alignment_pairs(&pairs), 1);
+    }
+
+    #[test]
+    fn test_deduplicate_scored_pairs() {
+        let a1 = Some(
+            Alignment {
+                reference_id: 0,
+                ref_start: 1906,
+                ..Alignment::default()
+            },
+        );
+        let a2 = Some(
+            Alignment {
+                reference_id: 0,
+                ref_start: 123,
+                ..Alignment::default()
+            },
+        );
+        let mut alignment_pairs = vec![
+            ScoredAlignmentPair {
+                score: 733.0,
+                alignment1: a1.clone(),
+                alignment2: a2.clone(),
+            },
+            ScoredAlignmentPair {
+                score: 724.0,
+                alignment1: a1.clone(),
+                alignment2: a2.clone(),
+            },
+        ];
+        deduplicate_scored_pairs(&mut alignment_pairs);
+        assert_eq!(alignment_pairs.len(), 1);
     }
 }
