@@ -441,7 +441,7 @@ fn extend_seed(
     }
     if gapped {
         let ref_start = projected_ref_start.saturating_sub(50);
-        let ref_end = min(nam.ref_end + 50, refseq.len());
+        let ref_end = min(projected_ref_end + 50, refseq.len());
         let segment = &refseq[ref_start..ref_end];
         info = aligner.align(query, segment)?;
         result_ref_start = ref_start + info.ref_start;

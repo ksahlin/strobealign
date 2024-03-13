@@ -2,6 +2,7 @@ use std::cell::Cell;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::ssw::SswAligner;
 
+#[derive(Debug)]
 pub struct Scores {
     // match is a score, the others are penalties
     pub match_: u8,
