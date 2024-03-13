@@ -11,12 +11,13 @@ use crate::nam::{find_nams, find_nams_rescue, Nam, reverse_nam_if_needed};
 use crate::revcomp::reverse_complement;
 use crate::strobes::RandstrobeIterator;
 use crate::syncmers::SyncmerIterator;
-use crate::sam::{SamRecord, REVERSE, SECONDARY, UNMAP, PAIRED, READ1, READ2, PROPER_PAIR, MUNMAP, MREVERSE};
+use crate::sam::{MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SamRecord, SECONDARY, UNMAP};
 use crate::read::Read;
 use crate::aligner::Aligner;
 use crate::details::Details;
 use crate::fastq::SequenceRecord;
 use crate::insertsize::InsertSizeDistribution;
+use crate::math::normal_pdf;
 
 
 pub struct MappingParameters {
@@ -1137,14 +1138,6 @@ fn top_dropoff(nams: &[Nam]) -> f32 {
     } else {
         0.0
     }
-}
-
-const INV_SQRT_PI: f32 = 0.3989422804014327;
-
-fn normal_pdf(x: f32, mu: f32, sigma: f32) -> f32 {
-    let a = (x - mu) / sigma;
-
-    INV_SQRT_PI / sigma * (-0.5 * a * a).exp()
 }
 
 #[cfg(test)]
