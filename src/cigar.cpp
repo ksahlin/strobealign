@@ -17,7 +17,7 @@ Cigar Cigar::to_m() const {
     return cigar;
 }
 
-Cigar Cigar::to_eqx(const std::string& query, const std::string& ref) const {
+Cigar Cigar::to_eqx(const std::string& query, const std::string_view ref) const {
     size_t i = 0, j = 0;
     Cigar cigar;
     for (auto op_len : m_ops) {
@@ -87,6 +87,11 @@ Cigar::Cigar(const std::string& cig) {
     if (number != -1) {
         throw std::invalid_argument("CIGAR must not end with a number");
     }
+}
+
+std::ostream& operator<<(std::ostream& os, const Cigar& cigar) {
+    os << cigar.to_string();
+    return os;
 }
 
 std::string compress_cigar(const std::string& ops) {

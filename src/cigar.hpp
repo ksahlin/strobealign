@@ -77,20 +77,38 @@ public:
         return dist;
     }
 
+    size_t derived_sequence_length() const {
+        size_t length = 0;
+        for (auto op_len : m_ops) {
+            auto op = op_len & 0xf;
+            auto len = op_len >> 4;
+            if (op == CIGAR_MATCH || op == CIGAR_EQ || op == CIGAR_X || op == CIGAR_INS || op == CIGAR_SOFTCLIP) {
+                length += len;
+            }
+        }
+        return length;
+    }
+
     void reverse() {
         std::reverse(m_ops.begin(), m_ops.end());
+    }
+
+    void pop_oplen() {
+        m_ops.pop_back();
     }
 
     /* Return a new Cigar that uses M instead of =/X */
     Cigar to_m() const;
 
     /* Return a new Cigar that uses =/X instead of M */
-    Cigar to_eqx(const std::string& query, const std::string& ref) const;
+    Cigar to_eqx(const std::string& query, const std::string_view ref) const;
 
     std::string to_string() const;
 
     std::vector<uint32_t> m_ops;
 };
+
+std::ostream& operator<<(std::ostream& os, const Cigar& cigar);
 
 std::string compress_cigar(const std::string& ops);
 

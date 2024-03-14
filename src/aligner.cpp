@@ -3,14 +3,19 @@
  *
  * This is for anything that returns an aln_info object, currently
  * Aligner::align and hamming_align.
+ *
+ * ksw_extend code is based on https://github.com/lh3/ksw2/blob/master/cli.c
  */
 #include <sstream>
 #include <tuple>
 #include <algorithm>
 #include <cassert>
+#include <cstring>  // memset
+#include <iostream>
+#include "ksw2/ksw2.h"
 #include "aligner.hpp"
 
-AlignmentInfo Aligner::align(const std::string &query, const std::string &ref) const {
+AlignmentInfo Aligner::align(const std::string& query, const std::string_view ref) const {
     m_align_calls++;
     AlignmentInfo aln;
     int32_t maskLen = query.length() / 2;
@@ -25,8 +30,8 @@ AlignmentInfo Aligner::align(const std::string &query, const std::string &ref) c
 
     StripedSmithWaterman::Alignment alignment_ssw;
 
-    // query must be NULL-terminated
-    auto flag = ssw_aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen);
+    // only query must be NULL-terminated
+    auto flag = ssw_aligner.Align(query.c_str(), ref.begin(), ref.size(), filter, &alignment_ssw, maskLen);
     if (flag != 0) {
         aln.edit_distance = 100000;
         aln.ref_start = 0;
@@ -116,7 +121,7 @@ AlignmentInfo Aligner::align(const std::string &query, const std::string &ref) c
  * of the query, once for each end.
  */
 std::tuple<size_t, size_t, int> highest_scoring_segment(
-    const std::string& query, const std::string& ref, int match, int mismatch, int end_bonus
+    const std::string& query, const std::string_view ref, int match, int mismatch, int end_bonus
 ) {
     size_t n = query.length();
 
@@ -151,7 +156,7 @@ std::tuple<size_t, size_t, int> highest_scoring_segment(
 }
 
 AlignmentInfo hamming_align(
-    const std::string &query, const std::string &ref, int match, int mismatch, int end_bonus
+    const std::string &query, const std::string_view ref, int match, int mismatch, int end_bonus
 ) {
     AlignmentInfo aln;
     if (query.length() != ref.length()) {
@@ -198,4 +203,134 @@ AlignmentInfo hamming_align(
     aln.query_start = segment_start;
     aln.query_end = segment_end;
     return aln;
+}
+
+namespace {
+
+unsigned char seq_nt4_table[256] = {
+    0, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 0, 4, 1,  4, 4, 4, 2,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  3, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 0, 4, 1,  4, 4, 4, 2,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  3, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
+};
+
+}  // namespace
+
+void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b, int8_t wildcard_score)
+{
+    int i, j;
+    a = a < 0? -a : a;
+    b = b > 0? -b : b;
+    wildcard_score = wildcard_score > 0 ? -wildcard_score : wildcard_score;
+    for (i = 0; i < m - 1; ++i) {
+        for (j = 0; j < m - 1; ++j)
+            mat[i * m + j] = i == j? a : b;
+        mat[i * m + m - 1] = wildcard_score;
+    }
+    for (j = 0; j < m; ++j)
+        mat[(m - 1) * m + j] = wildcard_score;
+}
+
+std::ostream& operator<<(std::ostream& os, const ksw_extz_t& ez) {
+    os << "ksw_extz_t("
+        //
+        << "\n max:             " << ez.max   // max overall score
+        << "\n coord max_q:     " << ez.max_q  // max extension coordinate
+        << "\n coord max_t:     " << ez.max_t  // max extension coordinate
+
+        << "\n score mqe:       " << ez.mqe // max score when reaching the end of query
+        << "\n mqe_t:           " << ez.mqe_t // coordinate in target corresponding to mqe
+
+        << "\n score mte:       " << ez.mte  // max score when reaching the end of target
+        << "\n mte_q:           " << ez.mte_q // coordinate in query corresponding to mte
+
+        << "\n score both ends: " << ez.score  // max score reaching both ends
+        << "\n cigar:           " << Cigar(ez.cigar, ez.n_cigar)
+        << "\n zdropped:        " << ez.zdropped
+        << "\n reach_end:       " << ez.reach_end
+        << "\n)";
+    return os;
+}
+
+AlignmentInfo Aligner::ksw_extend(const std::string& query, const std::string_view ref, bool right_align) const {
+    AlignmentInfo info;
+    if (query.size() == 0) {
+        info.cigar = Cigar();
+        info.edit_distance = 0;
+        info.ref_start = 0;
+        info.query_start = 0;
+        info.ref_end = 0;
+        info.query_end = 0;
+        info.sw_score = parameters.end_bonus;
+        return info;
+    }
+
+    int w = -1; // band width; -1 is inf
+    int zdrop = -1; // -1 to disable
+    int flag = KSW_EZ_EXTZ_ONLY | KSW_EZ_GENERIC_SC;
+    if (right_align) {
+        flag |= KSW_EZ_RIGHT;
+    }
+    ksw_extz_t ez;
+    memset(&ez, 0, sizeof(ksw_extz_t));
+
+    ez.max_q = ez.max_t = ez.mqe_t = ez.mte_q = -1;
+    ez.max = 0; ez.mqe = ez.mte = KSW_NEG_INF;
+    ez.n_cigar = 0;
+    int qlen = query.length();
+    int tlen = ref.length();
+    uint8_t *qseq = (uint8_t*)calloc(qlen + 33, 1);
+    uint8_t *tseq = (uint8_t*)calloc(tlen + 33, 1);
+    for (int i = 0; i < qlen; ++i)
+        qseq[i] = seq_nt4_table[(uint8_t)query[i]];
+    for (int i = 0; i < tlen; ++i)
+        tseq[i] = seq_nt4_table[(uint8_t)ref[i]];
+
+    ksw_extz2_sse(
+        nullptr, qlen, (uint8_t*)qseq, tlen, (uint8_t*)tseq, ksw_matrix_m, ksw_matrix, parameters.gap_open, parameters.gap_extend, w, zdrop, parameters.end_bonus, flag, &ez
+    );
+    free(qseq);
+    free(tseq);
+
+    auto cigar = Cigar(ez.cigar, ez.n_cigar).to_eqx(query, ref);
+    info.edit_distance = cigar.edit_distance();
+    info.cigar = std::move(cigar);
+    info.ref_start = 0;
+    info.query_start = 0;
+    if (ez.reach_end) {
+        info.ref_end = ez.mqe_t + 1;
+        info.query_end = query.size();
+        info.sw_score = ez.mqe + parameters.end_bonus;
+    } else {
+        info.ref_end = ez.max_t + 1;
+        info.query_end = ez.max_q + 1;
+        info.sw_score = ez.max;
+        info.cigar.push(CIGAR_SOFTCLIP, query.length() - info.query_end);
+    }
+    assert(info.cigar.derived_sequence_length() == query.length());
+
+    kfree(km, ez.cigar);
+    return info;
+}
+
+std::ostream& operator<<(std::ostream& os, const AlignmentInfo& info) {
+    os << "AlignmentInfo(cigar='" << info.cigar
+        << "', ref=" << info.ref_start << ".." << info.ref_end
+        << ", query=" << info.query_start << ".." << info.query_end
+        << ", NM=" << info.edit_distance
+        << ", AS=" << info.sw_score
+        << ")";
+    return os;
 }

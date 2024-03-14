@@ -60,3 +60,10 @@ License: See xxhash.c
 Homepage: https://github.com/mateidavid/zstr
 Commit used: 755da7890ea22478a702e3139092e6c964fab1f5
 License: See zstr/LICENSE
+
+
+## ksw2
+
+https://github.com/lh3/ksw2
+https://raw.githubusercontent.com/lh3/ksw2/06b2183b0f6646d82f2e3f5884008a1b4582f5b5/ksw2.h
+https://raw.githubusercontent.com/lh3/ksw2/06b2183b0f6646d82f2e3f5884008a1b4582f5b5/ksw2_extz2_sse.c
