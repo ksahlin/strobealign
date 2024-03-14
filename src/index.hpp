@@ -85,8 +85,8 @@ struct StrobemerIndex {
 
     //Returns the first entry that matches the first strobe subhash (if using multi-context seeds)
     size_t partial_find(randstrobe_hash_t key) const {
-        uint strobe2_digest = parameters.randstrobe.digest;
-        randstrobe_hash_t key_prefix = key >> strobe2_digest;
+        uint aux_len = parameters.randstrobe.aux_len;
+        randstrobe_hash_t key_prefix = key >> aux_len;
 
         constexpr int MAX_LINEAR_SEARCH = 4;
         const unsigned int top_N = key >> (64 - bits);
@@ -98,13 +98,13 @@ struct StrobemerIndex {
 
         if (position_end - position_start < MAX_LINEAR_SEARCH) {
             for ( ; position_start < position_end; ++position_start) {
-                if (randstrobes[position_start].hash >> strobe2_digest == key_prefix) return position_start;
-                if (randstrobes[position_start].hash >> strobe2_digest > key_prefix) return end();
+                if (randstrobes[position_start].hash >> aux_len == key_prefix) return position_start;
+                if (randstrobes[position_start].hash >> aux_len > key_prefix) return end();
             }
             return end();
         }
-        auto cmp = [&strobe2_digest](const RefRandstrobe lhs, const RefRandstrobe rhs) {
-            return (lhs.hash >> strobe2_digest) < (rhs.hash >> strobe2_digest); };
+        auto cmp = [&aux_len](const RefRandstrobe lhs, const RefRandstrobe rhs) {
+            return (lhs.hash >> aux_len) < (rhs.hash >> aux_len); };
 
         auto pos = std::lower_bound(randstrobes.begin() + position_start,
                                     randstrobes.begin() + position_end,
@@ -124,7 +124,7 @@ struct StrobemerIndex {
 
     randstrobe_hash_t get_partial_hash(bucket_index_t position) const {
         if (position < randstrobes.size()) {
-            return randstrobes[position].hash >> parameters.randstrobe.digest;
+            return randstrobes[position].hash >> parameters.randstrobe.aux_len;
         } else {
             return end();
         }
@@ -139,7 +139,7 @@ struct StrobemerIndex {
     }
 
     bool is_partial_filtered(bucket_index_t position) const {
-        uint shift = parameters.randstrobe.digest;
+        uint shift = parameters.randstrobe.aux_len;
         return (get_hash(position) >> shift) == (get_hash(position + partial_filter_cutoff) >> shift);
     }
 

@@ -49,11 +49,11 @@ static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_ha
     return hash1 + hash2;
 }
 
-static inline digest_hash_t digest_hash(syncmer_hash_t hash1, syncmer_hash_t hash2, size_t digest_size) {
+static inline randstrobe_hash_t multi_context_hash(syncmer_hash_t hash1, syncmer_hash_t hash2, size_t aux_len) {
     if (hash1 < hash2) {
-        return ((hash1 >> digest_size) << digest_size) ^ (hash2 >> (64 - digest_size));
+        return ((hash1 >> aux_len) << aux_len) ^ (hash2 >> (64 - aux_len));
     }
-    return ((hash2 >> digest_size) << digest_size) ^ (hash1 >> (64 - digest_size));
+    return ((hash2 >> aux_len) << aux_len) ^ (hash1 >> (64 - aux_len));
 }
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
@@ -177,7 +177,8 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
 
 //    return Randstrobe{randstrobe_hash(strobe1.hash, strobe2.hash), static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
     bool is_first_main = strobe1.hash < strobe2.hash;
-    return Randstrobe{digest_hash(strobe1.hash, strobe2.hash, digest),
+    return Randstrobe{
+        multi_context_hash(strobe1.hash, strobe2.hash, aux_len),
                       static_cast<uint32_t>(strobe1.position),
                       static_cast<uint32_t>(strobe2.position),
                       is_first_main};
@@ -213,7 +214,8 @@ Randstrobe RandstrobeGenerator::next() {
     syncmers.pop_front();
 //    return Randstrobe{randstrobe_hash(strobe1.hash, strobe2.hash), static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
     bool is_first_main = strobe1.hash < strobe2.hash;
-    return Randstrobe{digest_hash(strobe1.hash, strobe2.hash, digest),
+    return Randstrobe{
+        multi_context_hash(strobe1.hash, strobe2.hash, aux_len),
                       static_cast<uint32_t>(strobe1.position),
                       static_cast<uint32_t>(strobe2.position),
                       is_first_main};
