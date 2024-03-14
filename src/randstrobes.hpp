@@ -137,8 +137,8 @@ private:
     const unsigned w_max;
     const uint64_t q;
     const unsigned int max_dist;
-    uint aux_len;
-    unsigned int strobe1_index = 0;
+    const unsigned int aux_len;
+    unsigned strobe1_index = 0;
 };
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer);
@@ -198,7 +198,7 @@ private:
     const unsigned w_max;
     const uint64_t q;
     const unsigned int max_dist;
-    uint aux_len;
+    const unsigned int aux_len;
     std::deque<Syncmer> syncmers;
 };
 

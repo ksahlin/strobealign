@@ -45,11 +45,7 @@ static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
     return xxh64(packed);
 }
 
-static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_hash_t hash2) {
-    return hash1 + hash2;
-}
-
-static inline randstrobe_hash_t multi_context_hash(syncmer_hash_t hash1, syncmer_hash_t hash2, size_t aux_len) {
+static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_hash_t hash2, size_t aux_len) {
     if (hash1 < hash2) {
         return ((hash1 >> aux_len) << aux_len) ^ (hash2 >> (64 - aux_len));
     }
@@ -178,7 +174,7 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
 //    return Randstrobe{randstrobe_hash(strobe1.hash, strobe2.hash), static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
     bool is_first_main = strobe1.hash < strobe2.hash;
     return Randstrobe{
-        multi_context_hash(strobe1.hash, strobe2.hash, aux_len),
+        randstrobe_hash(strobe1.hash, strobe2.hash, aux_len),
                       static_cast<uint32_t>(strobe1.position),
                       static_cast<uint32_t>(strobe2.position),
                       is_first_main};
@@ -215,7 +211,7 @@ Randstrobe RandstrobeGenerator::next() {
 //    return Randstrobe{randstrobe_hash(strobe1.hash, strobe2.hash), static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
     bool is_first_main = strobe1.hash < strobe2.hash;
     return Randstrobe{
-        multi_context_hash(strobe1.hash, strobe2.hash, aux_len),
+        randstrobe_hash(strobe1.hash, strobe2.hash, aux_len),
                       static_cast<uint32_t>(strobe1.position),
                       static_cast<uint32_t>(strobe2.position),
                       is_first_main};
@@ -240,7 +236,7 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     RandstrobeIterator randstrobe_fwd_iter{syncmers, parameters.randstrobe};
     while (randstrobe_fwd_iter.has_next()) {
         auto randstrobe = randstrobe_fwd_iter.next();
-        uint partial_start = randstrobe.is_first_main ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
+        const unsigned int partial_start = randstrobe.is_first_main ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
         randstrobes.push_back(
             QueryRandstrobe {
                 randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k,
@@ -266,7 +262,7 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     while (randstrobe_rc_iter.has_next()) {
         auto randstrobe = randstrobe_rc_iter.next();
         bool is_first_main = randstrobe.is_first_main;
-        uint partial_start = is_first_main ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
+        const unsigned int partial_start = is_first_main ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
         randstrobes.push_back(
             QueryRandstrobe {
                 randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k,
