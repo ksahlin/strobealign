@@ -10,48 +10,54 @@ struct Hit {
     int ref_end;
 };
 
-inline void add_to_hits_per_ref(
+inline void add_to_hits_per_ref_full(
     robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
     int query_start,
     int query_end,
     const StrobemerIndex& index,
-    size_t position,
-    bool is_partial
+    size_t position
 ) {
     int min_diff = std::numeric_limits<int>::max();
-    if (not is_partial) {
-        for (const auto hash = index.get_hash(position); index.get_hash(position) == hash; ++position) {
-            int ref_start = index.get_strobe1_position(position);
-            int ref_end = ref_start + index.strobe2_offset(position) + index.k();
-            int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
-            if (diff <= min_diff) {
-                hits_per_ref[index.reference_index(position)].push_back(
-                    Hit{query_start, query_end, ref_start, ref_end}
-                );
-                min_diff = diff;
-            }
+    for (const auto hash = index.get_hash(position); index.get_hash(position) == hash; ++position) {
+        int ref_start = index.get_strobe1_position(position);
+        int ref_end = ref_start + index.strobe2_offset(position) + index.k();
+        int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
+        if (diff <= min_diff) {
+            hits_per_ref[index.reference_index(position)].push_back(
+                Hit{query_start, query_end, ref_start, ref_end}
+            );
+            min_diff = diff;
         }
-    } else {
-        for (const auto hash = index.get_partial_hash(position);
-             index.get_partial_hash(position) == hash;
-             ++position) {
-            bool is_first_strobe_main = index.is_first_strobe_main(position);
-            // Construct the match from the strobe that was selected as the main part of the hash
-            int adj_ref_start = 0, adj_ref_end = 0;
-            if (is_first_strobe_main) {
-                adj_ref_start = index.get_strobe1_position(position);
-            }
-            else {
-                adj_ref_start = index.get_strobe1_position(position) + index.strobe2_offset(position);
-            }
-            adj_ref_end = adj_ref_start + index.k();
-            int diff = std::abs((query_end - query_start) - (adj_ref_end - adj_ref_start));
-            if (diff <= min_diff) {
-                hits_per_ref[index.reference_index(position)].push_back(
-                    Hit{query_start, query_end, adj_ref_start, adj_ref_end}
-                );
-                min_diff = diff;
-            }
+    }
+}
+
+inline void add_to_hits_per_ref_partial(
+    robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
+    int query_start,
+    int query_end,
+    const StrobemerIndex& index,
+    size_t position
+) {
+    int min_diff = std::numeric_limits<int>::max();
+    for (const auto hash = index.get_partial_hash(position);
+         index.get_partial_hash(position) == hash;
+         ++position) {
+        bool is_first_strobe_main = index.is_first_strobe_main(position);
+        // Construct the match from the strobe that was selected as the main part of the hash
+        int adj_ref_start = 0, adj_ref_end = 0;
+        if (is_first_strobe_main) {
+            adj_ref_start = index.get_strobe1_position(position);
+        }
+        else {
+            adj_ref_start = index.get_strobe1_position(position) + index.strobe2_offset(position);
+        }
+        adj_ref_end = adj_ref_start + index.k();
+        int diff = std::abs((query_end - query_start) - (adj_ref_end - adj_ref_start));
+        if (diff <= min_diff) {
+            hits_per_ref[index.reference_index(position)].push_back(
+                Hit{query_start, query_end, adj_ref_start, adj_ref_end}
+            );
+            min_diff = diff;
         }
     }
 }
@@ -199,7 +205,7 @@ std::pair<float, std::vector<Nam>> find_nams(
                 continue;
             }
             nr_good_hits++;
-            add_to_hits_per_ref(hits_per_ref[q.is_reverse], q.start, q.end, index, position, false);
+            add_to_hits_per_ref_full(hits_per_ref[q.is_reverse], q.start, q.end, index, position);
         }
         else {
             size_t partial_pos = index.partial_find(q.hash);
@@ -209,9 +215,7 @@ std::pair<float, std::vector<Nam>> find_nams(
                     continue;
                 }
                 nr_good_hits++;
-                add_to_hits_per_ref(
-                    hits_per_ref[q.is_reverse], q.partial_start, q.partial_end, index, partial_pos, true
-                );
+                add_to_hits_per_ref_partial(hits_per_ref[q.is_reverse], q.partial_start, q.partial_end, index, partial_pos);
             }
         }
     }
@@ -272,7 +276,7 @@ std::vector<Nam> find_nams_rescue(
             if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
                 break;
             }
-            add_to_hits_per_ref(hits_per_ref[is_revcomp], rh.query_start, rh.query_end, index, rh.position, false);
+            add_to_hits_per_ref_full(hits_per_ref[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
             cnt++;
         }
         is_revcomp++;

@@ -83,7 +83,7 @@ struct StrobemerIndex {
         return end();
     }
 
-    //Returns the first entry that matches the first strobe subhash (if using multi-context seeds)
+    //Returns the first entry that matches the main hash
     size_t partial_find(randstrobe_hash_t key) const {
         uint aux_len = parameters.randstrobe.aux_len;
         randstrobe_hash_t key_prefix = key >> aux_len;
