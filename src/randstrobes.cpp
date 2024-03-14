@@ -46,10 +46,10 @@ static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
 }
 
 static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_hash_t hash2, size_t aux_len) {
-    if (hash1 < hash2) {
-        return ((hash1 >> aux_len) << aux_len) ^ (hash2 >> (64 - aux_len));
+    if (hash1 > hash2) {
+        std::swap(hash1, hash2);
     }
-    return ((hash2 >> aux_len) << aux_len) ^ (hash1 >> (64 - aux_len));
+    return ((hash1 >> aux_len) << aux_len) ^ (hash2 >> (64 - aux_len));
 }
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
@@ -135,7 +135,7 @@ std::vector<Syncmer> canonical_syncmers(
 
 std::ostream& operator<<(std::ostream& os, const Randstrobe& randstrobe) {
     os << "Randstrobe(hash=" << randstrobe.hash << ", strobe1_pos=" << randstrobe.strobe1_pos << ", strobe2_pos="
-       << randstrobe.strobe2_pos << ", is_first_main=" << randstrobe.is_first_main << ")";
+       << randstrobe.strobe2_pos << ", main_is_first=" << randstrobe.main_is_first << ")";
     return os;
 }
 
@@ -171,13 +171,12 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
         }
     }
 
-//    return Randstrobe{randstrobe_hash(strobe1.hash, strobe2.hash), static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
-    bool is_first_main = strobe1.hash < strobe2.hash;
+    bool main_is_first = strobe1.hash < strobe2.hash;
     return Randstrobe{
         randstrobe_hash(strobe1.hash, strobe2.hash, aux_len),
                       static_cast<uint32_t>(strobe1.position),
-                      static_cast<uint32_t>(strobe2.position),
-                      is_first_main};
+                      static_cast<uint32_t>(strobe2.position), main_is_first
+    };
 }
 
 Randstrobe RandstrobeGenerator::next() {
@@ -208,13 +207,12 @@ Randstrobe RandstrobeGenerator::next() {
         }
     }
     syncmers.pop_front();
-//    return Randstrobe{randstrobe_hash(strobe1.hash, strobe2.hash), static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
-    bool is_first_main = strobe1.hash < strobe2.hash;
+    bool main_is_first = strobe1.hash < strobe2.hash;
     return Randstrobe{
         randstrobe_hash(strobe1.hash, strobe2.hash, aux_len),
                       static_cast<uint32_t>(strobe1.position),
-                      static_cast<uint32_t>(strobe2.position),
-                      is_first_main};
+                      static_cast<uint32_t>(strobe2.position), main_is_first
+    };
 }
 
 /*
@@ -236,11 +234,11 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     RandstrobeIterator randstrobe_fwd_iter{syncmers, parameters.randstrobe};
     while (randstrobe_fwd_iter.has_next()) {
         auto randstrobe = randstrobe_fwd_iter.next();
-        const unsigned int partial_start = randstrobe.is_first_main ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
+        const unsigned int partial_start = randstrobe.main_is_first ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
         randstrobes.push_back(
             QueryRandstrobe {
                 randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k,
-                partial_start, partial_start + parameters.syncmer.k, randstrobe.is_first_main, false
+                partial_start, partial_start + parameters.syncmer.k,  false
             }
         );
     }
@@ -261,12 +259,12 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     RandstrobeIterator randstrobe_rc_iter{syncmers, parameters.randstrobe};
     while (randstrobe_rc_iter.has_next()) {
         auto randstrobe = randstrobe_rc_iter.next();
-        bool is_first_main = randstrobe.is_first_main;
-        const unsigned int partial_start = is_first_main ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
+        bool main_is_first = randstrobe.main_is_first;
+        const unsigned int partial_start = main_is_first ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
         randstrobes.push_back(
             QueryRandstrobe {
                 randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k,
-                partial_start, partial_start + parameters.syncmer.k, randstrobe.is_first_main, true
+                partial_start, partial_start + parameters.syncmer.k, true
             }
         );
     }

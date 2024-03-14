@@ -42,10 +42,10 @@ inline void add_to_hits_per_ref_partial(
     for (const auto hash = index.get_partial_hash(position);
          index.get_partial_hash(position) == hash;
          ++position) {
-        bool is_first_strobe_main = index.is_first_strobe_main(position);
+        bool first_strobe_is_main = index.first_strobe_is_main(position);
         // Construct the match from the strobe that was selected as the main part of the hash
         int adj_ref_start = 0, adj_ref_end = 0;
-        if (is_first_strobe_main) {
+        if (first_strobe_is_main) {
             adj_ref_start = index.get_strobe1_position(position);
         }
         else {
@@ -281,8 +281,6 @@ std::vector<Nam> find_nams_rescue(
         }
         is_revcomp++;
     }
-
-
 
     return merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), true);
 }

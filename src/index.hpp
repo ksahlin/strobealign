@@ -130,8 +130,8 @@ struct StrobemerIndex {
         }
     }
 
-    bool is_first_strobe_main(bucket_index_t position) const {
-        return randstrobes[position].is_first_main();
+    bool first_strobe_is_main(bucket_index_t position) const {
+        return randstrobes[position].main_is_first();
     }
     
     bool is_filtered(bucket_index_t position) const {
