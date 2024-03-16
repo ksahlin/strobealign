@@ -1,3 +1,6 @@
+[workspace]
+members = ["python"]
+
 [package]
 name = "rstrobes"
 version = "0.1.0"

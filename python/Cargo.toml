@@ -1,0 +1,12 @@
+[package]
+name = "py-rstrobes"
+version = "0.0.0"
+edition = "2021"
+
+[lib]
+name = "rstrobes"
+crate-type = ["cdylib"]
+
+[dependencies]
+rstrobes = { path = ".." }
+pyo3 = "0.20.3"
