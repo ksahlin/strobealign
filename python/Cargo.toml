@@ -9,4 +9,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 rstrobes = { path = ".." }
-pyo3 = "0.20.3"
+pyo3 = { version = "0.21.0-beta.0", features = ["extension-module"] }
