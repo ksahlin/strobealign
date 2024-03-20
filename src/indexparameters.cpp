@@ -36,13 +36,14 @@ struct Profile {
 static auto max{std::numeric_limits<int>::max()};
 
 static std::vector<Profile> profiles = {
-        Profile{ 50,  70, 18, -4, -2,  1},
-        Profile{ 75,  90, 20, -4, -3,  2},
-        Profile{100, 110, 20, -4, -2,  2},
-        Profile{125, 135, 20, -4, -1,  4},
-        Profile{150, 175, 20, -4,  1,  7},
-        Profile{250, 375, 22, -4,  2, 12},
-        Profile{400, max, 23, -6,  2, 12},
+        Profile{ 50,  70, 16, -4, -2,  -1},
+        Profile{ 75,  90, 19, -4, -1, -1},
+        Profile{100, 110, 17, -4,  1,  4},
+        Profile{125, 135, 20, -4,  1,  4},
+        Profile{150, 175, 20, -4,  2,  6},
+        Profile{250, 275, 23, -4,  3, 13},
+        Profile{300, 375, 25, -4,  3, 14},
+        Profile{400, max, 27, -6,  5, 14},
     };
 
 /* Create an IndexParameters instance based on a given read length.
