@@ -45,7 +45,7 @@ void merge_hits_into_nams(
         }
 
         std::vector<Nam> open_nams;
-        unsigned int prev_q_start = 0;
+        int prev_q_start = 0;
         for (auto &h : hits) {
             bool is_added = false;
             for (auto & o : open_nams) {
