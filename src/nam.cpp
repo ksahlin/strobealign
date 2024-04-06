@@ -84,7 +84,7 @@ void merge_hits_into_nams(
             for (auto & o : open_nams) {
 
                 // Extend NAM
-                if ((o.query_prev_hit_startpos < h.query_start) && (h.query_start <= o.query_end ) && (o.ref_prev_hit_startpos < h.ref_start) && (h.ref_start <= o.ref_end) ){
+                if ((o.query_prev_hit_startpos <= h.query_start) && (h.query_start <= o.query_end ) && (o.ref_prev_hit_startpos <= h.ref_start) && (h.ref_start <= o.ref_end) ){
                     if ( (h.query_end > o.query_end) && (h.ref_end > o.ref_end) ) {
                         o.query_end = h.query_end;
                         o.ref_end = h.ref_end;
@@ -220,7 +220,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
         }
     }
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
-    auto nams = merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), false);
+    auto nams = merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), true);
     return {nonrepetitive_fraction, nr_good_hits, nams};
 }
 
