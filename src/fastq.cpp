@@ -15,14 +15,9 @@ namespace {
         return false;
     }
 
-    inline bool is_gzip(const std::string& filename)
+    bool is_gzip(const std::string& filename)
     {
         return check_ext(filename, ".gz");
-    }
-
-    inline bool is_raw(const std::string& filename)
-    {
-        return check_ext(filename, ".fq") || check_ext(filename, ".fastq");
     }
 
     std::unique_ptr<Reader> make_reader(const std::string& filename)
@@ -30,10 +25,8 @@ namespace {
         std::unique_ptr<Reader> io;
         if(is_gzip(filename)) {
             io = std::make_unique<IsalGzipReader>(filename);
-        } else if(is_raw(filename)) {
-            io = std::make_unique<UncompressedReader>(filename);
         } else {
-            io = std::make_unique<GzipReader>(filename);
+            io = std::make_unique<UncompressedReader>(filename);
         }
         return io;
     }
