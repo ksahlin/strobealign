@@ -52,13 +52,13 @@ inline void add_to_hits_per_ref_partial(
             adj_ref_start = index.get_strobe1_position(position) + index.strobe2_offset(position);
         }
         adj_ref_end = adj_ref_start + index.k();
-        int diff = std::abs((query_end - query_start) - (adj_ref_end - adj_ref_start));
-        if (diff <= min_diff) {
+//        int diff = std::abs((query_end - query_start) - (adj_ref_end - adj_ref_start));
+//        if (diff <= min_diff) {
             hits_per_ref[index.reference_index(position)].push_back(
                 Hit{query_start, query_end, adj_ref_start, adj_ref_end}
             );
-            min_diff = diff;
-        }
+//            min_diff = diff;
+//        }
     }
 }
 
@@ -211,7 +211,7 @@ std::pair<float, std::vector<Nam>> find_nams(
             size_t partial_pos = index.partial_find(q.hash);
             if (partial_pos != index.end()) {
                 total_hits++;
-                if (index.is_partial_filtered(position)) {
+                if (index.is_partial_filtered(partial_pos)) {
                     continue;
                 }
                 nr_good_hits++;
