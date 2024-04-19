@@ -109,7 +109,7 @@ struct StrobemerIndex {
                                     randstrobes.begin() + position_end,
                                     RefRandstrobe{key, 0, 0},
                                     cmp);
-        if (pos->hash == key) return pos - randstrobes.begin();
+        if (pos->hash >> aux_len == key_prefix) return pos - randstrobes.begin();
         return end();
     }
 
