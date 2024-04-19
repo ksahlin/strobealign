@@ -41,9 +41,9 @@ class GzipReader : public Reader {
     void open(const std::string& filename) override;
 };
 
-class UncompressReader : public Reader {
+class UncompressedReader : public Reader {
    public:
-    UncompressReader(const std::string& filename)
+    UncompressedReader(const std::string& filename)
         : Reader(filename)
         , fd(-1)
         , preload_size(64ull * 1024 * 1024)
@@ -54,7 +54,7 @@ class UncompressReader : public Reader {
         open(filename);
     }
 
-    virtual ~UncompressReader() {
+    virtual ~UncompressedReader() {
         if (fd != -1) {
             close();
         }

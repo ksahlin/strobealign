@@ -31,7 +31,7 @@ namespace {
         if(is_gzip(filename)) {
             io = std::make_unique<IsalGzipReader>(filename);
         } else if(is_raw(filename)) {
-            io = std::make_unique<UncompressReader>(filename);
+            io = std::make_unique<UncompressedReader>(filename);
         } else {
             io = std::make_unique<GzipReader>(filename);
         }
