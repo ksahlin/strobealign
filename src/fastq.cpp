@@ -25,7 +25,7 @@ namespace {
         return check_ext(filename, ".fq") || check_ext(filename, ".fastq");
     }
 
-    std::unique_ptr<Reader> create_io(const std::string& filename)
+    std::unique_ptr<Reader> make_reader(const std::string& filename)
     {
         std::unique_ptr<Reader> io;
         if(is_gzip(filename)) {
@@ -40,11 +40,11 @@ namespace {
 };
 
 RewindableFile::RewindableFile(const std::string& filename)
-    : file(nullptr),
+    : reader(nullptr),
     rewindable(true),
     stream_(klibpp::make_ikstream(this, rewind_read, 16384)) {
 
-    file = create_io(filename);
+    reader = make_reader(filename);
 
     stream_ = klibpp::make_ikstream(this, rewind_read, 16384);
 }
@@ -61,7 +61,7 @@ void RewindableFile::rewind() {
 }
 
 int RewindableFile::read(void* buffer, const int length) {
-    if (file == nullptr) {
+    if (reader == nullptr) {
         return -1;
     }
     if (length == 0) return 0;
@@ -76,7 +76,7 @@ int RewindableFile::read(void* buffer, const int length) {
         return can_read +
             this->read(static_cast<char*>(buffer) + can_read, length - can_read);
     }
-    const auto bytes_read = file->read(buffer, length);
+    const auto bytes_read = reader->read(buffer, length);
     if (bytes_read < 0) {
         throw std::runtime_error("Error reading FASTQ file");
     }
