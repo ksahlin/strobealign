@@ -58,7 +58,7 @@ private:
     packed_t m_packed; // packed representation of ref_index and strobe offset
 
 public:
-    static constexpr uint32_t max_number_of_references = (1 << (32 - bit_alloc)) - 1;
+    static constexpr uint32_t max_number_of_references = (1 << (32 - bit_alloc - 1)) - 1; // bit_alloc - 1 because 1 bit to main_is_first()
 };
 
 struct QueryRandstrobe {
