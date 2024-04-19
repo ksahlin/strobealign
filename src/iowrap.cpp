@@ -11,7 +11,7 @@ void GzipReader::open(const std::string& filename) {
     if (filename != "") {
         file = gzopen(filename.c_str(), "r");
         if (file == nullptr) {
-            throw InvalidFile("Could not open FASTQ file: " + filename);
+            throw InvalidFile("Could not open file: " + filename);
         }
     }
 }
@@ -23,7 +23,7 @@ int64_t GzipReader::read(void* buffer, size_t length) {
 void UncompressedReader::open(const std::string& filename) {
     fd = ::open(filename.c_str(), 0);
     if (fd < 0) {
-        throw InvalidFile("Could not open FASTQ file: " + filename);
+        throw InvalidFile("Could not open file: " + filename);
     }
 
     thread_reader = std::thread(&UncompressedReader::preload, this, preload_size);
@@ -82,7 +82,7 @@ void IsalGzipReader::initialize() {
 void IsalGzipReader::open(const std::string& filename) {
     fd = ::open(filename.c_str(), 0);
     if (fd < 0) {
-        throw InvalidFile("Could not open FASTQ file: " + filename);
+        throw InvalidFile("Could not open file: " + filename);
     }
 
     struct stat _stat;
