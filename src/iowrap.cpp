@@ -25,14 +25,9 @@ void UncompressedReader::open(const std::string& filename) {
     if (fd < 0) {
         throw InvalidFile("Could not open file: " + filename);
     }
-
-    thread_reader = std::thread(&UncompressedReader::preload, this, preload_size);
 }
 
 void UncompressedReader::close() {
-    if (thread_reader.joinable())
-        thread_reader.join();
-
     if (fd != -1) {
         ::close(fd);
     }
@@ -40,36 +35,7 @@ void UncompressedReader::close() {
 }
 
 int64_t UncompressedReader::read(void* buffer, size_t length) {
-    size_t actual_count = 0;
-    while (length > 0) {
-        size_t size_from_data = std::min(length, read_buffer.size() - read_buffer_copied);
-        memcpy(buffer, read_buffer.data() + read_buffer_copied, size_from_data);
-        buffer = (uint8_t*) buffer + size_from_data;
-        length -= size_from_data;
-        read_buffer_copied += size_from_data;
-        actual_count += size_from_data;
-
-        if (read_buffer_copied == read_buffer.size()) {
-            if (thread_reader.joinable()) {
-                thread_reader.join();
-                std::swap(read_buffer, read_buffer_work);
-                read_buffer_copied = 0;
-                if (read_buffer.size() == 0) {
-                    break;
-                }
-            }
-            thread_reader = std::thread(&UncompressedReader::preload, this, preload_size);
-        }
-    }
-    return actual_count;
-}
-
-void UncompressedReader::preload(size_t size) {
-    read_buffer_work.resize(preload_size);
-    auto actual_size = ::read(fd, read_buffer_work.data(), size);
-    if (actual_size != (decltype(actual_size)) size) {
-        read_buffer_work.resize(actual_size);
-    }
+    return ::read(fd, buffer, length);
 }
 
 void IsalGzipReader::initialize() {
