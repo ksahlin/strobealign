@@ -199,6 +199,37 @@ struct StrobemerIndex {
         return (pos - randstrobes.begin() - 1) - position + 1;
     }
 
+    unsigned int get_partial_count(bucket_index_t position) const {
+        constexpr unsigned int MAX_LINEAR_SEARCH = 8;
+        const unsigned int aux_len = parameters.randstrobe.aux_len;
+
+        const auto key = randstrobes[position].hash;
+        randstrobe_hash_t key_prefix = key >> aux_len;
+
+        const unsigned int top_N = key >> (64 - bits);
+        bucket_index_t position_end = randstrobe_start_indices[top_N + 1];
+        uint64_t count = 1;
+
+        if (position_end - position < MAX_LINEAR_SEARCH) {
+            for (bucket_index_t position_start = position + 1; position_start < position_end; ++position_start) {
+                if (randstrobes[position_start].hash >> aux_len == key_prefix){
+                    count += 1;
+                }
+                else{
+                    break;
+                }
+            }
+            return count;
+        }
+        auto cmp = [&aux_len](const RefRandstrobe lhs, const RefRandstrobe rhs) {return (lhs.hash >> aux_len) < (rhs.hash >> aux_len); };
+
+        auto pos = std::upper_bound(randstrobes.begin() + position,
+                                    randstrobes.begin() + position_end,
+                                    RefRandstrobe{key, 0, 0},
+                                    cmp);
+        return (pos - randstrobes.begin() - 1) - position + 1;
+    }
+
     size_t end() const {
         return -1;
     }
