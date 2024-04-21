@@ -69,8 +69,10 @@ void merge_hits_into_nams(
     for (auto &[ref_id, hits] : hits_per_ref) {
         if (sort) {
             std::sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) -> bool {
-                    // first sort on query starts, then on reference starts
-                    return (a.query_start < b.query_start) || ( (a.query_start == b.query_start) && (a.ref_start < b.ref_start) );
+                    // first sort on query starts, then on reference starts, finally prefer full matches over partial
+                    return (a.query_start < b.query_start) ||
+                            ( (a.query_start == b.query_start) && (a.ref_start < b.ref_start)) ||
+                            ( (a.query_start == b.query_start) && (a.ref_start == b.ref_start) && (a.query_end > b.query_end)  );
                 }
             );
         }
@@ -79,7 +81,7 @@ void merge_hits_into_nams(
         int prev_q_start = 0;
         auto prev_hit = Hit{0,0,0,0};
         for (auto &h : hits) {
-            if (prev_hit == h) {
+            if ( (prev_hit == h) || ( ((h.query_end - h.query_start) == k) && (prev_hit.query_start == h.query_start) && (prev_hit.ref_start == h.ref_start)) )  { // is a redundant partial hit
                 continue;
             }
             bool is_added = false;
