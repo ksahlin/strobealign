@@ -55,6 +55,10 @@ inline void add_to_hits_per_ref_partial(
     }
 }
 
+bool operator==(const Hit& lhs, const Hit& rhs) {
+    return (lhs.query_start == rhs.query_start) && (lhs.query_end == rhs.query_end) && (lhs.ref_start == rhs.ref_start) && (lhs.ref_end == rhs.ref_end);
+}
+
 void merge_hits_into_nams(
     robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
     int k,
@@ -73,7 +77,11 @@ void merge_hits_into_nams(
 
         std::vector<Nam> open_nams;
         int prev_q_start = 0;
+        auto prev_hit = Hit{0,0,0,0};
         for (auto &h : hits) {
+            if (prev_hit == h) {
+                continue;
+            }
             bool is_added = false;
             for (auto & o : open_nams) {
 
@@ -145,6 +153,7 @@ void merge_hits_into_nams(
                 open_nams.erase(std::remove_if(open_nams.begin(), open_nams.end(), predicate), open_nams.end());
                 prev_q_start = h.query_start;
             }
+            prev_hit = h;
         }
 
         // Add all current open_matches to final NAMs
