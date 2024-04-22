@@ -264,6 +264,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
         unsigned int count;
         unsigned int query_start;
         unsigned int query_end;
+        bool is_partial;
 
         bool operator< (const RescueHit& rhs) const {
             return std::tie(count, query_start, query_end)
@@ -285,7 +286,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
         size_t position = index.find(qr.hash);
         if (position != index.end()) {
             unsigned int count = index.get_count(position);
-            RescueHit rh{position, count, qr.start, qr.end};
+            RescueHit rh{position, count, qr.start, qr.end, false};
             if (qr.is_reverse){
                 hits_rc.push_back(rh);
             } else {
@@ -301,7 +302,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
             size_t partial_pos = index.partial_find(qr.hash);
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_partial_count(partial_pos);
-                RescueHit rh{partial_pos, partial_count, qr.partial_start, qr.partial_end};
+                RescueHit rh{partial_pos, partial_count, qr.partial_start, qr.partial_end, true};
                 if (qr.is_reverse){
                     hits_rc.push_back(rh);
                 } else {
@@ -322,7 +323,11 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
             if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
                 break;
             }
-            add_to_hits_per_ref_full(hits_per_ref[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
+            if (rh.is_partial){
+                add_to_hits_per_ref_partial(hits_per_ref[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
+            } else{
+                add_to_hits_per_ref_full(hits_per_ref[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
+            }
             cnt++;
             n_hits++;
         }
