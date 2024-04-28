@@ -26,16 +26,25 @@ struct AlignmentInfo {
     int sw_score{0};
 
     int ref_span() const { return ref_end - ref_start; }
+    int query_span() const { return query_end - query_start; }
 };
+
+std::ostream& operator<<(std::ostream& os, const AlignmentInfo& info);
+
+void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b, int8_t wildcard_score);
 
 struct Aligner {
 public:
     Aligner(AlignmentParameters parameters)
         : parameters(parameters)
         , ssw_aligner(StripedSmithWaterman::Aligner(parameters.match, parameters.mismatch, parameters.gap_open, parameters.gap_extend))
-    { }
+    {
+        int8_t wildcard_score = -parameters.mismatch;
+        ksw_gen_simple_mat(ksw_matrix_m, ksw_matrix, parameters.match, -parameters.mismatch, wildcard_score);
+    }
 
-    AlignmentInfo align(const std::string &query, const std::string &ref) const;
+    AlignmentInfo align(const std::string& query, const std::string_view ref) const;
+    AlignmentInfo ksw_extend(const std::string& query, const std::string_view ref, bool right_align) const;
 
     AlignmentParameters parameters;
 
@@ -47,9 +56,11 @@ private:
     const StripedSmithWaterman::Aligner ssw_aligner;
     const StripedSmithWaterman::Filter filter;
     mutable unsigned m_align_calls{0};  // no. of calls to the align() method
+    const int8_t ksw_matrix_m{5};
+    int8_t ksw_matrix[25];
 };
 
-inline int hamming_distance(const std::string &s, const std::string &t) {
+inline int hamming_distance(const std::string& s, const std::string_view t) {
     if (s.length() != t.length()){
         return -1;
     }
@@ -65,11 +76,11 @@ inline int hamming_distance(const std::string &s, const std::string &t) {
 }
 
 std::tuple<size_t, size_t, int> highest_scoring_segment(
-    const std::string& query, const std::string& ref, int match, int mismatch, int end_bonus
+    const std::string& query, const std::string_view ref, int match, int mismatch, int end_bonus
 );
 
 AlignmentInfo hamming_align(
-    const std::string &query, const std::string &ref, int match, int mismatch, int end_bonus
+    const std::string& query, const std::string_view ref, int match, int mismatch, int end_bonus
 );
 
 #endif
