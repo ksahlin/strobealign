@@ -110,4 +110,10 @@ strobealign -C --no-PG --rg-id=1 --rg=SM:sample --rg=LB:library tests/phix.fasta
 diff tests/phix.tags.sam with-tags.sam
 rm with-tags.sam
 
+# Multi-block gzip
+( head -n 4 tests/phix.1.fastq | gzip ; tail -n +5 tests/phix.1.fastq | gzip ) > multiblock.fastq.gz
+strobealign --no-PG --eqx --rg-id 1 --rg SM:sample --rg LB:library tests/phix.fasta multiblock.fastq.gz > multiblock.sam
+diff tests/phix.se.sam multiblock.sam
+rm multiblock.fastq.gz multiblock.sam
+
 echo "Success"
