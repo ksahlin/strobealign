@@ -24,7 +24,7 @@ std::optional<AlignmentInfo> Aligner::align(const std::string &query, const std:
 
     // query must be NULL-terminated
     auto flag = ssw_aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen);
-    if (flag != 0) {
+    if (flag != 0 || alignment_ssw.ref_begin == -1) {
         return {};
     }
 
