@@ -158,7 +158,8 @@ options. Some important ones are:
   specified multiple times. Example: `--rg-id=1 --rg=SM:mysamle --rg=LB:mylibrary`.
 * `-N INT`: Output up to INT secondary alignments. By default, no secondary
   alignments are output.
-* `-U`: Suppress output of unmapped reads.
+* `-U`: Suppress output of unmapped single-end reads and pairs in which both
+  reads are unmapped.
 * `--use-index`: Use a pre-generated index instead of generating a new one.
 * `--create-index`, `-i`: Generate a strobemer index file (`.sti`) and write it
   to disk next to the input reference FASTA. Do not map reads. If read files are
