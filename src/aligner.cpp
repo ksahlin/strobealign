@@ -10,28 +10,22 @@
 #include <cassert>
 #include "aligner.hpp"
 
-AlignmentInfo Aligner::align(const std::string &query, const std::string &ref) const {
+std::optional<AlignmentInfo> Aligner::align(const std::string &query, const std::string &ref) const {
     m_align_calls++;
     AlignmentInfo aln;
     int32_t maskLen = query.length() / 2;
     maskLen = std::max(maskLen, 15);
     if (ref.length() > 2000){
 //        std::cerr << "ALIGNMENT TO REF LONGER THAN 2000bp - REPORT TO DEVELOPER. Happened for read: " <<  query << " ref len:" << ref.length() << std::endl;
-        aln.edit_distance = 100000;
-        aln.ref_start = 0;
-        aln.sw_score = -1000000;
-        return aln;
+        return {};
     }
 
     StripedSmithWaterman::Alignment alignment_ssw;
 
     // query must be NULL-terminated
     auto flag = ssw_aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment_ssw, maskLen);
-    if (flag != 0) {
-        aln.edit_distance = 100000;
-        aln.ref_start = 0;
-        aln.sw_score = -100000;
-        return aln;
+    if (flag != 0 || alignment_ssw.ref_begin == -1) {
+        return {};
     }
 
     aln.edit_distance = alignment_ssw.mismatches;

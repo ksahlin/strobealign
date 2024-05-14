@@ -238,8 +238,20 @@ inline Alignment extend_seed(
         const int ext_right = std::min(std::size_t(50), ref.size() - nam.ref_end);
         const auto ref_segm_size = read.size() + diff + ext_left + ext_right;
         const auto ref_segm = ref.substr(ref_start, ref_segm_size);
-        info = aligner.align(query, ref_segm);
-        result_ref_start = ref_start + info.ref_start;
+        auto opt_info = aligner.align(query, ref_segm);
+        if (opt_info) {
+            info = opt_info.value();
+            result_ref_start = ref_start + info.ref_start;
+        } else {
+            // TODO This function should instead return an std::optional<Alignment>
+            Alignment alignment;
+            alignment.is_unaligned = true;
+            alignment.edit_distance = 100000;
+            alignment.ref_start = 0;
+            alignment.score = -100000;
+
+            return alignment;
+        }
     }
     int softclipped = info.query_start + (query.size() - info.query_end);
     Alignment alignment;
@@ -477,17 +489,23 @@ inline Alignment rescue_align(
         alignment.is_unaligned = true;
         return alignment;
     }
-    auto info = aligner.align(r_tmp, ref_segm);
-
-    alignment.cigar = info.cigar;
-    alignment.edit_distance = info.edit_distance;
-    alignment.score = info.sw_score;
-    alignment.ref_start = ref_start + info.ref_start;
-    alignment.is_rc = !mate_nam.is_rc;
-    alignment.ref_id = mate_nam.ref_id;
-    alignment.is_unaligned = info.cigar.empty();
-    alignment.length = info.ref_span();
-
+    auto opt_info = aligner.align(r_tmp, ref_segm);
+    if (opt_info) {
+        auto info = opt_info.value();
+        alignment.cigar = info.cigar;
+        alignment.edit_distance = info.edit_distance;
+        alignment.score = info.sw_score;
+        alignment.ref_start = ref_start + info.ref_start;
+        alignment.is_rc = !mate_nam.is_rc;
+        alignment.ref_id = mate_nam.ref_id;
+        alignment.is_unaligned = info.cigar.empty();
+        alignment.length = info.ref_span();
+    } else {
+        alignment.is_unaligned = true;
+        alignment.edit_distance = 100000;
+        alignment.ref_start = 0;
+        alignment.score = -100000;
+    }
     return alignment;
 }
 

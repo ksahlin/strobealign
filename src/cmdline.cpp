@@ -36,7 +36,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::Group sam(parser, "SAM output:");
     args::Flag eqx(parser, "eqx", "Emit =/X instead of M CIGAR operations", {"eqx"});
     args::Flag no_pg(parser, "no-PG", "Do not output PG header", {"no-PG"});
-    args::Flag U(parser, "U", "Suppress output of unmapped reads", {'U'});
+    args::Flag U(parser, "U", "Do not output unmapped single-end reads. Do not output pairs where both reads are unmapped", {'U'});
     args::ValueFlag<std::string> rgid(parser, "ID", "Read group ID", {"rg-id"});
     args::ValueFlagList<std::string> rg(parser, "TAG:VALUE", "Add read group metadata to SAM header (can be specified multiple times). Example: SM:samplename", {"rg"});
     args::Flag details(parser, "details", "Add debugging details to SAM records", {"details"});
