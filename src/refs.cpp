@@ -2,6 +2,8 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <regex>
+#include <set>
 #include "refs.hpp"
 #include "zstr.hpp"
 
@@ -21,6 +23,7 @@ template <typename T>
 References references_from_stream(T& stream) {
     std::vector<std::string> sequences;
     std::vector<std::string> names;
+    std::set<std::string> seen_names;
 
     if (!stream.good()) {
         throw InvalidFasta("Cannot read from FASTA file");
@@ -34,18 +37,50 @@ References references_from_stream(T& stream) {
         throw InvalidFasta(oss.str().c_str());
     }
 
+    const std::regex ws_re(R"(\s+)");
+    // From SAM specification 1.2.1
+    const std::regex rname_re(R"([0-9A-Za-z!#$%&+./:;?@^_|~-][0-9A-Za-z!#$%&*+./:;=?@^_|~-]*$)");
+
     std::string line, seq, name;
+    size_t line_num = 0;
     bool eof = false;
     do {
+        line_num += 1;
         eof = !bool{getline(stream, line)};
         if (eof || (!line.empty() && line[0] == '>')) {
             if (seq.length() > 0) {
                 to_uppercase(seq);
                 sequences.push_back(seq);
                 names.push_back(name);
+                seen_names.insert(name);
             }
             if (!eof) {
-                name = line.substr(1, line.find(' ') - 1); // cut at first space
+                // Cut at the first whitespace
+                auto itr = std::sregex_token_iterator(line.begin() + 1, line.end(), ws_re, -1);
+                if (itr == std::sregex_token_iterator()) {
+                    std::ostringstream oss;
+                    oss << "FASTA file has invalid reference sequence name on line "
+                        << line_num;
+                    throw InvalidFasta(oss.str().c_str());
+                }
+                name = *itr;
+
+                // Check the name is valid for the SAM output
+                std::smatch m;
+                if (!std::regex_match(name, m, rname_re)) {
+                    std::ostringstream oss;
+                    oss << "FASTA file has SAM-incompatible reference sequence name '"
+                        << name << "' on line " << line_num;
+                    throw InvalidFasta(oss.str().c_str());
+                }
+
+                // Check for duplicate names
+                if (seen_names.count(name)) {
+                    std::ostringstream oss;
+                    oss << "FASTA file has duplicate reference sequence name '"
+                        << name << "' on line " << line_num;
+                    throw InvalidFasta(oss.str().c_str());
+                }
             }
             seq = "";
         } else {

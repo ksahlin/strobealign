@@ -3,6 +3,8 @@
 ## development version
 
 * #401: The default number of threads is now 1 instead of 3.
+* #409: Ensure reference names are unique and conform to the SAM
+  specification. Contributed by @drtconway in PR #411.
 
 ## v0.13.0 (2024-03-04)
 

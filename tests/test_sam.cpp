@@ -34,6 +34,18 @@ TEST_CASE("Formatting unmapped SAM record") {
 
         CHECK(sam_string == "read1\t4\t*\t0\t0\t*\t*\t0\t0\tACGT\t*\n");
     }
+
+    SUBCASE("do not output single-end unmapped") {
+        Sam sam{sam_string, references, CigarOps::EQX, "", false};
+        sam.add_unmapped(kseq);
+        CHECK(sam_string == "");
+    }
+
+    SUBCASE("do not output paired-end unmapped") {
+        Sam sam{sam_string, references, CigarOps::EQX, "", false};
+        sam.add_unmapped_pair(kseq, kseq);
+        CHECK(sam_string == "");
+    }
 }
 
 TEST_CASE("Sam::add") {

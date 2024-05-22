@@ -95,7 +95,7 @@ void merge_hits_into_nams(
         }
 
         std::vector<Nam> open_nams;
-        unsigned int prev_q_start = 0;
+        int prev_q_start = 0;
         auto prev_hit = Hit{0,0,0,0};
         for (auto &h : hits) {
             if ( (prev_hit == h) || ( ((h.query_end - h.query_start) == k) && (prev_hit.query_start == h.query_start) && (prev_hit.ref_start == h.ref_start)) )  { // is a redundant partial hit

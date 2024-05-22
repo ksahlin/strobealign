@@ -3,6 +3,7 @@
 
 #include <string>
 #include <tuple>
+#include <optional>
 #include "ssw/ssw_cpp.h"
 #include "cigar.hpp"
 
@@ -35,7 +36,7 @@ public:
         , ssw_aligner(StripedSmithWaterman::Aligner(parameters.match, parameters.mismatch, parameters.gap_open, parameters.gap_extend))
     { }
 
-    AlignmentInfo align(const std::string &query, const std::string &ref) const;
+    std::optional<AlignmentInfo> align(const std::string &query, const std::string &ref) const;
 
     AlignmentParameters parameters;
 

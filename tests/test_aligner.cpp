@@ -156,3 +156,12 @@ TEST_CASE("highest_scoring_segment with soft clipping") {
     CHECK(std::get<2>(x) == 3 * 2 - 1 * 4 + 5);
 
 }
+
+TEST_CASE("ssw align no result") {
+    AlignmentParameters parameters{2, 8, 12, 1, 10};
+    Aligner aligner{parameters};
+    std::string query = "TCTCTCCCTCTCTCTCTCTCCCTCCCTCTCTCTCCCTCTCTCTCTCTCTCTCCCTCCCTT";
+    std::string ref = "GAGGGAGAGAGAGAGAGGGAGAGAGAGAGAGAG";
+    auto info = aligner.align(query, ref);
+    CHECK(!info.has_value());
+}
