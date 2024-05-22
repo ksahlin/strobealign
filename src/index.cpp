@@ -150,8 +150,6 @@ void StrobemerIndex::populate(float f, unsigned n_threads) {
     }
     stats.tot_strobemer_count = total_randstrobes;
 
-    logger.info() << "Auxiliary hash length is : " << parameters.randstrobe.aux_len;
-
     logger.debug() << "  Total number of randstrobes: " << total_randstrobes << '\n';
     uint64_t memory_bytes = references.total_length() + sizeof(RefRandstrobe) * total_randstrobes + sizeof(bucket_index_t) * (1u << bits);
     logger.debug() << "  Estimated total memory usage: " << memory_bytes / 1E9 << " GB\n";

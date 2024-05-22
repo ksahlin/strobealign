@@ -229,6 +229,7 @@ int run_strobealign(int argc, char **argv) {
         throw InvalidFasta("Too many reference sequences. Current maximum is " + std::to_string(RefRandstrobe::max_number_of_references));
     }
 
+    logger.debug() << "Auxiliary hash length: " << index_parameters.randstrobe.aux_len << "\n";
     StrobemerIndex index(references, index_parameters, opt.bits);
     if (opt.use_index) {
         // Read the index from a file
