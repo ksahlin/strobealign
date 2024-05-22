@@ -46,6 +46,7 @@ static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
 }
 
 static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_hash_t hash2, size_t aux_len) {
+    // Make the function symmetric
     if (hash1 > hash2) {
         std::swap(hash1, hash2);
     }
