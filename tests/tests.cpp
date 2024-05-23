@@ -138,7 +138,7 @@ TEST_CASE("both randstrobes iterator implementations give same results") {
 }
 
 // This tests an assumption that we need to hold for count_randstrobes()
-TEST_CASE("syncmer and randstrobe iterators return (nearly) same no. of items") {
+TEST_CASE("syncmer and randstrobe iterators return same no. of items") {
     auto references = References::from_fasta("tests/phix.fasta");
     auto& seq = references.sequences[0];
     auto parameters = IndexParameters::from_read_length(100);
@@ -157,7 +157,7 @@ TEST_CASE("syncmer and randstrobe iterators return (nearly) same no. of items") 
         syncmer_count++;
     }
 
-    CHECK(randstrobe_count + parameters.randstrobe.w_min == syncmer_count);
+    CHECK(randstrobe_count == syncmer_count);
 }
 
 TEST_CASE("reverse complement") {
