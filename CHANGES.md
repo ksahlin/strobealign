@@ -1,5 +1,17 @@
 # Strobealign Changelog
 
+## Development version
+
+* #388 and #426: Increase accuracy and mapping rate for reads shorter than
+  about 200 bp by introducing multi-context seeds.
+  Previously, seeds always consisted of two k-mers and would only be found if
+  both occur in query and reference.
+  With this change, strobealign falls back to looking up just one of the k-mers
+  when appropriate.
+  This feature is currently *experimental* and only enabled when using the
+  `--mcs` command-line option.
+  Contributed by Ivan Tolstoganov (@Itolstoganov).
+
 ## v0.14.0 (2024-10-03)
 
 * #401: The default number of threads is now 1 instead of 3.
