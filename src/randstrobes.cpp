@@ -198,10 +198,21 @@ Randstrobe RandstrobeGenerator::next() {
         }
         syncmers.push_back(syncmer);
     }
-    if (syncmers.size() <= w_min) {
+    if (syncmers.empty()) {
         return RandstrobeGenerator::end();
     }
     auto strobe1 = syncmers[0];
+
+    if (syncmers.size() < w_min) {
+        auto randstrobe = Randstrobe{
+            randstrobe_hash(strobe1.hash, 0, aux_len),
+            static_cast<uint32_t>(strobe1.position),
+            static_cast<uint32_t>(strobe1.position),
+            true
+        };
+        syncmers.pop_front();
+        return randstrobe;
+    }
     auto max_position = strobe1.position + max_dist;
     uint64_t min_val = std::numeric_limits<uint64_t>::max();
     Syncmer strobe2 = strobe1; // Default if no nearby syncmer

@@ -27,18 +27,15 @@ static const uint32_t STI_FILE_FORMAT_VERSION = 2;
 namespace {
 
 uint64_t count_randstrobes(const std::string& seq, const IndexParameters& parameters) {
+    // To reduce runtime, this function actually counts *syncmers* and
+    // assumes that one randstrobe is generated per syncmer
     uint64_t n_syncmers = 0;
     SyncmerIterator syncmer_iterator(seq, parameters.syncmer);
     Syncmer syncmer;
     while (!(syncmer = syncmer_iterator.next()).is_end()) {
         n_syncmers++;
     }
-    // The last w_min syncmers do not result in a randstrobe
-    if (n_syncmers < parameters.randstrobe.w_min) {
-        return 0;
-    } else {
-        return n_syncmers - parameters.randstrobe.w_min;
-    }
+    return n_syncmers;
 }
 
 std::vector<uint64_t> count_all_randstrobes(const References& references, const IndexParameters& parameters, size_t n_threads) {
