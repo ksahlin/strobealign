@@ -5,6 +5,13 @@
 * #401: The default number of threads is now 1 instead of 3.
 * #409: Ensure reference names are unique and conform to the SAM
   specification. Contributed by @drtconway in PR #411.
+* #388 and #426: Increase accuracy and mapping rate by introducing
+  multi-context seeds.
+  Previously, seeds always consisted of two k-mers and would only be found if
+  both occur in query and reference.
+  With this change, strobealign gains the ability to fall back to looking up
+  just one of the k-mers when appropriate.
+  Contributed by Ivan Tolstoganov (@Itolstoganov).
 
 ## v0.13.0 (2024-03-04)
 
