@@ -121,7 +121,7 @@ struct StrobemerIndex {
         }
     }
 
-    randstrobe_hash_t get_partial_hash(bucket_index_t position) const {
+    randstrobe_hash_t get_main_hash(bucket_index_t position) const {
         if (position < randstrobes.size()) {
             return randstrobes[position].hash >> parameters.randstrobe.aux_len;
         } else {
