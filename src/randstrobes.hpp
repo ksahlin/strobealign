@@ -56,9 +56,10 @@ public:
         return m_hash_offset_flag & RANDSTROBE_HASH_MASK;
     }
 
-    uint32_t position() const {
-        return m_position;
-    }
+private:
+    static constexpr int mask2 = ((1 << (bit_alloc / 2)) - 1) << (bit_alloc / 2 + 1);
+    static constexpr int mask3 = ((1 << (bit_alloc / 2)) - 1) << 1;
+    packed_t m_packed; // packed representation of ref_index, strobe offsets, and strobe orientation bit
 
     static constexpr size_t max_number_of_references = (1ul << 32) - 1;
 };
@@ -79,9 +80,10 @@ struct Randstrobe {
     randstrobe_hash_t hash_revcomp;
     unsigned int strobe1_pos;
     unsigned int strobe2_pos;
+    unsigned int strobe3_pos;
 
     bool operator==(const Randstrobe& other) const {
-        return hash == other.hash && strobe1_pos == other.strobe1_pos && strobe2_pos == other.strobe2_pos;
+        return hash == other.hash && strobe1_pos == other.strobe1_pos && strobe2_pos == other.strobe2_pos && strobe3_pos == other.strobe3_pos;
     }
 
     bool operator!=(const Randstrobe& other) const {
@@ -179,6 +181,13 @@ public:
     Randstrobe end() const { return Randstrobe{0, 0, 0, 0}; }
 
 private:
+    uint get_next_strobe_index(
+        unsigned int first_strobe_index,
+        unsigned int curr_strobe_index,
+        uint64_t curr_hash,
+        uint strobe_count
+    ) const;
+
     SyncmerIterator syncmer_iterator;
     const RandstrobeParameters parameters;
     std::deque<Syncmer> syncmers;
