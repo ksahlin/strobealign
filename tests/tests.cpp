@@ -157,7 +157,7 @@ TEST_CASE("syncmer and randstrobe iterators return (nearly) same no. of items") 
         syncmer_count++;
     }
 
-    CHECK(randstrobe_count + parameters.randstrobe.w_min == syncmer_count);
+    CHECK(randstrobe_count + parameters.randstrobe.w_max + parameters.randstrobe.w_min == syncmer_count);
 }
 
 TEST_CASE("reverse complement") {

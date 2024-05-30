@@ -36,7 +36,7 @@ void dump_randstrobes2(std::ostream& os, const std::string& name, const std::str
     auto randstrobe_iter = RandstrobeGenerator(sequence, parameters.syncmer, parameters.randstrobe);
     Randstrobe randstrobe;
     while ((randstrobe = randstrobe_iter.next()) != randstrobe_iter.end()) {
-        os << BedRecord{name, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k};
+        os << BedRecord{name, randstrobe.strobe1_pos, randstrobe.strobe3_pos + parameters.syncmer.k};
     }
 }
 
