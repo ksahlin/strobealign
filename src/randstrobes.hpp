@@ -39,7 +39,7 @@ struct RefRandstrobe {
         return lhs < rhs;
     }
 
-    bool main_is_first() const {
+    bool first_strobe_is_main() const {
         return (m_packed >> bit_alloc) & 1;
     }
 
@@ -58,7 +58,7 @@ private:
     packed_t m_packed; // packed representation of ref_index and strobe offset
 
 public:
-    static constexpr uint32_t max_number_of_references = (1 << (32 - bit_alloc - 1)) - 1; // bit_alloc - 1 because 1 bit to main_is_first()
+    static constexpr uint32_t max_number_of_references = (1 << (32 - bit_alloc - 1)) - 1; // bit_alloc - 1 because 1 bit to first_strobe_is_main()
 };
 
 struct QueryRandstrobe {
@@ -80,7 +80,7 @@ struct Randstrobe {
     randstrobe_hash_t hash;
     unsigned int strobe1_pos;
     unsigned int strobe2_pos;
-    bool main_is_first;
+    bool first_strobe_is_main;
 
     bool operator==(const Randstrobe& other) const {
         return hash == other.hash && strobe1_pos == other.strobe1_pos && strobe2_pos == other.strobe2_pos;
