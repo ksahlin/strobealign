@@ -172,10 +172,6 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
     uint64_t min_val = std::numeric_limits<uint64_t>::max();
     Syncmer strobe2 = strobe1;
 
-    if (syncmers.size() < w_start) {
-        return make_randstrobe(strobe1, strobe1, parameters.main_hash_mask);
-    }
-
     for (auto i = w_start; i <= w_end && syncmers[i].position <= max_position; i++) {
         assert(i < syncmers.size());
 
@@ -204,13 +200,6 @@ Randstrobe RandstrobeGenerator::next() {
         return RandstrobeGenerator::end();
     }
     auto strobe1 = syncmers[0];
-
-    if (syncmers.size() < parameters.w_min) {
-        auto randstrobe = make_randstrobe(strobe1, strobe1, parameters.main_hash_mask);
-        syncmers.pop_front();
-        return randstrobe;
-    }
-
     auto max_position = strobe1.position + parameters.max_dist;
     uint64_t min_val = std::numeric_limits<uint64_t>::max();
     Syncmer strobe2 = strobe1; // Default if no nearby syncmer
