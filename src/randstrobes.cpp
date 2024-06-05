@@ -171,7 +171,7 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
 
     if (syncmers.size() < w_start) {
         return Randstrobe{
-            randstrobe_hash(strobe1.hash, 0, aux_len),
+            randstrobe_hash(strobe1.hash, strobe1.hash, aux_len),
             static_cast<uint32_t>(strobe1.position),
             static_cast<uint32_t>(strobe1.position),
             true
@@ -209,7 +209,7 @@ Randstrobe RandstrobeGenerator::next() {
 
     if (syncmers.size() < w_min) {
         auto randstrobe = Randstrobe{
-            randstrobe_hash(strobe1.hash, 0, aux_len),
+            randstrobe_hash(strobe1.hash, strobe1.hash, aux_len),
             static_cast<uint32_t>(strobe1.position),
             static_cast<uint32_t>(strobe1.position),
             true
