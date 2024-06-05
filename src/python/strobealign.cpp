@@ -54,7 +54,7 @@ NB_MODULE(strobealign_extension, m_) {
     nb::module_ m = nb::module_::import_("strobealign");
 
     m.doc() = "strobealign aligns short reads using dynamic seed size with strobemers";
-    nb::enum_<LOG_LEVELS>(m, "LOG_LEVELS")
+    nb::enum_<LOG_LEVELS>(m, "LOG_LEVELS", nb::is_arithmetic())
         .value("LOG_DEBUG", LOG_LEVELS::LOG_DEBUG)
         .value("LOG_INFO", LOG_LEVELS::LOG_INFO)
         .value("LOG_WARNING", LOG_LEVELS::LOG_WARNING)
