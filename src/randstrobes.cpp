@@ -170,12 +170,7 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
     Syncmer strobe2 = strobe1;
 
     if (syncmers.size() < w_start) {
-        return Randstrobe{
-            randstrobe_hash(strobe1.hash, 0, aux_len),
-            static_cast<uint32_t>(strobe1.position),
-            static_cast<uint32_t>(strobe1.position),
-            true
-        };
+        return make_randstrobe(strobe1, strobe1, aux_len);
     }
 
     for (auto i = w_start; i <= w_end && syncmers[i].position <= max_position; i++) {
@@ -208,12 +203,7 @@ Randstrobe RandstrobeGenerator::next() {
     auto strobe1 = syncmers[0];
 
     if (syncmers.size() < w_min) {
-        auto randstrobe = Randstrobe{
-            randstrobe_hash(strobe1.hash, 0, aux_len),
-            static_cast<uint32_t>(strobe1.position),
-            static_cast<uint32_t>(strobe1.position),
-            true
-        };
+        auto randstrobe = make_randstrobe(strobe1, strobe1, aux_len);
         syncmers.pop_front();
         return randstrobe;
     }
