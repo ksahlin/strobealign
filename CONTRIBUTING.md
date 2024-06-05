@@ -17,7 +17,18 @@ more focused discussion.
 When compiling strobealign, you can add `-DCMAKE_BUILD_TYPE=RelWithDebInfo` to
 the `cmake` options to get debug symbols.
 
-If needed, run `make` with `VERBOSE=1` to get more logging output.
+If needed, run `make` with `VERBOSE=1` to get more logging output at build
+time.
+
+To get more logging output when running strobealign, add the `-v` option to
+the command line.
+
+Add `--details` to get more detailed SAM output with some
+strobealign-specific tags added to each alignment record.
+(See below.)
+
+To get even more verbose output, add `-DTRACE=ON` to your CMake options and
+re-compile strobealign. This outputs a list of the found NAMs for each read.
 
 ## Testing
 
