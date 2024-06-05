@@ -5,6 +5,7 @@ include(FetchContent)
 
 option(ENABLE_AVX "Enable AVX2 support" OFF)
 option(PYTHON_BINDINGS "Build Python bindings" OFF)
+option(TRACE "Highly verbose debugging output" OFF)
 
 find_package(ZLIB)
 find_package(Threads)
@@ -69,6 +70,10 @@ target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr)
 IF(ENABLE_AVX)
   target_compile_options(salib PUBLIC "-mavx2")
 ENDIF()
+if (TRACE)
+   target_compile_definitions(salib PUBLIC "TRACE")
+endif()
+
 add_dependencies(salib version)
 
 add_executable(strobealign src/main.cpp)

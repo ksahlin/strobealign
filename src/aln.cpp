@@ -1059,6 +1059,18 @@ void align_or_map_paired(
         nams_pair[is_revcomp] = nams;
     }
 
+#ifdef TRACE
+    for (int is_revcomp : {0, 1}) {
+        const auto& record = is_revcomp == 0 ? record1 : record2;
+        std::cerr << "R" << is_revcomp + 1 << " name: " << record.name << '\n';
+        const auto& nams = nams_pair[is_revcomp];
+        std::cerr << "Found " << nams.size() << " NAMs\n";
+        for (auto& nam : nams) {
+            std::cerr << "- " << nam << '\n';
+        }
+    }
+#endif
+
     Timer extend_timer;
     if (map_param.output_format != OutputFormat::SAM) { // PAF or abundance
         Nam nam_read1;
@@ -1185,6 +1197,13 @@ void align_or_map_single(
     shuffle_top_nams(nams, random_engine);
     statistics.tot_sort_nams += nam_sort_timer.duration();
 
+#ifdef TRACE
+    std::cerr << "Query: " << record.name << '\n';
+    std::cerr << "Found " << nams.size() << " NAMs\n";
+    for (auto& nam : nams) {
+        std::cerr << "- " << nam << '\n';
+    }
+#endif
 
     Timer extend_timer;
     size_t n_best = 0;

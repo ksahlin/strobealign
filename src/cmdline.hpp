@@ -7,7 +7,13 @@
 
 struct CommandLineOptions {
     int n_threads { 1 };
-    int chunk_size { 10000 };
+    int chunk_size {
+#ifdef TRACE
+        1
+#else
+        10000
+#endif
+    };
 
     // Input/output
     std::string output_file_name;
