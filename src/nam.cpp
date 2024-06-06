@@ -1,4 +1,5 @@
 #include "nam.hpp"
+static Logger& logger = Logger::get();
 
 namespace {
 
@@ -9,7 +10,7 @@ struct Hit {
     int ref_end;
 };
 
-inline void add_to_hits_per_ref(
+inline void add_to_hits_per_ref_full(
     robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
     int query_start,
     int query_end,
@@ -22,9 +23,42 @@ inline void add_to_hits_per_ref(
         int ref_end = ref_start + index.strobe2_offset(position) + index.k();
         int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
         if (diff <= min_diff) {
-            hits_per_ref[index.reference_index(position)].push_back(Hit{query_start, query_end, ref_start, ref_end});
+            hits_per_ref[index.reference_index(position)].push_back(
+                Hit{query_start, query_end, ref_start, ref_end}
+            );
             min_diff = diff;
         }
+    }
+}
+
+inline void add_to_hits_per_ref_partial(
+    robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
+    int query_start,
+    int query_end,
+    const StrobemerIndex& index,
+    size_t position
+) {
+    int min_diff = std::numeric_limits<int>::max();
+    for (const auto hash = index.get_partial_hash(position);
+         index.get_partial_hash(position) == hash;
+         ++position) {
+        bool first_strobe_is_main = index.first_strobe_is_main(position);
+        // Construct the match from the strobe that was selected as the main part of the hash
+        int adj_ref_start = 0, adj_ref_end = 0;
+        if (first_strobe_is_main) {
+            adj_ref_start = index.get_strobe1_position(position);
+        }
+        else {
+            adj_ref_start = index.get_strobe1_position(position) + index.strobe2_offset(position);
+        }
+        adj_ref_end = adj_ref_start + index.k();
+//        int diff = std::abs((query_end - query_start) - (adj_ref_end - adj_ref_start));
+//        if (diff <= min_diff) {
+            hits_per_ref[index.reference_index(position)].push_back(
+                Hit{query_start, query_end, adj_ref_start, adj_ref_end}
+            );
+//            min_diff = diff;
+//        }
     }
 }
 
@@ -51,7 +85,7 @@ void merge_hits_into_nams(
             for (auto & o : open_nams) {
 
                 // Extend NAM
-                if ((o.query_prev_hit_startpos < h.query_start) && (h.query_start <= o.query_end ) && (o.ref_prev_hit_startpos < h.ref_start) && (h.ref_start <= o.ref_end) ){
+                if ((o.query_prev_hit_startpos <= h.query_start) && (h.query_start <= o.query_end ) && (o.ref_prev_hit_startpos <= h.ref_start) && (h.ref_start <= o.ref_end) ){
                     if ( (h.query_end > o.query_end) && (h.ref_end > o.ref_end) ) {
                         o.query_end = h.query_end;
                         o.ref_end = h.ref_end;
@@ -171,11 +205,22 @@ std::pair<float, std::vector<Nam>> find_nams(
                 continue;
             }
             nr_good_hits++;
-            add_to_hits_per_ref(hits_per_ref[q.is_reverse], q.start, q.end, index, position);
+            add_to_hits_per_ref_full(hits_per_ref[q.is_reverse], q.start, q.end, index, position);
+        }
+        else {
+            size_t partial_pos = index.partial_find(q.hash);
+            if (partial_pos != index.end()) {
+                total_hits++;
+                if (index.is_partial_filtered(partial_pos)) {
+                    continue;
+                }
+                nr_good_hits++;
+                add_to_hits_per_ref_partial(hits_per_ref[q.is_reverse], q.partial_start, q.partial_end, index, partial_pos);
+            }
         }
     }
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
-    auto nams = merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), false);
+    auto nams = merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), true);
     return make_pair(nonrepetitive_fraction, nams);
 }
 
@@ -231,7 +276,7 @@ std::vector<Nam> find_nams_rescue(
             if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
                 break;
             }
-            add_to_hits_per_ref(hits_per_ref[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
+            add_to_hits_per_ref_full(hits_per_ref[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
             cnt++;
         }
         is_revcomp++;
