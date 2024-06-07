@@ -24,6 +24,8 @@ struct Alignment {
     bool gapped{false};
 };
 
+std::ostream& operator<<(std::ostream& os, const Alignment& alignment);
+
 enum SamFlags {
     PAIRED = 1,
     PROPER_PAIR = 2,
