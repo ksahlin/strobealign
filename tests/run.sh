@@ -42,17 +42,17 @@ if samtools view phix.se.m.sam | cut -f6 | grep -q '[X=]'; then false; fi
 rm phix.se.m.sam
 
 # Paired-end SAM
-strobealign --no-PG --eqx --chunk-size 3 --rg-id 1 --rg SM:sample --rg LB:library tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq > phix.pe.sam
+strobealign -k 22 --no-PG --eqx --chunk-size 3 --rg-id 1 --rg SM:sample --rg LB:library tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq > phix.pe.sam
 diff tests/phix.pe.sam phix.pe.sam
 rm phix.pe.sam
 
 # Single-end PAF
-strobealign -x tests/phix.fasta tests/phix.1.fastq | tail -n 11 > phix.se.paf
+strobealign -k 22 -x tests/phix.fasta tests/phix.1.fastq | tail -n 11 > phix.se.paf
 diff tests/phix.se.paf phix.se.paf
 rm phix.se.paf
 
 # Single-end PAF (stdin input)
-cat tests/phix.1.fastq | strobealign -x tests/phix.fasta - | tail -n 11 > phix.se.paf
+cat tests/phix.1.fastq | strobealign -k 22 -x tests/phix.fasta - | tail -n 11 > phix.se.paf
 diff tests/phix.se.paf phix.se.paf
 rm phix.se.paf
 

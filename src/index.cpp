@@ -27,18 +27,15 @@ static const uint32_t STI_FILE_FORMAT_VERSION = 2;
 namespace {
 
 uint64_t count_randstrobes(const std::string& seq, const IndexParameters& parameters) {
+    // To reduce runtime, this function actually counts *syncmers* and
+    // assumes that one randstrobe is generated per syncmer
     uint64_t n_syncmers = 0;
     SyncmerIterator syncmer_iterator(seq, parameters.syncmer);
     Syncmer syncmer;
     while (!(syncmer = syncmer_iterator.next()).is_end()) {
         n_syncmers++;
     }
-    // The last w_min syncmers do not result in a randstrobe
-    if (n_syncmers < parameters.randstrobe.w_min) {
-        return 0;
-    } else {
-        return n_syncmers - parameters.randstrobe.w_min;
-    }
+    return n_syncmers;
 }
 
 std::vector<uint64_t> count_all_randstrobes(const References& references, const IndexParameters& parameters, size_t n_threads) {
@@ -241,6 +238,7 @@ void StrobemerIndex::populate(float f, unsigned n_threads) {
         filter_cutoff = 30;
     }
     stats.filter_cutoff = filter_cutoff;
+    partial_filter_cutoff = filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
     stats.distinct_strobemers = unique_mers;
 }
@@ -304,7 +302,7 @@ void StrobemerIndex::assign_randstrobes(size_t ref_index, size_t offset) {
             chunk.push_back(randstrobe);
         }
         for (auto randstrobe : chunk) {
-            RefRandstrobe::packed_t packed = ref_index << 8;
+            RefRandstrobe::packed_t packed = (ref_index << 9) | (randstrobe.first_strobe_is_main << 8);
             packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
             randstrobes[offset++] = RefRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, packed};
         }

@@ -108,3 +108,8 @@ std::string compress_cigar(const std::string& ops) {
     }
     return cigar.str();
 }
+
+std::ostream& operator<<(std::ostream& os, const Cigar& cigar) {
+    os << cigar.to_string();
+    return os;
+}

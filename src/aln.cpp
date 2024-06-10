@@ -435,8 +435,6 @@ inline std::vector<NamPair> get_best_scoring_nam_pairs(
 
 /*
  * Align a read to the reference given the mapping location of its mate.
- *
- * Return true if rescue by alignment was actually attempted
  */
 inline Alignment rescue_align(
     const Aligner& aligner,

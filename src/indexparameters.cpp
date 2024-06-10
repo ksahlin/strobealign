@@ -18,7 +18,8 @@ bool RandstrobeParameters::operator==(const RandstrobeParameters& other) const {
         && this->q == other.q
         && this->max_dist == other.max_dist
         && this->w_min == other.w_min
-        && this->w_max == other.w_max;
+        && this->w_max == other.w_max
+        && this->aux_len == other.aux_len;
 }
 
 /* Pre-defined index parameters that work well for a certain
@@ -35,20 +36,21 @@ struct Profile {
 static auto max{std::numeric_limits<int>::max()};
 
 static std::vector<Profile> profiles = {
-        Profile{ 50,  70, 18, -4, -2,  1},
-        Profile{ 75,  90, 20, -4, -3,  2},
-        Profile{100, 110, 20, -4, -2,  2},
-        Profile{125, 135, 20, -4, -1,  4},
-        Profile{150, 175, 20, -4,  1,  7},
-        Profile{250, 375, 22, -4,  2, 12},
-        Profile{400, max, 23, -6,  2, 12},
+        Profile{ 50,  70, 16, -4, -2,  -1},
+        Profile{ 75,  90, 19, -4, -1, -1},
+        Profile{100, 110, 17, -4,  1,  4},
+        Profile{125, 135, 20, -4,  1,  4},
+        Profile{150, 175, 20, -4,  2,  6},
+        Profile{250, 275, 23, -4,  3, 13},
+        Profile{300, 375, 25, -4,  3, 14},
+        Profile{400, max, 27, -6,  5, 14},
     };
 
 /* Create an IndexParameters instance based on a given read length.
  * k, s, l, u, c and max_seed_len can be used to override determined parameters
  * by setting them to a value other than IndexParameters::DEFAULT.
  */
-IndexParameters IndexParameters::from_read_length(int read_length, int k, int s, int l, int u, int c, int max_seed_len) {
+IndexParameters IndexParameters::from_read_length(int read_length, int k, int s, int l, int u, int c, int max_seed_len, int aux_len) {
     const int default_c = 8;
     size_t canonical_read_length = 50;
     for (const auto& p : profiles) {
@@ -78,8 +80,11 @@ IndexParameters IndexParameters::from_read_length(int read_length, int k, int s,
         max_dist = max_seed_len - k; // convert to distance in start positions
     }
     int q = std::pow(2, c == DEFAULT ? default_c : c) - 1;
+    if (aux_len == DEFAULT) {
+        aux_len = 24;
+    }
 
-    return IndexParameters(canonical_read_length, k, s, l, u, q, max_dist);
+    return IndexParameters(canonical_read_length, k, s, l, u, q, max_dist, aux_len);
 }
 
 void IndexParameters::write(std::ostream& os) const {
@@ -90,6 +95,7 @@ void IndexParameters::write(std::ostream& os) const {
     write_int_to_ostream(os, randstrobe.u);
     write_int_to_ostream(os, randstrobe.q);
     write_int_to_ostream(os, randstrobe.max_dist);
+    write_int_to_ostream(os, randstrobe.aux_len);
 }
 
 IndexParameters IndexParameters::read(std::istream& is) {
@@ -100,7 +106,8 @@ IndexParameters IndexParameters::read(std::istream& is) {
     int u = read_int_from_istream(is);
     int q = read_int_from_istream(is);
     int max_dist = read_int_from_istream(is);
-    return IndexParameters(canonical_read_length, k, s, l, u, q, max_dist);
+    int aux_len = read_int_from_istream(is);
+    return IndexParameters(canonical_read_length, k, s, l, u, q, max_dist, aux_len);
 }
 
 bool IndexParameters::operator==(const IndexParameters& other) const {
