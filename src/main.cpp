@@ -170,8 +170,8 @@ int run_strobealign(int argc, char **argv) {
     if (!opt.r_set && !opt.reads_filename1.empty()) {
         opt.r = estimate_read_length(input_buffer);
         logger.info() << "Estimated read length: " << opt.r << " bp\n";
+        input_buffer.rewind_reset();
     }
-    input_buffer.rewind_reset();
     IndexParameters index_parameters = IndexParameters::from_read_length(
         opt.r,
         opt.k_set ? opt.k : IndexParameters::DEFAULT,
