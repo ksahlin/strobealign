@@ -347,6 +347,9 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
     randstrobe_hash_t tot_seed_count_1000_limit = 0;
 
     size_t seed_length = 0;
+    size_t distinct_seeds = 1;
+    size_t distinct_seeds_lv1 = 1;
+    size_t distinct_seeds_lv2 = 1;
 
     for (size_t it = 0; it < randstrobes.size(); it++) {
         seed_length = strobe2_offset(it) + strobe3_offset(it) + k;
@@ -356,6 +359,18 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
         auto count = get_count(find_full(get_hash(it)));
         auto count_lv1 = get_partial_count(it, 1);
         auto count_lv2 = get_partial_count(it, 2);
+
+        if (it != randstrobes.size() - 1 && it != 0) {
+            if (get_hash(it) != get_hash(it + 1)) {
+                ++distinct_seeds;
+            }
+            if (get_partial_hash(it, 1) != get_partial_hash(it + 1, 1)) {
+                ++distinct_seeds_lv1;
+            }
+            if (get_partial_hash(it, 2) != get_partial_hash(it + 1, 2)) {
+                ++distinct_seeds_lv2;
+            }
+        }
 
         if (seed_length < max_size){
             log_count[seed_length] ++;
@@ -428,6 +443,7 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
     double fraction_unique_lv1 = (double) tot_unique_lv1 / (double) tot_seed_count;
     double fraction_unique_lv2 = (double) tot_unique_lv2 / (double) tot_seed_count;
     log_file << median << ',' << tot_seed_count << ',' << 100*fraction_masked << std::endl;
-    log_file << "E-hits" << ',' << e_hits << ',' << e_hits_lv1 << ',' << e_hits_lv2 << std::endl;
-    log_file << "Unique" << ',' << fraction_unique << ',' << fraction_unique_lv1 << ',' << fraction_unique_lv2 << std::endl;
+    log_file << "E-hits," << e_hits << ',' << e_hits_lv1 << ',' << e_hits_lv2 << std::endl;
+    log_file << "Unique," << fraction_unique << ',' << fraction_unique_lv1 << ',' << fraction_unique_lv2 << std::endl;
+    log_file << "Distinct," << distinct_seeds << ',' << distinct_seeds_lv1 << ',' << distinct_seeds_lv2 << std::endl;
 }
