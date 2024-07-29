@@ -438,9 +438,9 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
     double e_hits_lv1 = (double) tot_seed_count_lv1_sq / (double) tot_seed_count;
     double e_hits_lv2 = (double) tot_seed_count_lv2_sq / (double) tot_seed_count;
     double fraction_masked = 1.0 - (double) tot_seed_count_1000_limit/ (double) tot_seed_count;
-    double fraction_unique = (double) tot_unique / (double) tot_seed_count;
-    double fraction_unique_lv1 = (double) tot_unique_lv1 / (double) tot_seed_count;
-    double fraction_unique_lv2 = (double) tot_unique_lv2 / (double) tot_seed_count;
+    double fraction_unique = (double) tot_unique / (double) distinct_seeds;
+    double fraction_unique_lv1 = (double) tot_unique_lv1 / (double) distinct_seeds_lv1;
+    double fraction_unique_lv2 = (double) tot_unique_lv2 / (double) distinct_seeds_lv2;
     log_file << median << ',' << tot_seed_count << ',' << 100*fraction_masked << std::endl;
     log_file << "E-hits," << e_hits << ',' << e_hits_lv1 << ',' << e_hits_lv2 << std::endl;
     log_file << "Unique," << fraction_unique << ',' << fraction_unique_lv1 << ',' << fraction_unique_lv2 << std::endl;
