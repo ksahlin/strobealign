@@ -355,7 +355,7 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
         if (seed_length == k) {
             continue;
         }
-        auto count = get_count_full_forward(find_full(get_hash(it)));
+        auto count = get_count_full_forward(get_hash(it));
         auto count_lv1 = get_count_partial(it, 1);
         auto count_lv2 = get_count_partial(it, 2);
 
