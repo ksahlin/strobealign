@@ -357,8 +357,8 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
             continue;
         }
         auto count = get_count(find_full(get_hash(it)));
-        auto count_lv1 = get_partial_count(it, 1);
-        auto count_lv2 = get_partial_count(it, 2);
+        auto count_lv1 = get_partial_count(partial_find(get_hash(it), 1), 1);
+        auto count_lv2  = get_partial_count(partial_find(get_hash(it), 2), 2);
 
         if (it != randstrobes.size() - 1 && it != 0) {
             if (get_hash(it) != get_hash(it + 1)) {
