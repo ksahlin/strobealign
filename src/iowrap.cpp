@@ -138,7 +138,7 @@ void IsalGzipReader::decompress(size_t count) {
     uncompressed_data_work.resize(std::max(count, previous_member_size));
     uint8_t* ptr = uncompressed_data_work.data();
 
-    while ((uintptr_t) (ptr - uncompressed_data_work.data()) < (uintptr_t) count) {
+    while (state.block_state != ISAL_BLOCK_FINISH && (uintptr_t) (ptr - uncompressed_data_work.data()) < (uintptr_t) count) {
         if (compressed_size == 0)
             break;
 
