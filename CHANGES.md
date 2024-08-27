@@ -5,6 +5,10 @@
 * #401: The default number of threads is now 1 instead of 3.
 * #409: Ensure reference names are unique and conform to the SAM
   specification. Contributed by @drtconway in PR #411.
+* #269, #418: Decompress .gz files with ISA-L, which is about three
+  times faster than zlib. This is particularly relevant when using
+  strobealign with many threads (more than about 30), where decompressing
+  the input was the bottleneck before. Initially contributed by @telmin.
 
 ## v0.13.0 (2024-03-04)
 
