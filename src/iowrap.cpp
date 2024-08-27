@@ -134,14 +134,12 @@ int64_t IsalGzipReader::read(void* buffer, size_t length) {
     return actual_count;
 }
 
+// Read and decompress *count* bytes into *uncompressed_data_work*
 void IsalGzipReader::decompress(size_t count) {
     uncompressed_data_work.resize(std::max(count, previous_member_size));
     uint8_t* ptr = uncompressed_data_work.data();
 
-    while (state.block_state != ISAL_BLOCK_FINISH && (uintptr_t) (ptr - uncompressed_data_work.data()) < (uintptr_t) count) {
-        if (compressed_size == 0)
-            break;
-
+    while ((uintptr_t) (ptr - uncompressed_data_work.data()) < (uintptr_t) count && compressed_size > 0) {
         size_t actual_input_size = std::min(decompress_chunk_size, compressed_size);
         size_t output_size_available = uncompressed_data_work.data() + uncompressed_data_work.size() - ptr;
 
@@ -162,6 +160,26 @@ void IsalGzipReader::decompress(size_t count) {
         compressed_data += processed;
         compressed_size -= processed;
         ptr += decomp;
+
+        if (compressed_size > 0 && state.block_state == ISAL_BLOCK_FINISH) {
+            // multiblock gzip
+            isal_inflate_reset(&state);
+            state.crc_flag = ISAL_GZIP;
+            state.next_in = compressed_data;
+
+            // decompress gz header
+            state.next_in = compressed_data;
+            state.avail_in = std::min(decompress_chunk_size, compressed_size);
+            auto pre = state.avail_in;
+
+            int ret = isal_read_gzip_header(&state, &gz_hdr);
+            if (ret != ISAL_DECOMP_OK) {
+                throw std::runtime_error("Encountered non-gzip data after a proper gzip block");
+            }
+            size_t processed_size = pre - state.avail_in;
+            compressed_data += processed_size;
+            compressed_size -= processed_size;
+        }
     }
     uncompressed_data_work.resize(ptr - uncompressed_data_work.data());
     previous_member_size = uncompressed_data_work.size();
