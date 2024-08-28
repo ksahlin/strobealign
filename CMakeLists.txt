@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 project(strobealign VERSION 0.13.0)
 include(FetchContent)
+include(ExternalProject)
 
 option(ENABLE_AVX "Enable AVX2 support" OFF)
 option(PYTHON_BINDINGS "Build Python bindings" OFF)
@@ -23,6 +24,9 @@ if(NOT CMAKE_BUILD_TYPE)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
     "RelWithDebInfo" "Debug" "Release")
 endif()
+
+set(ISAL "system" CACHE STRING "Where to find ISA-L: system (uses pkg-config), download (at build time)")
+set_property(CACHE ISAL PROPERTY STRINGS "system" "download")
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 add_compile_options(-Wall -Wextra -Werror=maybe-uninitialized)
@@ -67,9 +71,38 @@ add_library(salib STATIC ${SOURCES}
   ext/ssw/ssw_cpp.cpp
   ext/ssw/ssw.c
 )
-pkg_check_modules(ISAL REQUIRED IMPORTED_TARGET GLOBAL libisal>=2.30.0)
+if(ISAL STREQUAL "system")
+  pkg_check_modules(ISAL IMPORTED_TARGET GLOBAL libisal>=2.30.0)
+  if (NOT ISAL_FOUND)
+    message(FATAL_ERROR "libisal (ISA-L) could not be found. Either install "
+        "the library using your package manager or add '-DISAL=download' to "
+        "the CMake options in order to download ISA-L at build time."
+      )
+  endif()
+  add_library(ISAL ALIAS PkgConfig::ISAL)
+elseif(ISAL STREQUAL "download")
+  find_program(NASM_program NAMES nasm REQUIRED)
+  set(ISAL_ROOT ${CMAKE_BINARY_DIR}/ISAL)
+  ExternalProject_Add(
+    isal_external
+    GIT_REPOSITORY https://github.com/intel/isa-l
+    GIT_TAG v2.30.0
+    BUILD_COMMAND make -f Makefile.unx
+    CONFIGURE_COMMAND ""
+    INSTALL_DIR ${ISAL_ROOT}
+    INSTALL_COMMAND make -f Makefile.unx install prefix=<INSTALL_DIR>
+    BUILD_IN_SOURCE ON
+  )
+  target_include_directories(salib PUBLIC "${ISAL_ROOT}/include")
+  add_library(ISAL STATIC IMPORTED)
+  set_target_properties(ISAL PROPERTIES IMPORTED_LOCATION ${ISAL_ROOT}/lib/libisal.a)
+  add_dependencies(salib isal_external)
+#elseif(ISAL STREQUAL "off")
+#  message(FATAL_ERROR "Building without ISA-L support is currently not supported")
+endif()
+
 target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
-target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr PkgConfig::ISAL)
+target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr ISAL)
 IF(ENABLE_AVX)
   target_compile_options(salib PUBLIC "-mavx2")
 ENDIF()

@@ -37,9 +37,8 @@ jobs:
       - name: Build
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
-          cd build
-          make -j3
-          make install
+          cmake --build build -j 3
+          cmake --install build
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get install samtools
@@ -48,6 +47,25 @@ jobs:
         run: brew install samtools
       - name: Run
         run: tests/run.sh
+
+  # Test building with a downloaded ISA-L
+  externalisal:
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get install nasm
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install nasm
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          cmake -B build -DISAL=download
+          cmake --build build -j3
 
   pythonbindings:
     if: >-
