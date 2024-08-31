@@ -74,14 +74,21 @@ add_library(salib STATIC ${SOURCES}
 if(ISAL STREQUAL "system")
   pkg_check_modules(ISAL IMPORTED_TARGET GLOBAL libisal>=2.30.0)
   if (NOT ISAL_FOUND)
-    message(FATAL_ERROR "libisal (ISA-L) could not be found. Either install "
-        "the library using your package manager or add '-DISAL=download' to "
+    message(FATAL_ERROR "libisal (ISA-L) could not be found. You have two options:\n"
+        "- Install the library using your package manager (try 'sudo apt install "
+        "libisal-dev' or 'brew install isa-l')\n"
+        "- or add '-DISAL=download' to "
         "the CMake options in order to download ISA-L at build time."
       )
   endif()
   add_library(ISAL ALIAS PkgConfig::ISAL)
 elseif(ISAL STREQUAL "download")
-  find_program(NASM_program NAMES nasm REQUIRED)
+  find_program(NASM NAMES nasm)
+  if (NASM STREQUAL NASM-NOTFOUND)
+    message(FATAL_ERROR "NASM is required to build ISA-L. Try 'sudo apt "
+        "install nasm' or 'brew install nasm'"
+    )
+  endif()
   set(ISAL_ROOT ${CMAKE_BINARY_DIR}/ISAL)
   ExternalProject_Add(
     isal_external
