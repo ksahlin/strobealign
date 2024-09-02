@@ -23,7 +23,7 @@ class InputBuffer {
 public:
 
     InputBuffer(std::string fname1, std::string fname2, int chunk_size, bool is_interleaved)
-    : ks1(open_fastq(fname1)),
+    : ks1(fname1 == "" ? nullptr : open_fastq(fname1)),
     ks2(fname2 == "" ? nullptr : open_fastq(fname2)),
     chunk_size(chunk_size),
     is_interleaved(is_interleaved) { }

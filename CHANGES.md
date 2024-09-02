@@ -5,6 +5,14 @@
 * #401: The default number of threads is now 1 instead of 3.
 * #409: Ensure reference names are unique and conform to the SAM
   specification. Contributed by @drtconway in PR #411.
+* #269, #418: Strobealign scales now much better to systems with many cores.
+  Previously, decompressing gzipped-compressed input files was a bottleneck
+  starting at about 30 threads.
+  We now use [ISA-L](https://github.com/intel/isa-l/) for decompression,
+  which is about three times as fast as zlib, and decompression is also done in
+  a separate thread. We tested up to 128 cores, and strobealign was still
+  able to use all cores.
+  Contributed by @telmin.
 
 ## v0.13.0 (2024-03-04)
 

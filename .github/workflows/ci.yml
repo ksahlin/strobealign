@@ -28,12 +28,17 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get install libisal-dev
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install isa-l
       - name: Build
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
-          cd build
-          make -j3
-          make install
+          cmake --build build -j 3
+          cmake --install build
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get install samtools
@@ -43,6 +48,25 @@ jobs:
       - name: Run
         run: tests/run.sh
 
+  # Test building with a downloaded ISA-L
+  externalisal:
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get install nasm
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install nasm
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          cmake -B build -DISAL=download
+          cmake --build build -j3
+
   pythonbindings:
     if: >-
       github.event_name != 'pull_request' ||
@@ -51,9 +75,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get install libisal-dev
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install isa-l
       - name: Install Python dependencies
         run: pip install pytest
       - name: Install Python bindings
@@ -72,10 +102,10 @@ jobs:
           fetch-depth: 0  # Baseline comparison needs older commits
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get install samtools python3-pysam picard-tools
+        run: sudo apt-get install samtools python3-pysam picard-tools libisal-dev
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
-        run: brew install samtools pysam picard-tools
+        run: brew install samtools pysam picard-tools isa-l
       - name: Cache test dataset
         uses: actions/cache@v4
         with:

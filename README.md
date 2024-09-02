@@ -56,13 +56,19 @@ Strobealign is available from [Bioconda](https://bioconda.github.io/).
 
 ### From source
 
-To compile from the source, you need to have CMake, a recent `g++` (tested with version 8) and [zlib](https://zlib.net/) installed.
+To compile from the source, you need CMake,
+a recent `g++` (tested with version 8), [zlib](https://zlib.net/), `pkg-config` and
+[ISA-L](https://github.com/intel/isa-l/) (Intel Intelligent Storage Acceleration Library).
+On Debian/Ubuntu,
+running `sudo apt-get install build-essential libisal-dev cmake` should take care of this.
+On macOS, use `brew install pkg-config isa-l`.
+
 Then do the following:
 ```
 git clone https://github.com/ksahlin/strobealign
 cd strobealign
 cmake -B build -DCMAKE_C_FLAGS="-march=native" -DCMAKE_CXX_FLAGS="-march=native"
-make -j -C build
+cmake --build build -j $(nproc)
 ```
 The resulting binary is `build/strobealign`.
 

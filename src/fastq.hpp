@@ -7,6 +7,8 @@
 #include "exceptions.hpp"
 #include "kseq++/kseq++.hpp"
 
+#include "iowrap.hpp"
+
 // File that can be rewound (once only!)
 class RewindableFile {
 
@@ -23,7 +25,7 @@ public:
     void rewind();
 
 protected:
-    gzFile file;
+    std::unique_ptr<Reader> reader;
     std::vector<std::vector<unsigned char>> saved_buffer;
     // if rewindable is false, the file cannot be rewound anymore and is consuming from saved_buffer (if it is not empty)
     bool rewindable;

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 project(strobealign VERSION 0.13.0)
 include(FetchContent)
+include(ExternalProject)
 
 option(ENABLE_AVX "Enable AVX2 support" OFF)
 option(PYTHON_BINDINGS "Build Python bindings" OFF)
@@ -10,6 +11,7 @@ option(TRACE "Highly verbose debugging output" OFF)
 find_package(ZLIB)
 find_package(Threads)
 find_package(OpenMP)
+find_package(PkgConfig REQUIRED)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -22,6 +24,9 @@ if(NOT CMAKE_BUILD_TYPE)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
     "RelWithDebInfo" "Debug" "Release")
 endif()
+
+set(ISAL "system" CACHE STRING "Where to find ISA-L: system (uses pkg-config), download (at build time)")
+set_property(CACHE ISAL PROPERTY STRINGS "system" "download")
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 add_compile_options(-Wall -Wextra -Werror=maybe-uninitialized)
@@ -61,12 +66,50 @@ add_library(salib STATIC ${SOURCES}
   src/version.cpp
   src/io.cpp
   src/insertsizedistribution.cpp
+  src/iowrap.cpp
   ext/xxhash.c
   ext/ssw/ssw_cpp.cpp
   ext/ssw/ssw.c
 )
+if(ISAL STREQUAL "system")
+  pkg_check_modules(ISAL IMPORTED_TARGET GLOBAL libisal>=2.30.0)
+  if (NOT ISAL_FOUND)
+    message(FATAL_ERROR "libisal (ISA-L) could not be found. You have two options:\n"
+        "- Install the library using your package manager (try 'sudo apt install "
+        "libisal-dev' or 'brew install isa-l')\n"
+        "- or add '-DISAL=download' to "
+        "the CMake options in order to download ISA-L at build time."
+      )
+  endif()
+  add_library(ISAL ALIAS PkgConfig::ISAL)
+elseif(ISAL STREQUAL "download")
+  find_program(NASM NAMES nasm)
+  if (NASM STREQUAL NASM-NOTFOUND)
+    message(FATAL_ERROR "NASM is required to build ISA-L. Try 'sudo apt "
+        "install nasm' or 'brew install nasm'"
+    )
+  endif()
+  set(ISAL_ROOT ${CMAKE_BINARY_DIR}/ISAL)
+  ExternalProject_Add(
+    isal_external
+    GIT_REPOSITORY https://github.com/intel/isa-l
+    GIT_TAG v2.30.0
+    BUILD_COMMAND make -f Makefile.unx
+    CONFIGURE_COMMAND ""
+    INSTALL_DIR ${ISAL_ROOT}
+    INSTALL_COMMAND make -f Makefile.unx install prefix=<INSTALL_DIR>
+    BUILD_IN_SOURCE ON
+  )
+  target_include_directories(salib PUBLIC "${ISAL_ROOT}/include")
+  add_library(ISAL STATIC IMPORTED)
+  set_target_properties(ISAL PROPERTIES IMPORTED_LOCATION ${ISAL_ROOT}/lib/libisal.a)
+  add_dependencies(salib isal_external)
+#elseif(ISAL STREQUAL "off")
+#  message(FATAL_ERROR "Building without ISA-L support is currently not supported")
+endif()
+
 target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
-target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr)
+target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr ISAL)
 IF(ENABLE_AVX)
   target_compile_options(salib PUBLIC "-mavx2")
 ENDIF()
