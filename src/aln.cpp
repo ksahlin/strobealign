@@ -1038,13 +1038,13 @@ void align_or_map_paired(
 
         // Find NAMs
         Timer nam_timer;
-        auto [nonrepetitive_fraction, nams] = find_nams(query_randstrobes, index);
+        auto [nonrepetitive_fraction, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
         statistics.tot_find_nams += nam_timer.duration();
 
         if (map_param.rescue_level > 1) {
             Timer rescue_timer;
             if (nams.empty() || nonrepetitive_fraction < 0.7) {
-                nams = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff);
+                nams = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
                 details[is_revcomp].nam_rescue = true;
             }
             statistics.tot_time_rescue += rescue_timer.duration();
@@ -1165,14 +1165,14 @@ void align_or_map_single(
 
     // Find NAMs
     Timer nam_timer;
-    auto [nonrepetitive_fraction, nams] = find_nams(query_randstrobes, index);
+    auto [nonrepetitive_fraction, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
     statistics.tot_find_nams += nam_timer.duration();
 
     if (map_param.rescue_level > 1) {
         Timer rescue_timer;
         if (nams.empty() || nonrepetitive_fraction < 0.7) {
             details.nam_rescue = true;
-            nams = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff);
+            nams = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
         }
         statistics.tot_time_rescue += rescue_timer.duration();
     }
