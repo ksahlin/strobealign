@@ -36,7 +36,7 @@ jobs:
         run: brew install isa-l
       - name: Install Windows dependencies
         if: runner.os == 'Windows'
-        run: echo hello
+        run: choco install pkgconfiglite
       - name: Build
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
