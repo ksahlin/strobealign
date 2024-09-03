@@ -197,7 +197,8 @@ std::vector<Nam> merge_hits_into_nams_forward_and_reverse(
  */
 std::tuple<float, int, std::vector<Nam>> find_nams(
     const QueryRandstrobeVector &query_randstrobes,
-    const StrobemerIndex& index
+    const StrobemerIndex& index,
+    bool use_mcs
 ) {
     std::vector<PartialSeed> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
     partial_queried.reserve(10);
@@ -216,7 +217,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
             nr_good_hits++;
             add_to_hits_per_ref_full(hits_per_ref[q.is_reverse], q.start, q.end, index, position);
         }
-        else {
+        else if (use_mcs) {
             PartialSeed ph{q.hash >> index.get_aux_len(), q.partial_start, q.is_reverse};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
@@ -249,7 +250,8 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
 std::pair<int, std::vector<Nam>> find_nams_rescue(
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index,
-    unsigned int rescue_cutoff
+    unsigned int rescue_cutoff,
+    bool use_mcs
 ) {
     struct RescueHit {
         size_t position;
@@ -284,7 +286,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
                 hits_fw.push_back(rh);
             }
         }
-        else {
+        else if (use_mcs) {
             PartialSeed ph = {qr.hash >> index.get_aux_len(), qr.partial_start, qr.is_reverse};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
