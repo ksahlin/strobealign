@@ -48,18 +48,11 @@ inline void add_to_hits_per_ref_partial(
 ) {
     for (const auto hash = index.get_main_hash(position);
          index.get_main_hash(position) == hash;
-         ++position) {
-        bool first_strobe_is_main = index.first_strobe_is_main(position);
-        // Construct the match from the strobe that was selected as the main part of the hash
-        int adj_ref_start = 0, adj_ref_end = 0;
-        if (first_strobe_is_main) {
-            adj_ref_start = index.get_strobe1_position(position);
-        } else {
-            adj_ref_start = index.get_strobe1_position(position) + index.strobe2_offset(position);
-        }
-        adj_ref_end = adj_ref_start + index.k();
+         ++position
+    ) {
+        auto [ref_start, ref_end] = index.strobe_extent_partial(position);
         hits_per_ref[index.reference_index(position)].push_back(
-            Hit{query_start, query_end, adj_ref_start, adj_ref_end}
+            Hit{query_start, query_end, ref_start, ref_end}
         );
     }
 }

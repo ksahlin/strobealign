@@ -150,6 +150,15 @@ struct StrobemerIndex {
         return randstrobes[position].strobe2_offset();
     }
 
+    std::pair<int, int> strobe_extent_partial(bucket_index_t position) const {
+        // Construct the match from the strobe that was selected as the main part of the hash
+        int ref_start = get_strobe1_position(position);
+        if (!first_strobe_is_main(position)) {
+            ref_start += strobe2_offset(position);
+        }
+        return {ref_start, ref_start + k()};
+    }
+
     int reference_index(bucket_index_t position) const {
         return randstrobes[position].reference_index();
     }
