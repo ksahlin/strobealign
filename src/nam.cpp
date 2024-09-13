@@ -160,8 +160,6 @@ std::pair<float, std::vector<Nam>> find_nams(
     const StrobemerIndex& index
 ) {
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Hit>>, 2> hits_per_ref;
-    hits_per_ref[0].reserve(100);
-    hits_per_ref[1].reserve(100);
     int nr_good_hits = 0, total_hits = 0;
     for (const auto &q : query_randstrobes) {
         size_t position = index.find(q.hash);
