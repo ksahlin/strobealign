@@ -139,11 +139,6 @@ add_executable(dumpstrobes src/dumpstrobes.cpp)
 target_link_libraries(dumpstrobes salib)
 target_include_directories(dumpstrobes PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 
-# Currently unused code for which we only want to ensure that it still compiles
-add_executable(unused-code src/unused.cpp)
-target_link_libraries(unused-code salib)
-target_include_directories(unused-code PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
-
 if(PYTHON_BINDINGS)
   add_subdirectory(src/python)
 endif()
