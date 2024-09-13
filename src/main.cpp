@@ -359,7 +359,12 @@ int run_strobealign(int argc, char **argv) {
         output_abundance(out, abundances, references);
     }
 
-    logger.info() << "Total mapping sites tried: " << tot_statistics.tot_all_tried << std::endl
+    logger.debug()
+        << "Number of reads: " << tot_statistics.n_reads << std::endl
+        << "Number of non-rescue hits: " << tot_statistics.n_hits
+        << " total. Per read: " << static_cast<float>(tot_statistics.n_hits) / tot_statistics.n_reads << std::endl;
+    logger.info()
+        << "Total mapping sites tried: " << tot_statistics.tot_all_tried << std::endl
         << "Total calls to ssw: " << tot_statistics.tot_aligner_calls << std::endl
         << "Inconsistent NAM ends: " << tot_statistics.inconsistent_nams << std::endl
         << "Tried NAM rescue: " << tot_statistics.nam_rescue << std::endl

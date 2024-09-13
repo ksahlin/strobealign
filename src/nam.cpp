@@ -155,14 +155,15 @@ std::vector<Nam> merge_hits_into_nams_forward_and_reverse(
  *
  * Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
  */
-std::pair<float, std::vector<Nam>> find_nams(
+std::tuple<float, int, std::vector<Nam>> find_nams(
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index
 ) {
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Hit>>, 2> hits_per_ref;
     hits_per_ref[0].reserve(100);
     hits_per_ref[1].reserve(100);
-    int nr_good_hits = 0, total_hits = 0;
+    int nr_good_hits = 0;
+    int total_hits = 0;
     for (const auto &q : query_randstrobes) {
         size_t position = index.find(q.hash);
         if (position != index.end()){
@@ -176,7 +177,7 @@ std::pair<float, std::vector<Nam>> find_nams(
     }
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     auto nams = merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), false);
-    return make_pair(nonrepetitive_fraction, nams);
+    return {nonrepetitive_fraction, nr_good_hits, nams};
 }
 
 /*

@@ -1040,8 +1040,9 @@ void align_or_map_paired(
 
         // Find NAMs
         Timer nam_timer;
-        auto [nonrepetitive_fraction, nams] = find_nams(query_randstrobes, index);
+        auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index);
         statistics.tot_find_nams += nam_timer.duration();
+        statistics.n_hits += n_hits;
 
         if (map_param.rescue_level > 1) {
             Timer rescue_timer;
@@ -1179,8 +1180,9 @@ void align_or_map_single(
 
     // Find NAMs
     Timer nam_timer;
-    auto [nonrepetitive_fraction, nams] = find_nams(query_randstrobes, index);
+    auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index);
     statistics.tot_find_nams += nam_timer.duration();
+    statistics.n_hits += n_hits;
 
     if (map_param.rescue_level > 1) {
         Timer rescue_timer;
