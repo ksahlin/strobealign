@@ -362,7 +362,9 @@ int run_strobealign(int argc, char **argv) {
     logger.debug()
         << "Number of reads: " << tot_statistics.n_reads << std::endl
         << "Number of non-rescue hits: " << tot_statistics.n_hits
-        << " total. Per read: " << static_cast<float>(tot_statistics.n_hits) / tot_statistics.n_reads << std::endl;
+        << " total. Per read: " << static_cast<float>(tot_statistics.n_hits) / tot_statistics.n_reads << std::endl
+        << "Number of rescue hits: " << tot_statistics.n_rescue_hits
+        << " total. Per rescue attempt: " << static_cast<float>(tot_statistics.n_rescue_hits) / tot_statistics.nam_rescue << std::endl;
     logger.info()
         << "Total mapping sites tried: " << tot_statistics.tot_all_tried << std::endl
         << "Total calls to ssw: " << tot_statistics.tot_aligner_calls << std::endl

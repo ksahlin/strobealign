@@ -40,7 +40,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
     const StrobemerIndex& index
 );
 
-std::vector<Nam> find_nams_rescue(
+std::pair<int, std::vector<Nam>> find_nams_rescue(
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff

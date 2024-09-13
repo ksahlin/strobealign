@@ -184,8 +184,9 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
  * Find a query’s NAMs, using also some of the randstrobes that occur more often
  * than filter_cutoff.
  *
+ * Return the number of hits and the vector of NAMs.
  */
-std::vector<Nam> find_nams_rescue(
+std::pair<int, std::vector<Nam>> find_nams_rescue(
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff
@@ -225,6 +226,7 @@ std::vector<Nam> find_nams_rescue(
 
     std::sort(hits_fw.begin(), hits_fw.end());
     std::sort(hits_rc.begin(), hits_rc.end());
+    int n_hits = 0;
     size_t is_revcomp = 0;
     for (auto& rescue_hits : {hits_fw, hits_rc}) {
         int cnt = 0;
@@ -234,11 +236,12 @@ std::vector<Nam> find_nams_rescue(
             }
             add_to_hits_per_ref(hits_per_ref[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
             cnt++;
+            n_hits++;
         }
         is_revcomp++;
     }
 
-    return merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), true);
+    return {n_hits, merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), true)};
 }
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {

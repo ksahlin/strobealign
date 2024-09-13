@@ -1047,8 +1047,10 @@ void align_or_map_paired(
         if (map_param.rescue_level > 1) {
             Timer rescue_timer;
             if (nams.empty() || nonrepetitive_fraction < 0.7) {
-                nams = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff);
+                int n_rescue_hits;
+                std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff);
                 details[is_revcomp].nam_rescue = true;
+                statistics.n_rescue_hits += n_rescue_hits;
             }
             statistics.tot_time_rescue += rescue_timer.duration();
         }
@@ -1188,7 +1190,9 @@ void align_or_map_single(
         Timer rescue_timer;
         if (nams.empty() || nonrepetitive_fraction < 0.7) {
             details.nam_rescue = true;
-            nams = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff);
+            int n_rescue_hits;
+            std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff);
+            statistics.n_rescue_hits += n_rescue_hits;
         }
         statistics.tot_time_rescue += rescue_timer.duration();
     }
