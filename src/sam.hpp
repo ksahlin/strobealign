@@ -47,6 +47,7 @@ enum struct CigarOps {
 struct Details {
     bool nam_rescue{false}; // find_nams_rescue() was needed
     uint64_t nams{0};  // No. of NAMs found
+    uint64_t rescue_nams{0}; // No. of NAMs found during rescue
     uint64_t nam_inconsistent{0};
     uint64_t mate_rescue{0}; // No. of times rescue by local alignment was attempted
     uint64_t tried_alignment{0}; // No. of computed alignments (get_alignment or rescue_mate)
@@ -56,6 +57,7 @@ struct Details {
     Details& operator+=(const Details& other) {
         nam_rescue = nam_rescue || other.nam_rescue;
         nams += other.nams;
+        rescue_nams += other.rescue_nams;
         nam_inconsistent += other.nam_inconsistent;
         mate_rescue += other.mate_rescue;
         tried_alignment += other.tried_alignment;

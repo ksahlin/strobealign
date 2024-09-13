@@ -24,6 +24,8 @@ struct AlignmentStatistics {
     uint64_t n_reads{0};
     uint64_t n_hits{0}; // non-rescue hits
     uint64_t n_rescue_hits{0};
+    uint64_t n_nams{0};
+    uint64_t n_rescue_nams{0};
     uint64_t tot_aligner_calls{0};
     uint64_t tot_rescued{0};
     uint64_t tot_all_tried{0};
@@ -42,6 +44,8 @@ struct AlignmentStatistics {
         this->n_reads += other.n_reads;
         this->n_hits += other.n_hits;
         this->n_rescue_hits += other.n_rescue_hits;
+        this->n_nams += other.n_nams;
+        this->n_rescue_nams += other.n_rescue_nams;
         this->tot_aligner_calls += other.tot_aligner_calls;
         this->tot_rescued += other.tot_rescued;
         this->tot_all_tried += other.tot_all_tried;
@@ -51,6 +55,8 @@ struct AlignmentStatistics {
     }
 
     AlignmentStatistics operator+=(const Details& details) {
+        this->n_nams += details.nams;
+        this->n_rescue_nams += details.rescue_nams;
         this->nam_rescue += details.nam_rescue;
         this->tot_rescued += details.mate_rescue;
         this->tot_all_tried += details.tried_alignment;
