@@ -141,7 +141,10 @@ The output table contains one row for each contig of the reference.
 The first column is the reference/contig id and the second its abundance.
 
 The abundance is the number of bases mapped to a contig, divided by the length
-of the contig. Reads mapping to *n* different locations are weighted 1/*n*.
+of the contig. When a read maps to multiple locations, each of the *n* locations
+is weighted 1/*n*. Note that this is in contrast to alignment mode, where by
+default strobealign would output only a single alignment for each read
+(this can be changed with `-N`).
 
 Further columns may be added to this table in future versions of strobealign.
 
