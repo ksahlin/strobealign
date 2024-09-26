@@ -11,11 +11,11 @@ struct Nam {
     int nam_id;
     int query_start;
     int query_end;
-    int query_prev_hit_startpos;
+    int query_prev_match_startpos;
     int ref_start;
     int ref_end;
-    int ref_prev_hit_startpos;
-    int n_hits = 0;
+    int ref_prev_match_startpos;
+    int n_matches = 0;
     int ref_id;
     float score;
 //    unsigned int previous_query_start;

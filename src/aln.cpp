@@ -118,7 +118,7 @@ inline void align_single(
     best_alignment.is_unaligned = true;
 
     for (auto &nam : nams) {
-        float score_dropoff = (float) nam.n_hits / n_max.n_hits;
+        float score_dropoff = (float) nam.n_matches / n_max.n_matches;
         if (tries >= max_tries || (tries > 1 && best_edit_distance == 0) || score_dropoff < dropoff_threshold) {
             break;
         }
@@ -279,7 +279,7 @@ inline uint8_t proper_pair_mapq(const std::vector<Nam> &nams) {
     const float s1 = nams[0].score;
     const float s2 = nams[1].score;
     // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
-    const float min_matches = std::min(nams[0].n_hits / 10.0, 1.0);
+    const float min_matches = std::min(nams[0].n_matches / 10.0, 1.0);
     const int uncapped_mapq = 40 * (1 - s2 / s1) * min_matches * log(s1);
     return std::min(uncapped_mapq, 60);
 }
@@ -379,7 +379,7 @@ inline std::vector<NamPair> get_best_scoring_nam_pairs(
     int best_joint_hits = 0;
     for (auto &nam1 : nams1) {
         for (auto &nam2 : nams2) {
-            int joint_hits = nam1.n_hits + nam2.n_hits;
+            int joint_hits = nam1.n_matches + nam2.n_matches;
             if (joint_hits < best_joint_hits / 2) {
                 break;
             }
@@ -396,31 +396,31 @@ inline std::vector<NamPair> get_best_scoring_nam_pairs(
     Nam dummy_nam;
     dummy_nam.ref_start = -1;
     if (!nams1.empty()) {
-        int best_joint_hits1 = best_joint_hits > 0 ? best_joint_hits : nams1[0].n_hits;
+        int best_joint_hits1 = best_joint_hits > 0 ? best_joint_hits : nams1[0].n_matches;
         for (auto &nam1 : nams1) {
-            if (nam1.n_hits < best_joint_hits1 / 2) {
+            if (nam1.n_matches < best_joint_hits1 / 2) {
                 break;
             }
             if (added_n1.find(nam1.nam_id) != added_n1.end()) {
                 continue;
             }
 //            int n1_penalty = std::abs(nam1.query_span() - nam1.ref_span());
-            nam_pairs.push_back(NamPair{nam1.n_hits, nam1, dummy_nam});
+            nam_pairs.push_back(NamPair{nam1.n_matches, nam1, dummy_nam});
         }
     }
 
     // Find high-scoring R2 NAMs that are not part of a proper pair
     if (!nams2.empty()) {
-        int best_joint_hits2 = best_joint_hits > 0 ? best_joint_hits : nams2[0].n_hits;
+        int best_joint_hits2 = best_joint_hits > 0 ? best_joint_hits : nams2[0].n_matches;
         for (auto &nam2 : nams2) {
-            if (nam2.n_hits < best_joint_hits2 / 2) {
+            if (nam2.n_matches < best_joint_hits2 / 2) {
                 break;
             }
             if (added_n2.find(nam2.nam_id) != added_n2.end()){
                 continue;
             }
 //            int n2_penalty = std::abs(nam2.query_span() - nam2.ref_span());
-            nam_pairs.push_back(NamPair{nam2.n_hits, dummy_nam, nam2});
+            nam_pairs.push_back(NamPair{nam2.n_matches, dummy_nam, nam2});
         }
     }
 
@@ -582,7 +582,7 @@ std::vector<ScoredAlignmentPair> rescue_read(
     std::vector<Alignment> alignments1;
     std::vector<Alignment> alignments2;
     for (auto& nam : nams1) {
-        float score_dropoff1 = (float) nam.n_hits / n_max1.n_hits;
+        float score_dropoff1 = (float) nam.n_matches / n_max1.n_matches;
         // only consider top hits (as minimap2 does) and break if below dropoff cutoff.
         if (tries >= max_tries || score_dropoff1 < dropoff) {
             break;
@@ -667,11 +667,11 @@ void output_aligned_pairs(
 // compute dropoff of the first (top) NAM
 float top_dropoff(std::vector<Nam>& nams) {
     auto& n_max = nams[0];
-    if (n_max.n_hits <= 2) {
+    if (n_max.n_matches <= 2) {
         return 1.0;
     }
     if (nams.size() > 1) {
-        return (float) nams[1].n_hits / n_max.n_hits;
+        return (float) nams[1].n_matches / n_max.n_matches;
     }
     return 0.0;
 }
