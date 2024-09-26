@@ -43,7 +43,7 @@ Strobealign is available from [Bioconda](https://bioconda.github.io/).
 1. Follow the [Bioconda setup instructions](http://bioconda.github.io/#usage)
 2. Install strobealign into a new Conda environment:
    ```
-   conda create -n strobealign strobealign
+   conda create -n strobealign strobealign samtools
    ```
 3. Activate the environment that was just created:
    ```
