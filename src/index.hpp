@@ -120,6 +120,9 @@ struct StrobemerIndex {
         // a hash will be queried is proportional to the frequency it appears in the table, 
         // with MAX_LINEAR_SEARCH=8, the actual value will be 96%.
 
+        // Since the result depends on position, this function must be used on the smallest position which points to the
+        // seed with the given hash to yield the number of seeds with this hash.
+
         constexpr unsigned int MAX_LINEAR_SEARCH = 8;
         const auto key = randstrobes[position].hash;
         const unsigned int top_N = key >> (64 - bits);

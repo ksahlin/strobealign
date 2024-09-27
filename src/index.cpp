@@ -334,7 +334,7 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
 
     for (size_t it = 0; it < randstrobes.size(); it++) {
         seed_length = strobe2_offset(it) + k;
-        auto count = get_count(it);
+        auto count = get_count(find(get_hash(it)));
 
         if (seed_length < max_size){
             log_count[seed_length] ++;
@@ -371,10 +371,11 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
 
     // Get median
     size_t n = 0;
-    int median = 0;
+    size_t median = 0;
     for (size_t i = 0; i < log_count.size(); ++i) {
         n += log_count[i];
         if (n >= tot_seed_count/2) {
+            median = i;
             break;
         }
     }
@@ -387,7 +388,8 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
         }
     }
 
-    log_file << "E_size for total seeding wih max seed size m below (m, tot_seeds, E_hits)" << std::endl;
+    log_file << "E_size for total seeding with median seed size m below (m, tot_seeds, E_hits, fraction_masked)"
+             << std::endl;
     double e_hits = (double) tot_seed_count_sq/ (double) tot_seed_count;
     double fraction_masked = 1.0 - (double) tot_seed_count_1000_limit/ (double) tot_seed_count;
     log_file << median << ',' << tot_seed_count << ',' << e_hits << ',' << 100*fraction_masked << std::endl;
