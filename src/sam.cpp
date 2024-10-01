@@ -340,3 +340,19 @@ bool is_proper_pair(const Alignment& alignment1, const Alignment& alignment2, fl
 
     return both_aligned && insert_good && rel_orientation_good;
 }
+
+std::ostream& operator<<(std::ostream& os, const Alignment& alignment) {
+    os
+        << "Alignment(ref_id=" << alignment.ref_id
+        << ", ref_start=" << alignment.ref_start
+        << ", cigar=" << alignment.cigar
+        << ", edit_distance=" << alignment.edit_distance
+        << ", global_ed=" << alignment.global_ed
+        << ", score=" << alignment.score
+        << ", length=" << alignment.length
+        << ", is_rc=" << alignment.is_rc
+        << ", is_unaligned=" << alignment.is_unaligned
+        << ", gapped=" << alignment.gapped
+        << ")";
+    return os;
+}
