@@ -155,14 +155,15 @@ std::vector<Nam> merge_hits_into_nams_forward_and_reverse(
  *
  * Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
  */
-std::pair<float, std::vector<Nam>> find_nams(
+std::tuple<float, int, std::vector<Nam>> find_nams(
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index
 ) {
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Hit>>, 2> hits_per_ref;
     hits_per_ref[0].reserve(100);
     hits_per_ref[1].reserve(100);
-    int nr_good_hits = 0, total_hits = 0;
+    int nr_good_hits = 0;
+    int total_hits = 0;
     for (const auto &q : query_randstrobes) {
         size_t position = index.find(q.hash);
         if (position != index.end()){
@@ -176,15 +177,16 @@ std::pair<float, std::vector<Nam>> find_nams(
     }
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     auto nams = merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), false);
-    return make_pair(nonrepetitive_fraction, nams);
+    return {nonrepetitive_fraction, nr_good_hits, nams};
 }
 
 /*
  * Find a query’s NAMs, using also some of the randstrobes that occur more often
  * than filter_cutoff.
  *
+ * Return the number of hits and the vector of NAMs.
  */
-std::vector<Nam> find_nams_rescue(
+std::pair<int, std::vector<Nam>> find_nams_rescue(
     const QueryRandstrobeVector &query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff
@@ -224,6 +226,7 @@ std::vector<Nam> find_nams_rescue(
 
     std::sort(hits_fw.begin(), hits_fw.end());
     std::sort(hits_rc.begin(), hits_rc.end());
+    int n_hits = 0;
     size_t is_revcomp = 0;
     for (auto& rescue_hits : {hits_fw, hits_rc}) {
         int cnt = 0;
@@ -233,11 +236,12 @@ std::vector<Nam> find_nams_rescue(
             }
             add_to_hits_per_ref(hits_per_ref[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
             cnt++;
+            n_hits++;
         }
         is_revcomp++;
     }
 
-    return merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), true);
+    return {n_hits, merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), true)};
 }
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {

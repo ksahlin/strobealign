@@ -161,6 +161,7 @@ NB_MODULE(strobealign_extension, m_) {
 
     m.def("randstrobes_query", &randstrobes_query);
     m.def("find_nams", [](const QueryRandstrobeVector &query_randstrobes, const StrobemerIndex& index) -> std::vector<Nam> {
-        return find_nams(query_randstrobes, index).second;
+        auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index);
+        return nams;
     });
 }

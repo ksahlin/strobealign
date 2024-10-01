@@ -47,7 +47,7 @@ void Sam::append_rg() {
 void Sam::append_details(const Details& details) {
     std::stringstream s;
     s << "\tna:i:" << details.nams
-        << "\tnr:i:" << details.nam_rescue
+        << "\tnr:i:" << (details.nam_rescue ? static_cast<int>(details.rescue_nams) : -1)
         << "\tal:i:" << details.tried_alignment
         << "\tga:i:" << details.gapped
         << "\tX0:i:" << details.best_alignments;
