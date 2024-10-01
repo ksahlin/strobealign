@@ -84,6 +84,41 @@ TEST_CASE("read_/write_vector") {
     CHECK(y == expected);
 }
 
+TEST_CASE("RandstrobeGenerator is sane") {
+    auto references = References::from_fasta("tests/phix.fasta");
+    auto& seq = references.sequences[0];
+    auto parameters = IndexParameters::from_read_length(300);
+
+    RandstrobeGenerator iter{seq, parameters.syncmer, parameters.randstrobe};
+
+    Randstrobe randstrobe;
+    while ((randstrobe = iter.next()) != iter.end()) {
+        CHECK(randstrobe.hash > 0);
+        CHECK(randstrobe.strobe1_pos >= 0);
+        CHECK(randstrobe.strobe2_pos >= randstrobe.strobe2_pos);
+        CHECK(randstrobe.strobe1_pos < seq.length());
+        CHECK(randstrobe.strobe2_pos < seq.length());
+    }
+}
+
+TEST_CASE("RandstrobeIterator is sane") {
+    auto references = References::from_fasta("tests/phix.fasta");
+    auto& seq = references.sequences[0];
+    auto parameters = IndexParameters::from_read_length(300);
+
+    auto syncmers = canonical_syncmers(seq, parameters.syncmer);
+    RandstrobeIterator iter{syncmers, parameters.randstrobe};
+
+    while (iter.has_next()) {
+        auto randstrobe = iter.next();
+        CHECK(randstrobe.hash > 0);
+        CHECK(randstrobe.strobe1_pos >= 0);
+        CHECK(randstrobe.strobe2_pos >= randstrobe.strobe2_pos);
+        CHECK(randstrobe.strobe1_pos < seq.length());
+        CHECK(randstrobe.strobe2_pos < seq.length());
+    }
+}
+
 TEST_CASE("both randstrobes iterator implementations give same results") {
     auto references = References::from_fasta("tests/phix.fasta");
     auto& seq = references.sequences[0];

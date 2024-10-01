@@ -145,6 +145,14 @@ std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe) {
     return os;
 }
 
+Randstrobe make_randstrobe(Syncmer strobe1, Syncmer strobe2) {
+    return Randstrobe{
+        randstrobe_hash(strobe1.hash, strobe2.hash),
+        static_cast<uint32_t>(strobe1.position),
+        static_cast<uint32_t>(strobe2.position)
+    };
+}
+
 Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
     unsigned int w_end = std::min(static_cast<size_t>(strobe1_index + w_max), syncmers.size() - 1);
 
@@ -167,7 +175,7 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
         }
     }
 
-    return Randstrobe{randstrobe_hash(strobe1.hash, strobe2.hash), static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
+    return make_randstrobe(strobe1, strobe2);
 }
 
 Randstrobe RandstrobeGenerator::next() {
@@ -198,7 +206,8 @@ Randstrobe RandstrobeGenerator::next() {
         }
     }
     syncmers.pop_front();
-    return Randstrobe{randstrobe_hash(strobe1.hash, strobe2.hash), static_cast<uint32_t>(strobe1.position), static_cast<uint32_t>(strobe2.position)};
+
+    return make_randstrobe(strobe1, strobe2);
 }
 
 /*
