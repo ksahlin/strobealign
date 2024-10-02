@@ -201,7 +201,9 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
     bool use_mcs
 ) {
     std::vector<PartialSeed> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
-    partial_queried.reserve(10);
+    if (use_mcs) {
+        partial_queried.reserve(10);
+    }
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Hit>>, 2> hits_per_ref;
     hits_per_ref[0].reserve(100);
     hits_per_ref[1].reserve(100);
