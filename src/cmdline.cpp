@@ -119,6 +119,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (seeding.s) { opt.s = args::get(seeding.s); opt.s_set = true; }
     if (seeding.c) { opt.c = args::get(seeding.c); opt.c_set = true; }
     if (seeding.bits) { opt.bits = args::get(seeding.bits); }
+    if (seeding.aux_len) { opt.aux_len = args::get(seeding.aux_len); }
 
     // Alignment
     // if (n) { n = args::get(n); }
