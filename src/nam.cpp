@@ -237,7 +237,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
         }
     }
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
-    auto nams = merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), true);
+    auto nams = merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), use_mcs);
     return {nonrepetitive_fraction, nr_good_hits, nams};
 }
 
