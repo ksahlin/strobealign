@@ -38,6 +38,7 @@ struct StrobemerIndex {
     using bucket_index_t = uint64_t;
     StrobemerIndex(const References& references, const IndexParameters& parameters, int bits=-1)
         : filter_cutoff(0)
+        , partial_filter_cutoff(0)
         , parameters(parameters)
         , references(references)
         , bits(bits == -1 ? pick_bits(references.total_length()) : bits)
@@ -47,6 +48,7 @@ struct StrobemerIndex {
         }
     }
     unsigned int filter_cutoff;
+    unsigned int partial_filter_cutoff;
     mutable IndexCreationStatistics stats;
 
     void write(const std::string& filename) const;
@@ -80,6 +82,37 @@ struct StrobemerIndex {
         return end();
     }
 
+    //Returns the first entry that matches the main hash
+    size_t partial_find(randstrobe_hash_t key) const {
+        const unsigned int aux_len = parameters.randstrobe.aux_len;
+        randstrobe_hash_t key_prefix = key >> aux_len;
+
+        constexpr int MAX_LINEAR_SEARCH = 4;
+        const unsigned int top_N = key >> (64 - bits);
+        bucket_index_t position_start = randstrobe_start_indices[top_N];
+        bucket_index_t position_end = randstrobe_start_indices[top_N + 1];
+        if (position_start == position_end) {
+            return end();
+        }
+
+        if (position_end - position_start < MAX_LINEAR_SEARCH) {
+            for ( ; position_start < position_end; ++position_start) {
+                if (randstrobes[position_start].hash >> aux_len == key_prefix) return position_start;
+                if (randstrobes[position_start].hash >> aux_len > key_prefix) return end();
+            }
+            return end();
+        }
+        auto cmp = [&aux_len](const RefRandstrobe lhs, const RefRandstrobe rhs) {
+            return (lhs.hash >> aux_len) < (rhs.hash >> aux_len); };
+
+        auto pos = std::lower_bound(randstrobes.begin() + position_start,
+                                    randstrobes.begin() + position_end,
+                                    RefRandstrobe{key, 0, 0},
+                                    cmp);
+        if (pos->hash >> aux_len == key_prefix) return pos - randstrobes.begin();
+        return end();
+    }
+
     randstrobe_hash_t get_hash(bucket_index_t position) const {
         if (position < randstrobes.size()) {
             return randstrobes[position].hash;
@@ -87,9 +120,26 @@ struct StrobemerIndex {
             return end();
         }
     }
+
+    randstrobe_hash_t get_main_hash(bucket_index_t position) const {
+        if (position < randstrobes.size()) {
+            return randstrobes[position].hash >> parameters.randstrobe.aux_len;
+        } else {
+            return end();
+        }
+    }
+
+    bool first_strobe_is_main(bucket_index_t position) const {
+        return randstrobes[position].first_strobe_is_main();
+    }
     
     bool is_filtered(bucket_index_t position) const {
         return get_hash(position) == get_hash(position + filter_cutoff);
+    }
+
+    bool is_partial_filtered(bucket_index_t position) const {
+        const unsigned int shift = parameters.randstrobe.aux_len;
+        return (get_hash(position) >> shift) == (get_hash(position + partial_filter_cutoff) >> shift);
     }
 
     unsigned int get_strobe1_position(bucket_index_t position) const {
@@ -98,6 +148,15 @@ struct StrobemerIndex {
 
     int strobe2_offset(bucket_index_t position) const {
         return randstrobes[position].strobe2_offset();
+    }
+
+    std::pair<int, int> strobe_extent_partial(bucket_index_t position) const {
+        // Construct the match from the strobe that was selected as the main part of the hash
+        int ref_start = get_strobe1_position(position);
+        if (!first_strobe_is_main(position)) {
+            ref_start += strobe2_offset(position);
+        }
+        return {ref_start, ref_start + k()};
     }
 
     int reference_index(bucket_index_t position) const {
@@ -149,6 +208,37 @@ struct StrobemerIndex {
         return (pos - randstrobes.begin() - 1) - position + 1;
     }
 
+    unsigned int get_partial_count(bucket_index_t position) const {
+        constexpr unsigned int MAX_LINEAR_SEARCH = 8;
+        const unsigned int aux_len = parameters.randstrobe.aux_len;
+
+        const auto key = randstrobes[position].hash;
+        randstrobe_hash_t key_prefix = key >> aux_len;
+
+        const unsigned int top_N = key >> (64 - bits);
+        bucket_index_t position_end = randstrobe_start_indices[top_N + 1];
+        uint64_t count = 1;
+
+        if (position_end - position < MAX_LINEAR_SEARCH) {
+            for (bucket_index_t position_start = position + 1; position_start < position_end; ++position_start) {
+                if (randstrobes[position_start].hash >> aux_len == key_prefix){
+                    count += 1;
+                }
+                else{
+                    break;
+                }
+            }
+            return count;
+        }
+        auto cmp = [&aux_len](const RefRandstrobe lhs, const RefRandstrobe rhs) {return (lhs.hash >> aux_len) < (rhs.hash >> aux_len); };
+
+        auto pos = std::upper_bound(randstrobes.begin() + position,
+                                    randstrobes.begin() + position_end,
+                                    RefRandstrobe{key, 0, 0},
+                                    cmp);
+        return (pos - randstrobes.begin() - 1) - position + 1;
+    }
+
     size_t end() const {
         return -1;
     }
@@ -159,6 +249,10 @@ struct StrobemerIndex {
 
     int get_bits() const {
         return bits;
+    }
+
+    int get_aux_len() const {
+        return parameters.randstrobe.aux_len;
     }
 
 private:

@@ -1038,7 +1038,7 @@ void align_or_map_paired(
 
         // Find NAMs
         Timer nam_timer;
-        auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index);
+        auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
         statistics.tot_find_nams += nam_timer.duration();
         statistics.n_hits += n_hits;
         details[is_revcomp].nams = nams.size();
@@ -1047,7 +1047,7 @@ void align_or_map_paired(
             Timer rescue_timer;
             if (nams.empty() || nonrepetitive_fraction < 0.7) {
                 int n_rescue_hits;
-                std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff);
+                std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
                 details[is_revcomp].nam_rescue = true;
                 details[is_revcomp].rescue_nams = nams.size();
                 statistics.n_rescue_hits += n_rescue_hits;
@@ -1181,7 +1181,7 @@ void align_or_map_single(
 
     // Find NAMs
     Timer nam_timer;
-    auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index);
+    auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
     statistics.tot_find_nams += nam_timer.duration();
     statistics.n_hits += n_hits;
     details.nams = nams.size();
@@ -1190,7 +1190,7 @@ void align_or_map_single(
         Timer rescue_timer;
         if (nams.empty() || nonrepetitive_fraction < 0.7) {
             int n_rescue_hits;
-            std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff);
+            std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
             statistics.n_rescue_hits += n_rescue_hits;
             details.rescue_nams = nams.size();
             details.nam_rescue = true;

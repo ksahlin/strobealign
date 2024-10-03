@@ -54,6 +54,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlag<int> end_bonus(parser, "INT", "Soft clipping penalty [10]", {'L'});
 
     args::Group search(parser, "Search parameters:");
+    args::Flag mcs(parser, "mcs", "Use multi-context seeds for finding hits", {"mcs"});
     args::ValueFlag<float> f(parser, "FLOAT", "Top fraction of repetitive strobemers to filter out from sampling [0.0002]", {'f'});
     args::ValueFlag<float> S(parser, "FLOAT", "Try candidate sites with mapping score at least S of maximum mapping score [0.5]", {'S'});
     args::ValueFlag<int> M(parser, "INT", "Maximum number of mapping sites to try [20]", {'M'});
@@ -130,6 +131,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (end_bonus) { opt.end_bonus = args::get(end_bonus); }
 
     // Search parameters
+    if (mcs) { opt.mcs = args::get(mcs); }
     if (f) { opt.f = args::get(f); }
     if (S) { opt.dropoff_threshold = args::get(S); }
     if (M) { opt.max_tries = args::get(M); }

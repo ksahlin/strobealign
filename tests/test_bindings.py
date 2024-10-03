@@ -34,7 +34,7 @@ def test_indexing_and_nams_finding():
     # Find NAMs for a single query sequence
     query = "TGCGTTTATGGTACGCTGGACTTTGTGGGATACCCTCGCTTTCCTGCTCCTGTTGAGTTTATTGCTGCCG"
     randstrobes = strobealign.randstrobes_query(query, index_parameters)
-    nams = strobealign.find_nams(randstrobes, index)
+    nams = strobealign.find_nams(randstrobes, index, use_mcs=False)
     assert nams
     for nam in nams:
         ref = refs[nam.reference_index].sequence
