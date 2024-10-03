@@ -1,6 +1,6 @@
 # Strobealign Changelog
 
-## development version
+## v0.14.0 (2024-10-03)
 
 * #401: The default number of threads is now 1 instead of 3.
 * #409: Ensure reference names are unique and conform to the SAM
@@ -13,6 +13,10 @@
   a separate thread. We tested up to 128 cores, and strobealign was still
   able to use all cores.
   Contributed by @telmin.
+* #447: Switched to a new way for hashing randstrobes in preparation for the
+  introduction of multi-context seeds.
+  Pre-generated index files (`.sti` files) therefore need to be re-generated.
+  (Strobealign will complain if you try to use an outdated index file.)
 
 ## v0.13.0 (2024-03-04)
 
