@@ -9,14 +9,22 @@ struct Match {
     int ref_end;
 };
 
-struct PartialSeed {
+struct PartialHit {
     size_t hash;
     unsigned int start;
     bool is_reverse;
-    bool operator==(const PartialSeed& rhs) const {
+    bool operator==(const PartialHit& rhs) const {
         return (hash == rhs.hash) && (start == rhs.start) && (is_reverse == rhs.is_reverse);
     }
 };
+
+struct PartialHitHash {
+    std::size_t operator()(const PartialHit& s) const noexcept
+    {
+        return s.hash;
+    }
+};
+
 
 inline void add_to_matches_map_full(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
@@ -200,7 +208,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
     const StrobemerIndex& index,
     bool use_mcs
 ) {
-    std::vector<PartialSeed> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
+    std::vector<PartialHit> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
     if (use_mcs) {
         partial_queried.reserve(10);
     }
@@ -209,35 +217,71 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
     matches_map[1].reserve(100);
     int nr_good_hits = 0;
     int total_hits = 0;
-    for (const auto &q : query_randstrobes) {
-        size_t position = index.find(q.hash);
-        if (position != index.end()){
-            total_hits++;
-            if (index.is_filtered(position)) {
+
+
+    int happy = 0, nothappy=0;
+    if (use_mcs) {
+        for (const auto &q : query_randstrobes) {
+
+            size_t partial_position = index.partial_find(q.hash);
+
+            // If we already cannot find the partial hash, the full hash also
+            // does not exist in the index.
+            if (partial_position == index.end()) {
                 continue;
             }
-            nr_good_hits++;
-            add_to_matches_map_full(matches_map[q.is_reverse], q.start, q.end, index, position);
-        }
-        else if (use_mcs) {
-            PartialSeed ph{q.hash >> index.get_aux_len(), q.partial_start, q.is_reverse};
-            if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
-                // already queried
-                continue;
+
+            // Partial hash found
+
+            size_t position;
+            if (index.get_hash(partial_position) == q.hash) {
+                // Happy path: partial hash is at same position as full hash
+                position = partial_position;
+                happy++;
+            } else {
+                nothappy++;
+                // TODO we could make use of the knowledge that the full hash
+                // must be somewhere after partial_position if it exists
+                position = index.find(q.hash);
             }
-            size_t partial_pos = index.partial_find(q.hash);
-            if (partial_pos != index.end()) {
+
+            if (position != index.end()) {
                 total_hits++;
-                if (index.is_partial_filtered(partial_pos)) {
-                    partial_queried.push_back(ph);
+                if (index.is_filtered(position)) {
                     continue;
                 }
                 nr_good_hits++;
-                add_to_matches_map_partial(matches_map[q.is_reverse], q.partial_start, q.partial_end, index, partial_pos);
+
+                add_to_matches_map_full(matches_map[q.is_reverse], q.start, q.end, index, position);
+            } else {
+                PartialHit ph{q.hash >> index.get_aux_len(), q.partial_start, q.is_reverse};
+                if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
+                    // already queried
+                    continue;
+                }
+                partial_queried.push_back(ph);
+                total_hits++;
+                if (index.is_partial_filtered(partial_position)) {
+                    continue;
+                }
+                nr_good_hits++;
+                add_to_matches_map_partial(matches_map[q.is_reverse], q.partial_start, q.partial_end, index, partial_position);
             }
-            partial_queried.push_back(ph);
+        }
+    } else {
+        for (const auto &q : query_randstrobes) {
+            size_t position = index.find(q.hash);
+            if (position != index.end()) {
+                total_hits++;
+                if (index.is_filtered(position)) {
+                    continue;
+                }
+                nr_good_hits++;
+                add_to_matches_map_full(matches_map[q.is_reverse], q.start, q.end, index, position);
+            }
         }
     }
+    //std::cerr << "happy: " << happy << " nothappy: " << nothappy << '\n';
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     auto nams = merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), use_mcs);
     return {nonrepetitive_fraction, nr_good_hits, nams};
@@ -267,7 +311,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
                 < std::tie(rhs.count, rhs.query_start, rhs.query_end);
         }
     };
-    std::vector<PartialSeed> partial_queried;  // TODO: is a small set more efficient than linear search in a small vector?
+    std::vector<PartialHit> partial_queried;  // TODO: is a small set more efficient than linear search in a small vector?
     partial_queried.reserve(10);
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
     std::vector<RescueHit> hits_fw;
@@ -289,7 +333,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
             }
         }
         else if (use_mcs) {
-            PartialSeed ph = {qr.hash >> index.get_aux_len(), qr.partial_start, qr.is_reverse};
+            PartialHit ph = {qr.hash >> index.get_aux_len(), qr.partial_start, qr.is_reverse};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
                 continue;

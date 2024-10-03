@@ -56,6 +56,7 @@ struct StrobemerIndex {
     void populate(float f, unsigned n_threads);
     void print_diagnostics(const std::string& logfile_name, int k) const;
     int pick_bits(size_t size) const;
+
     size_t find(randstrobe_hash_t key) const {
         constexpr int MAX_LINEAR_SEARCH = 4;
         const unsigned int top_N = key >> (64 - bits);
@@ -82,7 +83,7 @@ struct StrobemerIndex {
         return end();
     }
 
-    //Returns the first entry that matches the main hash
+    // Return the index of the first entry that matches the main hash
     size_t partial_find(randstrobe_hash_t key) const {
         const unsigned int aux_len = parameters.randstrobe.aux_len;
         randstrobe_hash_t key_prefix = key >> aux_len;
@@ -103,15 +104,48 @@ struct StrobemerIndex {
             return end();
         }
         auto cmp = [&aux_len](const RefRandstrobe lhs, const RefRandstrobe rhs) {
-            return (lhs.hash >> aux_len) < (rhs.hash >> aux_len); };
+            return (lhs.hash >> aux_len) < (rhs.hash >> aux_len);
+        };
 
         auto pos = std::lower_bound(randstrobes.begin() + position_start,
                                     randstrobes.begin() + position_end,
                                     RefRandstrobe{key, 0, 0},
                                     cmp);
-        if (pos->hash >> aux_len == key_prefix) return pos - randstrobes.begin();
+        if (pos->hash >> aux_len == key_prefix) {
+            return pos - randstrobes.begin();
+        }
         return end();
     }
+
+    size_t find_full(randstrobe_hash_t key, bucket_index_t start) const {
+        constexpr int MAX_LINEAR_SEARCH = 4;
+        const unsigned int top_N = key >> (64 - bits);
+        bucket_index_t position_start = randstrobe_start_indices[top_N];
+        bucket_index_t position_end = randstrobe_start_indices[top_N + 1];
+        if (position_start == position_end) {
+            return end();
+        }
+
+        if (position_end - position_start < MAX_LINEAR_SEARCH) {
+            for ( ; position_start < position_end; ++position_start) {
+                if (randstrobes[position_start].hash == key) return position_start;
+                if (randstrobes[position_start].hash > key) return end();
+            }
+            return end();
+        }
+        auto cmp = [](const RefRandstrobe lhs, const RefRandstrobe rhs) {return lhs.hash < rhs.hash; };
+
+        auto pos = std::lower_bound(randstrobes.begin() + position_start,
+                                               randstrobes.begin() + position_end,
+                                               RefRandstrobe{key, 0, 0},
+                                               cmp);
+        if (pos->hash == key) return pos - randstrobes.begin();
+        return end();
+    }
+
+
+
+
 
     randstrobe_hash_t get_hash(bucket_index_t position) const {
         if (position < randstrobes.size()) {
