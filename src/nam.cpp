@@ -2,7 +2,7 @@
 
 namespace {
 
-struct Hit {
+struct Match {
     int query_start;
     int query_end;
     int ref_start;
@@ -18,8 +18,8 @@ struct PartialSeed {
     }
 };
 
-inline void add_to_hits_per_ref_full(
-    robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
+inline void add_to_matches_map_full(
+    robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
     int query_start,
     int query_end,
     const StrobemerIndex& index,
@@ -31,16 +31,16 @@ inline void add_to_hits_per_ref_full(
         int ref_end = ref_start + index.strobe2_offset(position) + index.k();
         int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
         if (diff <= min_diff) {
-            hits_per_ref[index.reference_index(position)].push_back(
-                Hit{query_start, query_end, ref_start, ref_end}
+            matches_map[index.reference_index(position)].push_back(
+                Match{query_start, query_end, ref_start, ref_end}
             );
             min_diff = diff;
         }
     }
 }
 
-inline void add_to_hits_per_ref_partial(
-    robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
+inline void add_to_matches_map_partial(
+    robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
     int query_start,
     int query_end,
     const StrobemerIndex& index,
@@ -51,26 +51,26 @@ inline void add_to_hits_per_ref_partial(
          ++position
     ) {
         auto [ref_start, ref_end] = index.strobe_extent_partial(position);
-        hits_per_ref[index.reference_index(position)].push_back(
-            Hit{query_start, query_end, ref_start, ref_end}
+        matches_map[index.reference_index(position)].push_back(
+            Match{query_start, query_end, ref_start, ref_end}
         );
     }
 }
 
-bool operator==(const Hit& lhs, const Hit& rhs) {
+bool operator==(const Match& lhs, const Match& rhs) {
     return (lhs.query_start == rhs.query_start) && (lhs.query_end == rhs.query_end) && (lhs.ref_start == rhs.ref_start) && (lhs.ref_end == rhs.ref_end);
 }
 
-void merge_hits_into_nams(
-    robin_hood::unordered_map<unsigned int, std::vector<Hit>>& hits_per_ref,
+void merge_matches_into_nams(
+    robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
     int k,
     bool sort,
     bool is_revcomp,
     std::vector<Nam>& nams  // inout
 ) {
-    for (auto &[ref_id, hits] : hits_per_ref) {
+    for (auto &[ref_id, matches] : matches_map) {
         if (sort) {
-            std::sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) -> bool {
+            std::sort(matches.begin(), matches.end(), [](const Match& a, const Match& b) -> bool {
                     // first sort on query starts, then on reference starts, finally prefer full matches over partial
                     return (a.query_start < b.query_start) ||
                             ( (a.query_start == b.query_start) && (a.ref_start < b.ref_start)) ||
@@ -81,34 +81,34 @@ void merge_hits_into_nams(
 
         std::vector<Nam> open_nams;
         int prev_q_start = 0;
-        auto prev_hit = Hit{0,0,0,0};
-        for (auto &h : hits) {
-            if ( (prev_hit == h) || ( ((h.query_end - h.query_start) == k) && (prev_hit.query_start == h.query_start) && (prev_hit.ref_start == h.ref_start)) )  { // is a redundant partial hit
+        auto prev_match = Match{0,0,0,0};
+        for (auto &m : matches) {
+            if ( (prev_match == m) || ( ((m.query_end - m.query_start) == k) && (prev_match.query_start == m.query_start) && (prev_match.ref_start == m.ref_start)) )  { // is a redundant partial match
                 continue;
             }
             bool is_added = false;
             for (auto & o : open_nams) {
 
                 // Extend NAM
-                if ((o.query_prev_hit_startpos <= h.query_start) && (h.query_start <= o.query_end ) && (o.ref_prev_hit_startpos <= h.ref_start) && (h.ref_start <= o.ref_end) ){
-                    if ( (h.query_end > o.query_end) && (h.ref_end > o.ref_end) ) {
-                        o.query_end = h.query_end;
-                        o.ref_end = h.ref_end;
+                if ((o.query_prev_match_startpos <= m.query_start) && (m.query_start <= o.query_end ) && (o.ref_prev_match_startpos <= m.ref_start) && (m.ref_start <= o.ref_end) ){
+                    if ( (m.query_end > o.query_end) && (m.ref_end > o.ref_end) ) {
+                        o.query_end = m.query_end;
+                        o.ref_end = m.ref_end;
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
-                        o.query_prev_hit_startpos = h.query_start;
-                        o.ref_prev_hit_startpos = h.ref_start;
-                        o.n_hits ++;
+                        o.query_prev_match_startpos = m.query_start;
+                        o.ref_prev_match_startpos = m.ref_start;
+                        o.n_matches ++;
 //                        o.score += (float)1/ (float)h.count;
                         is_added = true;
                         break;
                     }
-                    else if ((h.query_end <= o.query_end) && (h.ref_end <= o.ref_end)) {
+                    else if ((m.query_end <= o.query_end) && (m.ref_end <= o.ref_end)) {
 //                        o.previous_query_start = h.query_s;
 //                        o.previous_ref_start = h.ref_s; // keeping track so that we don't . Can be caused by interleaved repeats.
-                        o.query_prev_hit_startpos = h.query_start;
-                        o.ref_prev_hit_startpos = h.ref_start;
-                        o.n_hits ++;
+                        o.query_prev_match_startpos = m.query_start;
+                        o.ref_prev_match_startpos = m.ref_start;
+                        o.n_matches ++;
 //                        o.score += (float)1/ (float)h.count;
                         is_added = true;
                         break;
@@ -116,34 +116,34 @@ void merge_hits_into_nams(
                 }
 
             }
-            // Add the hit to open matches
+            // Add to open matches
             if (!is_added){
                 Nam n;
-                n.query_start = h.query_start;
-                n.query_end = h.query_end;
-                n.ref_start = h.ref_start;
-                n.ref_end = h.ref_end;
+                n.query_start = m.query_start;
+                n.query_end = m.query_end;
+                n.ref_start = m.ref_start;
+                n.ref_end = m.ref_end;
                 n.ref_id = ref_id;
 //                n.previous_query_start = h.query_s;
 //                n.previous_ref_start = h.ref_s;
-                n.query_prev_hit_startpos = h.query_start;
-                n.ref_prev_hit_startpos = h.ref_start;
-                n.n_hits = 1;
+                n.query_prev_match_startpos = m.query_start;
+                n.ref_prev_match_startpos = m.ref_start;
+                n.n_matches = 1;
                 n.is_rc = is_revcomp;
 //                n.score += (float)1 / (float)h.count;
                 open_nams.push_back(n);
             }
 
             // Only filter if we have advanced at least k nucleotides
-            if (h.query_start > prev_q_start + k) {
+            if (m.query_start > prev_q_start + k) {
 
-                // Output all NAMs from open_matches to final_nams that the current hit have passed
+                // Output all NAMs from open_matches to final_nams that the current match have passed
                 for (auto &n : open_nams) {
-                    if (n.query_end < h.query_start) {
+                    if (n.query_end < m.query_start) {
                         int n_max_span = std::max(n.query_span(), n.ref_span());
                         int n_min_span = std::min(n.query_span(), n.ref_span());
                         float n_score;
-                        n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
+                        n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_matches * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_matches * ( min_span - (offset_in_span) ) );
 //                        n_score = n.n_hits * n.query_span();
                         n.score = n_score;
                         n.nam_id = nams.size();
@@ -151,13 +151,13 @@ void merge_hits_into_nams(
                     }
                 }
 
-                // Remove all NAMs from open_matches that the current hit have passed
-                auto c = h.query_start;
+                // Remove all NAMs from open_matches that the current match have passed
+                auto c = m.query_start;
                 auto predicate = [c](decltype(open_nams)::value_type const &nam) { return nam.query_end < c; };
                 open_nams.erase(std::remove_if(open_nams.begin(), open_nams.end(), predicate), open_nams.end());
-                prev_q_start = h.query_start;
+                prev_q_start = m.query_start;
             }
-            prev_hit = h;
+            prev_match = m;
         }
 
         // Add all current open_matches to final NAMs
@@ -165,8 +165,8 @@ void merge_hits_into_nams(
             int n_max_span = std::max(n.query_span(), n.ref_span());
             int n_min_span = std::min(n.query_span(), n.ref_span());
             float n_score;
-            n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_hits * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_hits * ( min_span - (offset_in_span) ) );
-//            n_score = n.n_hits * n.query_span();
+            n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_matches * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_matches * ( min_span - (offset_in_span) ) );
+//            n_score = n.n_matches * n.query_span();
             n.score = n_score;
             n.nam_id = nams.size();
             nams.push_back(n);
@@ -174,15 +174,15 @@ void merge_hits_into_nams(
     }
 }
 
-std::vector<Nam> merge_hits_into_nams_forward_and_reverse(
-    std::array<robin_hood::unordered_map<unsigned int, std::vector<Hit>>, 2>& hits_per_ref,
+std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
+    std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2>& matches_map,
     int k,
     bool sort
 ) {
     std::vector<Nam> nams;
     for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
-        auto& hits_oriented = hits_per_ref[is_revcomp];
-        merge_hits_into_nams(hits_oriented, k, sort, is_revcomp, nams);
+        auto& matches_oriented = matches_map[is_revcomp];
+        merge_matches_into_nams(matches_oriented, k, sort, is_revcomp, nams);
     }
     return nams;
 }
@@ -204,9 +204,9 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
     if (use_mcs) {
         partial_queried.reserve(10);
     }
-    std::array<robin_hood::unordered_map<unsigned int, std::vector<Hit>>, 2> hits_per_ref;
-    hits_per_ref[0].reserve(100);
-    hits_per_ref[1].reserve(100);
+    std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
+    matches_map[0].reserve(100);
+    matches_map[1].reserve(100);
     int nr_good_hits = 0;
     int total_hits = 0;
     for (const auto &q : query_randstrobes) {
@@ -217,7 +217,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
                 continue;
             }
             nr_good_hits++;
-            add_to_hits_per_ref_full(hits_per_ref[q.is_reverse], q.start, q.end, index, position);
+            add_to_matches_map_full(matches_map[q.is_reverse], q.start, q.end, index, position);
         }
         else if (use_mcs) {
             PartialSeed ph{q.hash >> index.get_aux_len(), q.partial_start, q.is_reverse};
@@ -233,13 +233,13 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
                     continue;
                 }
                 nr_good_hits++;
-                add_to_hits_per_ref_partial(hits_per_ref[q.is_reverse], q.partial_start, q.partial_end, index, partial_pos);
+                add_to_matches_map_partial(matches_map[q.is_reverse], q.partial_start, q.partial_end, index, partial_pos);
             }
             partial_queried.push_back(ph);
         }
     }
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
-    auto nams = merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), use_mcs);
+    auto nams = merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), use_mcs);
     return {nonrepetitive_fraction, nr_good_hits, nams};
 }
 
@@ -269,11 +269,11 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
     };
     std::vector<PartialSeed> partial_queried;  // TODO: is a small set more efficient than linear search in a small vector?
     partial_queried.reserve(10);
-    std::array<robin_hood::unordered_map<unsigned int, std::vector<Hit>>, 2> hits_per_ref;
+    std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
     std::vector<RescueHit> hits_fw;
     std::vector<RescueHit> hits_rc;
-    hits_per_ref[0].reserve(100);
-    hits_per_ref[1].reserve(100);
+    matches_map[0].reserve(100);
+    matches_map[1].reserve(100);
     hits_fw.reserve(5000);
     hits_rc.reserve(5000);
 
@@ -319,9 +319,9 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
                 break;
             }
             if (rh.is_partial){
-                add_to_hits_per_ref_partial(hits_per_ref[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
+                add_to_matches_map_partial(matches_map[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
             } else{
-                add_to_hits_per_ref_full(hits_per_ref[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
+                add_to_matches_map_full(matches_map[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
             }
             cnt++;
             n_hits++;
@@ -329,7 +329,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
         is_revcomp++;
     }
 
-    return {n_hits, merge_hits_into_nams_forward_and_reverse(hits_per_ref, index.k(), true)};
+    return {n_hits, merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), true)};
 }
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {

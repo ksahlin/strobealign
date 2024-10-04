@@ -148,7 +148,7 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("ref_start", &Nam::ref_start)
         .def_ro("ref_end", &Nam::ref_end)
         .def_ro("score", &Nam::score)
-        .def_ro("n_hits", &Nam::n_hits)
+        .def_ro("n_hits", &Nam::n_matches)
         .def_ro("reference_index", &Nam::ref_id)
         .def_rw("is_rc", &Nam::is_rc)
         .def_prop_ro("ref_span", &Nam::ref_span)
