@@ -9,11 +9,19 @@ struct Match {
     int ref_end;
 };
 
-struct PartialSeed {
-    size_t hash;
-    unsigned int start;
+bool operator==(const Match& lhs, const Match& rhs) {
+    return (lhs.query_start == rhs.query_start) && (lhs.query_end == rhs.query_end) && (lhs.ref_start == rhs.ref_start) && (lhs.ref_end == rhs.ref_end);
+}
+
+/*
+ * A partial hit is a hit where not the full randstrobe hash could be found in
+ * the index but only the "main" hash (only the first aux_len bits).
+ */
+struct PartialHit {
+    randstrobe_hash_t hash;
+    unsigned int start;  // position in strobemer index
     bool is_reverse;
-    bool operator==(const PartialSeed& rhs) const {
+    bool operator==(const PartialHit& rhs) const {
         return (hash == rhs.hash) && (start == rhs.start) && (is_reverse == rhs.is_reverse);
     }
 };
@@ -55,10 +63,6 @@ inline void add_to_matches_map_partial(
             Match{query_start, query_end, ref_start, ref_end}
         );
     }
-}
-
-bool operator==(const Match& lhs, const Match& rhs) {
-    return (lhs.query_start == rhs.query_start) && (lhs.query_end == rhs.query_end) && (lhs.ref_start == rhs.ref_start) && (lhs.ref_end == rhs.ref_end);
 }
 
 void merge_matches_into_nams(
@@ -200,7 +204,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
     const StrobemerIndex& index,
     bool use_mcs
 ) {
-    std::vector<PartialSeed> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
+    std::vector<PartialHit> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
     if (use_mcs) {
         partial_queried.reserve(10);
     }
@@ -220,7 +224,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
             add_to_matches_map_full(matches_map[q.is_reverse], q.start, q.end, index, position);
         }
         else if (use_mcs) {
-            PartialSeed ph{q.hash >> index.get_aux_len(), q.partial_start, q.is_reverse};
+            PartialHit ph{q.hash >> index.get_aux_len(), q.partial_start, q.is_reverse};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
                 continue;
@@ -267,7 +271,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
                 < std::tie(rhs.count, rhs.query_start, rhs.query_end);
         }
     };
-    std::vector<PartialSeed> partial_queried;  // TODO: is a small set more efficient than linear search in a small vector?
+    std::vector<PartialHit> partial_queried;  // TODO: is a small set more efficient than linear search in a small vector?
     partial_queried.reserve(10);
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
     std::vector<RescueHit> hits_fw;
@@ -289,7 +293,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
             }
         }
         else if (use_mcs) {
-            PartialSeed ph = {qr.hash >> index.get_aux_len(), qr.partial_start, qr.is_reverse};
+            PartialHit ph = {qr.hash >> index.get_aux_len(), qr.partial_start, qr.is_reverse};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
                 continue;
