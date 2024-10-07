@@ -210,7 +210,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
     int nr_good_hits = 0;
     int total_hits = 0;
     for (const auto &q : query_randstrobes) {
-        size_t position = index.find(q.hash);
+        size_t position = index.find_full(q.hash);
         if (position != index.end()){
             total_hits++;
             if (index.is_filtered(position)) {
@@ -225,7 +225,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
                 // already queried
                 continue;
             }
-            size_t partial_pos = index.partial_find(q.hash);
+            size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
                 total_hits++;
                 if (index.is_partial_filtered(partial_pos)) {
@@ -278,9 +278,9 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
     hits_rc.reserve(5000);
 
     for (auto &qr : query_randstrobes) {
-        size_t position = index.find(qr.hash);
+        size_t position = index.find_full(qr.hash);
         if (position != index.end()) {
-            unsigned int count = index.get_count(position);
+            unsigned int count = index.get_count_full(position);
             RescueHit rh{position, count, qr.start, qr.end, false};
             if (qr.is_reverse){
                 hits_rc.push_back(rh);
@@ -294,9 +294,9 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
                 // already queried
                 continue;
             }
-            size_t partial_pos = index.partial_find(qr.hash);
+            size_t partial_pos = index.find_partial(qr.hash);
             if (partial_pos != index.end()) {
-                unsigned int partial_count = index.get_partial_count(partial_pos);
+                unsigned int partial_count = index.get_count_partial(partial_pos);
                 RescueHit rh{partial_pos, partial_count, qr.partial_start, qr.partial_end, true};
                 if (qr.is_reverse){
                     hits_rc.push_back(rh);

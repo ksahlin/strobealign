@@ -335,7 +335,7 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
 
     for (size_t it = 0; it < randstrobes.size(); it++) {
         seed_length = strobe2_offset(it) + k;
-        auto count = get_count(find(get_hash(it)));
+        auto count = get_count_full(find_full(get_hash(it)));
 
         if (seed_length < max_size){
             log_count[seed_length] ++;
