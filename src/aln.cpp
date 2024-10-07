@@ -1029,8 +1029,8 @@ void align_or_map_paired(
     std::array<Details, 2> details;
     std::array<std::vector<Nam>, 2> nams_pair;
 
-    for (size_t is_revcomp : {0, 1}) {
-        const auto& record = is_revcomp == 0 ? record1 : record2;
+    for (size_t read_index : {0, 1}) {
+        const auto& record = read_index == 0 ? record1 : record2;
 
         Timer strobe_timer;
         auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
@@ -1041,15 +1041,15 @@ void align_or_map_paired(
         auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
         statistics.tot_find_nams += nam_timer.duration();
         statistics.n_hits += n_hits;
-        details[is_revcomp].nams = nams.size();
+        details[read_index].nams = nams.size();
 
         if (map_param.rescue_level > 1) {
             Timer rescue_timer;
             if (nams.empty() || nonrepetitive_fraction < 0.7) {
                 int n_rescue_hits;
                 std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
-                details[is_revcomp].nam_rescue = true;
-                details[is_revcomp].rescue_nams = nams.size();
+                details[read_index].nam_rescue = true;
+                details[read_index].rescue_nams = nams.size();
                 statistics.n_rescue_hits += n_rescue_hits;
             }
             statistics.tot_time_rescue += rescue_timer.duration();
@@ -1058,7 +1058,7 @@ void align_or_map_paired(
         std::sort(nams.begin(), nams.end(), by_score<Nam>);
         shuffle_top_nams(nams, random_engine);
         statistics.tot_sort_nams += nam_sort_timer.duration();
-        nams_pair[is_revcomp] = nams;
+        nams_pair[read_index] = nams;
     }
 
 #ifdef TRACE
