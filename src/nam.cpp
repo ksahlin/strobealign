@@ -196,7 +196,7 @@ std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
  * Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
  */
 std::tuple<float, int, std::vector<Nam>> find_nams(
-    const std::vector<QueryRandstrobe> &query_randstrobes,
+    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
     const StrobemerIndex& index,
     bool use_mcs
 ) {
@@ -209,7 +209,8 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
     matches_map[1].reserve(100);
     int nr_good_hits = 0;
     int total_hits = 0;
-    for (const auto &q : query_randstrobes) {
+  for (bool is_reverse : {false, true}) {
+    for (const auto &q : query_randstrobes[is_reverse]) {
         size_t position = index.find(q.hash);
         if (position != index.end()){
             total_hits++;
@@ -217,10 +218,10 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
                 continue;
             }
             nr_good_hits++;
-            add_to_matches_map_full(matches_map[q.is_reverse], q.start, q.end, index, position);
+            add_to_matches_map_full(matches_map[is_reverse], q.start, q.end, index, position);
         }
         else if (use_mcs) {
-            PartialSeed ph{q.hash >> index.get_aux_len(), q.partial_start, q.is_reverse};
+            PartialSeed ph{q.hash >> index.get_aux_len(), q.partial_start, is_reverse};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
                 continue;
@@ -233,11 +234,12 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
                     continue;
                 }
                 nr_good_hits++;
-                add_to_matches_map_partial(matches_map[q.is_reverse], q.partial_start, q.partial_end, index, partial_pos);
+                add_to_matches_map_partial(matches_map[is_reverse], q.partial_start, q.partial_end, index, partial_pos);
             }
             partial_queried.push_back(ph);
         }
     }
+  }
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     auto nams = merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), use_mcs);
     return {nonrepetitive_fraction, nr_good_hits, nams};
@@ -250,7 +252,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
  * Return the number of hits and the vector of NAMs.
  */
 std::pair<int, std::vector<Nam>> find_nams_rescue(
-    const std::vector<QueryRandstrobe> &query_randstrobes,
+    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
     bool use_mcs
@@ -277,19 +279,20 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
     hits_fw.reserve(5000);
     hits_rc.reserve(5000);
 
-    for (auto &qr : query_randstrobes) {
+  for (bool is_reverse : {false, true}) {
+    for (auto &qr : query_randstrobes[is_reverse]) {
         size_t position = index.find(qr.hash);
         if (position != index.end()) {
             unsigned int count = index.get_count(position);
             RescueHit rh{position, count, qr.start, qr.end, false};
-            if (qr.is_reverse){
+            if (is_reverse) {
                 hits_rc.push_back(rh);
             } else {
                 hits_fw.push_back(rh);
             }
         }
         else if (use_mcs) {
-            PartialSeed ph = {qr.hash >> index.get_aux_len(), qr.partial_start, qr.is_reverse};
+            PartialSeed ph = {qr.hash >> index.get_aux_len(), qr.partial_start, is_reverse};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
                 continue;
@@ -298,7 +301,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_partial_count(partial_pos);
                 RescueHit rh{partial_pos, partial_count, qr.partial_start, qr.partial_end, true};
-                if (qr.is_reverse){
+                if (is_reverse){
                     hits_rc.push_back(rh);
                 } else {
                     hits_fw.push_back(rh);
@@ -307,7 +310,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
             partial_queried.push_back(ph);
         }
     }
-
+  }
     std::sort(hits_fw.begin(), hits_fw.end());
     std::sort(hits_rc.begin(), hits_rc.end());
     int n_hits = 0;
