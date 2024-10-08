@@ -13,19 +13,6 @@ bool operator==(const Match& lhs, const Match& rhs) {
     return (lhs.query_start == rhs.query_start) && (lhs.query_end == rhs.query_end) && (lhs.ref_start == rhs.ref_start) && (lhs.ref_end == rhs.ref_end);
 }
 
-/*
- * A partial hit is a hit where not the full randstrobe hash could be found in
- * the index but only the "main" hash (only the first aux_len bits).
- */
-struct PartialHit {
-    randstrobe_hash_t hash;
-    unsigned int start;  // position in strobemer index
-    bool is_reverse;
-    bool operator==(const PartialHit& rhs) const {
-        return (hash == rhs.hash) && (start == rhs.start) && (is_reverse == rhs.is_reverse);
-    }
-};
-
 inline void add_to_matches_map_full(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
     int query_start,
@@ -200,11 +187,8 @@ std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
  * Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
  */
 std::tuple<float, int, std::vector<Nam>> NamFinder::find(const QueryRandstrobeVector &query_randstrobes) const {
-    std::vector<PartialHit> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
-    if (use_mcs) {
-        partial_queried.reserve(10);
-    }
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
+    partial_queried.clear();
     matches_map[0].reserve(100);
     matches_map[1].reserve(100);
     int nr_good_hits = 0;
@@ -265,8 +249,7 @@ std::pair<int, std::vector<Nam>> NamFinder::find_rescue(
                 < std::tie(rhs.count, rhs.query_start, rhs.query_end);
         }
     };
-    std::vector<PartialHit> partial_queried;  // TODO: is a small set more efficient than linear search in a small vector?
-    partial_queried.reserve(10);
+    partial_queried.clear();
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
     std::vector<RescueHit> hits_fw;
     std::vector<RescueHit> hits_rc;

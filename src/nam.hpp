@@ -35,6 +35,19 @@ struct Nam {
     }
 };
 
+/*
+ * A partial hit is a hit where not the full randstrobe hash could be found in
+ * the index but only the "main" hash (only the first aux_len bits).
+ */
+struct PartialHit {
+    randstrobe_hash_t hash;
+    unsigned int start;  // position in strobemer index
+    bool is_reverse;
+    bool operator==(const PartialHit& rhs) const {
+        return (hash == rhs.hash) && (start == rhs.start) && (is_reverse == rhs.is_reverse);
+    }
+};
+
 struct NamFinder {
     NamFinder(const StrobemerIndex& index, bool use_mcs)
     : index(index)
@@ -50,6 +63,8 @@ struct NamFinder {
 private:
     const StrobemerIndex& index;
     bool use_mcs;
+
+    mutable std::vector<PartialHit> partial_queried;
 };
 
 std::ostream& operator<<(std::ostream& os, const Nam& nam);
