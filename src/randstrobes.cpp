@@ -204,7 +204,7 @@ Randstrobe RandstrobeGenerator::next() {
         }
         syncmers.push_back(syncmer);
     }
-    if (syncmers.size() <= w_min) {
+    if (syncmers.empty()) {
         return RandstrobeGenerator::end();
     }
     auto strobe1 = syncmers[0];
