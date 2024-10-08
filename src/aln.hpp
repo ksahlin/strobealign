@@ -11,6 +11,7 @@
 #include "aligner.hpp"
 #include "insertsizedistribution.hpp"
 #include "statistics.hpp"
+#include "nam.hpp"
 
 
 enum class OutputFormat {
@@ -51,7 +52,7 @@ void align_or_map_paired(
     const MappingParameters& map_param,
     const IndexParameters& index_parameters,
     const References& references,
-    const StrobemerIndex& index,
+    const NamFinder& nam_finder,
     std::minstd_rand& random_engine,
     std::vector<double> &abundances
 );
@@ -65,7 +66,7 @@ void align_or_map_single(
     const MappingParameters& map_param,
     const IndexParameters& index_parameters,
     const References& references,
-    const StrobemerIndex& index,
+    const NamFinder& nam_finder,
     std::minstd_rand& random_engine,
     std::vector<double> &abundances
 );

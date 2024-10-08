@@ -35,18 +35,22 @@ struct Nam {
     }
 };
 
-std::tuple<float, int, std::vector<Nam>> find_nams(
-    const QueryRandstrobeVector &query_randstrobes,
-    const StrobemerIndex& index,
-    bool use_mcs
-);
+struct NamFinder {
+    NamFinder(const StrobemerIndex& index, bool use_mcs)
+    : index(index)
+    , use_mcs(use_mcs) {
+    }
 
-std::pair<int, std::vector<Nam>> find_nams_rescue(
-    const QueryRandstrobeVector &query_randstrobes,
-    const StrobemerIndex& index,
-    unsigned int rescue_cutoff,
-    bool use_mcs
-);
+    std::tuple<float, int, std::vector<Nam>> find(const QueryRandstrobeVector &query_randstrobes) const;
+    std::pair<int, std::vector<Nam>> find_rescue(
+        const QueryRandstrobeVector &query_randstrobes,
+        unsigned int rescue_cutoff
+    ) const;
+
+private:
+    const StrobemerIndex& index;
+    bool use_mcs;
+};
 
 std::ostream& operator<<(std::ostream& os, const Nam& nam);
 

@@ -199,11 +199,7 @@ std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
  *
  * Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
  */
-std::tuple<float, int, std::vector<Nam>> find_nams(
-    const QueryRandstrobeVector &query_randstrobes,
-    const StrobemerIndex& index,
-    bool use_mcs
-) {
+std::tuple<float, int, std::vector<Nam>> NamFinder::find(const QueryRandstrobeVector &query_randstrobes) const {
     std::vector<PartialHit> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
     if (use_mcs) {
         partial_queried.reserve(10);
@@ -253,12 +249,10 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
  *
  * Return the number of hits and the vector of NAMs.
  */
-std::pair<int, std::vector<Nam>> find_nams_rescue(
+std::pair<int, std::vector<Nam>> NamFinder::find_rescue(
     const QueryRandstrobeVector &query_randstrobes,
-    const StrobemerIndex& index,
-    unsigned int rescue_cutoff,
-    bool use_mcs
-) {
+    unsigned int rescue_cutoff
+) const {
     struct RescueHit {
         size_t position;
         unsigned int count;

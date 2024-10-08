@@ -163,6 +163,7 @@ void perform_task(
         sam_out.reserve(7*map_param.r * (records1.size() + records3.size()));
         Sam sam{sam_out, references, map_param.cigar_ops, read_group_id, map_param.output_unmapped, map_param.details, map_param.fastq_comments};
         InsertSizeDistribution isize_est;
+        NamFinder nam_finder{index, map_param.use_mcs};
         // Use chunk index as random seed for reproducibility
         random_engine.seed(chunk_index);
         for (size_t i = 0; i < records1.size(); ++i) {
@@ -171,12 +172,12 @@ void perform_task(
             to_uppercase(record1.seq);
             to_uppercase(record2.seq);
             align_or_map_paired(record1, record2, sam, sam_out, statistics, isize_est, aligner,
-                        map_param, index_parameters, references, index, random_engine, abundances);
+                        map_param, index_parameters, references, nam_finder, random_engine, abundances);
             statistics.n_reads += 2;
         }
         for (size_t i = 0; i < records3.size(); ++i) {
             auto record = records3[i];
-            align_or_map_single(record, sam, sam_out, statistics, aligner, map_param, index_parameters, references, index, random_engine, abundances);
+            align_or_map_single(record, sam, sam_out, statistics, aligner, map_param, index_parameters, references, nam_finder, random_engine, abundances);
             statistics.n_reads++;
         }
 
