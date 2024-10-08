@@ -119,7 +119,7 @@ NB_MODULE(strobealign_extension, m_) {
         .def(nb::init<References&, IndexParameters&>())
         .def("find", [](const StrobemerIndex& index, uint64_t key) -> std::vector<RefRandstrobe> {
             std::vector<RefRandstrobe> v;
-            auto position = index.find(key);
+            auto position = index.find_full(key);
             while (position != index.end() && index.get_hash(position) == key) {
                 v.push_back(index.get_randstrobe(position));
                 position++;

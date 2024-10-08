@@ -45,6 +45,17 @@ static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
     return xxh64(packed);
 }
 
+/*
+ * This function combines two individual syncmer hashes into a single hash
+ * for the randstrobe.
+ *
+ * The syncmer with the smaller hash is designated as the "main", the other is
+ * the "auxiliary".
+ * The combined hash is obtained by setting the top aux_len bits to the bits of
+ * the main hash and the bottom 64 - aux_len bits to the bits of the auxiliary
+ * hash. Since entries in the index are sorted by randstrobe hash, this allows
+ * us to search for the main syncmer only by masking out the lower aux_len bits.
+ */
 static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_hash_t hash2, size_t aux_len) {
     // Make the function symmetric
     if (hash1 > hash2) {
