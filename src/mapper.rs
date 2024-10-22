@@ -282,7 +282,8 @@ impl SamOutput {
     }
 }
 
-pub fn map_single_end_read(
+/// Align a single-end read to the reference and return SAM records
+pub fn align_single_end_read(
     record: &SequenceRecord,
     index: &StrobemerIndex,
     references: &[RefSequence],
@@ -461,7 +462,8 @@ fn extend_seed(
 }
 
 // TODO alignment statistics
-pub fn map_paired_end_read(
+/// Align a paired-end read pair to the reference and return SAM records
+pub fn align_paired_end_read(
     r1: &SequenceRecord,
     r2: &SequenceRecord,
     index: &StrobemerIndex,
@@ -485,9 +487,9 @@ pub fn map_paired_end_read(
     }
 
     // Timer extend_timer;
-    let read1 = Read::new(&r1.sequence); // TODO pass r1, r2 to align_paired instead
+    let read1 = Read::new(&r1.sequence); // TODO pass r1, r2 to extend_paired_seeds instead
     let read2 = Read::new(&r2.sequence);
-    let alignment_pairs = align_paired(
+    let alignment_pairs = extend_paired_seeds(
         aligner, &mut nams_pair, &read1, &read2,
         index_parameters.syncmer.k, references, &mut details,
         mapping_parameters.dropoff_threshold, insert_size_distribution,
@@ -562,7 +564,9 @@ enum AlignedPairs {
     WithScores(Vec<ScoredAlignmentPair>),
 }
 
-fn align_paired(
+/// Given two lists of NAMs for the two reads in a pair, pair them up and
+/// compute base-level alignments
+fn extend_paired_seeds(
     aligner: &Aligner,
     nams: &mut [Vec<Nam>; 2],
     read1: &Read,

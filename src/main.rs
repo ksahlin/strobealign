@@ -11,7 +11,7 @@ use rstrobes::fastq::FastqReader;
 use rstrobes::fasta;
 use rstrobes::index::{IndexParameters, StrobemerIndex};
 use rstrobes::insertsize::InsertSizeDistribution;
-use rstrobes::mapper::{map_paired_end_read, map_single_end_read, MappingParameters, SamOutput};
+use rstrobes::mapper::{align_paired_end_read, align_single_end_read, MappingParameters, SamOutput};
 use rstrobes::sam::{ReadGroup, SamHeader};
 
 mod logger;
@@ -201,7 +201,7 @@ fn main() -> Result<(), Error> {
         for (r1, r2) in FastqReader::new(f1).into_iter().zip(FastqReader::new(f2)) {
             let r1 = r1?;
             let r2 = r2?;
-            let sam_records = map_paired_end_read(
+            let sam_records = align_paired_end_read(
                 &r1, &r2, &index, &references, &mapping_parameters, &sam_output, &parameters, &mut isizedist, &aligner, &mut rng
             );
             for sam_record in sam_records {
@@ -216,7 +216,7 @@ fn main() -> Result<(), Error> {
 
         for record in FastqReader::new(f1) {
             let record = record?;
-            let sam_records = map_single_end_read(&record, &index, &references, &mapping_parameters, &sam_output, &aligner);
+            let sam_records = align_single_end_read(&record, &index, &references, &mapping_parameters, &sam_output, &aligner);
             for sam_record in sam_records {
                 if sam_record.is_mapped() || !args.only_mapped {
                     writeln!(out, "{}", sam_record)?;
