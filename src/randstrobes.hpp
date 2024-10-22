@@ -19,13 +19,15 @@ using randstrobe_hash_t = uint64_t;
 
 struct RefRandstrobe {
     using packed_t = uint32_t;
-    randstrobe_hash_t hash;
+private:
+    randstrobe_hash_t m_hash;
+public:
     uint32_t position;
 
     RefRandstrobe() { }
 
     RefRandstrobe(randstrobe_hash_t hash, uint32_t position, uint32_t packed)
-        : hash(hash)
+        : m_hash(hash)
         , position(position)
         , m_packed(packed) { }
 
@@ -34,8 +36,8 @@ struct RefRandstrobe {
         // RefRandstrobes in the index is reproducible no matter which sorting
         // function is used. This branchless comparison is faster than the
         // equivalent one using std::tie.
-        __uint128_t lhs = (static_cast<__uint128_t>(hash) << 64) | ((static_cast<uint64_t>(position) << 32) | m_packed);
-        __uint128_t rhs = (static_cast<__uint128_t>(other.hash) << 64) | ((static_cast<uint64_t>(other.position) << 32) | m_packed);
+        __uint128_t lhs = (static_cast<__uint128_t>(m_hash) << 64) | ((static_cast<uint64_t>(position) << 32) | m_packed);
+        __uint128_t rhs = (static_cast<__uint128_t>(other.m_hash) << 64) | ((static_cast<uint64_t>(other.position) << 32) | m_packed);
         return lhs < rhs;
     }
 
@@ -51,6 +53,9 @@ struct RefRandstrobe {
         return m_packed & mask;
     }
 
+    randstrobe_hash_t hash() const {
+        return m_hash;
+    }
 
 private:
     static constexpr int bit_alloc = 8;

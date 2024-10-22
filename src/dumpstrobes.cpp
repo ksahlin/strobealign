@@ -162,7 +162,7 @@ int run_dumpstrobes(int argc, char **argv) {
         index.populate(top_filter_fraction, n_threads);
         for (size_t i = 0; i < index.size(); ++i) {
             auto rs = index.get_randstrobe(i);
-            std::cout << rs.hash << "," << rs.position << "," << rs.reference_index() << "," << rs.strobe2_offset() << '\n';
+            std::cout << rs.hash() << "," << rs.position << "," << rs.reference_index() << "," << rs.strobe2_offset() << '\n';
         }
     } else {
         for (size_t i = 0; i < references.size(); ++i) {
