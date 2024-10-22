@@ -159,7 +159,7 @@ void StrobemerIndex::populate(float f, unsigned n_threads) {
     }
     Timer randstrobes_timer;
     logger.debug() << "  Generating randstrobes ...\n";
-    randstrobes.assign(total_randstrobes, RefRandstrobe{0, 0, 0});
+    randstrobes.assign(total_randstrobes, RefRandstrobe{});
     assign_all_randstrobes(randstrobe_counts, n_threads);
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
@@ -305,9 +305,13 @@ void StrobemerIndex::assign_randstrobes(size_t ref_index, size_t offset) {
             chunk.push_back(randstrobe);
         }
         for (auto randstrobe : chunk) {
-            RefRandstrobe::packed_t packed = (ref_index << 9) | (randstrobe.first_strobe_is_main << 8);
-            packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
-            randstrobes[offset++] = RefRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, packed};
+            randstrobes[offset++] = RefRandstrobe{
+                randstrobe.hash,
+                randstrobe.strobe1_pos,
+                static_cast<uint32_t>(ref_index),
+                static_cast<uint8_t>(randstrobe.strobe2_pos - randstrobe.strobe1_pos),
+                randstrobe.first_strobe_is_main
+            };
         }
         chunk.clear();
     }
