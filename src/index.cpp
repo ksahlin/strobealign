@@ -180,14 +180,14 @@ void StrobemerIndex::populate(float f, unsigned n_threads) {
     randstrobe_start_indices.reserve((1u << bits) + 1);
 
     uint64_t unique_mers = randstrobes.empty() ? 0 : 1;
-    randstrobe_hash_t prev_hash = randstrobes.empty() ? 0 : randstrobes[0].hash;
+    randstrobe_hash_t prev_hash = randstrobes.empty() ? 0 : randstrobes[0].hash();
     unsigned int count = 1;
     // first randstrobe index will always be the 0
     if(!randstrobes.empty()) {
         randstrobe_start_indices.push_back(0);
     }
     for (bucket_index_t position = 1; position < randstrobes.size(); ++position) {
-        const randstrobe_hash_t cur_hash = randstrobes[position].hash;
+        const randstrobe_hash_t cur_hash = randstrobes[position].hash();
         if (cur_hash == prev_hash) {
             ++count;
             continue;
