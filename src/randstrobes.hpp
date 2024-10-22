@@ -18,18 +18,20 @@ using syncmer_hash_t = uint64_t;
 using randstrobe_hash_t = uint64_t;
 
 struct RefRandstrobe {
-    using packed_t = uint32_t;
 private:
     randstrobe_hash_t m_hash;
 public:
     uint32_t position;
+private:
+    uint32_t m_packed; // packed representation of ref_index and strobe offset
+public:
 
     RefRandstrobe() { }
 
-    RefRandstrobe(randstrobe_hash_t hash, uint32_t position, uint32_t packed)
+    RefRandstrobe(randstrobe_hash_t hash, uint32_t position, uint32_t ref_index, uint8_t offset, bool first_strobe_is_main)
         : m_hash(hash)
         , position(position)
-        , m_packed(packed) { }
+        , m_packed((ref_index << 9) | (first_strobe_is_main << 8) | offset) { }
 
     bool operator< (const RefRandstrobe& other) const {
         // Compare both hash and position to ensure that the order of the
@@ -60,7 +62,6 @@ public:
 private:
     static constexpr int bit_alloc = 8;
     static constexpr int mask = (1 << bit_alloc) - 1;
-    packed_t m_packed; // packed representation of ref_index and strobe offset
 
 public:
     static constexpr uint32_t max_number_of_references = (1 << (32 - bit_alloc - 1)) - 1; // bit_alloc - 1 because 1 bit to first_strobe_is_main()
