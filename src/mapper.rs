@@ -3,22 +3,22 @@ use std::collections::{HashMap, HashSet};
 use std::mem;
 use fastrand::Rng;
 use memchr::memmem;
-use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
+use crate::aligner::{hamming_align, hamming_distance, AlignmentInfo};
 use crate::cigar::{Cigar, CigarOperation};
 use crate::fasta::RefSequence;
 use crate::index::{IndexParameters, StrobemerIndex};
-use crate::nam::{find_nams, find_nams_rescue, Nam, reverse_nam_if_needed};
+use crate::nam::{reverse_nam_if_needed, Nam};
 use crate::revcomp::reverse_complement;
 use crate::strobes::RandstrobeIterator;
 use crate::syncmers::SyncmerIterator;
-use crate::sam::{MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SamRecord, SECONDARY, UNMAP};
+use crate::sam::{SamRecord, MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, UNMAP};
 use crate::read::Read;
 use crate::aligner::Aligner;
 use crate::details::Details;
 use crate::fastq::SequenceRecord;
 use crate::insertsize::InsertSizeDistribution;
 use crate::math::normal_pdf;
-
+use crate::nam;
 
 pub struct MappingParameters {
     r: usize,
@@ -73,6 +73,7 @@ pub struct QueryRandstrobe {
 }
 
 /// Generate randstrobes for a query sequence and its reverse complement.
+/// TODO move to strobes.rs?
 pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> Vec<QueryRandstrobe> {
     let mut randstrobes= Vec::<QueryRandstrobe>::new();
     if seq.len() < parameters.randstrobe.w_max {
@@ -293,7 +294,7 @@ pub fn align_single_end_read(
 ) -> Vec<SamRecord> {
     let mut details = Details::default();
 
-    let (was_rescued, mut nams) = get_nams(&record.sequence, index, mapping_parameters);
+    let (was_rescued, mut nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level);
     details.nam_rescue = was_rescued;
     details.nams = nams.len();
 
@@ -370,34 +371,6 @@ pub fn align_single_end_read(
     // statistics.tot_extend += extend_timer.duration();
     // statistics += details;
     sam_records
-}
-
-// TODO rename
-fn get_nams(sequence: &[u8], index: &StrobemerIndex, mapping_parameters: &MappingParameters) -> (bool, Vec<Nam>) {
-    //Timer strobe_timer;
-    let query_randstrobes = randstrobes_query(sequence, &index.parameters);
-    //statistics.tot_construct_strobemers += strobe_timer.duration();
-
-    // Timer nam_timer;
-    let (nonrepetitive_fraction, mut nams) = find_nams(&query_randstrobes, index, index.filter_cutoff);
-    // statistics.tot_find_nams += nam_timer.duration();
-
-    let mut nam_rescue = false;
-    if mapping_parameters.rescue_level > 1 {
-        // Timer rescue_timer;
-        if nams.is_empty() || nonrepetitive_fraction < 0.7 {
-            nam_rescue = true;
-            nams = find_nams_rescue(&query_randstrobes, index, index.rescue_cutoff);
-        }
-        // statistics.tot_time_rescue += rescue_timer.duration();
-    }
-    // Timer nam_sort_timer;
-
-    nams.sort_by_key(|k| -(k.score as i32));
-    // TODO shuffle_top_nams(nams, random_engine);
-    // statistics.tot_sort_nams += nam_sort_timer.duration();
-
-    (nam_rescue, nams)
 }
 
 /// Extend a NAM so that it covers the entire read and return the resulting
@@ -480,7 +453,7 @@ pub fn align_paired_end_read(
 
     for is_revcomp in [0, 1] {
         let record = if is_revcomp == 0 { r1 } else { r2 };
-        let (was_rescued, nams) = get_nams(&record.sequence, index, mapping_parameters);
+        let (was_rescued, nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level);
         details[is_revcomp].nam_rescue = was_rescued;
         details[is_revcomp].nams = nams.len();
         nams_pair[is_revcomp] = nams;
@@ -1140,7 +1113,7 @@ fn top_dropoff(nams: &[Nam]) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use crate::mapper::{Alignment, count_best_alignment_pairs, deduplicate_scored_pairs, ScoredAlignmentPair};
+    use crate::mapper::{count_best_alignment_pairs, deduplicate_scored_pairs, Alignment, ScoredAlignmentPair};
 
     #[test]
     fn test_count_best_alignment_pairs() {

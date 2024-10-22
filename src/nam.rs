@@ -3,6 +3,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use crate::fasta::RefSequence;
 use crate::index::StrobemerIndex;
+use crate::mapper;
 use crate::mapper::QueryRandstrobe;
 use crate::read::Read;
 
@@ -305,4 +306,32 @@ pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, references: &[RefSequen
     } else {
         false
     }
+}
+
+// TODO rename
+pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize) -> (bool, Vec<Nam>) {
+    //Timer strobe_timer;
+    let query_randstrobes = mapper::randstrobes_query(sequence, &index.parameters);
+    //statistics.tot_construct_strobemers += strobe_timer.duration();
+
+    // Timer nam_timer;
+    let (nonrepetitive_fraction, mut nams) = find_nams(&query_randstrobes, index, index.filter_cutoff);
+    // statistics.tot_find_nams += nam_timer.duration();
+
+    let mut nam_rescue = false;
+    if rescue_level > 1 {
+        // Timer rescue_timer;
+        if nams.is_empty() || nonrepetitive_fraction < 0.7 {
+            nam_rescue = true;
+            nams = find_nams_rescue(&query_randstrobes, index, index.rescue_cutoff);
+        }
+        // statistics.tot_time_rescue += rescue_timer.duration();
+    }
+    // Timer nam_sort_timer;
+
+    nams.sort_by_key(|k| -(k.score as i32));
+    // TODO shuffle_top_nams(nams, random_engine);
+    // statistics.tot_sort_nams += nam_sort_timer.duration();
+
+    (nam_rescue, nams)
 }
