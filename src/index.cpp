@@ -21,7 +21,7 @@
 #include <sstream>
 
 static Logger& logger = Logger::get();
-static const uint32_t STI_FILE_FORMAT_VERSION = 3;
+static const uint32_t STI_FILE_FORMAT_VERSION = 4;
 
 
 namespace {
