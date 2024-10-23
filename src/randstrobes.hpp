@@ -21,16 +21,17 @@ struct RefRandstrobe {
 private:
     randstrobe_hash_t m_hash;
 public:
-    uint32_t position;
+    uint32_t m_position;
 private:
     uint32_t m_packed; // packed representation of ref_index and strobe offset
 public:
 
+public:
     RefRandstrobe() { }
 
     RefRandstrobe(randstrobe_hash_t hash, uint32_t position, uint32_t ref_index, uint8_t offset, bool first_strobe_is_main)
         : m_hash(hash)
-        , position(position)
+        , m_position(position)
         , m_packed((ref_index << 9) | (first_strobe_is_main << 8) | offset) { }
 
     bool operator< (const RefRandstrobe& other) const {
@@ -38,8 +39,8 @@ public:
         // RefRandstrobes in the index is reproducible no matter which sorting
         // function is used. This branchless comparison is faster than the
         // equivalent one using std::tie.
-        __uint128_t lhs = (static_cast<__uint128_t>(m_hash) << 64) | ((static_cast<uint64_t>(position) << 32) | m_packed);
-        __uint128_t rhs = (static_cast<__uint128_t>(other.m_hash) << 64) | ((static_cast<uint64_t>(other.position) << 32) | m_packed);
+        __uint128_t lhs = (static_cast<__uint128_t>(m_hash) << 64) | ((static_cast<uint64_t>(m_position) << 32) | m_packed);
+        __uint128_t rhs = (static_cast<__uint128_t>(other.m_hash) << 64) | ((static_cast<uint64_t>(other.m_position) << 32) | m_packed);
         return lhs < rhs;
     }
 
@@ -65,6 +66,10 @@ private:
 
 public:
     static constexpr uint32_t max_number_of_references = (1 << (32 - bit_alloc - 1)) - 1; // bit_alloc - 1 because 1 bit to first_strobe_is_main()
+
+    uint32_t position() const {
+        return m_position;
+    }
 };
 
 struct QueryRandstrobe {
