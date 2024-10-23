@@ -17,61 +17,55 @@
 using syncmer_hash_t = uint64_t;
 using randstrobe_hash_t = uint64_t;
 
-static constexpr uint64_t RANDSTROBE_HASH_MASK = 0xFFFFFFFFFFFFFF00;
+static constexpr uint64_t RANDSTROBE_HASH_MASK = 0xFFFFFFFFFFFFFE00;
 
 struct RefRandstrobe {
 private:
-    randstrobe_hash_t m_hash;
-public:
+    // packed representation of hash, offset and first_strobe_is_main
+    randstrobe_hash_t m_hash_offset_flag;
     uint32_t m_position;
-private:
-    uint32_t m_packed; // packed representation of ref_index and strobe offset
-public:
+    uint32_t m_ref_index;
 
 public:
     RefRandstrobe() { }
 
     RefRandstrobe(randstrobe_hash_t hash, uint32_t position, uint32_t ref_index, uint8_t offset, bool first_strobe_is_main)
-        : m_hash(hash)
+        : m_hash_offset_flag((hash & RANDSTROBE_HASH_MASK) | (offset << 1) | first_strobe_is_main)
         , m_position(position)
-        , m_packed((ref_index << 9) | (first_strobe_is_main << 8) | offset) { }
+        , m_ref_index(ref_index)
+    { }
 
     bool operator< (const RefRandstrobe& other) const {
         // Compare both hash and position to ensure that the order of the
         // RefRandstrobes in the index is reproducible no matter which sorting
         // function is used. This branchless comparison is faster than the
         // equivalent one using std::tie.
-        __uint128_t lhs = (static_cast<__uint128_t>(m_hash) << 64) | ((static_cast<uint64_t>(m_position) << 32) | m_packed);
-        __uint128_t rhs = (static_cast<__uint128_t>(other.m_hash) << 64) | ((static_cast<uint64_t>(other.m_position) << 32) | m_packed);
+        __uint128_t lhs = (static_cast<__uint128_t>(m_hash_offset_flag) << 64) | ((static_cast<uint64_t>(m_position) << 32) | m_ref_index);
+        __uint128_t rhs = (static_cast<__uint128_t>(other.m_hash_offset_flag) << 64) | ((static_cast<uint64_t>(other.m_position) << 32) | m_ref_index);
         return lhs < rhs;
     }
 
     bool first_strobe_is_main() const {
-        return (m_packed >> bit_alloc) & 1;
+        return m_hash_offset_flag & 1;
     }
 
-    int reference_index() const {
-        return m_packed >> (bit_alloc + 1);
+    unsigned reference_index() const {
+        return m_ref_index;
     }
 
-    int strobe2_offset() const {
-        return m_packed & mask;
+    unsigned strobe2_offset() const {
+        return (m_hash_offset_flag >> 1) & 0xff;
     }
 
     randstrobe_hash_t hash() const {
-        return m_hash;
+        return m_hash_offset_flag & RANDSTROBE_HASH_MASK;
     }
-
-private:
-    static constexpr int bit_alloc = 8;
-    static constexpr int mask = (1 << bit_alloc) - 1;
-
-public:
-    static constexpr uint32_t max_number_of_references = (1 << (32 - bit_alloc - 1)) - 1; // bit_alloc - 1 because 1 bit to first_strobe_is_main()
 
     uint32_t position() const {
         return m_position;
     }
+
+    static constexpr size_t max_number_of_references = (1ul << 32) - 1;
 };
 
 struct QueryRandstrobe {

@@ -61,7 +61,7 @@ static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_ha
     if (hash1 > hash2) {
         std::swap(hash1, hash2);
     }
-    return ((hash1 >> aux_len) << aux_len) ^ (hash2 >> (64 - aux_len));
+    return (((hash1 >> aux_len) << aux_len) ^ (hash2 >> (64 - aux_len))) & RANDSTROBE_HASH_MASK;
 }
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
