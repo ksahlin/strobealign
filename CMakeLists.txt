@@ -131,6 +131,7 @@ add_executable(test-strobealign
   tests/test_sam.cpp
   tests/test_aligner.cpp
   tests/test_cigar.cpp
+  tests/test_randstrobes.cpp
 )
 target_link_libraries(test-strobealign salib)
 target_include_directories(test-strobealign PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
