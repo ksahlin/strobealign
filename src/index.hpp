@@ -134,7 +134,7 @@ struct StrobemerIndex {
     }
 
     unsigned int get_strobe1_position(bucket_index_t position) const {
-        return randstrobes[position].position;
+        return randstrobes[position].position();
     }
 
     int strobe2_offset(bucket_index_t position) const {
