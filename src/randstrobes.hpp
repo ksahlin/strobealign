@@ -17,6 +17,8 @@
 using syncmer_hash_t = uint64_t;
 using randstrobe_hash_t = uint64_t;
 
+static constexpr uint64_t RANDSTROBE_HASH_MASK = 0xFFFFFFFFFFFFFF00;
+
 struct RefRandstrobe {
 private:
     randstrobe_hash_t m_hash;
