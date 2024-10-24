@@ -122,7 +122,7 @@ fn get_best_paired_map_location(
 
         best
     } else {
-        (Some(best_individual_nam1.unwrap().clone()), Some(best_individual_nam2.unwrap().clone()))
+        (best_individual_nam1.cloned(), best_individual_nam2.cloned())
     }
 
     // TODO abundances
