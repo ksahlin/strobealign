@@ -11,6 +11,7 @@ use rstrobes::fastq::FastqReader;
 use rstrobes::fasta;
 use rstrobes::index::{IndexParameters, StrobemerIndex};
 use rstrobes::insertsize::InsertSizeDistribution;
+use rstrobes::maponly::{map_paired_end_read, map_single_end_read};
 use rstrobes::mapper::{align_paired_end_read, align_single_end_read, MappingParameters, SamOutput};
 use rstrobes::sam::{ReadGroup, SamHeader};
 
@@ -31,11 +32,15 @@ struct Args {
     //args::Flag v(parser, "v", "Verbose output", {'v'});
     //args::Flag no_progress(parser, "no-progress", "Disable progress report (enabled by default if output is a terminal)", {"no-progress"});
 
+    /// Only map reads, no base level alignment (produces PAF file)
+    #[arg(short = 'x')]
+    map_only: bool,
+
+    // SAM output
+
     /// Emit =/X instead of M CIGAR operations
     #[arg(long)]
     eqx: bool,
-
-    //args::Flag x(parser, "x", "Only map reads, no base level alignment (produces PAF file)", {'x'});
 
     /// Do not output the PG header line
     #[arg(long="no-PG")]
@@ -187,7 +192,9 @@ fn main() -> Result<(), Error> {
         VERSION,
         read_group,
     );
-    print!("{}", header);
+    if !args.map_only {
+        print!("{}", header);
+    }
     let out = std::io::stdout().lock();
     let mut out = BufWriter::new(out);
 
@@ -201,25 +208,43 @@ fn main() -> Result<(), Error> {
         for (r1, r2) in FastqReader::new(f1).into_iter().zip(FastqReader::new(f2)) {
             let r1 = r1?;
             let r2 = r2?;
-            let sam_records = align_paired_end_read(
-                &r1, &r2, &index, &references, &mapping_parameters, &sam_output, &parameters, &mut isizedist, &aligner, &mut rng
-            );
-            for sam_record in sam_records {
-                if sam_record.is_mapped() || !args.only_mapped {
-                    writeln!(out, "{}", sam_record)?;
+            if !args.map_only {
+                let sam_records = align_paired_end_read(
+                    &r1, &r2, &index, &references, &mapping_parameters, &sam_output, &parameters, &mut isizedist, &aligner, &mut rng
+                );
+                for sam_record in sam_records {
+                    if sam_record.is_mapped() || !args.only_mapped {
+                        writeln!(out, "{}", sam_record)?;
+                    }
                 }
+            } else {
+                let paf_records = map_paired_end_read(
+                    &r1, &r2, &index, &references, mapping_parameters.rescue_level, &mut isizedist
+                );
+                for paf_record in paf_records {
+                    writeln!(out, "{}", paf_record)?;
+                }
+
             }
         }
 
     } else {
+        // single-end reads
         let f1 = File::open(&args.fastq_path)?;
 
         for record in FastqReader::new(f1) {
             let record = record?;
-            let sam_records = align_single_end_read(&record, &index, &references, &mapping_parameters, &sam_output, &aligner);
-            for sam_record in sam_records {
-                if sam_record.is_mapped() || !args.only_mapped {
-                    writeln!(out, "{}", sam_record)?;
+            if !args.map_only {
+                let sam_records = align_single_end_read(&record, &index, &references, &mapping_parameters, &sam_output, &aligner);
+                for sam_record in sam_records {
+                    if sam_record.is_mapped() || !args.only_mapped {
+                        writeln!(out, "{}", sam_record)?;
+                    }
+                }
+            } else {
+                let paf_records = map_single_end_read(&record, &index, &references, mapping_parameters.rescue_level);
+                for paf_record in paf_records {
+                    writeln!(out, "{}", paf_record)?;
                 }
             }
         }

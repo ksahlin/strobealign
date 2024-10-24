@@ -24,7 +24,7 @@ pub struct MappingParameters {
     r: usize,
     max_secondary: usize,
     dropoff_threshold: f32,
-    rescue_level: usize,
+    pub rescue_level: usize,
     max_tries: usize,
     output_unmapped: bool,
 }
@@ -898,9 +898,9 @@ fn is_proper_nam_pair(nam1: &Nam, nam2: &Nam, mu: f32, sigma: f32) -> bool {
 }
 
 /// Find high-scoring NAMs and NAM pairs. Proper pairs are preferred, but also
-/// high-scoring NAMs that could not be paired up are returned (these get a
-/// "dummy" NAM as partner in the returned vector).
-fn get_best_scoring_nam_pairs(
+/// high-scoring NAMs that could not be paired up are returned (these are paired
+/// with None in the returned vector).
+pub fn get_best_scoring_nam_pairs(
     nams1: &[Nam],
     nams2: &[Nam],
     mu: f32,
@@ -957,7 +957,7 @@ fn get_best_scoring_nam_pairs(
             nam_pairs.push(NamPair{n_hits: nam2.n_hits, nam1: None, nam2: Some(nam2.clone())});
         }
     }
-    nam_pairs.sort_by_key(|nam| Reverse(nam.n_hits));
+    nam_pairs.sort_by_key(|nam_pair| Reverse(nam_pair.n_hits));
 
     nam_pairs
 }
@@ -976,10 +976,10 @@ fn proper_pair_mapq(nams: &[Nam]) -> u8 {
 }
 
 #[derive(Debug)]
-struct NamPair {
-    n_hits: usize,
-    nam1: Option<Nam>,
-    nam2: Option<Nam>,
+pub struct NamPair {
+    pub n_hits: usize,
+    pub nam1: Option<Nam>,
+    pub nam2: Option<Nam>,
 }
 
 #[derive(Debug, Clone)]
