@@ -11,7 +11,7 @@ use crate::nam::{reverse_nam_if_needed, Nam};
 use crate::revcomp::reverse_complement;
 use crate::strobes::RandstrobeIterator;
 use crate::syncmers::SyncmerIterator;
-use crate::sam::{SamRecord, MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, UNMAP};
+use crate::sam::{strip_suffix, SamRecord, MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, UNMAP};
 use crate::read::Read;
 use crate::aligner::Aligner;
 use crate::details::Details;
@@ -167,7 +167,7 @@ impl SamOutput {
 
         let cigar = if self.cigar_eqx { Some(cigar) } else { Some(cigar.with_m()) };
         SamRecord {
-            query_name: record.name.clone(),
+            query_name: strip_suffix(&record.name).into(),
             flags,
             reference_name,
             pos: Some(alignment.ref_start as u32),
@@ -186,7 +186,7 @@ impl SamOutput {
     fn make_unmapped_record(&self, record: &SequenceRecord, details: Details) -> SamRecord {
         let details = if self.details { Some(details) } else { None };
         SamRecord {
-            query_name: record.name.clone(),
+            query_name: strip_suffix(&record.name).into(),
             flags: UNMAP,
             query_sequence: Some(record.sequence.clone()),
             query_qualities: Some(record.qualities.clone()),

@@ -16,6 +16,14 @@ pub const QCFAIL: u16 = 0x200;
 pub const DUP: u16 = 0x400;
 pub const SUPPLEMENTARY: u16 = 0x800;
 
+pub fn strip_suffix(s: &str) -> &str {
+    if s.ends_with("/1") || s.ends_with("/2") {
+        &s[..s.len() - 2]
+    } else {
+        s
+    }
+}
+
 // TODO String and Vec<u8> fields should be references
 #[derive(Default, Debug)]
 pub struct SamRecord {
@@ -174,5 +182,18 @@ impl<'a> Display for SamHeader<'a> {
         };
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::sam::strip_suffix;
+
+    #[test]
+    fn test_strip_suffix() {
+        assert_eq!(strip_suffix("abc"), "abc");
+        assert_eq!(strip_suffix("abc/1"), "abc");
+        assert_eq!(strip_suffix("abc/2"), "abc");
+        assert_eq!(strip_suffix("abc/3"), "abc/3");
     }
 }

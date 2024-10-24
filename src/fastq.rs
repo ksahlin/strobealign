@@ -73,14 +73,10 @@ impl<R: Read> Iterator for FastqReader<R> {
             }
         }
         let name = name[1..].trim_end();
-        let (mut name, comment) = match name.split_once(' ') {
+        let (name, comment) = match name.split_once(' ') {
             Some((name, comment)) => (name, Some(comment)),
             None => (name, None),
         };
-        if name.ends_with("/1") || name.ends_with("/2") {
-            name = &name[..name.len() - 2];
-        }
-        let name = name;
 
         if name.is_empty() {
             //self.err = true;
