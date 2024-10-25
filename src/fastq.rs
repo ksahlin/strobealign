@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::fmt;
 use std::io::{BufRead, BufReader, BufWriter, Read, Result, Write};
 use std::str;
@@ -38,6 +39,48 @@ impl fmt::Display for SequenceRecord {
         )
     }
 }
+
+#[derive(Debug)]
+pub struct PeekableFastqReader<R: Read> {
+    fastq_reader: FastqReader<R>,
+    buffer: VecDeque<SequenceRecord>,
+}
+
+impl<R: Read> PeekableFastqReader<R> {
+    pub fn new(reader: R) -> PeekableFastqReader<R> {
+        let fastq_reader = FastqReader::new(reader);
+        PeekableFastqReader {
+            fastq_reader,
+            buffer: VecDeque::new(),
+        }
+    }
+
+    // Retrieve up to n records
+    pub fn peek(&mut self, n: usize) -> Result<Vec<SequenceRecord>> {
+        while self.buffer.len() < n {
+            if let Some(item) = self.fastq_reader.next() {
+                self.buffer.push_back(item?)
+            } else {
+                break;
+            }
+        }
+
+        Ok(self.buffer.make_contiguous().iter().cloned().collect())
+    }
+}
+
+impl<R: Read> Iterator for PeekableFastqReader<R> {
+    type Item = Result<SequenceRecord>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(item) = self.buffer.pop_front() {
+            Some(Ok(item))
+        } else {
+            self.fastq_reader.next()
+        }
+    }
+}
+
 
 #[derive(Debug)]
 pub struct FastqReader<R: Read> {
@@ -129,5 +172,25 @@ impl<W: Write> FastqWriter<W> {
         self.writer.write_all(&record.qualities).unwrap();
         self.writer.write_all(b"\n").unwrap();
         //write!(self.writer, "@{}\n{:?}\n+\n{:?}\n", record.name, record.sequence, record.qualities);
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use std::fs::File;
+    use crate::fastq::PeekableFastqReader;
+
+    #[test]
+    fn test_peekable_fastq_reader() {
+        let f = File::open("tests/phix.1.fastq").unwrap();
+        let mut reader = PeekableFastqReader::new(f);
+
+        assert_eq!(reader.next().unwrap().unwrap().name, "SRR1377138.1");
+        assert_eq!(
+            reader.peek(2).unwrap().iter().map(|record| record.name.clone()).collect::<Vec<String>>(),
+            vec![String::from("SRR1377138.2"), String::from("SRR1377138.3/1")]
+        );
+        assert_eq!(reader.next().unwrap().unwrap().name, "SRR1377138.2");
     }
 }

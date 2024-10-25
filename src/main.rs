@@ -1,6 +1,6 @@
 use std::{env, io};
 use std::fs::File;
-use std::io::{Error, BufReader, BufWriter, Write};
+use std::io::{Error, BufReader, BufWriter, Write, Read};
 use std::path::Path;
 use std::time::Instant;
 use log::{debug, info};
@@ -8,7 +8,7 @@ use clap::Parser;
 use fastrand::Rng;
 use flate2::read::MultiGzDecoder;
 use rstrobes::aligner::{Aligner, Scores};
-use rstrobes::fastq::FastqReader;
+use rstrobes::fastq::{FastqReader, PeekableFastqReader, SequenceRecord};
 use rstrobes::fasta;
 use rstrobes::index::{IndexParameters, StrobemerIndex};
 use rstrobes::insertsize::InsertSizeDistribution;
@@ -146,7 +146,7 @@ fn main() -> Result<(), Error> {
     info!("This is {} {}", NAME, VERSION);
     rayon::ThreadPoolBuilder::new().num_threads(args.threads).build_global().unwrap();
     let path = Path::new(&args.ref_path);
-    let f = open_reader(path)?;
+    let f = xopen(path)?;
     let mut reader = BufReader::new(f);
     let timer = Instant::now();
     let references = fasta::read_fasta(&mut reader)?;
@@ -160,9 +160,12 @@ fn main() -> Result<(), Error> {
         max_contig_size as f64 / 1E6
     );
 
+    let f1 = xopen(&args.fastq_path)?;
+    let mut fastq_reader1 = PeekableFastqReader::new(f1);
+
     let read_length = match args.read_length {
         Some(r) => r,
-        None => estimate_read_length(&args.fastq_path)?,
+        None => estimate_read_length(&fastq_reader1.peek(500)?),
     };
     let parameters = IndexParameters::from_read_length(read_length, args.k, args.s, args.l, args.u, args.c, args.max_seed_length);
     info!("Indexing ...");
@@ -202,11 +205,10 @@ fn main() -> Result<(), Error> {
     let mut rng = Rng::with_seed(0);
     if let Some(r2_path) = args.fastq_path2 {
         // paired-end reads
-        let f1 = open_reader(&args.fastq_path)?;
-        let f2 = open_reader(r2_path)?;
+        let f2 = xopen(r2_path)?;
         let mut isizedist = InsertSizeDistribution::new();
 
-        for (r1, r2) in FastqReader::new(f1).zip(FastqReader::new(f2)) {
+        for (r1, r2) in fastq_reader1.zip(FastqReader::new(f2)) {
             let r1 = r1?;
             let r2 = r2?;
             if !args.map_only {
@@ -231,9 +233,7 @@ fn main() -> Result<(), Error> {
 
     } else {
         // single-end reads
-        let f1 = open_reader(&args.fastq_path)?;
-
-        for record in FastqReader::new(f1) {
+        for record in fastq_reader1 {
             let record = record?;
             if !args.map_only {
                 let sam_records = align_single_end_read(&record, &index, &references, &mapping_parameters, &sam_output, &aligner);
@@ -254,24 +254,28 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn estimate_read_length<P: AsRef<Path>>(path: P) -> Result<usize, Error> {
-    let f = open_reader(&path)?;
+fn estimate_read_length(records: &[SequenceRecord]) -> usize {
     let mut s = 0;
     let mut n = 0;
-    for record in FastqReader::new(f).take(500) {
-        let record = record?;
+    for record in records {
         s += record.sequence.len();
         n += 1;
     }
-    Ok(if n == 0 { 0 } else { s / n})
+
+    if n == 0 { 0 } else { s / n }
 }
 
-fn open_reader<P: AsRef<Path>>(path: P) -> Result<Box<dyn io::Read>, Error> {
+/// open compressend or gzip-compressed file depending on extension
+fn xopen<P: AsRef<Path>>(path: P) -> Result<Box<dyn Read>, Error> {
     let path = path.as_ref();
-    let f = File::open(path)?;
-    match path.extension() {
-        Some(x) if x == "gz" => Ok(Box::new(MultiGzDecoder::new(f))),
-        _ => Ok(Box::new(f)),
+    if path == Path::new("-") {
+        Ok(Box::new(io::stdin()))
+    } else {
+        let f = File::open(path)?;
+        match path.extension() {
+            Some(x) if x == "gz" => Ok(Box::new(MultiGzDecoder::new(f))),
+            _ => Ok(Box::new(f)),
+        }
     }
 }
 
