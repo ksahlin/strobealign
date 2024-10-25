@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, io};
 use std::fs::File;
 use std::io::{Error, BufReader, BufWriter, Write};
 use std::path::Path;
@@ -6,6 +6,7 @@ use std::time::Instant;
 use log::{debug, info};
 use clap::Parser;
 use fastrand::Rng;
+use flate2::read::MultiGzDecoder;
 use rstrobes::aligner::{Aligner, Scores};
 use rstrobes::fastq::FastqReader;
 use rstrobes::fasta;
@@ -145,10 +146,10 @@ fn main() -> Result<(), Error> {
     info!("This is {} {}", NAME, VERSION);
     rayon::ThreadPoolBuilder::new().num_threads(args.threads).build_global().unwrap();
     let path = Path::new(&args.ref_path);
-    let f = File::open(path)?;
+    let f = open_reader(path)?;
     let mut reader = BufReader::new(f);
     let timer = Instant::now();
-    let references = fasta::read_fasta(&mut reader).unwrap();
+    let references = fasta::read_fasta(&mut reader)?;
     info!("Time reading references: {:.2} s", timer.elapsed().as_secs_f64());
     let total_ref_size = references.iter().map(|r| r.sequence.len()).sum::<usize>();
     let max_contig_size = references.iter().map(|r| r.sequence.len()).max().expect("No reference found");
@@ -195,17 +196,17 @@ fn main() -> Result<(), Error> {
     if !args.map_only {
         print!("{}", header);
     }
-    let out = std::io::stdout().lock();
+    let out = io::stdout().lock();
     let mut out = BufWriter::new(out);
 
     let mut rng = Rng::with_seed(0);
     if let Some(r2_path) = args.fastq_path2 {
         // paired-end reads
-        let f1 = File::open(&args.fastq_path)?;
-        let f2 = File::open(r2_path)?;
+        let f1 = open_reader(&args.fastq_path)?;
+        let f2 = open_reader(r2_path)?;
         let mut isizedist = InsertSizeDistribution::new();
 
-        for (r1, r2) in FastqReader::new(f1).into_iter().zip(FastqReader::new(f2)) {
+        for (r1, r2) in FastqReader::new(f1).zip(FastqReader::new(f2)) {
             let r1 = r1?;
             let r2 = r2?;
             if !args.map_only {
@@ -230,7 +231,7 @@ fn main() -> Result<(), Error> {
 
     } else {
         // single-end reads
-        let f1 = File::open(&args.fastq_path)?;
+        let f1 = open_reader(&args.fastq_path)?;
 
         for record in FastqReader::new(f1) {
             let record = record?;
@@ -254,7 +255,7 @@ fn main() -> Result<(), Error> {
 }
 
 fn estimate_read_length<P: AsRef<Path>>(path: P) -> Result<usize, Error> {
-    let f = File::open(&path)?;
+    let f = open_reader(&path)?;
     let mut s = 0;
     let mut n = 0;
     for record in FastqReader::new(f).take(500) {
@@ -263,6 +264,15 @@ fn estimate_read_length<P: AsRef<Path>>(path: P) -> Result<usize, Error> {
         n += 1;
     }
     Ok(if n == 0 { 0 } else { s / n})
+}
+
+fn open_reader<P: AsRef<Path>>(path: P) -> Result<Box<dyn io::Read>, Error> {
+    let path = path.as_ref();
+    let f = File::open(path)?;
+    match path.extension() {
+        Some(x) if x == "gz" => Ok(Box::new(MultiGzDecoder::new(f))),
+        _ => Ok(Box::new(f)),
+    }
 }
 
 #[test]
