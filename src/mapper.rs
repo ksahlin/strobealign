@@ -21,12 +21,12 @@ use crate::math::normal_pdf;
 use crate::nam;
 
 pub struct MappingParameters {
-    r: usize,
-    max_secondary: usize,
-    dropoff_threshold: f32,
+    pub r: usize,
+    pub max_secondary: usize,
+    pub dropoff_threshold: f32,
     pub rescue_level: usize,
-    max_tries: usize,
-    output_unmapped: bool,
+    pub max_tries: usize,
+    pub output_unmapped: bool,
 }
 
 impl Default for MappingParameters {
@@ -291,6 +291,7 @@ pub fn align_single_end_read(
     mapping_parameters: &MappingParameters,
     sam_output: &SamOutput,
     aligner: &Aligner,
+    rng: &mut Rng,
 ) -> Vec<SamRecord> {
     let mut details = Details::default();
 
@@ -308,6 +309,7 @@ pub fn align_single_end_read(
     let mut best_edit_distance = usize::MAX;
     let mut best_score = 0;
     let mut second_best_score = 0;
+    let mut alignments_with_best_score = 0;
     let mut best_alignment = None;
 
     let k = index.parameters.syncmer.k;
@@ -330,13 +332,26 @@ pub fn align_single_end_read(
         details.tried_alignment += 1;
         details.gapped += alignment.gapped as usize;
 
-        if alignment.score > best_score {
+        if alignment.score == best_score {
+            second_best_score = best_score;
+            // Two or more alignments have the same best score - count them
+            alignments_with_best_score += 1;
+
+            // Pick one randomly using reservoir sampling
+            if rng.u32(..alignments_with_best_score) == 0 {
+                if mapping_parameters.max_secondary == 0 {
+                   best_edit_distance = alignment.edit_distance;
+                }
+                best_alignment = Some(alignment.clone());
+            }
+        } else if alignment.score > best_score {
             second_best_score = best_score;
             best_score = alignment.score;
             best_alignment = Some(alignment.clone());
             if mapping_parameters.max_secondary == 0 {
                 best_edit_distance = alignment.global_edit_distance();
             }
+            alignments_with_best_score = 1;
         } else if alignment.score > second_best_score {
             second_best_score = alignment.score;
         }

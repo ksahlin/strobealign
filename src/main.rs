@@ -65,7 +65,10 @@ struct Args {
     #[arg(long)]
     details: bool,
 
-    // args::ValueFlag<int> N(parser, "INT", "Retain at most INT secondary alignments (is upper bounded by -M and depends on -S) [0]", {'N'});
+    /// Retain at most N secondary alignments (is upper bounded by -M and depends on -S) [0]
+    #[arg(short = 'N', default_value_t = 0, value_name = "N")]
+    max_secondary: usize,
+
     // args::ValueFlag<std::string> index_statistics(parser, "PATH", "Print statistics of indexing to PATH", {"index-statistics"});
     // args::Flag i(parser, "index", "Do not map reads; only generate the strobemer index and write it to disk. If read files are provided, they are used to estimate read length", {"create-index", 'i'});
     // args::Flag use_index(parser, "use_index", "Use a pre-generated index previously written with --create-index.", { "use-index" });
@@ -177,7 +180,10 @@ fn main() -> Result<(), Error> {
     let index = index;
     info!("Total time indexing: {:.2} s", timer.elapsed().as_secs_f64());
 
-    let mapping_parameters = MappingParameters::default();
+    let mapping_parameters = MappingParameters {
+        max_secondary: args.max_secondary,
+        .. MappingParameters::default()
+    };
 
     let aligner = Aligner::new(Scores::default());
 
@@ -236,7 +242,7 @@ fn main() -> Result<(), Error> {
         for record in fastq_reader1 {
             let record = record?;
             if !args.map_only {
-                let sam_records = align_single_end_read(&record, &index, &references, &mapping_parameters, &sam_output, &aligner);
+                let sam_records = align_single_end_read(&record, &index, &references, &mapping_parameters, &sam_output, &aligner, &mut rng);
                 for sam_record in sam_records {
                     if sam_record.is_mapped() || !args.only_mapped {
                         writeln!(out, "{}", sam_record)?;
