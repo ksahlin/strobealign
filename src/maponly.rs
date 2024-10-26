@@ -1,3 +1,4 @@
+use fastrand::Rng;
 use crate::fasta::RefSequence;
 use crate::fastq::SequenceRecord;
 use crate::index::StrobemerIndex;
@@ -14,8 +15,9 @@ pub fn map_single_end_read(
     index: &StrobemerIndex,
     references: &[RefSequence],
     rescue_level: usize,
+    rng: &mut Rng,
 ) -> Vec<PafRecord> {
-    let (_, nams) = get_nams(&record.sequence, index, rescue_level);
+    let (_, nams) = get_nams(&record.sequence, index, rescue_level, rng);
 
     if nams.is_empty() {
         vec![]
@@ -52,10 +54,11 @@ pub fn map_paired_end_read(
     references: &[RefSequence],
     rescue_level: usize,
     insert_size_distribution: &mut InsertSizeDistribution,
+    rng: &mut Rng,
 ) -> Vec<PafRecord> {
     let nams_pair = [
-        get_nams(&r1.sequence, index, rescue_level).1,
-        get_nams(&r2.sequence, index, rescue_level).1,
+        get_nams(&r1.sequence, index, rescue_level, rng).1,
+        get_nams(&r2.sequence, index, rescue_level, rng).1,
     ];
 
     let best_nam_pair = get_best_paired_map_location(

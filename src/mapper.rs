@@ -295,7 +295,7 @@ pub fn align_single_end_read(
 ) -> Vec<SamRecord> {
     let mut details = Details::default();
 
-    let (was_rescued, mut nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level);
+    let (was_rescued, mut nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, rng);
     details.nam_rescue = was_rescued;
     details.nams = nams.len();
 
@@ -468,7 +468,7 @@ pub fn align_paired_end_read(
 
     for is_revcomp in [0, 1] {
         let record = if is_revcomp == 0 { r1 } else { r2 };
-        let (was_rescued, nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level);
+        let (was_rescued, nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, rng);
         details[is_revcomp].nam_rescue = was_rescued;
         details[is_revcomp].nams = nams.len();
         nams_pair[is_revcomp] = nams;

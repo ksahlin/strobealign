@@ -228,7 +228,7 @@ fn main() -> Result<(), Error> {
                 }
             } else {
                 let paf_records = map_paired_end_read(
-                    &r1, &r2, &index, &references, mapping_parameters.rescue_level, &mut isizedist
+                    &r1, &r2, &index, &references, mapping_parameters.rescue_level, &mut isizedist, &mut rng
                 );
                 for paf_record in paf_records {
                     writeln!(out, "{}", paf_record)?;
@@ -249,7 +249,7 @@ fn main() -> Result<(), Error> {
                     }
                 }
             } else {
-                let paf_records = map_single_end_read(&record, &index, &references, mapping_parameters.rescue_level);
+                let paf_records = map_single_end_read(&record, &index, &references, mapping_parameters.rescue_level, &mut rng);
                 for paf_record in paf_records {
                     writeln!(out, "{}", paf_record)?;
                 }

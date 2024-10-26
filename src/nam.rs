@@ -1,6 +1,7 @@
 use std::cmp::{max, min};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use fastrand::Rng;
 use crate::fasta::RefSequence;
 use crate::index::StrobemerIndex;
 use crate::mapper;
@@ -309,7 +310,7 @@ pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, references: &[RefSequen
 }
 
 // TODO rename
-pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize) -> (bool, Vec<Nam>) {
+pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, rng: &mut Rng) -> (bool, Vec<Nam>) {
     //Timer strobe_timer;
     let query_randstrobes = mapper::randstrobes_query(sequence, &index.parameters);
     //statistics.tot_construct_strobemers += strobe_timer.duration();
@@ -330,8 +331,23 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize) ->
     // Timer nam_sort_timer;
 
     nams.sort_by_key(|k| -(k.score as i32));
-    // TODO shuffle_top_nams(nams, random_engine);
+    shuffle_top_nams(&mut nams, rng);
     // statistics.tot_sort_nams += nam_sort_timer.duration();
 
     (nam_rescue, nams)
+}
+
+/// Shuffle the top-scoring NAMs. Input must be sorted by score.
+/// This helps to ensure we pick a random location in case there are multiple
+/// equally good ones.
+fn shuffle_top_nams(nams: &mut [Nam], rng: &mut Rng) {
+    if let Some(best) = nams.first() {
+        let best_score = best.score;
+
+        let pos = nams.iter().position(|nam| nam.score != best_score);
+        let end = pos.unwrap_or(nams.len());
+        if end > 1 {
+            rng.shuffle(&mut nams[0..end]);
+        }
+    }
 }
