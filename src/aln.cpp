@@ -987,7 +987,7 @@ void shuffle_top_nams(std::vector<Nam>& nams, std::minstd_rand& random_engine) {
     }
     auto best_score = nams[0].score;
     auto it = std::find_if(nams.begin(), nams.end(), [&](const Nam& nam) { return nam.score != best_score; });
-    if (it != nams.end()) {
+    if (it > nams.begin() + 1) {
         std::shuffle(nams.begin(), it, random_engine);
     }
 }
