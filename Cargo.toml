@@ -26,3 +26,6 @@ flate2 = "1.0"
 debug = true
 codegen-units = 1
 lto = true
+
+[profile.dev]
+opt-level = 1
