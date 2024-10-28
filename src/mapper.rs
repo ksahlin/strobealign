@@ -795,8 +795,8 @@ fn rescue_read(
                 }
                 pairs.push(ScoredAlignmentPair {score: score as f64, alignment1: Some(a1.clone()), alignment2: Some(a2.clone())});
             } else {
-                let score = a1.score - 10;
-                pairs.push(ScoredAlignmentPair {score: score as f64, alignment1: Some(a1.clone()), alignment2: None});
+                let score = (a1.score as f64) - 10.0;
+                pairs.push(ScoredAlignmentPair {score, alignment1: Some(a1.clone()), alignment2: None});
             }
         }
     }

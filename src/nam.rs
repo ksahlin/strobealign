@@ -221,7 +221,7 @@ fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, s
                         let n_max_span = max(n.query_span(), n.ref_span());
                         let n_min_span = min(n.query_span(), n.ref_span());
                         let n_score =
-                            if 2 * n_min_span - n_max_span > 0 {
+                            if 2 * n_min_span > n_max_span {
                                 // this is really just n_hits * (min_span - (offset_in_span) ) );
                                 n.n_hits * (2 * n_min_span - n_max_span)
                             } else {
