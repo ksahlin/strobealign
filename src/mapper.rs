@@ -42,7 +42,7 @@ impl Default for MappingParameters {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 struct Alignment {
     reference_id: usize,
     ref_start: usize,
@@ -650,18 +650,18 @@ fn extend_paired_seeds(
     let reads = [read1, read2];
     // Cache for already computed alignments. Maps NAM ids to alignments.
     // TODO rename
-    let mut is_aligned = [HashMap::new(), HashMap::new()];
+    let mut alignment_cache = [HashMap::new(), HashMap::new()];
 
     // These keep track of the alignments that would be best if we treated
     // the paired-end read as two single-end reads.
-    let mut a_indv_max= [Alignment::default(), Alignment::default()];
+    let mut a_indv_max= [None, None];
     for i in 0..2 {
         let consistent_nam = reverse_nam_if_needed(&mut nams[i][0], reads[i], references, k);
         details[i].nam_inconsistent += !consistent_nam as usize;
-        a_indv_max[i] = extend_seed(aligner, &nams[i][0], references, reads[i], consistent_nam).unwrap();
+        a_indv_max[i] = extend_seed(aligner, &nams[i][0], references, reads[i], consistent_nam);
         details[i].tried_alignment += 1;
-        details[i].gapped += a_indv_max[i].gapped as usize;
-        is_aligned[i].insert(nams[i][0].nam_id, a_indv_max[i].clone());
+        details[i].gapped += a_indv_max[i].as_ref().map_or(0, |a| a.score) as usize;
+        alignment_cache[i].insert(nams[i][0].nam_id, a_indv_max[i].clone());
     }
 
     // Turn pairs of high-scoring NAMs into pairs of alignments
@@ -681,36 +681,40 @@ fn extend_paired_seeds(
         // retrieving it from the cache or by attempting a rescue (if the NAM
         // actually is a dummy, that is, only the partner is available)
 
-        let mut alignments = [Alignment::default(), Alignment::default()];
+        let mut alignments = [None, None];
         for i in 0..2 {
-            let mut alignment = Alignment::default();
+            let alignment;
             if let Some(mut this_nam) = namsp[i].clone() {
-                if is_aligned[i].contains_key(&this_nam.nam_id) {
-                    alignment = is_aligned[i].get(&this_nam.nam_id).unwrap().clone();
+                if alignment_cache[i].contains_key(&this_nam.nam_id) {
+                    alignment = alignment_cache[i].get(&this_nam.nam_id).unwrap().clone();
                 } else {
                     let consistent_nam = reverse_nam_if_needed(&mut this_nam, reads[i], references, k);
                     details[i].nam_inconsistent += !consistent_nam as usize;
-                    alignment = extend_seed(aligner, &this_nam, references, reads[i], consistent_nam).unwrap();
+                    alignment = extend_seed(aligner, &this_nam, references, reads[i], consistent_nam);
                     details[i].tried_alignment += 1;
-                    details[i].gapped += alignment.gapped as usize;
-                    is_aligned[i].insert(this_nam.nam_id, alignment.clone());
+                    details[i].gapped += alignment.as_ref().map_or(false, |a| a.gapped) as usize;
+                    alignment_cache[i].insert(this_nam.nam_id, alignment.clone());
                 }
             } else {
                 let mut other_nam = namsp[1-i].clone().unwrap();
                 details[1-i].nam_inconsistent += !reverse_nam_if_needed(&mut other_nam, reads[1-i], references, k) as usize;
-                if let Some(al) = rescue_align(aligner, &other_nam, references, reads[i], mu, sigma, k) {
+                alignment = rescue_align(aligner, &other_nam, references, reads[i], mu, sigma, k);
+                if alignment.is_some() {
                     details[i].mate_rescue += 1;
                     details[i].tried_alignment += 1;
-                    alignment = al;
                 }
             }
-            if alignment.score > a_indv_max[i].score {
+            if alignment.as_ref().map_or(0, |a| a.score) > a_indv_max[i].as_ref().map_or(0, |a| a.score) {
                 a_indv_max[i] = alignment.clone();
             }
             alignments[i] = alignment.clone();
         }
-        let a1 = &alignments[0];
-        let a2 = &alignments[1];
+        
+        if alignments[0].is_none() || alignments[1].is_none() {
+            continue;
+        }
+        let a1 = alignments[0].as_ref().unwrap();
+        let a2 = alignments[1].as_ref().unwrap();
         let r1_r2 = a2.is_revcomp && !a1.is_revcomp && (a1.ref_start <= a2.ref_start) && ((a2.ref_start - a1.ref_start) < (mu + 10.0 * sigma) as usize); // r1 ---> <---- r2
         let r2_r1 = a1.is_revcomp && !a2.is_revcomp && (a2.ref_start <= a1.ref_start) && ((a1.ref_start - a2.ref_start) < (mu + 10.0 * sigma) as usize); // r2 ---> <---- r1
 
@@ -731,8 +735,10 @@ fn extend_paired_seeds(
 
     // Finally, add highest scores of both mates as individually mapped
     // 20 corresponds to  a value of log( normal_pdf(x, mu, sigma ) ) of more than 5 stddevs away (for most reasonable values of stddev)
-    let combined_score = a_indv_max[0].score as f64 + a_indv_max[1].score as f64 - 20.0;
-    alignment_pairs.push(ScoredAlignmentPair {score: combined_score, alignment1: Some(a_indv_max[0].clone()), alignment2: Some(a_indv_max[1].clone())});
+    if let (Some(a1), Some(a2)) = (&a_indv_max[0], &a_indv_max[1]) {
+        let combined_score = a1.score as f64 + a2.score as f64 - 20.0;
+        alignment_pairs.push(ScoredAlignmentPair {score: combined_score, alignment1: Some(a1.clone()), alignment2: Some(a2.clone())});
+    }
 
     AlignedPairs::WithScores(alignment_pairs)
 }
@@ -1128,13 +1134,29 @@ fn top_dropoff(nams: &[Nam]) -> f32 {
 
 #[cfg(test)]
 mod tests {
+    use crate::cigar::Cigar;
     use crate::mapper::{count_best_alignment_pairs, deduplicate_scored_pairs, Alignment, ScoredAlignmentPair};
+
+    fn dummy_alignment() -> Alignment {
+        Alignment {
+            reference_id: 0,
+            ref_start: 0,
+            cigar: Cigar::default(),
+            edit_distance: 0,
+            soft_clip_left: 0,
+            soft_clip_right: 0,
+            score: 0,
+            length: 0,
+            is_revcomp: false,
+            gapped: false,
+        }
+    }
 
     #[test]
     fn test_count_best_alignment_pairs() {
         let mut pairs = vec![];
         fn add_alignment(pairs: &mut Vec<ScoredAlignmentPair>, score: f64) {
-            pairs.push(ScoredAlignmentPair { score, alignment1: Some(Alignment::default()), alignment2: Some(Alignment::default()) });
+            pairs.push(ScoredAlignmentPair { score, alignment1: Some(dummy_alignment()), alignment2: Some(dummy_alignment()) });
         }
 
         assert_eq!(count_best_alignment_pairs(&pairs), 0);
@@ -1157,14 +1179,14 @@ mod tests {
             Alignment {
                 reference_id: 0,
                 ref_start: 1906,
-                ..Alignment::default()
+                .. dummy_alignment()
             },
         );
         let a2 = Some(
             Alignment {
                 reference_id: 0,
                 ref_start: 123,
-                ..Alignment::default()
+                .. dummy_alignment()
             },
         );
         let mut alignment_pairs = vec![
