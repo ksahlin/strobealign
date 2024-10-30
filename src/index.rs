@@ -248,7 +248,8 @@ fn count_all_randstrobes(
                 if j >= references.len() {
                     break;
                 }
-                mutex.lock().unwrap()[j] = count_randstrobes(&references[j].sequence, parameters);
+                let count = count_randstrobes(&references[j].sequence, parameters);
+                mutex.lock().unwrap()[j] = count;
             });
         }
     });
