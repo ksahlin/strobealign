@@ -15,6 +15,7 @@ use rstrobes::insertsize::InsertSizeDistribution;
 use rstrobes::maponly::{map_paired_end_read, map_single_end_read};
 use rstrobes::mapper::{align_paired_end_read, align_single_end_read, MappingParameters, SamOutput};
 use rstrobes::sam::{ReadGroup, SamHeader};
+use rstrobes::io::xopen;
 
 mod logger;
 
@@ -312,20 +313,6 @@ fn estimate_read_length(records: &[SequenceRecord]) -> usize {
     }
 
     if n == 0 { 0 } else { s / n }
-}
-
-/// open compressend or gzip-compressed file depending on extension
-fn xopen<P: AsRef<Path>>(path: P) -> Result<Box<dyn Read>, Error> {
-    let path = path.as_ref();
-    if path == Path::new("-") {
-        Ok(Box::new(io::stdin()))
-    } else {
-        let f = File::open(path)?;
-        match path.extension() {
-            Some(x) if x == "gz" => Ok(Box::new(MultiGzDecoder::new(f))),
-            _ => Ok(Box::new(f)),
-        }
-    }
 }
 
 #[test]

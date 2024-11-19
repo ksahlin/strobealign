@@ -16,4 +16,5 @@ pub mod ssw;
 pub mod details;
 pub mod hash;
 pub mod insertsize;
-mod math;
+pub mod math;
+pub mod io;
