@@ -1,14 +1,14 @@
 use std::{env, io};
 use std::fs::File;
-use std::io::{Error, BufReader, BufWriter, Write, Read};
+use std::io::{Error, BufReader, BufWriter, Write};
+use std::ops::Deref;
 use std::path::Path;
 use std::time::Instant;
 use log::{debug, info};
 use clap::Parser;
 use fastrand::Rng;
-use flate2::read::MultiGzDecoder;
 use rstrobes::aligner::{Aligner, Scores};
-use rstrobes::fastq::{FastqReader, PeekableFastqReader, SequenceRecord};
+use rstrobes::fastq::{record_iterator, PeekableFastqReader, SequenceRecord};
 use rstrobes::fasta;
 use rstrobes::index::{IndexParameters, StrobemerIndex};
 use rstrobes::insertsize::InsertSizeDistribution;
@@ -170,6 +170,8 @@ struct Args {
     fastq_path2: Option<String>,
 }
 
+
+
 fn main() -> Result<(), Error> {
     sigpipe::reset();
     logger::init().unwrap();
@@ -251,50 +253,35 @@ fn main() -> Result<(), Error> {
     }
 
     let mut rng = Rng::with_seed(0);
-    if let Some(r2_path) = args.fastq_path2 {
-        // paired-end reads
-        let f2 = xopen(r2_path)?;
-        let mut isizedist = InsertSizeDistribution::new();
-
-        for (r1, r2) in fastq_reader1.zip(FastqReader::new(f2)) {
-            let r1 = r1?;
-            let r2 = r2?;
-            if !args.map_only {
-                let sam_records = align_paired_end_read(
-                    &r1, &r2, &index, &references, &mapping_parameters, &sam_output, &parameters, &mut isizedist, &aligner, &mut rng
-                );
-                for sam_record in sam_records {
-                    if sam_record.is_mapped() || !args.only_mapped {
-                        writeln!(out, "{}", sam_record)?;
-                    }
+    let records = record_iterator(fastq_reader1, args.fastq_path2.as_ref().map(String::deref))?;
+    let mut isizedist = InsertSizeDistribution::new();
+    for record in records {
+        let (r1, r2) = record?;
+        if !args.map_only {
+            let sam_records =
+                if let Some(r2) = r2 {
+                    align_paired_end_read(
+                        &r1, &r2, &index, &references, &mapping_parameters, &sam_output, &parameters, &mut isizedist, &aligner, &mut rng
+                    )
+                } else {
+                    align_single_end_read(&r1, &index, &references, &mapping_parameters, &sam_output, &aligner, &mut rng)
+                };
+            for sam_record in sam_records {
+                if sam_record.is_mapped() || !args.only_mapped {
+                    writeln!(out, "{}", sam_record)?;
                 }
-            } else {
-                let paf_records = map_paired_end_read(
-                    &r1, &r2, &index, &references, mapping_parameters.rescue_level, &mut isizedist, &mut rng
-                );
-                for paf_record in paf_records {
-                    writeln!(out, "{}", paf_record)?;
-                }
-
             }
-        }
-
-    } else {
-        // single-end reads
-        for record in fastq_reader1 {
-            let record = record?;
-            if !args.map_only {
-                let sam_records = align_single_end_read(&record, &index, &references, &mapping_parameters, &sam_output, &aligner, &mut rng);
-                for sam_record in sam_records {
-                    if sam_record.is_mapped() || !args.only_mapped {
-                        writeln!(out, "{}", sam_record)?;
-                    }
-                }
-            } else {
-                let paf_records = map_single_end_read(&record, &index, &references, mapping_parameters.rescue_level, &mut rng);
-                for paf_record in paf_records {
-                    writeln!(out, "{}", paf_record)?;
-                }
+        } else {
+            let paf_records =
+                if let Some(r2) = r2 {
+                    map_paired_end_read(
+                        &r1, &r2, &index, &references, mapping_parameters.rescue_level, &mut isizedist, &mut rng
+                    )
+                } else {
+                    map_single_end_read(&r1, &index, &references, mapping_parameters.rescue_level, &mut rng)
+                };
+            for paf_record in paf_records {
+                writeln!(out, "{}", paf_record)?;
             }
         }
     }

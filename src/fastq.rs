@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::fmt;
 use std::io::{BufRead, BufReader, BufWriter, Read, Result, Write};
 use std::str;
+use crate::io::xopen;
 
 #[derive(Debug, Clone)]
 pub struct SequenceRecord {
@@ -175,6 +176,32 @@ impl<W: Write> FastqWriter<W> {
     }
 }
 
+/// Iterate over paired-end *or* single-end reads
+pub fn record_iterator<R: Read + 'static>(fastq_reader1: PeekableFastqReader<R>, path_r2: Option<&str>) -> Result<Box<dyn Iterator<Item=Result<(SequenceRecord, Option<SequenceRecord>)>>>> {
+    if let Some(r2_path) = path_r2 {
+        let fastq_reader2 = FastqReader::new(xopen(r2_path)?);
+        Ok(
+            Box::new(
+                fastq_reader1.zip(fastq_reader2).map(
+                    |p|
+                        match p {
+                            (Ok(r1), Ok(r2)) => { Ok((r1, Some(r2))) }
+                            (Err(e), _) => Err(e),
+                            (_, Err(e)) => Err(e),
+                        }
+                )
+            )
+        )
+    } else {
+        Ok(
+            Box::new(
+                fastq_reader1.map(
+                    |r| r.map(|sr| (sr, None))
+                )
+            )
+        )
+    }
+}
 
 #[cfg(test)]
 mod tests {
