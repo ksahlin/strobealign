@@ -59,7 +59,7 @@ struct StrobemerIndex {
 
     // Find first entry that matches the given key
     size_t find_full(randstrobe_hash_t key) const {
-        return find(key, 0);
+        return find(key, RANDSTROBE_HASH_MASK);
     }
 
     /*
@@ -67,17 +67,15 @@ struct StrobemerIndex {
      * least significant bits)
      */
     size_t find_partial(randstrobe_hash_t key) const {
-        return find(key, parameters.randstrobe.aux_len);
+        return find(key, parameters.randstrobe.main_hash_mask);
     }
 
     /*
-     * Find first entry whose hash matches the given key, but ignore the
-     * b least significant bits
+     * Find first entry whose hash matches the given key. Mask both key and
+     * entry by hash_mask.
      */
-    size_t find(randstrobe_hash_t key, uint8_t b) const {
-        const unsigned int aux_len = b;
-        randstrobe_hash_t key_prefix = key >> aux_len;
-
+    size_t find(randstrobe_hash_t key, uint64_t hash_mask) const {
+        randstrobe_hash_t masked_key = key & hash_mask;
         constexpr int MAX_LINEAR_SEARCH = 4;
         const unsigned int top_N = key >> (64 - bits);
         bucket_index_t position_start = randstrobe_start_indices[top_N];
@@ -88,19 +86,20 @@ struct StrobemerIndex {
 
         if (position_end - position_start < MAX_LINEAR_SEARCH) {
             for ( ; position_start < position_end; ++position_start) {
-                if (randstrobes[position_start].hash() >> aux_len == key_prefix) return position_start;
-                if (randstrobes[position_start].hash() >> aux_len > key_prefix) return end();
+                if ((randstrobes[position_start].hash() & hash_mask) == masked_key) return position_start;
+                if ((randstrobes[position_start].hash() & hash_mask) > masked_key) return end();
             }
             return end();
         }
-        auto cmp = [&aux_len](const RefRandstrobe lhs, const RefRandstrobe rhs) {
-            return (lhs.hash() >> aux_len) < (rhs.hash() >> aux_len); };
+        auto cmp = [&hash_mask](const RefRandstrobe lhs, const RefRandstrobe rhs) {
+            return (lhs.hash() & hash_mask) < (rhs.hash() & hash_mask);
+        };
 
         auto pos = std::lower_bound(randstrobes.begin() + position_start,
                                     randstrobes.begin() + position_end,
                                     RefRandstrobe{key, 0, 0, 0, 0},
                                     cmp);
-        if (pos->hash() >> aux_len == key_prefix) return pos - randstrobes.begin();
+        if ((pos->hash() & hash_mask) == masked_key) return pos - randstrobes.begin();
         return end();
     }
 
@@ -114,7 +113,7 @@ struct StrobemerIndex {
 
     randstrobe_hash_t get_main_hash(bucket_index_t position) const {
         if (position < randstrobes.size()) {
-            return randstrobes[position].hash() >> parameters.randstrobe.aux_len;
+            return randstrobes[position].hash() & parameters.randstrobe.main_hash_mask;
         } else {
             return end();
         }
@@ -129,8 +128,7 @@ struct StrobemerIndex {
     }
 
     bool is_partial_filtered(bucket_index_t position) const {
-        const unsigned int shift = parameters.randstrobe.aux_len;
-        return (get_hash(position) >> shift) == (get_hash(position + partial_filter_cutoff) >> shift);
+        return get_main_hash(position) == get_main_hash(position + partial_filter_cutoff);
     }
 
     unsigned int get_strobe1_position(bucket_index_t position) const {
@@ -163,14 +161,14 @@ struct StrobemerIndex {
     }
 
     unsigned int get_count_full(bucket_index_t position) const {
-        return get_count(position, 0);
+        return get_count(position, RANDSTROBE_HASH_MASK);
     }
 
     unsigned int get_count_partial(bucket_index_t position) const {
-        return get_count(position, parameters.randstrobe.aux_len);
+        return get_count(position, parameters.randstrobe.main_hash_mask);
     }
 
-    unsigned int get_count(bucket_index_t position, uint8_t b) const {
+    unsigned int get_count(bucket_index_t position, uint64_t hash_mask) const {
         // For 95% of cases, the result will be small and a brute force search
         // is the best option. Once, we go over MAX_LINEAR_SEARCH, though, we
         // use a binary search to get the next position
@@ -182,10 +180,9 @@ struct StrobemerIndex {
         // seed with the given hash to yield the number of seeds with this hash.
 
         constexpr unsigned int MAX_LINEAR_SEARCH = 8;
-        const unsigned int aux_len = b;
 
         const auto key = randstrobes[position].hash();
-        randstrobe_hash_t key_prefix = key >> aux_len;
+        randstrobe_hash_t masked_key = key & hash_mask;
 
         const unsigned int top_N = key >> (64 - bits);
         bucket_index_t position_end = randstrobe_start_indices[top_N + 1];
@@ -193,16 +190,15 @@ struct StrobemerIndex {
 
         if (position_end - position < MAX_LINEAR_SEARCH) {
             for (bucket_index_t position_start = position + 1; position_start < position_end; ++position_start) {
-                if (randstrobes[position_start].hash() >> aux_len == key_prefix){
+                if ((randstrobes[position_start].hash() & hash_mask) == masked_key) {
                     count += 1;
-                }
-                else{
+                } else {
                     break;
                 }
             }
             return count;
         }
-        auto cmp = [&aux_len](const RefRandstrobe lhs, const RefRandstrobe rhs) {return (lhs.hash() >> aux_len) < (rhs.hash() >> aux_len); };
+        auto cmp = [&hash_mask](const RefRandstrobe lhs, const RefRandstrobe rhs) {return (lhs.hash() & hash_mask) < (rhs.hash() & hash_mask); };
 
         auto pos = std::upper_bound(randstrobes.begin() + position,
                                     randstrobes.begin() + position_end,
@@ -223,8 +219,8 @@ struct StrobemerIndex {
         return bits;
     }
 
-    int get_aux_len() const {
-        return parameters.randstrobe.aux_len;
+    uint64_t get_main_hash_mask() const {
+        return parameters.randstrobe.main_hash_mask;
     }
 
 private:
