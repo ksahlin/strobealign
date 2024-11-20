@@ -51,17 +51,19 @@ static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
  *
  * The syncmer with the smaller hash is designated as the "main", the other is
  * the "auxiliary".
- * The combined hash is obtained by setting the top aux_len bits to the bits of
- * the main hash and the bottom 64 - aux_len bits to the bits of the auxiliary
+ * The combined hash is obtained by setting the top bits to the bits of
+ * the main hash and the bottom bits to the bits of the auxiliary
  * hash. Since entries in the index are sorted by randstrobe hash, this allows
- * us to search for the main syncmer only by masking out the lower aux_len bits.
+ * us to search for the main syncmer only by masking out the lower bits.
  */
-static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_hash_t hash2, size_t aux_len) {
+static inline randstrobe_hash_t randstrobe_hash(
+    syncmer_hash_t hash1, syncmer_hash_t hash2, randstrobe_hash_t main_hash_mask
+) {
     // Make the function symmetric
     if (hash1 > hash2) {
         std::swap(hash1, hash2);
     }
-    return (((hash1 >> aux_len) << aux_len) ^ (hash2 >> (64 - aux_len))) & RANDSTROBE_HASH_MASK;
+    return ((hash1 & main_hash_mask) | (hash2 & ~main_hash_mask)) & RANDSTROBE_HASH_MASK;
 }
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
@@ -161,10 +163,10 @@ std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe) {
     return os;
 }
 
-Randstrobe make_randstrobe(Syncmer strobe1, Syncmer strobe2, int aux_len) {
+Randstrobe make_randstrobe(Syncmer strobe1, Syncmer strobe2, randstrobe_hash_t main_hash_mask) {
     bool first_strobe_is_main = strobe1.hash < strobe2.hash;
     return Randstrobe{
-        randstrobe_hash(strobe1.hash, strobe2.hash, aux_len),
+        randstrobe_hash(strobe1.hash, strobe2.hash, main_hash_mask),
         static_cast<uint32_t>(strobe1.position),
         static_cast<uint32_t>(strobe2.position),
         first_strobe_is_main
@@ -193,7 +195,7 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
         }
     }
 
-    return make_randstrobe(strobe1, strobe2, parameters.aux_len);
+    return make_randstrobe(strobe1, strobe2, parameters.main_hash_mask);
 }
 
 Randstrobe RandstrobeGenerator::next() {
@@ -225,7 +227,7 @@ Randstrobe RandstrobeGenerator::next() {
     }
     syncmers.pop_front();
 
-    return make_randstrobe(strobe1, strobe2, parameters.aux_len);
+    return make_randstrobe(strobe1, strobe2, parameters.main_hash_mask);
 }
 
 /*

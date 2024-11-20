@@ -8,6 +8,9 @@
 void write_int_to_ostream(std::ostream& os, int32_t value);
 int32_t read_int_from_istream(std::istream& is);
 
+void write_uint64_to_ostream(std::ostream& os, uint64_t value);
+uint64_t read_uint64_from_istream(std::istream& is);
+
 /* Write a vector to an output stream, preceded by its length */
 template <typename T>
 void write_vector(std::ostream& os, const std::vector<T>& v) {

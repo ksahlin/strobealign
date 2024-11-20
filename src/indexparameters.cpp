@@ -17,7 +17,7 @@ bool RandstrobeParameters::operator==(const RandstrobeParameters& other) const {
         && this->max_dist == other.max_dist
         && this->w_min == other.w_min
         && this->w_max == other.w_max
-        && this->aux_len == other.aux_len;
+        && this->main_hash_mask == other.main_hash_mask;
 }
 
 /* Pre-defined index parameters that work well for a certain
@@ -78,7 +78,7 @@ IndexParameters IndexParameters::from_read_length(int read_length, int k, int s,
     }
     int q = std::pow(2, c == DEFAULT ? default_c : c) - 1;
     if (aux_len == DEFAULT) {
-        aux_len = 26;
+        aux_len = 17;
     }
 
     return IndexParameters(canonical_read_length, k, s, l, u, q, max_dist, aux_len);
@@ -92,7 +92,7 @@ void IndexParameters::write(std::ostream& os) const {
     write_int_to_ostream(os, randstrobe.w_max);
     write_int_to_ostream(os, randstrobe.q);
     write_int_to_ostream(os, randstrobe.max_dist);
-    write_int_to_ostream(os, randstrobe.aux_len);
+    write_uint64_to_ostream(os, randstrobe.main_hash_mask);
 }
 
 IndexParameters IndexParameters::read(std::istream& is) {
@@ -105,8 +105,8 @@ IndexParameters IndexParameters::read(std::istream& is) {
     uint32_t w_max = read_int_from_istream(is);
     uint64_t q = read_int_from_istream(is);
     int max_dist = read_int_from_istream(is);
-    uint32_t aux_len = read_int_from_istream(is);
-    const RandstrobeParameters randstrobe_parameters{q, max_dist, w_min, w_max, aux_len};
+    uint64_t main_hash_mask = read_uint64_from_istream(is);
+    const RandstrobeParameters randstrobe_parameters{q, max_dist, w_min, w_max, main_hash_mask};
 
     return IndexParameters(canonical_read_length, syncmer_parameters, randstrobe_parameters);
 }
@@ -132,6 +132,26 @@ std::string IndexParameters::filename_extension() const {
     return sstream.str();
 }
 
+std::ostream& operator<<(std::ostream& os, const SyncmerParameters& parameters) {
+    os << "SyncmerParameters("
+        << "k=" << parameters.k
+        << ", s=" << parameters.s
+        << ", t_syncmer=" << parameters.t_syncmer
+        << ")";
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const RandstrobeParameters& parameters) {
+    os << "RandstrobeParameters("
+        << "q=" << parameters.q
+        << ", max_dist=" << parameters.max_dist
+        << ", w_min=" << parameters.w_min
+        << ", w_max=" << parameters.w_max
+        << ", main_hash_mask=0x" << std::hex << parameters.main_hash_mask << std::dec
+        << ")";
+    return os;
+}
+
 std::ostream& operator<<(std::ostream& os, const IndexParameters& parameters) {
     os << "IndexParameters("
         << "r=" << parameters.canonical_read_length
@@ -142,6 +162,7 @@ std::ostream& operator<<(std::ostream& os, const IndexParameters& parameters) {
         << ", max_dist=" << parameters.randstrobe.max_dist
         << ", w_min=" << parameters.randstrobe.w_min
         << ", w_max=" << parameters.randstrobe.w_max
+        << ", main_hash_mask=0x" << std::hex << parameters.randstrobe.main_hash_mask << std::dec
         << ")";
     return os;
 }
