@@ -37,18 +37,14 @@ struct SyncmerParameters {
 };
 
 struct RandstrobeParameters {
-    const int l;
-    const int u;
     const uint64_t q;
     const int max_dist;
     const unsigned w_min;
     const unsigned w_max;
     const unsigned aux_len;
 
-    RandstrobeParameters(int l, int u, uint64_t q, int max_dist, unsigned w_min, unsigned w_max, unsigned aux_len)
-        : l(l)
-        , u(u)
-        , q(q)
+    RandstrobeParameters(uint64_t q, int max_dist, unsigned w_min, unsigned w_max, unsigned aux_len)
+        : q(q)
         , max_dist(max_dist)
         , w_min(w_min)
         , w_max(w_max)
@@ -85,7 +81,14 @@ public:
     IndexParameters(size_t canonical_read_length, int k, int s, int l, int u, int q, int max_dist, int aux_len)
         : canonical_read_length(canonical_read_length)
         , syncmer(k, s)
-        , randstrobe(l, u, q, max_dist, std::max(0, k / (k - s + 1) + l), k / (k - s + 1) + u, aux_len)
+        , randstrobe(q, max_dist, std::max(0, k / (k - s + 1) + l), k / (k - s + 1) + u, aux_len)
+    {
+    }
+
+    IndexParameters(size_t canonical_read_length, SyncmerParameters syncmer, RandstrobeParameters randstrobe)
+        : canonical_read_length(canonical_read_length)
+        , syncmer(syncmer)
+        , randstrobe(randstrobe)
     {
     }
 

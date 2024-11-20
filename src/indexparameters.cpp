@@ -13,9 +13,7 @@ bool SyncmerParameters::operator==(const SyncmerParameters& other) const {
 }
 
 bool RandstrobeParameters::operator==(const RandstrobeParameters& other) const {
-    return this->l == other.l
-        && this->u == other.u
-        && this->q == other.q
+    return this->q == other.q
         && this->max_dist == other.max_dist
         && this->w_min == other.w_min
         && this->w_max == other.w_max
@@ -90,8 +88,8 @@ void IndexParameters::write(std::ostream& os) const {
     write_int_to_ostream(os, canonical_read_length);
     write_int_to_ostream(os, syncmer.k);
     write_int_to_ostream(os, syncmer.s);
-    write_int_to_ostream(os, randstrobe.l);
-    write_int_to_ostream(os, randstrobe.u);
+    write_int_to_ostream(os, randstrobe.w_min);
+    write_int_to_ostream(os, randstrobe.w_max);
     write_int_to_ostream(os, randstrobe.q);
     write_int_to_ostream(os, randstrobe.max_dist);
     write_int_to_ostream(os, randstrobe.aux_len);
@@ -101,12 +99,16 @@ IndexParameters IndexParameters::read(std::istream& is) {
     size_t canonical_read_length = read_int_from_istream(is);
     int k = read_int_from_istream(is);
     int s = read_int_from_istream(is);
-    int l = read_int_from_istream(is);
-    int u = read_int_from_istream(is);
-    int q = read_int_from_istream(is);
+    const SyncmerParameters syncmer_parameters{k, s};
+
+    uint32_t w_min = read_int_from_istream(is);
+    uint32_t w_max = read_int_from_istream(is);
+    uint64_t q = read_int_from_istream(is);
     int max_dist = read_int_from_istream(is);
-    int aux_len = read_int_from_istream(is);
-    return IndexParameters(canonical_read_length, k, s, l, u, q, max_dist, aux_len);
+    uint32_t aux_len = read_int_from_istream(is);
+    const RandstrobeParameters randstrobe_parameters{q, max_dist, w_min, w_max, aux_len};
+
+    return IndexParameters(canonical_read_length, syncmer_parameters, randstrobe_parameters);
 }
 
 bool IndexParameters::operator==(const IndexParameters& other) const {
@@ -136,8 +138,6 @@ std::ostream& operator<<(std::ostream& os, const IndexParameters& parameters) {
         << ", k=" << parameters.syncmer.k
         << ", s=" << parameters.syncmer.s
         << ", t_syncmer=" << parameters.syncmer.t_syncmer
-        << ", l=" << parameters.randstrobe.l
-        << ", u=" << parameters.randstrobe.u
         << ", q=" << parameters.randstrobe.q
         << ", max_dist=" << parameters.randstrobe.max_dist
         << ", w_min=" << parameters.randstrobe.w_min
