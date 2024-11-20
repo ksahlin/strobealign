@@ -119,14 +119,9 @@ public:
     RandstrobeIterator(
         const std::vector<Syncmer>& syncmers,
         RandstrobeParameters parameters
-    ) : syncmers(syncmers)
-      , w_min(parameters.w_min)
-      , w_max(parameters.w_max)
-      , q(parameters.q)
-      , max_dist(parameters.max_dist)
-      , aux_len(parameters.aux_len)
+    ) : syncmers(syncmers), parameters(parameters)
     {
-        if (w_min > w_max) {
+        if (parameters.w_min > parameters.w_max) {
             throw std::invalid_argument("w_min is greater than w_max");
         }
     }
@@ -136,17 +131,14 @@ public:
     }
 
     bool has_next() {
-        return strobe1_index + w_min < syncmers.size();
+        return strobe1_index + parameters.w_min < syncmers.size();
     }
 
 private:
     Randstrobe get(unsigned int strobe1_index) const;
     const std::vector<Syncmer>& syncmers;
-    const unsigned w_min;
-    const unsigned w_max;
-    const uint64_t q;
-    const unsigned int max_dist;
-    const unsigned int aux_len;
+    const RandstrobeParameters parameters;
+
     unsigned strobe1_index = 0;
 };
 
@@ -155,20 +147,18 @@ std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer);
 class SyncmerIterator {
 public:
     SyncmerIterator(const std::string_view seq, SyncmerParameters parameters)
-        : seq(seq), k(parameters.k), s(parameters.s), t(parameters.t_syncmer) { }
+        : seq(seq), parameters(parameters) { }
 
     Syncmer next();
 
 private:
     const std::string_view seq;
-    const size_t k;
-    const size_t s;
-    const size_t t;
+    const SyncmerParameters parameters;
 
-    const uint64_t kmask = (1ULL << 2*k) - 1;
-    const uint64_t smask = (1ULL << 2*s) - 1;
-    const uint64_t kshift = (k - 1) * 2;
-    const uint64_t sshift = (s - 1) * 2;
+    const uint64_t kmask = (1ULL << 2*parameters.k) - 1;
+    const uint64_t smask = (1ULL << 2*parameters.s) - 1;
+    const uint64_t kshift = (parameters.k - 1) * 2;
+    const uint64_t sshift = (parameters.s - 1) * 2;
     std::deque<uint64_t> qs;  // s-mer hashes
     uint64_t qs_min_val = UINT64_MAX;
     size_t qs_min_pos = -1;
@@ -191,11 +181,7 @@ public:
         SyncmerParameters syncmer_parameters,
         RandstrobeParameters randstrobe_parameters
     ) : syncmer_iterator(SyncmerIterator(seq, syncmer_parameters))
-      , w_min(randstrobe_parameters.w_min)
-      , w_max(randstrobe_parameters.w_max)
-      , q(randstrobe_parameters.q)
-      , max_dist(randstrobe_parameters.max_dist)
-      , aux_len(randstrobe_parameters.aux_len)
+      , parameters(randstrobe_parameters)
     { }
 
     Randstrobe next();
@@ -203,11 +189,7 @@ public:
 
 private:
     SyncmerIterator syncmer_iterator;
-    const unsigned w_min;
-    const unsigned w_max;
-    const uint64_t q;
-    const unsigned int max_dist;
-    const unsigned int aux_len;
+    const RandstrobeParameters parameters;
     std::deque<Syncmer> syncmers;
 };
 
