@@ -1179,6 +1179,43 @@ void align_or_map_single(
     auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
     statistics.tot_construct_strobemers += strobe_timer.duration();
 
+    // Try an optimization if the first randstrobe is unique
+    if (query_randstrobes.size() > 0) {
+        auto qr = query_randstrobes.front();
+
+        size_t pos = index.find_full(qr.hash);
+        if (pos != index.end() && index.is_unique(pos)) {
+            size_t ref_pos = index.get_strobe1_position(pos);
+            if (ref_pos >= qr.start) {
+                size_t ref_start = ref_pos - qr.start;
+                size_t ref_id = index.reference_index(pos);
+                std::string_view refseq = references.sequences[ref_id];
+
+                if (refseq.substr(ref_start, record.seq.length()) == record.seq) {
+                    bool is_rc = false; // TODO
+                    std::vector<Nam> nams1{Nam::make_exact_match(ref_id, ref_start, record.seq.length(), is_rc)};
+                    switch (map_param.output_format) {
+                        case OutputFormat::Abundance:
+                            abundances[ref_id] += float(record.seq.length());
+                            break;
+                        case OutputFormat::PAF:
+                            output_hits_paf(outstring, nams1, record.name, references,
+                                            record.seq.length());
+                            break;
+                        case OutputFormat::SAM:
+                            align_single(
+                                aligner, sam, nams1, record, index_parameters.syncmer.k,
+                                references, details, map_param.dropoff_threshold, map_param.max_tries,
+                                map_param.max_secondary, random_engine
+                            );
+                            break;
+                    }
+                    return;
+                }
+            }
+        }
+    }
+
     // Find NAMs
     Timer nam_timer;
     auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
