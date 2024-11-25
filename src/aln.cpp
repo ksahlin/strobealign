@@ -1034,6 +1034,7 @@ void align_or_map_paired(
 
         Timer strobe_timer;
         auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
+        statistics.n_randstrobes += query_randstrobes.size();
         statistics.tot_construct_strobemers += strobe_timer.duration();
 
         // Find NAMs
@@ -1177,6 +1178,7 @@ void align_or_map_single(
     Details details;
     Timer strobe_timer;
     auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
+    statistics.n_randstrobes += query_randstrobes.size();
     statistics.tot_construct_strobemers += strobe_timer.duration();
 
     // Find NAMs
