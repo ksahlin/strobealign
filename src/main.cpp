@@ -365,6 +365,8 @@ int run_strobealign(int argc, char **argv) {
 
     logger.debug()
         << "Number of reads: " << tot_statistics.n_reads << std::endl
+        << "Number of randstrobes: " << tot_statistics.n_randstrobes
+        << " total. Per read: " << static_cast<float>(tot_statistics.n_randstrobes) / tot_statistics.n_reads << std::endl
         << "Number of non-rescue hits: " << tot_statistics.n_hits
         << " total. Per read: " << static_cast<float>(tot_statistics.n_hits) / tot_statistics.n_reads << std::endl
         << "Number of non-rescue NAMs: " << tot_statistics.n_nams
