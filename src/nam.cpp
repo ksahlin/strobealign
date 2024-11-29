@@ -224,25 +224,13 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
             }
 
             // Partial hash found; if full hash exists, it’s somewhere after
-            size_t position;
-            /*
-            position = partial_position;
+            size_t position = partial_position;
+
             while (index.get_hash(position) < q.hash) {
                 position++;
             }
-             */
 
-            if (index.get_hash(partial_position) == q.hash) {
-                // Happy path: partial hash is at same position as full hash
-                position = partial_position;
-                // TODO happy++;
-            } else {
-                // TODO nothappy++;
-                // TODO we could make use of the knowledge that the full hash
-                // must be somewhere after partial_position if it exists
-                position = index.find_full(q.hash);
-            }
-            if (position != index.end()) {
+            if (index.get_hash(position) == q.hash) {
                 // Full hash found
                 total_hits++;
                 if (index.is_filtered(position)) {
