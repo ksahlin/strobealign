@@ -46,6 +46,9 @@ struct StrobemerIndex {
         if (this->bits < 8 || this->bits > 31) {
             throw BadParameter("Bits must be between 8 and 31");
         }
+        if ((parameters.randstrobe.main_hash_mask & (1ul << (64 - this->bits))) == 0) {
+            throw BadParameter("Sum of values for --aux-len and -b must not exceed 55");
+        }
     }
     unsigned int filter_cutoff;
     unsigned int partial_filter_cutoff;
