@@ -214,32 +214,67 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
     int nr_good_hits = 0;
     int total_hits = 0;
     for (const auto &q : query_randstrobes) {
-        size_t position = index.find_full(q.hash);
-        if (position != index.end()) {
-            total_hits++;
-            if (index.is_filtered(position)) {
+        if (use_mcs) {
+            size_t partial_position = index.find_partial(q.hash);
+
+            // If we already cannot find the partial hash, the full hash also
+            // does not exist in the index.
+            if (partial_position == index.end()) {
                 continue;
             }
-            nr_good_hits++;
-            add_to_matches_map_full(matches_map[q.is_reverse], q.start, q.end, index, position);
-        }
-        else if (use_mcs) {
-            PartialHit ph{q.hash & index.get_main_hash_mask(), q.partial_start, q.is_reverse};
-            if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
-                // already queried
-                continue;
+
+            // Partial hash found; if full hash exists, it’s somewhere after
+            size_t position;
+            /*
+            position = partial_position;
+            while (index.get_hash(position) < q.hash) {
+                position++;
             }
-            size_t partial_pos = index.find_partial(q.hash);
-            if (partial_pos != index.end()) {
+             */
+
+            if (index.get_hash(partial_position) == q.hash) {
+                // Happy path: partial hash is at same position as full hash
+                position = partial_position;
+                // TODO happy++;
+            } else {
+                // TODO nothappy++;
+                // TODO we could make use of the knowledge that the full hash
+                // must be somewhere after partial_position if it exists
+                position = index.find_full(q.hash);
+            }
+            if (position != index.end()) {
+                // Full hash found
                 total_hits++;
-                if (index.is_partial_filtered(partial_pos)) {
-                    partial_queried.push_back(ph);
+                if (index.is_filtered(position)) {
                     continue;
                 }
                 nr_good_hits++;
-                add_to_matches_map_partial(matches_map[q.is_reverse], q.partial_start, q.partial_end, index, partial_pos);
+                add_to_matches_map_full(matches_map[q.is_reverse], q.start, q.end, index, position);
+            } else {
+                // No full hash found but a partial one
+                PartialHit ph{q.hash & index.get_main_hash_mask(), q.partial_start, q.is_reverse};
+                if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
+                    // already queried
+                    continue;
+                }
+                partial_queried.push_back(ph);
+                total_hits++;
+                if (index.is_partial_filtered(partial_position)) {
+                    continue;
+                }
+                nr_good_hits++;
+                add_to_matches_map_partial(matches_map[q.is_reverse], q.partial_start, q.partial_end, index, partial_position);
             }
-            partial_queried.push_back(ph);
+        } else {
+            size_t position = index.find_full(q.hash);
+            if (position != index.end()) {
+                total_hits++;
+                if (index.is_filtered(position)) {
+                    continue;
+                }
+                nr_good_hits++;
+                add_to_matches_map_full(matches_map[q.is_reverse], q.start, q.end, index, position);
+            }
         }
     }
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
