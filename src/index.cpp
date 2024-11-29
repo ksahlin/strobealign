@@ -21,7 +21,7 @@
 #include <sstream>
 
 static Logger& logger = Logger::get();
-static const uint32_t STI_FILE_FORMAT_VERSION = 3;
+static const uint32_t STI_FILE_FORMAT_VERSION = 4;
 
 
 namespace {
@@ -159,7 +159,7 @@ void StrobemerIndex::populate(float f, unsigned n_threads) {
     }
     Timer randstrobes_timer;
     logger.debug() << "  Generating randstrobes ...\n";
-    randstrobes.assign(total_randstrobes, RefRandstrobe{0, 0, 0});
+    randstrobes.assign(total_randstrobes, RefRandstrobe{});
     assign_all_randstrobes(randstrobe_counts, n_threads);
     stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
@@ -180,14 +180,14 @@ void StrobemerIndex::populate(float f, unsigned n_threads) {
     randstrobe_start_indices.reserve((1u << bits) + 1);
 
     uint64_t unique_mers = randstrobes.empty() ? 0 : 1;
-    randstrobe_hash_t prev_hash = randstrobes.empty() ? 0 : randstrobes[0].hash;
+    randstrobe_hash_t prev_hash = randstrobes.empty() ? 0 : randstrobes[0].hash();
     unsigned int count = 1;
     // first randstrobe index will always be the 0
     if(!randstrobes.empty()) {
         randstrobe_start_indices.push_back(0);
     }
     for (bucket_index_t position = 1; position < randstrobes.size(); ++position) {
-        const randstrobe_hash_t cur_hash = randstrobes[position].hash;
+        const randstrobe_hash_t cur_hash = randstrobes[position].hash();
         if (cur_hash == prev_hash) {
             ++count;
             continue;
@@ -305,9 +305,13 @@ void StrobemerIndex::assign_randstrobes(size_t ref_index, size_t offset) {
             chunk.push_back(randstrobe);
         }
         for (auto randstrobe : chunk) {
-            RefRandstrobe::packed_t packed = (ref_index << 9) | (randstrobe.first_strobe_is_main << 8);
-            packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
-            randstrobes[offset++] = RefRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, packed};
+            randstrobes[offset++] = RefRandstrobe{
+                randstrobe.hash,
+                randstrobe.strobe1_pos,
+                static_cast<uint32_t>(ref_index),
+                static_cast<uint8_t>(randstrobe.strobe2_pos - randstrobe.strobe1_pos),
+                randstrobe.first_strobe_is_main
+            };
         }
         chunk.clear();
     }

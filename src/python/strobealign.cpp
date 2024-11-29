@@ -109,8 +109,8 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("randstrobe", &IndexParameters::randstrobe)
     ;
     nb::class_<RefRandstrobe>(m, "RefRandstrobe", "Randstrobe on a reference")
-        .def_ro("position", &RefRandstrobe::position)
-        .def_ro("hash", &RefRandstrobe::hash)
+        .def_prop_ro("position", &RefRandstrobe::position)
+        .def_prop_ro("hash", &RefRandstrobe::hash)
         .def_prop_ro("reference_index", &RefRandstrobe::reference_index)
         .def_prop_ro("strobe2_offset", &RefRandstrobe::strobe2_offset)
     ;

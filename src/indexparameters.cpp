@@ -80,7 +80,7 @@ IndexParameters IndexParameters::from_read_length(int read_length, int k, int s,
     }
     int q = std::pow(2, c == DEFAULT ? default_c : c) - 1;
     if (aux_len == DEFAULT) {
-        aux_len = 24;
+        aux_len = 26;
     }
 
     return IndexParameters(canonical_read_length, k, s, l, u, q, max_dist, aux_len);

@@ -101,7 +101,7 @@ int run_dumpstrobes(int argc, char **argv) {
     }
 
     // Seeding
-    int r{150}, k{20}, s{16}, c{8}, l{1}, u{7}, aux_len{24};
+    int r{150}, k{20}, s{16}, c{8}, l{1}, u{7}, aux_len{26};
     int max_seed_len{};
 
     bool k_set{false}, s_set{false}, c_set{false}, max_seed_len_set{false}, l_set{false}, u_set{false};
@@ -162,7 +162,7 @@ int run_dumpstrobes(int argc, char **argv) {
         index.populate(top_filter_fraction, n_threads);
         for (size_t i = 0; i < index.size(); ++i) {
             auto rs = index.get_randstrobe(i);
-            std::cout << rs.hash << "," << rs.position << "," << rs.reference_index() << "," << rs.strobe2_offset() << '\n';
+            std::cout << rs.hash() << "," << rs.position() << "," << rs.reference_index() << "," << rs.strobe2_offset() << '\n';
         }
     } else {
         for (size_t i = 0; i < references.size(); ++i) {

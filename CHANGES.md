@@ -11,6 +11,8 @@
   This feature is currently *experimental* and only enabled when using the
   `--mcs` command-line option.
   Contributed by Ivan Tolstoganov (@Itolstoganov).
+* #421: Allow references with up to 2^32 contigs (instead of 2^23
+  previously) by changing the way randstrobes are stored in the index.
 
 ## v0.14.0 (2024-10-03)
 
@@ -29,6 +31,8 @@
   introduction of multi-context seeds.
   Pre-generated index files (`.sti` files) therefore need to be re-generated.
   (Strobealign will complain if you try to use an outdated index file.)
+  This reduces the number of allowed contigs in a reference from previously
+  2^24 to 2^23.
 
 ## v0.13.0 (2024-03-04)
 
