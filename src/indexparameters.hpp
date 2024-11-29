@@ -93,8 +93,8 @@ public:
     }
 
     void verify(unsigned aux_len) const {
-        if (aux_len > 27) {
-            throw BadParameter("aux_len must be less than 28");
+        if (aux_len < 6 || aux_len > 27) {
+            throw BadParameter("aux_len must be between 6 and 27");
         }
     }
 
