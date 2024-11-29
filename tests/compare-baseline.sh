@@ -39,10 +39,10 @@ tests/download.sh
 
 baseline_commit=$(< tests/baseline-commit.txt)
 
-baseline_bam=baseline/bam/${baseline_commit}.${ends}.bam
+baseline_bam=baseline/bam/${baseline_commit}.${ends}.mcs.bam
 baseline_binary=baseline/strobealign-${baseline_commit}
 cmake_options=-DCMAKE_BUILD_TYPE=RelWithDebInfo
-strobealign_options="-t ${threads}"
+strobealign_options="--mcs -t ${threads}"
 
 # Generate the baseline BAM if necessary
 mkdir -p baseline/bam
