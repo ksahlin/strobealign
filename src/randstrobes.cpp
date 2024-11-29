@@ -51,17 +51,19 @@ static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
  *
  * The syncmer with the smaller hash is designated as the "main", the other is
  * the "auxiliary".
- * The combined hash is obtained by setting the top aux_len bits to the bits of
- * the main hash and the bottom 64 - aux_len bits to the bits of the auxiliary
+ * The combined hash is obtained by setting the top bits to the bits of
+ * the main hash and the bottom bits to the bits of the auxiliary
  * hash. Since entries in the index are sorted by randstrobe hash, this allows
- * us to search for the main syncmer only by masking out the lower aux_len bits.
+ * us to search for the main syncmer only by masking out the lower bits.
  */
-static inline randstrobe_hash_t randstrobe_hash(syncmer_hash_t hash1, syncmer_hash_t hash2, size_t aux_len) {
+static inline randstrobe_hash_t randstrobe_hash(
+    syncmer_hash_t hash1, syncmer_hash_t hash2, randstrobe_hash_t main_hash_mask
+) {
     // Make the function symmetric
     if (hash1 > hash2) {
         std::swap(hash1, hash2);
     }
-    return (((hash1 >> aux_len) << aux_len) ^ (hash2 >> (64 - aux_len))) & RANDSTROBE_HASH_MASK;
+    return ((hash1 & main_hash_mask) | (hash2 & ~main_hash_mask)) & RANDSTROBE_HASH_MASK;
 }
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
@@ -78,7 +80,7 @@ Syncmer SyncmerIterator::next() {
             xk[1] = xk[1] >> 2 | (uint64_t)(3 - c) << kshift;  // reverse strand
             xs[0] = (xs[0] << 2 | c) & smask;                  // forward strand
             xs[1] = xs[1] >> 2 | (uint64_t)(3 - c) << sshift;  // reverse strand
-            if (++l < s) {
+            if (++l < static_cast<size_t>(parameters.s)) {
                 continue;
             }
             // we find an s-mer
@@ -86,14 +88,14 @@ Syncmer SyncmerIterator::next() {
             uint64_t hash_s = syncmer_smer_hash(ys);
             qs.push_back(hash_s);
             // not enough hashes in the queue, yet
-            if (qs.size() < k - s + 1) {
+            if (qs.size() < static_cast<size_t>(parameters.k - parameters.s + 1)) {
                 continue;
             }
-            if (qs.size() == k - s + 1) { // We are at the last s-mer within the first k-mer, need to decide if we add it
+            if (qs.size() == static_cast<size_t>(parameters.k - parameters.s + 1)) { // We are at the last s-mer within the first k-mer, need to decide if we add it
                 for (size_t j = 0; j < qs.size(); j++) {
                     if (qs[j] < qs_min_val) {
                         qs_min_val = qs[j];
-                        qs_min_pos = i - k + j + 1;
+                        qs_min_pos = i - parameters.k + j + 1;
                     }
                 }
             }
@@ -101,23 +103,23 @@ Syncmer SyncmerIterator::next() {
                 // update queue and current minimum and position
                 qs.pop_front();
 
-                if (qs_min_pos == i - k) { // we popped the previous minimizer, find new brute force
+                if (qs_min_pos == i - parameters.k) { // we popped the previous minimizer, find new brute force
                     qs_min_val = UINT64_MAX;
-                    qs_min_pos = i - s + 1;
+                    qs_min_pos = i - parameters.s + 1;
                     for (int j = qs.size() - 1; j >= 0; j--) { //Iterate in reverse to choose the rightmost minimizer in a window
                         if (qs[j] < qs_min_val) {
                             qs_min_val = qs[j];
-                            qs_min_pos = i - k + j + 1;
+                            qs_min_pos = i - parameters.k + j + 1;
                         }
                     }
                 } else if (hash_s < qs_min_val) { // the new value added to queue is the new minimum
                     qs_min_val = hash_s;
-                    qs_min_pos = i - s + 1;
+                    qs_min_pos = i - parameters.s + 1;
                 }
             }
-            if (qs_min_pos == i - k + t) { // occurs at t:th position in k-mer
+            if (qs_min_pos == i - parameters.k + parameters.t_syncmer) { // occurs at t:th position in k-mer
                 uint64_t yk = std::min(xk[0], xk[1]);
-                auto syncmer = Syncmer{syncmer_kmer_hash(yk), i - k + 1};
+                auto syncmer = Syncmer{syncmer_kmer_hash(yk), i - parameters.k + 1};
                 i++;
                 return syncmer;
             }
@@ -161,10 +163,10 @@ std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe) {
     return os;
 }
 
-Randstrobe make_randstrobe(Syncmer strobe1, Syncmer strobe2, int aux_len) {
+Randstrobe make_randstrobe(Syncmer strobe1, Syncmer strobe2, randstrobe_hash_t main_hash_mask) {
     bool first_strobe_is_main = strobe1.hash < strobe2.hash;
     return Randstrobe{
-        randstrobe_hash(strobe1.hash, strobe2.hash, aux_len),
+        randstrobe_hash(strobe1.hash, strobe2.hash, main_hash_mask),
         static_cast<uint32_t>(strobe1.position),
         static_cast<uint32_t>(strobe2.position),
         first_strobe_is_main
@@ -172,11 +174,11 @@ Randstrobe make_randstrobe(Syncmer strobe1, Syncmer strobe2, int aux_len) {
 }
 
 Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
-    unsigned int w_end = std::min(static_cast<size_t>(strobe1_index + w_max), syncmers.size() - 1);
+    unsigned int w_end = std::min(static_cast<size_t>(strobe1_index + parameters.w_max), syncmers.size() - 1);
 
     auto strobe1 = syncmers[strobe1_index];
-    auto max_position = strobe1.position + max_dist;
-    unsigned int w_start = strobe1_index + w_min;
+    auto max_position = strobe1.position + parameters.max_dist;
+    unsigned int w_start = strobe1_index + parameters.w_min;
     uint64_t min_val = std::numeric_limits<uint64_t>::max();
     Syncmer strobe2 = strobe1;
 
@@ -184,7 +186,7 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
         assert(i < syncmers.size());
 
         // Method 3' skew sample more for prob exact matching
-        std::bitset<64> b = (strobe1.hash ^ syncmers[i].hash) & q;
+        std::bitset<64> b = (strobe1.hash ^ syncmers[i].hash) & parameters.q;
         uint64_t res = b.count();
 
         if (res < min_val) {
@@ -193,29 +195,29 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
         }
     }
 
-    return make_randstrobe(strobe1, strobe2, aux_len);
+    return make_randstrobe(strobe1, strobe2, parameters.main_hash_mask);
 }
 
 Randstrobe RandstrobeGenerator::next() {
-    while (syncmers.size() <= w_max) {
+    while (syncmers.size() <= parameters.w_max) {
         Syncmer syncmer = syncmer_iterator.next();
         if (syncmer.is_end()) {
             break;
         }
         syncmers.push_back(syncmer);
     }
-    if (syncmers.size() <= w_min) {
+    if (syncmers.size() <= parameters.w_min) {
         return RandstrobeGenerator::end();
     }
     auto strobe1 = syncmers[0];
-    auto max_position = strobe1.position + max_dist;
+    auto max_position = strobe1.position + parameters.max_dist;
     uint64_t min_val = std::numeric_limits<uint64_t>::max();
     Syncmer strobe2 = strobe1; // Default if no nearby syncmer
 
-    for (auto i = w_min; i < syncmers.size() && syncmers[i].position <= max_position; i++) {
-        assert(i <= w_max);
+    for (auto i = parameters.w_min; i < syncmers.size() && syncmers[i].position <= max_position; i++) {
+        assert(i <= parameters.w_max);
         // Method 3' skew sample more for prob exact matching
-        std::bitset<64> b = (strobe1.hash ^ syncmers[i].hash) & q;
+        std::bitset<64> b = (strobe1.hash ^ syncmers[i].hash) & parameters.q;
         uint64_t res = b.count();
 
         if (res < min_val) {
@@ -225,7 +227,7 @@ Randstrobe RandstrobeGenerator::next() {
     }
     syncmers.pop_front();
 
-    return make_randstrobe(strobe1, strobe2, aux_len);
+    return make_randstrobe(strobe1, strobe2, parameters.main_hash_mask);
 }
 
 /*

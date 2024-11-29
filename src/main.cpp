@@ -230,7 +230,8 @@ int run_strobealign(int argc, char **argv) {
         throw InvalidFasta("Too many reference sequences. Current maximum is " + std::to_string(RefRandstrobe::max_number_of_references));
     }
 
-    logger.debug() << "Auxiliary hash length: " << index_parameters.randstrobe.aux_len << "\n";
+    logger.debug() << "Auxiliary hash length: " << opt.aux_len << "\n";
+    logger.debug() << "Base hash mask: " << std::hex << index_parameters.randstrobe.main_hash_mask << std::dec << '\n';
     logger.info() << "Using multi-context seeds: " << (map_param.use_mcs ? "yes" : "no") << '\n';
     StrobemerIndex index(references, index_parameters, opt.bits);
     if (opt.use_index) {

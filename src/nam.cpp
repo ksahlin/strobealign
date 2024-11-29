@@ -234,7 +234,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
     int total_hits = 0;
     for (const auto &q : query_randstrobes) {
         size_t position = index.find_full(q.hash);
-        if (position != index.end()){
+        if (position != index.end()) {
             total_hits++;
             if (index.is_filtered(position)) {
                 continue;
@@ -243,7 +243,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
             add_to_matches_map_full(matches_map[q.is_reverse], q.start, q.end, index, position);
         }
         else if (use_mcs) {
-            PartialHit ph{q.hash >> index.get_aux_len(), q.partial_start, q.is_reverse};
+            PartialHit ph{q.hash & index.get_main_hash_mask(), q.partial_start, q.is_reverse};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
                 continue;
@@ -312,7 +312,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
             }
         }
         else if (use_mcs) {
-            PartialHit ph = {qr.hash >> index.get_aux_len(), qr.partial_start, qr.is_reverse};
+            PartialHit ph = {qr.hash & index.get_main_hash_mask(), qr.partial_start, qr.is_reverse};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
                 continue;
