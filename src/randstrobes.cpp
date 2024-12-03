@@ -95,26 +95,24 @@ Syncmer SyncmerIterator::next() {
                 for (size_t j = 0; j < qs.size(); j++) {
                     if (qs[j] <= qs_min_val) {
                         qs_min_val = qs[j];
-                        qs_min_pos = i - parameters.k + j + 1;
                     }
                 }
             }
             else {
                 // update queue and current minimum and position
+                uint64_t front = qs.front();
                 qs.pop_front();
 
-                if (qs_min_pos == i - parameters.k) { // we popped the previous minimizer, find new brute force
+                if (front == qs_min_val) {
+                    // we popped a minimum, find new brute force
                     qs_min_val = UINT64_MAX;
-                    qs_min_pos = i - parameters.s + 1;
                     for (size_t j = 0; j < qs.size(); j++) {
                         if (qs[j] <= qs_min_val) {
                             qs_min_val = qs[j];
-                            qs_min_pos = i - parameters.k + j + 1;
                         }
                     }
                 } else if (hash_s < qs_min_val) { // the new value added to queue is the new minimum
                     qs_min_val = hash_s;
-                    qs_min_pos = i - parameters.s + 1;
                 }
             }
             if (qs[parameters.t_syncmer - 1] == qs_min_val) { // occurs at t:th position in k-mer
@@ -126,7 +124,6 @@ Syncmer SyncmerIterator::next() {
         } else {
             // if there is an "N", restart
             qs_min_val = UINT64_MAX;
-            qs_min_pos = -1;
             l = xs[0] = xs[1] = xk[0] = xk[1] = 0;
             qs.clear();
         }
