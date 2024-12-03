@@ -91,7 +91,7 @@ Syncmer SyncmerIterator::next() {
             }
             if (qs.size() == k - s + 1) { // We are at the last s-mer within the first k-mer, need to decide if we add it
                 for (size_t j = 0; j < qs.size(); j++) {
-                    if (qs[j] < qs_min_val) {
+                    if (qs[j] <= qs_min_val) {
                         qs_min_val = qs[j];
                         qs_min_pos = i - k + j + 1;
                     }
