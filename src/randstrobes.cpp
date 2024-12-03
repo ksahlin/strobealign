@@ -106,8 +106,8 @@ Syncmer SyncmerIterator::next() {
                 if (qs_min_pos == i - parameters.k) { // we popped the previous minimizer, find new brute force
                     qs_min_val = UINT64_MAX;
                     qs_min_pos = i - parameters.s + 1;
-                    for (int j = qs.size() - 1; j >= 0; j--) { //Iterate in reverse to choose the rightmost minimizer in a window
-                        if (qs[j] < qs_min_val) {
+                    for (size_t j = 0; j < qs.size(); j++) {
+                        if (qs[j] <= qs_min_val) {
                             qs_min_val = qs[j];
                             qs_min_pos = i - parameters.k + j + 1;
                         }
