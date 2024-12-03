@@ -117,7 +117,7 @@ Syncmer SyncmerIterator::next() {
                     qs_min_pos = i - parameters.s + 1;
                 }
             }
-            if (qs_min_pos == i - parameters.k + parameters.t_syncmer) { // occurs at t:th position in k-mer
+            if (qs[parameters.t_syncmer - 1] == qs_min_val) { // occurs at t:th position in k-mer
                 uint64_t yk = std::min(xk[0], xk[1]);
                 auto syncmer = Syncmer{syncmer_kmer_hash(yk), i - parameters.k + 1};
                 i++;
