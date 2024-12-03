@@ -2,7 +2,7 @@
 #include "randstrobes.hpp"
 
 
-TEST_CASE("test RefRandstrobe constructor") {
+TEST_CASE("RefRandstrobe constructor") {
     randstrobe_hash_t hash = 0x1234567890ABCDEF & RANDSTROBE_HASH_MASK;
     uint32_t position = ~0u;
     uint32_t ref_index = RefRandstrobe::max_number_of_references - 1;
@@ -15,4 +15,18 @@ TEST_CASE("test RefRandstrobe constructor") {
     CHECK(rr.reference_index() == ref_index);
     CHECK(rr.strobe2_offset() == offset);
     CHECK(rr.first_strobe_is_main() == first_strobe_is_main);
+}
+
+TEST_CASE("SyncmerIterator") {
+    std::string seq{"AAAAAAAAAAAAAAAAAAAA"};
+    CHECK(seq.size() == 20);
+
+    SyncmerParameters parameters{8, 4};
+    CHECK(parameters.t_syncmer == 3);
+    SyncmerIterator si{seq, parameters};
+
+    Syncmer syncmer;
+    syncmer = si.next();
+    CHECK(!syncmer.is_end());
+    CHECK(syncmer.position == 2ul);
 }
