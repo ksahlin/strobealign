@@ -29,8 +29,8 @@ private:
 public:
     RefRandstrobe() : m_hash_offset_flag(0), m_position(0), m_ref_index(0) { }
 
-    RefRandstrobe(randstrobe_hash_t hash, uint32_t position, uint32_t ref_index, uint8_t offset, bool first_strobe_is_main)
-        : m_hash_offset_flag((hash & RANDSTROBE_HASH_MASK) | (offset << 2) | first_strobe_is_main)
+    RefRandstrobe(randstrobe_hash_t hash, uint32_t position, uint32_t ref_index, uint8_t offset, bool first_strobe_is_main, bool is_filtered)
+        : m_hash_offset_flag((hash & RANDSTROBE_HASH_MASK) | (offset << 2) | (is_filtered << 1) | first_strobe_is_main)
         , m_position(position)
         , m_ref_index(ref_index)
     { }
@@ -63,6 +63,14 @@ public:
 
     uint32_t position() const {
         return m_position;
+    }
+
+    bool is_filtered() const {
+        return (m_hash_offset_flag & 2) != 0;
+    }
+
+    void set_filtered() {
+        m_hash_offset_flag |= 2;
     }
 
     static constexpr size_t max_number_of_references = (1ul << 32) - 1;
