@@ -1,5 +1,38 @@
 #include "doctest.h"
 #include "randstrobes.hpp"
+#include "revcomp.hpp"
+#include "refs.hpp"
+
+
+std::vector<Syncmer> syncmers_of(std::string& seq, SyncmerParameters parameters) {
+    SyncmerIterator iterator{seq, parameters};
+    std::vector<Syncmer> syncmers;
+    Syncmer syncmer;
+    while (!(syncmer = iterator.next()).is_end()) {
+        syncmers.push_back(syncmer);
+    }
+
+    return syncmers;
+}
+
+TEST_CASE("SyncmerIterator yields canonical syncmers") {
+    SyncmerParameters parameters{20, 16};
+    std::vector<std::string> seqs;
+    seqs.push_back(References::from_fasta("tests/phix.fasta").sequences[0]);
+    seqs.push_back("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    for (std::string& seq : seqs) {
+        std::string seq_reverse = reverse_complement(seq);
+        std::vector<Syncmer> syncmers_forward = syncmers_of(seq, parameters);
+        std::vector<Syncmer> syncmers_reverse = syncmers_of(seq_reverse, parameters);
+
+        std::reverse(syncmers_reverse.begin(), syncmers_reverse.end());
+        for (auto& it : syncmers_reverse) {
+            it.position = seq.size() - parameters.k - it.position;
+        }
+
+        CHECK(syncmers_forward == syncmers_reverse);
+    }
+}
 
 
 TEST_CASE("RefRandstrobe constructor") {

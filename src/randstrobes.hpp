@@ -109,6 +109,10 @@ struct Syncmer {
     bool is_end() const {
         return hash == 0 && position == 0;
     }
+
+    bool operator==(const Syncmer& rhs) const {
+        return this->hash == rhs.hash && this->position == rhs.position;
+    }
 };
 
 /*
