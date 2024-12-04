@@ -244,6 +244,16 @@ void StrobemerIndex::populate(float f, unsigned n_threads) {
     partial_filter_cutoff = filter_cutoff;
     stats.elapsed_hash_index = hash_index_timer.duration();
     stats.distinct_strobemers = unique_mers;
+
+    // TODO
+    if (true) { //(filter_cutoff >= randstrobes.size()) {
+        // TODO do not work on last filter_cutoff randstrobes
+        for (size_t i = 0; i < randstrobes.size(); ++i) {
+            if (get_hash(i) == get_hash(i + filter_cutoff)) {
+                randstrobes[i].set_filtered();
+            }
+        }
+    }
 }
 
 void StrobemerIndex::assign_all_randstrobes(const std::vector<uint64_t>& randstrobe_counts, size_t n_threads) {
@@ -309,7 +319,8 @@ void StrobemerIndex::assign_randstrobes(size_t ref_index, size_t offset) {
                 randstrobe.hash,
                 randstrobe.strobe1_pos,
                 static_cast<uint32_t>(ref_index),
-                static_cast<uint8_t>(randstrobe.strobe2_pos - randstrobe.strobe1_pos)
+                static_cast<uint8_t>(randstrobe.strobe2_pos - randstrobe.strobe1_pos),
+                0
             };
         }
         chunk.clear();
