@@ -15,7 +15,7 @@ TEST_CASE("test IndexParameters constructor") {
     int max_dist = 180;
     uint64_t q = 255;
     uint64_t main_hash_mask = 0xfffffffffc000000;
-    int aux_len = 17;
+    int aux_len = 16;
 
     SyncmerParameters sp{k, s};
     RandstrobeParameters rp{q, max_dist, w_min, w_max, main_hash_mask};

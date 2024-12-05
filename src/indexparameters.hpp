@@ -7,6 +7,7 @@
 #include <limits>
 #include "exceptions.hpp"
 
+static const int DEFAULT_AUXLEN = 16;
 
 struct SyncmerParameters {
     const int k;
@@ -80,7 +81,7 @@ public:
     IndexParameters(size_t canonical_read_length, int k, int s, int l, int u, uint64_t q, int max_dist, int aux_len)
         : canonical_read_length(canonical_read_length)
         , syncmer(k, s)
-        , randstrobe(q, max_dist, std::max(0, k / (k - s + 1) + l), k / (k - s + 1) + u, ~0ul << (9 + aux_len))
+        , randstrobe(q, max_dist, std::max(0, k / (k - s + 1) + l), k / (k - s + 1) + u, ~0ul << (10 + aux_len))
     {
         verify(aux_len);
     }
