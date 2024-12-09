@@ -109,6 +109,10 @@ struct Syncmer {
     bool is_end() const {
         return hash == 0 && position == 0;
     }
+
+    bool operator==(const Syncmer& rhs) const {
+        return this->hash == rhs.hash && this->position == rhs.position;
+    }
 };
 
 /*
@@ -171,7 +175,6 @@ private:
     const uint64_t sshift = (s - 1) * 2;
     std::deque<uint64_t> qs;  // s-mer hashes
     uint64_t qs_min_val = UINT64_MAX;
-    size_t qs_min_pos = -1;
     size_t l = 0;
     uint64_t xk[2] = {0, 0};
     uint64_t xs[2] = {0, 0};
