@@ -72,8 +72,9 @@ std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
 }
 
 Syncmer SyncmerIterator::next() {
+    size_t prev_i = i;
+    uint64_t prev_kmer = xk[0];
     for ( ; i < seq.length(); ++i) {
-//    for (size_t i = 0; i < seq.length(); i++) {
         int c = seq_nt4_table[(uint8_t) seq[i]];
         if (c < 4) { // not an "N" base
             xk[0] = (xk[0] << 2 | c) & kmask;                  // forward strand
@@ -115,6 +116,10 @@ Syncmer SyncmerIterator::next() {
                     qs_min_val = hash_s;
                 }
             }
+            if (xk[0] == prev_kmer && i < prev_i + (parameters.k - parameters.s)) {
+                continue;
+            }
+
             if (qs[parameters.t_syncmer - 1] == qs_min_val) { // occurs at t:th position in k-mer
                 uint64_t yk = std::min(xk[0], xk[1]);
                 auto syncmer = Syncmer{syncmer_kmer_hash(yk), i - parameters.k + 1};

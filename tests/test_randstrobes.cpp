@@ -62,4 +62,8 @@ TEST_CASE("SyncmerIterator") {
     syncmer = si.next();
     CHECK(!syncmer.is_end());
     CHECK(syncmer.position == 0ul);
+
+    syncmer = si.next();
+    CHECK(!syncmer.is_end());
+    CHECK(syncmer.position > 1ul);
 }
