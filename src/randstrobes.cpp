@@ -114,10 +114,10 @@ Syncmer SyncmerIterator::next() {
                     qs_min_val = hash_s;
                 }
             }
-            if (xk[0] == prev_kmer && i < prev_i + (k - s)) {
+            // Ignore repetitive k-mers
+            if (((xk[0] << 4) & kmask) == (xk[0] & ~0xf)) {
                 continue;
             }
-
             if (qs[t-1] == qs_min_val) { // occurs at t:th position in k-mer
                 uint64_t yk = std::min(xk[0], xk[1]);
                 auto syncmer = Syncmer{syncmer_kmer_hash(yk), i - k + 1};
