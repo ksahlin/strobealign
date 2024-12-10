@@ -70,8 +70,9 @@ std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
 }
 
 Syncmer SyncmerIterator::next() {
+    size_t prev_i = i;
+    uint64_t prev_kmer = xk[0];
     for ( ; i < seq.length(); ++i) {
-//    for (size_t i = 0; i < seq.length(); i++) {
         int c = seq_nt4_table[(uint8_t) seq[i]];
         if (c < 4) { // not an "N" base
             xk[0] = (xk[0] << 2 | c) & kmask;                  // forward strand
@@ -91,31 +92,33 @@ Syncmer SyncmerIterator::next() {
             }
             if (qs.size() == k - s + 1) { // We are at the last s-mer within the first k-mer, need to decide if we add it
                 for (size_t j = 0; j < qs.size(); j++) {
-                    if (qs[j] < qs_min_val) {
+                    if (qs[j] <= qs_min_val) {
                         qs_min_val = qs[j];
-                        qs_min_pos = i - k + j + 1;
                     }
                 }
             }
             else {
                 // update queue and current minimum and position
+                uint64_t front = qs.front();
                 qs.pop_front();
 
-                if (qs_min_pos == i - k) { // we popped the previous minimizer, find new brute force
+                if (front == qs_min_val) {
+                    // we popped a minimum, find new brute force
                     qs_min_val = UINT64_MAX;
-                    qs_min_pos = i - s + 1;
-                    for (int j = qs.size() - 1; j >= 0; j--) { //Iterate in reverse to choose the rightmost minimizer in a window
-                        if (qs[j] < qs_min_val) {
+                    for (size_t j = 0; j < qs.size(); j++) {
+                        if (qs[j] <= qs_min_val) {
                             qs_min_val = qs[j];
-                            qs_min_pos = i - k + j + 1;
                         }
                     }
                 } else if (hash_s < qs_min_val) { // the new value added to queue is the new minimum
                     qs_min_val = hash_s;
-                    qs_min_pos = i - s + 1;
                 }
             }
-            if (qs_min_pos == i - k + t) { // occurs at t:th position in k-mer
+            // Ignore repetitive k-mers
+            if (((xk[0] << 4) & kmask) == (xk[0] & ~0xf)) {
+                continue;
+            }
+            if (qs[t-1] == qs_min_val) { // occurs at t:th position in k-mer
                 uint64_t yk = std::min(xk[0], xk[1]);
                 auto syncmer = Syncmer{syncmer_kmer_hash(yk), i - k + 1};
                 i++;
@@ -124,7 +127,6 @@ Syncmer SyncmerIterator::next() {
         } else {
             // if there is an "N", restart
             qs_min_val = UINT64_MAX;
-            qs_min_pos = -1;
             l = xs[0] = xs[1] = xk[0] = xk[1] = 0;
             qs.clear();
         }
