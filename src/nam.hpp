@@ -33,6 +33,22 @@ struct Nam {
     int projected_ref_start() const {
         return std::max(0, ref_start - query_start);
     }
+
+    static Nam make_exact_match(int ref_id, int ref_start, int length, bool is_rc) {
+        return Nam{
+            0, // nam_id
+            0, // query_start
+            length, // query_end
+            0, // query_prev_match_startpos
+            ref_start,
+            ref_start + length, // ref_end
+            0, // ref_prev_match_startpos
+            0, // n_matches
+            ref_id,
+            0, // score
+            is_rc
+        };
+    }
 };
 
 std::tuple<float, int, std::vector<Nam>> find_nams(
