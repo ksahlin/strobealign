@@ -13,6 +13,8 @@
   Contributed by Ivan Tolstoganov (@Itolstoganov).
 * #421: Allow references with up to 2^32 contigs (instead of 2^23
   previously) by changing the way randstrobes are stored in the index.
+* #467: Reading a reference with many small references was sped up.
+  Contributed by @luispedro.
 
 ## v0.14.0 (2024-10-03)
 
