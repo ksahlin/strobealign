@@ -8,11 +8,12 @@ TEST_CASE("test RefRandstrobe constructor") {
     uint32_t ref_index = RefRandstrobe::max_number_of_references - 1;
     uint8_t offset = 255;
     bool first_strobe_is_main = true;
-    RefRandstrobe rr{hash, position, ref_index, offset, first_strobe_is_main};
+    RefRandstrobe rr{hash, position, ref_index, offset, first_strobe_is_main, true};
 
     CHECK(rr.hash() == hash);
     CHECK(rr.position() == position);
     CHECK(rr.reference_index() == ref_index);
     CHECK(rr.strobe2_offset() == offset);
     CHECK(rr.first_strobe_is_main() == first_strobe_is_main);
+    CHECK(rr.is_filtered());
 }
