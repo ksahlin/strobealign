@@ -1,6 +1,6 @@
 # Strobealign Changelog
 
-## Development version
+## v0.15.0 (2024-12-13)
 
 * #388 and #426: Increase accuracy and mapping rate for reads shorter than
   about 200 bp by introducing multi-context seeds.
