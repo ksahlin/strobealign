@@ -134,6 +134,10 @@ struct StrobemerIndex {
         return get_main_hash(position) == get_main_hash(position + partial_filter_cutoff);
     }
 
+    bool is_unique(bucket_index_t position) const {
+        return get_hash(position) != get_hash(position + 1);
+    }
+
     unsigned int get_strobe1_position(bucket_index_t position) const {
         return randstrobes[position].position();
     }
