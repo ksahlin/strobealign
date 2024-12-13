@@ -1,5 +1,9 @@
 # Strobealign Changelog
 
+## development version
+
+* #468: Be less strict when checking reference sequence names.
+
 ## v0.15.0 (2024-12-13)
 
 * #388 and #426: Increase accuracy and mapping rate for reads shorter than

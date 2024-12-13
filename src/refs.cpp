@@ -31,35 +31,18 @@ void check_no_duplicates(const std::vector<std::string>& names) {
     }
 }
 
-
-// SAM spec says that reference names must match the following regex:
-// [0-9A-Za-z!#$%&+./:;?@^_|~-][0-9A-Za-z!#$%&*+./:;=?@^_|~-]*
-
-bool _is_valid_first_char(char c) {
-    return (c >= '0' && c <= '9') ||
-            (c >= 'A' && c <= 'Z') ||
-            (c >= 'a' && c <= 'z') ||
-            c == '!' || c == '#' || c == '$' || c == '%' ||
-            c == '&' || c == '+' || c == '.' || c == '/' ||
-            c == ':' || c == ';' || c == '?' || c == '@' ||
-            c == '^' || c == '_' || c == '|' || c == '~' ||
-            c == '-';
-}
-
-bool _is_valid_char(char c) {
-    return _is_valid_first_char(c) || c == '*' || c == '=';
-}
-
-bool is_valid_sam_name(const std::string& name) {
-    // From SAM specification 1.2.1
+// Check whether a name is fine to use in SAM output.
+// The SAM specification is much stricter than this and forbids these
+// characters: "\'()*,<=>[\\]`{}
+// However, because even samtools itself does not complain when it encounters
+// one of them, contig names with these characters *are* used in practice, so
+// we only do some basic checks.
+bool is_valid_name(const std::string& name) {
     if (name.empty()) {
         return false;
     }
-    if (!_is_valid_first_char(name[0])) {
-        return false;
-    }
-    for (size_t i = 1; i < name.size(); ++i) {
-        if (!_is_valid_char(name[i])) {
+    for (auto c : name) {
+        if (c < 33 || c > 126) {
             return false;
         }
     }
@@ -102,9 +85,9 @@ References references_from_stream(T& stream) {
                 name = space < line.length() ? line.substr(1, space - 1) : line.substr(1);
 
                 // Check the name is valid for the SAM output
-                if (!is_valid_sam_name(name)) {
+                if (!is_valid_name(name)) {
                     std::ostringstream oss;
-                    oss << "FASTA file has SAM-incompatible reference sequence name '"
+                    oss << "FASTA file has invalid reference sequence name '"
                         << name << "' on line " << line_num;
                     throw InvalidFasta(oss.str().c_str());
                 }
