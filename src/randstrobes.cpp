@@ -56,14 +56,16 @@ static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
  * hash. Since entries in the index are sorted by randstrobe hash, this allows
  * us to search for the main syncmer only by masking out the lower bits.
  */
-static inline randstrobe_hash_t randstrobe_hash(
+static inline std::pair<randstrobe_hash_t, bool> randstrobe_hash(
     syncmer_hash_t hash1, syncmer_hash_t hash2, randstrobe_hash_t main_hash_mask
 ) {
+    bool first_strobe_is_main = true;
     // Make the function symmetric
     if (hash1 > hash2) {
+        first_strobe_is_main = false;
         std::swap(hash1, hash2);
     }
-    return ((hash1 & main_hash_mask) | (hash2 & ~main_hash_mask)) & RANDSTROBE_HASH_MASK;
+    return {((hash1 & main_hash_mask) | (hash2 & ~main_hash_mask)) & RANDSTROBE_HASH_MASK, first_strobe_is_main};
 }
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
@@ -161,9 +163,9 @@ std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe) {
 }
 
 Randstrobe make_randstrobe(Syncmer strobe1, Syncmer strobe2, randstrobe_hash_t main_hash_mask) {
-    bool first_strobe_is_main = strobe1.hash < strobe2.hash;
+    auto [hash, first_strobe_is_main] =  randstrobe_hash(strobe1.hash, strobe2.hash, main_hash_mask);
     return Randstrobe{
-        randstrobe_hash(strobe1.hash, strobe2.hash, main_hash_mask),
+        hash,
         static_cast<uint32_t>(strobe1.position),
         static_cast<uint32_t>(strobe2.position),
         first_strobe_is_main
