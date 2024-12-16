@@ -58,23 +58,10 @@ static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
 static inline std::pair<randstrobe_hash_t, bool> randstrobe_hash(
     syncmer_hash_t hash1, syncmer_hash_t hash2, randstrobe_hash_t main_hash_mask
 ) {
-    // Base hash selection method:
-    // Pick odd hash as main. If there’s a tie, pick the one with smaller value
     bool first_strobe_is_main = true;
-    bool hash1_is_odd = hash1 % 2 != 0;
-    bool hash2_is_odd = hash2 % 2 != 0;
-    if (hash1_is_odd == hash2_is_odd) {
-        // tie, let hash value decide
-        if (hash1 > hash2) {
-            first_strobe_is_main = false;
-            std::swap(hash1, hash2);
-        }
-    } else {
-        if (hash2_is_odd) {
-            assert(!hash1_is_odd);
-            first_strobe_is_main = false;
-            std::swap(hash1, hash2);
-        }
+    if (((hash1 ^ hash2) & 1) == 1) {
+        first_strobe_is_main = false;
+        std::swap(hash1, hash2);
     }
     return {((hash1 & main_hash_mask) | (hash2 & ~main_hash_mask)) & RANDSTROBE_HASH_MASK, first_strobe_is_main};
 }
