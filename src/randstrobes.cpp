@@ -49,8 +49,7 @@ static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
  * This function combines two individual syncmer hashes into a single hash
  * for the randstrobe.
  *
- * The syncmer with the smaller hash is designated as the "main", the other is
- * the "auxiliary".
+ * One syncmer is designated as the "main", the other is the "auxiliary".
  * The combined hash is obtained by setting the top bits to the bits of
  * the main hash and the bottom bits to the bits of the auxiliary
  * hash. Since entries in the index are sorted by randstrobe hash, this allows
@@ -60,8 +59,7 @@ static inline std::pair<randstrobe_hash_t, bool> randstrobe_hash(
     syncmer_hash_t hash1, syncmer_hash_t hash2, randstrobe_hash_t main_hash_mask
 ) {
     bool first_strobe_is_main = true;
-    // Make the function symmetric
-    if (hash1 > hash2) {
+    if (((hash1 ^ hash2) & 1) == 1) {
         first_strobe_is_main = false;
         std::swap(hash1, hash2);
     }
