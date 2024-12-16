@@ -14,13 +14,17 @@ python3 -c 'import pysam'
 
 ends="pe"
 threads=4
-while getopts "st:" opt; do
+mcs=0
+while getopts "st:m" opt; do
   case "${opt}" in
     t)
       threads=$OPTARG
       ;;
     s)
       ends=se  # single-end reads
+      ;;
+    m)
+      mcs=1
       ;;
     \?)
       exit 1
@@ -39,10 +43,15 @@ tests/download.sh
 
 baseline_commit=$(< tests/baseline-commit.txt)
 
-baseline_bam=baseline/bam/${baseline_commit}.${ends}.bam
 baseline_binary=baseline/strobealign-${baseline_commit}
 cmake_options=-DCMAKE_BUILD_TYPE=RelWithDebInfo
+extra_ext=""
 strobealign_options="-t ${threads}"
+if [[ ${mcs} == 1 ]]; then
+  extra_ext=".mcs"
+  strobealign_options="${strobealign_options} --mcs"
+fi
+baseline_bam=baseline/bam/${baseline_commit}.${ends}${extra_ext}.bam
 
 # Generate the baseline BAM if necessary
 mkdir -p baseline/bam
