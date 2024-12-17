@@ -66,19 +66,19 @@ TEST_CASE("Reference gzipped") {
     CHECK(refs.sequences[0] == "ACGT");
 }
 
-TEST_CASE("Invalid reference name") {
+TEST_CASE("Invalid contig name") {
     {
         std::ofstream ofs("tmpref.fasta");
-        ofs << ">*\n";
+        ofs << ">name\b\n";
     }
     REQUIRE_THROWS_AS(References::from_fasta("tmpref.fasta"), InvalidFasta);
     std::remove("tmpref.fasta");
 }
 
-TEST_CASE("Invalid reference name") {
+TEST_CASE("Invalid contig name") {
     {
         std::ofstream ofs("tmpref.fasta");
-        ofs << ">*\nACGT\n";
+        ofs << ">\0x80\nACGT\n";
     }
     REQUIRE_THROWS_AS(References::from_fasta("tmpref.fasta"), InvalidFasta);
     std::remove("tmpref.fasta");
@@ -98,7 +98,7 @@ TEST_CASE("Tab and space in FASTA header") {
     CHECK(refs.names[1] == "de");
 }
 
-TEST_CASE("Duplicate sequence name") {
+TEST_CASE("Duplicate contig name") {
     {
         std::ofstream ofs("tmpref.fasta");
         ofs
@@ -106,4 +106,19 @@ TEST_CASE("Duplicate sequence name") {
             << ">abc\nCCCC\n";
     }
     REQUIRE_THROWS_AS(References::from_fasta("tmpref.fasta"), InvalidFasta);
+    std::remove("tmpref.fasta");
+}
+
+TEST_CASE("Accept some special characters in contig name") {
+    {
+        std::ofstream ofs("tmpref.fasta");
+        ofs
+            << "><>;abc\nAAAA\n"
+            << ">abc\nCCCC\n";
+    }
+    auto refs = References::from_fasta("tmpref.fasta");
+
+    CHECK(refs.size() == 2);
+    CHECK(refs.names[0] == "<>;abc");
+    std::remove("tmpref.fasta");
 }
