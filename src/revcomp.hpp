@@ -27,7 +27,7 @@ static unsigned char revcomp_table[256] = {
     'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N',  'N', 'N', 'N', 'N'
 };
 
-static inline std::string reverse_complement(const std::string &sequence) {
+static inline std::string reverse_complement(const std::string_view sequence) {
     std::string result;
     result.reserve(sequence.size());
     for (size_t i = 0; i < sequence.length(); ++i) {
