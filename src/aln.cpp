@@ -126,6 +126,10 @@ inline void align_single(
         details.nam_inconsistent += !consistent_nam;
         auto alignment = extend_seed(aligner, nam, references, read, consistent_nam);
         details.tried_alignment++;
+        if (alignment.is_unaligned) {
+            tries++;
+            continue;
+        }
         details.gapped += alignment.gapped;
 
         if (max_secondary > 0) {
@@ -161,6 +165,10 @@ inline void align_single(
             second_best_score = alignment.score;
         }
         tries++;
+    }
+    if (best_alignment.is_unaligned) {
+        sam.add_unmapped(record);
+        return;
     }
     details.best_alignments = alignments_with_best_score;
     uint8_t mapq = (60.0 * (best_score - second_best_score) + best_score - 1) / best_score;
