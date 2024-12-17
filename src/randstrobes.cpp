@@ -60,11 +60,6 @@ static inline std::pair<randstrobe_hash_t, bool> randstrobe_hash(
     syncmer_hash_t hash1, syncmer_hash_t hash2, randstrobe_hash_t main_hash_mask
 ) {
     bool first_strobe_is_main = true;
-    // Make the function symmetric
-    if (hash1 > hash2) {
-        first_strobe_is_main = false;
-        std::swap(hash1, hash2);
-    }
     return {((hash1 & main_hash_mask) | (hash2 & ~main_hash_mask)) & RANDSTROBE_HASH_MASK, first_strobe_is_main};
 }
 
