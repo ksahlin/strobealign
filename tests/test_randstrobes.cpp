@@ -15,26 +15,6 @@ std::vector<Syncmer> syncmers_of(std::string& seq, SyncmerParameters parameters)
     return syncmers;
 }
 
-TEST_CASE("SyncmerIterator yields canonical syncmers") {
-    SyncmerParameters parameters{20, 16};
-    std::vector<std::string> seqs;
-    seqs.push_back(References::from_fasta("tests/phix.fasta").sequences[0]);
-    seqs.push_back("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-    for (std::string& seq : seqs) {
-        std::string seq_reverse = reverse_complement(seq);
-        std::vector<Syncmer> syncmers_forward = syncmers_of(seq, parameters);
-        std::vector<Syncmer> syncmers_reverse = syncmers_of(seq_reverse, parameters);
-
-        std::reverse(syncmers_reverse.begin(), syncmers_reverse.end());
-        for (auto& it : syncmers_reverse) {
-            it.position = seq.size() - parameters.k - it.position;
-        }
-
-        CHECK(syncmers_forward == syncmers_reverse);
-    }
-}
-
-
 TEST_CASE("RefRandstrobe constructor") {
     randstrobe_hash_t hash = 0x1234567890ABCDEF & RANDSTROBE_HASH_MASK;
     uint32_t position = ~0u;

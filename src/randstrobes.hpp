@@ -154,8 +154,8 @@ private:
     std::deque<uint64_t> qs;  // s-mer hashes
     uint64_t qs_min_val = UINT64_MAX;
     size_t l = 0;
-    uint64_t xk[2] = {0, 0};
-    uint64_t xs[2] = {0, 0};
+    uint64_t xk{0};
+    uint64_t xs{0};
     size_t i = 0;
 };
 
