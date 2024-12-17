@@ -6,6 +6,7 @@
 
 #include "hash.hpp"
 #include "randstrobes.hpp"
+#include "revcomp.hpp"
 
 // a, A -> 0
 // c, C -> 1
@@ -71,16 +72,13 @@ Syncmer SyncmerIterator::next() {
 //    for (size_t i = 0; i < seq.length(); i++) {
         int c = seq_nt4_table[(uint8_t) seq[i]];
         if (c < 4) { // not an "N" base
-            xk[0] = (xk[0] << 2 | c) & kmask;                  // forward strand
-            xk[1] = xk[1] >> 2 | (uint64_t)(3 - c) << kshift;  // reverse strand
-            xs[0] = (xs[0] << 2 | c) & smask;                  // forward strand
-            xs[1] = xs[1] >> 2 | (uint64_t)(3 - c) << sshift;  // reverse strand
+            xk = (xk << 2 | c) & kmask;                  // forward strand
+            xs = (xs << 2 | c) & smask;                  // forward strand
             if (++l < static_cast<size_t>(parameters.s)) {
                 continue;
             }
             // we find an s-mer
-            uint64_t ys = std::min(xs[0], xs[1]);
-            uint64_t hash_s = syncmer_smer_hash(ys);
+            uint64_t hash_s = syncmer_smer_hash(xs);
             qs.push_back(hash_s);
             // not enough hashes in the queue, yet
             if (qs.size() < static_cast<size_t>(parameters.k - parameters.s + 1)) {
@@ -111,15 +109,14 @@ Syncmer SyncmerIterator::next() {
                 }
             }
             if (qs[parameters.t_syncmer - 1] == qs_min_val) { // occurs at t:th position in k-mer
-                uint64_t yk = std::min(xk[0], xk[1]);
-                auto syncmer = Syncmer{syncmer_kmer_hash(yk), i - parameters.k + 1};
+                auto syncmer = Syncmer{syncmer_kmer_hash(xk), i - parameters.k + 1};
                 i++;
                 return syncmer;
             }
         } else {
             // if there is an "N", restart
             qs_min_val = UINT64_MAX;
-            l = xs[0] = xs[1] = xk[0] = xk[1] = 0;
+            l = xs = xk = 0;
             qs.clear();
         }
     }
@@ -229,14 +226,9 @@ std::array<std::vector<QueryRandstrobe>, 2> randstrobes_query(const std::string_
         return randstrobes;
     }
 
-    // Generate syncmers for the forward sequence
-    auto syncmers = canonical_syncmers(seq, parameters.syncmer);
-    if (syncmers.empty()) {
-        return randstrobes;
-    }
-
     // Generate randstrobes for the forward sequence
-    RandstrobeIterator randstrobe_fwd_iter{syncmers, parameters.randstrobe};
+    auto syncmers_forward = canonical_syncmers(seq, parameters.syncmer);
+    RandstrobeIterator randstrobe_fwd_iter{syncmers_forward, parameters.randstrobe};
     while (randstrobe_fwd_iter.has_next()) {
         auto randstrobe = randstrobe_fwd_iter.next();
         randstrobes[0].push_back(
@@ -246,27 +238,18 @@ std::array<std::vector<QueryRandstrobe>, 2> randstrobes_query(const std::string_
         );
     }
 
-    // For the reverse complement, we can re-use the syncmers of the forward
-    // sequence because canonical syncmers are invariant under reverse
-    // complementing. Only the coordinates need to be adjusted.
-    std::reverse(syncmers.begin(), syncmers.end());
-    for (size_t i = 0; i < syncmers.size(); i++) {
-        syncmers[i].position = seq.length() - syncmers[i].position - parameters.syncmer.k;
-    }
-
-    // Randstrobes cannot be re-used for the reverse complement:
-    // If in the forward direction, syncmer[i] and syncmer[j] were paired up, it
-    // is not necessarily the case that syncmer[j] is going to be paired with
-    // syncmer[i] in the reverse direction because i is fixed in the forward
-    // direction and j is fixed in the reverse direction.
-    RandstrobeIterator randstrobe_rc_iter{syncmers, parameters.randstrobe};
-    while (randstrobe_rc_iter.has_next()) {
-        auto randstrobe = randstrobe_rc_iter.next();
+    // Generate randstrobes for the reverse-complemented sequence
+    auto seq_revcomp = reverse_complement(seq);
+    auto syncmers_revcomp = canonical_syncmers(seq_revcomp, parameters.syncmer);
+    RandstrobeIterator randstrobe_revcomp_iter{syncmers_revcomp, parameters.randstrobe};
+    while (randstrobe_revcomp_iter.has_next()) {
+        auto randstrobe = randstrobe_revcomp_iter.next();
         randstrobes[1].push_back(
             QueryRandstrobe {
                 randstrobe.hash, randstrobe.hash_revcomp, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k
             }
         );
     }
+
     return randstrobes;
 }
