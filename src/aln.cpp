@@ -1010,6 +1010,7 @@ void align_or_map_paired(
         const auto& record = is_revcomp == 0 ? record1 : record2;
 
         Timer strobe_timer;
+        // FIXME forward only at the moment
         auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
         statistics.n_randstrobes += query_randstrobes.size();
         statistics.tot_construct_strobemers += strobe_timer.duration();
@@ -1154,60 +1155,89 @@ void align_or_map_single(
 ) {
     Details details;
     Timer strobe_timer;
-    auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
-    statistics.n_randstrobes += query_randstrobes.size();
-    statistics.tot_construct_strobemers += strobe_timer.duration();
+    std::string seq_revcomp = reverse_complement(record.seq);
+    std::vector<QueryRandstrobe> query_randstrobes[2];
+    std::vector<Nam> nams[2];
+    for (bool revcomp : {false, true}) {
+        const std::string& seq = revcomp ? seq_revcomp : record.seq;
+        query_randstrobes[revcomp] = randstrobes_query(seq, index_parameters);
 
-    // Find NAMs
-    Timer nam_timer;
-    auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
-    statistics.tot_find_nams += nam_timer.duration();
-    statistics.n_hits += n_hits;
-    details.nams = nams.size();
+        statistics.n_randstrobes += query_randstrobes[revcomp].size();
+        statistics.tot_construct_strobemers += strobe_timer.duration();
 
-    if (map_param.rescue_level > 1) {
-        Timer rescue_timer;
-        if (nams.empty() || nonrepetitive_fraction < 0.7) {
+        // Find NAMs
+        Timer nam_timer;
+        auto [nonrepetitive_fraction, n_hits, nams_found] = find_nams(query_randstrobes[revcomp], index, map_param.use_mcs);
+        nams[revcomp] = nams_found;
+        statistics.tot_find_nams += nam_timer.duration();
+        statistics.n_hits += n_hits;
+        details.nams += nams[revcomp].size();
+
+        if (map_param.rescue_level > 1 && (nams[revcomp].empty() || nonrepetitive_fraction < 0.7)) {
+            Timer rescue_timer;
             int n_rescue_hits;
-            std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
+            std::tie(n_rescue_hits, nams[revcomp]) = find_nams_rescue(query_randstrobes[revcomp], index, map_param.rescue_cutoff, map_param.use_mcs);
             statistics.n_rescue_hits += n_rescue_hits;
-            details.rescue_nams = nams.size();
+            details.rescue_nams += nams[revcomp].size();
             details.nam_rescue = true;
+            statistics.tot_time_rescue += rescue_timer.duration();
         }
-        statistics.tot_time_rescue += rescue_timer.duration();
+    }
+
+    for (auto &n : nams[1]) {
+        n.is_rc = true;
     }
 
     Timer nam_sort_timer;
-    std::sort(nams.begin(), nams.end(), by_score<Nam>);
-    shuffle_top_nams(nams, random_engine);
+    for (int i = 0; i < 2; ++i) {
+        std::sort(nams[i].begin(), nams[i].end(), by_score<Nam>);
+        shuffle_top_nams(nams[i], random_engine);
+    }
     statistics.tot_sort_nams += nam_sort_timer.duration();
 
 #ifdef TRACE
     std::cerr << "Query: " << record.name << '\n';
-    std::cerr << "Found " << nams.size() << " NAMs\n";
-    for (auto& nam : nams) {
-        std::cerr << "- " << nam << '\n';
+    for (bool revcomp : {false, true}) {
+        std::cerr << "Found " << nams[revcomp].size() << " NAMs for "
+            << (revcomp ? "reverse-complemented" : "forward") << " query\n";
+        for (auto& nam : nams[revcomp]) {
+            std::cerr << "- " << nam << '\n';
+        }
     }
 #endif
+
+    // Forward or reverse complement?
+    // TODO this does not allow us to have secondary hits in a different
+    // orientation. We should merge the NAMs into one vector again.
+    int orientation;
+    if (nams[0].empty()) {
+        orientation = 1;
+    } else if (nams[1].empty()) {
+        orientation = 0;
+    } else if (nams[0][0].score >= nams[1][0].score) {
+        orientation = 0;
+    } else {
+        orientation = 1;
+    }
 
     Timer extend_timer;
     size_t n_best = 0;
     switch (map_param.output_format) {
         case OutputFormat::Abundance: {
-            if (!nams.empty()){
-                for (auto &t : nams){
-                    if (t.score == nams[0].score){
+            if (!nams[orientation].empty()){
+                for (auto &t : nams[orientation]) {
+                    if (t.score == nams[orientation][0].score){
                         ++n_best;
-                    }else{
+                    } else{
                         break;
                     }
                 }
 
-                for (auto &nam: nams) {
+                for (auto &nam: nams[orientation]) {
                     if (nam.ref_start < 0) {
                         continue;
                     }
-                    if (nam.score != nams[0].score){
+                    if (nam.score != nams[orientation][0].score){
                         break;
                     }
                     abundances[nam.ref_id] += float(record.seq.length()) / float(n_best);
@@ -1216,12 +1246,12 @@ void align_or_map_single(
         }
         break;
         case OutputFormat::PAF:
-            output_hits_paf(outstring, nams, record.name, references,
+            output_hits_paf(outstring, nams[orientation], record.name, references,
                             record.seq.length());
             break;
         case OutputFormat::SAM:
             align_single(
-                aligner, sam, nams, record, index_parameters.syncmer.k,
+                aligner, sam, nams[orientation], record, index_parameters.syncmer.k,
                 references, details, map_param.dropoff_threshold, map_param.max_tries,
                 map_param.max_secondary, random_engine
             );

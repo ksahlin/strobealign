@@ -6,7 +6,6 @@
 
 #include "hash.hpp"
 #include "randstrobes.hpp"
-#include "revcomp.hpp"
 
 // a, A -> 0
 // c, C -> 1
@@ -222,7 +221,7 @@ Randstrobe RandstrobeGenerator::next() {
 }
 
 /*
- * Generate randstrobes for a query sequence and its reverse complement.
+ * Generate randstrobes for a sequence
  */
 QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexParameters& parameters) {
     QueryRandstrobeVector randstrobes;
@@ -230,31 +229,15 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
         return randstrobes;
     }
 
-    // Generate randstrobes for the forward sequence
-    auto syncmers_forward = canonical_syncmers(seq, parameters.syncmer);
-    RandstrobeIterator randstrobe_fwd_iter{syncmers_forward, parameters.randstrobe};
-    while (randstrobe_fwd_iter.has_next()) {
-        auto randstrobe = randstrobe_fwd_iter.next();
+    auto syncmers = canonical_syncmers(seq, parameters.syncmer);
+    RandstrobeIterator randstrobe_iter{syncmers, parameters.randstrobe};
+    while (randstrobe_iter.has_next()) {
+        auto randstrobe = randstrobe_iter.next();
         const unsigned int partial_start = randstrobe.first_strobe_is_main ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
         randstrobes.push_back(
             QueryRandstrobe {
                 randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k,
                 partial_start, partial_start + parameters.syncmer.k,  false
-            }
-        );
-    }
-
-    // Generate randstrobes for the reverse-complemented sequence
-    auto seq_revcomp = reverse_complement(seq);
-    auto syncmers_revcomp = canonical_syncmers(seq_revcomp, parameters.syncmer);
-    RandstrobeIterator randstrobe_revcomp_iter{syncmers_revcomp, parameters.randstrobe};
-    while (randstrobe_revcomp_iter.has_next()) {
-        auto randstrobe = randstrobe_revcomp_iter.next();
-        const unsigned int partial_start = randstrobe.first_strobe_is_main ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
-        randstrobes.push_back(
-            QueryRandstrobe {
-                randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k,
-                partial_start, partial_start + parameters.syncmer.k,  true
             }
         );
     }
