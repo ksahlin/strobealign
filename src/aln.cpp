@@ -51,38 +51,7 @@ bool by_score(const T& a, const T& b)
  * - If first and last strobe do not match consistently, return false.
  */
 bool reverse_nam_if_needed(Nam& nam, const Read& read, const References& references, int k) {
-    auto read_len = read.size();
-    std::string ref_start_kmer = references.sequences[nam.ref_id].substr(nam.ref_start, k);
-    std::string ref_end_kmer = references.sequences[nam.ref_id].substr(nam.ref_end-k, k);
-
-    std::string seq, seq_rc;
-    if (nam.is_rc) {
-        seq = read.rc;
-        seq_rc = read.seq;
-    } else {
-        seq = read.seq;
-        seq_rc = read.rc;
-    }
-    std::string read_start_kmer = seq.substr(nam.query_start, k);
-    std::string read_end_kmer = seq.substr(nam.query_end-k, k);
-    if (ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer) {
-        return true;
-    }
-
-    // False forward or false reverse (possible due to symmetrical hash values)
-    //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
-    int q_start_tmp = read_len - nam.query_end;
-    int q_end_tmp = read_len - nam.query_start;
-    // false reverse hit, change coordinates in nam to forward
-    read_start_kmer = seq_rc.substr(q_start_tmp, k);
-    read_end_kmer = seq_rc.substr(q_end_tmp - k, k);
-    if (ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer) {
-        nam.is_rc = !nam.is_rc;
-        nam.query_start = q_start_tmp;
-        nam.query_end = q_end_tmp;
-        return true;
-    }
-    return false;
+    return true;
 }
 
 inline void align_single(
