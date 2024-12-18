@@ -356,6 +356,6 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
 }
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {
-    os << "Nam(ref_id=" << n.ref_id << ", query: " << n.query_start << ".." << n.query_end << ", ref: " << n.ref_start << ".." << n.ref_end << ", score=" << n.score << ")";
+    os << "Nam(ref_id=" << n.ref_id << ", query: " << n.query_start << ".." << n.query_end << ", ref: " << n.ref_start << ".." << n.ref_end << ", rc=" << static_cast<int>(n.is_rc) << ", score=" << n.score << ")";
     return os;
 }
