@@ -117,8 +117,13 @@ jobs:
         with:
           key: baseline-bam-${{ hashFiles('tests/baseline-commit.txt') }}
           path: baseline/bam/
-      - name: Compare to baseline
+      - name: Compare to baseline (paired-end)
         run: tests/compare-baseline.sh
+      - name: Validate with Picard
+        run: |
+          PicardCommandLine ValidateSamFile IGNORE=RECORD_MISSING_READ_GROUP IGNORE=MISSING_READ_GROUP I=head.bam
+      - name: Compare to baseline (single-end)
+        run: tests/compare-baseline.sh -s
       - name: Validate with Picard
         run: |
           PicardCommandLine ValidateSamFile IGNORE=RECORD_MISSING_READ_GROUP IGNORE=MISSING_READ_GROUP I=head.bam
