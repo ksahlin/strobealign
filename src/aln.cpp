@@ -51,38 +51,7 @@ bool by_score(const T& a, const T& b)
  * - If first and last strobe do not match consistently, return false.
  */
 bool reverse_nam_if_needed(Nam& nam, const Read& read, const References& references, int k) {
-    auto read_len = read.size();
-    std::string ref_start_kmer = references.sequences[nam.ref_id].substr(nam.ref_start, k);
-    std::string ref_end_kmer = references.sequences[nam.ref_id].substr(nam.ref_end-k, k);
-
-    std::string seq, seq_rc;
-    if (nam.is_rc) {
-        seq = read.rc;
-        seq_rc = read.seq;
-    } else {
-        seq = read.seq;
-        seq_rc = read.rc;
-    }
-    std::string read_start_kmer = seq.substr(nam.query_start, k);
-    std::string read_end_kmer = seq.substr(nam.query_end-k, k);
-    if (ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer) {
-        return true;
-    }
-
-    // False forward or false reverse (possible due to symmetrical hash values)
-    //    we need two extra checks for this - hopefully this will remove all the false hits we see (true hash collisions should be very few)
-    int q_start_tmp = read_len - nam.query_end;
-    int q_end_tmp = read_len - nam.query_start;
-    // false reverse hit, change coordinates in nam to forward
-    read_start_kmer = seq_rc.substr(q_start_tmp, k);
-    read_end_kmer = seq_rc.substr(q_end_tmp - k, k);
-    if (ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer) {
-        nam.is_rc = !nam.is_rc;
-        nam.query_start = q_start_tmp;
-        nam.query_end = q_end_tmp;
-        return true;
-    }
-    return false;
+    return true;
 }
 
 inline void align_single(
@@ -1041,6 +1010,7 @@ void align_or_map_paired(
         const auto& record = is_revcomp == 0 ? record1 : record2;
 
         Timer strobe_timer;
+        // FIXME forward only at the moment
         auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
         statistics.n_randstrobes += query_randstrobes.size();
         statistics.tot_construct_strobemers += strobe_timer.duration();
@@ -1185,27 +1155,35 @@ void align_or_map_single(
 ) {
     Details details;
     Timer strobe_timer;
-    auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
-    statistics.n_randstrobes += query_randstrobes.size();
-    statistics.tot_construct_strobemers += strobe_timer.duration();
+    std::string seq_revcomp = reverse_complement(record.seq);
+    std::vector<Nam> nams;
+    for (bool revcomp : {false, true}) {
+        const std::string& seq = revcomp ? seq_revcomp : record.seq;
+        auto query_randstrobes = randstrobes_query(seq, index_parameters);
 
-    // Find NAMs
-    Timer nam_timer;
-    auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
-    statistics.tot_find_nams += nam_timer.duration();
-    statistics.n_hits += n_hits;
-    details.nams = nams.size();
+        statistics.n_randstrobes += query_randstrobes.size();
+        statistics.tot_construct_strobemers += strobe_timer.duration();
 
-    if (map_param.rescue_level > 1) {
-        Timer rescue_timer;
-        if (nams.empty() || nonrepetitive_fraction < 0.7) {
+        // Find NAMs
+        Timer nam_timer;
+        auto [nonrepetitive_fraction, n_hits, nams_found] = find_nams(query_randstrobes, index, map_param.use_mcs);
+        statistics.tot_find_nams += nam_timer.duration();
+        statistics.n_hits += n_hits;
+        details.nams += nams_found.size();
+
+        if (map_param.rescue_level > 1 && (nams_found.empty() || nonrepetitive_fraction < 0.7)) {
+            Timer rescue_timer;
             int n_rescue_hits;
-            std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
-            statistics.n_rescue_hits += n_rescue_hits;
-            details.rescue_nams = nams.size();
+            std::tie(n_rescue_hits, nams_found) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
+            details.rescue_nams += nams_found.size();
             details.nam_rescue = true;
+            statistics.n_rescue_hits += n_rescue_hits;
+            statistics.tot_time_rescue += rescue_timer.duration();
         }
-        statistics.tot_time_rescue += rescue_timer.duration();
+        for (auto &nam : nams_found) {
+            nam.is_rc = revcomp;
+            nams.push_back(nam);
+        }
     }
 
     Timer nam_sort_timer;
@@ -1215,7 +1193,7 @@ void align_or_map_single(
 
 #ifdef TRACE
     std::cerr << "Query: " << record.name << '\n';
-    std::cerr << "Found " << nams.size() << " NAMs\n";
+    std::cerr << "Found " << nams.size() << " NAMs:\n";
     for (auto& nam : nams) {
         std::cerr << "- " << nam << '\n';
     }
@@ -1226,10 +1204,10 @@ void align_or_map_single(
     switch (map_param.output_format) {
         case OutputFormat::Abundance: {
             if (!nams.empty()){
-                for (auto &t : nams){
+                for (auto &t : nams) {
                     if (t.score == nams[0].score){
                         ++n_best;
-                    }else{
+                    } else{
                         break;
                     }
                 }

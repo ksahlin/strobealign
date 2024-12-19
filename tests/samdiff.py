@@ -23,8 +23,11 @@ def main():
     parser.add_argument("after")
     parser.add_argument("--truth")
     parser.add_argument(
-        "--limit", metavar="N", type=int, default=10,
-        help="Report details for at most N changed records"
+        "--limit",
+        metavar="N",
+        type=int,
+        default=10,
+        help="Report details for at most N changed records",
     )
     args = parser.parse_args()
     has_truth = bool(args.truth)
@@ -67,6 +70,9 @@ def main():
                 continue
 
             if a.is_unmapped:
+                if reported < limit:
+                    print(b.query_name, "became unmapped", "\n")
+                reported += 1
                 became_unmapped += 1
                 continue
 
@@ -84,7 +90,11 @@ def main():
 
             b_score = b.get_tag("AS")
             a_score = a.get_tag("AS")
-            if b.mapping_quality == 0 and a.mapping_quality == 0 and b.is_proper_pair == a.is_proper_pair:
+            if (
+                b.mapping_quality == 0
+                and a.mapping_quality == 0
+                and b.is_proper_pair == a.is_proper_pair
+            ):
                 if b_score == a_score:
                     multimapper_same += 1
                     continue
@@ -117,10 +127,7 @@ def main():
             reported += 1
 
     if changed > limit:
-        print(
-            f"Reporting limit reached, not showing {reported - limit} "
-            "additional changed records."
-        )
+        print(f"Reporting limit reached, not showing additional changed records.")
     print()
 
     def stat(description, value, should_be_zero: bool = True):
@@ -133,9 +140,17 @@ def main():
     stat("became mapped", became_mapped)
     stat("became unmapped", became_unmapped)
     stat("were mapped to same locus before and after", identical, False)
-    stat("were multimapper before and after, same alignment score (AS)", multimapper_same)
-    stat("were multimapper before and after, better alignment score (AS)", multimapper_better)
-    stat("were multimapper before and after, worse alignment score (AS)", multimapper_worse)
+    stat(
+        "were multimapper before and after, same alignment score (AS)", multimapper_same
+    )
+    stat(
+        "were multimapper before and after, better alignment score (AS)",
+        multimapper_better,
+    )
+    stat(
+        "were multimapper before and after, worse alignment score (AS)",
+        multimapper_worse,
+    )
     if has_truth:
         stat("were incorrect before and after (relative to truth)", same, False)
         stat("became correct (relative to truth)", better)
