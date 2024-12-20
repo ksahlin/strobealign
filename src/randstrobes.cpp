@@ -56,14 +56,11 @@ static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
  * hash. Since entries in the index are sorted by randstrobe hash, this allows
  * us to search for the main syncmer only by masking out the lower bits.
  */
-static inline randstrobe_hash_t randstrobe_hash(
+static inline std::pair<randstrobe_hash_t, bool> randstrobe_hash(
     syncmer_hash_t hash1, syncmer_hash_t hash2, randstrobe_hash_t main_hash_mask
 ) {
-    // Make the function symmetric
-    if (hash1 > hash2) {
-        std::swap(hash1, hash2);
-    }
-    return ((hash1 & main_hash_mask) | (hash2 & ~main_hash_mask)) & RANDSTROBE_HASH_MASK;
+    bool first_strobe_is_main = true;
+    return {((hash1 & main_hash_mask) | (hash2 & ~main_hash_mask)) & RANDSTROBE_HASH_MASK, first_strobe_is_main};
 }
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer) {
@@ -76,16 +73,13 @@ Syncmer SyncmerIterator::next() {
 //    for (size_t i = 0; i < seq.length(); i++) {
         int c = seq_nt4_table[(uint8_t) seq[i]];
         if (c < 4) { // not an "N" base
-            xk[0] = (xk[0] << 2 | c) & kmask;                  // forward strand
-            xk[1] = xk[1] >> 2 | (uint64_t)(3 - c) << kshift;  // reverse strand
-            xs[0] = (xs[0] << 2 | c) & smask;                  // forward strand
-            xs[1] = xs[1] >> 2 | (uint64_t)(3 - c) << sshift;  // reverse strand
+            xk = (xk << 2 | c) & kmask;                  // forward strand
+            xs = (xs << 2 | c) & smask;                  // forward strand
             if (++l < static_cast<size_t>(parameters.s)) {
                 continue;
             }
             // we find an s-mer
-            uint64_t ys = std::min(xs[0], xs[1]);
-            uint64_t hash_s = syncmer_smer_hash(ys);
+            uint64_t hash_s = syncmer_smer_hash(xs);
             qs.push_back(hash_s);
             // not enough hashes in the queue, yet
             if (qs.size() < static_cast<size_t>(parameters.k - parameters.s + 1)) {
@@ -116,15 +110,14 @@ Syncmer SyncmerIterator::next() {
                 }
             }
             if (qs[parameters.t_syncmer - 1] == qs_min_val) { // occurs at t:th position in k-mer
-                uint64_t yk = std::min(xk[0], xk[1]);
-                auto syncmer = Syncmer{syncmer_kmer_hash(yk), i - parameters.k + 1};
+                auto syncmer = Syncmer{syncmer_kmer_hash(xk), i - parameters.k + 1};
                 i++;
                 return syncmer;
             }
         } else {
             // if there is an "N", restart
             qs_min_val = UINT64_MAX;
-            l = xs[0] = xs[1] = xk[0] = xk[1] = 0;
+            l = xs = xk = 0;
             qs.clear();
         }
     }
@@ -161,9 +154,9 @@ std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe) {
 }
 
 Randstrobe make_randstrobe(Syncmer strobe1, Syncmer strobe2, randstrobe_hash_t main_hash_mask) {
-    bool first_strobe_is_main = strobe1.hash < strobe2.hash;
+    auto [hash, first_strobe_is_main] =  randstrobe_hash(strobe1.hash, strobe2.hash, main_hash_mask);
     return Randstrobe{
-        randstrobe_hash(strobe1.hash, strobe2.hash, main_hash_mask),
+        hash,
         static_cast<uint32_t>(strobe1.position),
         static_cast<uint32_t>(strobe2.position),
         first_strobe_is_main
@@ -228,7 +221,7 @@ Randstrobe RandstrobeGenerator::next() {
 }
 
 /*
- * Generate randstrobes for a query sequence and its reverse complement.
+ * Generate randstrobes for a sequence
  */
 QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexParameters& parameters) {
     QueryRandstrobeVector randstrobes;
@@ -236,16 +229,10 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
         return randstrobes;
     }
 
-    // Generate syncmers for the forward sequence
     auto syncmers = canonical_syncmers(seq, parameters.syncmer);
-    if (syncmers.empty()) {
-        return randstrobes;
-    }
-
-    // Generate randstrobes for the forward sequence
-    RandstrobeIterator randstrobe_fwd_iter{syncmers, parameters.randstrobe};
-    while (randstrobe_fwd_iter.has_next()) {
-        auto randstrobe = randstrobe_fwd_iter.next();
+    RandstrobeIterator randstrobe_iter{syncmers, parameters.randstrobe};
+    while (randstrobe_iter.has_next()) {
+        auto randstrobe = randstrobe_iter.next();
         const unsigned int partial_start = randstrobe.first_strobe_is_main ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
         randstrobes.push_back(
             QueryRandstrobe {
@@ -255,30 +242,5 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
         );
     }
 
-    // For the reverse complement, we can re-use the syncmers of the forward
-    // sequence because canonical syncmers are invariant under reverse
-    // complementing. Only the coordinates need to be adjusted.
-    std::reverse(syncmers.begin(), syncmers.end());
-    for (size_t i = 0; i < syncmers.size(); i++) {
-        syncmers[i].position = seq.length() - syncmers[i].position - parameters.syncmer.k;
-    }
-
-    // Randstrobes cannot be re-used for the reverse complement:
-    // If in the forward direction, syncmer[i] and syncmer[j] were paired up, it
-    // is not necessarily the case that syncmer[j] is going to be paired with
-    // syncmer[i] in the reverse direction because i is fixed in the forward
-    // direction and j is fixed in the reverse direction.
-    RandstrobeIterator randstrobe_rc_iter{syncmers, parameters.randstrobe};
-    while (randstrobe_rc_iter.has_next()) {
-        auto randstrobe = randstrobe_rc_iter.next();
-        bool first_strobe_is_main = randstrobe.first_strobe_is_main;
-        const unsigned int partial_start = first_strobe_is_main ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
-        randstrobes.push_back(
-            QueryRandstrobe {
-                randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k,
-                partial_start, partial_start + parameters.syncmer.k, true
-            }
-        );
-    }
     return randstrobes;
 }
