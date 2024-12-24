@@ -3,6 +3,7 @@
 #include <bitset>
 #include <algorithm>
 #include <cassert>
+#include <nmmintrin.h>
 
 #include "hash.hpp"
 #include "randstrobes.hpp"
@@ -30,19 +31,30 @@ static unsigned char seq_nt4_table[256] = {
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
 };
 
+
+uint64_t murmur3(uint64_t key) {
+  key ^= (key >> 33);
+  key *= 0xff51afd7ed558ccd;
+  key ^= (key >> 33);
+  key *= 0xc4ceb9fe1a85ec53;
+  key ^= (key >> 33);
+
+  return key;
+}
+
 static inline syncmer_hash_t syncmer_kmer_hash(uint64_t packed) {
     // return robin_hash(yk);
     // return yk;
     // return hash64(yk, mask);
     // return sahlin_dna_hash(yk, mask);
-    return xxh64(packed);
+    return murmur3(packed);
 }
 
 static inline syncmer_hash_t syncmer_smer_hash(uint64_t packed) {
     // return ys;
     // return robin_hash(ys);
     // return hash64(ys, mask);
-    return xxh64(packed);
+    return murmur3(packed);
 }
 
 /*
