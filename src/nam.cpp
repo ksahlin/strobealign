@@ -243,7 +243,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
             add_to_matches_map_full(matches_map[q.is_reverse], q.start, q.end, index, position);
         }
         else if (use_mcs) {
-            PartialHit ph{q.hash & index.get_main_hash_mask(), q.partial_start, q.is_reverse};
+            PartialHit ph{q.hash & index.get_main_hash_mask(), q.start, q.is_reverse};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
                 continue;
@@ -256,7 +256,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
                     continue;
                 }
                 nr_good_hits++;
-                add_to_matches_map_partial(matches_map[q.is_reverse], q.partial_start, q.partial_end, index, partial_pos);
+                add_to_matches_map_partial(matches_map[q.is_reverse], q.start, q.start + index.k(), index, partial_pos);
             }
             partial_queried.push_back(ph);
         }
@@ -312,7 +312,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
             }
         }
         else if (use_mcs) {
-            PartialHit ph = {qr.hash & index.get_main_hash_mask(), qr.partial_start, qr.is_reverse};
+            PartialHit ph = {qr.hash & index.get_main_hash_mask(), qr.start, qr.is_reverse};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
                 continue;
@@ -320,7 +320,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
             size_t partial_pos = index.find_partial(qr.hash);
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_count_partial(partial_pos);
-                RescueHit rh{partial_pos, partial_count, qr.partial_start, qr.partial_end, true};
+                RescueHit rh{partial_pos, partial_count, qr.start, qr.start + index.k(), true};
                 if (qr.is_reverse){
                     hits_rc.push_back(rh);
                 } else {

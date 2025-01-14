@@ -68,11 +68,6 @@ struct QueryRandstrobe {
     randstrobe_hash_t hash;
     unsigned int start;
     unsigned int end;
-    /* Start and end of the main syncmer (relevant if the randstrobe couldn’t
-     * be found in the index and we fall back to a partial hit)
-     */
-    unsigned int partial_start;
-    unsigned int partial_end;
     bool is_reverse;
 };
 
