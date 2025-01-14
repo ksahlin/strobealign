@@ -141,7 +141,7 @@ std::vector<Syncmer> canonical_syncmers(
 
 std::ostream& operator<<(std::ostream& os, const Randstrobe& randstrobe) {
     os << "Randstrobe(hash=" << randstrobe.hash << ", strobe1_pos=" << randstrobe.strobe1_pos << ", strobe2_pos="
-       << randstrobe.strobe2_pos << ", first_strobe_is_main=" << randstrobe.first_strobe_is_main << ")";
+       << randstrobe.strobe2_pos << ")";
     return os;
 }
 
@@ -159,8 +159,7 @@ Randstrobe make_randstrobe(Syncmer strobe1, Syncmer strobe2, randstrobe_hash_t m
     return Randstrobe{
         randstrobe_hash(strobe1.hash, strobe2.hash, main_hash_mask),
         static_cast<uint32_t>(strobe1.position),
-        static_cast<uint32_t>(strobe2.position),
-        true
+        static_cast<uint32_t>(strobe2.position)
     };
 }
 
@@ -240,7 +239,7 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     RandstrobeIterator randstrobe_fwd_iter{syncmers, parameters.randstrobe};
     while (randstrobe_fwd_iter.has_next()) {
         auto randstrobe = randstrobe_fwd_iter.next();
-        const unsigned int partial_start = randstrobe.first_strobe_is_main ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
+        const unsigned int partial_start = randstrobe.strobe1_pos;
         randstrobes.push_back(
             QueryRandstrobe {
                 randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k,
@@ -265,8 +264,7 @@ QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexP
     RandstrobeIterator randstrobe_rc_iter{syncmers, parameters.randstrobe};
     while (randstrobe_rc_iter.has_next()) {
         auto randstrobe = randstrobe_rc_iter.next();
-        bool first_strobe_is_main = randstrobe.first_strobe_is_main;
-        const unsigned int partial_start = first_strobe_is_main ? randstrobe.strobe1_pos : randstrobe.strobe2_pos;
+        const unsigned int partial_start = randstrobe.strobe1_pos;
         randstrobes.push_back(
             QueryRandstrobe {
                 randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k,
