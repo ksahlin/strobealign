@@ -264,43 +264,34 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
         }
     };
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
-    std::vector<RescueHit> hits_fw;
-    std::vector<RescueHit> hits_rc;
+    std::array<std::vector<RescueHit>, 2> hits;
     matches_map[0].reserve(100);
     matches_map[1].reserve(100);
-    hits_fw.reserve(5000);
-    hits_rc.reserve(5000);
+    hits[0].reserve(5000);
+    hits[1].reserve(5000);
 
     for (auto &qr : query_randstrobes) {
         size_t position = index.find_full(qr.hash);
         if (position != index.end()) {
             unsigned int count = index.get_count_full(position);
             RescueHit rh{position, count, qr.start, qr.end, false};
-            if (qr.is_reverse){
-                hits_rc.push_back(rh);
-            } else {
-                hits_fw.push_back(rh);
-            }
+            hits[qr.is_reverse].push_back(rh);
         }
         else if (use_mcs) {
             size_t partial_pos = index.find_partial(qr.hash);
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_count_partial(partial_pos);
                 RescueHit rh{partial_pos, partial_count, qr.start, qr.start + index.k(), true};
-                if (qr.is_reverse){
-                    hits_rc.push_back(rh);
-                } else {
-                    hits_fw.push_back(rh);
-                }
+                hits[qr.is_reverse].push_back(rh);
             }
         }
     }
 
-    std::sort(hits_fw.begin(), hits_fw.end());
-    std::sort(hits_rc.begin(), hits_rc.end());
+    std::sort(hits[0].begin(), hits[0].end());
+    std::sort(hits[1].begin(), hits[1].end());
     int n_hits = 0;
     size_t is_revcomp = 0;
-    for (auto& rescue_hits : {hits_fw, hits_rc}) {
+    for (auto& rescue_hits : hits) {
         int cnt = 0;
         for (auto &rh : rescue_hits) {
             if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
