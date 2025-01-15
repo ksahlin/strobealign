@@ -219,6 +219,21 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
         }
     }
 
+    // Rescue using partial hits, even in non-MCS mode
+    if (total_hits == 0 && !use_mcs) {
+        for (const auto &q : query_randstrobes) {
+            size_t partial_pos = index.find_partial(q.hash);
+            if (partial_pos != index.end()) {
+                total_hits++;
+                if (index.is_partial_filtered(partial_pos)) {
+                    continue;
+                }
+                nr_good_hits++;
+                add_to_matches_map_partial(matches_map[q.is_reverse], q.start, q.start + index.k(), index, partial_pos);
+            }
+        }
+    }
+
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     auto nams = merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), use_mcs);
     return {nonrepetitive_fraction, nr_good_hits, nams};
