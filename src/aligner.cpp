@@ -193,3 +193,15 @@ AlignmentInfo hamming_align(
     aln.query_end = segment_end;
     return aln;
 }
+
+std::ostream& operator<<(std::ostream& os, const AlignmentParameters& params) {
+    os
+        << "AlignmentParameters("
+        << "match=" << params.match
+        << ", mismatch=" << params.mismatch
+        << ", gap_open=" << params.gap_open
+        << ", gap_extend=" << params.gap_extend
+        << ", end_bonus=" << params.end_bonus
+        << ")";
+    return os;
+}

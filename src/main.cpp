@@ -66,24 +66,6 @@ void warn_if_no_optimizations() {
     }
 }
 
-void log_parameters(const IndexParameters& index_parameters, const MappingParameters& map_param, const AlignmentParameters& aln_params) {
-    logger.debug() << "Using" << std::endl
-        << "k: " << index_parameters.syncmer.k << std::endl
-        << "s: " << index_parameters.syncmer.s << std::endl
-        << "w_min: " << index_parameters.randstrobe.w_min << std::endl
-        << "w_max: " << index_parameters.randstrobe.w_max << std::endl
-        << "Read length (r): " << map_param.r << std::endl
-        << "Maximum seed length: " << index_parameters.randstrobe.max_dist + index_parameters.syncmer.k << std::endl
-        << "R: " << map_param.rescue_level << std::endl
-        << "Expected [w_min, w_max] in #syncmers: [" << index_parameters.randstrobe.w_min << ", " << index_parameters.randstrobe.w_max << "]" << std::endl
-        << "Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_min << ", " << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_max << "]" << std::endl
-        << "A: " << aln_params.match << std::endl
-        << "B: " << aln_params.mismatch << std::endl
-        << "O: " << aln_params.gap_open << std::endl
-        << "E: " << aln_params.gap_extend << std::endl
-        << "end bonus: " << aln_params.end_bonus << '\n';
-}
-
 bool avx2_enabled() {
 #ifdef __AVX2__
     return true;
@@ -182,7 +164,6 @@ int run_strobealign(int argc, char **argv) {
         opt.max_seed_len_set ? opt.max_seed_len : IndexParameters::DEFAULT,
         opt.aux_len ? opt.aux_len : IndexParameters::DEFAULT
     );
-    logger.debug() << index_parameters << '\n';
     AlignmentParameters aln_params;
     aln_params.match = opt.A;
     aln_params.mismatch = opt.B;
@@ -207,7 +188,13 @@ int run_strobealign(int argc, char **argv) {
     map_param.fastq_comments = opt.fastq_comments;
     map_param.verify();
 
-    log_parameters(index_parameters, map_param, aln_params);
+    logger.debug() << index_parameters << '\n';
+    logger.debug()
+        << "  Maximum seed length: " << index_parameters.randstrobe.max_dist + index_parameters.syncmer.k << '\n'
+        << "  Expected [w_min, w_max] in #syncmers: [" << index_parameters.randstrobe.w_min << ", " << index_parameters.randstrobe.w_max << "]\n"
+        << "  Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_min << ", " << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_max << "]\n";
+    logger.debug() << aln_params << '\n';
+    logger.debug() << "Rescue level (R): " << map_param.rescue_level << '\n';
     logger.debug() << "Threads: " << opt.n_threads << std::endl;
 
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
@@ -231,7 +218,6 @@ int run_strobealign(int argc, char **argv) {
     }
 
     logger.debug() << "Auxiliary hash length: " << opt.aux_len << "\n";
-    logger.debug() << "Base hash mask: " << std::hex << index_parameters.randstrobe.main_hash_mask << std::dec << '\n';
     logger.info() << "Using multi-context seeds: " << (map_param.use_mcs ? "yes" : "no") << '\n';
     StrobemerIndex index(references, index_parameters, opt.bits);
     if (opt.use_index) {
@@ -365,17 +351,17 @@ int run_strobealign(int argc, char **argv) {
     }
 
     logger.debug()
-        << "Number of reads: " << tot_statistics.n_reads << std::endl
-        << "Number of randstrobes: " << tot_statistics.n_randstrobes
-        << " total. Per read: " << static_cast<float>(tot_statistics.n_randstrobes) / tot_statistics.n_reads << std::endl
-        << "Number of non-rescue hits: " << tot_statistics.n_hits
-        << " total. Per read: " << static_cast<float>(tot_statistics.n_hits) / tot_statistics.n_reads << std::endl
-        << "Number of non-rescue NAMs: " << tot_statistics.n_nams
-        << " total. Per read: " << static_cast<float>(tot_statistics.n_nams) / tot_statistics.n_reads << std::endl
-        << "Number of rescue hits: " << tot_statistics.n_rescue_hits
-        << " total. Per rescue attempt: " << static_cast<float>(tot_statistics.n_rescue_hits) / tot_statistics.nam_rescue << std::endl
-        << "Number of rescue NAMs: " << tot_statistics.n_rescue_nams
-        << " total. Per rescue attempt: " << static_cast<float>(tot_statistics.n_rescue_nams) / tot_statistics.nam_rescue << std::endl;
+        << "Number of reads:           " << std::setw(12) << tot_statistics.n_reads << std::endl
+        << "Number of randstrobes:     " << std::setw(12) << tot_statistics.n_randstrobes
+        << "  Per read: " << std::setw(7) << static_cast<float>(tot_statistics.n_randstrobes) / tot_statistics.n_reads << std::endl
+        << "Number of non-rescue hits: " << std::setw(12) << tot_statistics.n_hits
+        << "  Per read: " << std::setw(7) << static_cast<float>(tot_statistics.n_hits) / tot_statistics.n_reads << std::endl
+        << "Number of non-rescue NAMs: " << std::setw(12) << tot_statistics.n_nams
+        << "  Per read: " << std::setw(7) << static_cast<float>(tot_statistics.n_nams) / tot_statistics.n_reads << std::endl
+        << "Number of rescue hits:     " << std::setw(12) << tot_statistics.n_rescue_hits
+        << "  Per rescue attempt: " << std::setw(7) << static_cast<float>(tot_statistics.n_rescue_hits) / tot_statistics.nam_rescue << std::endl
+        << "Number of rescue NAMs:     " << std::setw(12) << tot_statistics.n_rescue_nams
+        << "  Per rescue attempt: " << std::setw(7) << static_cast<float>(tot_statistics.n_rescue_nams) / tot_statistics.nam_rescue << std::endl;
     logger.info()
         << "Total mapping sites tried: " << tot_statistics.tot_all_tried << std::endl
         << "Total calls to ssw: " << tot_statistics.tot_aligner_calls << std::endl
