@@ -223,6 +223,29 @@ actual mapping:
 - Index files are about four times as large as the reference.
 
 
+## Explanation
+
+### Multi-context seeds
+
+Strobealign uses randstrobes as seeds, which in our case consist of two k-mers
+("strobes") that are somewhat close to each other. When a seed is looked up
+in the index, it is only found if both strobes match. By changing the way in
+which the index is stored in v0.15.0, it became  possible to support
+*multi-context seeds*. With those changes, strobealign falls back to looking
+up only one of the strobes (a "partial seed") if the full seed cannot be found.
+This results in better mapping rate and accuracy for read lengths of up to
+about 200 nt.
+
+Usage of multi-context seeds is enabled by default in strobealign since v0.16.0.
+The strategy is to first search for all full seeds of the query and fall back to
+partial seeds if *no* seeds could be found.
+
+A slightly more accurate, but slower mode of using multi-context seeds is
+available by using option `--mcs`: With it, the strategy is changed to a
+fallback *per seed*: If an individual full seed cannot be found, its partial
+version is looked up in the index.
+
+
 ## Changelog
 
 See [Changelog](CHANGES.md).
