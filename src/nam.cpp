@@ -13,19 +13,6 @@ bool operator==(const Match& lhs, const Match& rhs) {
     return (lhs.query_start == rhs.query_start) && (lhs.query_end == rhs.query_end) && (lhs.ref_start == rhs.ref_start) && (lhs.ref_end == rhs.ref_end);
 }
 
-/*
- * A partial hit is a hit where not the full randstrobe hash could be found in
- * the index but only the "main" hash (only the first aux_len bits).
- */
-struct PartialHit {
-    randstrobe_hash_t hash;
-    unsigned int start;  // position in strobemer index
-    bool is_reverse;
-    bool operator==(const PartialHit& rhs) const {
-        return (hash == rhs.hash) && (start == rhs.start) && (is_reverse == rhs.is_reverse);
-    }
-};
-
 inline void add_to_matches_map_full(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
     int query_start,
@@ -47,25 +34,6 @@ inline void add_to_matches_map_full(
     }
 }
 
-/*
-This function often produces the same Match multiple times.
-This happens when multiple randstrobes involve a syncmer that has a low hash
-value (and which therefore gets chosen as main hash multiple times).
-
-For example, assume we have syncmers starting at positions 14, 21, 39, 51
-and randstrobes like this:
-
-14, 21, 39, 51
-14------39
-    21--39
-        39--51
-
-If 39 now has the lowest hash value, it will be chosen as the main hash for all
-three randstrobes. Thus, when looking up that main hash, all three randstrobes
-are found. After the start coordinate of the randstrobe is converted to the
-start coordinate of the single syncmer (using strobe_extent_partial()), they all
-result in a hit that starts at 39 (and has length k).
-*/
 inline void add_to_matches_map_partial(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
     int query_start,
@@ -223,10 +191,6 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
     const StrobemerIndex& index,
     bool use_mcs
 ) {
-    std::vector<PartialHit> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
-    if (use_mcs) {
-        partial_queried.reserve(10);
-    }
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
     matches_map[0].reserve(100);
     matches_map[1].reserve(100);
@@ -243,24 +207,18 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
             add_to_matches_map_full(matches_map[q.is_reverse], q.start, q.end, index, position);
         }
         else if (use_mcs) {
-            PartialHit ph{q.hash & index.get_main_hash_mask(), q.partial_start, q.is_reverse};
-            if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
-                // already queried
-                continue;
-            }
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
                 total_hits++;
                 if (index.is_partial_filtered(partial_pos)) {
-                    partial_queried.push_back(ph);
                     continue;
                 }
                 nr_good_hits++;
-                add_to_matches_map_partial(matches_map[q.is_reverse], q.partial_start, q.partial_end, index, partial_pos);
+                add_to_matches_map_partial(matches_map[q.is_reverse], q.start, q.start + index.k(), index, partial_pos);
             }
-            partial_queried.push_back(ph);
         }
     }
+
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     auto nams = merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), use_mcs);
     return {nonrepetitive_fraction, nr_good_hits, nams};
@@ -290,8 +248,6 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
                 < std::tie(rhs.count, rhs.query_start, rhs.query_end);
         }
     };
-    std::vector<PartialHit> partial_queried;  // TODO: is a small set more efficient than linear search in a small vector?
-    partial_queried.reserve(10);
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
     std::vector<RescueHit> hits_fw;
     std::vector<RescueHit> hits_rc;
@@ -312,22 +268,16 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
             }
         }
         else if (use_mcs) {
-            PartialHit ph = {qr.hash & index.get_main_hash_mask(), qr.partial_start, qr.is_reverse};
-            if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
-                // already queried
-                continue;
-            }
             size_t partial_pos = index.find_partial(qr.hash);
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_count_partial(partial_pos);
-                RescueHit rh{partial_pos, partial_count, qr.partial_start, qr.partial_end, true};
+                RescueHit rh{partial_pos, partial_count, qr.start, qr.start + index.k(), true};
                 if (qr.is_reverse){
                     hits_rc.push_back(rh);
                 } else {
                     hits_fw.push_back(rh);
                 }
             }
-            partial_queried.push_back(ph);
         }
     }
 
@@ -356,6 +306,6 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
 }
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {
-    os << "Nam(ref_id=" << n.ref_id << ", query: " << n.query_start << ".." << n.query_end << ", ref: " << n.ref_start << ".." << n.ref_end << ", score=" << n.score << ")";
+    os << "Nam(ref_id=" << n.ref_id << ", query: " << n.query_start << ".." << n.query_end << ", ref: " << n.ref_start << ".." << n.ref_end << ", rc=" << static_cast<int>(n.is_rc) << ", score=" << n.score << ")";
     return os;
 }

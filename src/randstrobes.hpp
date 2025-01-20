@@ -17,11 +17,11 @@
 using syncmer_hash_t = uint64_t;
 using randstrobe_hash_t = uint64_t;
 
-static constexpr uint64_t RANDSTROBE_HASH_MASK = 0xFFFFFFFFFFFFFE00;
+static constexpr uint64_t RANDSTROBE_HASH_MASK = 0xFFFFFFFFFFFFFF00;
 
 struct RefRandstrobe {
 private:
-    // packed representation of hash, offset and first_strobe_is_main
+    // packed representation of hash and offset
     randstrobe_hash_t m_hash_offset_flag;
     uint32_t m_position;
     uint32_t m_ref_index;
@@ -29,8 +29,8 @@ private:
 public:
     RefRandstrobe() : m_hash_offset_flag(0), m_position(0), m_ref_index(0) { }
 
-    RefRandstrobe(randstrobe_hash_t hash, uint32_t position, uint32_t ref_index, uint8_t offset, bool first_strobe_is_main)
-        : m_hash_offset_flag((hash & RANDSTROBE_HASH_MASK) | (offset << 1) | first_strobe_is_main)
+    RefRandstrobe(randstrobe_hash_t hash, uint32_t position, uint32_t ref_index, uint8_t offset)
+        : m_hash_offset_flag((hash & RANDSTROBE_HASH_MASK) | offset)
         , m_position(position)
         , m_ref_index(ref_index)
     { }
@@ -45,16 +45,12 @@ public:
         return lhs < rhs;
     }
 
-    bool first_strobe_is_main() const {
-        return m_hash_offset_flag & 1;
-    }
-
     unsigned reference_index() const {
         return m_ref_index;
     }
 
     unsigned strobe2_offset() const {
-        return (m_hash_offset_flag >> 1) & 0xff;
+        return m_hash_offset_flag & 0xff;
     }
 
     randstrobe_hash_t hash() const {
@@ -72,11 +68,6 @@ struct QueryRandstrobe {
     randstrobe_hash_t hash;
     unsigned int start;
     unsigned int end;
-    /* Start and end of the main syncmer (relevant if the randstrobe couldn’t
-     * be found in the index and we fall back to a partial hit)
-     */
-    unsigned int partial_start;
-    unsigned int partial_end;
     bool is_reverse;
 };
 
@@ -90,7 +81,6 @@ struct Randstrobe {
     randstrobe_hash_t hash;
     unsigned int strobe1_pos;
     unsigned int strobe2_pos;
-    bool first_strobe_is_main;
 
     bool operator==(const Randstrobe& other) const {
         return hash == other.hash && strobe1_pos == other.strobe1_pos && strobe2_pos == other.strobe2_pos;
@@ -188,7 +178,7 @@ public:
     { }
 
     Randstrobe next();
-    Randstrobe end() const { return Randstrobe{0, 0, 0, false}; }
+    Randstrobe end() const { return Randstrobe{0, 0, 0}; }
 
 private:
     SyncmerIterator syncmer_iterator;
