@@ -219,6 +219,21 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
         }
     }
 
+    // Rescue using partial hits, even in non-MCS mode
+    if (total_hits == 0 && !use_mcs) {
+        for (const auto &q : query_randstrobes) {
+            size_t partial_pos = index.find_partial(q.hash);
+            if (partial_pos != index.end()) {
+                total_hits++;
+                if (index.is_partial_filtered(partial_pos)) {
+                    continue;
+                }
+                nr_good_hits++;
+                add_to_matches_map_partial(matches_map[q.is_reverse], q.start, q.start + index.k(), index, partial_pos);
+            }
+        }
+    }
+
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     auto nams = merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), use_mcs);
     return {nonrepetitive_fraction, nr_good_hits, nams};
@@ -249,43 +264,34 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
         }
     };
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
-    std::vector<RescueHit> hits_fw;
-    std::vector<RescueHit> hits_rc;
+    std::array<std::vector<RescueHit>, 2> hits;
     matches_map[0].reserve(100);
     matches_map[1].reserve(100);
-    hits_fw.reserve(5000);
-    hits_rc.reserve(5000);
+    hits[0].reserve(5000);
+    hits[1].reserve(5000);
 
     for (auto &qr : query_randstrobes) {
         size_t position = index.find_full(qr.hash);
         if (position != index.end()) {
             unsigned int count = index.get_count_full(position);
             RescueHit rh{position, count, qr.start, qr.end, false};
-            if (qr.is_reverse){
-                hits_rc.push_back(rh);
-            } else {
-                hits_fw.push_back(rh);
-            }
+            hits[qr.is_reverse].push_back(rh);
         }
         else if (use_mcs) {
             size_t partial_pos = index.find_partial(qr.hash);
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_count_partial(partial_pos);
                 RescueHit rh{partial_pos, partial_count, qr.start, qr.start + index.k(), true};
-                if (qr.is_reverse){
-                    hits_rc.push_back(rh);
-                } else {
-                    hits_fw.push_back(rh);
-                }
+                hits[qr.is_reverse].push_back(rh);
             }
         }
     }
 
-    std::sort(hits_fw.begin(), hits_fw.end());
-    std::sort(hits_rc.begin(), hits_rc.end());
+    std::sort(hits[0].begin(), hits[0].end());
+    std::sort(hits[1].begin(), hits[1].end());
     int n_hits = 0;
     size_t is_revcomp = 0;
-    for (auto& rescue_hits : {hits_fw, hits_rc}) {
+    for (auto& rescue_hits : hits) {
         int cnt = 0;
         for (auto &rh : rescue_hits) {
             if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {

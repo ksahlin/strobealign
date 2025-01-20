@@ -54,7 +54,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlag<int> end_bonus(parser, "INT", "Soft clipping penalty [10]", {'L'});
 
     args::Group search(parser, "Search parameters:");
-    args::Flag mcs(parser, "mcs", "Use multi-context seeds for finding hits", {"mcs"});
+    args::Flag mcs(parser, "mcs", "Use extended multi-context seed mode for finding hits. Slightly more accurate, but slower", {"mcs"});
     args::ValueFlag<float> f(parser, "FLOAT", "Top fraction of repetitive strobemers to filter out from sampling [0.0002]", {'f'});
     args::ValueFlag<float> S(parser, "FLOAT", "Try candidate sites with mapping score at least S of maximum mapping score [0.5]", {'S'});
     args::ValueFlag<int> M(parser, "INT", "Maximum number of mapping sites to try [20]", {'M'});

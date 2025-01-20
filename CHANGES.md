@@ -2,14 +2,20 @@
 
 ## development version
 
+* #476: Significantly improve speed and accuracy by enabling by default a new
+  variant of multi-context seeds: When no regular seeds - which consist
+  of two strobes - can be found for the entire query, strobealign attempts to find
+  single-strobe ("partial") seeds.
+  The `--mcs` option is still available for now. It is a bit slower, but
+  slightly more accurate.
 * #468: Be less strict when checking reference sequence names.
 
 ## v0.15.0 (2024-12-13)
 
 * #388 and #426: Increase accuracy and mapping rate for reads shorter than
   about 200 bp by introducing multi-context seeds.
-  Previously, seeds always consisted of two k-mers and would only be found if
-  both occur in query and reference.
+  Previously, seeds always consisted of two k-mers ("strobes") and would only
+  be found if both occur in query and reference.
   With this change, strobealign falls back to looking up just one of the k-mers
   when appropriate.
   This feature is currently *experimental* and only enabled when using the
