@@ -308,15 +308,9 @@ void StrobemerIndex::assign_randstrobes(size_t ref_index, size_t offset) {
                 randstrobe.hash,
                 randstrobe.strobe1_pos,
                 static_cast<uint32_t>(ref_index),
-                static_cast<uint8_t>(randstrobe.strobe2_pos - randstrobe.strobe1_pos)
+                static_cast<uint8_t>(randstrobe.strobe2_pos - randstrobe.strobe1_pos),
+                static_cast<uint8_t>(randstrobe.strobe3_pos - randstrobe.strobe2_pos)
             };
-//            RefRandstrobe::packed_t packed = ref_index << (RefRandstrobe::bit_alloc + 1);
-//            int strobe2_offset = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
-//            int strobe3_offset = randstrobe.strobe3_pos - randstrobe.strobe2_pos;
-//            packed |= (strobe2_offset << (RefRandstrobe::bit_alloc / 2 + 1));
-//            packed |= (strobe3_offset << 1);
-//            packed |= randstrobe.main_is_first;
-//            randstrobes[offset++] = RefRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, packed};
         }
         chunk.clear();
     }
@@ -363,10 +357,10 @@ void StrobemerIndex::print_diagnostics(const std::string& logfile_name, int k) c
             if (get_hash(it) != get_hash(it + 1)) {
                 ++distinct_seeds;
             }
-            if (get_partial_hash(it, 1) != get_partial_hash(it + 1, 1)) {
+            if (get_main_hash(it, 1) != get_main_hash(it + 1, 1)) {
                 ++distinct_seeds_lv1;
             }
-            if (get_partial_hash(it, 2) != get_partial_hash(it + 1, 2)) {
+            if (get_main_hash(it, 2) != get_main_hash(it + 1, 2)) {
                 ++distinct_seeds_lv2;
             }
         }

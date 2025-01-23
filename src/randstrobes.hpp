@@ -16,7 +16,7 @@
 using syncmer_hash_t = uint64_t;
 using randstrobe_hash_t = uint64_t;
 
-static constexpr uint64_t RANDSTROBE_HASH_MASK = 0xFFFFFFFFFFFFFF00;
+static constexpr uint64_t RANDSTROBE_HASH_MASK = 0xFFFFFFFFFFFF0000;
 
 struct RefRandstrobe {
 private:
@@ -28,8 +28,8 @@ private:
 public:
     RefRandstrobe() : m_hash_offset_flag(0), m_position(0), m_ref_index(0) { }
 
-    RefRandstrobe(randstrobe_hash_t hash, uint32_t position, uint32_t ref_index, uint8_t offset)
-        : m_hash_offset_flag((hash & RANDSTROBE_HASH_MASK) | offset)
+    RefRandstrobe(randstrobe_hash_t hash, uint32_t position, uint32_t ref_index, uint8_t second_offset, uint8_t third_offset)
+        : m_hash_offset_flag((hash & RANDSTROBE_HASH_MASK) ^ (second_offset << 8) ^ third_offset)
         , m_position(position)
         , m_ref_index(ref_index)
     { }
@@ -48,7 +48,11 @@ public:
         return m_ref_index;
     }
 
-    unsigned strobe2_offset() const {
+    uint8_t strobe2_offset() const {
+        return (m_hash_offset_flag >> 8) & 0xff;
+    }
+
+    uint8_t strobe3_offset() const {
         return m_hash_offset_flag & 0xff;
     }
 
@@ -56,10 +60,9 @@ public:
         return m_hash_offset_flag & RANDSTROBE_HASH_MASK;
     }
 
-private:
-    static constexpr int mask2 = ((1 << (bit_alloc / 2)) - 1) << (bit_alloc / 2 + 1);
-    static constexpr int mask3 = ((1 << (bit_alloc / 2)) - 1) << 1;
-    packed_t m_packed; // packed representation of ref_index, strobe offsets, and strobe orientation bit
+    uint32_t position() const {
+        return m_position;
+    }
 
     static constexpr size_t max_number_of_references = (1ul << 32) - 1;
 };
@@ -130,6 +133,13 @@ public:
 
 private:
     Randstrobe get(unsigned int strobe1_index) const;
+    uint get_next_strobe_index(
+        unsigned int first_strobe_index,
+        unsigned int curr_strobe_index,
+        uint64_t curr_hash,
+        uint strobe_count
+    ) const;
+
     const std::vector<Syncmer>& syncmers;
     const RandstrobeParameters parameters;
 
@@ -178,7 +188,7 @@ public:
     { }
 
     Randstrobe next();
-    Randstrobe end() const { return Randstrobe{0, 0, 0, 0}; }
+    Randstrobe end() const { return Randstrobe{0, 0, 0, 0, 0}; }
 
 private:
     uint get_next_strobe_index(

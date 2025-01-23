@@ -40,23 +40,27 @@ TEST_CASE("RefRandstrobe constructor") {
     uint32_t position = ~0u;
     uint32_t ref_index = RefRandstrobe::max_number_of_references - 1;
     SUBCASE("one") {
-        uint8_t offset = 255;
-        RefRandstrobe rr{hash, position, ref_index, offset};
+        uint8_t offset2 = 255;
+        uint8_t offset3 = 102;
+        RefRandstrobe rr{hash, position, ref_index, offset2, offset3};
 
         CHECK(rr.hash() == hash);
         CHECK(rr.position() == position);
         CHECK(rr.reference_index() == ref_index);
-        CHECK(rr.strobe2_offset() == offset);
+        CHECK(rr.strobe2_offset() == offset2);
+        CHECK(rr.strobe3_offset() == offset3);
     }
 
     SUBCASE("two") {
-        uint8_t offset = 0;
-        RefRandstrobe rr{hash, position, ref_index, offset};
+        uint8_t offset2 = 0;
+        uint8_t offset3 = 0;
+        RefRandstrobe rr{hash, position, ref_index, offset2, offset3};
 
         CHECK(rr.hash() == hash);
         CHECK(rr.position() == position);
         CHECK(rr.reference_index() == ref_index);
-        CHECK(rr.strobe2_offset() == offset);
+        CHECK(rr.strobe2_offset() == offset2);
+        CHECK(rr.strobe3_offset() == offset3);
     }
 
 

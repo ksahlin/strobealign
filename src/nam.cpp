@@ -56,8 +56,8 @@ inline void add_to_matches_map_partial(
     const StrobemerIndex& index,
     size_t position
 ) {
-    for (const auto hash = index.get_main_hash(position);
-         index.get_main_hash(position) == hash;
+    for (const auto hash = index.get_main_hash(position, 2);
+         index.get_main_hash(position, 2) == hash;
          ++position
     ) {
         auto [ref_start, ref_end] = index.strobe_extent_partial(position);

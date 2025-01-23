@@ -17,7 +17,8 @@ bool RandstrobeParameters::operator==(const RandstrobeParameters& other) const {
         && this->max_dist == other.max_dist
         && this->w_min == other.w_min
         && this->w_max == other.w_max
-        && this->main_hash_mask == other.main_hash_mask;
+        && this->main_hash_mask == other.main_hash_mask
+        && this->strobe2_mask == other.strobe2_mask;
 }
 
 /* Pre-defined index parameters that work well for a certain
@@ -77,7 +78,7 @@ IndexParameters IndexParameters::from_read_length(int read_length, int k, int s,
     }
     int q = std::pow(2, c == DEFAULT ? default_c : c) - 1;
     if (aux_len == DEFAULT) {
-        aux_len = 17;
+        aux_len = 8;
     }
 
     return IndexParameters(canonical_read_length, k, s, w_min, w_max, q, max_dist, aux_len);
@@ -91,7 +92,8 @@ void IndexParameters::write(std::ostream& os) const {
     write_int_to_ostream(os, randstrobe.w_max);
     write_int_to_ostream(os, randstrobe.q);
     write_int_to_ostream(os, randstrobe.max_dist);
-    write_uint64_to_ostream(os, randstrobe.main_hash_mask);
+    write_int_to_ostream(os, randstrobe.main_hash_mask);
+    write_int_to_ostream(os, randstrobe.strobe2_mask);
 }
 
 IndexParameters IndexParameters::read(std::istream& is) {
@@ -105,7 +107,8 @@ IndexParameters IndexParameters::read(std::istream& is) {
     uint64_t q = read_int_from_istream(is);
     int max_dist = read_int_from_istream(is);
     uint64_t main_hash_mask = read_uint64_from_istream(is);
-    const RandstrobeParameters randstrobe_parameters{q, max_dist, w_min, w_max, main_hash_mask};
+    uint64_t strobe2_mask = read_uint64_from_istream(is);
+    const RandstrobeParameters randstrobe_parameters{q, max_dist, w_min, w_max, main_hash_mask, strobe2_mask};
 
     return IndexParameters(canonical_read_length, syncmer_parameters, randstrobe_parameters);
 }
@@ -147,6 +150,7 @@ std::ostream& operator<<(std::ostream& os, const RandstrobeParameters& parameter
         << ", w_min=" << parameters.w_min
         << ", w_max=" << parameters.w_max
         << ", main_hash_mask=0x" << std::hex << parameters.main_hash_mask << std::dec
+        << ", strobe2_mask=0x" << std::hex << parameters.strobe2_mask << std::dec
         << ")";
     return os;
 }
@@ -162,6 +166,7 @@ std::ostream& operator<<(std::ostream& os, const IndexParameters& parameters) {
         << ", w_min=" << parameters.randstrobe.w_min
         << ", w_max=" << parameters.randstrobe.w_max
         << ", main_hash_mask=0x" << std::hex << parameters.randstrobe.main_hash_mask << std::dec
+        << ", strobe2_mask=0x" << std::hex << parameters.randstrobe.strobe2_mask << std::dec
         << ")";
     return os;
 }
