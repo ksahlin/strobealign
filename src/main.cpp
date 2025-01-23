@@ -225,6 +225,7 @@ int run_strobealign(int argc, char **argv) {
     }
 
     logger.debug() << "Auxiliary hash length: " << opt.aux_len << "\n";
+    logger.debug() << "Base hash mask: " << std::hex << index_parameters.randstrobe.main_hash_mask << std::dec << '\n';
     logger.info() << "Multi-context seed strategy: " << map_param.mcs_strategy << '\n';
     StrobemerIndex index(references, index_parameters, opt.bits);
     if (opt.use_index) {

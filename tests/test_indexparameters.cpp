@@ -14,11 +14,12 @@ TEST_CASE("test IndexParameters constructor") {
     unsigned w_max = 16;
     int max_dist = 180;
     uint64_t q = 255;
-    uint64_t main_hash_mask = 0xfffffffffc000000;
-    int aux_len = 17;
+    uint64_t mask1 = 0xffffffffff000000;
+    uint64_t mask2 = 0xff0000;
+    int aux_len = 8;
 
     SyncmerParameters sp{k, s};
-    RandstrobeParameters rp{q, max_dist, w_min, w_max, main_hash_mask};
+    RandstrobeParameters rp{q, max_dist, w_min, w_max, mask1, mask2};
     IndexParameters ip = IndexParameters{
         canonical_read_length,
         k,

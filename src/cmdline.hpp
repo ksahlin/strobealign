@@ -54,7 +54,7 @@ struct CommandLineOptions {
     int u { 7 };
     int s { 16 };
     int c { 8 };
-    int aux_len{17};
+    int aux_len{8};
 
     // Alignment
     int A { 2 };

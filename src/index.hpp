@@ -17,7 +17,6 @@
 #include "refs.hpp"
 #include "randstrobes.hpp"
 #include "indexparameters.hpp"
-#include "logger.hpp"
 
 
 struct IndexCreationStatistics {
@@ -50,7 +49,7 @@ struct StrobemerIndex {
             throw BadParameter("Bits must be between 8 and 31");
         }
         if ((parameters.randstrobe.main_hash_mask & (1ul << (64 - this->bits))) == 0) {
-            throw BadParameter("Sum of values for --aux-len and -b must not exceed 55");
+            throw BadParameter("Sum of values for 2 * (--aux-len) and -b must not exceed 47");
         }
     }
     unsigned int filter_cutoff;
@@ -71,8 +70,8 @@ struct StrobemerIndex {
      * Find the first entry that matches the main hash (ignoring the aux_len
      * least significant bits)
      */
-    size_t find_partial(randstrobe_hash_t key) const {
-        return find(key, parameters.randstrobe.main_hash_mask);
+    size_t find_partial(randstrobe_hash_t key, uint level) const {
+        return find(key, get_partial_mask(level));
     }
 
     /*
@@ -101,9 +100,9 @@ struct StrobemerIndex {
         };
 
         auto pos = std::lower_bound(randstrobes.begin() + position_start,
-                                    randstrobes.begin() + position_end,
-                                    RefRandstrobe{key, 0, 0, 0},
-                                    cmp);
+                                                randstrobes.begin() + position_end,
+                                                RefRandstrobe{key, 0, 0, 0, 0},
+                                                cmp);
         if ((pos->hash() & hash_mask) == masked_key) return pos - randstrobes.begin();
         return end();
     }
@@ -117,9 +116,13 @@ struct StrobemerIndex {
     }
 
     randstrobe_hash_t get_main_hash(bucket_index_t position, uint level) const {
-        const unsigned int shift = (parameters.randstrobe.aux_len / 2) * level;
         if (position < randstrobes.size()) {
-            return randstrobes[position].hash() & parameters.randstrobe.main_hash_mask;
+            if (level == 2 || level == 1) {
+                return get_main_subhash(randstrobes[position].hash(), level);
+            }
+            else {
+                throw BadParameter("Invalid search level");
+            }
         } else {
             return end();
         }
@@ -147,57 +150,30 @@ struct StrobemerIndex {
         return count > filter_cutoff;
     }
 
-    bool is_partial_filtered_forward(bucket_index_t position) const {
+    bool is_partial_filtered_forward(bucket_index_t position, uint level) const {
         assert(position < randstrobes.size());
-        return get_main_hash(position) == get_main_hash(position + partial_filter_cutoff);
+        return get_main_hash(position, level) == get_main_hash(position + partial_filter_cutoff, level);
     }
 
-    bool is_partial_filtered(bucket_index_t position, randstrobe_hash_t hash_revcomp) const {
+    bool is_partial_filtered(bucket_index_t position, randstrobe_hash_t hash_revcomp, uint level) const {
         assert(position < randstrobes.size());
-        if (is_partial_filtered_forward(position)) {
+        if (is_partial_filtered_forward(position, level)) {
             return true;
         }
-        bucket_index_t position_revcomp = find_partial(hash_revcomp);
+        bucket_index_t position_revcomp = find_partial(hash_revcomp, level);
         if (position_revcomp == end()) {
             return false;
         }
-        if (is_partial_filtered_forward(position_revcomp)) {
+        if (is_partial_filtered_forward(position_revcomp, level)) {
             return true;
         }
-        size_t count = get_count_partial(position) + get_count_partial(position_revcomp);
+        size_t count = get_count_partial(position, level) + get_count_partial(position_revcomp, level);
 
         return count > filter_cutoff;
     }
 
     unsigned int get_strobe1_position(bucket_index_t position) const {
         return randstrobes[position].position();
-    }
-
-    //Main is first: ([-----]   -----)   -----
-    //Main is last:    -----   (-----   [-----])
-    unsigned int get_partial_seed_start(bucket_index_t position, uint level) const {
-        if (randstrobes[position].main_is_first()) {
-            return randstrobes[position].position;
-        }
-        else {
-            if (level == 1) {
-                return randstrobes[position].position + strobe2_offset(position);
-            }
-            return randstrobes[position].position + strobe2_offset(position) + strobe3_offset(position);
-        }
-    }
-    unsigned int get_partial_seed_end(bucket_index_t position, uint level) const {
-        if (randstrobes[position].main_is_first()) {
-            if (level == 1) {
-                return randstrobes[position].position + strobe2_offset(position) + k();
-            }
-            else {
-                return randstrobes[position].position + k();
-            }
-        }
-        else {
-            return randstrobes[position].position + strobe2_offset(position) + strobe3_offset(position) + k();
-        }
     }
 
     int strobe2_offset(bucket_index_t position) const {
@@ -230,8 +206,8 @@ struct StrobemerIndex {
         return get_count(position, RANDSTROBE_HASH_MASK);
     }
 
-    unsigned int get_count_partial(bucket_index_t position) const {
-        return get_count(position, parameters.randstrobe.main_hash_mask);
+    unsigned int get_count_partial(bucket_index_t position, uint level) const {
+        return get_count(position, get_partial_mask(level));
     }
 
     unsigned int get_count(bucket_index_t position, uint64_t hash_mask) const {
@@ -264,43 +240,13 @@ struct StrobemerIndex {
             }
             return count;
         }
-        auto cmp = [&hash_mask](const RefRandstrobe lhs, const RefRandstrobe rhs) {return (lhs.hash() & hash_mask) < (rhs.hash() & hash_mask); };
+        auto cmp = [&hash_mask](const RefRandstrobe lhs, const RefRandstrobe rhs) {
+            return (lhs.hash() & hash_mask) < (rhs.hash() & hash_mask); };
 
         auto pos = std::upper_bound(randstrobes.begin() + position,
                                                randstrobes.begin() + position_end,
-                                               RefRandstrobe{key, 0, 0},
+                                               RefRandstrobe{key, 0, 0, 0, 0},
                                                cmp);
-        return (pos - randstrobes.begin() - 1) - position + 1;
-    }
-
-    unsigned int get_partial_count(bucket_index_t position, uint level) const {
-        constexpr unsigned int MAX_LINEAR_SEARCH = 8;
-        const unsigned int shift = (parameters.randstrobe.aux_len / 2) * level;
-
-        const auto key = randstrobes[position].hash;
-        randstrobe_hash_t key_prefix = key >> shift;
-
-        const unsigned int top_N = key >> (64 - bits);
-        bucket_index_t position_end = randstrobe_start_indices[top_N + 1];
-        uint64_t count = 1;
-
-        if (position_end - position < MAX_LINEAR_SEARCH) {
-            for (bucket_index_t position_start = position + 1; position_start < position_end; ++position_start) {
-                if (randstrobes[position_start].hash >> shift == key_prefix){
-                    count += 1;
-                }
-                else{
-                    break;
-                }
-            }
-            return count;
-        }
-        auto cmp = [&shift](const RefRandstrobe lhs, const RefRandstrobe rhs) {return (lhs.hash >> shift) < (rhs.hash >> shift); };
-
-        auto pos = std::upper_bound(randstrobes.begin() + position,
-                                    randstrobes.begin() + position_end,
-                                    RefRandstrobe{key, 0, 0, 0},
-                                    cmp);
         return (pos - randstrobes.begin() - 1) - position + 1;
     }
 
@@ -323,6 +269,24 @@ struct StrobemerIndex {
 private:
     void assign_all_randstrobes(const std::vector<uint64_t>& randstrobe_counts, size_t n_threads);
     void assign_randstrobes(size_t ref_index, size_t offset);
+
+    randstrobe_hash_t get_main_subhash(randstrobe_hash_t hash, uint level) const {
+        auto mask = get_partial_mask(level);
+        return hash & mask;
+    }
+
+
+    uint64_t get_partial_mask(uint level) const {
+        if (level == 1) {
+            return parameters.randstrobe.main_hash_mask ^ parameters.randstrobe.strobe2_mask;
+        }
+        if (level == 2) {
+            return parameters.randstrobe.main_hash_mask;
+        }
+        else {
+            throw BadParameter("Invalid search level");
+        }
+    }
 
     const IndexParameters& parameters;
     const References& references;
