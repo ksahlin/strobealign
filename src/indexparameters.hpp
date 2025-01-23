@@ -42,13 +42,22 @@ struct RandstrobeParameters {
     const unsigned w_min;
     const unsigned w_max;
     const uint64_t main_hash_mask;
+    const uint64_t strobe2_mask;
 
-    RandstrobeParameters(uint64_t q, int max_dist, unsigned w_min, unsigned w_max, uint64_t main_hash_mask)
+    RandstrobeParameters(
+        uint64_t q,
+        int max_dist,
+        unsigned w_min,
+        unsigned w_max,
+        uint64_t main_hash_mask,
+        uint64_t strobe2_mask
+    )
         : q(q)
         , max_dist(max_dist)
         , w_min(w_min)
         , w_max(w_max)
         , main_hash_mask(main_hash_mask)
+        , strobe2_mask(strobe2_mask)
     {
     }
 
@@ -80,8 +89,14 @@ public:
     IndexParameters(size_t canonical_read_length, int k, int s, int l, int u, uint64_t q, int max_dist, int aux_len)
         : canonical_read_length(canonical_read_length)
         , syncmer(k, s)
-        , randstrobe(q, max_dist, std::max(0, k / (k - s + 1) + l), k / (k - s + 1) + u, ~0ul << (9 + aux_len))
-    {
+        , randstrobe(
+              q,
+              max_dist,
+              std::max(0, k / (k - s + 1) + l),
+              k / (k - s + 1) + u,
+              ~0ul << (16 + 2 * aux_len),
+              (~0ul << (16 + aux_len)) ^ (~0ul << (16 + 2 * aux_len))
+          ) {
         verify(aux_len);
     }
 

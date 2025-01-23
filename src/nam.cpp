@@ -54,8 +54,8 @@ inline void add_to_matches_map_partial(
     const StrobemerIndex& index,
     size_t position
 ) {
-    for (const auto hash = index.get_main_hash(position);
-         index.get_main_hash(position) == hash;
+    for (const auto hash = index.get_main_hash(position, 2);
+         index.get_main_hash(position, 2) == hash;
          ++position
     ) {
         auto [ref_start, ref_end] = index.strobe_extent_partial(position);
@@ -241,10 +241,11 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
             }
             hits.push_back(Hit{position, q.start, q.end, false});
         } else if (mcs_strategy == McsStrategy::Always) {
-            size_t partial_pos = index.find_partial(q.hash);
+            // Use second level (or not)
+            size_t partial_pos = index.find_partial(q.hash, 2);
             if (partial_pos != index.end()) {
                 total_hits++;
-                if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
+                if (index.is_partial_filtered(partial_pos, q.hash_revcomp, 2)) {
                     continue;
                 }
                 partial_hits++;
@@ -256,10 +257,10 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
     // Rescue using partial hits
     if (mcs_strategy == McsStrategy::Rescue && total_hits == 0) {
         for (const auto &q : query_randstrobes) {
-            size_t partial_pos = index.find_partial(q.hash);
+            size_t partial_pos = index.find_partial(q.hash, 2);
             if (partial_pos != index.end()) {
                 total_hits++;
-                if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
+                if (index.is_partial_filtered(partial_pos, q.hash_revcomp, 2)) {
                     continue;
                 }
                 partial_hits++;
@@ -315,12 +316,12 @@ std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>
             rescue_hits.push_back(rh);
         }
         else if (mcs_strategy == McsStrategy::Always) {
-            size_t partial_pos = index.find_partial(qr.hash);
+            size_t partial_pos = index.find_partial(qr.hash, 2);
             if (partial_pos != index.end()) {
-                unsigned int partial_count = index.get_count_partial(partial_pos);
-                size_t position_revcomp = index.find_partial(qr.hash_revcomp);
+                unsigned int partial_count = index.get_count_partial(partial_pos, 2);
+                size_t position_revcomp = index.find_partial(qr.hash_revcomp, 2);
                 if (position_revcomp != index.end()) {
-                    partial_count += index.get_count_partial(position_revcomp);
+                    partial_count += index.get_count_partial(position_revcomp, 2);
                 }
                 RescueHit rh{partial_pos, partial_count, qr.start, qr.start + index.k(), true};
                 rescue_hits.push_back(rh);
