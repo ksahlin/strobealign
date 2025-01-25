@@ -34,6 +34,25 @@ inline void add_to_matches_map_full(
     }
 }
 
+/*
+This function often produces the same Match multiple times.
+This happens when multiple randstrobes involve a syncmer that has a low hash
+value (and which therefore gets chosen as main hash multiple times).
+
+For example, assume we have syncmers starting at positions 14, 21, 39, 51
+and randstrobes like this:
+
+14, 21, 39, 51
+14------39
+    21--39
+        39--51
+
+If 39 now has the lowest hash value, it will be chosen as the main hash for all
+three randstrobes. Thus, when looking up that main hash, all three randstrobes
+are found. After the start coordinate of the randstrobe is converted to the
+start coordinate of the single syncmer (using strobe_extent_partial()), they all
+result in a hit that starts at 39 (and has length k).
+*/
 inline void add_to_matches_map_partial(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
     int query_start,
