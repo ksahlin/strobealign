@@ -149,7 +149,7 @@ std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe) {
     os << "QueryRandstrobe(hash=" << randstrobe.hash
         << ", start=" << randstrobe.start
         << ", end=" << randstrobe.end
-        << ", is_reverse=" << randstrobe.is_reverse
+        << ", is_revcomp=" << randstrobe.is_revcomp
         << ")";
 
     return os;

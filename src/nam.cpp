@@ -120,7 +120,7 @@ void merge_matches_into_nams(
                 n.query_prev_match_startpos = m.query_start;
                 n.ref_prev_match_startpos = m.ref_start;
                 n.n_matches = 1;
-                n.is_rc = is_revcomp;
+                n.is_revcomp = is_revcomp;
 //                n.score += (float)1 / (float)h.count;
                 open_nams.push_back(n);
             }
@@ -204,7 +204,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
                 continue;
             }
             nr_good_hits++;
-            add_to_matches_map_full(matches_map[q.is_reverse], q.start, q.end, index, position);
+            add_to_matches_map_full(matches_map[q.is_revcomp], q.start, q.end, index, position);
         }
         else if (use_mcs) {
             size_t partial_pos = index.find_partial(q.hash);
@@ -214,7 +214,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
                     continue;
                 }
                 nr_good_hits++;
-                add_to_matches_map_partial(matches_map[q.is_reverse], q.start, q.start + index.k(), index, partial_pos);
+                add_to_matches_map_partial(matches_map[q.is_revcomp], q.start, q.start + index.k(), index, partial_pos);
             }
         }
     }
@@ -229,7 +229,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
                     continue;
                 }
                 nr_good_hits++;
-                add_to_matches_map_partial(matches_map[q.is_reverse], q.start, q.start + index.k(), index, partial_pos);
+                add_to_matches_map_partial(matches_map[q.is_revcomp], q.start, q.start + index.k(), index, partial_pos);
             }
         }
     }
@@ -275,14 +275,14 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
         if (position != index.end()) {
             unsigned int count = index.get_count_full(position);
             RescueHit rh{position, count, qr.start, qr.end, false};
-            hits[qr.is_reverse].push_back(rh);
+            hits[qr.is_revcomp].push_back(rh);
         }
         else if (use_mcs) {
             size_t partial_pos = index.find_partial(qr.hash);
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_count_partial(partial_pos);
                 RescueHit rh{partial_pos, partial_count, qr.start, qr.start + index.k(), true};
-                hits[qr.is_reverse].push_back(rh);
+                hits[qr.is_revcomp].push_back(rh);
             }
         }
     }
@@ -312,6 +312,6 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
 }
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {
-    os << "Nam(ref_id=" << n.ref_id << ", query: " << n.query_start << ".." << n.query_end << ", ref: " << n.ref_start << ".." << n.ref_end << ", rc=" << static_cast<int>(n.is_rc) << ", score=" << n.score << ")";
+    os << "Nam(ref_id=" << n.ref_id << ", query: " << n.query_start << ".." << n.query_end << ", ref: " << n.ref_start << ".." << n.ref_end << ", rc=" << static_cast<int>(n.is_revcomp) << ", score=" << n.score << ")";
     return os;
 }

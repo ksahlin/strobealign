@@ -68,7 +68,7 @@ struct QueryRandstrobe {
     randstrobe_hash_t hash;
     unsigned int start;
     unsigned int end;
-    bool is_reverse;
+    bool is_revcomp;
 };
 
 std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe);

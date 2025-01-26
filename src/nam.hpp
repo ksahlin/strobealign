@@ -20,7 +20,7 @@ struct Nam {
     float score;
 //    unsigned int previous_query_start;
 //    unsigned int previous_ref_start;
-    bool is_rc = false;
+    bool is_revcomp = false;
 
     int ref_span() const {
         return ref_end - ref_start;

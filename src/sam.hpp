@@ -17,7 +17,7 @@ struct Alignment {
     int global_ed;
     int score;
     int length;
-    bool is_rc;
+    bool is_revcomp;
     bool is_unaligned{false};
     // Whether a gapped alignment function was used to obtain this alignment
     // (even if true, the alignment can still be without gaps)

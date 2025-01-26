@@ -26,7 +26,7 @@ void output_hits_paf_PE(std::string &paf_output, const Nam &n, const std::string
     paf_output.append("\t");
     paf_output.append(std::to_string(n.query_end));
     paf_output.append("\t");
-    paf_output.append(n.is_rc ? "-" : "+");
+    paf_output.append(n.is_revcomp ? "-" : "+");
     paf_output.append("\t");
     paf_output.append(references.names[n.ref_id]);
     paf_output.append("\t");

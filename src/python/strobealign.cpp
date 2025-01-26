@@ -135,7 +135,7 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("hash", &QueryRandstrobe::hash)
         .def_ro("start", &QueryRandstrobe::start)
         .def_ro("end", &QueryRandstrobe::end)
-        .def_ro("is_reverse", &QueryRandstrobe::is_reverse)
+        .def_ro("is_revcomp", &QueryRandstrobe::is_revcomp)
         .def("__repr__", [](const QueryRandstrobe& qr) {
             std::stringstream s; s << qr; return s.str();
         })
@@ -150,7 +150,7 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("score", &Nam::score)
         .def_ro("n_hits", &Nam::n_matches)
         .def_ro("reference_index", &Nam::ref_id)
-        .def_rw("is_rc", &Nam::is_rc)
+        .def_rw("is_revcomp", &Nam::is_revcomp)
         .def_prop_ro("ref_span", &Nam::ref_span)
         .def_prop_ro("query_span", &Nam::query_span)
         .def("__repr__", [](const Nam& nam) {
