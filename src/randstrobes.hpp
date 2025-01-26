@@ -73,9 +73,7 @@ struct QueryRandstrobe {
 
 std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe);
 
-using QueryRandstrobeVector = std::vector<QueryRandstrobe>;
-
-QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexParameters& parameters);
+std::vector<QueryRandstrobe> randstrobes_query(const std::string_view seq, const IndexParameters& parameters);
 
 struct Randstrobe {
     randstrobe_hash_t hash;
