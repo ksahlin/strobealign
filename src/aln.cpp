@@ -1019,6 +1019,61 @@ bool has_shared_substring(const std::string& read_seq, const std::string& ref_se
     return false;
 }
 
+
+/*
+ * Obtain NAMs for a sequence record, doing rescue if needed.
+ * Return NAMs sorted by decreasing score.
+ */
+std::vector<Nam> get_nams(
+    const KSeq& record,
+    const StrobemerIndex& index,
+    AlignmentStatistics& statistics,
+    Details& details,
+    const MappingParameters &map_param,
+    const IndexParameters& index_parameters,
+    std::minstd_rand& random_engine
+) {
+    // Compute randstrobes
+    Timer strobe_timer;
+    auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
+    statistics.n_randstrobes += query_randstrobes.size();
+    statistics.tot_construct_strobemers += strobe_timer.duration();
+
+    // Find NAMs
+    Timer nam_timer;
+    auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
+    statistics.tot_find_nams += nam_timer.duration();
+    statistics.n_hits += n_hits;
+    details.nams = nams.size();
+
+    // Rescue if requested and needed
+    if (map_param.rescue_level > 1 && (nams.empty() || nonrepetitive_fraction < 0.7)) {
+        Timer rescue_timer;
+        int n_rescue_hits;
+        std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
+        statistics.n_rescue_hits += n_rescue_hits;
+        details.rescue_nams = nams.size();
+        details.nam_rescue = true;
+        statistics.tot_time_rescue += rescue_timer.duration();
+    }
+
+    // Sort by score
+    Timer nam_sort_timer;
+    std::sort(nams.begin(), nams.end(), by_score<Nam>);
+    shuffle_top_nams(nams, random_engine);
+    statistics.tot_sort_nams += nam_sort_timer.duration();
+
+#ifdef TRACE
+    std::cerr << "Query: " << record.name << '\n';
+    std::cerr << "Found " << nams.size() << " NAMs\n";
+    for (const auto& nam : nams) {
+        std::cerr << "- " << nam << '\n';
+    }
+#endif
+
+    return nams;
+}
+
 void align_or_map_paired(
     const KSeq &record1,
     const KSeq &record2,
@@ -1039,46 +1094,11 @@ void align_or_map_paired(
 
     for (size_t is_r1 : {0, 1}) {
         const auto& record = is_r1 == 0 ? record1 : record2;
-
-        Timer strobe_timer;
-        auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
-        statistics.n_randstrobes += query_randstrobes.size();
-        statistics.tot_construct_strobemers += strobe_timer.duration();
-
-        // Find NAMs
-        Timer nam_timer;
-        auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
-        statistics.tot_find_nams += nam_timer.duration();
-        statistics.n_hits += n_hits;
-        details[is_r1].nams = nams.size();
-
-        if (map_param.rescue_level > 1 && (nams.empty() || nonrepetitive_fraction < 0.7)) {
-            Timer rescue_timer;
-            int n_rescue_hits;
-            std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
-            details[is_r1].nam_rescue = true;
-            details[is_r1].rescue_nams = nams.size();
-            statistics.n_rescue_hits += n_rescue_hits;
-            statistics.tot_time_rescue += rescue_timer.duration();
-        }
-        Timer nam_sort_timer;
-        std::sort(nams.begin(), nams.end(), by_score<Nam>);
-        shuffle_top_nams(nams, random_engine);
-        statistics.tot_sort_nams += nam_sort_timer.duration();
-        nams_pair[is_r1] = nams;
-    }
-
 #ifdef TRACE
-    for (int is_r1 : {0, 1}) {
-        const auto& record = is_r1 == 0 ? record1 : record2;
-        std::cerr << "R" << is_r1 + 1 << " name: " << record.name << '\n';
-        const auto& nams = nams_pair[is_r1];
-        std::cerr << "Found " << nams.size() << " NAMs\n";
-        for (auto& nam : nams) {
-            std::cerr << "- " << nam << '\n';
-        }
-    }
+        std::cerr << "R" << is_r1 + 1 << '\n';
 #endif
+        nams_pair[is_r1] = get_nams(record, index, statistics, details[is_r1], map_param, index_parameters, random_engine);
+    }
 
     Timer extend_timer;
     if (map_param.output_format != OutputFormat::SAM) { // PAF or abundance
@@ -1182,40 +1202,7 @@ void align_or_map_single(
     std::vector<double> &abundances
 ) {
     Details details;
-    Timer strobe_timer;
-    auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
-    statistics.n_randstrobes += query_randstrobes.size();
-    statistics.tot_construct_strobemers += strobe_timer.duration();
-
-    // Find NAMs
-    Timer nam_timer;
-    auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
-    statistics.tot_find_nams += nam_timer.duration();
-    statistics.n_hits += n_hits;
-    details.nams = nams.size();
-
-    if (map_param.rescue_level > 1 && (nams.empty() || nonrepetitive_fraction < 0.7)) {
-        Timer rescue_timer;
-        int n_rescue_hits;
-        std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
-        statistics.n_rescue_hits += n_rescue_hits;
-        details.rescue_nams = nams.size();
-        details.nam_rescue = true;
-        statistics.tot_time_rescue += rescue_timer.duration();
-    }
-
-    Timer nam_sort_timer;
-    std::sort(nams.begin(), nams.end(), by_score<Nam>);
-    shuffle_top_nams(nams, random_engine);
-    statistics.tot_sort_nams += nam_sort_timer.duration();
-
-#ifdef TRACE
-    std::cerr << "Query: " << record.name << '\n';
-    std::cerr << "Found " << nams.size() << " NAMs\n";
-    for (auto& nam : nams) {
-        std::cerr << "- " << nam << '\n';
-    }
-#endif
+    std::vector<Nam> nams = get_nams(record, index, statistics, details, map_param, index_parameters, random_engine);
 
     Timer extend_timer;
     size_t n_best = 0;
