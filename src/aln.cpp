@@ -1052,15 +1052,13 @@ void align_or_map_paired(
         statistics.n_hits += n_hits;
         details[is_r1].nams = nams.size();
 
-        if (map_param.rescue_level > 1) {
+        if (map_param.rescue_level > 1 && (nams.empty() || nonrepetitive_fraction < 0.7)) {
             Timer rescue_timer;
-            if (nams.empty() || nonrepetitive_fraction < 0.7) {
-                int n_rescue_hits;
-                std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
-                details[is_r1].nam_rescue = true;
-                details[is_r1].rescue_nams = nams.size();
-                statistics.n_rescue_hits += n_rescue_hits;
-            }
+            int n_rescue_hits;
+            std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
+            details[is_r1].nam_rescue = true;
+            details[is_r1].rescue_nams = nams.size();
+            statistics.n_rescue_hits += n_rescue_hits;
             statistics.tot_time_rescue += rescue_timer.duration();
         }
         Timer nam_sort_timer;
@@ -1196,15 +1194,13 @@ void align_or_map_single(
     statistics.n_hits += n_hits;
     details.nams = nams.size();
 
-    if (map_param.rescue_level > 1) {
+    if (map_param.rescue_level > 1 && (nams.empty() || nonrepetitive_fraction < 0.7)) {
         Timer rescue_timer;
-        if (nams.empty() || nonrepetitive_fraction < 0.7) {
-            int n_rescue_hits;
-            std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
-            statistics.n_rescue_hits += n_rescue_hits;
-            details.rescue_nams = nams.size();
-            details.nam_rescue = true;
-        }
+        int n_rescue_hits;
+        std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
+        statistics.n_rescue_hits += n_rescue_hits;
+        details.rescue_nams = nams.size();
+        details.nam_rescue = true;
         statistics.tot_time_rescue += rescue_timer.duration();
     }
 
