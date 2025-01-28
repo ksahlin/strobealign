@@ -149,7 +149,7 @@ std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe) {
     os << "QueryRandstrobe(hash=" << randstrobe.hash
         << ", start=" << randstrobe.start
         << ", end=" << randstrobe.end
-        << ", is_reverse=" << randstrobe.is_reverse
+        << ", is_revcomp=" << randstrobe.is_revcomp
         << ")";
 
     return os;
@@ -223,8 +223,8 @@ Randstrobe RandstrobeGenerator::next() {
 /*
  * Generate randstrobes for a query sequence and its reverse complement.
  */
-QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexParameters& parameters) {
-    QueryRandstrobeVector randstrobes;
+std::vector<QueryRandstrobe> randstrobes_query(const std::string_view seq, const IndexParameters& parameters) {
+    std::vector<QueryRandstrobe> randstrobes;
     if (seq.length() < parameters.randstrobe.w_max) {
         return randstrobes;
     }

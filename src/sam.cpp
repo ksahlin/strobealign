@@ -138,7 +138,7 @@ void Sam::add(
     assert(!alignment.is_unaligned);
 
     int flags = 0;
-    if (!alignment.is_unaligned && alignment.is_rc) {
+    if (!alignment.is_unaligned && alignment.is_revcomp) {
         flags |= REVERSE;
     }
     if (!is_primary) {
@@ -274,7 +274,7 @@ void Sam::add_pair(
         pos1 = -1;
         reference_name1 = "*";
     } else {
-        if (alignment1.is_rc) {
+        if (alignment1.is_revcomp) {
             f1 |= REVERSE;
             f2 |= MREVERSE;
         }
@@ -290,7 +290,7 @@ void Sam::add_pair(
         pos2 = -1;
         reference_name2 = "*";
     } else {
-        if (alignment2.is_rc) {
+        if (alignment2.is_revcomp) {
             f1 |= MREVERSE;
             f2 |= REVERSE;
         }
@@ -333,8 +333,8 @@ bool is_proper_pair(const Alignment& alignment1, const Alignment& alignment2, fl
     const int dist = alignment2.ref_start - alignment1.ref_start;
     const bool same_reference = alignment1.ref_id == alignment2.ref_id;
     const bool both_aligned = same_reference && !alignment1.is_unaligned && !alignment2.is_unaligned;
-    const bool r1_r2 = !alignment1.is_rc && alignment2.is_rc && dist >= 0; // r1 ---> <---- r2
-    const bool r2_r1 = !alignment2.is_rc && alignment1.is_rc && dist <= 0; // r2 ---> <---- r1
+    const bool r1_r2 = !alignment1.is_revcomp && alignment2.is_revcomp && dist >= 0; // r1 ---> <---- r2
+    const bool r2_r1 = !alignment2.is_revcomp && alignment1.is_revcomp && dist <= 0; // r2 ---> <---- r1
     const bool rel_orientation_good = r1_r2 || r2_r1;
     const bool insert_good = std::abs(dist) <= mu + 6 * sigma;
 
@@ -350,7 +350,7 @@ std::ostream& operator<<(std::ostream& os, const Alignment& alignment) {
         << ", global_ed=" << alignment.global_ed
         << ", score=" << alignment.score
         << ", length=" << alignment.length
-        << ", is_rc=" << alignment.is_rc
+        << ", is_revcomp=" << alignment.is_revcomp
         << ", is_unaligned=" << alignment.is_unaligned
         << ", gapped=" << alignment.gapped
         << ")";

@@ -56,7 +56,7 @@ bool reverse_nam_if_needed(Nam& nam, const Read& read, const References& referen
     std::string ref_end_kmer = references.sequences[nam.ref_id].substr(nam.ref_end-k, k);
 
     std::string seq, seq_rc;
-    if (nam.is_rc) {
+    if (nam.is_revcomp) {
         seq = read.rc;
         seq_rc = read.seq;
     } else {
@@ -77,7 +77,7 @@ bool reverse_nam_if_needed(Nam& nam, const Read& read, const References& referen
     read_start_kmer = seq_rc.substr(q_start_tmp, k);
     read_end_kmer = seq_rc.substr(q_end_tmp - k, k);
     if (ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer) {
-        nam.is_rc = !nam.is_rc;
+        nam.is_revcomp = !nam.is_revcomp;
         nam.query_start = q_start_tmp;
         nam.query_end = q_end_tmp;
         return true;
@@ -220,7 +220,7 @@ inline Alignment extend_seed(
     const Read& read,
     bool consistent_nam
 ) {
-    const std::string query = nam.is_rc ? read.rc : read.seq;
+    const std::string query = nam.is_revcomp ? read.rc : read.seq;
     const std::string& ref = references.sequences[nam.ref_id];
 
     const auto projected_ref_start = nam.projected_ref_start();
@@ -269,7 +269,7 @@ inline Alignment extend_seed(
     alignment.score = info.sw_score;
     alignment.ref_start = result_ref_start;
     alignment.length = info.ref_span();
-    alignment.is_rc = nam.is_rc;
+    alignment.is_revcomp = nam.is_revcomp;
     alignment.is_unaligned = false;
     alignment.ref_id = nam.ref_id;
     alignment.gapped = gapped;
@@ -335,7 +335,7 @@ inline std::vector<ScoredAlignmentPair> get_best_scoring_pairs(
         for (auto &a2 : alignments2) {
             float dist = std::abs(a1.ref_start - a2.ref_start);
             double score = a1.score + a2.score;
-            if ((a1.is_rc ^ a2.is_rc) && (dist < mu + 4 * sigma)) {
+            if ((a1.is_revcomp ^ a2.is_revcomp) && (dist < mu + 4 * sigma)) {
                 score += log(normal_pdf(dist, mu, sigma));
             }
             else { // individual score
@@ -350,17 +350,17 @@ inline std::vector<ScoredAlignmentPair> get_best_scoring_pairs(
 }
 
 bool is_proper_nam_pair(const Nam nam1, const Nam nam2, float mu, float sigma) {
-    if (nam1.ref_id != nam2.ref_id || nam1.is_rc == nam2.is_rc) {
+    if (nam1.ref_id != nam2.ref_id || nam1.is_revcomp == nam2.is_revcomp) {
         return false;
     }
     int r1_ref_start = nam1.projected_ref_start();
     int r2_ref_start = nam2.projected_ref_start();
 
     // r1 ---> <---- r2
-    bool r1_r2 = nam2.is_rc && (r1_ref_start <= r2_ref_start) && (r2_ref_start - r1_ref_start < mu + 10*sigma);
+    bool r1_r2 = nam2.is_revcomp && (r1_ref_start <= r2_ref_start) && (r2_ref_start - r1_ref_start < mu + 10*sigma);
 
      // r2 ---> <---- r1
-    bool r2_r1 = nam1.is_rc && (r2_ref_start <= r1_ref_start) && (r1_ref_start - r2_ref_start < mu + 10*sigma);
+    bool r2_r1 = nam1.is_revcomp && (r2_ref_start <= r1_ref_start) && (r1_ref_start - r2_ref_start < mu + 10*sigma);
 
     return r1_r2 || r2_r1;
 }
@@ -458,7 +458,7 @@ inline Alignment rescue_align(
     std::string r_tmp;
     auto read_len = read.size();
 
-    if (mate_nam.is_rc) {
+    if (mate_nam.is_revcomp) {
         r_tmp = read.seq;
         a = mate_nam.projected_ref_start() - (mu+5*sigma);
         b = mate_nam.projected_ref_start() + read_len/2; // at most half read overlap
@@ -477,7 +477,7 @@ inline Alignment rescue_align(
         alignment.edit_distance = read_len;
         alignment.score = 0;
         alignment.ref_start =  0;
-        alignment.is_rc = mate_nam.is_rc;
+        alignment.is_revcomp = mate_nam.is_revcomp;
         alignment.ref_id = mate_nam.ref_id;
         alignment.is_unaligned = true;
 //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
@@ -490,7 +490,7 @@ inline Alignment rescue_align(
         alignment.edit_distance = read_len;
         alignment.score = 0;
         alignment.ref_start =  0;
-        alignment.is_rc = mate_nam.is_rc;
+        alignment.is_revcomp = mate_nam.is_revcomp;
         alignment.ref_id = mate_nam.ref_id;
         alignment.is_unaligned = true;
         return alignment;
@@ -502,7 +502,7 @@ inline Alignment rescue_align(
         alignment.edit_distance = info.edit_distance;
         alignment.score = info.sw_score;
         alignment.ref_start = ref_start + info.ref_start;
-        alignment.is_rc = !mate_nam.is_rc;
+        alignment.is_revcomp = !mate_nam.is_revcomp;
         alignment.ref_id = mate_nam.ref_id;
         alignment.is_unaligned = info.cigar.empty();
         alignment.length = info.ref_span();
@@ -859,8 +859,8 @@ std::vector<ScoredAlignmentPair> align_paired(
             a2_indv_max = a2;
         }
 
-        bool r1_r2 = a2.is_rc && (a1.ref_start <= a2.ref_start) && ((a2.ref_start - a1.ref_start) < mu + 10*sigma); // r1 ---> <---- r2
-        bool r2_r1 = a1.is_rc && (a2.ref_start <= a1.ref_start) && ((a1.ref_start - a2.ref_start) < mu + 10*sigma); // r2 ---> <---- r1
+        bool r1_r2 = a2.is_revcomp && (a1.ref_start <= a2.ref_start) && ((a2.ref_start - a1.ref_start) < mu + 10*sigma); // r1 ---> <---- r2
+        bool r2_r1 = a1.is_revcomp && (a2.ref_start <= a1.ref_start) && ((a1.ref_start - a2.ref_start) < mu + 10*sigma); // r2 ---> <---- r1
 
         double combined_score;
         if (r1_r2 || r2_r1) {
@@ -1019,6 +1019,61 @@ bool has_shared_substring(const std::string& read_seq, const std::string& ref_se
     return false;
 }
 
+
+/*
+ * Obtain NAMs for a sequence record, doing rescue if needed.
+ * Return NAMs sorted by decreasing score.
+ */
+std::vector<Nam> get_nams(
+    const KSeq& record,
+    const StrobemerIndex& index,
+    AlignmentStatistics& statistics,
+    Details& details,
+    const MappingParameters &map_param,
+    const IndexParameters& index_parameters,
+    std::minstd_rand& random_engine
+) {
+    // Compute randstrobes
+    Timer strobe_timer;
+    auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
+    statistics.n_randstrobes += query_randstrobes.size();
+    statistics.tot_construct_strobemers += strobe_timer.duration();
+
+    // Find NAMs
+    Timer nam_timer;
+    auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
+    statistics.tot_find_nams += nam_timer.duration();
+    statistics.n_hits += n_hits;
+    details.nams = nams.size();
+
+    // Rescue if requested and needed
+    if (map_param.rescue_level > 1 && (nams.empty() || nonrepetitive_fraction < 0.7)) {
+        Timer rescue_timer;
+        int n_rescue_hits;
+        std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
+        statistics.n_rescue_hits += n_rescue_hits;
+        details.rescue_nams = nams.size();
+        details.nam_rescue = true;
+        statistics.tot_time_rescue += rescue_timer.duration();
+    }
+
+    // Sort by score
+    Timer nam_sort_timer;
+    std::sort(nams.begin(), nams.end(), by_score<Nam>);
+    shuffle_top_nams(nams, random_engine);
+    statistics.tot_sort_nams += nam_sort_timer.duration();
+
+#ifdef TRACE
+    std::cerr << "Query: " << record.name << '\n';
+    std::cerr << "Found " << nams.size() << " NAMs\n";
+    for (const auto& nam : nams) {
+        std::cerr << "- " << nam << '\n';
+    }
+#endif
+
+    return nams;
+}
+
 void align_or_map_paired(
     const KSeq &record1,
     const KSeq &record2,
@@ -1037,50 +1092,13 @@ void align_or_map_paired(
     std::array<Details, 2> details;
     std::array<std::vector<Nam>, 2> nams_pair;
 
-    for (size_t is_revcomp : {0, 1}) {
-        const auto& record = is_revcomp == 0 ? record1 : record2;
-
-        Timer strobe_timer;
-        auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
-        statistics.n_randstrobes += query_randstrobes.size();
-        statistics.tot_construct_strobemers += strobe_timer.duration();
-
-        // Find NAMs
-        Timer nam_timer;
-        auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
-        statistics.tot_find_nams += nam_timer.duration();
-        statistics.n_hits += n_hits;
-        details[is_revcomp].nams = nams.size();
-
-        if (map_param.rescue_level > 1) {
-            Timer rescue_timer;
-            if (nams.empty() || nonrepetitive_fraction < 0.7) {
-                int n_rescue_hits;
-                std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
-                details[is_revcomp].nam_rescue = true;
-                details[is_revcomp].rescue_nams = nams.size();
-                statistics.n_rescue_hits += n_rescue_hits;
-            }
-            statistics.tot_time_rescue += rescue_timer.duration();
-        }
-        Timer nam_sort_timer;
-        std::sort(nams.begin(), nams.end(), by_score<Nam>);
-        shuffle_top_nams(nams, random_engine);
-        statistics.tot_sort_nams += nam_sort_timer.duration();
-        nams_pair[is_revcomp] = nams;
-    }
-
+    for (size_t is_r1 : {0, 1}) {
+        const auto& record = is_r1 == 0 ? record1 : record2;
 #ifdef TRACE
-    for (int is_revcomp : {0, 1}) {
-        const auto& record = is_revcomp == 0 ? record1 : record2;
-        std::cerr << "R" << is_revcomp + 1 << " name: " << record.name << '\n';
-        const auto& nams = nams_pair[is_revcomp];
-        std::cerr << "Found " << nams.size() << " NAMs\n";
-        for (auto& nam : nams) {
-            std::cerr << "- " << nam << '\n';
-        }
-    }
+        std::cerr << "R" << is_r1 + 1 << '\n';
 #endif
+        nams_pair[is_r1] = get_nams(record, index, statistics, details[is_r1], map_param, index_parameters, random_engine);
+    }
 
     Timer extend_timer;
     if (map_param.output_format != OutputFormat::SAM) { // PAF or abundance
@@ -1184,42 +1202,7 @@ void align_or_map_single(
     std::vector<double> &abundances
 ) {
     Details details;
-    Timer strobe_timer;
-    auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
-    statistics.n_randstrobes += query_randstrobes.size();
-    statistics.tot_construct_strobemers += strobe_timer.duration();
-
-    // Find NAMs
-    Timer nam_timer;
-    auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
-    statistics.tot_find_nams += nam_timer.duration();
-    statistics.n_hits += n_hits;
-    details.nams = nams.size();
-
-    if (map_param.rescue_level > 1) {
-        Timer rescue_timer;
-        if (nams.empty() || nonrepetitive_fraction < 0.7) {
-            int n_rescue_hits;
-            std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
-            statistics.n_rescue_hits += n_rescue_hits;
-            details.rescue_nams = nams.size();
-            details.nam_rescue = true;
-        }
-        statistics.tot_time_rescue += rescue_timer.duration();
-    }
-
-    Timer nam_sort_timer;
-    std::sort(nams.begin(), nams.end(), by_score<Nam>);
-    shuffle_top_nams(nams, random_engine);
-    statistics.tot_sort_nams += nam_sort_timer.duration();
-
-#ifdef TRACE
-    std::cerr << "Query: " << record.name << '\n';
-    std::cerr << "Found " << nams.size() << " NAMs\n";
-    for (auto& nam : nams) {
-        std::cerr << "- " << nam << '\n';
-    }
-#endif
+    std::vector<Nam> nams = get_nams(record, index, statistics, details, map_param, index_parameters, random_engine);
 
     Timer extend_timer;
     size_t n_best = 0;

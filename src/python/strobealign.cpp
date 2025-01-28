@@ -135,12 +135,12 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("hash", &QueryRandstrobe::hash)
         .def_ro("start", &QueryRandstrobe::start)
         .def_ro("end", &QueryRandstrobe::end)
-        .def_ro("is_reverse", &QueryRandstrobe::is_reverse)
+        .def_ro("is_revcomp", &QueryRandstrobe::is_revcomp)
         .def("__repr__", [](const QueryRandstrobe& qr) {
             std::stringstream s; s << qr; return s.str();
         })
     ;
-    nb::bind_vector<QueryRandstrobeVector>(m, "QueryRandstrobeVector");
+    nb::bind_vector<std::vector<QueryRandstrobe>>(m, "QueryRandstrobeVector");
 
     nb::class_<Nam>(m, "Nam")
         .def_ro("query_start", &Nam::query_start)
@@ -150,7 +150,7 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("score", &Nam::score)
         .def_ro("n_hits", &Nam::n_matches)
         .def_ro("reference_index", &Nam::ref_id)
-        .def_rw("is_rc", &Nam::is_rc)
+        .def_rw("is_revcomp", &Nam::is_revcomp)
         .def_prop_ro("ref_span", &Nam::ref_span)
         .def_prop_ro("query_span", &Nam::query_span)
         .def("__repr__", [](const Nam& nam) {
@@ -160,7 +160,7 @@ NB_MODULE(strobealign_extension, m_) {
     nb::bind_vector<std::vector<Nam>>(m, "NamVector");
 
     m.def("randstrobes_query", &randstrobes_query);
-    m.def("find_nams", [](const QueryRandstrobeVector &query_randstrobes, const StrobemerIndex& index, bool use_mcs) -> std::vector<Nam> {
+    m.def("find_nams", [](const std::vector<QueryRandstrobe>& query_randstrobes, const StrobemerIndex& index, bool use_mcs) -> std::vector<Nam> {
         auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index, use_mcs);
         return nams;
     }, nb::arg("query_randstrobes"), nb::arg("index"), nb::arg("use_mcs"));

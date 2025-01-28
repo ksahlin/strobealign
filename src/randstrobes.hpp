@@ -68,14 +68,12 @@ struct QueryRandstrobe {
     randstrobe_hash_t hash;
     unsigned int start;
     unsigned int end;
-    bool is_reverse;
+    bool is_revcomp;
 };
 
 std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe);
 
-using QueryRandstrobeVector = std::vector<QueryRandstrobe>;
-
-QueryRandstrobeVector randstrobes_query(const std::string_view seq, const IndexParameters& parameters);
+std::vector<QueryRandstrobe> randstrobes_query(const std::string_view seq, const IndexParameters& parameters);
 
 struct Randstrobe {
     randstrobe_hash_t hash;

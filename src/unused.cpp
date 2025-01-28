@@ -1306,7 +1306,7 @@ static inline bool sort_hits(const hit &a, const hit &b)
 static inline void find_nams_rescue(
     std::vector<Nam> &final_nams,
     robin_hood::unordered_map<unsigned int, std::vector<hit>> &hits_per_ref,
-    const QueryRandstrobeVector &query_mers,
+    const std::vector<QueryRandstrobe> &query_mers,
     const RefRandstrobeVector &ref_mers,
     RandstrobeMap &mers_index,
     int k,
@@ -1603,7 +1603,7 @@ static inline void find_nams_rescue(
 static inline std::pair<float,int> find_nams(
     std::vector<Nam> &final_nams,
     robin_hood::unordered_map<unsigned int, std::vector<hit>> &hits_per_ref,
-    const QueryRandstrobeVector &query_mers,
+    const std::vector<QueryRandstrobe> &query_mers,
     const RefRandstrobeVector &ref_mers,
     RandstrobeMap &mers_index,
     int k,
@@ -1863,8 +1863,8 @@ static inline Alignment get_alignment_unused(
     const auto read_len = read.size();
     const int diff = std::abs(nam.ref_span() - nam.query_span());
 
-    const std::string r_tmp = nam.is_rc ? read.rc : read.seq;
-    const bool is_rc = nam.is_rc;
+    const std::string r_tmp = nam.is_revcomp ? read.rc : read.seq;
+    const bool is_rc = nam.is_revcomp;
 
     int ext_left;
     int ext_right;
@@ -1889,7 +1889,7 @@ static inline Alignment get_alignment_unused(
             alignment.edit_distance = info.edit_distance;
             alignment.score = info.sw_score; // aln_params.match*(read_len-hamming_dist) - aln_params.mismatch*hamming_dist;
             alignment.ref_start = ref_start + ext_left + info.query_start;
-            alignment.is_rc = is_rc;
+            alignment.is_revcomp = is_rc;
             alignment.is_unaligned = false;
             return alignment;
         }
@@ -1960,7 +1960,7 @@ static inline Alignment get_alignment_unused(
         alignment.edit_distance = alignment_segm_left.edit_distance + alignment_segm_right.edit_distance;
         alignment.score = alignment_segm_left.score + alignment_segm_right.score;
         alignment.ref_start =  alignment_segm_left.ref_start;
-        alignment.is_rc = nam.is_rc;
+        alignment.is_revcomp = nam.is_revcomp;
         alignment.is_unaligned = false;
     } else {
 //            std::cerr << "NOOOO MAX BREAKPOINT " << break_point << " candidates: "  <<  n.query_s  << " " << n.query_e - k << std::endl;
