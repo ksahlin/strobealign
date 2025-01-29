@@ -6,19 +6,6 @@ bool operator==(const Match& lhs, const Match& rhs) {
 
 namespace {
 
-/*
- * A partial hit is a hit where not the full randstrobe hash could be found in
- * the index but only the "main" hash (only the first aux_len bits).
- */
-struct PartialHit {
-    randstrobe_hash_t hash;
-    unsigned int start;  // position in strobemer index
-    bool is_reverse;
-    bool operator==(const PartialHit& rhs) const {
-        return (hash == rhs.hash) && (start == rhs.start) && (is_reverse == rhs.is_reverse);
-    }
-};
-
 inline void add_to_matches_map_full(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
     int query_start,
@@ -237,10 +224,6 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
     // If we produce matches in sorted order, then merge_matches_into_nams()
     // does not have to re-sort
     bool sorting_needed{use_mcs};
-    std::vector<PartialHit> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
-    if (use_mcs) {
-        partial_queried.reserve(10);
-    }
     std::array<std::vector<Hit>, 2> hits;
     int nonrepetitive_hits = 0;
     int total_hits = 0;
@@ -255,23 +238,16 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
             hits[q.is_revcomp].push_back(Hit{position, q.start, q.end, false});
             nonrepetitive_hits++;
         } else if (use_mcs) {
-            PartialHit ph{q.hash & index.get_main_hash_mask(), q.start, q.is_revcomp};
-            if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
-                // already queried
-                continue;
-            }
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
                 total_hits++;
                 if (index.is_partial_filtered(partial_pos)) {
-                    partial_queried.push_back(ph);
                     continue;
                 }
                 nonrepetitive_hits++;
                 partial_hits++;
                 hits[q.is_revcomp].push_back(Hit{partial_pos, q.start, q.start + index.k(), true});
             }
-            partial_queried.push_back(ph);
         }
     }
 
@@ -320,8 +296,6 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
                 < std::tie(rhs.count, rhs.query_start, rhs.query_end);
         }
     };
-    std::vector<PartialHit> partial_queried;  // TODO: is a small set more efficient than linear search in a small vector?
-    partial_queried.reserve(10);
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
     std::array<std::vector<RescueHit>, 2> hits;
     matches_map[0].reserve(100);
@@ -337,18 +311,12 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
             hits[qr.is_revcomp].push_back(rh);
         }
         else if (use_mcs) {
-            PartialHit ph = {qr.hash & index.get_main_hash_mask(), qr.start, qr.is_revcomp};
-            if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
-                // already queried
-                continue;
-            }
             size_t partial_pos = index.find_partial(qr.hash);
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_count_partial(partial_pos);
                 RescueHit rh{partial_pos, partial_count, qr.start, qr.start + index.k(), true};
                 hits[qr.is_revcomp].push_back(rh);
             }
-            partial_queried.push_back(ph);
         }
     }
 
