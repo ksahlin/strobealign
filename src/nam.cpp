@@ -255,7 +255,7 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
             hits[q.is_revcomp].push_back(Hit{position, q.start, q.end, false});
             nonrepetitive_hits++;
         } else if (use_mcs) {
-            PartialHit ph{q.hash & index.get_main_hash_mask(), q.partial_start, q.is_revcomp};
+            PartialHit ph{q.hash & index.get_main_hash_mask(), q.start, q.is_revcomp};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
                 continue;
@@ -269,7 +269,7 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
                 }
                 nonrepetitive_hits++;
                 partial_hits++;
-                hits[q.is_revcomp].push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
+                hits[q.is_revcomp].push_back(Hit{partial_pos, q.start, q.start + index.k(), true});
             }
             partial_queried.push_back(ph);
         }
@@ -286,7 +286,7 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
                 }
                 nonrepetitive_hits++;
                 partial_hits++;
-                hits[q.is_revcomp].push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
+                hits[q.is_revcomp].push_back(Hit{partial_pos, q.start, q.start + index.k(), true});
             }
         }
         sorting_needed = true;
@@ -337,7 +337,7 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
             hits[qr.is_revcomp].push_back(rh);
         }
         else if (use_mcs) {
-            PartialHit ph = {qr.hash & index.get_main_hash_mask(), qr.partial_start, qr.is_revcomp};
+            PartialHit ph = {qr.hash & index.get_main_hash_mask(), qr.start, qr.is_revcomp};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
                 continue;
@@ -345,7 +345,7 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
             size_t partial_pos = index.find_partial(qr.hash);
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_count_partial(partial_pos);
-                RescueHit rh{partial_pos, partial_count, qr.partial_start, qr.partial_end, true};
+                RescueHit rh{partial_pos, partial_count, qr.start, qr.start + index.k(), true};
                 hits[qr.is_revcomp].push_back(rh);
             }
             partial_queried.push_back(ph);
