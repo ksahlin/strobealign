@@ -2,9 +2,9 @@
 
 ## development version
 
-* #476: Significantly improve speed and accuracy by enabling by default a new
-  variant of multi-context seeds: When no regular seeds - which consist
-  of two strobes - can be found for the entire query, strobealign attempts to find
+* #476: Improve accuracy by enabling (by default) a variant of multi-context
+  seeds: When no regular seeds - which consist of two strobes - can be found
+  for the *entire* query, strobealign now always attempts to find
   single-strobe ("partial") seeds.
   The `--mcs` option is still available for now. It is a bit slower, but
   slightly more accurate.
