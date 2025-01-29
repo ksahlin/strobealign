@@ -100,7 +100,7 @@ struct StrobemerIndex {
 
         auto pos = std::lower_bound(randstrobes.begin() + position_start,
                                     randstrobes.begin() + position_end,
-                                    RefRandstrobe{key, 0, 0, 0, 0},
+                                    RefRandstrobe{key, 0, 0, 0},
                                     cmp);
         if ((pos->hash() & hash_mask) == masked_key) return pos - randstrobes.begin();
         return end();
@@ -122,10 +122,6 @@ struct StrobemerIndex {
         }
     }
 
-    bool first_strobe_is_main(bucket_index_t position) const {
-        return randstrobes[position].first_strobe_is_main();
-    }
-    
     bool is_filtered(bucket_index_t position) const {
         return get_hash(position) == get_hash(position + filter_cutoff);
     }
@@ -145,9 +141,6 @@ struct StrobemerIndex {
     std::pair<int, int> strobe_extent_partial(bucket_index_t position) const {
         // Construct the match from the strobe that was selected as the main part of the hash
         int ref_start = get_strobe1_position(position);
-        if (!first_strobe_is_main(position)) {
-            ref_start += strobe2_offset(position);
-        }
         return {ref_start, ref_start + k()};
     }
 
@@ -205,7 +198,7 @@ struct StrobemerIndex {
 
         auto pos = std::upper_bound(randstrobes.begin() + position,
                                     randstrobes.begin() + position_end,
-                                    RefRandstrobe{key, 0, 0, 0, 0},
+                                    RefRandstrobe{key, 0, 0, 0},
                                     cmp);
         return (pos - randstrobes.begin() - 1) - position + 1;
     }
