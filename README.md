@@ -125,6 +125,9 @@ strobealign -x -t 8 ref.fa reads.1.fastq.gz reads.2.fastq.gz | igzip > output.pa
 If it is not available, replace it with `pigz` or regular `gzip` in the
 command.
 
+PAF output includes only mapped reads. Unmapped reads are omitted. This is also
+true for paired-end reads: If one of the reads is unmapped, only the mapped one
+is output.
 
 ## Abundance estimation mode (for metagenomic binning)
 
