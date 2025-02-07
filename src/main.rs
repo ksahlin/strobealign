@@ -67,7 +67,7 @@ struct Args {
     #[arg(long, help_heading = "SAM output")]
     details: bool,
 
-    /// Retain at most N secondary alignments (is upper bounded by -M and depends on -S) [0]
+    /// Retain at most N secondary alignments (is upper bounded by -M and depends on -S)
     #[arg(short = 'N', default_value_t = 0, value_name = "N", help_heading = "SAM output")]
     max_secondary: usize,
 
@@ -111,14 +111,27 @@ struct Args {
     #[arg(short, help_heading = "Seeding")]
     bits: Option<u8>,
 
-    // args::Group alignment(parser, "Alignment:");
-    // args::ValueFlag<int> A(parser, "INT", "Matching score [2]", {'A'});
-    // args::ValueFlag<int> B(parser, "INT", "Mismatch penalty [8]", {'B'});
-    // args::ValueFlag<int> O(parser, "INT", "Gap open penalty [12]", {'O'});
-    // args::ValueFlag<int> E(parser, "INT", "Gap extension penalty [1]", {'E'});
-    // args::ValueFlag<int> end_bonus(parser, "INT", "Soft clipping penalty [10]", {'L'});
-    //
-    // args::Group search(parser, "Search parameters:");
+    // Alignment scores
+
+    /// Match score
+    #[arg(short = 'A', default_value_t = Scores::default().match_, value_name = "N", help_heading = "Alignment")]
+    match_score: u8,
+
+    /// Mismatch penalty
+    #[arg(short = 'B', default_value_t = Scores::default().mismatch, value_name = "N", help_heading = "Alignment")]
+    mismatch_score: u8,
+
+    /// Gap open penalty
+    #[arg(short = 'O', default_value_t = Scores::default().gap_open, value_name = "N", help_heading = "Alignment")]
+    gap_open_penalty: u8,
+
+    /// Gap extension penalty
+    #[arg(short = 'E', default_value_t = Scores::default().gap_extend, value_name = "N", help_heading = "Alignment")]
+    gap_extension_penalty: u8,
+
+    /// Soft-clipping penalty
+    #[arg(short = 'L', default_value_t = Scores::default().end_bonus, value_name = "N", help_heading = "Alignment")]
+    end_bonus: u32,
 
     /// Top fraction of repetitive strobemers to filter out from sampling
     #[arg(short, default_value_t = 0.0002, help_heading = "Search parameters")]
@@ -187,7 +200,14 @@ fn main() -> Result<(), Error> {
         .. MappingParameters::default()
     };
 
-    let aligner = Aligner::new(Scores::default());
+    let scores = Scores {
+        match_: args.match_score,
+        mismatch: args.mismatch_score,
+        gap_open: args.gap_open_penalty,
+        gap_extend: args.gap_extension_penalty,
+        end_bonus: args.end_bonus,
+    };
+    let aligner = Aligner::new(scores);
 
     let cmd_line = env::args().skip(1).collect::<Vec<_>>().join(" ");
     let rg_id = match args.rg_id {

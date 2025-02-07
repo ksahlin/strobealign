@@ -9,7 +9,7 @@ pub struct Scores {
     pub mismatch: u8,
     pub gap_open: u8,
     pub gap_extend: u8,
-    pub end_bonus: u8,
+    pub end_bonus: u32,
 }
 
 impl Default for Scores {
@@ -153,7 +153,7 @@ pub fn hamming_distance(s: &[u8], t: &[u8]) -> Option<u32> {
 ///
 /// The end_bonus is added to the score if the segment extends until the end
 /// of the query, once for each end.
-fn highest_scoring_segment(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8, end_bonus: u8) -> (usize, usize, u32) {
+fn highest_scoring_segment(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8, end_bonus: u32) -> (usize, usize, u32) {
     let n = query.len();
 
     let mut start = 0; // start of the current segment
@@ -187,7 +187,7 @@ fn highest_scoring_segment(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8
     (best_start, best_end, best_score as u32)
 }
 
-pub fn hamming_align(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8, end_bonus: u8) -> Option<AlignmentInfo> {
+pub fn hamming_align(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8, end_bonus: u32) -> Option<AlignmentInfo> {
     if query.len() != refseq.len() {
         return None;
     }
