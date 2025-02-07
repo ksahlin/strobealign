@@ -30,43 +30,45 @@ struct Args {
     threads: usize,
 
     //args::ValueFlag<int> chunk_size(parser, "INT", "Number of reads processed by a worker thread at once [10000]", {"chunk-size"}, args::Options::Hidden);
+
+
     //args::Flag v(parser, "v", "Verbose output", {'v'});
     //args::Flag no_progress(parser, "no-progress", "Disable progress report (enabled by default if output is a terminal)", {"no-progress"});
 
     /// Only map reads, no base level alignment (produces PAF file)
-    #[arg(short = 'x')]
+    #[arg(short = 'x', help_heading = "Input/output")]
     map_only: bool,
 
     // SAM output
 
     /// Emit =/X instead of M CIGAR operations
-    #[arg(long)]
+    #[arg(long, help_heading = "SAM output")]
     eqx: bool,
 
     /// Do not output the PG header line
-    #[arg(long="no-PG")]
+    #[arg(long="no-PG", help_heading = "SAM output")]
     no_pg: bool,
 
     /// Suppress output of unmapped reads
-    #[arg(short = 'U')]
+    #[arg(short = 'U', help_heading = "SAM output")]
     only_mapped: bool,
 
     // args::Flag interleaved(parser, "interleaved", "Interleaved input", {"interleaved"});
 
     /// Read group ID
-    #[arg(long)]
+    #[arg(long, help_heading = "SAM output")]
     rg_id: Option<String>,
 
     /// Add read group metadata to SAM header (can be specified multiple times). Example: SM:samplename
-    #[arg(long)]
+    #[arg(long, help_heading = "SAM output")]
     rg: Vec<String>,
 
     /// Add extra details to SAM records (helpful for debugging)
-    #[arg(long)]
+    #[arg(long, help_heading = "SAM output")]
     details: bool,
 
     /// Retain at most N secondary alignments (is upper bounded by -M and depends on -S) [0]
-    #[arg(short = 'N', default_value_t = 0, value_name = "N")]
+    #[arg(short = 'N', default_value_t = 0, value_name = "N", help_heading = "SAM output")]
     max_secondary: usize,
 
     // args::ValueFlag<std::string> index_statistics(parser, "PATH", "Print statistics of indexing to PATH", {"index-statistics"});
@@ -76,37 +78,37 @@ struct Args {
     // Seeding arguments
 
     /// Mean read length. Default: estimated from the first 500 records in the input file
-    #[arg(short)]
+    #[arg(short, help_heading = "Seeding")]
     read_length: Option<usize>,
-
-    /// Strobe length (must be less than 32). Default: chosen based on read length
-    #[arg(short)]
-    k: Option<usize>,
-
-    /// Submer size for creating syncmers. k-s must be even. Default: k-4
-    #[arg(short)]
-    s: Option<usize>,
-
-    /// Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]
-    #[arg(short)]
-    l: Option<isize>,
-
-    /// Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [7]
-    #[arg(short)]
-    u: Option<isize>,
-
-    /// Bitcount length between 2 and 63. [8]
-    #[arg(short)]
-    c: Option<u32>,
 
     /// Maximum seed length. For reasonable values on -l and -u, the seed length distribution is
     /// usually determined by parameters l and u. Then this parameter is only active in regions
     /// where syncmers are very sparse. Default: read_length - 50
-    #[arg(short)]
+    #[arg(short, help_heading = "Seeding")]
     max_seed_length: Option<usize>,
 
+    /// Strobe length (must be less than 32). Default: chosen based on read length
+    #[arg(short, help_heading = "Seeding")]
+    k: Option<usize>,
+
+    /// Submer size for creating syncmers. k-s must be even. Default: k-4
+    #[arg(short, help_heading = "Seeding")]
+    s: Option<usize>,
+
+    /// Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]
+    #[arg(short, help_heading = "Seeding")]
+    l: Option<isize>,
+
+    /// Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [7]
+    #[arg(short, help_heading = "Seeding")]
+    u: Option<isize>,
+
+    /// Bitcount length between 2 and 63. [8]
+    #[arg(short, help_heading = "Seeding")]
+    c: Option<u32>,
+
     /// No. of top bits of hash to use as bucket indices (8-31). Default is to determine automatically.
-    #[arg(short)]
+    #[arg(short, help_heading = "Seeding")]
     bits: Option<u8>,
 
     // args::Group alignment(parser, "Alignment:");
@@ -119,7 +121,7 @@ struct Args {
     // args::Group search(parser, "Search parameters:");
 
     /// Top fraction of repetitive strobemers to filter out from sampling
-    #[arg(short, default_value_t = 0.0002)]
+    #[arg(short, default_value_t = 0.0002, help_heading = "Search parameters")]
     filter_fraction: f64,
 
     // args::ValueFlag<float> S(parser, "FLOAT", "Try candidate sites with mapping score at least S of maximum mapping score [0.5]", {'S'});
@@ -129,7 +131,7 @@ struct Args {
     /// This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than
     /// default makes strobealign significantly slower but more accurate.
     /// R <= 1 deactivates rescue and is the fastest
-    #[arg(short = 'R', default_value_t = 2)]
+    #[arg(short = 'R', default_value_t = 2, help_heading = "Search parameters")]
     rescue_level: usize,
 
     /// Path to input reference (in FASTA format)
