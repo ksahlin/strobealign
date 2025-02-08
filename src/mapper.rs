@@ -308,13 +308,13 @@ pub fn align_single_end_read(
     let nam_max = nams[0].clone();
     let mut best_edit_distance = usize::MAX;
     let mut best_score = 0;
+    let mut best_index = 0;
     let mut second_best_score = 0;
     let mut alignments_with_best_score = 0;
     let mut best_alignment = None;
 
     let k = index.parameters.syncmer.k;
     let read = Read::new(&record.sequence);
-
     for (tries, nam) in nams.iter_mut().enumerate() {
         let score_dropoff = nam.n_hits as f32 / nam_max.n_hits as f32;
 
@@ -332,26 +332,30 @@ pub fn align_single_end_read(
         details.tried_alignment += 1;
         details.gapped += alignment.gapped as usize;
 
-        if alignment.score == best_score {
+        if alignment.score >= best_score {
             second_best_score = best_score;
-            // Two or more alignments have the same best score - count them
-            alignments_with_best_score += 1;
+            let mut update_best = false;
+            if alignment.score > best_score {
+                alignments_with_best_score = 1;
+                update_best = true;
+            } else {
+                assert_eq!(alignment.score, best_score);
+                // Two or more alignments have the same best score - count them
+                alignments_with_best_score += 1;
 
-            // Pick one randomly using reservoir sampling
-            if rng.u32(..alignments_with_best_score) == 0 {
-                if mapping_parameters.max_secondary == 0 {
-                   best_edit_distance = alignment.edit_distance;
+                // Pick one randomly using reservoir sampling
+                if rng.u32(..alignments_with_best_score) == 0 {
+                    update_best = true;
                 }
+            }
+            if update_best {
+                best_score = alignment.score;
                 best_alignment = Some(alignment.clone());
+                best_index = tries;
+                if mapping_parameters.max_secondary == 0 {
+                    best_edit_distance = alignment.global_edit_distance();
+                }
             }
-        } else if alignment.score > best_score {
-            second_best_score = best_score;
-            best_score = alignment.score;
-            best_alignment = Some(alignment.clone());
-            if mapping_parameters.max_secondary == 0 {
-                best_edit_distance = alignment.global_edit_distance();
-            }
-            alignments_with_best_score = 1;
         } else if alignment.score > second_best_score {
             second_best_score = alignment.score;
         }
@@ -365,20 +369,27 @@ pub fn align_single_end_read(
         return vec![sam_output.make_unmapped_record(record, details)];
     }
     let best_alignment = best_alignment.unwrap();
-    if mapping_parameters.max_secondary == 0 {
-        sam_records.push(
-            sam_output.make_mapped_record(&best_alignment, references, record, mapq, true, details)
-        );
-    } else {
+    let mut is_primary = true;
+    sam_records.push(
+        sam_output.make_mapped_record(&best_alignment, references, record, mapq, is_primary, details.clone())
+    );
+
+    // Secondary alignments
+    if mapping_parameters.max_secondary > 0 {
+        // Remove the primary alignment
+        alignments.swap_remove(best_index);
+
         // Highest score first
         alignments.sort_by_key(|k| Reverse(k.score));
 
-        let max_out = min(alignments.len(), mapping_parameters.max_secondary + 1);
-        for (i, alignment) in alignments.iter().enumerate().take(max_out) {
-            let is_primary = i == 0;
-            if alignment.score - best_score > 2 * aligner.scores.mismatch as u32 + aligner.scores.gap_open as u32 {
+        // Output secondary alignments
+        //let max_out = min(alignments.len(), mapping_parameters.max_secondary + 1);
+        for (i, alignment) in alignments.iter().enumerate() {
+
+            if i >= mapping_parameters.max_secondary || alignment.score - best_score > 2 * aligner.scores.mismatch as u32 + aligner.scores.gap_open as u32 {
                 break;
             }
+            is_primary = false;
             // TODO .clone()
             sam_records.push(sam_output.make_mapped_record(alignment, references, record, mapq, is_primary, details.clone()));
         }
