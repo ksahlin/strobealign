@@ -112,11 +112,12 @@ impl Display for SamRecord {
             write!(f, "\tAS:i:{}", alignment_score)?;
         }
         if let Some(details) = &self.details {
-            write!(f, "\tna:i:{}\tnr:i:{}\tal:i:{}\tga:i:{}",
+            write!(f, "\tna:i:{}\tnr:i:{}\tal:i:{}\tga:i:{}\tX0:i:{}",
                 details.nams,
                 details.nam_rescue as u8,
                 details.tried_alignment,
-                details.gapped
+                details.gapped,
+                details.best_alignments,
             )?;
         }
         if let Some(rg_id) = &self.rg_id {
