@@ -393,9 +393,12 @@ impl<'a> StrobemerIndex<'a> {
         } else {
             self.randstrobes[0].hash
         };
-        let mut count = 0;
+        let mut count = 1;
 
-        for position in 0..self.randstrobes.len() {
+        if !self.randstrobes.is_empty() {
+            self.randstrobe_start_indices.push(0);
+        }
+        for position in 1..self.randstrobes.len() {
             let cur_hash = self.randstrobes[position].hash;
             if cur_hash == prev_hash {
                 count += 1;
