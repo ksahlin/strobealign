@@ -20,14 +20,14 @@ struct Profile {
     u: isize,
 }
 
-static PROFILES: [Profile; 7] = [
+static PROFILES: [Profile; 6] = [
     Profile {
         canonical_read_length: 50,
         r_threshold: 90,
         k: 20,
         s_offset: -4,
-        l: -3,
-        u: 2,
+        l: -2,
+        u: 1,
     },
     Profile {
         canonical_read_length: 100,
@@ -55,14 +55,6 @@ static PROFILES: [Profile; 7] = [
     },
     Profile {
         canonical_read_length: 250,
-        r_threshold: 275,
-        k: 20,
-        s_offset: -4,
-        l: 4,
-        u: 13,
-    },
-    Profile {
-        canonical_read_length: 300,
         r_threshold: 375,
         k: 22,
         s_offset: -4,
