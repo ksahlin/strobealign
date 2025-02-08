@@ -31,6 +31,9 @@ struct Args {
 
     //args::ValueFlag<int> chunk_size(parser, "INT", "Number of reads processed by a worker thread at once [10000]", {"chunk-size"}, args::Options::Hidden);
 
+    /// Write output to PATH instead of stdout
+    #[arg(short = 'o', value_name = "PATH", help_heading = "Input/output")]
+    output: Option<String>,
 
     //args::Flag v(parser, "v", "Verbose output", {'v'});
     //args::Flag no_progress(parser, "no-progress", "Disable progress report (enabled by default if output is a terminal)", {"no-progress"});
@@ -224,11 +227,16 @@ fn main() -> Result<(), Error> {
         VERSION,
         read_group,
     );
-    if !args.map_only {
-        print!("{}", header);
-    }
-    let out = io::stdout().lock();
+
+    let out: Box<dyn Write> = match args.output {
+        Some(output) => Box::new(File::create(output)?),
+        None => Box::new(io::stdout().lock()),
+    };
     let mut out = BufWriter::new(out);
+
+    if !args.map_only {
+        write!(out, "{}", header)?;
+    }
 
     let mut rng = Rng::with_seed(0);
     if let Some(r2_path) = args.fastq_path2 {
@@ -278,6 +286,8 @@ fn main() -> Result<(), Error> {
             }
         }
     }
+
+    out.flush()?;
 
     Ok(())
 }
