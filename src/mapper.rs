@@ -112,14 +112,16 @@ pub struct SamOutput {
     cigar_eqx: bool,
     details: bool,
     rg_id: Option<String>,
+    fastq_comments: bool,
 }
 
 impl SamOutput {
-    pub fn new(details: bool, cigar_eqx: bool, rg_id: Option<String>) -> Self {
+    pub fn new(details: bool, cigar_eqx: bool, rg_id: Option<String>, fastq_comments: bool) -> Self {
         SamOutput {
             cigar_eqx,
             details,
             rg_id,
+            fastq_comments,
         }
     }
 
@@ -164,8 +166,8 @@ impl SamOutput {
         cigar.push(CigarOperation::Softclip, alignment.soft_clip_right);
         let reference_name = Some(references[alignment.reference_id].name.clone());
         let details = if self.details { Some(details) } else { None };
-
         let cigar = if self.cigar_eqx { Some(cigar) } else { Some(cigar.with_m()) };
+        let extra = if self.fastq_comments { record.comment.clone() } else { None };
         SamRecord {
             query_name: strip_suffix(&record.name).into(),
             flags,
@@ -179,12 +181,14 @@ impl SamOutput {
             alignment_score: Some(alignment.score),
             details,
             rg_id: self.rg_id.clone(),
+            extra,
             ..SamRecord::default()
         }
     }
 
     fn make_unmapped_record(&self, record: &SequenceRecord, details: Details) -> SamRecord {
         let details = if self.details { Some(details) } else { None };
+        let extra = if self.fastq_comments { record.comment.clone() } else { None };
         SamRecord {
             query_name: strip_suffix(&record.name).into(),
             flags: UNMAP,
@@ -192,6 +196,7 @@ impl SamOutput {
             query_qualities: Some(record.qualities.clone()),
             details,
             rg_id: self.rg_id.clone(),
+            extra,
             ..SamRecord::default()
         }
     }

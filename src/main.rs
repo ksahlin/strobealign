@@ -70,6 +70,10 @@ struct Args {
     #[arg(long, help_heading = "SAM output")]
     details: bool,
 
+    /// Append FASTQ comment to SAM record
+    #[arg(short = 'C', help_heading = "SAM output")]
+    fastq_comments: bool,
+
     /// Retain at most N secondary alignments (is upper bounded by -M and depends on -S)
     #[arg(short = 'N', default_value_t = 0, value_name = "N", help_heading = "SAM output")]
     max_secondary: usize,
@@ -218,7 +222,7 @@ fn main() -> Result<(), Error> {
         None if !args.rg.is_empty() => Some("1".to_string()),
         None => None,
     };
-    let sam_output = SamOutput::new(args.details, args.eqx, rg_id.clone());
+    let sam_output = SamOutput::new(args.details, args.eqx, rg_id.clone(), args.fastq_comments);
     let read_group = rg_id.map(|s| ReadGroup::new(&s, args.rg));
 
     let header = SamHeader::new(

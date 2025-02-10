@@ -43,6 +43,8 @@ pub struct SamRecord {
     pub alignment_score: Option<u32>,
     pub details: Option<Details>,
     pub rg_id: Option<String>,
+    /// Copied from FASTQ header
+    pub extra: Option<String>,
 }
 
 impl SamRecord {
@@ -122,6 +124,9 @@ impl Display for SamRecord {
         }
         if let Some(rg_id) = &self.rg_id {
             write!(f, "\tRG:Z:{}", rg_id)?;
+        }
+        if let Some(extra) = &self.extra {
+            write!(f, "\t{}", extra)?;
         }
         Ok(())
     }
