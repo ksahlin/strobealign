@@ -145,7 +145,9 @@ struct Args {
     filter_fraction: f64,
 
     // args::ValueFlag<float> S(parser, "FLOAT", "Try candidate sites with mapping score at least S of maximum mapping score [0.5]", {'S'});
-    // args::ValueFlag<int> M(parser, "INT", "Maximum number of mapping sites to try [20]", {'M'});
+    /// Maximum number of mapping sites to try
+    #[arg(short = 'M', default_value_t = MappingParameters::default().max_tries, help_heading = "Search parameters")]
+    max_tries: usize,
 
     /// Rescue level. Perform additional search for reads with many repetitive seeds filtered out.
     /// This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than
@@ -204,6 +206,7 @@ fn main() -> Result<(), Error> {
 
     let mapping_parameters = MappingParameters {
         max_secondary: args.max_secondary,
+        max_tries: args.max_tries,
         .. MappingParameters::default()
     };
 
