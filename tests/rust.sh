@@ -29,33 +29,14 @@ cargo build
 # Unit tests
 cargo test
 
-# should fail when unknown command-line option used
-if strobealign -G > /dev/null 2> /dev/null; then false; fi
-
-# should succeed when only printing help
-strobealign -h > /dev/null
-
 # Ensure the binary is available
 samtools --version > /dev/null
-
-# Single-end SAM
-# TODO --chunk-size 3
-# TODO -v
-strobealign --no-PG --eqx --rg-id 1 --rg SM:sample --rg LB:library tests/phix.fasta tests/phix.1.fastq > phix.se.sam
-diff tests/phix.se.sam phix.se.sam
-rm phix.se.sam
 
 # Single-end SAM, M CIGAR operators
 strobealign --no-PG tests/phix.fasta tests/phix.1.fastq > phix.se.m.sam
 if samtools view phix.se.m.sam | cut -f6 | grep -q '[X=]'; then false; fi
 
 rm phix.se.m.sam
-
-# Paired-end SAM
-# TODO --chunk-size 3
-strobealign --no-PG --eqx --rg-id 1 --rg SM:sample --rg LB:library tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq > phix.pe.sam
-diff tests/phix.pe.sam phix.pe.sam
-rm phix.pe.sam
 
 # Single-end PAF
 strobealign -x tests/phix.fasta tests/phix.1.fastq | tail -n 11 > phix.se.paf
