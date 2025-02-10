@@ -144,7 +144,10 @@ struct Args {
     #[arg(short, default_value_t = 0.0002, help_heading = "Search parameters")]
     filter_fraction: f64,
 
-    // args::ValueFlag<float> S(parser, "FLOAT", "Try candidate sites with mapping score at least S of maximum mapping score [0.5]", {'S'});
+    /// Try candidate sites with mapping score at least S of maximum mapping score
+    #[arg(short = 'S', default_value_t = 0.5, help_heading = "Search parameters")]
+    dropoff_threshold: f32,
+
     /// Maximum number of mapping sites to try
     #[arg(short = 'M', default_value_t = MappingParameters::default().max_tries, help_heading = "Search parameters")]
     max_tries: usize,
@@ -207,6 +210,7 @@ fn main() -> Result<(), Error> {
     let mapping_parameters = MappingParameters {
         max_secondary: args.max_secondary,
         max_tries: args.max_tries,
+        dropoff_threshold: args.dropoff_threshold,
         .. MappingParameters::default()
     };
 
