@@ -30,7 +30,10 @@ struct Args {
     #[arg(short, default_value_t = 1, value_name = "N")]
     threads: usize,
 
-    //args::ValueFlag<int> chunk_size(parser, "INT", "Number of reads processed by a worker thread at once [10000]", {"chunk-size"}, args::Options::Hidden);
+    /// Number of reads processed by a worker thread at once
+    #[arg(long, default_value_t = 10000, hide = true)]
+    chunk_size: usize,
+    //args::ValueFlag<int> chunk_size(parser, "INT", " [10000]", {"chunk-size"}, args::Options::Hidden);
 
     /// Write output to PATH instead of stdout
     #[arg(short = 'o', value_name = "PATH", help_heading = "Input/output")]
@@ -253,39 +256,45 @@ fn main() -> Result<(), Error> {
     }
 
     let mut rng = Rng::with_seed(0);
-    let records = record_iterator(fastq_reader1, args.fastq_path2.as_ref().map(String::deref))?;
-    let mut isizedist = InsertSizeDistribution::new();
-    for record in records {
-        let (r1, r2) = record?;
-        if !args.map_only {
-            let sam_records =
-                if let Some(r2) = r2 {
-                    align_paired_end_read(
-                        &r1, &r2, &index, &references, &mapping_parameters, &sam_output, &parameters, &mut isizedist, &aligner, &mut rng
-                    )
-                } else {
-                    align_single_end_read(&r1, &index, &references, &mapping_parameters, &sam_output, &aligner, &mut rng)
-                };
-            for sam_record in sam_records {
-                if sam_record.is_mapped() || !args.only_mapped {
-                    writeln!(out, "{}", sam_record)?;
+    let mut record_iter = record_iterator(fastq_reader1, args.fastq_path2.as_ref().map(String::deref))?;
+
+    let chunks_iter = std::iter::from_fn(move || {
+        let chunk = record_iter.by_ref().take(args.chunk_size).collect::<Vec<_>>();
+        if chunk.len() == 0 { None } else { Some(chunk) }
+    });
+    for chunk in chunks_iter {
+        let mut isizedist = InsertSizeDistribution::new();
+        for record in chunk {
+            let (r1, r2) = record?;
+            if !args.map_only {
+                let sam_records =
+                    if let Some(r2) = r2 {
+                        align_paired_end_read(
+                            &r1, &r2, &index, &references, &mapping_parameters, &sam_output, &parameters, &mut isizedist, &aligner, &mut rng
+                        )
+                    } else {
+                        align_single_end_read(&r1, &index, &references, &mapping_parameters, &sam_output, &aligner, &mut rng)
+                    };
+                for sam_record in sam_records {
+                    if sam_record.is_mapped() || !args.only_mapped {
+                        writeln!(out, "{}", sam_record)?;
+                    }
                 }
-            }
-        } else {
-            let paf_records =
-                if let Some(r2) = r2 {
-                    map_paired_end_read(
-                        &r1, &r2, &index, &references, mapping_parameters.rescue_level, &mut isizedist, &mut rng
-                    )
-                } else {
-                    map_single_end_read(&r1, &index, &references, mapping_parameters.rescue_level, &mut rng)
-                };
-            for paf_record in paf_records {
-                writeln!(out, "{}", paf_record)?;
+            } else {
+                let paf_records =
+                    if let Some(r2) = r2 {
+                        map_paired_end_read(
+                            &r1, &r2, &index, &references, mapping_parameters.rescue_level, &mut isizedist, &mut rng
+                        )
+                    } else {
+                        map_single_end_read(&r1, &index, &references, mapping_parameters.rescue_level, &mut rng)
+                    };
+                for paf_record in paf_records {
+                    writeln!(out, "{}", paf_record)?;
+                }
             }
         }
     }
-
     out.flush()?;
 
     Ok(())
