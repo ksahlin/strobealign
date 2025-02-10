@@ -144,7 +144,7 @@ impl SamOutput {
             flags |= REVERSE;
         }
         if !is_primary {
-            mapq = 255;
+            mapq = 0;
             flags |= SECONDARY;
         }
 
