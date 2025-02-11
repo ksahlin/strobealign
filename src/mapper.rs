@@ -368,11 +368,11 @@ pub fn align_single_end_read(
             alignments.push(alignment);
         }
     }
-    let mapq = ((60 * (best_score - second_best_score) + best_score - 1) / best_score) as u8;
-
     if best_alignment.is_none() {
         return vec![sam_output.make_unmapped_record(record, details)];
     }
+    let mapq = ((60 * (best_score - second_best_score) + best_score - 1) / best_score) as u8;
+
     let best_alignment = best_alignment.unwrap();
     let mut is_primary = true;
     sam_records.push(
