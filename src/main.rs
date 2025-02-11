@@ -93,7 +93,8 @@ struct Args {
     #[arg(short, help_heading = "Seeding")]
     read_length: Option<usize>,
 
-    /// Maximum seed length. For reasonable values on -l and -u, the seed length distribution is
+    /// Maximum seed length.
+    /// For reasonable values on -l and -u, the seed length distribution is
     /// usually determined by parameters l and u. Then this parameter is only active in regions
     /// where syncmers are very sparse. Default: read_length - 50
     #[arg(short, help_heading = "Seeding")]
@@ -252,7 +253,8 @@ fn main() -> Result<(), Error> {
     };
     let mut out = BufWriter::new(out);
 
-    if !args.map_only {
+    let mode = if args.map_only { Mode::Paf } else { Mode::Sam };
+    if mode == Mode::Sam {
         write!(out, "{}", header)?;
     }
 
@@ -271,7 +273,7 @@ fn main() -> Result<(), Error> {
         sam_output: &sam_output,
         aligner: &aligner,
         include_unmapped: !args.only_mapped,
-        map_only: args.map_only,
+        mode,
     };
     for chunk in chunks_iter {
         mapper.map_chunk(&mut out, &mut rng, chunk)?;
@@ -279,6 +281,11 @@ fn main() -> Result<(), Error> {
     out.flush()?;
 
     Ok(())
+}
+
+#[derive(PartialEq, Debug)]
+enum Mode {
+    Sam, Paf, Abundances
 }
 
 struct Mapper<'a> {
@@ -289,7 +296,7 @@ struct Mapper<'a> {
     sam_output: &'a SamOutput,
     aligner: &'a Aligner,
     include_unmapped: bool,
-    map_only: bool,
+    mode: Mode,
 }
 
 impl<'a> Mapper<'a> {
@@ -302,7 +309,7 @@ impl<'a> Mapper<'a> {
         let mut isizedist = InsertSizeDistribution::new();
         for record in chunk {
             let (r1, r2) = record?;
-            if !self.map_only {
+            if self.mode == Mode::Sam {
                 let sam_records =
                     if let Some(r2) = r2 {
                         align_paired_end_read(
