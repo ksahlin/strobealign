@@ -10,6 +10,7 @@ use fastrand::Rng;
 use rstrobes::aligner::{Aligner, Scores};
 use rstrobes::fastq::{record_iterator, PeekableFastqReader, SequenceRecord};
 use rstrobes::fasta;
+use rstrobes::fasta::RefSequence;
 use rstrobes::index::{IndexParameters, StrobemerIndex};
 use rstrobes::insertsize::InsertSizeDistribution;
 use rstrobes::maponly::{map_paired_end_read, map_single_end_read};
@@ -262,21 +263,56 @@ fn main() -> Result<(), Error> {
         let chunk = record_iter.by_ref().take(args.chunk_size).collect::<Vec<_>>();
         if chunk.len() == 0 { None } else { Some(chunk) }
     });
+    let mapper = Mapper {
+        index: &index,
+        references: &references,
+        mapping_parameters: &mapping_parameters,
+        index_parameters: &parameters,
+        sam_output: &sam_output,
+        aligner: &aligner,
+        include_unmapped: !args.only_mapped,
+        map_only: args.map_only,
+    };
     for chunk in chunks_iter {
+        mapper.map_chunk(&mut out, &mut rng, chunk)?;
+    }
+    out.flush()?;
+
+    Ok(())
+}
+
+struct Mapper<'a> {
+    index: &'a StrobemerIndex<'a>,
+    references: &'a [RefSequence],
+    mapping_parameters: &'a MappingParameters,
+    index_parameters: &'a IndexParameters,
+    sam_output: &'a SamOutput,
+    aligner: &'a Aligner,
+    include_unmapped: bool,
+    map_only: bool,
+}
+
+impl<'a> Mapper<'a> {
+    fn map_chunk(
+        &self,
+        out: &mut BufWriter<Box<dyn Write>>,
+        mut rng: &mut Rng,
+        chunk: Vec<io::Result<(SequenceRecord, Option<SequenceRecord>)>>,
+    ) -> io::Result<()> {
         let mut isizedist = InsertSizeDistribution::new();
         for record in chunk {
             let (r1, r2) = record?;
-            if !args.map_only {
+            if !self.map_only {
                 let sam_records =
                     if let Some(r2) = r2 {
                         align_paired_end_read(
-                            &r1, &r2, &index, &references, &mapping_parameters, &sam_output, &parameters, &mut isizedist, &aligner, &mut rng
+                            &r1, &r2, self.index, self.references, self.mapping_parameters, self.sam_output, self.index_parameters, &mut isizedist, self.aligner, &mut rng
                         )
                     } else {
-                        align_single_end_read(&r1, &index, &references, &mapping_parameters, &sam_output, &aligner, &mut rng)
+                        align_single_end_read(&r1, self.index, self.references, self.mapping_parameters, self.sam_output, self.aligner, &mut rng)
                     };
                 for sam_record in sam_records {
-                    if sam_record.is_mapped() || !args.only_mapped {
+                    if sam_record.is_mapped() || self.include_unmapped {
                         writeln!(out, "{}", sam_record)?;
                     }
                 }
@@ -284,20 +320,18 @@ fn main() -> Result<(), Error> {
                 let paf_records =
                     if let Some(r2) = r2 {
                         map_paired_end_read(
-                            &r1, &r2, &index, &references, mapping_parameters.rescue_level, &mut isizedist, &mut rng
+                            &r1, &r2, self.index, self.references, self.mapping_parameters.rescue_level, &mut isizedist, &mut rng
                         )
                     } else {
-                        map_single_end_read(&r1, &index, &references, mapping_parameters.rescue_level, &mut rng)
+                        map_single_end_read(&r1, self.index, self.references, self.mapping_parameters.rescue_level, &mut rng)
                     };
                 for paf_record in paf_records {
                     writeln!(out, "{}", paf_record)?;
                 }
             }
         }
+        Ok(())
     }
-    out.flush()?;
-
-    Ok(())
 }
 
 fn estimate_read_length(records: &[SequenceRecord]) -> usize {
