@@ -13,7 +13,7 @@ use rstrobes::fasta;
 use rstrobes::fasta::RefSequence;
 use rstrobes::index::{IndexParameters, StrobemerIndex};
 use rstrobes::insertsize::InsertSizeDistribution;
-use rstrobes::maponly::{map_paired_end_read, map_single_end_read};
+use rstrobes::maponly::{abundances_single_end_read, map_paired_end_read, map_single_end_read};
 use rstrobes::mapper::{align_paired_end_read, align_single_end_read, MappingParameters, SamOutput};
 use rstrobes::sam::{ReadGroup, SamHeader};
 use rstrobes::io::xopen;
@@ -46,6 +46,10 @@ struct Args {
     /// Only map reads, no base level alignment (produces PAF file)
     #[arg(short = 'x', help_heading = "Input/output")]
     map_only: bool,
+
+    /// Output the estimated abundance per contig (tabular output)
+    #[arg(long, help_heading = "Input/output", conflicts_with = "map_only")]
+    aemb: bool,
 
     // SAM output
 
@@ -253,7 +257,7 @@ fn main() -> Result<(), Error> {
     };
     let mut out = BufWriter::new(out);
 
-    let mode = if args.map_only { Mode::Paf } else { Mode::Sam };
+    let mode = if args.map_only { Mode::Paf } else if args.aemb { Mode::Abundances } else { Mode::Sam }; 
     if mode == Mode::Sam {
         write!(out, "{}", header)?;
     }
@@ -265,7 +269,7 @@ fn main() -> Result<(), Error> {
         let chunk = record_iter.by_ref().take(args.chunk_size).collect::<Vec<_>>();
         if chunk.len() == 0 { None } else { Some(chunk) }
     });
-    let mapper = Mapper {
+    let mut mapper = Mapper {
         index: &index,
         references: &references,
         mapping_parameters: &mapping_parameters,
@@ -274,16 +278,20 @@ fn main() -> Result<(), Error> {
         aligner: &aligner,
         include_unmapped: !args.only_mapped,
         mode,
+        abundances: vec![0f64; references.len()],
     };
     for chunk in chunks_iter {
         mapper.map_chunk(&mut out, &mut rng, chunk)?;
+    }
+    if mode == Mode::Abundances {
+        mapper.output_abundances(&mut out)?;
     }
     out.flush()?;
 
     Ok(())
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 enum Mode {
     Sam, Paf, Abundances
 }
@@ -297,11 +305,12 @@ struct Mapper<'a> {
     aligner: &'a Aligner,
     include_unmapped: bool,
     mode: Mode,
+    abundances: Vec<f64>,
 }
 
 impl<'a> Mapper<'a> {
     fn map_chunk(
-        &self,
+        &mut self, // TODO only because of abundances
         out: &mut BufWriter<Box<dyn Write>>,
         mut rng: &mut Rng,
         chunk: Vec<io::Result<(SequenceRecord, Option<SequenceRecord>)>>,
@@ -309,33 +318,51 @@ impl<'a> Mapper<'a> {
         let mut isizedist = InsertSizeDistribution::new();
         for record in chunk {
             let (r1, r2) = record?;
-            if self.mode == Mode::Sam {
-                let sam_records =
-                    if let Some(r2) = r2 {
-                        align_paired_end_read(
-                            &r1, &r2, self.index, self.references, self.mapping_parameters, self.sam_output, self.index_parameters, &mut isizedist, self.aligner, &mut rng
-                        )
-                    } else {
-                        align_single_end_read(&r1, self.index, self.references, self.mapping_parameters, self.sam_output, self.aligner, &mut rng)
-                    };
-                for sam_record in sam_records {
-                    if sam_record.is_mapped() || self.include_unmapped {
-                        writeln!(out, "{}", sam_record)?;
+            match self.mode {
+                Mode::Sam => {
+                    let sam_records =
+                        if let Some(r2) = r2 {
+                            align_paired_end_read(
+                                &r1, &r2, self.index, self.references, self.mapping_parameters, self.sam_output, self.index_parameters, &mut isizedist, self.aligner, &mut rng
+                            )
+                        } else {
+                            align_single_end_read(&r1, self.index, self.references, self.mapping_parameters, self.sam_output, self.aligner, &mut rng)
+                        };
+                    for sam_record in sam_records {
+                        if sam_record.is_mapped() || self.include_unmapped {
+                            writeln!(out, "{}", sam_record)?;
+                        }
                     }
                 }
-            } else {
-                let paf_records =
+                Mode::Paf => {
+                    let paf_records =
+                        if let Some(r2) = r2 {
+                            map_paired_end_read(
+                                &r1, &r2, self.index, self.references, self.mapping_parameters.rescue_level, &mut isizedist, &mut rng
+                            )
+                        } else {
+                            map_single_end_read(&r1, self.index, self.references, self.mapping_parameters.rescue_level, &mut rng)
+                        };
+                    for paf_record in paf_records {
+                        writeln!(out, "{}", paf_record)?;
+                    }
+                }
+                Mode::Abundances => {
                     if let Some(r2) = r2 {
-                        map_paired_end_read(
-                            &r1, &r2, self.index, self.references, self.mapping_parameters.rescue_level, &mut isizedist, &mut rng
-                        )
+                        unimplemented!();
                     } else {
-                        map_single_end_read(&r1, self.index, self.references, self.mapping_parameters.rescue_level, &mut rng)
-                    };
-                for paf_record in paf_records {
-                    writeln!(out, "{}", paf_record)?;
+                        abundances_single_end_read(&r1, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, &mut rng);
+                    }
                 }
             }
+        }
+        Ok(())
+    }
+
+    pub fn output_abundances<T: Write>(&self, out: &mut T) -> io::Result<()> {
+        for i in 0..self.references.len() {
+            let normalized = self.abundances[i] / self.references[i].sequence.len() as f64;
+            write!(out, "{}\t{:.6}\n", self.references[i].name, normalized)?;
         }
         Ok(())
     }

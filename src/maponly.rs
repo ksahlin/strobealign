@@ -26,6 +26,21 @@ pub fn map_single_end_read(
     }
 }
 
+pub fn abundances_single_end_read(
+    record: &SequenceRecord,
+    index: &StrobemerIndex,
+    abundances: &mut [f64],
+    rescue_level: usize,
+    rng: &mut Rng,
+) {
+    let (_, nams) = get_nams(&record.sequence, index, rescue_level, rng);
+    let n_best = nams.iter().take_while(|nam| nam.score == nams[0].score).count();
+    let weight = record.sequence.len() as f64 / n_best as f64;
+    for nam in &nams[0..n_best] {
+        abundances[nam.ref_id] += weight;
+    }
+}
+
 /// Convert Nam into PAF record
 fn paf_record_from_nam(nam: &Nam, name: &str, references: &[RefSequence], query_length: usize) -> PafRecord {
     PafRecord {
