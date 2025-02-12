@@ -3,7 +3,7 @@ use crate::fasta::RefSequence;
 use crate::fastq::SequenceRecord;
 use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
-use crate::mapper::get_best_scoring_nam_pairs;
+use crate::mapper::{get_best_scoring_nam_pairs, NamPair};
 use crate::nam::{get_nams, Nam};
 use crate::paf::PafRecord;
 
@@ -56,30 +56,43 @@ pub fn map_paired_end_read(
     insert_size_distribution: &mut InsertSizeDistribution,
     rng: &mut Rng,
 ) -> Vec<PafRecord> {
-    let nams_pair = [
-        get_nams(&r1.sequence, index, rescue_level, rng).1,
-        get_nams(&r2.sequence, index, rescue_level, rng).1,
-    ];
+    let nams1 = get_nams(&r1.sequence, index, rescue_level, rng).1;
+    let nams2 = get_nams(&r2.sequence, index, rescue_level, rng).1;
 
-    let best_nam_pair = get_best_paired_map_location(
-        &nams_pair[0],
-        &nams_pair[1],
+    let mapped_nam = get_best_paired_map_location(
+        &nams1,
+        &nams2,
         insert_size_distribution,
         // TODO aemb:
         //r1.sequence.len(), r2.sequence.len(),
         //abundances,
         //map_param.output_format == OutputFormat::Abundance
     );
-
     let mut records = vec![];
-    if let Some(nam) = best_nam_pair.0 {
-        records.push(paf_record_from_nam(&nam, &r1.name, &references, r1.sequence.len()))
-    }
-    if let Some(nam) = best_nam_pair.1 {
-        records.push(paf_record_from_nam(&nam, &r2.name, &references, r2.sequence.len()))
+
+    match mapped_nam {
+        MappedNams::Individual(nam1, nam2) => {
+            if let Some(nam) = nam1 {
+                records.push(paf_record_from_nam(&nam, &r1.name, &references, r1.sequence.len()))
+            }
+            if let Some(nam) = nam2 {
+                records.push(paf_record_from_nam(&nam, &r2.name, &references, r2.sequence.len()))
+            }
+        }
+        MappedNams::Pair(nam1, nam2) => {
+            records.push(paf_record_from_nam(&nam1, &r1.name, &references, r1.sequence.len()));
+            records.push(paf_record_from_nam(&nam2, &r2.name, &references, r2.sequence.len()));
+        }
+        MappedNams::Unmapped => {},
     }
 
     records
+}
+
+enum MappedNams {
+    Individual(Option<Nam>, Option<Nam>),
+    Pair(Nam, Nam),
+    Unmapped,
 }
 
 /// Given two lists of NAMs from R1 and R2, find the best location (preferably a proper pair).
@@ -88,10 +101,10 @@ fn get_best_paired_map_location(
     nams1: &[Nam],
     nams2: &[Nam],
     insert_size_distribution: &mut InsertSizeDistribution,
-) -> (Option<Nam>, Option<Nam>) {
+) -> MappedNams {
     let nam_pairs = get_best_scoring_nam_pairs(nams1, nams2, insert_size_distribution.mu, insert_size_distribution.sigma);
     if nam_pairs.is_empty() {
-        return (None, None);
+        return MappedNams::Unmapped;
     }
 
     // Find first NAM pair that is a proper pair.
@@ -123,9 +136,10 @@ fn get_best_paired_map_location(
             insert_size_distribution.update(best.0.as_ref().unwrap().ref_start.abs_diff(best.1.as_ref().unwrap().ref_start));
         }
 
-        best
+        // TODO unwrap should not be needed
+        MappedNams::Pair(best.0.unwrap(), best.1.unwrap())
     } else {
-        (best_individual_nam1.cloned(), best_individual_nam2.cloned())
+        MappedNams::Individual(best_individual_nam1.cloned(), best_individual_nam2.cloned())
     }
 
     // TODO abundances
