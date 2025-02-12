@@ -307,7 +307,7 @@ impl<'a> StrobemerIndex<'a> {
         debug!("  Counting hashes: {:.2} s", timer.elapsed().as_secs_f64());
         // stats.elapsed_counting_hashes = count_hash.duration();
 
-        let total_randstrobes = randstrobe_counts.iter().sum();
+        let total_randstrobes: usize = randstrobe_counts.iter().sum();
         // stats.tot_strobemer_count = total_randstrobes;
 
         debug!("  Total number of randstrobes: {}", total_randstrobes);
@@ -317,8 +317,8 @@ impl<'a> StrobemerIndex<'a> {
             .map(|refseq| refseq.sequence.len())
             .sum();
         let memory_bytes: usize = total_length
-            + mem::size_of::<RefRandstrobe>() * total_randstrobes
-            + mem::size_of::<bucket_index_t>() * (1usize << self.bits);
+            + size_of::<RefRandstrobe>() * total_randstrobes
+            + size_of::<bucket_index_t>() * (1usize << self.bits);
         debug!(
             "  Estimated total memory usage: {:.1} GB",
             memory_bytes as f64 / 1E9
@@ -329,34 +329,7 @@ impl<'a> StrobemerIndex<'a> {
         }
         let timer = Instant::now();
         debug!("  Generating randstrobes ...");
-        self.randstrobes.reserve_exact(total_randstrobes);
-        // TODO  self.assign_all_randstrobes(&randstrobe_counts);
-
-        // Fill randstrobes vector
-        for (ref_index, refseq) in self.references.iter().enumerate() {
-            let seq = &refseq.sequence;
-            if seq.len() < self.parameters.randstrobe.w_max {
-                continue;
-            }
-            let mut syncmer_iter = SyncmerIterator::new(
-                seq,
-                self.parameters.syncmer.k,
-                self.parameters.syncmer.s,
-                self.parameters.syncmer.t,
-            );
-            let randstrobe_iter =
-                RandstrobeIterator::new(&mut syncmer_iter, &self.parameters.randstrobe);
-
-            for randstrobe in randstrobe_iter {
-                let offset = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
-                self.randstrobes.push(RefRandstrobe::new(
-                    randstrobe.hash,
-                    ref_index as u32,
-                    randstrobe.strobe1_pos as u32,
-                    offset as u8,
-                ));
-            }
-        }
+        self.randstrobes = self.make_randstrobes(&randstrobe_counts);
         debug!("  Generating seeds: {:.2} s", timer.elapsed().as_secs_f64());
         // stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
@@ -453,7 +426,41 @@ impl<'a> StrobemerIndex<'a> {
         self.stats.distinct_strobemers = unique_mers;
     }
 
-    fn assign_all_randstrobes(&mut self, randstrobe_counts: &[usize]) {
+    fn make_randstrobes(&self, randstrobe_counts: &[usize]) -> Vec<RefRandstrobe> {
+        let total_randstrobes = randstrobe_counts.iter().sum();
+        let mut randstrobes = vec![];
+        randstrobes.reserve_exact(total_randstrobes);
+
+        // Fill randstrobes vector
+        for (ref_index, refseq) in self.references.iter().enumerate() {
+            let seq = &refseq.sequence;
+            if seq.len() < self.parameters.randstrobe.w_max {
+                continue;
+            }
+            let mut syncmer_iter = SyncmerIterator::new(
+                seq,
+                self.parameters.syncmer.k,
+                self.parameters.syncmer.s,
+                self.parameters.syncmer.t,
+            );
+            let randstrobe_iter =
+                RandstrobeIterator::new(&mut syncmer_iter, &self.parameters.randstrobe);
+
+            for randstrobe in randstrobe_iter {
+                let offset = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
+                randstrobes.push(RefRandstrobe::new(
+                    randstrobe.hash,
+                    ref_index as u32,
+                    randstrobe.strobe1_pos as u32,
+                    offset as u8,
+                ));
+            }
+        }
+        
+        randstrobes
+    }
+    
+    fn assign_all_randstrobes_parallel(&mut self, randstrobe_counts: &[usize]) {
         let mut offset = 0;
         for ref_index in 0..self.references.len() {
             self.assign_randstrobes(ref_index, offset);
