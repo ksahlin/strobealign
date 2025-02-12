@@ -13,7 +13,7 @@ use rstrobes::fasta;
 use rstrobes::fasta::RefSequence;
 use rstrobes::index::{IndexParameters, StrobemerIndex};
 use rstrobes::insertsize::InsertSizeDistribution;
-use rstrobes::maponly::{abundances_single_end_read, map_paired_end_read, map_single_end_read};
+use rstrobes::maponly::{abundances_paired_end_read, abundances_single_end_read, map_paired_end_read, map_single_end_read};
 use rstrobes::mapper::{align_paired_end_read, align_single_end_read, MappingParameters, SamOutput};
 use rstrobes::sam::{ReadGroup, SamHeader};
 use rstrobes::io::xopen;
@@ -349,7 +349,7 @@ impl<'a> Mapper<'a> {
                 }
                 Mode::Abundances => {
                     if let Some(r2) = r2 {
-                        unimplemented!();
+                        abundances_paired_end_read(&r1, &r2, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, &mut isizedist, &mut rng);
                     } else {
                         abundances_single_end_read(&r1, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, &mut rng);
                     }

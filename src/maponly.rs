@@ -26,6 +26,9 @@ pub fn map_single_end_read(
     }
 }
 
+/// Map a single-end read to the reference and estimate abundances
+///
+/// This implements abundance estimation mode (`--aemb`)
 pub fn abundances_single_end_read(
     record: &SequenceRecord,
     index: &StrobemerIndex,
@@ -74,14 +77,12 @@ pub fn map_paired_end_read(
     let nams1 = get_nams(&r1.sequence, index, rescue_level, rng).1;
     let nams2 = get_nams(&r2.sequence, index, rescue_level, rng).1;
 
+    let nam_pairs = get_best_scoring_nam_pairs(&nams1, &nams2, insert_size_distribution.mu, insert_size_distribution.sigma);
     let mapped_nam = get_best_paired_map_location(
+        &nam_pairs,
         &nams1,
         &nams2,
         insert_size_distribution,
-        // TODO aemb:
-        //r1.sequence.len(), r2.sequence.len(),
-        //abundances,
-        //map_param.output_format == OutputFormat::Abundance
     );
     let mut records = vec![];
 
@@ -104,6 +105,61 @@ pub fn map_paired_end_read(
     records
 }
 
+/// Map a paired-end read pair to the reference and estimate abundances
+///
+/// This implements abundance estimation mode (`--aemb`)
+pub fn abundances_paired_end_read(
+    r1: &SequenceRecord,
+    r2: &SequenceRecord,
+    index: &StrobemerIndex,
+    abundances: &mut [f64],
+    rescue_level: usize,
+    insert_size_distribution: &mut InsertSizeDistribution,
+    rng: &mut Rng,
+) {
+    let nams1 = get_nams(&r1.sequence, index, rescue_level, rng).1;
+    let nams2 = get_nams(&r2.sequence, index, rescue_level, rng).1;
+
+    let nam_pairs = get_best_scoring_nam_pairs(&nams1, &nams2, insert_size_distribution.mu, insert_size_distribution.sigma);
+    let mapped_nam = get_best_paired_map_location(
+        &nam_pairs,
+        &nams1,
+        &nams2,
+        insert_size_distribution,
+    );
+
+    match mapped_nam {
+        MappedNams::Pair(nam1, nam2) => {
+            let joint_score = nam1.score + nam2.score;
+            let n_best = nam_pairs.iter()
+                .take_while(|nam_pair| 
+                    nam_pair.nam1.as_ref().map_or(0, |nam| nam.score) + 
+                    nam_pair.nam2.as_ref().map_or(0, |nam| nam.score) == joint_score)
+                .count();
+            let weight_r1 = r1.sequence.len() as f64 / n_best as f64;
+            let weight_r2 = r2.sequence.len() as f64 / n_best as f64;
+            for nam_pair in &nam_pairs[..n_best] {
+                if let Some(nam) = &nam_pair.nam1 {
+                    abundances[nam.ref_id] += weight_r1;
+                } 
+                if let Some(nam) = &nam_pair.nam2 {
+                    abundances[nam.ref_id] += weight_r2;
+                }
+            }
+        }
+        MappedNams::Individual(nam1, nam2) => {
+            for (nams, read_len) in [(&nams1, r1.sequence.len()), (&nams2, r2.sequence.len())] {
+                let n_best = nams.iter().take_while(|nam| nam.score == nams[0].score).count();
+                let weight = read_len as f64 / n_best as f64;
+                for nam in &nams[0..n_best] {
+                    abundances[nam.ref_id] += weight;
+                }
+            }
+        }
+        MappedNams::Unmapped => {},
+    }
+}
+
 enum MappedNams {
     Individual(Option<Nam>, Option<Nam>),
     Pair(Nam, Nam),
@@ -113,12 +169,12 @@ enum MappedNams {
 /// Given two lists of NAMs from R1 and R2, find the best location (preferably a proper pair).
 /// This is used for mapping-only (PAF) mode and abundances output
 fn get_best_paired_map_location(
+    nam_pairs: &[NamPair],
     nams1: &[Nam],
     nams2: &[Nam],
     insert_size_distribution: &mut InsertSizeDistribution,
 ) -> MappedNams {
-    let nam_pairs = get_best_scoring_nam_pairs(nams1, nams2, insert_size_distribution.mu, insert_size_distribution.sigma);
-    if nam_pairs.is_empty() {
+    if nam_pairs.is_empty() && nams1.is_empty() && nams2.is_empty() {
         return MappedNams::Unmapped;
     }
 
@@ -156,6 +212,4 @@ fn get_best_paired_map_location(
     } else {
         MappedNams::Individual(best_individual_nam1.cloned(), best_individual_nam2.cloned())
     }
-
-    // TODO abundances
 }
