@@ -186,7 +186,6 @@ fn main() -> Result<(), Error> {
     logger::init().unwrap();
     let args = Args::parse();
     info!("This is {} {}", NAME, VERSION);
-    rayon::ThreadPoolBuilder::new().num_threads(args.threads).build_global().unwrap();
     let path = Path::new(&args.ref_path);
     let f = xopen(path)?;
     let mut reader = BufReader::new(f);
