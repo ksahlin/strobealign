@@ -3,9 +3,8 @@ use crate::strobes::{RandstrobeIterator, RandstrobeParameters};
 use crate::syncmers::{SyncmerIterator, SyncmerParameters};
 use log::debug;
 use std::cmp::{max, min, Reverse};
-use std::mem;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
 
@@ -160,7 +159,6 @@ impl SyncmerParameters {
     }
 }
 
-type Packed = u32;
 type RandstrobeHash = u64;
 type bucket_index_t = u64;
 
@@ -329,7 +327,7 @@ impl<'a> StrobemerIndex<'a> {
         }
         let timer = Instant::now();
         debug!("  Generating randstrobes ...");
-        self.randstrobes = self.make_randstrobes(&randstrobe_counts);
+        self.randstrobes = self.make_randstrobes_parallel(&randstrobe_counts, n_threads);
         debug!("  Generating seeds: {:.2} s", timer.elapsed().as_secs_f64());
         // stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
@@ -438,38 +436,34 @@ impl<'a> StrobemerIndex<'a> {
         randstrobes
     }
 
-    fn make_randstrobes_parallel(&mut self, randstrobe_counts: &[usize]) -> Vec<RefRandstrobe> {
-        unimplemented!();
-        /*let mut randstrobes = vec![];
-        randstrobes.reserve_exact(randstrobe_counts.iter().sum());
+    fn make_randstrobes_parallel(&mut self, randstrobe_counts: &[usize], n_threads: usize) -> Vec<RefRandstrobe> {
+        let mut randstrobes = vec![RefRandstrobe::default(); randstrobe_counts.iter().sum()];
+        let mut slices = vec![];
+        {
+            let mut slice = &mut randstrobes[..];
+            for ref_index in 0..self.references.len()-1 {
+                let (left, right) = slice.split_at_mut(randstrobe_counts[ref_index]);
+                slices.push(Arc::new(Mutex::new(left)));
+                slice = right;
+            }
+            slices.push(Arc::new(Mutex::new(slice)));
+        }
+        let ref_index = AtomicUsize::new(0);
+        thread::scope(|s| {
+            for _ in 0..n_threads {
+                s.spawn(|| loop {
+                    let j = ref_index.fetch_add(1, Ordering::SeqCst);
+                    if j >= self.references.len() {
+                        break;
+                    }
+                    self.assign_randstrobes(j, *slices[j].lock().unwrap());
+                });
+            }
+        });
 
-        let mut offset = 0;
-        for ref_index in 0..self.references.len() {
-            self.assign_randstrobes(ref_index, offset);
-            offset += randstrobe_counts[ref_index];
-        }*/
-        /*
-               std::vector<std::thread> workers;
-               std::atomic_size_t ref_index{0};
-               for (size_t i = 0; i < n_threads; ++i) {
-                   workers.push_back(
-                       std::thread(
-                           [&]() {
-                               while (true) {
-                                   size_t j = ref_index.fetch_add(1);
-                                   if (j >= references.size()) {
-                                       break;
-                                   }
-                                   assign_randstrobes(j, offsets[j]);
-                               }
-                           })
-                   );
-               }
-               for (auto& worker : workers) {
-                   worker.join();
-               }
-        */
+        randstrobes
     }
+
 
     /// Compute randstrobes of one reference contig and assign them to the provided slice
     fn assign_randstrobes(&self, ref_index: usize, randstrobes: &mut [RefRandstrobe]) {
