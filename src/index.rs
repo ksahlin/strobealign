@@ -174,7 +174,7 @@ struct IndexCreationStatistics {
     distinct_strobemers: u64,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Default, Clone)]
 pub struct RefRandstrobe {
     hash: RandstrobeHash,
     position: u32,
@@ -427,45 +427,27 @@ impl<'a> StrobemerIndex<'a> {
     }
 
     fn make_randstrobes(&self, randstrobe_counts: &[usize]) -> Vec<RefRandstrobe> {
-        let total_randstrobes = randstrobe_counts.iter().sum();
-        let mut randstrobes = vec![];
-        randstrobes.reserve_exact(total_randstrobes);
+        let mut randstrobes = vec![RefRandstrobe::default(); randstrobe_counts.iter().sum()];
 
         // Fill randstrobes vector
+        let mut offset = 0;
         for (ref_index, refseq) in self.references.iter().enumerate() {
-            let seq = &refseq.sequence;
-            if seq.len() < self.parameters.randstrobe.w_max {
-                continue;
-            }
-            let mut syncmer_iter = SyncmerIterator::new(
-                seq,
-                self.parameters.syncmer.k,
-                self.parameters.syncmer.s,
-                self.parameters.syncmer.t,
-            );
-            let randstrobe_iter =
-                RandstrobeIterator::new(&mut syncmer_iter, &self.parameters.randstrobe);
-
-            for randstrobe in randstrobe_iter {
-                let offset = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
-                randstrobes.push(RefRandstrobe::new(
-                    randstrobe.hash,
-                    ref_index as u32,
-                    randstrobe.strobe1_pos as u32,
-                    offset as u8,
-                ));
-            }
+            self.assign_randstrobes(ref_index, &mut randstrobes[offset..offset+randstrobe_counts[ref_index]]);
+            offset += randstrobe_counts[ref_index];
         }
-        
         randstrobes
     }
-    
-    fn assign_all_randstrobes_parallel(&mut self, randstrobe_counts: &[usize]) {
+
+    fn make_randstrobes_parallel(&mut self, randstrobe_counts: &[usize]) -> Vec<RefRandstrobe> {
+        unimplemented!();
+        /*let mut randstrobes = vec![];
+        randstrobes.reserve_exact(randstrobe_counts.iter().sum());
+
         let mut offset = 0;
         for ref_index in 0..self.references.len() {
             self.assign_randstrobes(ref_index, offset);
             offset += randstrobe_counts[ref_index];
-        }
+        }*/
         /*
                std::vector<std::thread> workers;
                std::atomic_size_t ref_index{0};
@@ -489,9 +471,8 @@ impl<'a> StrobemerIndex<'a> {
         */
     }
 
-    /// Compute randstrobes of one reference and assign them to the randstrobes
-    /// vector starting from the given offset
-    fn assign_randstrobes(&mut self, ref_index: usize, offset: usize) {
+    /// Compute randstrobes of one reference contig and assign them to the provided slice
+    fn assign_randstrobes(&self, ref_index: usize, randstrobes: &mut [RefRandstrobe]) {
         let seq = &self.references[ref_index].sequence;
         if seq.len() < self.parameters.randstrobe.w_max {
             return;
@@ -505,12 +486,20 @@ impl<'a> StrobemerIndex<'a> {
         let randstrobe_iter =
             RandstrobeIterator::new(&mut syncmer_iter, &self.parameters.randstrobe);
 
-        /*for randstrobe in randstrobe_iter {
+        let mut n= 0;
+        for (i, randstrobe) in randstrobe_iter.enumerate() {
+            n += 1;
+            let offset = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
+            randstrobes[i] =
+                RefRandstrobe::new(
+                    randstrobe.hash,
+                    ref_index as u32,
+                    randstrobe.strobe1_pos as u32,
+                    offset as u8,
+                );
 
-            RefRandstrobe::packed_t packed = ref_index << 8;
-            packed = packed + (randstrobe.strobe2_pos - randstrobe.strobe1_pos);
-            randstrobes[offset++] = RefRandstrobe{randstrobe.hash, randstrobe.strobe1_pos, packed};
-        }*/
+        }
+        debug_assert_eq!(n, randstrobes.len());
     }
 
     /// Find index of first entry in randstrobe table that has the given hash value
