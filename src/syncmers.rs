@@ -50,6 +50,7 @@ pub struct SyncmerIterator<'a> {
     xk: [u64; 2],
     xs: [u64; 2],
     i: usize,
+    exhausted: bool,
 }
 
 impl<'a> SyncmerIterator<'a> {
@@ -70,6 +71,7 @@ impl<'a> SyncmerIterator<'a> {
             xk: [0, 0],
             xs: [0, 0],
             i: 0,
+            exhausted: false,
         }
     }
 }
@@ -109,6 +111,9 @@ impl<'a> Iterator for SyncmerIterator<'a> {
     type Item = Syncmer;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.exhausted {
+            return None;
+        }
         for i in self.i..self.seq.len() {
             let ch = self.seq[i];
             let c = NUCLEOTIDES[ch as usize];
@@ -170,6 +175,8 @@ impl<'a> Iterator for SyncmerIterator<'a> {
                 self.qs.clear();
             }
         }
+        self.exhausted = true;
+
         None
     }
 }
