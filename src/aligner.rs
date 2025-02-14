@@ -43,7 +43,7 @@ impl AlignmentInfo {
 
 pub struct Aligner {
     pub scores: Scores, // TODO should not be pub?
-    call_count: Cell<usize>,
+    //call_count: Cell<usize>,
     ssw_aligner: SswAligner,
 }
 
@@ -53,16 +53,16 @@ impl Aligner {
         Aligner {
             scores,
             ssw_aligner,
-            call_count: Cell::new(0usize),
+            //call_count: Cell::new(0usize),
         }
     }
 
-    fn call_count(&self) -> usize {
-        self.call_count.get()
-    }
+    // fn call_count(&self) -> usize {
+    //     self.call_count.get()
+    // }
 
     pub fn align(&self, query: &[u8], refseq: &[u8]) -> Option<AlignmentInfo> {
-        self.call_count.set(self.call_count.get() + 1);
+//        self.call_count.set(self.call_count.get() + 1);
 
         if refseq.len() > 2000 {
             // TODO

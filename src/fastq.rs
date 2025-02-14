@@ -42,12 +42,12 @@ impl fmt::Display for SequenceRecord {
 }
 
 #[derive(Debug)]
-pub struct PeekableFastqReader<R: Read> {
+pub struct PeekableFastqReader<R: Read + Send> {
     fastq_reader: FastqReader<R>,
     buffer: VecDeque<SequenceRecord>,
 }
 
-impl<R: Read> PeekableFastqReader<R> {
+impl<R: Read + Send> PeekableFastqReader<R> {
     pub fn new(reader: R) -> PeekableFastqReader<R> {
         let fastq_reader = FastqReader::new(reader);
         PeekableFastqReader {
@@ -70,7 +70,7 @@ impl<R: Read> PeekableFastqReader<R> {
     }
 }
 
-impl<R: Read> Iterator for PeekableFastqReader<R> {
+impl<R: Read + Send> Iterator for PeekableFastqReader<R> {
     type Item = Result<SequenceRecord>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -177,7 +177,10 @@ impl<W: Write> FastqWriter<W> {
 }
 
 /// Iterate over paired-end *or* single-end reads
-pub fn record_iterator<R: Read + 'static>(fastq_reader1: PeekableFastqReader<R>, path_r2: Option<&str>) -> Result<Box<dyn Iterator<Item=Result<(SequenceRecord, Option<SequenceRecord>)>>>> {
+pub fn record_iterator<'a, R: Read + Send + 'a>(
+    fastq_reader1: PeekableFastqReader<R>, path_r2: Option<&str>
+) -> Result<Box<dyn Iterator<Item=Result<(SequenceRecord, Option<SequenceRecord>)>> + Send + 'a>> 
+{
     if let Some(r2_path) = path_r2 {
         let fastq_reader2 = FastqReader::new(xopen(r2_path)?);
         Ok(

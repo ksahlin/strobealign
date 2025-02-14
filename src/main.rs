@@ -1,8 +1,11 @@
-use std::{env, io};
+use std::{env, io, thread};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Error, BufReader, BufWriter, Write};
 use std::ops::Deref;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{channel, sync_channel, Receiver, Sender};
 use std::time::Instant;
 use log::{debug, info};
 use clap::Parser;
@@ -250,9 +253,9 @@ fn main() -> Result<(), Error> {
         read_group,
     );
 
-    let out: Box<dyn Write> = match args.output {
+    let out: Box<dyn Write + Send> = match args.output {
         Some(output) => Box::new(File::create(output)?),
-        None => Box::new(io::stdout().lock()),
+        None => Box::new(io::stdout()),
     };
     let mut out = BufWriter::new(out);
 
@@ -261,14 +264,13 @@ fn main() -> Result<(), Error> {
         write!(out, "{}", header)?;
     }
 
-    let mut rng = Rng::with_seed(0);
     let mut record_iter = record_iterator(fastq_reader1, args.fastq_path2.as_ref().map(String::deref))?;
 
     let chunks_iter = std::iter::from_fn(move || {
         let chunk = record_iter.by_ref().take(args.chunk_size).collect::<Vec<_>>();
         if chunk.len() == 0 { None } else { Some(chunk) }
     });
-    let mut mapper = Mapper {
+    let mapper = Mapper {
         index: &index,
         references: &references,
         mapping_parameters: &mapping_parameters,
@@ -279,13 +281,70 @@ fn main() -> Result<(), Error> {
         mode,
         abundances: vec![0f64; references.len()],
     };
-    for chunk in chunks_iter {
-        mapper.map_chunk(&mut out, &mut rng, chunk)?;
-    }
+
+    // TODO channel size?
+    let (tx, rx) = sync_channel(args.threads);
+    let reader_thread = thread::spawn(move || {
+        for chunk in chunks_iter.enumerate() {
+            tx.send(chunk).unwrap();
+        }
+        drop(tx);
+    });
+    let rx = Arc::new(Mutex::new(rx));
+
+    let (out_tx, out_rx): (Sender<(usize, Vec<u8>)>, Receiver<(usize, Vec<u8>)>) = channel();
+
+    let out = Arc::new(Mutex::new(out));
+    let writer_thread = thread::spawn(move || {
+        let mut map = HashMap::new();
+        let mut next_index = 0;
+        while let Ok((index, msg)) = out_rx.recv() {
+            map.insert(index, msg);
+            while let Some(data) = map.remove(&next_index) {
+                out.lock().unwrap().write_all(data.as_ref()).unwrap();
+                next_index += 1;
+            }
+        }
+        drop(out_rx);
+    });
+
+    thread::scope(|s| {
+        for _ in 0..args.threads {
+            let mut mapper = mapper.clone();
+            let out_tx = out_tx.clone();
+            let rrx = rx.clone();
+            s.spawn(move || {
+                loop {
+                    let msg = rrx.lock().unwrap().recv();
+                    if let Ok((index, chunk)) = msg {
+                        let mut buffer = vec![];
+                        mapper.map_chunk(&mut buffer, chunk).unwrap();
+                        out_tx.send((index, buffer)).unwrap();
+                    } else {
+                        break;
+                    }
+                }
+                drop(rrx);
+                drop(out_tx);
+                drop(mapper);
+            });
+        }
+    });
+    drop(out_tx);
+    reader_thread.join().unwrap();
+    writer_thread.join().unwrap();
+    // Single-threaded:
+    // for chunk in chunks_iter {
+    //     mapper.map_chunk(&mut out, &mut rng, chunk)?;
+    // }
+    /*
+    TODO
+    let mut out = out.clone().lock().unwrap();;
     if mode == Mode::Abundances {
         mapper.output_abundances(&mut out)?;
     }
-    out.flush()?;
+    */
+    // TODO out.lock().unwrap().flush()?;
 
     Ok(())
 }
@@ -295,6 +354,7 @@ enum Mode {
     Sam, Paf, Abundances
 }
 
+#[derive(Clone)]
 struct Mapper<'a> {
     index: &'a StrobemerIndex<'a>,
     references: &'a [RefSequence],
@@ -308,12 +368,12 @@ struct Mapper<'a> {
 }
 
 impl<'a> Mapper<'a> {
-    fn map_chunk(
+    fn map_chunk<W: Write>(
         &mut self, // TODO only because of abundances
-        out: &mut BufWriter<Box<dyn Write>>,
-        mut rng: &mut Rng,
+        out: &mut W,//BufWriter<Box<dyn Write>>,
         chunk: Vec<io::Result<(SequenceRecord, Option<SequenceRecord>)>>,
     ) -> io::Result<()> {
+        let mut rng = Rng::with_seed(0);
         let mut isizedist = InsertSizeDistribution::new();
         for record in chunk {
             let (r1, r2) = record?;
