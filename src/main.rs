@@ -7,7 +7,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, sync_channel, Receiver, Sender};
 use std::time::Instant;
-use log::{debug, info};
+use log::{debug, info, trace};
 use clap::Parser;
 use fastrand::Rng;
 use rstrobes::aligner::{Aligner, Scores};
@@ -44,6 +44,12 @@ struct Args {
     output: Option<String>,
 
     //args::Flag v(parser, "v", "Verbose output", {'v'});
+    /// #[arg(help_heading = "Verbose output", conflicts_with = "trace")]
+
+    /// Highly verbose output
+    #[arg(long = "trace", hide = true)]
+    trace: bool,
+
     //args::Flag no_progress(parser, "no-progress", "Disable progress report (enabled by default if output is a terminal)", {"no-progress"});
 
     /// Only map reads, no base level alignment (produces PAF file)
@@ -186,8 +192,9 @@ struct Args {
 
 fn main() -> Result<(), Error> {
     sigpipe::reset();
-    logger::init().unwrap();
     let args = Args::parse();
+    let level = if args.trace { log::Level::Trace } else { log::Level::Debug };
+    logger::init(level).unwrap();
     info!("This is {} {}", NAME, VERSION);
     let path = Path::new(&args.ref_path);
     let f = xopen(path)?;
@@ -377,6 +384,7 @@ impl<'a> Mapper<'a> {
         let mut isizedist = InsertSizeDistribution::new();
         for record in chunk {
             let (r1, r2) = record?;
+            trace!("Query: {}", r1.name);
             match self.mode {
                 Mode::Sam => {
                     let sam_records =

@@ -1,12 +1,20 @@
 // Based on example in the log crate documentation
 
-use log::{Record, Level, Metadata, SetLoggerError, LevelFilter};
+use log::{Record, Level, Metadata, SetLoggerError};
 
-struct SimpleLogger;
+struct SimpleLogger {
+    level: Level,
+}
+
+impl SimpleLogger {
+    const fn new(level: Level) -> Self { 
+        SimpleLogger { level } 
+    }
+}
 
 impl log::Log for SimpleLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= Level::Debug
+        metadata.level() <= self.level
     }
 
     fn log(&self, record: &Record) {
@@ -14,13 +22,12 @@ impl log::Log for SimpleLogger {
             eprintln!("{}", record.args())
         }
     }
-
+    
     fn flush(&self) {}
 }
 
-static LOGGER: SimpleLogger = SimpleLogger;
-
-pub fn init() -> Result<(), SetLoggerError> {
-    log::set_logger(&LOGGER)
-        .map(|()| log::set_max_level(LevelFilter::Debug))
+pub fn init(level: Level) -> Result<(), SetLoggerError> {
+    let logger = SimpleLogger::new(level);
+    log::set_boxed_logger(Box::new(logger))
+        .map(|()| log::set_max_level(level.to_level_filter()))
 }

@@ -1,7 +1,10 @@
 use std::cmp::{max, min};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use fastrand::Rng;
+use log::Level::Trace;
+use log::trace;
 use crate::fasta::RefSequence;
 use crate::index::StrobemerIndex;
 use crate::mapper;
@@ -9,7 +12,7 @@ use crate::mapper::QueryRandstrobe;
 use crate::read::Read;
 
 /// Non-overlapping approximate match
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct Nam {
     pub nam_id: usize,
     pub ref_start: usize,
@@ -35,6 +38,15 @@ impl Nam {
 
     pub fn projected_ref_start(&self) -> usize {
         self.ref_start.saturating_sub(self.query_start)
+    }
+}
+
+impl Display for Nam {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Nam(ref_id={}, query: {}..{}, ref: {}..{}, rc={}, score={})", 
+               self.ref_id, self.query_start, self.query_end, self.ref_start, self.ref_end, self.is_revcomp as u8, self.score
+        )?;
+        Ok(())
     }
 }
 
@@ -333,6 +345,13 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, rn
     nams.sort_by_key(|k| -(k.score as i32));
     shuffle_top_nams(&mut nams, rng);
     // statistics.tot_sort_nams += nam_sort_timer.duration();
+
+    if log::log_enabled!(Trace) {
+        trace!("Found {} NAMs (rescue done: {})", nams.len(), nam_rescue);
+        for nam in &nams {
+            trace!("- {}", nam);
+        }
+    }
 
     (nam_rescue, nams)
 }
