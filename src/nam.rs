@@ -2,6 +2,7 @@ use std::cmp::{max, min};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::hash::{BuildHasherDefault, DefaultHasher};
 use fastrand::Rng;
 use log::Level::Trace;
 use log::trace;
@@ -43,7 +44,7 @@ impl Nam {
 
 impl Display for Nam {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Nam(ref_id={}, query: {}..{}, ref: {}..{}, rc={}, score={})", 
+        write!(f, "Nam(ref_id={}, query: {}..{}, ref: {}..{}, rc={}, score={})",
                self.ref_id, self.query_start, self.query_end, self.ref_start, self.ref_end, self.is_revcomp as u8, self.score
         )?;
         Ok(())
@@ -57,13 +58,19 @@ struct Hit {
     ref_end: usize,
 }
 
+// The regular HashMap uses a randomly seeded hash function, but we want reproducible results
+type DefaultHashMap<K, V> = HashMap<K, V, BuildHasherDefault<DefaultHasher>>;
+
 /// Find a query’s NAMs, ignoring randstrobes that occur too often in the
 /// reference (have a count above filter_cutoff).
 ///
 /// Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
 ///
 pub fn find_nams(query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerIndex, filter_cutoff: usize) -> (f32, Vec<Nam>) {
-    let mut hits_per_ref = [HashMap::with_capacity(100), HashMap::with_capacity(100)];
+   
+    let mut hits_per_ref = [DefaultHashMap::default(), DefaultHashMap::default()];
+    hits_per_ref[0].reserve(100);
+    hits_per_ref[1].reserve(100);
     let mut nr_good_hits = 0;
     let mut total_hits = 0;
     for randstrobe in query_randstrobes {
@@ -103,7 +110,9 @@ pub fn find_nams_rescue(
         }
     }*/
 
-    let mut hits_per_ref = [HashMap::with_capacity(100), HashMap::with_capacity(100)];
+    let mut hits_per_ref = [DefaultHashMap::default(), DefaultHashMap::default()];
+    hits_per_ref[0].reserve(100);
+    hits_per_ref[1].reserve(100);
     let mut hits_fw = Vec::with_capacity(5000);
     let mut hits_rc = Vec::with_capacity(5000);
 
@@ -142,7 +151,7 @@ pub fn find_nams_rescue(
 }
 
 fn add_to_hits_per_ref(
-    hits_per_ref: &mut HashMap<usize, Vec<Hit>>,
+    hits_per_ref: &mut DefaultHashMap<usize, Vec<Hit>>,
     query_start: usize,
     query_end: usize,
     index: &StrobemerIndex,
@@ -173,7 +182,7 @@ fn add_to_hits_per_ref(
 }
 
 // TODO should not be mut
-fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, sort: bool, is_revcomp: bool, nams: &mut Vec<Nam>) {
+fn merge_hits_into_nams(hits_per_ref: &mut DefaultHashMap<usize, Vec<Hit>>, k: usize, sort: bool, is_revcomp: bool, nams: &mut Vec<Nam>) {
     for (ref_id, hits) in hits_per_ref.iter_mut() {
         if sort {
             hits.sort_by_key(|k| (k.query_start, k.ref_start));
@@ -270,7 +279,11 @@ fn merge_hits_into_nams(hits_per_ref: &mut HashMap<usize, Vec<Hit>>, k: usize, s
     }
 }
 
-fn merge_hits_into_nams_forward_and_reverse(hits_per_ref: &mut [HashMap<usize, Vec<Hit>>; 2], k: usize, sort: bool) -> Vec<Nam> {
+fn merge_hits_into_nams_forward_and_reverse(
+    hits_per_ref: &mut [DefaultHashMap<usize, Vec<Hit>>; 2],
+    k: usize,
+    sort: bool
+) -> Vec<Nam> {
     let mut nams = Vec::new();
     for is_revcomp in [false, true] {
         merge_hits_into_nams(&mut hits_per_ref[is_revcomp as usize], k, sort, is_revcomp, &mut nams);
