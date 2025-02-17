@@ -11,12 +11,7 @@ impl log::Log for SimpleLogger {
 
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
-            // Print INFO messages without preceding them with "INFO"
-            if record.level() == Level::Info {
-                eprintln!("{}", record.args());
-            } else {
-                eprintln!("{} {}", record.level(), record.args())
-            }
+            eprintln!("{}", record.args())
         }
     }
 
