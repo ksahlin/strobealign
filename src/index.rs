@@ -182,6 +182,7 @@ pub struct RefRandstrobe {
 
 const REF_RANDSTROBE_OFFSET_BITS: u32 = 8;
 const REF_RANDSTROBE_MASK: u32 = (1 << REF_RANDSTROBE_OFFSET_BITS) - 1;
+pub const REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES: usize = (1usize << (32 - REF_RANDSTROBE_OFFSET_BITS)) - 1;
 
 impl RefRandstrobe {
     fn new(hash: RandstrobeHash, ref_index: u32, position: u32, offset: u8) -> Self {

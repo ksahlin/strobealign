@@ -14,7 +14,7 @@ use rstrobes::aligner::{Aligner, Scores};
 use rstrobes::fastq::{record_iterator, PeekableFastqReader, SequenceRecord};
 use rstrobes::fasta;
 use rstrobes::fasta::RefSequence;
-use rstrobes::index::{IndexParameters, StrobemerIndex};
+use rstrobes::index::{IndexParameters, StrobemerIndex, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES};
 use rstrobes::insertsize::InsertSizeDistribution;
 use rstrobes::maponly::{abundances_paired_end_read, abundances_single_end_read, map_paired_end_read, map_single_end_read};
 use rstrobes::mapper::{align_paired_end_read, align_single_end_read, MappingParameters, SamOutput};
@@ -210,6 +210,7 @@ fn main() -> Result<(), Error> {
         if references.len() != 1 { "s" } else { "" },
         max_contig_size as f64 / 1E6
     );
+    
 
     let f1 = xopen(&args.fastq_path)?;
     let mut fastq_reader1 = PeekableFastqReader::new(f1);
@@ -221,6 +222,10 @@ fn main() -> Result<(), Error> {
     let parameters = IndexParameters::from_read_length(read_length, args.k, args.s, args.l, args.u, args.c, args.max_seed_length);
     info!("Indexing ...");
     debug!("{:?}", parameters);
+
+    if references.len() > REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES {
+        panic!("Too many reference sequences. Current maximum is {}", REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES);
+    }
 
     let timer = Instant::now();
     let mut index = StrobemerIndex::new(&references, parameters.clone(), args.bits);
