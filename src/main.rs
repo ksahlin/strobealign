@@ -235,6 +235,7 @@ fn main() -> Result<(), Error> {
     let index = index;
     info!("Total time indexing: {:.2} s", timer.elapsed().as_secs_f64());
 
+    let timer = Instant::now();
     let mapping_parameters = MappingParameters {
         max_secondary: args.max_secondary,
         max_tries: args.max_tries,
@@ -360,6 +361,7 @@ fn main() -> Result<(), Error> {
     */
     // TODO out.lock().unwrap().flush()?;
 
+    info!("Total time mapping: {:.2} s", timer.elapsed().as_secs_f64());
     Ok(())
 }
 
