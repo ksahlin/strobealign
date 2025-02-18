@@ -334,7 +334,9 @@ impl<'a> StrobemerIndex<'a> {
 
         let timer = Instant::now();
         debug!("  Sorting ...");
-        self.randstrobes.sort_unstable_by_key(|r| r.hash);
+        // TODO
+        // ensure comparison function is branchless
+        self.randstrobes.sort_unstable_by_key(|r| (r.hash, r.position));
         debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
         // stats.elapsed_sorting_seeds = sorting_timer.duration();
 
