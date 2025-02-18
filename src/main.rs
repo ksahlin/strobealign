@@ -4,10 +4,11 @@ use std::fs::File;
 use std::io::{Error, BufReader, BufWriter, Write};
 use std::ops::Deref;
 use std::path::Path;
+use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, sync_channel, Receiver, Sender};
 use std::time::Instant;
-use log::{debug, info, trace};
+use log::{debug, error, info, trace};
 use clap::Parser;
 use fastrand::Rng;
 use rstrobes::aligner::{Aligner, Scores};
@@ -210,7 +211,7 @@ fn main() -> Result<(), Error> {
         if references.len() != 1 { "s" } else { "" },
         max_contig_size as f64 / 1E6
     );
-    
+
 
     let f1 = xopen(&args.fastq_path)?;
     let mut fastq_reader1 = PeekableFastqReader::new(f1);
@@ -224,7 +225,8 @@ fn main() -> Result<(), Error> {
     debug!("{:?}", parameters);
 
     if references.len() > REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES {
-        panic!("Too many reference sequences. Current maximum is {}", REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES);
+        error!("Too many reference sequences. Current maximum is {}.", REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES);
+        exit(1);
     }
 
     let timer = Instant::now();

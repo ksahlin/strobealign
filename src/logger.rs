@@ -7,8 +7,8 @@ struct SimpleLogger {
 }
 
 impl SimpleLogger {
-    const fn new(level: Level) -> Self { 
-        SimpleLogger { level } 
+    const fn new(level: Level) -> Self {
+        SimpleLogger { level }
     }
 }
 
@@ -19,10 +19,14 @@ impl log::Log for SimpleLogger {
 
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
-            eprintln!("{}", record.args())
+            if record.level() == Level::Error {
+                eprintln!("error: {}", record.args());
+            } else {
+                eprintln!("{}", record.args())
+            }
         }
     }
-    
+
     fn flush(&self) {}
 }
 
