@@ -74,7 +74,32 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_fasta() {
+    fn test_parse() {
+        let tmp = temp_file::with_contents(b">ref1 a comment\nacgt\n\n>ref2\naacc\ngg\n\ntt\n>empty\n>empty_at_end_of_file");
+        let mut reader = BufReader::new(File::open(tmp.path()).unwrap());
+        let records = read_fasta(&mut reader).unwrap();
+        assert_eq!(records.len(), 4);
+        assert_eq!(records[0].name, "ref1");
+        assert_eq!(records[0].sequence, b"ACGT");
+        assert_eq!(records[1].name, "ref2");
+        assert_eq!(records[1].sequence, b"AACCGGTT");
+        assert_eq!(records[2].name, "empty");
+        assert_eq!(records[2].sequence, b"");
+        assert_eq!(records[3].name, "empty_at_end_of_file");
+        assert_eq!(records[3].sequence, b"");
+    }
+
+    #[test]
+    fn test_whitespace_in_header() {
+        let mut reader = BufReader::new(b">ab c\nACGT\n>de\tf\nACGT\n".as_slice());
+        let records = read_fasta(&mut reader).unwrap();
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0].name, "ab");
+        assert_eq!(records[1].name, "de");
+    }
+
+    #[test]
+    fn test_fasta_error_on_fastq() {
         let f = File::open("tests/phix.1.fastq").unwrap();
         let mut reader = BufReader::new(f);
         let result = read_fasta(&mut reader);
