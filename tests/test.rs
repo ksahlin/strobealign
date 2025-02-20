@@ -1,6 +1,11 @@
+use std::error::Error;
+use flate2::write::GzEncoder;
 use assert_cmd::Command;
 use std::fs::read;
+use std::io::Write;
+use flate2::Compression;
 use predicates::prelude::*;
+use temp_file::TempFileBuilder;
 
 fn cmd() -> Command {
     Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap()
@@ -44,4 +49,21 @@ fn paired_end_sam() {
     let p = cmd.args(&["--no-PG", "--eqx", "--rg-id=1", "--rg=SM:sample", "--rg=LB:library", "tests/phix.fasta", "tests/phix.1.fastq", "tests/phix.2.fastq"]);
     let a = p.assert();
     a.success().stdout(predicate::str::diff(expected));
+}
+
+#[test]
+fn compressed_reference() -> Result<(), Box<dyn Error>> {
+    let mut cmd = cmd();
+    let fasta_contents = read("tests/phix.fasta")?;
+    let r = String::from_utf8(fasta_contents.clone())?;
+    dbg!(r);
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
+    encoder.write_all(&fasta_contents)?;
+    let compressed_fasta = encoder.finish()?;
+    dbg!(&compressed_fasta);
+    let tmp = TempFileBuilder::new().suffix(".gz").build()?.with_contents(&compressed_fasta)?;
+
+    cmd.args(&[tmp.path().as_os_str().to_str().unwrap(), "tests/empty.fastq"]).assert().success();
+    
+    Ok(())
 }
