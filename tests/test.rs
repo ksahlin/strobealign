@@ -64,6 +64,6 @@ fn compressed_reference() -> Result<(), Box<dyn Error>> {
     let tmp = TempFileBuilder::new().suffix(".gz").build()?.with_contents(&compressed_fasta)?;
 
     cmd.args(&[tmp.path().as_os_str().to_str().unwrap(), "tests/empty.fastq"]).assert().success();
-    
+
     Ok(())
 }

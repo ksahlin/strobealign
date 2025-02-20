@@ -17,8 +17,30 @@ pub enum FastaError {
     #[error("FASTA file cannot be parsed: {0}")]
     Parse(String),
 
-    #[error("Not UTF-8")]
-    FromUtf8Error(#[from] FromUtf8Error),
+    #[error("Invalid UTF-8")]
+    Utf8(#[from] FromUtf8Error),
+    
+    #[error("Invalid character in record name")]
+    Name,
+}
+
+/// Check whether a name is fine to use in SAM output.
+/// The SAM specification is much stricter than this and forbids these
+/// characters: "\'()*,<=>[\\]`{}
+/// However, because even samtools itself does not complain when it encounters
+/// one of them, contig names with these characters *are* used in practice, so
+/// we only do some basic checks.
+fn is_valid_name(name: &[u8]) -> bool{
+    if name.is_empty() {
+        return false;
+    }
+    for c in name {
+        if *c < 33 || *c > 126 {
+            return false;
+        }
+    }
+
+    true
 }
 
 pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, FastaError> {
@@ -36,10 +58,14 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, FastaE
             if has_record {
                 records.push(RefSequence {name, sequence});
             }
-            name = String::from_utf8(line[1..].to_vec())?;
-            if let Some(i) = name.find(|c: char| c.is_ascii_whitespace()) {
-                name = name[..i].to_string();
+            let mut name_bytes = &line[1..];
+            if let Some(i) = name_bytes.iter().position(|c| c.is_ascii_whitespace()) {
+                name_bytes = &name_bytes[..i];
             }
+            if !is_valid_name(name_bytes) {
+                return Err(FastaError::Name);
+            }
+            name = String::from_utf8(name_bytes.to_vec())?;
             sequence = Vec::new();
             has_record = true;
         } else {
@@ -90,6 +116,15 @@ mod tests {
     }
 
     #[test]
+    fn test_some_special_characters() {
+        let mut reader = BufReader::new(b"><>;abc\nAAAA\n>abc\nCCCC\n".as_slice());
+        let records = read_fasta(&mut reader).unwrap();
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0].name, "<>;abc");
+        assert_eq!(records[1].name, "abc");
+    }
+
+    #[test]
     fn test_whitespace_in_header() {
         let mut reader = BufReader::new(b">ab c\nACGT\n>de\tf\nACGT\n".as_slice());
         let records = read_fasta(&mut reader).unwrap();
@@ -102,6 +137,20 @@ mod tests {
     fn test_fasta_error_on_fastq() {
         let f = File::open("tests/phix.1.fastq").unwrap();
         let mut reader = BufReader::new(f);
+        let result = read_fasta(&mut reader);
+        assert!(result.is_err());
+    }
+    
+    #[test]
+    fn test_invalid_contig_name() {
+        let mut reader = BufReader::new(b">name\x08\n".as_slice());
+        let result = read_fasta(&mut reader);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_invalid_contig_name2() {
+        let mut reader = BufReader::new(b">\0x80\nACGT\n".as_slice());
         let result = read_fasta(&mut reader);
         assert!(result.is_err());
     }
