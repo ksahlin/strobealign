@@ -44,8 +44,9 @@ struct Args {
     #[arg(short = 'o', value_name = "PATH", help_heading = "Input/output")]
     output: Option<String>,
 
-    //args::Flag v(parser, "v", "Verbose output", {'v'});
-    /// #[arg(help_heading = "Verbose output", conflicts_with = "trace")]
+    /// Verbose output
+    #[arg(short = 'v', help_heading = "Input/output", conflicts_with = "trace")]
+    verbose: bool,
 
     /// Highly verbose output
     #[arg(long = "trace", hide = true)]
@@ -194,7 +195,7 @@ struct Args {
 fn main() -> Result<(), Error> {
     sigpipe::reset();
     let args = Args::parse();
-    let level = if args.trace { log::Level::Trace } else { log::Level::Debug };
+    let level = if args.trace { log::Level::Trace } else if args.verbose { log::Level::Debug } else { log::Level::Info };
     logger::init(level).unwrap();
     info!("This is {} {}", NAME, VERSION);
     let path = Path::new(&args.ref_path);
@@ -211,16 +212,20 @@ fn main() -> Result<(), Error> {
         if references.len() != 1 { "s" } else { "" },
         max_contig_size as f64 / 1E6
     );
-
-
+    
     let f1 = xopen(&args.fastq_path)?;
     let mut fastq_reader1 = PeekableFastqReader::new(f1);
 
     let read_length = match args.read_length {
         Some(r) => r,
-        None => estimate_read_length(&fastq_reader1.peek(500)?),
+        None => {
+            let r = estimate_read_length(&fastq_reader1.peek(500)?);
+            info!("Estimated read length: {} bp", r);
+            r
+        },
     };
     let parameters = IndexParameters::from_read_length(read_length, args.k, args.s, args.l, args.u, args.c, args.max_seed_length);
+    info!("Using canonical read length {} bp", parameters.canonical_read_length);
     info!("Indexing ...");
     debug!("{:?}", parameters);
 
@@ -367,6 +372,7 @@ fn main() -> Result<(), Error> {
     */
     // TODO out.lock().unwrap().flush()?;
 
+    info!("Done!");
     info!("Total time mapping: {:.2} s", timer.elapsed().as_secs_f64());
     Ok(())
 }
