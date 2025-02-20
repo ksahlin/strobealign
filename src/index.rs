@@ -344,7 +344,7 @@ impl<'a> StrobemerIndex<'a> {
         debug!("  Sorting ...");
         // TODO
         // ensure comparison function is branchless
-        self.randstrobes.sort_unstable_by_key(|r| (r.hash, r.position));
+        self.randstrobes.sort_unstable_by_key(|r| (r.hash, r.position, r.packed));
         debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
         // stats.elapsed_sorting_seeds = sorting_timer.duration();
 
