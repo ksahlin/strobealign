@@ -1,7 +1,7 @@
 use std::{env, io, thread};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{Error, BufReader, BufWriter, Write};
+use std::io::{BufReader, BufWriter, Write};
 use std::ops::Deref;
 use std::path::Path;
 use std::process::exit;
@@ -11,10 +11,11 @@ use std::time::Instant;
 use log::{debug, error, info, trace};
 use clap::Parser;
 use fastrand::Rng;
+use thiserror::Error;
 use rstrobes::aligner::{Aligner, Scores};
 use rstrobes::fastq::{record_iterator, PeekableFastqReader, SequenceRecord};
 use rstrobes::fasta;
-use rstrobes::fasta::RefSequence;
+use rstrobes::fasta::{FastaError, RefSequence};
 use rstrobes::index::{IndexParameters, StrobemerIndex, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES};
 use rstrobes::insertsize::InsertSizeDistribution;
 use rstrobes::maponly::{abundances_paired_end_read, abundances_single_end_read, map_paired_end_read, map_single_end_read};
@@ -190,9 +191,16 @@ struct Args {
     fastq_path2: Option<String>,
 }
 
+#[derive(Debug, Error)]
+enum CliError {
+    #[error("{0}")]
+    Io(#[from] std::io::Error),
+    
+    #[error("{0}")]
+    FastaError(#[from] FastaError),
+}
 
-
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), CliError> {
     sigpipe::reset();
     let args = Args::parse();
     let level = if args.trace { log::Level::Trace } else if args.verbose { log::Level::Debug } else { log::Level::Info };
