@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::io::BufRead;
 use std::io;
 use std::string::FromUtf8Error;
@@ -22,6 +23,9 @@ pub enum FastaError {
     
     #[error("Invalid character in record name")]
     Name,
+    
+    #[error("Duplicate record name {0}")]
+    DuplicateName(String),
 }
 
 /// Check whether a name is fine to use in SAM output.
@@ -48,6 +52,7 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, FastaE
     let mut name = String::new();
     let mut sequence = Vec::new();
     let mut has_record = false;
+    let mut names = HashSet::new();
     for line in reader.lines() {
         let line = line?;
         let line = line.as_bytes();
@@ -66,6 +71,10 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, FastaE
                 return Err(FastaError::Name);
             }
             name = String::from_utf8(name_bytes.to_vec())?;
+            if names.contains(&name) {
+                return Err(FastaError::DuplicateName(name));
+            }
+            names.insert(name.clone());
             sequence = Vec::new();
             has_record = true;
         } else {
@@ -151,6 +160,13 @@ mod tests {
     #[test]
     fn test_invalid_contig_name2() {
         let mut reader = BufReader::new(b">\0x80\nACGT\n".as_slice());
+        let result = read_fasta(&mut reader);
+        assert!(result.is_err());
+    }
+    
+    #[test]
+    fn test_duplicate_contig_names() {
+        let mut reader = BufReader::new(b">abc\nAAAA\n>abc\nCCCC\n".as_slice());
         let result = read_fasta(&mut reader);
         assert!(result.is_err());
     }
