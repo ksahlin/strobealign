@@ -297,6 +297,12 @@ fn main() -> Result<(), Error> {
         abundances: vec![0f64; references.len()],
     };
 
+    let mode_message = match mode {
+        Mode::Sam => "",
+        Mode::Paf => " in mapping-only mode",
+        Mode::Abundances => " in abundance estimation mode"
+    };
+    info!("Processing reads{} using {} thread{}", mode_message, args.threads, if args.threads != 1 { "s" } else {""}); 
     // TODO channel size?
     let (tx, rx) = sync_channel(args.threads);
     let reader_thread = thread::spawn(move || {
