@@ -236,27 +236,6 @@ impl TryFrom<&[u32]> for Cigar {
     }
 }
 
-/*
-fn compress_cigar(ops: &String) -> String {
-    char prev = 0;
-    int count = 0;
-    std::stringstream cigar;
-    bool first = true;
-    for (auto op : ops) {
-        if (!first && op != prev) {
-            cigar << count << prev;
-            count = 0;
-        }
-        count++;
-        prev = op;
-        first = false;
-    }
-    if !first {
-        cigar << count << prev;
-    }
-    return cigar.str();
-}*/
-
 #[cfg(test)]
 mod test {
     use std::str::FromStr;
@@ -273,17 +252,6 @@ mod test {
         let mut cigar = Cigar::new();
         cigar.push(CigarOperation::Eq, 1);
         assert!(!cigar.is_empty());
-    }
-
-    #[test]
-    fn compress_cigar() {
-        // CHECK(compress_cigar("") == "");
-        // CHECK(compress_cigar("M") == "1M");
-        // CHECK(compress_cigar("MM") == "2M");
-        // CHECK(compress_cigar("MMI") == "2M1I");
-        // CHECK(compress_cigar("MMII") == "2M2I");
-        // CHECK(compress_cigar("MI") == "1M1I");
-        // CHECK(compress_cigar("MII") == "1M2I");
     }
 
     #[test]
