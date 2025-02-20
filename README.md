@@ -1,4 +1,4 @@
-![CI](https://github.com/ksahlin/strobealign/workflows/CI/badge.svg)
+![CI](https://github.com/ksahlin/strobealign/actions/workflows/ci.yml/badge.svg?branch=main)
 [![install with Bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg)](http://bioconda.github.io/recipes/strobealign/README.html)
 
 # strobealign: A fast short-read aligner
