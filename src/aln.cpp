@@ -124,7 +124,7 @@ inline void align_single(
         }
         bool consistent_nam = reverse_nam_if_needed(nam, read, references, k);
         details.nam_inconsistent += !consistent_nam;
-        if (!consistent_nam) {
+        if (!consistent_nam && nam.n_matches == 1) {
             continue;
         }
         auto alignment = extend_seed(aligner, nam, references, read, consistent_nam);
