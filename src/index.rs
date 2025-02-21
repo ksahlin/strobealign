@@ -168,7 +168,7 @@ impl SyncmerParameters {
 }
 
 type RandstrobeHash = u64;
-type bucket_index_t = u64;
+type BucketIndex = u64;
 
 #[derive(Default)]
 struct IndexCreationStatistics {
@@ -280,7 +280,7 @@ pub struct StrobemerIndex<'a> {
     /// randstrobe_start_indices has one extra guard entry at the end that
     /// is always randstrobes.len().
     pub randstrobes: Vec<RefRandstrobe>,
-    randstrobe_start_indices: Vec<bucket_index_t>,
+    randstrobe_start_indices: Vec<BucketIndex>,
 }
 
 impl<'a> StrobemerIndex<'a> {
@@ -325,13 +325,13 @@ impl<'a> StrobemerIndex<'a> {
             .sum();
         let memory_bytes: usize = total_length
             + size_of::<RefRandstrobe>() * total_randstrobes
-            + size_of::<bucket_index_t>() * (1usize << self.bits);
+            + size_of::<BucketIndex>() * (1usize << self.bits);
         debug!(
             "  Estimated total memory usage: {:.1} GB",
             memory_bytes as f64 / 1E9
         );
 
-        if total_randstrobes > bucket_index_t::MAX as usize {
+        if total_randstrobes > BucketIndex::MAX as usize {
             panic!("Too many randstrobes");
         }
         let timer = Instant::now();
@@ -393,7 +393,7 @@ impl<'a> StrobemerIndex<'a> {
             let cur_hash_n = cur_hash >> (64 - self.bits);
             while self.randstrobe_start_indices.len() <= cur_hash_n as usize {
                 self.randstrobe_start_indices
-                    .push(position as bucket_index_t);
+                    .push(position as BucketIndex);
             }
             prev_hash = cur_hash;
         }
@@ -410,7 +410,7 @@ impl<'a> StrobemerIndex<'a> {
         }
         while self.randstrobe_start_indices.len() < ((1usize << self.bits) + 1) {
             self.randstrobe_start_indices
-                .push(self.randstrobes.len() as bucket_index_t);
+                .push(self.randstrobes.len() as BucketIndex);
         }
         self.stats.tot_high_ab = tot_high_ab;
         self.stats.tot_mid_ab = tot_mid_ab;
