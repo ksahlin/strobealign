@@ -308,7 +308,7 @@ impl<'a> StrobemerIndex<'a> {
         }
     }
 
-    pub fn populate(&mut self, filter_fraction: f64, rescue_level: usize, n_threads: usize) {
+    pub fn populate(&mut self, filter_fraction: f64, n_threads: usize) {
         let timer = Instant::now();
         let randstrobe_counts = count_all_randstrobes(self.references, &self.parameters, n_threads);
         debug!("  Counting hashes: {:.2} s", timer.elapsed().as_secs_f64());
@@ -439,7 +439,7 @@ impl<'a> StrobemerIndex<'a> {
 
         // Fill randstrobes vector
         let mut offset = 0;
-        for (ref_index, refseq) in self.references.iter().enumerate() {
+        for ref_index in 0..self.references.len() {
             self.assign_randstrobes(ref_index, &mut randstrobes[offset..offset+randstrobe_counts[ref_index]]);
             offset += randstrobe_counts[ref_index];
         }

@@ -4,8 +4,8 @@ pub struct InsertSizeDistribution {
     pub sample_size: usize,
     pub mu: f32,
     pub sigma: f32,
-    V: f32,
-    SSE: f32,
+    variance: f32,
+    sse: f32,
 }
 
 impl Default for InsertSizeDistribution {
@@ -14,8 +14,8 @@ impl Default for InsertSizeDistribution {
             sample_size: 0,
             mu: 300.0,
             sigma: 100.0,
-            V: 10_000.0,
-            SSE: 10_000.0,
+            variance: 10_000.0,
+            sse: 10_000.0,
         }
     }
 }
@@ -34,13 +34,13 @@ impl InsertSizeDistribution {
             let insert_size = insert_size as f32;
             let e = insert_size - self.mu;
             self.mu += e / self.sample_size as f32;
-            self.SSE += e * (insert_size - self.mu);
+            self.sse += e * (insert_size - self.mu);
             if self.sample_size > 1 {
-                self.V = self.SSE / (self.sample_size as f32 - 1.0);
+                self.variance = self.sse / (self.sample_size as f32 - 1.0);
             } else {
-                self.V = self.SSE;
+                self.variance = self.sse;
             }
-            self.sigma = self.V.sqrt();
+            self.sigma = self.variance.sqrt();
         }
         self.sample_size += 1;
         /*

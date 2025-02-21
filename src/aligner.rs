@@ -1,4 +1,3 @@
-use std::cell::Cell;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::ssw::SswAligner;
 

@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 use std::ops::Deref;
-use std::path::Path;
 use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, sync_channel, Receiver, Sender};
@@ -195,7 +194,7 @@ struct Args {
 enum CliError {
     #[error("{0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("{0}")]
     FastaError(#[from] FastaError),
 }
@@ -206,7 +205,7 @@ fn main() -> Result<(), CliError> {
     let level = if args.trace { log::Level::Trace } else if args.verbose { log::Level::Debug } else { log::Level::Info };
     logger::init(level).unwrap();
     info!("This is {} {}", NAME, VERSION);
-    
+
     // Read reference FASTA
     let timer = Instant::now();
     let mut reader = BufReader::new(xopen(&args.ref_path)?);
@@ -239,13 +238,13 @@ fn main() -> Result<(), CliError> {
     };
     let parameters = IndexParameters::from_read_length(read_length, args.k, args.s, args.l, args.u, args.c, args.max_seed_length);
     info!("Using canonical read length {} bp", parameters.canonical_read_length);
-    
+
     // Create the index
     let timer = Instant::now();
     info!("Indexing ...");
     debug!("{:?}", parameters);
     let mut index = StrobemerIndex::new(&references, parameters.clone(), args.bits);
-    index.populate(args.filter_fraction, args.rescue_level, args.threads);
+    index.populate(args.filter_fraction, args.threads);
     let index = index;
     info!("Total time indexing: {:.2} s", timer.elapsed().as_secs_f64());
 
@@ -316,7 +315,7 @@ fn main() -> Result<(), CliError> {
         Mode::Paf => " in mapping-only mode",
         Mode::Abundances => " in abundance estimation mode"
     };
-    info!("Processing reads{} using {} thread{}", mode_message, args.threads, if args.threads != 1 { "s" } else {""}); 
+    info!("Processing reads{} using {} thread{}", mode_message, args.threads, if args.threads != 1 { "s" } else {""});
     // TODO channel size?
     let (tx, rx) = sync_channel(args.threads);
     let reader_thread = thread::spawn(move || {

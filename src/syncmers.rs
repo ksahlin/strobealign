@@ -54,7 +54,7 @@ pub struct SyncmerIterator<'a> {
 }
 
 impl<'a> SyncmerIterator<'a> {
-    pub fn new(seq: &'a [u8], k: usize, s: usize, t: usize) -> SyncmerIterator {
+    pub fn new(seq: &'a [u8], k: usize, s: usize, t: usize) -> SyncmerIterator<'a> {
         SyncmerIterator {
             seq,
             k,
