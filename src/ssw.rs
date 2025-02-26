@@ -21,10 +21,8 @@ fn translate(query: &[u8]) -> Vec<i8> {
 }
 
 #[derive(Debug)]
-struct Profile<'a> {
+struct Profile {
     profile: *mut raw::s_profile,
-    query: &'a [i8],
-    score_matrix: &'a [i8]
 }
 
 /// Wrapper for the s_align struct that ensures memory is freed on drop()
@@ -64,15 +62,15 @@ impl<'a> From<SswAlignment<'a>> for AlignmentInfo {
 }
 
 // Wrapper for s_profile that frees memory on drop()
-impl<'a> Profile<'a> {
-    fn new(translated_query: &'a [i8], score_matrix: &'a [i8]) -> Self {
+impl Profile {
+    fn new(translated_query: &[i8], score_matrix: &[i8]) -> Self {
         // TODO should return an error if query.is_empty()
         let score_size = 2;
         let profile = unsafe {
             // TODO hardcoded 5
             raw::ssw_init(translated_query.as_ptr(), translated_query.len() as i32, score_matrix.as_ptr(), 5i32, score_size)
         };
-        Profile { profile, query: translated_query, score_matrix }
+        Profile { profile }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -88,8 +86,7 @@ impl<'a> Profile<'a> {
     }
 }
 
-
-impl<'a> Drop for Profile<'a> {
+impl Drop for Profile {
     fn drop(&mut self) {
         unsafe { raw::init_destroy(self.profile); }
     }
