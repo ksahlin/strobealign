@@ -72,7 +72,7 @@ struct Args {
     #[arg(long="no-PG", help_heading = "SAM output")]
     no_pg: bool,
 
-    /// Suppress output of unmapped reads
+    /// Do not output unmapped single-end reads. Do not output pairs where both reads are unmapped
     #[arg(short = 'U', help_heading = "SAM output")]
     only_mapped: bool,
 
