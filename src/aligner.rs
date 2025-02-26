@@ -216,3 +216,17 @@ pub fn hamming_align(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8, end_
         query_end: segment_end,
     })
 }
+
+#[cfg(test)]
+mod test {
+    use crate::aligner::{Aligner, Scores};
+
+    #[test]
+    fn test_ssw_align_no_result() {
+        let aligner = Aligner::new(Scores::default());
+        let query = b"TCTCTCCCTCTCTCTCTCTCCCTCCCTCTCTCTCCCTCTCTCTCTCTCTCTCCCTCCCTT";
+        let refseq = b"GAGGGAGAGAGAGAGAGGGAGAGAGAGAGAGAG";
+        let info = aligner.align(query, refseq);
+        assert!(info.is_none());
+    }
+}
