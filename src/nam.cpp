@@ -272,7 +272,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
                     continue;
                 }
                 nr_good_hits++;
-                add_to_matches_map_partial(matches_map[q.is_revcomp], q.start, q.start + index.k(), index, partial_pos);
+                add_to_matches_map_partial(matches_map[q.is_revcomp], q.partial_start, q.partial_end, index, partial_pos);
             }
         }
     }
