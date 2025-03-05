@@ -6,6 +6,7 @@ use std::hash::{BuildHasherDefault, DefaultHasher};
 use fastrand::Rng;
 use log::Level::Trace;
 use log::trace;
+use crate::details::NamDetails;
 use crate::fasta::RefSequence;
 use crate::index::StrobemerIndex;
 use crate::mapper;
@@ -66,7 +67,7 @@ type DefaultHashMap<K, V> = HashMap<K, V, BuildHasherDefault<DefaultHasher>>;
 ///
 /// Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
 ///
-pub fn find_nams(query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerIndex, filter_cutoff: usize) -> (f32, Vec<Nam>) {
+pub fn find_nams(query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerIndex, filter_cutoff: usize) -> (f32, usize, Vec<Nam>) {
    
     let mut hits_per_ref = [DefaultHashMap::default(), DefaultHashMap::default()];
     hits_per_ref[0].reserve(100);
@@ -86,16 +87,18 @@ pub fn find_nams(query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerInde
     let nonrepetitive_fraction = if total_hits > 0 { (nr_good_hits as f32) / (total_hits as f32) } else { 1.0 };
     let nams = merge_hits_into_nams_forward_and_reverse(&mut hits_per_ref, index.parameters.syncmer.k, false);
 
-    (nonrepetitive_fraction, nams)
+    (nonrepetitive_fraction, nr_good_hits, nams)
 }
 
 /// Find a query’s NAMs, using also some of the randstrobes that occur more often
 /// than the normal (non-rescue) filter cutoff.
+///
+/// Return the number of hits and the vector of NAMs
 pub fn find_nams_rescue(
     query_randstrobes: &[QueryRandstrobe],
     index: &StrobemerIndex,
     rescue_cutoff: usize,
-) -> Vec<Nam> {
+) -> (usize, Vec<Nam>) {
 
     struct RescueHit {
         count: usize,
@@ -138,16 +141,18 @@ pub fn find_nams_rescue(
     hits_fw.sort_by(cmp);
     hits_rc.sort_by(cmp);
 
+    let mut n_hits = 0;
     for (is_revcomp, rescue_hits) in [(false, hits_fw), (true, hits_rc)] {
         for (i, rh) in rescue_hits.iter().enumerate() {
             if (rh.count > rescue_cutoff && i >= 5) || rh.count > 1000 {
                 break;
             }
             add_to_hits_per_ref(&mut hits_per_ref[is_revcomp as usize], rh.query_start, rh.query_end, index, rh.position);
+            n_hits += 1;
         }
     }
 
-    merge_hits_into_nams_forward_and_reverse(&mut hits_per_ref, index.parameters.syncmer.k, true)
+    (n_hits, merge_hits_into_nams_forward_and_reverse(&mut hits_per_ref, index.parameters.syncmer.k, true))
 }
 
 fn add_to_hits_per_ref(
@@ -335,21 +340,22 @@ pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, references: &[RefSequen
 }
 
 // TODO rename
-pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, rng: &mut Rng) -> (bool, Vec<Nam>) {
+pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, rng: &mut Rng) -> (NamDetails, Vec<Nam>) {
     //Timer strobe_timer;
     let query_randstrobes = mapper::randstrobes_query(sequence, &index.parameters);
     //statistics.tot_construct_strobemers += strobe_timer.duration();
 
     // Timer nam_timer;
-    let (nonrepetitive_fraction, mut nams) = find_nams(&query_randstrobes, index, index.filter_cutoff);
+    let (nonrepetitive_fraction, n_hits, mut nams) = find_nams(&query_randstrobes, index, index.filter_cutoff);
     // statistics.tot_find_nams += nam_timer.duration();
 
+    let mut n_rescue_hits = 0;
     let mut nam_rescue = false;
     if rescue_level > 1 {
         // Timer rescue_timer;
         if nams.is_empty() || nonrepetitive_fraction < 0.7 {
             nam_rescue = true;
-            nams = find_nams_rescue(&query_randstrobes, index, index.rescue_cutoff);
+            (n_rescue_hits, nams) = find_nams_rescue(&query_randstrobes, index, index.rescue_cutoff);
         }
         // statistics.tot_time_rescue += rescue_timer.duration();
     }
@@ -366,7 +372,7 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, rn
         }
     }
 
-    (nam_rescue, nams)
+    (NamDetails {nam_rescue, n_hits, n_rescue_hits}, nams)
 }
 
 /// Shuffle the top-scoring NAMs. Input must be sorted by score.

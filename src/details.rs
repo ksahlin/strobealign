@@ -1,10 +1,23 @@
 use std::ops;
 
-/// Details about aligning a single or paired-end read
-#[derive(Default,Debug,Clone)]
+#[derive(Default, Debug, Clone)]
+pub struct NamDetails {
+    pub nam_rescue: bool,
+    pub n_hits: usize,
+    pub n_rescue_hits: usize,
+}
+
+/// Details about aligning a single read
+#[derive(Default, Debug, Clone)]
 pub struct Details {
     /// find_nams_rescue() was needed
     pub nam_rescue: bool,
+
+    /// Number of non-rescue hits
+    pub n_hits: usize,
+
+    /// Number of rescue hits
+    pub n_rescue_hits: usize,
 
     // Number of NAMs found
     pub nams: usize,
