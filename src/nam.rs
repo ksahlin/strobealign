@@ -344,13 +344,16 @@ pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, references: &[RefSequen
 pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, rng: &mut Rng) -> (NamDetails, Vec<Nam>) {
     let timer = Instant::now();
     let query_randstrobes = mapper::randstrobes_query(sequence, &index.parameters);
+    let n_randstrobes = query_randstrobes.len();
     let time_randstrobes = timer.elapsed().as_secs_f64();
 
     let timer = Instant::now();
     let (nonrepetitive_fraction, n_hits, mut nams) = find_nams(&query_randstrobes, index, index.filter_cutoff);
+    let n_nams = nams.len();
     let time_find_nams = timer.elapsed().as_secs_f64();
-    
+
     let mut n_rescue_hits = 0;
+    let mut n_rescue_nams = 0;
     let mut nam_rescue = false;
     let time_rescue;
     if rescue_level > 1 {
@@ -358,6 +361,7 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, rn
         if nams.is_empty() || nonrepetitive_fraction < 0.7 {
             nam_rescue = true;
             (n_rescue_hits, nams) = find_nams_rescue(&query_randstrobes, index, index.rescue_cutoff);
+            n_rescue_nams = nams.len();
         }
         time_rescue = timer.elapsed().as_secs_f64();
     } else {
@@ -377,6 +381,9 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, rn
     }
 
     let nam_details = NamDetails {
+        n_randstrobes,
+        n_nams,
+        n_rescue_nams,
         nam_rescue,
         n_hits,
         n_rescue_hits,
@@ -385,7 +392,7 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, rn
         time_rescue,
         time_sort_nams,
     };
-    
+
     (nam_details, nams)
 }
 

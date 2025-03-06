@@ -2,7 +2,11 @@ use std::ops;
 
 #[derive(Default, Debug, Clone)]
 pub struct NamDetails {
+    pub n_randstrobes: usize,
+    pub n_nams: usize,
+    pub n_rescue_nams: usize,
     pub nam_rescue: bool,
+    /// Number of non-rescue hits
     pub n_hits: usize,
     pub n_rescue_hits: usize,
 
