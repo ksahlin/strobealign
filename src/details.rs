@@ -5,6 +5,11 @@ pub struct NamDetails {
     pub nam_rescue: bool,
     pub n_hits: usize,
     pub n_rescue_hits: usize,
+
+    pub time_randstrobes: f64,
+    pub time_find_nams: f64,
+    pub time_rescue: f64,
+    pub time_sort_nams: f64,
 }
 
 /// Details about aligning a single read

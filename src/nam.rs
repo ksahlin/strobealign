@@ -3,6 +3,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::hash::{BuildHasherDefault, DefaultHasher};
+use std::time::Instant;
 use fastrand::Rng;
 use log::Level::Trace;
 use log::trace;
@@ -341,29 +342,32 @@ pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, references: &[RefSequen
 
 // TODO rename
 pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, rng: &mut Rng) -> (NamDetails, Vec<Nam>) {
-    //Timer strobe_timer;
+    let timer = Instant::now();
     let query_randstrobes = mapper::randstrobes_query(sequence, &index.parameters);
-    //statistics.tot_construct_strobemers += strobe_timer.duration();
+    let time_randstrobes = timer.elapsed().as_secs_f64();
 
-    // Timer nam_timer;
+    let timer = Instant::now();
     let (nonrepetitive_fraction, n_hits, mut nams) = find_nams(&query_randstrobes, index, index.filter_cutoff);
-    // statistics.tot_find_nams += nam_timer.duration();
-
+    let time_find_nams = timer.elapsed().as_secs_f64();
+    
     let mut n_rescue_hits = 0;
     let mut nam_rescue = false;
+    let time_rescue;
     if rescue_level > 1 {
-        // Timer rescue_timer;
+        let timer = Instant::now();
         if nams.is_empty() || nonrepetitive_fraction < 0.7 {
             nam_rescue = true;
             (n_rescue_hits, nams) = find_nams_rescue(&query_randstrobes, index, index.rescue_cutoff);
         }
-        // statistics.tot_time_rescue += rescue_timer.duration();
+        time_rescue = timer.elapsed().as_secs_f64();
+    } else {
+        time_rescue = 0f64;
     }
-    // Timer nam_sort_timer;
 
+    let timer = Instant::now();
     nams.sort_by_key(|k| -(k.score as i32));
     shuffle_top_nams(&mut nams, rng);
-    // statistics.tot_sort_nams += nam_sort_timer.duration();
+    let time_sort_nams = timer.elapsed().as_secs_f64();
 
     if log::log_enabled!(Trace) {
         trace!("Found {} NAMs (rescue done: {})", nams.len(), nam_rescue);
@@ -372,7 +376,17 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, rn
         }
     }
 
-    (NamDetails {nam_rescue, n_hits, n_rescue_hits}, nams)
+    let nam_details = NamDetails {
+        nam_rescue,
+        n_hits,
+        n_rescue_hits,
+        time_randstrobes,
+        time_find_nams,
+        time_rescue,
+        time_sort_nams,
+    };
+    
+    (nam_details, nams)
 }
 
 /// Shuffle the top-scoring NAMs. Input must be sorted by score.
