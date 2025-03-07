@@ -223,6 +223,9 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
     const StrobemerIndex& index,
     bool use_mcs
 ) {
+    // If we produce matches in sorted order, then merge_matches_into_nams()
+    // does not have to re-sort
+    bool sorting_needed{use_mcs};
     std::vector<PartialHit> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
     if (use_mcs) {
         partial_queried.reserve(10);
@@ -275,10 +278,11 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
                 add_to_matches_map_partial(matches_map[q.is_revcomp], q.partial_start, q.partial_end, index, partial_pos);
             }
         }
+        sorting_needed = true;
     }
 
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
-    auto nams = merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), use_mcs);
+    auto nams = merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), sorting_needed);
     return {nonrepetitive_fraction, nr_good_hits, nams};
 }
 
