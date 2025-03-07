@@ -31,7 +31,7 @@ pub struct Details {
     // Number of NAMs found
     pub nams: usize,
 
-    pub nam_inconsistent: usize,
+    pub inconsistent_nams: usize,
 
     /// No. of times rescue by local alignment was attempted
     pub mate_rescue: usize,
@@ -51,7 +51,7 @@ impl ops::AddAssign<Details> for Details {
     fn add_assign(&mut self, rhs: Details) {
         self.nam_rescue = self.nam_rescue || rhs.nam_rescue;
         self.nams += rhs.nams;
-        self.nam_inconsistent += rhs.nam_inconsistent;
+        self.inconsistent_nams += rhs.inconsistent_nams;
         self.mate_rescue += rhs.mate_rescue;
         self.tried_alignment += rhs.tried_alignment;
         self.gapped += rhs.gapped;
