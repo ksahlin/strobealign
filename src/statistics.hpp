@@ -6,7 +6,7 @@ struct Details {
     bool nam_rescue{false}; // find_nams_rescue() was needed
     uint32_t nams{0};  // No. of NAMs found
     uint32_t rescue_nams{0}; // No. of NAMs found during rescue
-    uint32_t nam_inconsistent{0};
+    uint32_t inconsistent_nams{0};
     uint32_t mate_rescue{0}; // No. of times rescue by local alignment was attempted
     uint32_t tried_alignment{0}; // No. of computed alignments (get_alignment or rescue_mate)
     uint32_t gapped{0};  // No. of gapped alignments computed (in get_alignment)
@@ -16,7 +16,7 @@ struct Details {
         nam_rescue = nam_rescue || other.nam_rescue;
         nams += other.nams;
         rescue_nams += other.rescue_nams;
-        nam_inconsistent += other.nam_inconsistent;
+        inconsistent_nams += other.inconsistent_nams;
         mate_rescue += other.mate_rescue;
         tried_alignment += other.tried_alignment;
         gapped += other.gapped;
@@ -72,7 +72,7 @@ struct AlignmentStatistics {
         this->nam_rescue += details.nam_rescue;
         this->tot_rescued += details.mate_rescue;
         this->tot_all_tried += details.tried_alignment;
-        this->inconsistent_nams += details.nam_inconsistent;
+        this->inconsistent_nams += details.inconsistent_nams;
 
         return *this;
     }

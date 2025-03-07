@@ -123,7 +123,7 @@ inline void align_single(
             break;
         }
         bool consistent_nam = reverse_nam_if_needed(nam, read, references, k);
-        details.nam_inconsistent += !consistent_nam;
+        details.inconsistent_nams += !consistent_nam;
         auto alignment = extend_seed(aligner, nam, references, read, consistent_nam);
         details.tried_alignment++;
         if (alignment.is_unaligned) {
@@ -597,7 +597,7 @@ std::vector<ScoredAlignmentPair> rescue_read(
         }
 
         const bool consistent_nam = reverse_nam_if_needed(nam, read1, references, k);
-        details[0].nam_inconsistent += !consistent_nam;
+        details[0].inconsistent_nams += !consistent_nam;
         auto alignment = extend_seed(aligner, nam, references, read1, consistent_nam);
         details[0].gapped += alignment.gapped;
         alignments1.emplace_back(alignment);
@@ -756,9 +756,9 @@ std::vector<ScoredAlignmentPair> align_paired(
         Nam n_max2 = nams2[0];
 
         bool consistent_nam1 = reverse_nam_if_needed(n_max1, read1, references, k);
-        details[0].nam_inconsistent += !consistent_nam1;
+        details[0].inconsistent_nams += !consistent_nam1;
         bool consistent_nam2 = reverse_nam_if_needed(n_max2, read2, references, k);
-        details[1].nam_inconsistent += !consistent_nam2;
+        details[1].inconsistent_nams += !consistent_nam2;
 
         auto alignment1 = extend_seed(aligner, n_max1, references, read1, consistent_nam1);
         details[0].tried_alignment++;
@@ -785,7 +785,7 @@ std::vector<ScoredAlignmentPair> align_paired(
     {
         auto n1_max = nams1[0];
         bool consistent_nam1 = reverse_nam_if_needed(n1_max, read1, references, k);
-        details[0].nam_inconsistent += !consistent_nam1;
+        details[0].inconsistent_nams += !consistent_nam1;
         a1_indv_max = extend_seed(aligner, n1_max, references, read1, consistent_nam1);
         is_aligned1[n1_max.nam_id] = a1_indv_max;
         details[0].tried_alignment++;
@@ -793,7 +793,7 @@ std::vector<ScoredAlignmentPair> align_paired(
 
         auto n2_max = nams2[0];
         bool consistent_nam2 = reverse_nam_if_needed(n2_max, read2, references, k);
-        details[1].nam_inconsistent += !consistent_nam2;
+        details[1].inconsistent_nams += !consistent_nam2;
         a2_indv_max = extend_seed(aligner, n2_max, references, read2, consistent_nam2);
         is_aligned2[n2_max.nam_id] = a2_indv_max;
         details[1].tried_alignment++;
@@ -820,14 +820,14 @@ std::vector<ScoredAlignmentPair> align_paired(
                 a1 = is_aligned1[n1.nam_id];
             } else {
                 bool consistent_nam = reverse_nam_if_needed(n1, read1, references, k);
-                details[0].nam_inconsistent += !consistent_nam;
+                details[0].inconsistent_nams += !consistent_nam;
                 a1 = extend_seed(aligner, n1, references, read1, consistent_nam);
                 is_aligned1[n1.nam_id] = a1;
                 details[0].tried_alignment++;
                 details[0].gapped += a1.gapped;
             }
         } else {
-            details[1].nam_inconsistent += !reverse_nam_if_needed(n2, read2, references, k);
+            details[1].inconsistent_nams += !reverse_nam_if_needed(n2, read2, references, k);
             a1 = rescue_align(aligner, n2, references, read1, mu, sigma, k);
             details[0].mate_rescue += !a1.is_unaligned;
             details[0].tried_alignment++;
@@ -843,14 +843,14 @@ std::vector<ScoredAlignmentPair> align_paired(
                 a2 = is_aligned2[n2.nam_id];
             } else {
                 bool consistent_nam = reverse_nam_if_needed(n2, read2, references, k);
-                details[1].nam_inconsistent += !consistent_nam;
+                details[1].inconsistent_nams += !consistent_nam;
                 a2 = extend_seed(aligner, n2, references, read2, consistent_nam);
                 is_aligned2[n2.nam_id] = a2;
                 details[1].tried_alignment++;
                 details[1].gapped += a2.gapped;
             }
         } else {
-            details[0].nam_inconsistent += !reverse_nam_if_needed(n1, read1, references, k);
+            details[0].inconsistent_nams += !reverse_nam_if_needed(n1, read1, references, k);
             a2 = rescue_align(aligner, n1, references, read2, mu, sigma, k);
             details[1].mate_rescue += !a2.is_unaligned;
             details[1].tried_alignment++;
