@@ -364,7 +364,7 @@ int run_strobealign(int argc, char **argv) {
         << "Number of rescue NAMs:         " << std::setw(12) << statistics.n_rescue_nams
         << "  Per rescue attempt: " << std::setw(7) << static_cast<float>(statistics.n_rescue_nams) / statistics.nam_rescue << std::endl;
     logger.info()
-        << "Total mapping sites tried: " << statistics.tot_all_tried << std::endl
+        << "Total mapping sites tried: " << statistics.tried_alignment << std::endl
         << "Total calls to ssw: " << statistics.tot_aligner_calls << std::endl
         << "Inconsistent NAM ends: " << statistics.inconsistent_nams << std::endl
         << "Mates rescued by alignment: " << statistics.tot_rescued << std::endl
