@@ -30,7 +30,6 @@ struct AlignmentStatistics {
     std::chrono::duration<double> tot_construct_strobemers{0};
     std::chrono::duration<double> tot_find_nams{0};
     std::chrono::duration<double> tot_time_rescue{0};
-    std::chrono::duration<double> tot_find_nams_alt{0};
     std::chrono::duration<double> tot_sort_nams{0};
     std::chrono::duration<double> tot_extend{0};
     std::chrono::duration<double> tot_write_file{0};
@@ -52,7 +51,6 @@ struct AlignmentStatistics {
         this->tot_construct_strobemers += other.tot_construct_strobemers;
         this->tot_find_nams += other.tot_find_nams;
         this->tot_time_rescue += other.tot_time_rescue;
-        this->tot_find_nams_alt += other.tot_find_nams_alt;
         this->tot_sort_nams += other.tot_sort_nams;
         this->tot_extend += other.tot_extend;
         this->tot_write_file += other.tot_write_file;
