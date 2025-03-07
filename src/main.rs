@@ -304,7 +304,7 @@ fn main() -> Result<(), CliError> {
         mapping_parameters: &mapping_parameters,
         index_parameters: &parameters,
         sam_output: &sam_output,
-        aligner: &aligner,
+        aligner,
         include_unmapped: !args.only_mapped,
         mode,
         abundances: vec![0f64; references.len()],
@@ -342,6 +342,7 @@ fn main() -> Result<(), CliError> {
         drop(out_rx);
     });
 
+    // worker threads
     thread::scope(|s| {
         for _ in 0..args.threads {
             let mut mapper = mapper.clone();
@@ -397,7 +398,7 @@ struct Mapper<'a> {
     mapping_parameters: &'a MappingParameters,
     index_parameters: &'a IndexParameters,
     sam_output: &'a SamOutput,
-    aligner: &'a Aligner,
+    aligner: Aligner,
     include_unmapped: bool,
     mode: Mode,
     abundances: Vec<f64>,
@@ -419,10 +420,10 @@ impl<'a> Mapper<'a> {
                     let sam_records =
                         if let Some(r2) = r2 {
                             align_paired_end_read(
-                                &r1, &r2, self.index, self.references, self.mapping_parameters, self.sam_output, self.index_parameters, &mut isizedist, self.aligner, &mut rng
+                                &r1, &r2, self.index, self.references, self.mapping_parameters, self.sam_output, self.index_parameters, &mut isizedist, &self.aligner, &mut rng
                             )
                         } else {
-                            align_single_end_read(&r1, self.index, self.references, self.mapping_parameters, self.sam_output, self.aligner, &mut rng)
+                            align_single_end_read(&r1, self.index, self.references, self.mapping_parameters, self.sam_output, &self.aligner, &mut rng)
                         };
                     for sam_record in sam_records {
                         if sam_record.is_mapped() || self.include_unmapped {

@@ -1,7 +1,8 @@
+use std::cell::Cell;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::ssw::SswAligner;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Scores {
     // match is a score, the others are penalties
     pub match_: u8,
@@ -40,9 +41,10 @@ impl AlignmentInfo {
     }
 }
 
+#[derive(Clone)]
 pub struct Aligner {
     pub scores: Scores, // TODO should not be pub?
-    //call_count: Cell<usize>,
+    call_count: Cell<usize>,
     ssw_aligner: SswAligner,
 }
 
@@ -52,16 +54,16 @@ impl Aligner {
         Aligner {
             scores,
             ssw_aligner,
-            //call_count: Cell::new(0usize),
+            call_count: Cell::new(0usize),
         }
     }
 
-    // fn call_count(&self) -> usize {
-    //     self.call_count.get()
-    // }
+    pub fn call_count(&self) -> usize {
+        self.call_count.get()
+    }
 
     pub fn align(&self, query: &[u8], refseq: &[u8]) -> Option<AlignmentInfo> {
-//        self.call_count.set(self.call_count.get() + 1);
+        self.call_count.set(self.call_count.get() + 1);
 
         if refseq.len() > 2000 {
             // TODO
@@ -228,5 +230,18 @@ mod test {
         let refseq = b"GAGGGAGAGAGAGAGAGGGAGAGAGAGAGAGAG";
         let info = aligner.align(query, refseq);
         assert!(info.is_none());
+    }
+
+    #[test]
+    fn test_call_count() {
+        let aligner = Aligner::new(Scores::default());
+        assert_eq!(aligner.call_count(), 0);
+        let refseq = b"AAAAAACCCCCGGGGG";
+        let query = b"CCCCC";
+        let info = aligner.align(query, refseq);
+        assert!(info.is_some());
+        assert_eq!(aligner.call_count(), 1);
+        aligner.align(query, refseq);
+        assert_eq!(aligner.call_count(), 2);
     }
 }

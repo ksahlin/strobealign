@@ -92,6 +92,7 @@ impl Drop for Profile {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct SswAligner {
     score_matrix: Vec<i8>,
     gap_open_penalty: u8,
