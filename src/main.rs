@@ -12,6 +12,7 @@ use clap::Parser;
 use fastrand::Rng;
 use thiserror::Error;
 use rstrobes::aligner::{Aligner, Scores};
+use rstrobes::details::Details;
 use rstrobes::fastq::{record_iterator, PeekableFastqReader, SequenceRecord};
 use rstrobes::fasta;
 use rstrobes::fasta::{FastaError, RefSequence};
@@ -411,12 +412,13 @@ impl<'a> Mapper<'a> {
         let mut out = vec![];
         let mut rng = Rng::with_seed(0);
         let mut isizedist = InsertSizeDistribution::new();
+        let mut cumulative_details = Details::new();
         for record in chunk {
             let (r1, r2) = record?;
             trace!("Query: {}", r1.name);
             match self.mode {
                 Mode::Sam => {
-                    let sam_records =
+                    let (sam_records, details) =
                         if let Some(r2) = r2 {
                             align_paired_end_read(
                                 &r1, &r2, self.index, self.references, self.mapping_parameters, self.sam_output, self.index_parameters, &mut isizedist, &self.aligner, &mut rng
@@ -429,9 +431,10 @@ impl<'a> Mapper<'a> {
                             writeln!(out, "{}", sam_record)?;
                         }
                     }
+                    cumulative_details += details;
                 }
                 Mode::Paf => {
-                    let paf_records =
+                    let (paf_records, nam_details) =
                         if let Some(r2) = r2 {
                             map_paired_end_read(
                                 &r1, &r2, self.index, self.references, self.mapping_parameters.rescue_level, &mut isizedist, &mut rng
@@ -442,6 +445,7 @@ impl<'a> Mapper<'a> {
                     for paf_record in paf_records {
                         writeln!(out, "{}", paf_record)?;
                     }
+                    cumulative_details += nam_details.into();
                 }
                 Mode::Abundances => {
                     if let Some(r2) = r2 {

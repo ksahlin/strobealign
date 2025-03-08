@@ -297,18 +297,13 @@ pub fn align_single_end_read(
     sam_output: &SamOutput,
     aligner: &Aligner,
     rng: &mut Rng,
-) -> Vec<SamRecord> {
-    let mut details = Details::default();
-
+) -> (Vec<SamRecord>, Details) {
     let (nam_details, mut nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, rng);
-    details.nam_rescue = nam_details.nam_rescue;
-    details.nams = nams.len();
-    details.n_hits = nam_details.n_hits;
-    details.n_rescue_hits = nam_details.n_rescue_hits;
+    let mut details: Details = nam_details.into();
 
     // Timer extend_timer;
     if nams.is_empty() {
-        return vec![sam_output.make_unmapped_record(record, details)];
+        return (vec![sam_output.make_unmapped_record(record, details.clone())], details);
     }
     let mut sam_records = Vec::new();
     let mut alignments = Vec::new();
@@ -371,7 +366,7 @@ pub fn align_single_end_read(
         }
     }
     if best_alignment.is_none() {
-        return vec![sam_output.make_unmapped_record(record, details)];
+        return (vec![sam_output.make_unmapped_record(record, details.clone())], details);
     }
     let mapq = ((60 * (best_score - second_best_score) + best_score - 1) / best_score) as u8;
 
@@ -401,9 +396,8 @@ pub fn align_single_end_read(
             sam_records.push(sam_output.make_mapped_record(alignment, references, record, mapq, is_primary, details.clone()));
         }
     }
-    // statistics.tot_extend += extend_timer.duration();
-    // statistics += details;
-    sam_records
+    // TODO statistics.tot_extend += extend_timer.duration();
+    (sam_records, details)
 }
 
 /// Extend a NAM so that it covers the entire read and return the resulting
@@ -480,17 +474,14 @@ pub fn align_paired_end_read(
     insert_size_distribution: &mut InsertSizeDistribution,
     aligner: &Aligner,
     rng: &mut Rng,
-) -> Vec<SamRecord> {
+) -> (Vec<SamRecord>, Details) {
     let mut details = [Details::default(), Details::default()];
     let mut nams_pair = [vec![], vec![]];
 
     for is_revcomp in [0, 1] {
         let record = if is_revcomp == 0 { r1 } else { r2 };
         let (nam_details, nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, rng);
-        details[is_revcomp].nam_rescue = nam_details.nam_rescue;
-        details[is_revcomp].nams = nams.len();
-        details[is_revcomp].n_hits = nam_details.n_hits;
-        details[is_revcomp].n_rescue_hits = nam_details.n_rescue_hits;
+        details[is_revcomp].nam = nam_details;
         nams_pair[is_revcomp] = nams;
     }
 
@@ -560,10 +551,11 @@ pub fn align_paired_end_read(
     }
     // TODO
     // statistics.tot_extend += extend_timer.duration();
-    // statistics += details[0];
-    // statistics += details[1];
 
-    sam_records
+    let mut details2 = details[0].clone();
+    details2 += details[1].clone();
+
+    (sam_records, details2)
 }
 
 #[derive(Debug)]

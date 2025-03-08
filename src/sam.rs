@@ -115,8 +115,8 @@ impl Display for SamRecord {
         }
         if let Some(details) = &self.details {
             write!(f, "\tna:i:{}\tnr:i:{}\tal:i:{}\tga:i:{}\tX0:i:{}",
-                details.nams,
-                details.nam_rescue as u8,
+                details.nam.n_nams,
+                details.nam.nam_rescue as u8,
                 details.tried_alignment,
                 details.gapped,
                 details.best_alignments,

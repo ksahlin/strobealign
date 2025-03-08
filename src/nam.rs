@@ -384,7 +384,7 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, rn
         n_randstrobes,
         n_nams,
         n_rescue_nams,
-        nam_rescue,
+        nam_rescue: nam_rescue as usize,
         n_hits,
         n_rescue_hits,
         time_randstrobes,

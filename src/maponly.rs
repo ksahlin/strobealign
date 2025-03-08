@@ -1,4 +1,5 @@
 use fastrand::Rng;
+use crate::details::Details;
 use crate::fasta::RefSequence;
 use crate::fastq::SequenceRecord;
 use crate::index::StrobemerIndex;
@@ -16,13 +17,13 @@ pub fn map_single_end_read(
     references: &[RefSequence],
     rescue_level: usize,
     rng: &mut Rng,
-) -> Vec<PafRecord> {
-    let (_, nams) = get_nams(&record.sequence, index, rescue_level, rng);
+) -> (Vec<PafRecord>, Details) {
+    let (nam_details, nams) = get_nams(&record.sequence, index, rescue_level, rng);
 
     if nams.is_empty() {
-        vec![]
+        (vec![], nam_details.into())
     } else {
-        vec![paf_record_from_nam(&nams[0], &record.name, &references, record.sequence.len())]
+        (vec![paf_record_from_nam(&nams[0], &record.name, &references, record.sequence.len())], nam_details.into())
     }
 }
 
@@ -73,9 +74,9 @@ pub fn map_paired_end_read(
     rescue_level: usize,
     insert_size_distribution: &mut InsertSizeDistribution,
     rng: &mut Rng,
-) -> Vec<PafRecord> {
-    let nams1 = get_nams(&r1.sequence, index, rescue_level, rng).1;
-    let nams2 = get_nams(&r2.sequence, index, rescue_level, rng).1;
+) -> (Vec<PafRecord>, Details) {
+    let (mut nam_details1, nams1) = get_nams(&r1.sequence, index, rescue_level, rng);
+    let (nam_details2, nams2) = get_nams(&r2.sequence, index, rescue_level, rng);
 
     let nam_pairs = get_best_scoring_nam_pairs(&nams1, &nams2, insert_size_distribution.mu, insert_size_distribution.sigma);
     let mapped_nam = get_best_paired_map_location(
@@ -101,8 +102,8 @@ pub fn map_paired_end_read(
         }
         MappedNams::Unmapped => {},
     }
-
-    records
+    nam_details1 += nam_details2;
+    (records, nam_details1.into())
 }
 
 /// Map a paired-end read pair to the reference and estimate abundances
