@@ -352,8 +352,7 @@ fn main() -> Result<(), CliError> {
                 loop {
                     let msg = rrx.lock().unwrap().recv();
                     if let Ok((index, chunk)) = msg {
-                        let mut buffer = vec![];
-                        mapper.map_chunk(&mut buffer, chunk).unwrap();
+                        let buffer = mapper.map_chunk(chunk).unwrap();
                         out_tx.send((index, buffer)).unwrap();
                     } else {
                         break;
@@ -405,11 +404,11 @@ struct Mapper<'a> {
 }
 
 impl<'a> Mapper<'a> {
-    fn map_chunk<W: Write>(
+    fn map_chunk(
         &mut self, // TODO only because of abundances
-        out: &mut W,//BufWriter<Box<dyn Write>>,
         chunk: Vec<io::Result<(SequenceRecord, Option<SequenceRecord>)>>,
-    ) -> io::Result<()> {
+    ) -> io::Result<Vec<u8>> {
+        let mut out = vec![];
         let mut rng = Rng::with_seed(0);
         let mut isizedist = InsertSizeDistribution::new();
         for record in chunk {
@@ -453,7 +452,7 @@ impl<'a> Mapper<'a> {
                 }
             }
         }
-        Ok(())
+        Ok(out)
     }
 
     pub fn output_abundances<T: Write>(&self, out: &mut T) -> io::Result<()> {
