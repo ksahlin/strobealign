@@ -1,8 +1,9 @@
 use std::ops;
-use crate::nam::Nam;
 
 #[derive(Default, Debug, Clone)]
 pub struct NamDetails {
+    pub n_reads: usize,
+    
     pub n_randstrobes: usize,
 
     // Number of NAMs found
@@ -28,6 +29,7 @@ pub struct NamDetails {
 
 impl ops::AddAssign<NamDetails> for NamDetails {
     fn add_assign(&mut self, rhs: NamDetails) {
+        self.n_reads += rhs.n_reads;
         self.n_randstrobes += rhs.n_randstrobes;
         self.n_nams += rhs.n_nams;
         self.n_rescue_nams += rhs.n_rescue_nams;

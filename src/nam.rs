@@ -381,6 +381,7 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, rn
     }
 
     let nam_details = NamDetails {
+        n_reads: 1,
         n_randstrobes,
         n_nams,
         n_rescue_nams,

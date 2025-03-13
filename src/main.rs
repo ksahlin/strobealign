@@ -287,7 +287,7 @@ fn main() -> Result<(), CliError> {
     };
     let mut out = BufWriter::new(out);
 
-    let mode = if args.map_only { Mode::Paf } else if args.aemb { Mode::Abundances } else { Mode::Sam }; 
+    let mode = if args.map_only { Mode::Paf } else if args.aemb { Mode::Abundances } else { Mode::Sam };
     if mode == Mode::Sam {
         write!(out, "{}", header)?;
     }
@@ -326,19 +326,23 @@ fn main() -> Result<(), CliError> {
     });
     let rx = Arc::new(Mutex::new(rx));
 
-    let (out_tx, out_rx): (Sender<(usize, Vec<u8>)>, Receiver<(usize, Vec<u8>)>) = channel();
+    let (out_tx, out_rx): (Sender<(usize, (Vec<u8>, Details))>, Receiver<(usize, (Vec<u8>, Details))>) = channel();
 
+    let (details_tx, details_rx): (Sender<Details>, Receiver<Details>) = channel();
     let out = Arc::new(Mutex::new(out));
     let writer_thread = thread::spawn(move || {
         let mut map = HashMap::new();
         let mut next_index = 0;
+        let mut total_details = Details::default();
         while let Ok((index, msg)) = out_rx.recv() {
             map.insert(index, msg);
-            while let Some(data) = map.remove(&next_index) {
+            while let Some((data, details)) = map.remove(&next_index) {
                 out.lock().unwrap().write_all(data.as_ref()).unwrap();
+                total_details += details;
                 next_index += 1;
             }
         }
+        details_tx.send(total_details).unwrap();
         drop(out_rx);
     });
 
@@ -352,8 +356,8 @@ fn main() -> Result<(), CliError> {
                 loop {
                     let msg = rrx.lock().unwrap().recv();
                     if let Ok((index, chunk)) = msg {
-                        let buffer = mapper.map_chunk(chunk).unwrap();
-                        out_tx.send((index, buffer)).unwrap();
+                        let mapped_chunk = mapper.map_chunk(chunk).unwrap();
+                        out_tx.send((index, mapped_chunk)).unwrap();
                     } else {
                         break;
                     }
@@ -366,7 +370,18 @@ fn main() -> Result<(), CliError> {
     });
     drop(out_tx);
     reader_thread.join().unwrap();
+    let details = details_rx.recv().unwrap();
     writer_thread.join().unwrap();
+
+    debug!("Number of reads:               {:12}", details.nam.n_reads);
+    debug!("Number of randstrobes:         {:12}  Per read: {:7.1}", details.nam.n_randstrobes, details.nam.n_randstrobes as f64 / details.nam.n_reads as f64);
+    debug!("Number of non-rescue hits:     {:12}  Per read: {:7.1}", details.nam.n_hits, details.nam.n_hits as f64 / details.nam.n_reads as f64);
+    debug!("Number of non-rescue NAMs:     {:12}  Per read: {:7.1}", details.nam.n_nams, details.nam.n_nams as f64 / details.nam.n_reads as f64);
+    debug!("Number of NAM rescue attempts: {:12}", details.nam.nam_rescue);
+    debug!("Number of rescue hits:         {:12}  Per rescue attempt: {:7.1}", details.nam.n_rescue_hits, details.nam.n_rescue_hits as f64 / details.nam.nam_rescue as f64);
+    debug!("Number of rescue NAMs:         {:12}  Per rescue attempt: {:7.1}", details.nam.n_rescue_nams, details.nam.n_rescue_nams as f64 / details.nam.nam_rescue as f64);
+
+    debug!("Details: {:?}", details);
     // Single-threaded:
     // for chunk in chunks_iter {
     //     mapper.map_chunk(&mut out, &mut rng, chunk)?;
@@ -407,7 +422,7 @@ impl<'a> Mapper<'a> {
     fn map_chunk(
         &mut self, // TODO only because of abundances
         chunk: Vec<io::Result<(SequenceRecord, Option<SequenceRecord>)>>,
-    ) -> io::Result<Vec<u8>> {
+    ) -> io::Result<(Vec<u8>, Details)> {
         let mut out = vec![];
         let mut rng = Rng::with_seed(0);
         let mut isizedist = InsertSizeDistribution::new();
@@ -455,7 +470,7 @@ impl<'a> Mapper<'a> {
                 }
             }
         }
-        Ok(out)
+        Ok((out, cumulative_details))
     }
 
     pub fn output_abundances<T: Write>(&self, out: &mut T) -> io::Result<()> {

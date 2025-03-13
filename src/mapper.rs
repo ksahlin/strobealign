@@ -721,7 +721,7 @@ fn extend_paired_seeds(
             }
             alignments[i] = alignment.clone();
         }
-        
+
         if alignments[0].is_none() || alignments[1].is_none() {
             continue;
         }
