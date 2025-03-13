@@ -2,7 +2,6 @@ use std::{env, io, thread};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
-use std::ops::Deref;
 use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, sync_channel, Receiver, Sender};
@@ -194,7 +193,7 @@ struct Args {
 #[derive(Debug, Error)]
 enum CliError {
     #[error("{0}")]
-    Io(#[from] std::io::Error),
+    Io(#[from] io::Error),
 
     #[error("{0}")]
     FastaError(#[from] FastaError),
@@ -293,11 +292,11 @@ fn main() -> Result<(), CliError> {
         write!(out, "{}", header)?;
     }
 
-    let mut record_iter = record_iterator(fastq_reader1, args.fastq_path2.as_ref().map(String::deref))?;
+    let mut record_iter = record_iterator(fastq_reader1, args.fastq_path2.as_deref())?;
 
     let chunks_iter = std::iter::from_fn(move || {
         let chunk = record_iter.by_ref().take(args.chunk_size).collect::<Vec<_>>();
-        if chunk.len() == 0 { None } else { Some(chunk) }
+        if chunk.is_empty() { None } else { Some(chunk) }
     });
     let mapper = Mapper {
         index: &index,
@@ -434,7 +433,7 @@ impl<'a> Mapper<'a> {
                     cumulative_details += details;
                 }
                 Mode::Paf => {
-                    let (paf_records, nam_details) =
+                    let (paf_records, details) =
                         if let Some(r2) = r2 {
                             map_paired_end_read(
                                 &r1, &r2, self.index, self.references, self.mapping_parameters.rescue_level, &mut isizedist, &mut rng
@@ -445,7 +444,7 @@ impl<'a> Mapper<'a> {
                     for paf_record in paf_records {
                         writeln!(out, "{}", paf_record)?;
                     }
-                    cumulative_details += nam_details.into();
+                    cumulative_details += details;
                 }
                 Mode::Abundances => {
                     if let Some(r2) = r2 {
@@ -462,7 +461,7 @@ impl<'a> Mapper<'a> {
     pub fn output_abundances<T: Write>(&self, out: &mut T) -> io::Result<()> {
         for i in 0..self.references.len() {
             let normalized = self.abundances[i] / self.references[i].sequence.len() as f64;
-            write!(out, "{}\t{:.6}\n", self.references[i].name, normalized)?;
+            writeln!(out, "{}\t{:.6}", self.references[i].name, normalized)?;
         }
         Ok(())
     }
