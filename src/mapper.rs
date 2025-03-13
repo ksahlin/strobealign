@@ -672,7 +672,7 @@ fn extend_paired_seeds(
         details[i].inconsistent_nams += !consistent_nam as usize;
         a_indv_max[i] = extend_seed(aligner, &nams[i][0], references, reads[i], consistent_nam);
         details[i].tried_alignment += 1;
-        details[i].gapped += a_indv_max[i].as_ref().map_or(0, |a| a.score) as usize;
+        details[i].gapped += a_indv_max[i].as_ref().map_or(0, |a| a.gapped as usize);
         alignment_cache[i].insert(nams[i][0].nam_id, a_indv_max[i].clone());
     }
 
@@ -704,7 +704,7 @@ fn extend_paired_seeds(
                     details[i].inconsistent_nams += !consistent_nam as usize;
                     alignment = extend_seed(aligner, &this_nam, references, reads[i], consistent_nam);
                     details[i].tried_alignment += 1;
-                    details[i].gapped += alignment.as_ref().map_or(false, |a| a.gapped) as usize;
+                    details[i].gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
                     alignment_cache[i].insert(this_nam.nam_id, alignment.clone());
                 }
             } else {
