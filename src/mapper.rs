@@ -605,7 +605,7 @@ fn extend_paired_seeds(
 
     if nams[0].is_empty() && !nams[1].is_empty() {
         // Only read 2 has NAMS: attempt to rescue read 1
-        let mut swapped_details = [details[0].clone(), details[1].clone()];
+        details.swap(0, 1);
         let mut pairs = rescue_read(
             read1,
             read2,
@@ -614,13 +614,12 @@ fn extend_paired_seeds(
             &mut nams[1],
             max_tries,
             dropoff,
-            &mut swapped_details,
+            details,
             k,
             mu,
             sigma
         );
-        details[0] += swapped_details[1].clone();
-        details[1] += swapped_details[0].clone();
+        details.swap(0, 1);
         for pair in &mut pairs {
             mem::swap(&mut pair.alignment1, &mut pair.alignment2);
         }
