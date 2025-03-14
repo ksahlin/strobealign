@@ -59,7 +59,7 @@ impl CigarOperation {
     }
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct OpLen {
     op: CigarOperation,
     len: usize,
@@ -74,7 +74,7 @@ impl TryFrom<u32> for OpLen {
     }
 }
 
-#[derive(Default,Clone)]
+#[derive(Default, Clone, PartialEq, Eq)]
 pub struct Cigar {
     ops: Vec<OpLen>,
 }
@@ -318,6 +318,13 @@ mod test {
         assert_eq!(Cigar::from_str("5=").unwrap().with_m().to_string(), "5M");
         assert_eq!(Cigar::from_str("5S3=1X2=4S").unwrap().with_m().to_string(), "5S6M4S");
     }
+    
+    #[test]
+    fn test_reverse() {
+        let c = Cigar::from_str("3=1X4D5I7=").unwrap();
+        assert_eq!(c.reversed(), Cigar::from_str("7=5I4D1X3=").unwrap());
+        
+    }
 /*
 TEST_CASE("concatenate Cigar") {
     Cigar c{"3M"};
@@ -328,11 +335,6 @@ TEST_CASE("concatenate Cigar") {
 TEST_CASE("edit distance") {
     CHECK(Cigar("3=1X4D5I7=").edit_distance() == 10);
 }
-
-TEST_CASE("reverse") {
-    Cigar c{"3=1X4D5I7="};
-    c.reverse();
-    CHECK(c.to_string() == "7=5I4D1X3=");
-}*/
+*/
 
 }
