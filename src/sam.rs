@@ -114,9 +114,14 @@ impl Display for SamRecord {
             write!(f, "\tAS:i:{}", alignment_score)?;
         }
         if let Some(details) = &self.details {
+            let nr = if details.nam.nam_rescue > 0 {
+                details.nam.n_rescue_nams as i64
+            } else {
+                -1
+            };
             write!(f, "\tna:i:{}\tnr:i:{}\tal:i:{}\tga:i:{}\tX0:i:{}",
                 details.nam.n_nams,
-                details.nam.nam_rescue as u8,
+                nr,
                 details.tried_alignment,
                 details.gapped,
                 details.best_alignments,
