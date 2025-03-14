@@ -126,6 +126,9 @@ impl Display for SamRecord {
                 details.gapped,
                 details.best_alignments,
             )?;
+            if self.flags & PAIRED != 0 {
+                write!(f, "\tmr:i:{}", details.mate_rescue)?;
+            }
         }
         if let Some(rg_id) = &self.rg_id {
             write!(f, "\tRG:Z:{}", rg_id)?;
