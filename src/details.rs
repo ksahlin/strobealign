@@ -1,3 +1,5 @@
+//! Statistics about mapping a single or multiple reads
+ 
 use std::ops;
 
 #[derive(Default, Debug, Clone)]

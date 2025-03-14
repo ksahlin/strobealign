@@ -62,6 +62,8 @@ impl Aligner {
         self.call_count.get()
     }
 
+    /// The returned CIGAR string does not include soft clipped bases
+    /// Use query_start and query_end to compute the number of clipped bases
     pub fn align(&self, query: &[u8], refseq: &[u8]) -> Option<AlignmentInfo> {
         self.call_count.set(self.call_count.get() + 1);
 
@@ -188,6 +190,8 @@ fn highest_scoring_segment(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8
     (best_start, best_end, best_score as u32)
 }
 
+/// The returned CIGAR string does not include soft clipped bases
+/// Use query_start and query_end to compute the number of clipped bases
 pub fn hamming_align(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8, end_bonus: u32) -> Option<AlignmentInfo> {
     if query.len() != refseq.len() {
         return None;
@@ -221,7 +225,7 @@ pub fn hamming_align(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8, end_
 
 #[cfg(test)]
 mod test {
-    use crate::aligner::{Aligner, Scores};
+    use crate::aligner::{hamming_align, Aligner, Scores};
 
     #[test]
     fn test_ssw_align_no_result() {
@@ -243,5 +247,130 @@ mod test {
         assert_eq!(aligner.call_count(), 1);
         aligner.align(query, refseq);
         assert_eq!(aligner.call_count(), 2);
+    }
+
+    #[test]
+    fn test_hamming_align_empty_sequences() {
+        let info = hamming_align(b"", b"", 7, 5, 0).unwrap();
+        assert!(info.cigar.is_empty());
+        assert_eq!(info.edit_distance, 0);
+        assert_eq!(info.score, 0);
+        assert_eq!(info.ref_start, 0);
+        assert_eq!(info.ref_span(), 0);
+        assert_eq!(info.query_start, 0);
+        assert_eq!(info.query_end, 0);
+    }
+
+    #[test]
+    fn test_hamming_align_one_mismatch() {
+        let info = hamming_align(
+            b"AAXGGG",
+            b"AAYGGG",
+            1, 1, 0
+        ).unwrap();
+        assert_eq!(info.cigar.to_string(), "2=1X3=");
+        assert_eq!(info.edit_distance, 1);
+        assert_eq!(info.score, 4);
+        assert_eq!(info.ref_start, 0);
+        assert_eq!(info.ref_span(), 6);
+        assert_eq!(info.query_start, 0);
+        assert_eq!(info.query_end, 6);
+    }
+
+    #[test]
+    fn test_hamming_align_soft_clipped() {
+        let info = hamming_align(
+            b"AXGGG",
+            b"AYGGG",
+            1, 4, 0
+        ).unwrap();;
+        assert_eq!(info.cigar.to_string(), "3=");
+        assert_eq!(info.edit_distance, 0);
+        assert_eq!(info.score, 3);
+        assert_eq!(info.ref_start, 2);
+        assert_eq!(info.ref_span(), 3);
+        assert_eq!(info.query_start, 2);
+        assert_eq!(info.query_end, 5);
+    }
+
+    #[test]
+    fn test_hamming_align_wildcard() {
+        let info = hamming_align(
+            b"NAACCG",
+            b"TAACCG",
+            3, 7, 0
+        ).unwrap();
+        assert_eq!(info.cigar.to_string(), "5=");
+        assert_eq!(info.edit_distance, 0);
+        assert_eq!(info.score, 5 * 3);
+        assert_eq!(info.ref_start, 1);
+        assert_eq!(info.ref_span(), 5);
+        assert_eq!(info.query_start, 1);
+        assert_eq!(info.query_end, 6);
+    }
+
+    #[test]
+    fn test_hamming_align_wildcard_at_end() {
+        let info = hamming_align(
+            b"AACCGN",
+            b"AACCGT",
+            3, 7, 0
+        ).unwrap();
+        assert_eq!(info.cigar.to_string(), "5=");
+        assert_eq!(info.edit_distance, 0);
+        assert_eq!(info.score, 5 * 3);
+        assert_eq!(info.ref_start, 0);
+        assert_eq!(info.ref_span(), 5);
+        assert_eq!(info.query_start, 0);
+        assert_eq!(info.query_end, 5);
+    }
+
+    #[test]
+    fn test_hamming_align_both_ends_soft_clipped() {
+        // negative total score, soft clipping on both ends
+        let info = hamming_align(
+            b"NAAAAAAAAAAAAAA",
+            b"TAAAATTTTTTTTTT",
+            3, 7, 0
+        ).unwrap();
+        assert_eq!(info.cigar.to_string(), "4=");
+        assert_eq!(info.edit_distance, 0);
+        assert_eq!(info.score, 4 * 3);
+        assert_eq!(info.ref_start, 1);
+        assert_eq!(info.ref_span(), 4);
+        assert_eq!(info.query_start, 1);
+        assert_eq!(info.query_end, 5);
+    }
+
+    #[test]
+    fn test_hamming_align_long_soft_clipping() {
+        let info = hamming_align(
+            b"NAAAAAAAAAAAAAA",
+            b"TAAAATTTAAAAAAT",
+            3, 7, 0
+        ).unwrap();
+        assert_eq!(info.cigar.to_string(), "6=");
+        assert_eq!(info.edit_distance, 0);
+        assert_eq!(info.score, 6 * 3);
+        assert_eq!(info.ref_start, 8);
+        assert_eq!(info.ref_span(), 6);
+        assert_eq!(info.query_start, 8);
+        assert_eq!(info.query_end, 14);
+    }
+
+    #[test]
+    fn test_hamming_align_short_soft_clipping() {
+        let info = hamming_align(
+            b"AAAAAAAAAAAAAAA",
+            b"TAAAAAATTTAAAAT",
+            3, 7, 0
+        ).unwrap();
+        assert_eq!(info.cigar.to_string(), "6=");
+        assert_eq!(info.edit_distance, 0);
+        assert_eq!(info.score, 6 * 3);
+        assert_eq!(info.ref_start, 1);
+        assert_eq!(info.ref_span(), 6);
+        assert_eq!(info.query_start, 1);
+        assert_eq!(info.query_end, 7);
     }
 }
