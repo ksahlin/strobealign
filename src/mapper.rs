@@ -861,19 +861,23 @@ fn rescue_align(
     if !has_shared_substring(r_tmp, ref_segm, k) {
         return None
     }
-    let info = aligner.align(r_tmp, ref_segm).unwrap();
-    Some(Alignment {
-        reference_id: mate_nam.ref_id,
-        ref_start: ref_start + info.ref_start,
-        edit_distance: info.edit_distance,
-        soft_clip_left: info.query_start,
-        soft_clip_right: read_len - info.query_end,
-        score: info.score,
-        length: info.ref_span(),
-        cigar: info.cigar,
-        is_revcomp: !mate_nam.is_revcomp,
-        gapped: true,
-    })
+    let info = aligner.align(r_tmp, ref_segm);
+    if let Some(info) = info {
+        Some(Alignment {
+            reference_id: mate_nam.ref_id,
+            ref_start: ref_start + info.ref_start,
+            edit_distance: info.edit_distance,
+            soft_clip_left: info.query_start,
+            soft_clip_right: read_len - info.query_end,
+            score: info.score,
+            length: info.ref_span(),
+            cigar: info.cigar,
+            is_revcomp: !mate_nam.is_revcomp,
+            gapped: true,
+        })
+    } else {
+        None
+    }
 }
 
 /// Determine (roughly) whether the read sequence has some l-mer (with l = k*2/3)
