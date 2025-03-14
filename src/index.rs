@@ -111,7 +111,6 @@ impl IndexParameters {
     }
     /// Create an IndexParameters instance based on a given read length.
     /// k, s, l, u, c and max_seed_len can be used to override determined parameters
-    /// by setting them to a value other than IndexParameters::DEFAULT.
     pub fn from_read_length(
         read_length: usize,
         mut k: Option<usize>,
@@ -154,6 +153,10 @@ impl IndexParameters {
         let q = 2u64.pow(c.unwrap_or(default_c)) - 1;
 
         IndexParameters::new(canonical_read_length, k, s, l, u, q, max_dist)
+    }
+
+    pub fn default_from_read_length(read_length: usize) -> IndexParameters {
+        Self::from_read_length(read_length, None, None, None, None, None, None)
     }
 }
 

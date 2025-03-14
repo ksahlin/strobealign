@@ -4,7 +4,7 @@ use std::io;
 use std::string::FromUtf8Error;
 use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RefSequence {
     pub name: String,
     pub sequence: Vec<u8>,

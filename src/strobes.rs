@@ -84,3 +84,50 @@ impl<'a> Iterator for RandstrobeIterator<'a> {
 fn randstrobe_hash(hash1: u64, hash2: u64) -> u64 {
     hash1.wrapping_add(hash2)
 }
+
+
+#[cfg(test)]
+mod test {
+    use std::fs::File;
+    use std::io::BufReader;
+    use crate::fasta::{read_fasta, RefSequence};
+    use crate::index::IndexParameters;
+    use super::*;
+
+    fn read_phix() -> RefSequence {
+        let f = File::open("tests/phix.fasta").unwrap();
+        let mut reader = BufReader::new(f);
+        
+        read_fasta(&mut reader).unwrap().first().unwrap().clone()
+    }
+    
+    #[test]
+    fn test_randstrobe_iterator() {
+        let refseq = read_phix().sequence;
+        let parameters = IndexParameters::default_from_read_length(300);
+        let mut syncmer_iter = SyncmerIterator::new(&refseq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t);
+        let randstrobe_iter = RandstrobeIterator::new(&mut syncmer_iter, &parameters.randstrobe);
+
+        for randstrobe in randstrobe_iter {
+            assert!(randstrobe.hash > 0);
+            assert!(randstrobe.strobe2_pos >= randstrobe.strobe2_pos);
+            assert!(randstrobe.strobe1_pos < refseq.len());
+            assert!(randstrobe.strobe2_pos < refseq.len());
+        }
+    }
+
+    // This tests an assumption that we need to hold for count_randstrobes()
+    #[test]
+    fn test_syncmer_and_randstrobe_iterator_same_count() {
+        let refseq = read_phix().sequence;
+        let parameters = IndexParameters::default_from_read_length(100);
+        let syncmer_iter = SyncmerIterator::new(&refseq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t);
+        let syncmer_count = syncmer_iter.count();
+        
+        let mut syncmer_iter = SyncmerIterator::new(&refseq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t);
+        let randstrobe_iter = RandstrobeIterator::new(&mut syncmer_iter, &parameters.randstrobe);
+        let randstrobe_count = randstrobe_iter.count();
+
+        assert_eq!(randstrobe_count + parameters.randstrobe.w_min, syncmer_count);
+    }
+}
