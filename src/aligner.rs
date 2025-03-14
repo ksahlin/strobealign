@@ -225,7 +225,7 @@ pub fn hamming_align(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8, end_
 
 #[cfg(test)]
 mod test {
-    use crate::aligner::{hamming_align, Aligner, Scores};
+    use crate::aligner::{hamming_align, highest_scoring_segment, Aligner, Scores};
 
     #[test]
     fn test_ssw_align_no_result() {
@@ -249,6 +249,35 @@ mod test {
         assert_eq!(aligner.call_count(), 2);
     }
 
+    #[test]
+    fn test_highest_scoring_segment() {
+        let (start, end, score) = highest_scoring_segment(b"", b"", 5, 7, 0);
+        assert_eq!(start, 0);
+        assert_eq!(end, 0);
+        
+        let (start, end, score) = highest_scoring_segment(b"AAAAAAAAAA", b"AAAAAATTTT", 5, 7, 0);
+        assert_eq!(start, 0);
+        assert_eq!(end, 6);
+        let (start, end, score) = highest_scoring_segment(b"AAAAAAAAAA", b"TTTTAAAAAA", 5, 7, 0);
+        assert_eq!(start, 4);
+        assert_eq!(end, 10);
+        
+        assert_eq!(highest_scoring_segment(b"AAAAAAAAAA", b"AAAAAATTTT", 5, 7, 0), (0, 6, 30));
+        assert_eq!(highest_scoring_segment(b"AAAAAAAAAA", b"TTTTAAAAAA", 5, 7, 0), (4, 10, 30));
+        assert_eq!(highest_scoring_segment(b"AAAAAAAAAA", b"TTAAAAAATT", 5, 7, 0), (2, 8, 30));
+        assert_eq!(highest_scoring_segment(b"AAAAAAAAAAAAAAA", b"TAAAAAATTTAAAAT", 5, 7, 0), (1, 7, 30));
+    }
+
+    #[test]
+    fn test_highest_scoring_segment_with_soft_clipping() {
+        assert_eq!(highest_scoring_segment(b"", b"", 2, 4, 5), (0, 0, 10));
+        assert_eq!(highest_scoring_segment(b"TAAT", b"TAAA", 2, 4, 5), (0, 4, 3 * 2 - 4 + 10));
+        assert_eq!(highest_scoring_segment(b"AAA", b"AAA", 2, 4, 5), (0, 3, 3 * 2 + 10));
+        assert_eq!(highest_scoring_segment(b"TAAT", b"AAAA", 2, 4, 5), (0, 4, 10 + 2 * 2 - 2 * 4));
+        assert_eq!(highest_scoring_segment(b"ATAATA", b"AAAAAA", 2, 4, 5), (0, 6, 4 * 2 - 2 * 4 + 10));
+        assert_eq!(highest_scoring_segment(b"TTAATA", b"AAAAAA", 2, 4, 5), (2, 6, 3 * 2 - 1 * 4 + 5));
+    }
+    
     #[test]
     fn test_hamming_align_empty_sequences() {
         let info = hamming_align(b"", b"", 7, 5, 0).unwrap();
