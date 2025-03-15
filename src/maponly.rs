@@ -57,7 +57,7 @@ fn paf_record_from_nam(nam: &Nam, name: &str, references: &[RefSequence], query_
         target_length: references[nam.ref_id].sequence.len() as u64,
         target_start: nam.ref_start as u64,
         target_end: nam.ref_end as u64,
-        n_matches: nam.n_hits as u64,
+        n_matches: nam.n_matches as u64,
         alignment_length: (nam.ref_end - nam.ref_start) as u64,
         mapping_quality: None,
     }
