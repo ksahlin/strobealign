@@ -136,3 +136,17 @@ impl SswAligner {
         Some(alignment)
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_ssw_align_no_result() {
+        let aligner = SswAligner::new(2, 8, 12, 1);
+        let query = b"TCTCTCCCTCTCTCTCTCTCCCTCCCTCTCTCTCCCTCTCTCTCTCTCTCTCCCTCCCTT";
+        let refseq = b"GAGGGAGAGAGAGAGAGGGAGAGAGAGAGAGAG";
+        let info = aligner.align(query, refseq);
+        assert!(info.is_none());
+    }
+}

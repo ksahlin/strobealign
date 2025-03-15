@@ -139,6 +139,10 @@ struct Args {
     #[arg(short, help_heading = "Seeding")]
     bits: Option<u8>,
 
+    /// No. of bits to use from secondary strobe hash
+    #[arg(long, value_name = "N", help_heading = "Seeding")]
+    aux_len: Option<u8>,
+
     // Alignment scores
 
     /// Match score
@@ -236,7 +240,7 @@ fn main() -> Result<(), CliError> {
             r
         },
     };
-    let parameters = IndexParameters::from_read_length(read_length, args.k, args.s, args.l, args.u, args.c, args.max_seed_length);
+    let parameters = IndexParameters::from_read_length(read_length, args.k, args.s, args.l, args.u, args.c, args.max_seed_length, args.aux_len);
     info!("Using canonical read length {} bp", parameters.canonical_read_length);
 
     // Create the index

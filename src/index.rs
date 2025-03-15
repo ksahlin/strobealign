@@ -1,5 +1,5 @@
 use crate::fasta::RefSequence;
-use crate::strobes::{RandstrobeIterator, RandstrobeParameters};
+use crate::strobes::{RandstrobeIterator, RandstrobeParameters, DEFAULT_AUX_LEN};
 use crate::syncmers::{SyncmerIterator, SyncmerParameters};
 use log::debug;
 use std::cmp::{max, min, Reverse};
@@ -95,6 +95,7 @@ impl IndexParameters {
         u: isize,
         q: u64,
         max_dist: u8,
+        aux_len: u8,
     ) -> Self {
         let w_min = max(0, (k / (k - s + 1)) as isize + l) as usize;
         let w_max = ((k / (k - s + 1)) as isize + u) as usize;
@@ -106,6 +107,7 @@ impl IndexParameters {
                 w_max,
                 q,
                 max_dist,
+                aux_len,
             },
         }
     }
@@ -119,6 +121,7 @@ impl IndexParameters {
         mut u: Option<isize>,
         c: Option<u32>,
         max_seed_len: Option<usize>,
+        aux_len: Option<u8>,
     ) -> IndexParameters {
         let default_c = 8;
         let mut canonical_read_length = 50;
@@ -152,11 +155,12 @@ impl IndexParameters {
         };
         let q = 2u64.pow(c.unwrap_or(default_c)) - 1;
 
-        IndexParameters::new(canonical_read_length, k, s, l, u, q, max_dist)
+        let aux_len = aux_len.unwrap_or(DEFAULT_AUX_LEN); 
+        IndexParameters::new(canonical_read_length, k, s, l, u, q, max_dist, aux_len)
     }
 
     pub fn default_from_read_length(read_length: usize) -> IndexParameters {
-        Self::from_read_length(read_length, None, None, None, None, None, None)
+        Self::from_read_length(read_length, None, None, None, None, None, None, None)
     }
 }
 
@@ -192,12 +196,12 @@ pub struct RefRandstrobe {
 }
 
 const REF_RANDSTROBE_OFFSET_BITS: u32 = 8;
-const REF_RANDSTROBE_MASK: u32 = (1 << REF_RANDSTROBE_OFFSET_BITS) - 1;
-pub const REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES: usize = (1usize << (32 - REF_RANDSTROBE_OFFSET_BITS)) - 1;
+const REF_RANDSTROBE_OFFSET_MASK: u32 = (1 << REF_RANDSTROBE_OFFSET_BITS) - 1;
+pub const REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES: usize = (1usize << (32 - REF_RANDSTROBE_OFFSET_BITS - 1)) - 1;
 
 impl RefRandstrobe {
-    fn new(hash: RandstrobeHash, ref_index: u32, position: u32, offset: u8) -> Self {
-        let packed = (ref_index << 8) + offset as u32;
+    fn new(hash: RandstrobeHash, ref_index: u32, position: u32, offset: u8, first_strobe_is_main: bool) -> Self {
+        let packed = (ref_index << 9) | ((first_strobe_is_main as u32) << 8) | (offset as u32);
         RefRandstrobe {
             hash,
             position,
@@ -214,11 +218,15 @@ impl RefRandstrobe {
     }
 
     pub fn reference_index(&self) -> usize {
-        (self.packed >> REF_RANDSTROBE_OFFSET_BITS) as usize
+        (self.packed >> (REF_RANDSTROBE_OFFSET_BITS + 1)) as usize
     }
 
     pub fn strobe2_offset(&self) -> usize {
-        (self.packed & REF_RANDSTROBE_MASK) as usize
+        (self.packed & REF_RANDSTROBE_OFFSET_MASK) as usize
+    }
+    
+    pub fn first_strobe_is_main(&self) -> bool {
+        ((self.packed >> REF_RANDSTROBE_OFFSET_BITS) & 1) == 1
     }
 }
 
@@ -267,7 +275,7 @@ pub struct StrobemerIndex<'a> {
 
     /// no. of bits of the hash to use when indexing a randstrobe bucket
     bits: u8,
-
+    
     /// Regular (non-rescue) NAM finding ignores randstrobes that occur more often than
     /// this (see StrobemerIndex::is_filtered())
     pub filter_cutoff: usize,
@@ -503,6 +511,7 @@ impl<'a> StrobemerIndex<'a> {
                     ref_index as u32,
                     randstrobe.strobe1_pos as u32,
                     offset as u8,
+                    randstrobe.first_strobe_is_main,
                 );
 
         }
@@ -567,5 +576,43 @@ impl<'a> StrobemerIndex<'a> {
         } else {
             false
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ref_randstrobe() {
+        let hash: u64 = 0x1234567890ABCDEFu64;// & REF_RANDSTROBE_MASK;
+        let ref_index: u32 = (REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES - 1) as u32;
+        let offset = 255;
+        let position = !0;
+        for first_strobe_is_main in [false, true] {
+            let rr = RefRandstrobe::new(hash, ref_index, position, offset, first_strobe_is_main);
+
+            assert_eq!(rr.hash(), hash);
+            assert_eq!(rr.position(), position as usize);
+            assert_eq!(rr.reference_index(), ref_index as usize);
+            assert_eq!(rr.strobe2_offset(), offset as usize);
+            assert_eq!(rr.first_strobe_is_main(), first_strobe_is_main);
+        }
+    }
+
+    #[test]
+    fn test_ref_randstrobe2() {
+        let hash: u64 = 0x1234567890ABCDEFu64;// & REF_RANDSTROBE_MASK;
+        let ref_index: u32 = (REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES - 1) as u32;
+        let offset = 255;
+        let position = !0;
+        let first_strobe_is_main = false;
+        let rr = RefRandstrobe::new(hash, ref_index, position, offset, first_strobe_is_main);
+
+        assert_eq!(rr.hash(), hash);
+        assert_eq!(rr.position(), position as usize);
+        assert_eq!(rr.reference_index(), ref_index as usize);
+        assert_eq!(rr.strobe2_offset(), offset as usize);
+        assert_eq!(rr.first_strobe_is_main(), first_strobe_is_main);
     }
 }

@@ -1,6 +1,8 @@
 use std::collections::VecDeque;
 use crate::syncmers::{Syncmer, SyncmerIterator};
 
+pub const DEFAULT_AUX_LEN: u8 = 24;
+
 #[derive(Debug, Clone)]
 pub struct RandstrobeParameters {
     pub w_min: usize,
@@ -8,6 +10,10 @@ pub struct RandstrobeParameters {
     pub q: u64,
     pub max_dist: u8,
 
+    /// No. of bits to use from secondary strobe hash
+    pub aux_len: u8,
+
+    // TODO ensure aux_len <= 63
 // TODO
 // void verify() const {
 //     if (max_dist > 255) {
@@ -24,6 +30,31 @@ pub struct Randstrobe {
     pub hash: u64,
     pub strobe1_pos: usize,
     pub strobe2_pos: usize,
+    pub first_strobe_is_main: bool,
+}
+
+impl Randstrobe {
+    pub fn from_strobes(strobe1: Syncmer, strobe2: Syncmer, aux_len: u8) -> Self {
+        let first_strobe_is_main = strobe1.hash < strobe2.hash;
+
+        Randstrobe {
+            hash: Randstrobe::hash(strobe1.hash, strobe2.hash, aux_len),
+            strobe1_pos: strobe1.position,
+            strobe2_pos: strobe2.position,
+            first_strobe_is_main,
+        }
+    }
+
+    pub fn hash(hash1: u64, hash2: u64, aux_len: u8) -> u64 {
+        // Make the function symmetric
+        let (hash1, hash2) = if hash1 > hash2 {
+            (hash2, hash1)
+        } else {
+            (hash1, hash2)
+        };
+
+        ((hash1 >> aux_len) << aux_len) ^ (hash2 >> (64 - aux_len))
+    }
 }
 
 pub struct RandstrobeIterator<'a> {
@@ -73,18 +104,10 @@ impl<'a> Iterator for RandstrobeIterator<'a> {
             }
         }
         self.syncmers.pop_front();
-        Some(Randstrobe {
-            hash: randstrobe_hash(strobe1.hash, strobe2.hash),
-            strobe1_pos: strobe1.position,
-            strobe2_pos: strobe2.position,
-        })
+
+        Some(Randstrobe::from_strobes(strobe1, strobe2, self.parameters.aux_len))
     }
 }
-
-fn randstrobe_hash(hash1: u64, hash2: u64) -> u64 {
-    hash1.wrapping_add(hash2)
-}
-
 
 #[cfg(test)]
 mod test {
@@ -97,10 +120,10 @@ mod test {
     fn read_phix() -> RefSequence {
         let f = File::open("tests/phix.fasta").unwrap();
         let mut reader = BufReader::new(f);
-        
+
         read_fasta(&mut reader).unwrap().first().unwrap().clone()
     }
-    
+
     #[test]
     fn test_randstrobe_iterator() {
         let refseq = read_phix().sequence;
@@ -123,7 +146,7 @@ mod test {
         let parameters = IndexParameters::default_from_read_length(100);
         let syncmer_iter = SyncmerIterator::new(&refseq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t);
         let syncmer_count = syncmer_iter.count();
-        
+
         let mut syncmer_iter = SyncmerIterator::new(&refseq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t);
         let randstrobe_iter = RandstrobeIterator::new(&mut syncmer_iter, &parameters.randstrobe);
         let randstrobe_count = randstrobe_iter.count();
