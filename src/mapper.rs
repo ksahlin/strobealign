@@ -26,6 +26,7 @@ pub struct MappingParameters {
     pub dropoff_threshold: f32,
     pub rescue_level: usize,
     pub max_tries: usize,
+    pub use_mcs: bool,
     pub output_unmapped: bool,
 }
 
@@ -37,6 +38,7 @@ impl Default for MappingParameters {
             dropoff_threshold: 0.5,
             rescue_level: 2,
             max_tries: 20,
+            use_mcs: false,
             output_unmapped: true,
         }
     }
@@ -298,7 +300,7 @@ pub fn align_single_end_read(
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let (nam_details, mut nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, rng);
+    let (nam_details, mut nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, mapping_parameters.use_mcs, rng);
     let mut details: Details = nam_details.into();
 
     // Timer extend_timer;
@@ -480,7 +482,7 @@ pub fn align_paired_end_read(
 
     for is_revcomp in [0, 1] {
         let record = if is_revcomp == 0 { r1 } else { r2 };
-        let (nam_details, nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, rng);
+        let (nam_details, nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, mapping_parameters.use_mcs, rng);
         details[is_revcomp].nam = nam_details;
         nams_pair[is_revcomp] = nams;
     }

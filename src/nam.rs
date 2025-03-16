@@ -1,5 +1,4 @@
 use std::cmp::{max, min};
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::hash::{BuildHasherDefault, DefaultHasher};
@@ -68,25 +67,52 @@ type DefaultHashMap<K, V> = HashMap<K, V, BuildHasherDefault<DefaultHasher>>;
 ///
 /// Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
 ///
-pub fn find_nams(query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerIndex, filter_cutoff: usize) -> (f32, usize, Vec<Nam>) {
-   
+pub fn find_nams(
+    query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerIndex, filter_cutoff: usize, use_mcs: bool
+) -> (f32, usize, Vec<Nam>) {
+
     let mut matches_map = [DefaultHashMap::default(), DefaultHashMap::default()];
     matches_map[0].reserve(100);
     matches_map[1].reserve(100);
+    let mut sorting_needed = use_mcs;
     let mut nr_good_hits = 0;
     let mut total_hits = 0;
+    let mut partial_hits = 0;
     for randstrobe in query_randstrobes {
-        if let Some(position) = index.get(randstrobe.hash) {
+        if let Some(position) = index.get_full(randstrobe.hash) {
             total_hits += 1;
             if index.is_too_frequent(position, filter_cutoff) {
                 continue;
             }
             nr_good_hits += 1;
-            add_to_matches_map(&mut matches_map[randstrobe.is_revcomp as usize], randstrobe.start, randstrobe.end, index, position);
+            add_to_matches_map_full(&mut matches_map[randstrobe.is_revcomp as usize], randstrobe.start, randstrobe.end, index, position);
+        } else if use_mcs {
+            if let Some(position) = index.get_partial(randstrobe.hash) {
+                total_hits += 1;
+                if index.is_too_frequent_partial(position, filter_cutoff) {
+                    continue;
+                }
+                partial_hits += 1;
+                add_to_matches_map_partial(&mut matches_map[randstrobe.is_revcomp as usize], randstrobe.start, randstrobe.start + index.k(), index, position);
+            }
         }
     }
+
+    if total_hits == 0 && !use_mcs {
+        for randstrobe in query_randstrobes {
+            if let Some(position) = index.get_partial(randstrobe.hash) {
+                total_hits += 1;
+                if index.is_too_frequent_partial(position, filter_cutoff) {
+                    continue;
+                }
+                partial_hits += 1;
+                add_to_matches_map_partial(&mut matches_map[randstrobe.is_revcomp as usize], randstrobe.start, randstrobe.start + index.k(), index, position);
+            }
+        }
+        sorting_needed = true;
+    }
     let nonrepetitive_fraction = if total_hits > 0 { (nr_good_hits as f32) / (total_hits as f32) } else { 1.0 };
-    let nams = merge_matches_into_nams_forward_and_reverse(&mut matches_map, index.parameters.syncmer.k, false);
+    let nams = merge_matches_into_nams_forward_and_reverse(&mut matches_map, index.parameters.syncmer.k, sorting_needed);
 
     (nonrepetitive_fraction, nr_good_hits, nams)
 }
@@ -99,8 +125,11 @@ pub fn find_nams_rescue(
     query_randstrobes: &[QueryRandstrobe],
     index: &StrobemerIndex,
     rescue_cutoff: usize,
+    use_mcs: bool,
 ) -> (usize, Vec<Nam>) {
 
+    // TODO we ignore use_mcs
+    
     struct RescueHit {
         count: usize,
         position: usize,
@@ -119,8 +148,8 @@ pub fn find_nams_rescue(
 
     for randstrobe in query_randstrobes {
 
-        if let Some(position) = index.get(randstrobe.hash) {
-            let count = index.get_count(position);
+        if let Some(position) = index.get_full(randstrobe.hash) {
+            let count = index.get_count_full(position);
             let rh = RescueHit {
                 count,
                 position,
@@ -149,7 +178,7 @@ pub fn find_nams_rescue(
             if (rh.count > rescue_cutoff && i >= 5) || rh.count > 1000 {
                 break;
             }
-            add_to_matches_map(&mut matches_map[is_revcomp as usize], rh.query_start, rh.query_end, index, rh.position);
+            add_to_matches_map_full(&mut matches_map[is_revcomp as usize], rh.query_start, rh.query_end, index, rh.position);
             n_hits += 1;
         }
     }
@@ -157,7 +186,7 @@ pub fn find_nams_rescue(
     (n_hits, merge_matches_into_nams_forward_and_reverse(&mut matches_map, index.parameters.syncmer.k, true))
 }
 
-fn add_to_matches_map(
+fn add_to_matches_map_full(
     matches_map: &mut DefaultHashMap<usize, Vec<Match>>,
     query_start: usize,
     query_end: usize,
@@ -165,7 +194,7 @@ fn add_to_matches_map(
     position: usize,
 ) {
     let query_length = query_end - query_start;
-    let mut max_length_diff = usize::MAX;
+    let mut min_length_diff = usize::MAX;
     for randstrobe in &index.randstrobes[position..] {
         if randstrobe.hash() != index.randstrobes[position].hash() {
             break;
@@ -174,17 +203,32 @@ fn add_to_matches_map(
         let ref_end = ref_start + randstrobe.strobe2_offset() + index.parameters.syncmer.k;
         let ref_length = ref_end - ref_start;
         let length_diff = (query_length as isize - ref_length as isize).unsigned_abs();
-        if length_diff <= max_length_diff {
+        if length_diff <= min_length_diff {
             let match_ = Match {query_start, query_end, ref_start, ref_end};
             let ref_id = randstrobe.reference_index();
-
-            if let Entry::Vacant(e) = matches_map.entry(ref_id) {
-                e.insert(vec![match_]);
-            } else {
-                matches_map.get_mut(&ref_id).unwrap().push(match_);
-            }
-            max_length_diff = length_diff;
+            matches_map.entry(ref_id).or_default().push(match_);
+            min_length_diff = length_diff;
         }
+    }
+}
+
+fn add_to_matches_map_partial(
+    matches_map: &mut DefaultHashMap<usize, Vec<Match>>,
+    query_start: usize,
+    query_end: usize,
+    index: &StrobemerIndex,
+    position: usize,
+) {
+    let hash = index.get_hash_partial(position);
+    for pos in position.. {
+        if index.get_hash_partial(pos) != hash {
+            break;
+        }
+        let randstrobe = &index.randstrobes[pos];
+        let ref_id = randstrobe.reference_index();
+        let (ref_start, ref_end) = index.strobe_extent_partial(pos);
+        let match_ = Match { query_start, query_end, ref_start, ref_end };
+        matches_map.entry(ref_id).or_default().push(match_);
     }
 }
 
@@ -201,9 +245,9 @@ fn merge_matches_into_nams(matches_map: &mut DefaultHashMap<usize, Vec<Match>>, 
             let mut is_added = false;
             for o in &mut open_nams {
                 // Extend NAM
-                if (o.query_prev_match_startpos < m.query_start)
+                if (o.query_prev_match_startpos <= m.query_start)
                     && (m.query_start <= o.query_end)
-                    && (o.ref_prev_match_startpos < m.ref_start)
+                    && (o.ref_prev_match_startpos <= m.ref_start)
                     && (m.ref_start <= o.ref_end)
                 {
                     if (m.query_end > o.query_end) && (m.ref_end > o.ref_end) {
@@ -341,15 +385,14 @@ pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, references: &[RefSequen
     }
 }
 
-// TODO rename
-pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, rng: &mut Rng) -> (NamDetails, Vec<Nam>) {
+pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, use_mcs: bool, rng: &mut Rng) -> (NamDetails, Vec<Nam>) {
     let timer = Instant::now();
     let query_randstrobes = mapper::randstrobes_query(sequence, &index.parameters);
     let n_randstrobes = query_randstrobes.len();
     let time_randstrobes = timer.elapsed().as_secs_f64();
 
     let timer = Instant::now();
-    let (nonrepetitive_fraction, n_hits, mut nams) = find_nams(&query_randstrobes, index, index.filter_cutoff);
+    let (nonrepetitive_fraction, n_hits, mut nams) = find_nams(&query_randstrobes, index, index.filter_cutoff, use_mcs);
     let n_nams = nams.len();
     let time_find_nams = timer.elapsed().as_secs_f64();
 
@@ -361,7 +404,7 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, rn
         let timer = Instant::now();
         if nams.is_empty() || nonrepetitive_fraction < 0.7 {
             nam_rescue = true;
-            (n_rescue_hits, nams) = find_nams_rescue(&query_randstrobes, index, index.rescue_cutoff);
+            (n_rescue_hits, nams) = find_nams_rescue(&query_randstrobes, index, index.rescue_cutoff, use_mcs);
             n_rescue_nams = nams.len();
         }
         time_rescue = timer.elapsed().as_secs_f64();

@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
+use crate::index::REF_RANDSTROBE_HASH_MASK;
 use crate::syncmers::{Syncmer, SyncmerIterator};
 
-pub const DEFAULT_AUX_LEN: u8 = 24;
+pub const DEFAULT_AUX_LEN: u8 = 26;
 
 #[derive(Debug, Clone)]
 pub struct RandstrobeParameters {
@@ -13,6 +14,9 @@ pub struct RandstrobeParameters {
     /// No. of bits to use from secondary strobe hash
     pub aux_len: u8,
 
+    /// Mask for bits of the hash that represent the main hash 
+    pub main_hash_mask: u64,
+    
     // TODO ensure aux_len <= 63
 // TODO
 // void verify() const {
@@ -30,30 +34,19 @@ pub struct Randstrobe {
     pub hash: u64,
     pub strobe1_pos: usize,
     pub strobe2_pos: usize,
-    pub first_strobe_is_main: bool,
 }
 
 impl Randstrobe {
     pub fn from_strobes(strobe1: Syncmer, strobe2: Syncmer, aux_len: u8) -> Self {
-        let first_strobe_is_main = strobe1.hash < strobe2.hash;
-
         Randstrobe {
             hash: Randstrobe::hash(strobe1.hash, strobe2.hash, aux_len),
             strobe1_pos: strobe1.position,
             strobe2_pos: strobe2.position,
-            first_strobe_is_main,
         }
     }
 
     pub fn hash(hash1: u64, hash2: u64, aux_len: u8) -> u64 {
-        // Make the function symmetric
-        let (hash1, hash2) = if hash1 > hash2 {
-            (hash2, hash1)
-        } else {
-            (hash1, hash2)
-        };
-
-        ((hash1 >> aux_len) << aux_len) ^ (hash2 >> (64 - aux_len))
+        (((hash1 >> aux_len) << aux_len) ^ (hash2 >> (64 - aux_len))) & REF_RANDSTROBE_HASH_MASK
     }
 }
 

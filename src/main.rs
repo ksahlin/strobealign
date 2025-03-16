@@ -165,6 +165,10 @@ struct Args {
     #[arg(short = 'L', default_value_t = Scores::default().end_bonus, value_name = "N", help_heading = "Alignment")]
     end_bonus: u32,
 
+    /// Use multi-context seeds for finding hits
+    #[arg(long = "mcs", default_value_t = MappingParameters::default().use_mcs, help_heading = "Search parameters")]
+    use_mcs: bool,
+
     /// Top fraction of repetitive strobemers to filter out from sampling
     #[arg(short, default_value_t = 0.0002, help_heading = "Search parameters")]
     filter_fraction: f64,
@@ -455,10 +459,10 @@ impl<'a> Mapper<'a> {
                     let (paf_records, details) =
                         if let Some(r2) = r2 {
                             map_paired_end_read(
-                                &r1, &r2, self.index, self.references, self.mapping_parameters.rescue_level, &mut isizedist, &mut rng
+                                &r1, &r2, self.index, self.references, self.mapping_parameters.rescue_level, &mut isizedist, self.mapping_parameters.use_mcs, &mut rng
                             )
                         } else {
-                            map_single_end_read(&r1, self.index, self.references, self.mapping_parameters.rescue_level, &mut rng)
+                            map_single_end_read(&r1, self.index, self.references, self.mapping_parameters.rescue_level, self.mapping_parameters.use_mcs, &mut rng)
                         };
                     for paf_record in paf_records {
                         writeln!(out, "{}", paf_record)?;
@@ -467,9 +471,9 @@ impl<'a> Mapper<'a> {
                 }
                 Mode::Abundances => {
                     if let Some(r2) = r2 {
-                        abundances_paired_end_read(&r1, &r2, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, &mut isizedist, &mut rng);
+                        abundances_paired_end_read(&r1, &r2, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, &mut isizedist, self.mapping_parameters.use_mcs, &mut rng);
                     } else {
-                        abundances_single_end_read(&r1, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, &mut rng);
+                        abundances_single_end_read(&r1, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, self.mapping_parameters.use_mcs, &mut rng);
                     }
                 }
             }
