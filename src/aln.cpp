@@ -1036,7 +1036,7 @@ std::vector<Nam> get_nams(
     // Compute randstrobes
     Timer strobe_timer;
     auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
-    statistics.n_randstrobes += query_randstrobes.size();
+    statistics.n_randstrobes += query_randstrobes[0].size() + query_randstrobes[1].size();
     statistics.tot_construct_strobemers += strobe_timer.duration();
 
     // Find NAMs

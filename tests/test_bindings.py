@@ -55,7 +55,7 @@ def test_index_find():
     index.populate()
 
     query = "TGCGTTTATGGTACGCTGGACTTTGTGGGATACCCTCGCTTTCCTGCTCCTGTTGAGTTTATTGCTGCCG"
-    query_randstrobes = strobealign.randstrobes_query(query, index_parameters)
+    query_randstrobes = strobealign.randstrobes_query(query, index_parameters)[0]
     assert query_randstrobes
     # First randstrobe must be found
     assert index.find(query_randstrobes[0].hash)

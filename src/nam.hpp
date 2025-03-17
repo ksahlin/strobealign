@@ -52,13 +52,13 @@ struct Nam {
 };
 
 std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
-    const std::vector<QueryRandstrobe> &query_randstrobes,
+    const std::array<std::vector<QueryRandstrobe>, 2> &query_randstrobes_pair,
     const StrobemerIndex& index,
     bool use_mcs
 );
 
 std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
-    const std::vector<QueryRandstrobe> &query_randstrobes,
+    const std::array<std::vector<QueryRandstrobe>, 2> &query_randstrobes_pair,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
     bool use_mcs

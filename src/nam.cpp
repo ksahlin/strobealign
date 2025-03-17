@@ -230,7 +230,7 @@ robin_hood::unordered_map<unsigned int, std::vector<Match>> hits_to_matches(
  * Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
  */
 std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
-    const std::vector<QueryRandstrobe>& query_randstrobes,
+    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes_pair,
     const StrobemerIndex& index,
     bool use_mcs
 ) {
@@ -245,7 +245,8 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
     int nonrepetitive_hits = 0;
     int total_hits = 0;
     int partial_hits = 0;
-    for (const auto &q : query_randstrobes) {
+    for (const auto& query_randstrobes : query_randstrobes_pair) {
+      for (const auto &q : query_randstrobes) {
         size_t position = index.find_full(q.hash);
         if (position != index.end()) {
             total_hits++;
@@ -273,10 +274,12 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
             }
             partial_queried.push_back(ph);
         }
+      }
     }
 
     // Rescue using partial hits, even in non-MCS mode
     if (total_hits == 0 && !use_mcs) {
+      for (const auto& query_randstrobes : query_randstrobes_pair) {
         for (const auto &q : query_randstrobes) {
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
@@ -290,6 +293,7 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
             }
         }
         sorting_needed = true;
+      }
     }
 
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
@@ -303,7 +307,7 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
  * Return the number of hits and the vector of NAMs.
  */
 std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
-    const std::vector<QueryRandstrobe>& query_randstrobes,
+    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes_pair,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
     bool use_mcs
@@ -329,7 +333,8 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
     hits[0].reserve(5000);
     hits[1].reserve(5000);
 
-    for (auto &qr : query_randstrobes) {
+    for (const auto &query_randstrobes : query_randstrobes_pair) {
+      for (auto &qr : query_randstrobes) {
         size_t position = index.find_full(qr.hash);
         if (position != index.end()) {
             unsigned int count = index.get_count_full(position);
@@ -350,6 +355,7 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
             }
             partial_queried.push_back(ph);
         }
+      }
     }
 
     std::sort(hits[0].begin(), hits[0].end());
