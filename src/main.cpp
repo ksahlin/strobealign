@@ -374,7 +374,7 @@ int run_strobealign(int argc, char **argv) {
         << "Total time finding NAMs (non-rescue mode): " << statistics.tot_find_nams.count() / opt.n_threads << " s." << std::endl
         << "Total time finding NAMs (rescue mode): " << statistics.tot_time_rescue.count() / opt.n_threads << " s." << std::endl
         << "Total time sorting NAMs (candidate sites): " << statistics.tot_sort_nams.count() / opt.n_threads << " s." << std::endl
-        << "Total time base level alignment (ssw): " << statistics.tot_extend.count() / opt.n_threads << " s." << std::endl;
+        << "Total time extending and pairing seeds: " << statistics.tot_extend.count() / opt.n_threads << " s." << std::endl;
     return EXIT_SUCCESS;
 }
 
