@@ -59,9 +59,8 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
     bool use_mcs
 );
 
-
-std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>> find_nams_rescue(
-    const std::vector<QueryRandstrobe> &query_randstrobes,
+std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>> find_matches_rescue(
+    const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
     bool use_mcs

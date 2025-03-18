@@ -294,7 +294,7 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
  *
  * Return the number of hits and the vector of NAMs.
  */
-std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>> find_nams_rescue(
+std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>> find_matches_rescue(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
