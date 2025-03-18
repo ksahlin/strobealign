@@ -17,6 +17,8 @@ struct AlignmentParameters {
     int end_bonus;
 };
 
+std::ostream& operator<<(std::ostream& os, const AlignmentParameters& params);
+
 struct AlignmentInfo {
     Cigar cigar;
     unsigned int edit_distance{0};
