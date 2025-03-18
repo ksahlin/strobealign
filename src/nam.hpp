@@ -51,20 +51,21 @@ struct Nam {
     }
 };
 
+std::ostream& operator<<(std::ostream& os, const Nam& nam);
+
 std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
-    const std::array<std::vector<QueryRandstrobe>, 2> &query_randstrobes_pair,
+    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes_pair,
     const StrobemerIndex& index,
     bool use_mcs
 );
 
-std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
-    const std::array<std::vector<QueryRandstrobe>, 2> &query_randstrobes_pair,
+
+std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>> find_nams_rescue(
+    const std::vector<QueryRandstrobe> &query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
     bool use_mcs
 );
-
-std::ostream& operator<<(std::ostream& os, const Nam& nam);
 
 void merge_matches_into_nams(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,

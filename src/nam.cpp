@@ -76,19 +76,6 @@ inline void add_to_matches_map_partial(
     }
 }
 
-std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
-    std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2>& matches_map,
-    int k,
-    bool sort
-) {
-    std::vector<Nam> nams;
-    for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
-        auto& matches_oriented = matches_map[is_revcomp];
-        merge_matches_into_nams(matches_oriented, k, sort, is_revcomp, nams);
-    }
-    return nams;
-}
-
 } // namespace
 
 void merge_matches_into_nams(
@@ -307,8 +294,8 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
  *
  * Return the number of hits and the vector of NAMs.
  */
-std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
-    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes_pair,
+std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>> find_nams_rescue(
+    const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
     bool use_mcs
@@ -325,19 +312,15 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
                 < std::tie(rhs.count, rhs.query_start, rhs.query_end);
         }
     };
-    std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
-    matches_map[0].reserve(100);
-    matches_map[1].reserve(100);
-
+    robin_hood::unordered_map<unsigned int, std::vector<Match>> matches_map;
+    matches_map.reserve(100);
     int n_hits = 0;
     int partial_hits = 0;
-    for (int is_revcomp : {0, 1}) {
-      std::vector<RescueHit> rescue_hits;
-      rescue_hits.reserve(5000);
-      std::vector<PartialHit> partial_queried;  // TODO: is a small set more efficient than linear search in a small vector?
-      partial_queried.reserve(10);
-      const auto &query_randstrobes = query_randstrobes_pair[is_revcomp];
-      for (auto &qr : query_randstrobes) {
+    std::vector<RescueHit> rescue_hits;
+    rescue_hits.reserve(5000);
+    std::vector<PartialHit> partial_queried;  // TODO: is a small set more efficient than linear search in a small vector?
+    partial_queried.reserve(10);
+    for (auto &qr : query_randstrobes) {
         size_t position = index.find_full(qr.hash);
         if (position != index.end()) {
             unsigned int count = index.get_count_full(position);
@@ -355,28 +338,29 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
                 unsigned int partial_count = index.get_count_partial(partial_pos);
                 RescueHit rh{partial_pos, partial_count, qr.partial_start, qr.partial_end, true};
                 rescue_hits.push_back(rh);
+                partial_hits++;
             }
             partial_queried.push_back(ph);
         }
-      }
-      std::sort(rescue_hits.begin(), rescue_hits.end());
-        int cnt = 0;
-        for (auto &rh : rescue_hits) {
-            if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
-                break;
-            }
-            if (rh.is_partial){
-                partial_hits++;
-                add_to_matches_map_partial(matches_map[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
-            } else{
-                add_to_matches_map_full(matches_map[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
-            }
-            cnt++;
-            n_hits++;
+    }
+    std::sort(rescue_hits.begin(), rescue_hits.end());
+
+    int cnt = 0;
+    for (auto &rh : rescue_hits) {
+        if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
+            break;
         }
+        if (rh.is_partial){
+            partial_hits++;
+            add_to_matches_map_partial(matches_map, rh.query_start, rh.query_end, index, rh.position);
+        } else{
+            add_to_matches_map_full(matches_map, rh.query_start, rh.query_end, index, rh.position);
+        }
+        cnt++;
+        n_hits++;
     }
 
-    return {n_hits, partial_hits, merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), true)};
+    return {n_hits, partial_hits, matches_map};
 }
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {
