@@ -326,13 +326,14 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
         }
     };
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
-    std::array<std::vector<RescueHit>, 2> hits;
     matches_map[0].reserve(100);
     matches_map[1].reserve(100);
-    hits[0].reserve(5000);
-    hits[1].reserve(5000);
 
+    int n_hits = 0;
+    int partial_hits = 0;
     for (int is_revcomp : {0, 1}) {
+      std::vector<RescueHit> rescue_hits;
+      rescue_hits.reserve(5000);
       std::vector<PartialHit> partial_queried;  // TODO: is a small set more efficient than linear search in a small vector?
       partial_queried.reserve(10);
       const auto &query_randstrobes = query_randstrobes_pair[is_revcomp];
@@ -341,7 +342,7 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
         if (position != index.end()) {
             unsigned int count = index.get_count_full(position);
             RescueHit rh{position, count, qr.start, qr.end, false};
-            hits[is_revcomp].push_back(rh);
+            rescue_hits.push_back(rh);
         }
         else if (use_mcs) {
             PartialHit ph = {qr.hash & index.get_main_hash_mask(), qr.partial_start};
@@ -353,19 +354,12 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_count_partial(partial_pos);
                 RescueHit rh{partial_pos, partial_count, qr.partial_start, qr.partial_end, true};
-                hits[is_revcomp].push_back(rh);
+                rescue_hits.push_back(rh);
             }
             partial_queried.push_back(ph);
         }
       }
-    }
-
-    std::sort(hits[0].begin(), hits[0].end());
-    std::sort(hits[1].begin(), hits[1].end());
-    int n_hits = 0;
-    int partial_hits = 0;
-    for (int is_revcomp : {0, 1}) {
-        const auto& rescue_hits = hits[is_revcomp];
+      std::sort(rescue_hits.begin(), rescue_hits.end());
         int cnt = 0;
         for (auto &rh : rescue_hits) {
             if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
