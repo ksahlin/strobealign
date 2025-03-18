@@ -140,7 +140,6 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("hash", &QueryRandstrobe::hash)
         .def_ro("start", &QueryRandstrobe::start)
         .def_ro("end", &QueryRandstrobe::end)
-        .def_ro("is_revcomp", &QueryRandstrobe::is_revcomp)
         .def("__repr__", [](const QueryRandstrobe& qr) {
             std::stringstream s; s << qr; return s.str();
         })

@@ -155,7 +155,6 @@ std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe) {
     os << "QueryRandstrobe(hash=" << randstrobe.hash
         << ", start=" << randstrobe.start
         << ", end=" << randstrobe.end
-        << ", is_revcomp=" << randstrobe.is_revcomp
         << ")";
 
     return os;
@@ -251,7 +250,7 @@ std::array<std::vector<QueryRandstrobe>, 2> randstrobes_query(const std::string_
         randstrobes[0].push_back(
             QueryRandstrobe {
                 randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k,
-                partial_start, partial_start + parameters.syncmer.k, false
+                partial_start, partial_start + parameters.syncmer.k
             }
         );
     }
@@ -277,7 +276,7 @@ std::array<std::vector<QueryRandstrobe>, 2> randstrobes_query(const std::string_
         randstrobes[1].push_back(
             QueryRandstrobe {
                 randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k,
-                partial_start, partial_start + parameters.syncmer.k, true
+                partial_start, partial_start + parameters.syncmer.k
             }
         );
     }

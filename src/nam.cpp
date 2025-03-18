@@ -13,9 +13,8 @@ namespace {
 struct PartialHit {
     randstrobe_hash_t hash;
     unsigned int start;  // position in strobemer index
-    bool is_reverse;
     bool operator==(const PartialHit& rhs) const {
-        return (hash == rhs.hash) && (start == rhs.start) && (is_reverse == rhs.is_reverse);
+        return (hash == rhs.hash) && (start == rhs.start);
     }
 };
 
@@ -237,15 +236,16 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
     // If we produce matches in sorted order, then merge_matches_into_nams()
     // does not have to re-sort
     bool sorting_needed{use_mcs};
-    std::vector<PartialHit> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
-    if (use_mcs) {
-        partial_queried.reserve(10);
-    }
     std::array<std::vector<Hit>, 2> hits;
     int nonrepetitive_hits = 0;
     int total_hits = 0;
     int partial_hits = 0;
-    for (const auto& query_randstrobes : query_randstrobes_pair) {
+    for (int is_revcomp : {0, 1}) {
+      auto& query_randstrobes = query_randstrobes_pair[is_revcomp];
+      std::vector<PartialHit> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
+      if (use_mcs) {
+          partial_queried.reserve(10);
+      }
       for (const auto &q : query_randstrobes) {
         size_t position = index.find_full(q.hash);
         if (position != index.end()) {
@@ -253,10 +253,10 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
             if (index.is_filtered(position)) {
                 continue;
             }
-            hits[q.is_revcomp].push_back(Hit{position, q.start, q.end, false});
+            hits[is_revcomp].push_back(Hit{position, q.start, q.end, false});
             nonrepetitive_hits++;
         } else if (use_mcs) {
-            PartialHit ph{q.hash & index.get_main_hash_mask(), q.partial_start, q.is_revcomp};
+            PartialHit ph{q.hash & index.get_main_hash_mask(), q.partial_start};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
                 continue;
@@ -270,7 +270,7 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
                 }
                 nonrepetitive_hits++;
                 partial_hits++;
-                hits[q.is_revcomp].push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
+                hits[is_revcomp].push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
             }
             partial_queried.push_back(ph);
         }
@@ -279,7 +279,8 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
 
     // Rescue using partial hits, even in non-MCS mode
     if (total_hits == 0 && !use_mcs) {
-      for (const auto& query_randstrobes : query_randstrobes_pair) {
+      for (int is_revcomp : {0, 1}) {
+        auto& query_randstrobes = query_randstrobes_pair[is_revcomp];
         for (const auto &q : query_randstrobes) {
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
@@ -289,7 +290,7 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
                 }
                 nonrepetitive_hits++;
                 partial_hits++;
-                hits[q.is_revcomp].push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
+                hits[is_revcomp].push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
             }
         }
         sorting_needed = true;
@@ -324,8 +325,6 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
                 < std::tie(rhs.count, rhs.query_start, rhs.query_end);
         }
     };
-    std::vector<PartialHit> partial_queried;  // TODO: is a small set more efficient than linear search in a small vector?
-    partial_queried.reserve(10);
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
     std::array<std::vector<RescueHit>, 2> hits;
     matches_map[0].reserve(100);
@@ -333,16 +332,19 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
     hits[0].reserve(5000);
     hits[1].reserve(5000);
 
-    for (const auto &query_randstrobes : query_randstrobes_pair) {
+    for (int is_revcomp : {0, 1}) {
+      std::vector<PartialHit> partial_queried;  // TODO: is a small set more efficient than linear search in a small vector?
+      partial_queried.reserve(10);
+      const auto &query_randstrobes = query_randstrobes_pair[is_revcomp];
       for (auto &qr : query_randstrobes) {
         size_t position = index.find_full(qr.hash);
         if (position != index.end()) {
             unsigned int count = index.get_count_full(position);
             RescueHit rh{position, count, qr.start, qr.end, false};
-            hits[qr.is_revcomp].push_back(rh);
+            hits[is_revcomp].push_back(rh);
         }
         else if (use_mcs) {
-            PartialHit ph = {qr.hash & index.get_main_hash_mask(), qr.partial_start, qr.is_revcomp};
+            PartialHit ph = {qr.hash & index.get_main_hash_mask(), qr.partial_start};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
                 continue;
@@ -351,7 +353,7 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_count_partial(partial_pos);
                 RescueHit rh{partial_pos, partial_count, qr.partial_start, qr.partial_end, true};
-                hits[qr.is_revcomp].push_back(rh);
+                hits[is_revcomp].push_back(rh);
             }
             partial_queried.push_back(ph);
         }
@@ -362,8 +364,8 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
     std::sort(hits[1].begin(), hits[1].end());
     int n_hits = 0;
     int partial_hits = 0;
-    size_t is_revcomp = 0;
-    for (auto& rescue_hits : hits) {
+    for (int is_revcomp : {0, 1}) {
+        const auto& rescue_hits = hits[is_revcomp];
         int cnt = 0;
         for (auto &rh : rescue_hits) {
             if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
@@ -378,7 +380,6 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
             cnt++;
             n_hits++;
         }
-        is_revcomp++;
     }
 
     return {n_hits, partial_hits, merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), true)};

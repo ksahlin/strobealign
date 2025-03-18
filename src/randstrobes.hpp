@@ -77,7 +77,6 @@ struct QueryRandstrobe {
      */
     unsigned int partial_start;
     unsigned int partial_end;
-    bool is_revcomp;
 };
 
 std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe);
