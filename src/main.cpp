@@ -354,6 +354,7 @@ int run_strobealign(int argc, char **argv) {
         << "Number of reads:               " << std::setw(12) << statistics.n_reads << std::endl
         << "Number of randstrobes:         " << std::setw(12) << statistics.n_randstrobes
         << "  Per read: " << std::setw(7) << static_cast<float>(statistics.n_randstrobes) / statistics.n_reads << std::endl
+        << "Number of partial hits:        " << std::setw(12) << statistics.n_partial_hits << '\n'
         << "Number of non-rescue hits:     " << std::setw(12) << statistics.n_hits
         << "  Per read: " << std::setw(7) << static_cast<float>(statistics.n_hits) / statistics.n_reads << std::endl
         << "Number of non-rescue NAMs:     " << std::setw(12) << statistics.n_nams
