@@ -35,13 +35,13 @@ struct Nam {
     }
 };
 
-std::tuple<float, int, std::vector<Nam>> find_nams(
+std::tuple<float, int, int, std::vector<Nam>> find_nams(
     const std::vector<QueryRandstrobe> &query_randstrobes,
     const StrobemerIndex& index,
     bool use_mcs
 );
 
-std::pair<int, std::vector<Nam>> find_nams_rescue(
+std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
     const std::vector<QueryRandstrobe> &query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,

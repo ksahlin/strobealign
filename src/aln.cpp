@@ -1041,17 +1041,19 @@ std::vector<Nam> get_nams(
 
     // Find NAMs
     Timer nam_timer;
-    auto [nonrepetitive_fraction, n_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
+    auto [nonrepetitive_fraction, n_hits, partial_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
     statistics.tot_find_nams += nam_timer.duration();
     statistics.n_hits += n_hits;
+    statistics.n_partial_hits += partial_hits;
     details.nams = nams.size();
 
     // Rescue if requested and needed
     if (map_param.rescue_level > 1 && (nams.empty() || nonrepetitive_fraction < 0.7)) {
         Timer rescue_timer;
         int n_rescue_hits;
-        std::tie(n_rescue_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
+        std::tie(n_rescue_hits, partial_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
         statistics.n_rescue_hits += n_rescue_hits;
+        statistics.n_partial_hits += partial_hits;
         details.rescue_nams = nams.size();
         details.nam_rescue = true;
         statistics.tot_time_rescue += rescue_timer.duration();

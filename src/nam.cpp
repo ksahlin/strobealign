@@ -218,7 +218,7 @@ std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
  *
  * Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
  */
-std::tuple<float, int, std::vector<Nam>> find_nams(
+std::tuple<float, int, int, std::vector<Nam>> find_nams(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     bool use_mcs
@@ -235,6 +235,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
     matches_map[1].reserve(100);
     int nr_good_hits = 0;
     int total_hits = 0;
+    int partial_hits = 0;
     for (const auto &q : query_randstrobes) {
         size_t position = index.find_full(q.hash);
         if (position != index.end()) {
@@ -259,6 +260,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
                     continue;
                 }
                 nr_good_hits++;
+                partial_hits++;
                 add_to_matches_map_partial(matches_map[q.is_revcomp], q.partial_start, q.partial_end, index, partial_pos);
             }
             partial_queried.push_back(ph);
@@ -275,6 +277,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
                     continue;
                 }
                 nr_good_hits++;
+                partial_hits++;
                 add_to_matches_map_partial(matches_map[q.is_revcomp], q.partial_start, q.partial_end, index, partial_pos);
             }
         }
@@ -283,7 +286,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
 
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
     auto nams = merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), sorting_needed);
-    return {nonrepetitive_fraction, nr_good_hits, nams};
+    return {nonrepetitive_fraction, nr_good_hits, partial_hits, nams};
 }
 
 /*
@@ -292,7 +295,7 @@ std::tuple<float, int, std::vector<Nam>> find_nams(
  *
  * Return the number of hits and the vector of NAMs.
  */
-std::pair<int, std::vector<Nam>> find_nams_rescue(
+std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
@@ -345,6 +348,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
     std::sort(hits[0].begin(), hits[0].end());
     std::sort(hits[1].begin(), hits[1].end());
     int n_hits = 0;
+    int partial_hits = 0;
     size_t is_revcomp = 0;
     for (auto& rescue_hits : hits) {
         int cnt = 0;
@@ -353,6 +357,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
                 break;
             }
             if (rh.is_partial){
+                partial_hits++;
                 add_to_matches_map_partial(matches_map[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
             } else{
                 add_to_matches_map_full(matches_map[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
@@ -363,7 +368,7 @@ std::pair<int, std::vector<Nam>> find_nams_rescue(
         is_revcomp++;
     }
 
-    return {n_hits, merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), true)};
+    return {n_hits, partial_hits, merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), true)};
 }
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {
