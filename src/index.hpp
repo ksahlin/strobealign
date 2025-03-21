@@ -34,6 +34,8 @@ struct IndexCreationStatistics {
     std::chrono::duration<double> elapsed_sorting_seeds;
 };
 
+int pick_bits(SyncmerParameters parameters, size_t size);
+
 struct StrobemerIndex {
     using bucket_index_t = uint64_t;
     StrobemerIndex(const References& references, const IndexParameters& parameters, int bits=-1)
@@ -41,7 +43,7 @@ struct StrobemerIndex {
         , partial_filter_cutoff(0)
         , parameters(parameters)
         , references(references)
-        , bits(bits == -1 ? pick_bits(references.total_length()) : bits)
+        , bits(bits == -1 ? pick_bits(parameters.syncmer, references.total_length()) : bits)
     {
         if (this->bits < 8 || this->bits > 31) {
             throw BadParameter("Bits must be between 8 and 31");
@@ -58,7 +60,6 @@ struct StrobemerIndex {
     void read(const std::string& filename);
     void populate(float f, unsigned n_threads);
     void print_diagnostics(const std::string& logfile_name, int k) const;
-    int pick_bits(size_t size) const;
 
     // Find first entry that matches the given key
     size_t find_full(randstrobe_hash_t key) const {

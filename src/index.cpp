@@ -133,8 +133,8 @@ void StrobemerIndex::read(const std::string& filename) {
 }
 
 /* Pick a suitable number of bits for indexing randstrobe start indices */
-int StrobemerIndex::pick_bits(size_t size) const {
-    size_t estimated_number_of_randstrobes = size / (parameters.syncmer.k - parameters.syncmer.s + 1);
+int pick_bits(SyncmerParameters parameters, size_t size) {
+    size_t estimated_number_of_randstrobes = size / (parameters.k - parameters.s + 1) + 1;
     // Two randstrobes per bucket on average
     return std::clamp(static_cast<int>(log2(estimated_number_of_randstrobes)) - 1, 8, 31);
 }
