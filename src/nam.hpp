@@ -6,6 +6,22 @@
 #include "index.hpp"
 #include "randstrobes.hpp"
 
+struct Hit {
+    size_t position;
+    size_t query_start;
+    size_t query_end;
+    bool is_partial;
+};
+
+struct Match {
+    int query_start;
+    int query_end;
+    int ref_start;
+    int ref_end;
+};
+
+bool operator==(const Match& lhs, const Match& rhs);
+
 // Non-overlapping approximate match
 struct Nam {
     int nam_id;
@@ -35,7 +51,7 @@ struct Nam {
     }
 };
 
-std::tuple<float, int, int, std::vector<Nam>> find_nams(
+std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
     const std::vector<QueryRandstrobe> &query_randstrobes,
     const StrobemerIndex& index,
     bool use_mcs
@@ -49,5 +65,16 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
 );
 
 std::ostream& operator<<(std::ostream& os, const Nam& nam);
+
+std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
+    std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2>& matches_map,
+    int k,
+    bool sort
+);
+
+robin_hood::unordered_map<unsigned int, std::vector<Match>> hits_to_matches(
+    const std::vector<Hit>& hits,
+    const StrobemerIndex& index
+);
 
 #endif
