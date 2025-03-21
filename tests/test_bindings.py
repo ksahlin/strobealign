@@ -25,7 +25,7 @@ def test_index_parameters():
     assert isinstance(params.randstrobe.w_max, int)
 
 
-def test_indexing_and_nams_finding():
+def test_indexing_and_hit_finding():
     refs = strobealign.References.from_fasta("tests/phix.fasta")
     index_parameters = strobealign.IndexParameters.from_read_length(100)
     index = strobealign.StrobemerIndex(refs, index_parameters)
@@ -34,13 +34,18 @@ def test_indexing_and_nams_finding():
     # Find NAMs for a single query sequence
     query = "TGCGTTTATGGTACGCTGGACTTTGTGGGATACCCTCGCTTTCCTGCTCCTGTTGAGTTTATTGCTGCCG"
     randstrobes = strobealign.randstrobes_query(query, index_parameters)
-    nams = strobealign.find_nams(randstrobes, index, use_mcs=False)
-    assert nams
-    for nam in nams:
-        ref = refs[nam.reference_index].sequence
-        ref_aligned = ref[nam.ref_start:nam.ref_end]
-        query_aligned = query[nam.query_start:nam.query_end]
-        score = nam.score
+
+    hits_pair = strobealign.find_hits(randstrobes, index, use_mcs=False)
+    assert len(hits_pair) == 2
+    for hits in hits_pair:
+        for hit in hits:
+            reference_index = index.reference_index(hit.position)
+            ref = refs[reference_index].sequence
+            reference_start = index.get_strobe1_position(hit.position)
+            reference_end = reference_start + index.strobe2_offset(hit.position) + index.k
+            ref_aligned = ref[reference_start:reference_end]
+            query_aligned = query[hit.query_start:hit.query_end]
+            hit.is_partial
 
 
 def test_index_find():

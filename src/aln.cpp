@@ -1041,7 +1041,7 @@ std::vector<Nam> get_nams(
 
     // Find NAMs
     Timer nam_timer;
-    auto [nonrepetitive_fraction, nonrepetitive_hits, partial_hits, sorting_needed, matches_map] = find_matches(query_randstrobes, index, map_param.use_mcs);
+    auto [nonrepetitive_fraction, nonrepetitive_hits, partial_hits, sorting_needed, hits] = find_hits(query_randstrobes, index, map_param.use_mcs);
     std::vector<Nam> nams;
     statistics.n_hits += nonrepetitive_hits;
     statistics.n_partial_hits += partial_hits;
@@ -1057,6 +1057,8 @@ std::vector<Nam> get_nams(
         details.nam_rescue = true;
         statistics.tot_time_rescue += rescue_timer.duration();
     } else {
+        std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
+        matches_map = {hits_to_matches(hits[0], index), hits_to_matches(hits[1], index)};
         nams = merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), sorting_needed);
         details.nams = nams.size();
         statistics.tot_find_nams += nam_timer.duration();
