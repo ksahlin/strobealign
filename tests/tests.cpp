@@ -171,3 +171,7 @@ TEST_CASE("reverse complement") {
     CHECK(reverse_complement("ACG") == "CGT");
     CHECK(reverse_complement("AACGT") == "ACGTT");
 }
+
+TEST_CASE("pick_bits") {
+    CHECK(pick_bits(SyncmerParameters{20, 16}, 0) == 8);
+}
