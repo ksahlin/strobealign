@@ -1,17 +1,10 @@
 #include "nam.hpp"
 
-namespace {
-
-struct Match {
-    int query_start;
-    int query_end;
-    int ref_start;
-    int ref_end;
-};
-
 bool operator==(const Match& lhs, const Match& rhs) {
     return (lhs.query_start == rhs.query_start) && (lhs.query_end == rhs.query_end) && (lhs.ref_start == rhs.ref_start) && (lhs.ref_end == rhs.ref_end);
 }
+
+namespace {
 
 /*
  * A partial hit is a hit where not the full randstrobe hash could be found in
@@ -197,6 +190,8 @@ void merge_matches_into_nams(
     }
 }
 
+} // namespace
+
 std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2>& matches_map,
     int k,
@@ -210,7 +205,6 @@ std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
     return nams;
 }
 
-} // namespace
 
 /*
  * Find a query’s NAMs, ignoring randstrobes that occur too often in the
@@ -218,7 +212,7 @@ std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
  *
  * Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
  */
-std::tuple<float, int, int, std::vector<Nam>> find_nams(
+std::tuple<float, int, int, bool, std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2>> find_matches(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     bool use_mcs
@@ -233,7 +227,7 @@ std::tuple<float, int, int, std::vector<Nam>> find_nams(
     std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
     matches_map[0].reserve(100);
     matches_map[1].reserve(100);
-    int nr_good_hits = 0;
+    int nonrepetitive_hits = 0;
     int total_hits = 0;
     int partial_hits = 0;
     for (const auto &q : query_randstrobes) {
@@ -243,7 +237,7 @@ std::tuple<float, int, int, std::vector<Nam>> find_nams(
             if (index.is_filtered(position)) {
                 continue;
             }
-            nr_good_hits++;
+            nonrepetitive_hits++;
             add_to_matches_map_full(matches_map[q.is_revcomp], q.start, q.end, index, position);
         }
         else if (use_mcs) {
@@ -259,7 +253,7 @@ std::tuple<float, int, int, std::vector<Nam>> find_nams(
                     partial_queried.push_back(ph);
                     continue;
                 }
-                nr_good_hits++;
+                nonrepetitive_hits++;
                 partial_hits++;
                 add_to_matches_map_partial(matches_map[q.is_revcomp], q.partial_start, q.partial_end, index, partial_pos);
             }
@@ -276,7 +270,7 @@ std::tuple<float, int, int, std::vector<Nam>> find_nams(
                 if (index.is_partial_filtered(partial_pos)) {
                     continue;
                 }
-                nr_good_hits++;
+                nonrepetitive_hits++;
                 partial_hits++;
                 add_to_matches_map_partial(matches_map[q.is_revcomp], q.partial_start, q.partial_end, index, partial_pos);
             }
@@ -284,9 +278,8 @@ std::tuple<float, int, int, std::vector<Nam>> find_nams(
         sorting_needed = true;
     }
 
-    float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
-    auto nams = merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), sorting_needed);
-    return {nonrepetitive_fraction, nr_good_hits, partial_hits, nams};
+    float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
+    return {nonrepetitive_fraction, nonrepetitive_hits, partial_hits, sorting_needed, matches_map};
 }
 
 /*

@@ -1041,9 +1041,9 @@ std::vector<Nam> get_nams(
 
     // Find NAMs
     Timer nam_timer;
-    auto [nonrepetitive_fraction, n_hits, partial_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
-    statistics.tot_find_nams += nam_timer.duration();
-    statistics.n_hits += n_hits;
+    auto [nonrepetitive_fraction, nonrepetitive_hits, partial_hits, sorting_needed, matches_map] = find_matches(query_randstrobes, index, map_param.use_mcs);
+    auto nams = merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), sorting_needed);
+    statistics.n_hits += nonrepetitive_hits;
     statistics.n_partial_hits += partial_hits;
     details.nams = nams.size();
 
@@ -1057,6 +1057,9 @@ std::vector<Nam> get_nams(
         details.rescue_nams = nams.size();
         details.nam_rescue = true;
         statistics.tot_time_rescue += rescue_timer.duration();
+    } else {
+
+        statistics.tot_find_nams += nam_timer.duration();
     }
 
     // Sort by score
