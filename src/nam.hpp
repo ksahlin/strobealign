@@ -66,10 +66,12 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
 
 std::ostream& operator<<(std::ostream& os, const Nam& nam);
 
-std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
-    std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2>& matches_map,
+void merge_matches_into_nams(
+    robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
     int k,
-    bool sort
+    bool sort,
+    bool is_revcomp,
+    std::vector<Nam>& nams  // inout
 );
 
 robin_hood::unordered_map<unsigned int, std::vector<Match>> hits_to_matches(

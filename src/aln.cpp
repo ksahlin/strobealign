@@ -1057,9 +1057,10 @@ std::vector<Nam> get_nams(
         details.nam_rescue = true;
         statistics.tot_time_rescue += rescue_timer.duration();
     } else {
-        std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
-        matches_map = {hits_to_matches(hits[0], index), hits_to_matches(hits[1], index)};
-        nams = merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), sorting_needed);
+        for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
+            auto matches = hits_to_matches(hits[is_revcomp], index);
+            merge_matches_into_nams(matches, index.k(), sorting_needed, is_revcomp, nams);
+        }
         details.nams = nams.size();
         statistics.tot_find_nams += nam_timer.duration();
     }

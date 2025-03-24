@@ -77,6 +77,21 @@ inline void add_to_matches_map_partial(
     }
 }
 
+std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
+    std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2>& matches_map,
+    int k,
+    bool sort
+) {
+    std::vector<Nam> nams;
+    for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
+        auto& matches_oriented = matches_map[is_revcomp];
+        merge_matches_into_nams(matches_oriented, k, sort, is_revcomp, nams);
+    }
+    return nams;
+}
+
+} // namespace
+
 void merge_matches_into_nams(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
     int k,
@@ -190,8 +205,6 @@ void merge_matches_into_nams(
     }
 }
 
-} // namespace
-
 robin_hood::unordered_map<unsigned int, std::vector<Match>> hits_to_matches(
     const std::vector<Hit>& hits,
     const StrobemerIndex& index
@@ -208,19 +221,6 @@ robin_hood::unordered_map<unsigned int, std::vector<Match>> hits_to_matches(
     }
 
     return matches_map;
-}
-
-std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
-    std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2>& matches_map,
-    int k,
-    bool sort
-) {
-    std::vector<Nam> nams;
-    for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
-        auto& matches_oriented = matches_map[is_revcomp];
-        merge_matches_into_nams(matches_oriented, k, sort, is_revcomp, nams);
-    }
-    return nams;
 }
 
 /*
