@@ -2,6 +2,7 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/string_view.h>
 #include <nanobind/stl/bind_vector.h>
+#include <nanobind/stl/pair.h>
 #include <nanobind/make_iterator.h>
 #include <iostream>
 #include <sstream>
@@ -127,6 +128,9 @@ NB_MODULE(strobealign_extension, m_) {
             return v;
         })
         .def("populate", &StrobemerIndex::populate, "f"_a = 0.0002, "threads"_a = 1)
+        .def("reference_index", &StrobemerIndex::reference_index)
+        .def("get_strobe1_position", &StrobemerIndex::get_strobe1_position)
+        .def("strobe2_offset", &StrobemerIndex::strobe2_offset)
         .def_ro("filter_cutoff", &StrobemerIndex::filter_cutoff)
         .def_prop_ro("k", &StrobemerIndex::k)
     ;
@@ -158,10 +162,19 @@ NB_MODULE(strobealign_extension, m_) {
         })
     ;
     nb::bind_vector<std::vector<Nam>>(m, "NamVector");
+    nb::bind_vector<std::vector<Hit>>(m, "HitVector");
 
+    nb::class_<Hit>(m, "Hit")
+        .def_ro("position", &Hit::position)
+        .def_ro("query_start", &Hit::query_start)
+        .def_ro("query_end", &Hit::query_end)
+        .def_ro("is_partial", &Hit::is_partial)
+    ;
     m.def("randstrobes_query", &randstrobes_query);
-    m.def("find_nams", [](const std::vector<QueryRandstrobe>& query_randstrobes, const StrobemerIndex& index, bool use_mcs) -> std::vector<Nam> {
-        auto [nonrepetitive_fraction, n_hits, partial_hits, nams] = find_nams(query_randstrobes, index, use_mcs);
-        return nams;
+
+    m.def("find_hits", [](const std::vector<QueryRandstrobe>& query_randstrobes, const StrobemerIndex& index, bool use_mcs) -> std::pair<std::vector<Hit>, std::vector<Hit>> {
+        auto [nonrepetitive_fraction, nonrepetitie_hits, partial_hits, sorting_needed, hits] = find_hits(query_randstrobes, index, use_mcs);
+        return {hits[0], hits[1]};
     }, nb::arg("query_randstrobes"), nb::arg("index"), nb::arg("use_mcs"));
+
 }

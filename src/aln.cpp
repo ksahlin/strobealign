@@ -1041,14 +1041,13 @@ std::vector<Nam> get_nams(
 
     // Find NAMs
     Timer nam_timer;
-    auto [nonrepetitive_fraction, n_hits, partial_hits, nams] = find_nams(query_randstrobes, index, map_param.use_mcs);
-    statistics.tot_find_nams += nam_timer.duration();
-    statistics.n_hits += n_hits;
+    auto [nonrepetitive_fraction, nonrepetitive_hits, partial_hits, sorting_needed, hits] = find_hits(query_randstrobes, index, map_param.use_mcs);
+    std::vector<Nam> nams;
+    statistics.n_hits += nonrepetitive_hits;
     statistics.n_partial_hits += partial_hits;
-    details.nams = nams.size();
 
     // Rescue if requested and needed
-    if (map_param.rescue_level > 1 && (nams.empty() || nonrepetitive_fraction < 0.7)) {
+    if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
         Timer rescue_timer;
         int n_rescue_hits;
         std::tie(n_rescue_hits, partial_hits, nams) = find_nams_rescue(query_randstrobes, index, map_param.rescue_cutoff, map_param.use_mcs);
@@ -1057,6 +1056,13 @@ std::vector<Nam> get_nams(
         details.rescue_nams = nams.size();
         details.nam_rescue = true;
         statistics.tot_time_rescue += rescue_timer.duration();
+    } else {
+        for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
+            auto matches = hits_to_matches(hits[is_revcomp], index);
+            merge_matches_into_nams(matches, index.k(), sorting_needed, is_revcomp, nams);
+        }
+        details.nams = nams.size();
+        statistics.tot_find_nams += nam_timer.duration();
     }
 
     // Sort by score

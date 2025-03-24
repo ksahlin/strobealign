@@ -1,17 +1,10 @@
 #include "nam.hpp"
 
-namespace {
-
-struct Match {
-    int query_start;
-    int query_end;
-    int ref_start;
-    int ref_end;
-};
-
 bool operator==(const Match& lhs, const Match& rhs) {
     return (lhs.query_start == rhs.query_start) && (lhs.query_end == rhs.query_end) && (lhs.ref_start == rhs.ref_start) && (lhs.ref_end == rhs.ref_end);
 }
+
+namespace {
 
 /*
  * A partial hit is a hit where not the full randstrobe hash could be found in
@@ -83,6 +76,21 @@ inline void add_to_matches_map_partial(
         );
     }
 }
+
+std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
+    std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2>& matches_map,
+    int k,
+    bool sort
+) {
+    std::vector<Nam> nams;
+    for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
+        auto& matches_oriented = matches_map[is_revcomp];
+        merge_matches_into_nams(matches_oriented, k, sort, is_revcomp, nams);
+    }
+    return nams;
+}
+
+} // namespace
 
 void merge_matches_into_nams(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
@@ -197,28 +205,31 @@ void merge_matches_into_nams(
     }
 }
 
-std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
-    std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2>& matches_map,
-    int k,
-    bool sort
+robin_hood::unordered_map<unsigned int, std::vector<Match>> hits_to_matches(
+    const std::vector<Hit>& hits,
+    const StrobemerIndex& index
 ) {
-    std::vector<Nam> nams;
-    for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
-        auto& matches_oriented = matches_map[is_revcomp];
-        merge_matches_into_nams(matches_oriented, k, sort, is_revcomp, nams);
+    robin_hood::unordered_map<unsigned int, std::vector<Match>> matches_map;
+    matches_map.reserve(100);
+
+    for (const auto& hit : hits) {
+        if (hit.is_partial) {
+            add_to_matches_map_partial(matches_map, hit.query_start, hit.query_end, index, hit.position);
+        } else {
+            add_to_matches_map_full(matches_map, hit.query_start, hit.query_end, index, hit.position);
+        }
     }
-    return nams;
+
+    return matches_map;
 }
 
-} // namespace
-
 /*
- * Find a query’s NAMs, ignoring randstrobes that occur too often in the
+ * Find a query’s hits, ignoring randstrobes that occur too often in the
  * reference (have a count above filter_cutoff).
  *
  * Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
  */
-std::tuple<float, int, int, std::vector<Nam>> find_nams(
+std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     bool use_mcs
@@ -230,10 +241,8 @@ std::tuple<float, int, int, std::vector<Nam>> find_nams(
     if (use_mcs) {
         partial_queried.reserve(10);
     }
-    std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
-    matches_map[0].reserve(100);
-    matches_map[1].reserve(100);
-    int nr_good_hits = 0;
+    std::array<std::vector<Hit>, 2> hits;
+    int nonrepetitive_hits = 0;
     int total_hits = 0;
     int partial_hits = 0;
     for (const auto &q : query_randstrobes) {
@@ -243,10 +252,9 @@ std::tuple<float, int, int, std::vector<Nam>> find_nams(
             if (index.is_filtered(position)) {
                 continue;
             }
-            nr_good_hits++;
-            add_to_matches_map_full(matches_map[q.is_revcomp], q.start, q.end, index, position);
-        }
-        else if (use_mcs) {
+            hits[q.is_revcomp].push_back(Hit{position, q.start, q.end, false});
+            nonrepetitive_hits++;
+        } else if (use_mcs) {
             PartialHit ph{q.hash & index.get_main_hash_mask(), q.partial_start, q.is_revcomp};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
@@ -259,9 +267,9 @@ std::tuple<float, int, int, std::vector<Nam>> find_nams(
                     partial_queried.push_back(ph);
                     continue;
                 }
-                nr_good_hits++;
+                nonrepetitive_hits++;
                 partial_hits++;
-                add_to_matches_map_partial(matches_map[q.is_revcomp], q.partial_start, q.partial_end, index, partial_pos);
+                hits[q.is_revcomp].push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
             }
             partial_queried.push_back(ph);
         }
@@ -276,17 +284,16 @@ std::tuple<float, int, int, std::vector<Nam>> find_nams(
                 if (index.is_partial_filtered(partial_pos)) {
                     continue;
                 }
-                nr_good_hits++;
+                nonrepetitive_hits++;
                 partial_hits++;
-                add_to_matches_map_partial(matches_map[q.is_revcomp], q.partial_start, q.partial_end, index, partial_pos);
+                hits[q.is_revcomp].push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
             }
         }
         sorting_needed = true;
     }
 
-    float nonrepetitive_fraction = total_hits > 0 ? ((float) nr_good_hits) / ((float) total_hits) : 1.0;
-    auto nams = merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), sorting_needed);
-    return {nonrepetitive_fraction, nr_good_hits, partial_hits, nams};
+    float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
+    return {nonrepetitive_fraction, nonrepetitive_hits, partial_hits, sorting_needed, hits};
 }
 
 /*
