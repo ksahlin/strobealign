@@ -229,6 +229,7 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
     int partial_hits = 0;
     for (int is_revcomp : {0, 1}) {
       auto& query_randstrobes = query_randstrobes_pair[is_revcomp];
+      int total_hits_oriented = 0;
       std::vector<PartialHit> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
       if (use_mcs) {
           partial_queried.reserve(10);
@@ -237,6 +238,7 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
         size_t position = index.find_full(q.hash);
         if (position != index.end()) {
             total_hits++;
+            total_hits_oriented++;
             if (index.is_filtered(position)) {
                 continue;
             }
@@ -251,6 +253,7 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
                 total_hits++;
+                total_hits_oriented++;
                 if (index.is_partial_filtered(partial_pos)) {
                     partial_queried.push_back(ph);
                     continue;
@@ -262,11 +265,9 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
             partial_queried.push_back(ph);
         }
       }
-    }
 
-    // Rescue using partial hits, even in non-MCS mode
-    if (total_hits == 0 && !use_mcs) {
-      for (int is_revcomp : {0, 1}) {
+      // Rescue using partial hits, even in non-MCS mode
+      if (total_hits_oriented == 0 && !use_mcs) {
         auto& query_randstrobes = query_randstrobes_pair[is_revcomp];
         for (const auto &q : query_randstrobes) {
             size_t partial_pos = index.find_partial(q.hash);
