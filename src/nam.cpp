@@ -161,7 +161,7 @@ void merge_matches_into_nams(
                         int n_max_span = std::max(n.query_span(), n.ref_span());
                         int n_min_span = std::min(n.query_span(), n.ref_span());
                         float n_score;
-                        n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (n.n_matches * ( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_matches * ( min_span - (offset_in_span) ) );
+                        n_score = ( 2*n_min_span -  n_max_span) > 0 ? (float) (( 2*n_min_span -  n_max_span) ) : 1;   // this is really just n_matches * ( min_span - (offset_in_span) ) );
 //                        n_score = n.n_hits * n.query_span();
                         n.score = n_score;
                         n.nam_id = nams.size();
