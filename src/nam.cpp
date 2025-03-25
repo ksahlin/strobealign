@@ -215,35 +215,29 @@ robin_hood::unordered_map<unsigned int, std::vector<Match>> hits_to_matches(
  *
  * Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
  */
-std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
-    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes_pair,
+std::tuple<int, int, bool, std::vector<Hit>> find_hits(
+    const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     bool use_mcs
 ) {
     // If we produce matches in sorted order, then merge_matches_into_nams()
     // does not have to re-sort
     bool sorting_needed{use_mcs};
-    std::array<std::vector<Hit>, 2> hits;
-    int nonrepetitive_hits = 0;
+    std::vector<Hit> hits;
     int total_hits = 0;
     int partial_hits = 0;
-    for (int is_revcomp : {0, 1}) {
-      auto& query_randstrobes = query_randstrobes_pair[is_revcomp];
-      int total_hits_oriented = 0;
-      std::vector<PartialHit> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
-      if (use_mcs) {
-          partial_queried.reserve(10);
-      }
-      for (const auto &q : query_randstrobes) {
+    std::vector<PartialHit> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
+    if (use_mcs) {
+        partial_queried.reserve(10);
+    }
+    for (const auto &q : query_randstrobes) {
         size_t position = index.find_full(q.hash);
         if (position != index.end()) {
             total_hits++;
-            total_hits_oriented++;
             if (index.is_filtered(position)) {
                 continue;
             }
-            hits[is_revcomp].push_back(Hit{position, q.start, q.end, false});
-            nonrepetitive_hits++;
+            hits.push_back(Hit{position, q.start, q.end, false});
         } else if (use_mcs) {
             PartialHit ph{q.hash & index.get_main_hash_mask(), q.partial_start};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
@@ -253,22 +247,19 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
                 total_hits++;
-                total_hits_oriented++;
                 if (index.is_partial_filtered(partial_pos)) {
                     partial_queried.push_back(ph);
                     continue;
                 }
-                nonrepetitive_hits++;
                 partial_hits++;
-                hits[is_revcomp].push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
+                hits.push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
             }
             partial_queried.push_back(ph);
         }
-      }
+    }
 
-      // Rescue using partial hits, even in non-MCS mode
-      if (total_hits_oriented == 0 && !use_mcs) {
-        auto& query_randstrobes = query_randstrobes_pair[is_revcomp];
+    // Rescue using partial hits, even in non-MCS mode
+    if (total_hits == 0 && !use_mcs) {
         for (const auto &q : query_randstrobes) {
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
@@ -276,17 +267,14 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
                 if (index.is_partial_filtered(partial_pos)) {
                     continue;
                 }
-                nonrepetitive_hits++;
                 partial_hits++;
-                hits[is_revcomp].push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
+                hits.push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
             }
         }
         sorting_needed = true;
-      }
     }
 
-    float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
-    return {nonrepetitive_fraction, nonrepetitive_hits, partial_hits, sorting_needed, hits};
+    return {total_hits, partial_hits, sorting_needed, hits};
 }
 
 /*

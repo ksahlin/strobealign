@@ -2,7 +2,6 @@
 #define STROBEALIGN_NAM_HPP
 
 #include <vector>
-#include <array>
 #include "index.hpp"
 #include "randstrobes.hpp"
 
@@ -53,8 +52,8 @@ struct Nam {
 
 std::ostream& operator<<(std::ostream& os, const Nam& nam);
 
-std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
-    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes_pair,
+std::tuple<int, int, bool, std::vector<Hit>> find_hits(
+    const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     bool use_mcs
 );
