@@ -35,9 +35,9 @@ def test_indexing_and_hit_finding():
     query = "TGCGTTTATGGTACGCTGGACTTTGTGGGATACCCTCGCTTTCCTGCTCCTGTTGAGTTTATTGCTGCCG"
     randstrobes = strobealign.randstrobes_query(query, index_parameters)
 
-    hits_pair = strobealign.find_hits(randstrobes, index, use_mcs=False)
-    assert len(hits_pair) == 2
-    for hits in hits_pair:
+    for is_revcomp in (0, 1):
+        hits = strobealign.find_hits(randstrobes[is_revcomp], index, use_mcs=False)
+        assert hits
         for hit in hits:
             reference_index = index.reference_index(hit.position)
             ref = refs[reference_index].sequence
@@ -55,7 +55,7 @@ def test_index_find():
     index.populate()
 
     query = "TGCGTTTATGGTACGCTGGACTTTGTGGGATACCCTCGCTTTCCTGCTCCTGTTGAGTTTATTGCTGCCG"
-    query_randstrobes = strobealign.randstrobes_query(query, index_parameters)
+    query_randstrobes = strobealign.randstrobes_query(query, index_parameters)[0]
     assert query_randstrobes
     # First randstrobe must be found
     assert index.find(query_randstrobes[0].hash)

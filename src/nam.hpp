@@ -2,7 +2,6 @@
 #define STROBEALIGN_NAM_HPP
 
 #include <vector>
-#include <array>
 #include "index.hpp"
 #include "randstrobes.hpp"
 
@@ -51,20 +50,20 @@ struct Nam {
     }
 };
 
-std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
-    const std::vector<QueryRandstrobe> &query_randstrobes,
+std::ostream& operator<<(std::ostream& os, const Nam& nam);
+
+std::tuple<int, int, bool, std::vector<Hit>> find_hits(
+    const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     bool use_mcs
 );
 
-std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
-    const std::vector<QueryRandstrobe> &query_randstrobes,
+std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>> find_matches_rescue(
+    const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
     bool use_mcs
 );
-
-std::ostream& operator<<(std::ostream& os, const Nam& nam);
 
 void merge_matches_into_nams(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,

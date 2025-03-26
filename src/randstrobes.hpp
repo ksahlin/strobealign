@@ -77,12 +77,11 @@ struct QueryRandstrobe {
      */
     unsigned int partial_start;
     unsigned int partial_end;
-    bool is_revcomp;
 };
 
 std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe);
 
-std::vector<QueryRandstrobe> randstrobes_query(const std::string_view seq, const IndexParameters& parameters);
+std::array<std::vector<QueryRandstrobe>, 2> randstrobes_query(const std::string_view seq, const IndexParameters& parameters);
 
 struct Randstrobe {
     randstrobe_hash_t hash;

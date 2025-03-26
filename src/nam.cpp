@@ -13,9 +13,8 @@ namespace {
 struct PartialHit {
     randstrobe_hash_t hash;
     unsigned int start;  // position in strobemer index
-    bool is_reverse;
     bool operator==(const PartialHit& rhs) const {
-        return (hash == rhs.hash) && (start == rhs.start) && (is_reverse == rhs.is_reverse);
+        return (hash == rhs.hash) && (start == rhs.start);
     }
 };
 
@@ -75,19 +74,6 @@ inline void add_to_matches_map_partial(
             Match{query_start, query_end, ref_start, ref_end}
         );
     }
-}
-
-std::vector<Nam> merge_matches_into_nams_forward_and_reverse(
-    std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2>& matches_map,
-    int k,
-    bool sort
-) {
-    std::vector<Nam> nams;
-    for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
-        auto& matches_oriented = matches_map[is_revcomp];
-        merge_matches_into_nams(matches_oriented, k, sort, is_revcomp, nams);
-    }
-    return nams;
 }
 
 } // namespace
@@ -229,7 +215,7 @@ robin_hood::unordered_map<unsigned int, std::vector<Match>> hits_to_matches(
  *
  * Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
  */
-std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
+std::tuple<int, int, bool, std::vector<Hit>> find_hits(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     bool use_mcs
@@ -237,14 +223,13 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
     // If we produce matches in sorted order, then merge_matches_into_nams()
     // does not have to re-sort
     bool sorting_needed{use_mcs};
+    std::vector<Hit> hits;
+    int total_hits = 0;
+    int partial_hits = 0;
     std::vector<PartialHit> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
     if (use_mcs) {
         partial_queried.reserve(10);
     }
-    std::array<std::vector<Hit>, 2> hits;
-    int nonrepetitive_hits = 0;
-    int total_hits = 0;
-    int partial_hits = 0;
     for (const auto &q : query_randstrobes) {
         size_t position = index.find_full(q.hash);
         if (position != index.end()) {
@@ -252,10 +237,9 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
             if (index.is_filtered(position)) {
                 continue;
             }
-            hits[q.is_revcomp].push_back(Hit{position, q.start, q.end, false});
-            nonrepetitive_hits++;
+            hits.push_back(Hit{position, q.start, q.end, false});
         } else if (use_mcs) {
-            PartialHit ph{q.hash & index.get_main_hash_mask(), q.partial_start, q.is_revcomp};
+            PartialHit ph{q.hash & index.get_main_hash_mask(), q.partial_start};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
                 continue;
@@ -267,9 +251,8 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
                     partial_queried.push_back(ph);
                     continue;
                 }
-                nonrepetitive_hits++;
                 partial_hits++;
-                hits[q.is_revcomp].push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
+                hits.push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
             }
             partial_queried.push_back(ph);
         }
@@ -284,16 +267,14 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
                 if (index.is_partial_filtered(partial_pos)) {
                     continue;
                 }
-                nonrepetitive_hits++;
                 partial_hits++;
-                hits[q.is_revcomp].push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
+                hits.push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
             }
         }
         sorting_needed = true;
     }
 
-    float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
-    return {nonrepetitive_fraction, nonrepetitive_hits, partial_hits, sorting_needed, hits};
+    return {total_hits, partial_hits, sorting_needed, hits};
 }
 
 /*
@@ -302,7 +283,7 @@ std::tuple<float, int, int, bool, std::array<std::vector<Hit>, 2>> find_hits(
  *
  * Return the number of hits and the vector of NAMs.
  */
-std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
+std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>> find_matches_rescue(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
@@ -320,24 +301,23 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
                 < std::tie(rhs.count, rhs.query_start, rhs.query_end);
         }
     };
+    robin_hood::unordered_map<unsigned int, std::vector<Match>> matches_map;
+    matches_map.reserve(100);
+    int n_hits = 0;
+    int partial_hits = 0;
+    std::vector<RescueHit> rescue_hits;
+    rescue_hits.reserve(5000);
     std::vector<PartialHit> partial_queried;  // TODO: is a small set more efficient than linear search in a small vector?
     partial_queried.reserve(10);
-    std::array<robin_hood::unordered_map<unsigned int, std::vector<Match>>, 2> matches_map;
-    std::array<std::vector<RescueHit>, 2> hits;
-    matches_map[0].reserve(100);
-    matches_map[1].reserve(100);
-    hits[0].reserve(5000);
-    hits[1].reserve(5000);
-
     for (auto &qr : query_randstrobes) {
         size_t position = index.find_full(qr.hash);
         if (position != index.end()) {
             unsigned int count = index.get_count_full(position);
             RescueHit rh{position, count, qr.start, qr.end, false};
-            hits[qr.is_revcomp].push_back(rh);
+            rescue_hits.push_back(rh);
         }
         else if (use_mcs) {
-            PartialHit ph = {qr.hash & index.get_main_hash_mask(), qr.partial_start, qr.is_revcomp};
+            PartialHit ph = {qr.hash & index.get_main_hash_mask(), qr.partial_start};
             if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
                 // already queried
                 continue;
@@ -346,36 +326,30 @@ std::tuple<int, int, std::vector<Nam>> find_nams_rescue(
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_count_partial(partial_pos);
                 RescueHit rh{partial_pos, partial_count, qr.partial_start, qr.partial_end, true};
-                hits[qr.is_revcomp].push_back(rh);
+                rescue_hits.push_back(rh);
+                partial_hits++;
             }
             partial_queried.push_back(ph);
         }
     }
+    std::sort(rescue_hits.begin(), rescue_hits.end());
 
-    std::sort(hits[0].begin(), hits[0].end());
-    std::sort(hits[1].begin(), hits[1].end());
-    int n_hits = 0;
-    int partial_hits = 0;
-    size_t is_revcomp = 0;
-    for (auto& rescue_hits : hits) {
-        int cnt = 0;
-        for (auto &rh : rescue_hits) {
-            if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
-                break;
-            }
-            if (rh.is_partial){
-                partial_hits++;
-                add_to_matches_map_partial(matches_map[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
-            } else{
-                add_to_matches_map_full(matches_map[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
-            }
-            cnt++;
-            n_hits++;
+    int cnt = 0;
+    for (auto &rh : rescue_hits) {
+        if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
+            break;
         }
-        is_revcomp++;
+        if (rh.is_partial){
+            partial_hits++;
+            add_to_matches_map_partial(matches_map, rh.query_start, rh.query_end, index, rh.position);
+        } else{
+            add_to_matches_map_full(matches_map, rh.query_start, rh.query_end, index, rh.position);
+        }
+        cnt++;
+        n_hits++;
     }
 
-    return {n_hits, partial_hits, merge_matches_into_nams_forward_and_reverse(matches_map, index.k(), true)};
+    return {n_hits, partial_hits, matches_map};
 }
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {
