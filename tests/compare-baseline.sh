@@ -41,7 +41,8 @@ fi
 # Ensure test data is available
 tests/download.sh
 
-baseline_commit=$(< tests/baseline-commit.txt)
+
+baseline_commit=$(git --no-pager log -n1 --pretty=format:%H --grep='^Is-new-baseline: yes')
 
 baseline_binary=baseline/strobealign-${baseline_commit}
 cmake_options=-DCMAKE_BUILD_TYPE=RelWithDebInfo
