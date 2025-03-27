@@ -158,6 +158,7 @@ std::ostream& operator<<(std::ostream& os, const QueryRandstrobe& randstrobe) {
 Randstrobe make_randstrobe(Syncmer strobe1, Syncmer strobe2, randstrobe_hash_t main_hash_mask) {
     return Randstrobe{
         randstrobe_hash(strobe1.hash, strobe2.hash, main_hash_mask),
+        randstrobe_hash(strobe2.hash, strobe1.hash, main_hash_mask),
         static_cast<uint32_t>(strobe1.position),
         static_cast<uint32_t>(strobe2.position)
     };
@@ -241,7 +242,7 @@ std::array<std::vector<QueryRandstrobe>, 2> randstrobes_query(const std::string_
         auto randstrobe = randstrobe_fwd_iter.next();
         randstrobes[0].push_back(
             QueryRandstrobe {
-                randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k
+                randstrobe.hash, randstrobe.hash_revcomp, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k
             }
         );
     }
@@ -264,7 +265,7 @@ std::array<std::vector<QueryRandstrobe>, 2> randstrobes_query(const std::string_
         auto randstrobe = randstrobe_rc_iter.next();
         randstrobes[1].push_back(
             QueryRandstrobe {
-                randstrobe.hash, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k
+                randstrobe.hash, randstrobe.hash_revcomp, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k
             }
         );
     }

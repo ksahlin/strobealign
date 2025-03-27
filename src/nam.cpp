@@ -219,7 +219,7 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
         size_t position = index.find_full(q.hash);
         if (position != index.end()) {
             total_hits++;
-            if (index.is_filtered(position)) {
+            if (index.is_filtered(position, q.hash_revcomp)) {
                 continue;
             }
             hits.push_back(Hit{position, q.start, q.end, false});
@@ -227,7 +227,7 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
                 total_hits++;
-                if (index.is_partial_filtered(partial_pos)) {
+                if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
                     continue;
                 }
                 partial_hits++;
@@ -242,7 +242,7 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
                 total_hits++;
-                if (index.is_partial_filtered(partial_pos)) {
+                if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
                     continue;
                 }
                 partial_hits++;
@@ -289,6 +289,11 @@ std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>
         size_t position = index.find_full(qr.hash);
         if (position != index.end()) {
             unsigned int count = index.get_count_full(position);
+
+            size_t position_revcomp = index.find_full(qr.hash_revcomp);
+            if (position_revcomp != index.end()) {
+                count += index.get_count_full(position_revcomp);
+            }
             RescueHit rh{position, count, qr.start, qr.end, false};
             rescue_hits.push_back(rh);
         }
@@ -296,6 +301,10 @@ std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>
             size_t partial_pos = index.find_partial(qr.hash);
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_count_partial(partial_pos);
+                size_t position_revcomp = index.find_partial(qr.hash_revcomp);
+                if (position_revcomp != index.end()) {
+                    partial_count += index.get_count_partial(position_revcomp);
+                }
                 RescueHit rh{partial_pos, partial_count, qr.start, qr.start + index.k(), true};
                 rescue_hits.push_back(rh);
                 partial_hits++;

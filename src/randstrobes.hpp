@@ -66,6 +66,7 @@ public:
 
 struct QueryRandstrobe {
     randstrobe_hash_t hash;
+    randstrobe_hash_t hash_revcomp;
     unsigned int start;
     unsigned int end;
 };
@@ -76,6 +77,7 @@ std::array<std::vector<QueryRandstrobe>, 2> randstrobes_query(const std::string_
 
 struct Randstrobe {
     randstrobe_hash_t hash;
+    randstrobe_hash_t hash_revcomp;
     unsigned int strobe1_pos;
     unsigned int strobe2_pos;
 
@@ -175,7 +177,7 @@ public:
     { }
 
     Randstrobe next();
-    Randstrobe end() const { return Randstrobe{0, 0, 0}; }
+    Randstrobe end() const { return Randstrobe{0, 0, 0, 0}; }
 
 private:
     SyncmerIterator syncmer_iterator;

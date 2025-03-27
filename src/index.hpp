@@ -123,12 +123,38 @@ struct StrobemerIndex {
         }
     }
 
-    bool is_filtered(bucket_index_t position) const {
+    bool is_filtered_forward(bucket_index_t position) const {
         return get_hash(position) == get_hash(position + filter_cutoff);
     }
 
-    bool is_partial_filtered(bucket_index_t position) const {
+    bool is_filtered(bucket_index_t position, randstrobe_hash_t hash_revcomp) const {
+        if (is_filtered_forward(position)) {
+            return true;
+        }
+        bucket_index_t position_revcomp = find_full(hash_revcomp);
+        if (is_filtered_forward(position_revcomp)) {
+            return true;
+        }
+        size_t count = get_count_full(position) + get_count_full(position_revcomp);
+
+        return count > filter_cutoff;
+    }
+
+    bool is_partial_filtered_forward(bucket_index_t position) const {
         return get_main_hash(position) == get_main_hash(position + partial_filter_cutoff);
+    }
+
+    bool is_partial_filtered(bucket_index_t position, randstrobe_hash_t hash_revcomp) const {
+        if (is_partial_filtered_forward(position)) {
+            return true;
+        }
+        bucket_index_t position_revcomp = find_full(hash_revcomp);
+        if (is_partial_filtered_forward(position_revcomp)) {
+            return true;
+        }
+        size_t count = get_count_partial(position) + get_count_partial(position_revcomp);
+
+        return count > filter_cutoff;
     }
 
     unsigned int get_strobe1_position(bucket_index_t position) const {
