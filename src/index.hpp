@@ -127,6 +127,19 @@ struct StrobemerIndex {
         return get_hash(position) == get_hash(position + filter_cutoff);
     }
 
+    bool is_filtered_and_revcomp(bucket_index_t position, uint64_t hash_revcomp) const {
+        if (is_filtered(position)) {
+            return true;
+        }
+        bucket_index_t position_revcomp = find_full(hash_revcomp);
+        if (is_filtered(position_revcomp)) {
+            return true;
+        }
+        size_t count = get_count_full(position) + get_count_full(position_revcomp);
+
+        return count > filter_cutoff;
+    }
+
     bool is_partial_filtered(bucket_index_t position) const {
         return get_main_hash(position) == get_main_hash(position + partial_filter_cutoff);
     }
