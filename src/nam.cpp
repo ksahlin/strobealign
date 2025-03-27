@@ -219,7 +219,12 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
         size_t position = index.find_full(q.hash);
         if (position != index.end()) {
             total_hits++;
-            if (index.is_filtered(position)) {
+
+            // TODO
+            // - should preferably add up the two counts instead of using 'or'
+            // - the if (use_mcs) branch should also use the same logic
+            size_t position_revcomp = index.find_full(q.hash_revcomp);
+            if (index.is_filtered(position) || (position_revcomp != index.end() && index.is_filtered(position_revcomp))) {
                 continue;
             }
             hits.push_back(Hit{position, q.start, q.end, false});
