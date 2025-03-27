@@ -247,7 +247,8 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
                 total_hits++;
-                if (index.is_partial_filtered(partial_pos)) {
+                size_t position_revcomp = index.find_partial(q.hash_revcomp);
+                if (index.is_partial_filtered(partial_pos) || (position_revcomp != index.end() && index.is_partial_filtered(position_revcomp))) {
                     continue;
                 }
                 partial_hits++;
