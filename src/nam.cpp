@@ -6,18 +6,6 @@ bool operator==(const Match& lhs, const Match& rhs) {
 
 namespace {
 
-/*
- * A partial hit is a hit where not the full randstrobe hash could be found in
- * the index but only the "main" hash (only the first aux_len bits).
- */
-struct PartialHit {
-    randstrobe_hash_t hash;
-    unsigned int start;  // position in strobemer index
-    bool operator==(const PartialHit& rhs) const {
-        return (hash == rhs.hash) && (start == rhs.start);
-    }
-};
-
 inline void add_to_matches_map_full(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
     int query_start,
@@ -224,37 +212,27 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
     // does not have to re-sort
     bool sorting_needed{use_mcs};
     std::vector<Hit> hits;
+    int nonrepetitive_hits = 0;
     int total_hits = 0;
     int partial_hits = 0;
-    std::vector<PartialHit> partial_queried; // TODO: is a small set more efficient than linear search in a small vector?
-    if (use_mcs) {
-        partial_queried.reserve(10);
-    }
     for (const auto &q : query_randstrobes) {
         size_t position = index.find_full(q.hash);
         if (position != index.end()) {
             total_hits++;
-            if (index.is_filtered(position)) {
+            if (index.is_filtered(position, q.hash_revcomp)) {
                 continue;
             }
             hits.push_back(Hit{position, q.start, q.end, false});
         } else if (use_mcs) {
-            PartialHit ph{q.hash & index.get_main_hash_mask(), q.partial_start};
-            if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
-                // already queried
-                continue;
-            }
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
                 total_hits++;
-                if (index.is_partial_filtered(partial_pos)) {
-                    partial_queried.push_back(ph);
+                if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
                     continue;
                 }
                 partial_hits++;
-                hits.push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
+                hits.push_back(Hit{partial_pos, q.start, q.start + index.k(), true});
             }
-            partial_queried.push_back(ph);
         }
     }
 
@@ -264,11 +242,11 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
                 total_hits++;
-                if (index.is_partial_filtered(partial_pos)) {
+                if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
                     continue;
                 }
                 partial_hits++;
-                hits.push_back(Hit{partial_pos, q.partial_start, q.partial_end, true});
+                hits.push_back(Hit{partial_pos, q.start, q.start + index.k(), true});
             }
         }
         sorting_needed = true;
@@ -307,29 +285,30 @@ std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>
     int partial_hits = 0;
     std::vector<RescueHit> rescue_hits;
     rescue_hits.reserve(5000);
-    std::vector<PartialHit> partial_queried;  // TODO: is a small set more efficient than linear search in a small vector?
-    partial_queried.reserve(10);
     for (auto &qr : query_randstrobes) {
         size_t position = index.find_full(qr.hash);
         if (position != index.end()) {
             unsigned int count = index.get_count_full(position);
+
+            size_t position_revcomp = index.find_full(qr.hash_revcomp);
+            if (position_revcomp != index.end()) {
+                count += index.get_count_full(position_revcomp);
+            }
             RescueHit rh{position, count, qr.start, qr.end, false};
             rescue_hits.push_back(rh);
         }
         else if (use_mcs) {
-            PartialHit ph = {qr.hash & index.get_main_hash_mask(), qr.partial_start};
-            if (std::find(partial_queried.begin(), partial_queried.end(), ph) != partial_queried.end()) {
-                // already queried
-                continue;
-            }
             size_t partial_pos = index.find_partial(qr.hash);
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_count_partial(partial_pos);
-                RescueHit rh{partial_pos, partial_count, qr.partial_start, qr.partial_end, true};
+                size_t position_revcomp = index.find_partial(qr.hash_revcomp);
+                if (position_revcomp != index.end()) {
+                    partial_count += index.get_count_partial(position_revcomp);
+                }
+                RescueHit rh{partial_pos, partial_count, qr.start, qr.start + index.k(), true};
                 rescue_hits.push_back(rh);
                 partial_hits++;
             }
-            partial_queried.push_back(ph);
         }
     }
     std::sort(rescue_hits.begin(), rescue_hits.end());
