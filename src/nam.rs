@@ -52,6 +52,7 @@ impl Display for Nam {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 struct Match {
     query_start: usize,
     query_end: usize,
@@ -129,7 +130,7 @@ pub fn find_nams_rescue(
 ) -> (usize, Vec<Nam>) {
 
     // TODO we ignore use_mcs
-    
+
     struct RescueHit {
         count: usize,
         position: usize,
@@ -236,12 +237,19 @@ fn add_to_matches_map_partial(
 fn merge_matches_into_nams(matches_map: &mut DefaultHashMap<usize, Vec<Match>>, k: usize, sort: bool, is_revcomp: bool, nams: &mut Vec<Nam>) {
     for (ref_id, matches) in matches_map.iter_mut() {
         if sort {
-            matches.sort_by_key(|k| (k.query_start, k.ref_start));
+            // -k.query_end to prefer full matches over partial ones 
+            matches.sort_by_key(|k| (k.query_start, k.ref_start, -(k.query_end as isize)));
         }
 
         let mut open_nams: Vec<Nam> = Vec::new();
         let mut prev_q_start = 0;
+        let prev_match = Match {query_start: 0, query_end: 0, ref_start: 0, ref_end: 0};
         for m in matches {
+            assert_ne!(prev_match, *m);
+
+            if m.query_end - m.query_start == k && (prev_match.query_start == m.query_start) && (prev_match.ref_start == m.ref_start) {
+                panic!("redundant partial hit encountered");
+            }
             let mut is_added = false;
             for o in &mut open_nams {
                 // Extend NAM
