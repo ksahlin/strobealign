@@ -145,11 +145,9 @@ pub fn find_nams_rescue(
         }
     }*/
 
-    let mut hits_fw = Vec::with_capacity(5000);
-    let mut hits_rc = Vec::with_capacity(5000);
+    let mut hits = [Vec::with_capacity(5000), Vec::with_capacity(5000)];
 
     for randstrobe in query_randstrobes {
-
         if let Some(position) = index.get_full(randstrobe.hash) {
             let count = index.get_count_full(position);
             let rh = RescueHit {
@@ -158,29 +156,26 @@ pub fn find_nams_rescue(
                 query_start: randstrobe.start,
                 query_end: randstrobe.end,
             };
-            if randstrobe.is_revcomp {
-                hits_rc.push(rh);
-            } else {
-                hits_fw.push(rh);
-            }
+            hits[randstrobe.is_revcomp as usize].push(rh);
         }
     }
 
     let cmp = |a: &RescueHit, b: &RescueHit| (a.count, a.query_start, a.query_end).cmp(&(b.count, b.query_start, b.query_end));
-    hits_fw.sort_by(cmp);
-    hits_rc.sort_by(cmp);
+    hits[0].sort_by(cmp);
+    hits[1].sort_by(cmp);
 
     let mut matches_map = [DefaultHashMap::default(), DefaultHashMap::default()];
     matches_map[0].reserve(100);
     matches_map[1].reserve(100);
 
     let mut n_hits = 0;
-    for (is_revcomp, rescue_hits) in [(false, hits_fw), (true, hits_rc)] {
+    for is_revcomp in 0..2 {
+        let rescue_hits = &hits[is_revcomp];
         for (i, rh) in rescue_hits.iter().enumerate() {
             if (rh.count > rescue_cutoff && i >= 5) || rh.count > 1000 {
                 break;
             }
-            add_to_matches_map_full(&mut matches_map[is_revcomp as usize], rh.query_start, rh.query_end, index, rh.position);
+            add_to_matches_map_full(&mut matches_map[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
             n_hits += 1;
         }
     }
