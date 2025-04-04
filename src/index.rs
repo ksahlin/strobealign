@@ -368,7 +368,7 @@ impl<'a> StrobemerIndex<'a> {
         // stats.elapsed_sorting_seeds = sorting_timer.duration();
 
         let timer = Instant::now();
-        debug!("  Indexing ...");
+        debug!("  Generating hash table index ...");
 
         let mut tot_high_ab = 0;
         let mut tot_mid_ab = 0;

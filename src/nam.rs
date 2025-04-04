@@ -393,6 +393,9 @@ pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, references: &[RefSequen
     }
 }
 
+/// Obtain NAMs for a sequence record, doing rescue if needed.
+/// 
+/// NAMs are returned sorted by decreasing score
 pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, use_mcs: bool, rng: &mut Rng) -> (NamDetails, Vec<Nam>) {
     let timer = Instant::now();
     let query_randstrobes = mapper::randstrobes_query(sequence, &index.parameters);
