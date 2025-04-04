@@ -407,13 +407,11 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, us
     let mut n_rescue_nams = 0;
     let mut nam_rescue = false;
     let time_rescue;
-    if rescue_level > 1 {
+    if rescue_level > 1 && (nams.is_empty() || nonrepetitive_fraction < 0.7) {
         let timer = Instant::now();
-        if nams.is_empty() || nonrepetitive_fraction < 0.7 {
-            nam_rescue = true;
-            (n_rescue_hits, nams) = find_nams_rescue(&query_randstrobes, index, index.rescue_cutoff, use_mcs);
-            n_rescue_nams = nams.len();
-        }
+        nam_rescue = true;
+        (n_rescue_hits, nams) = find_nams_rescue(&query_randstrobes, index, index.rescue_cutoff, use_mcs);
+        n_rescue_nams = nams.len();
         time_rescue = timer.elapsed().as_secs_f64();
     } else {
         time_rescue = 0f64;
