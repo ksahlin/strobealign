@@ -45,7 +45,6 @@ pub struct SyncmerIterator<'a> {
     sshift: usize,
     qs: VecDeque<u64>, // s-mer hashes
     qs_min_val: u64,
-    qs_min_pos: usize,
     l: usize,
     xk: [u64; 2],
     xs: [u64; 2],
@@ -66,7 +65,6 @@ impl<'a> SyncmerIterator<'a> {
             sshift: (s - 1) * 2,
             qs: VecDeque::new(),
             qs_min_val: u64::MAX,
-            qs_min_pos: 0,
             l: 0,
             xk: [0, 0],
             xs: [0, 0],
@@ -135,28 +133,25 @@ impl<'a> Iterator for SyncmerIterator<'a> {
                     continue;
                 }
                 if self.qs.len() == (self.k - self.s + 1) { // We are at the last s-mer within the first k-mer, need to decide if we add it
-                    // TODO use argmin
+                    // TODO use min
                     for j in 0..self.qs.len() {
                         if self.qs[j] <= self.qs_min_val {
                             self.qs_min_val = self.qs[j];
-                            self.qs_min_pos = i + j + 1 - self.k;
                         }
                     }
                 } else {
                     // update queue and current minimum and position
-                    self.qs.pop_front();
-                    if self.qs_min_pos == i - self.k { // we popped the previous minimizer, find new brute force
+                    let front = self.qs.pop_front().unwrap();
+                    if front == self.qs_min_val {
+                        // we popped a minimum, find new brute force
                         self.qs_min_val = u64::MAX;
-                        self.qs_min_pos = i - self.s + 1;
                         for j in 0..self.qs.len() {
                             if self.qs[j] <= self.qs_min_val {
                                 self.qs_min_val = self.qs[j];
-                                self.qs_min_pos = i + j + 1 - self.k;
                             }
                         }
                     } else if hash_s < self.qs_min_val { // the new value added to queue is the new minimum
                         self.qs_min_val = hash_s;
-                        self.qs_min_pos = i - self.s + 1;
                     }
                 }
                 if self.qs[self.t - 1] == self.qs_min_val { // occurs at t:th position in k-mer
@@ -168,7 +163,6 @@ impl<'a> Iterator for SyncmerIterator<'a> {
             } else {
                 // if there is an "N", restart
                 self.qs_min_val = u64::MAX;
-                self.qs_min_pos = 0;
                 self.l = 0;
                 self.xs = [0, 0];
                 self.xk = [0, 0];
