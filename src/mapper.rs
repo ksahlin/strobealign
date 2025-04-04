@@ -480,11 +480,11 @@ pub fn align_paired_end_read(
     let mut details = [Details::default(), Details::default()];
     let mut nams_pair = [vec![], vec![]];
 
-    for is_revcomp in [0, 1] {
-        let record = if is_revcomp == 0 { r1 } else { r2 };
+    for is_r1 in [0, 1] {
+        let record = if is_r1 == 0 { r1 } else { r2 };
         let (nam_details, nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, mapping_parameters.use_mcs, rng);
-        details[is_revcomp].nam = nam_details;
-        nams_pair[is_revcomp] = nams;
+        details[is_r1].nam = nam_details;
+        nams_pair[is_r1] = nams;
     }
 
     // Timer extend_timer;
