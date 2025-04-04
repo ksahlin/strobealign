@@ -20,6 +20,10 @@ pub struct NamDetails {
     /// Number of non-rescue hits
     pub n_hits: usize,
 
+    /// Number of partial hits. These are counted twice:
+    /// They are also reported as part of n_hits or n_rescue_hits.
+    pub n_partial_hits: usize,
+    
     /// Number of rescue hits
     pub n_rescue_hits: usize,
 
@@ -37,6 +41,7 @@ impl ops::AddAssign<NamDetails> for NamDetails {
         self.n_rescue_nams += rhs.n_rescue_nams;
         self.nam_rescue += rhs.nam_rescue;
         self.n_hits += rhs.n_hits;
+        self.n_partial_hits += rhs.n_partial_hits;
         self.n_rescue_hits += rhs.n_rescue_hits;
         self.time_randstrobes += rhs.time_randstrobes;
         self.time_find_nams += rhs.time_find_nams;

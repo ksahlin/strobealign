@@ -70,7 +70,7 @@ type DefaultHashMap<K, V> = HashMap<K, V, BuildHasherDefault<DefaultHasher>>;
 ///
 pub fn find_nams(
     query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerIndex, filter_cutoff: usize, use_mcs: bool
-) -> (f32, usize, Vec<Nam>) {
+) -> (f32, usize, usize, Vec<Nam>) {
 
     let mut matches_map = [DefaultHashMap::default(), DefaultHashMap::default()];
     matches_map[0].reserve(100);
@@ -116,7 +116,7 @@ pub fn find_nams(
     let nonrepetitive_fraction = if total_hits > 0 { (nr_good_hits as f32) / (total_hits as f32) } else { 1.0 };
     let nams = merge_matches_into_nams_forward_and_reverse(&mut matches_map, index.parameters.syncmer.k, sorting_needed);
 
-    (nonrepetitive_fraction, nr_good_hits, nams)
+    (nonrepetitive_fraction, nr_good_hits, partial_hits, nams)
 }
 
 /// Find a query’s NAMs, using also some of the randstrobes that occur more often
@@ -131,6 +131,7 @@ pub fn find_nams_rescue(
 ) -> (usize, Vec<Nam>) {
 
     // TODO we ignore use_mcs
+    // if we implement use_mcs, we also need to return the no. of partial_hits
 
     struct RescueHit {
         count: usize,
@@ -399,7 +400,7 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, us
     let time_randstrobes = timer.elapsed().as_secs_f64();
 
     let timer = Instant::now();
-    let (nonrepetitive_fraction, n_hits, mut nams) = find_nams(&query_randstrobes, index, index.filter_cutoff, use_mcs);
+    let (nonrepetitive_fraction, n_hits, n_partial_hits, mut nams) = find_nams(&query_randstrobes, index, index.filter_cutoff, use_mcs);
     let n_nams = nams.len();
     let time_find_nams = timer.elapsed().as_secs_f64();
 
@@ -436,6 +437,7 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, us
         n_rescue_nams,
         nam_rescue: nam_rescue as usize,
         n_hits,
+        n_partial_hits,
         n_rescue_hits,
         time_randstrobes,
         time_find_nams,

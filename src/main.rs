@@ -384,6 +384,7 @@ fn main() -> Result<(), CliError> {
 
     debug!("Number of reads:               {:12}", details.nam.n_reads);
     debug!("Number of randstrobes:         {:12}  Per read: {:7.1}", details.nam.n_randstrobes, details.nam.n_randstrobes as f64 / details.nam.n_reads as f64);
+    debug!("Number of partial hits:        {:12}", details.nam.n_partial_hits);
     debug!("Number of non-rescue hits:     {:12}  Per read: {:7.1}", details.nam.n_hits, details.nam.n_hits as f64 / details.nam.n_reads as f64);
     debug!("Number of non-rescue NAMs:     {:12}  Per read: {:7.1}", details.nam.n_nams, details.nam.n_nams as f64 / details.nam.n_reads as f64);
     debug!("Number of NAM rescue attempts: {:12}", details.nam.nam_rescue);
