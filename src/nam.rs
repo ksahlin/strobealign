@@ -126,7 +126,7 @@ pub fn find_nams_rescue(
     query_randstrobes: &[QueryRandstrobe],
     index: &StrobemerIndex,
     rescue_cutoff: usize,
-    use_mcs: bool,
+    _use_mcs: bool,
 ) -> (usize, Vec<Nam>) {
 
     // TODO we ignore use_mcs

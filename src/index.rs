@@ -451,6 +451,7 @@ impl<'a> StrobemerIndex<'a> {
         self.stats.distinct_strobemers = unique_mers;
     }
 
+/*
     fn make_randstrobes(&self, randstrobe_counts: &[usize]) -> Vec<RefRandstrobe> {
         let mut randstrobes = vec![RefRandstrobe::default(); randstrobe_counts.iter().sum()];
 
@@ -462,7 +463,8 @@ impl<'a> StrobemerIndex<'a> {
         }
         randstrobes
     }
-
+*/
+    
     fn make_randstrobes_parallel(&mut self, randstrobe_counts: &[usize], n_threads: usize) -> Vec<RefRandstrobe> {
         let mut randstrobes = vec![RefRandstrobe::default(); randstrobe_counts.iter().sum()];
         let mut slices = vec![];

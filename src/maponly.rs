@@ -152,7 +152,7 @@ pub fn abundances_paired_end_read(
                 }
             }
         }
-        MappedNams::Individual(nam1, nam2) => {
+        MappedNams::Individual(_, _) => {
             for (nams, read_len) in [(&nams1, r1.sequence.len()), (&nams2, r2.sequence.len())] {
                 let n_best = nams.iter().take_while(|nam| nam.score == nams[0].score).count();
                 let weight = read_len as f64 / n_best as f64;

@@ -116,10 +116,10 @@ impl<'a> Iterator for SyncmerIterator<'a> {
             let ch = self.seq[i];
             let c = NUCLEOTIDES[ch as usize];
             if c < 4 { // not an "N" base
-                self.xk[0] = (self.xk[0] << 2 | (c as u64)) & self.kmask;        // forward strand
-                self.xk[1] = self.xk[1] >> 2 | ((3 - c) as u64) << self.kshift;  // reverse strand
-                self.xs[0] = (self.xs[0] << 2 | (c as u64)) & self.smask;        // forward strand
-                self.xs[1] = self.xs[1] >> 2 | ((3 - c) as u64) << self.sshift;  // reverse strand
+                self.xk[0] = ((self.xk[0] << 2) | (c as u64)) & self.kmask;        // forward strand
+                self.xk[1] = (self.xk[1] >> 2) | (((3 - c) as u64) << self.kshift);  // reverse strand
+                self.xs[0] = ((self.xs[0] << 2) | (c as u64)) & self.smask;        // forward strand
+                self.xs[1] = (self.xs[1] >> 2) | (((3 - c) as u64) << self.sshift);  // reverse strand
                 self.l += 1;
                 if self.l < self.s {
                     continue;
