@@ -1,3 +1,4 @@
+use rstrobes::strobes::DEFAULT_AUX_LEN;
 use std::{env, io, thread};
 use std::collections::HashMap;
 use std::fs::File;
@@ -140,8 +141,8 @@ struct Args {
     bits: Option<u8>,
 
     /// No. of bits to use from secondary strobe hash
-    #[arg(long, value_name = "N", help_heading = "Seeding")]
-    aux_len: Option<u8>,
+    #[arg(long, default_value_t = DEFAULT_AUX_LEN, value_name = "N", help_heading = "Seeding")]
+    aux_len: u8,
 
     // Alignment scores
 

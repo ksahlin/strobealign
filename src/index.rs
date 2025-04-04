@@ -108,7 +108,6 @@ impl IndexParameters {
                 w_max,
                 q,
                 max_dist,
-                aux_len,
                 main_hash_mask,
             },
         }
@@ -123,7 +122,7 @@ impl IndexParameters {
         mut u: Option<isize>,
         c: Option<u32>,
         max_seed_len: Option<usize>,
-        aux_len: Option<u8>,
+        aux_len: u8,
     ) -> IndexParameters {
         let default_c = 8;
         let mut canonical_read_length = 50;
@@ -157,12 +156,11 @@ impl IndexParameters {
         };
         let q = 2u64.pow(c.unwrap_or(default_c)) - 1;
 
-        let aux_len = aux_len.unwrap_or(DEFAULT_AUX_LEN);
         IndexParameters::new(canonical_read_length, k, s, l, u, q, max_dist, aux_len)
     }
 
     pub fn default_from_read_length(read_length: usize) -> IndexParameters {
-        Self::from_read_length(read_length, None, None, None, None, None, None, None)
+        Self::from_read_length(read_length, None, None, None, None, None, None, DEFAULT_AUX_LEN)
     }
 }
 
@@ -528,15 +526,15 @@ impl<'a> StrobemerIndex<'a> {
         self.get_masked(hash, REF_RANDSTROBE_HASH_MASK)
     }
 
-    /// Find the first entry that matches the main hash (ignoring the aux_len
-    /// least significant bits)
+    /// Find the first entry that matches the main hash
     pub fn get_partial(&self, hash: RandstrobeHash) -> Option<usize> {
         self.get_masked(hash, self.parameters.randstrobe.main_hash_mask)
     }
 
-    /// Find index of first entry in randstrobe table that has the given hash value
+    /// Find index of first entry in randstrobe table that has the given
+    /// hash value masked by the `hash_mask`
     pub fn get_masked(&self, hash: RandstrobeHash, hash_mask: RandstrobeHash) -> Option<usize> {
-        let masked_hash = hash & hash_mask & REF_RANDSTROBE_HASH_MASK;
+        let masked_hash = hash & hash_mask;
         const MAX_LINEAR_SEARCH: usize = 4;
         let top_n = (hash >> (64 - self.bits)) as usize;
         let position_start = self.randstrobe_start_indices[top_n];
@@ -564,28 +562,28 @@ impl<'a> StrobemerIndex<'a> {
         }
     }
 
-    pub fn k(&self) -> usize { 
-        self.parameters.syncmer.k 
+    pub fn k(&self) -> usize {
+        self.parameters.syncmer.k
     }
-    
+
     pub fn get_hash_partial(&self, position: usize) -> RandstrobeHash {
         self.randstrobes[position].hash() & self.parameters.randstrobe.main_hash_mask
     }
-    
+
     pub fn strobe_extent_partial(&self, position: usize) -> (usize, usize) {
         let p = self.randstrobes[position].position;
 
         (p as usize, p as usize + self.k())
     }
-    
+
     pub fn get_count_full(&self, position: usize) -> usize {
         self.get_count(position, REF_RANDSTROBE_HASH_MASK)
     }
 
     pub fn get_count_partial(&self, position: usize) -> usize {
-        self.get_count(position, self.parameters.randstrobe.main_hash_mask)    
+        self.get_count(position, self.parameters.randstrobe.main_hash_mask)
     }
-    
+
     pub fn get_count(&self, position: usize, hash_mask: u64) -> usize {
         const MAX_LINEAR_SEARCH: usize = 8;
         let key = self.randstrobes[position].hash();
@@ -609,7 +607,7 @@ impl<'a> StrobemerIndex<'a> {
         }
     }
 
-    /// Return whether the randstrobe at given position occurs more often than cutoff
+    /// Return whether the randstrobe at the given position occurs more often than cutoff
     pub fn is_too_frequent(&self, position: usize, cutoff: usize) -> bool {
         if position + self.filter_cutoff < self.randstrobes.len() {
             self.randstrobes[position].hash() == self.randstrobes[position + cutoff].hash()
@@ -657,5 +655,40 @@ mod tests {
         assert_eq!(rr.position(), position as usize);
         assert_eq!(rr.reference_index(), ref_index as usize);
         assert_eq!(rr.strobe2_offset(), offset as usize);
+    }
+
+    #[test]
+    fn test_index_parameters() {
+        let canonical_read_length = 250;
+        let k = 22;
+        let s = 18;
+        let l = 2;
+        let u = 12;
+        let w_min = 6;
+        let w_max = 16;
+        let max_dist = 180;
+        let q = 255;
+        let main_hash_mask = 0xfffffffffc000000;
+        let aux_len = 17;
+        let sp = SyncmerParameters::new(k, s);
+        let rp = RandstrobeParameters {w_min, w_max, q, max_dist, main_hash_mask};
+        let ip = IndexParameters::new(
+            canonical_read_length,
+            k,
+            s,
+            l,
+            u,
+            q,
+            max_dist,
+            aux_len,
+        );
+        assert_eq!(ip.canonical_read_length, canonical_read_length);
+        assert_eq!(ip.randstrobe, rp);
+        assert_eq!(ip.syncmer, sp);
+
+        let ip = IndexParameters::default_from_read_length(canonical_read_length + 1);
+        assert_eq!(ip.canonical_read_length, canonical_read_length);
+        assert_eq!(ip.randstrobe, rp);
+        assert_eq!(ip.syncmer, sp);
     }
 }
