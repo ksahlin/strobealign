@@ -148,8 +148,8 @@ impl<'a> Iterator for SyncmerIterator<'a> {
                     if self.qs_min_pos == i - self.k { // we popped the previous minimizer, find new brute force
                         self.qs_min_val = u64::MAX;
                         self.qs_min_pos = i - self.s + 1;
-                        for j in (0..self.qs.len()).rev() { //Iterate in reverse to choose the rightmost minimizer in a window
-                            if self.qs[j] < self.qs_min_val {
+                        for j in 0..self.qs.len() {
+                            if self.qs[j] <= self.qs_min_val {
                                 self.qs_min_val = self.qs[j];
                                 self.qs_min_pos = i + j + 1 - self.k;
                             }
