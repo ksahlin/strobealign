@@ -68,15 +68,15 @@ type DefaultHashMap<K, V> = HashMap<K, V, BuildHasherDefault<DefaultHasher>>;
 ///
 /// Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
 ///
-pub fn find_nams(
+pub fn find_matches(
     query_randstrobes: &Vec<QueryRandstrobe>, index: &StrobemerIndex, filter_cutoff: usize, use_mcs: bool
-) -> (f32, usize, usize, Vec<Nam>) {
+) -> (f32, usize, usize, bool, [DefaultHashMap<usize, Vec<Match>>; 2]) {
 
     let mut matches_map = [DefaultHashMap::default(), DefaultHashMap::default()];
     matches_map[0].reserve(100);
     matches_map[1].reserve(100);
     let mut sorting_needed = use_mcs;
-    let mut nr_good_hits = 0;
+    let mut nonrepetitive_hits = 0;
     let mut total_hits = 0;
     let mut partial_hits = 0;
     for randstrobe in query_randstrobes {
@@ -85,7 +85,7 @@ pub fn find_nams(
             if index.is_too_frequent(position, filter_cutoff) {
                 continue;
             }
-            nr_good_hits += 1;
+            nonrepetitive_hits += 1;
             add_to_matches_map_full(&mut matches_map[randstrobe.is_revcomp as usize], randstrobe.start, randstrobe.end, index, position);
         } else if use_mcs {
             if let Some(position) = index.get_partial(randstrobe.hash) {
@@ -113,10 +113,10 @@ pub fn find_nams(
         }
         sorting_needed = true;
     }
-    let nonrepetitive_fraction = if total_hits > 0 { (nr_good_hits as f32) / (total_hits as f32) } else { 1.0 };
+    let nonrepetitive_fraction = if total_hits > 0 { (nonrepetitive_hits as f32) / (total_hits as f32) } else { 1.0 };
     let nams = merge_matches_into_nams_forward_and_reverse(&mut matches_map, index.parameters.syncmer.k, sorting_needed);
 
-    (nonrepetitive_fraction, nr_good_hits, partial_hits, nams)
+    (nonrepetitive_fraction, nonrepetitive_hits, partial_hits, sorting_needed, matches_map)
 }
 
 /// Find a query’s NAMs, using also some of the randstrobes that occur more often
@@ -400,7 +400,8 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, us
     let time_randstrobes = timer.elapsed().as_secs_f64();
 
     let timer = Instant::now();
-    let (nonrepetitive_fraction, n_hits, n_partial_hits, mut nams) = find_nams(&query_randstrobes, index, index.filter_cutoff, use_mcs);
+    let (nonrepetitive_fraction, nonrepetitive_hits, partial_hits, sorting_needed, mut matches_map) = find_matches(&query_randstrobes, index, index.filter_cutoff, use_mcs);
+    let mut nams = merge_matches_into_nams_forward_and_reverse(&mut matches_map, index.k(), sorting_needed);
     let n_nams = nams.len();
     let time_find_nams = timer.elapsed().as_secs_f64();
 
@@ -436,8 +437,8 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, us
         n_nams,
         n_rescue_nams,
         nam_rescue: nam_rescue as usize,
-        n_hits,
-        n_partial_hits,
+        n_hits: nonrepetitive_hits,
+        n_partial_hits: partial_hits,
         n_rescue_hits,
         time_randstrobes,
         time_find_nams,
