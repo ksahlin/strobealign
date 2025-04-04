@@ -629,6 +629,11 @@ impl<'a> StrobemerIndex<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::fs::File;
+    use std::io::BufReader;
+    use crate::fasta::read_fasta;
+    use crate::revcomp::reverse_complement;
+    use crate::syncmers::Syncmer;
     use super::*;
 
     #[test]
@@ -692,5 +697,28 @@ mod tests {
         assert_eq!(ip.canonical_read_length, canonical_read_length);
         assert_eq!(ip.randstrobe, rp);
         assert_eq!(ip.syncmer, sp);
+    }
+    
+    fn syncmers_of(seq: &[u8], parameters: &SyncmerParameters) -> Vec<Syncmer> {
+        SyncmerIterator::new(seq, parameters.k, parameters.s, parameters.t).collect()
+    }
+
+    #[test]
+    fn test_canonical_syncmers() {
+        let parameters = SyncmerParameters::new(20, 16);
+        let f = File::open("tests/phix.fasta").unwrap();
+        let mut reader = BufReader::new(f);
+        let records = read_fasta(&mut reader).unwrap();
+        let seqs = vec!["AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".as_bytes(), &records[0].sequence];
+        for seq in seqs {
+            let seq_revcomp = reverse_complement(seq);
+            let syncmers_forward = syncmers_of(seq, &parameters);
+            let mut syncmers_reverse = syncmers_of(&seq_revcomp, &parameters);
+            syncmers_reverse.reverse();
+            for syncmer_rev in &mut syncmers_reverse {
+                syncmer_rev.position = seq.len() - parameters.k - syncmer_rev.position;
+            }
+            assert_eq!(syncmers_forward, syncmers_reverse);
+        }
     }
 }

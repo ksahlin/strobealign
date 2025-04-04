@@ -312,7 +312,7 @@ mod test {
             b"AXGGG",
             b"AYGGG",
             1, 4, 0
-        ).unwrap();;
+        ).unwrap();
         assert_eq!(info.cigar.to_string(), "3=");
         assert_eq!(info.edit_distance, 0);
         assert_eq!(info.score, 3);

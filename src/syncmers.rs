@@ -2,7 +2,7 @@ use std::cmp::min;
 use std::collections::VecDeque;
 use crate::hash::xxh64;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Syncmer {
     pub hash: u64,
     pub position: usize,
