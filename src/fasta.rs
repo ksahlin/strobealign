@@ -20,10 +20,10 @@ pub enum FastaError {
 
     #[error("Invalid UTF-8")]
     Utf8(#[from] FromUtf8Error),
-    
+
     #[error("Invalid character in record name")]
     Name,
-    
+
     #[error("Duplicate record name {0}")]
     DuplicateName(String),
 }
@@ -47,12 +47,23 @@ fn is_valid_name(name: &[u8]) -> bool{
     true
 }
 
+fn check_duplicate_names(records: &[RefSequence]) -> Result<(), FastaError> {
+    let mut names: Vec<_> = records.iter().map(|r| &r.name).collect();
+    names.sort();
+    for window in names.windows(2) {
+        if window[0] == window[1] {
+            return Err(FastaError::DuplicateName(window[0].to_string()));
+        }
+    }
+    
+    Ok(())
+}
+
 pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, FastaError> {
     let mut records = Vec::<RefSequence>::new();
     let mut name = String::new();
     let mut sequence = Vec::new();
     let mut has_record = false;
-    let mut names = HashSet::new();
     for line in reader.lines() {
         let line = line?;
         let line = line.as_bytes();
@@ -71,10 +82,6 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, FastaE
                 return Err(FastaError::Name);
             }
             name = String::from_utf8(name_bytes.to_vec())?;
-            if names.contains(&name) {
-                return Err(FastaError::DuplicateName(name));
-            }
-            names.insert(name.clone());
             sequence = Vec::new();
             has_record = true;
         } else {
@@ -87,6 +94,8 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, FastaE
     if has_record {
         records.push(RefSequence {name, sequence});
     }
+
+    check_duplicate_names(&records)?;
 
     Ok(records)
 }
@@ -149,7 +158,7 @@ mod tests {
         let result = read_fasta(&mut reader);
         assert!(result.is_err());
     }
-    
+
     #[test]
     fn test_invalid_contig_name() {
         let mut reader = BufReader::new(b">name\x08\n".as_slice());
@@ -163,7 +172,7 @@ mod tests {
         let result = read_fasta(&mut reader);
         assert!(result.is_err());
     }
-    
+
     #[test]
     fn test_duplicate_contig_names() {
         let mut reader = BufReader::new(b">abc\nAAAA\n>abc\nCCCC\n".as_slice());

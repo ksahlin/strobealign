@@ -233,7 +233,7 @@ fn main() -> Result<(), CliError> {
         error!("Too many reference sequences. Current maximum is {}.", REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES);
         exit(1);
     }
-
+    
     // Open R1 FASTQ file and estimate read length if necessary
     let f1 = xopen(&args.fastq_path)?;
     let mut fastq_reader1 = PeekableFastqReader::new(f1);

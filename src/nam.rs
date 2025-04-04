@@ -99,6 +99,7 @@ pub fn find_nams(
         }
     }
 
+    // Rescue using partial hits even in non-MCS mode
     if total_hits == 0 && !use_mcs {
         for randstrobe in query_randstrobes {
             if let Some(position) = index.get_partial(randstrobe.hash) {
@@ -237,7 +238,7 @@ fn add_to_matches_map_partial(
 fn merge_matches_into_nams(matches_map: &mut DefaultHashMap<usize, Vec<Match>>, k: usize, sort: bool, is_revcomp: bool, nams: &mut Vec<Nam>) {
     for (ref_id, matches) in matches_map.iter_mut() {
         if sort {
-            // -k.query_end to prefer full matches over partial ones 
+            // -k.query_end to prefer full matches over partial ones
             matches.sort_by_key(|k| (k.query_start, k.ref_start, -(k.query_end as isize)));
         }
 
@@ -394,7 +395,7 @@ pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, references: &[RefSequen
 }
 
 /// Obtain NAMs for a sequence record, doing rescue if needed.
-/// 
+///
 /// NAMs are returned sorted by decreasing score
 pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, use_mcs: bool, rng: &mut Rng) -> (NamDetails, Vec<Nam>) {
     let timer = Instant::now();
