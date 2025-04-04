@@ -88,7 +88,7 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> Vec<QueryR
     // complementing. Only the coordinates need to be adjusted.
 
     let seq_rc = reverse_complement(seq);
-    for (s, is_reverse) in [(seq, false), (&seq_rc, true)] {
+    for (s, is_revcomp) in [(seq, false), (&seq_rc, true)] {
         // Generate randstrobes for the forward sequence
         let mut syncmer_iter = SyncmerIterator::new(s, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t);
         let randstrobe_iter = RandstrobeIterator::new(&mut syncmer_iter, &parameters.randstrobe);
@@ -99,7 +99,7 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> Vec<QueryR
                     hash: randstrobe.hash,
                     start: randstrobe.strobe1_pos,
                     end: randstrobe.strobe2_pos + parameters.syncmer.k,
-                    is_revcomp: is_reverse
+                    is_revcomp
                 }
             );
         }
