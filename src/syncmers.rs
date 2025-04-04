@@ -180,3 +180,21 @@ impl<'a> Iterator for SyncmerIterator<'a> {
         None
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_syncmer_iterator() {
+        let seq = "AAAAAAAAAAAAAAAAAAAA";
+        assert_eq!(seq.len(), 20);
+
+        let parameters = SyncmerParameters::new(8, 4);
+        assert_eq!(parameters.t, 3);
+
+        let mut iterator = SyncmerIterator::new(seq.as_bytes(), parameters.k, parameters.s, parameters.t);
+        let syncmer = iterator.next().unwrap();
+        assert_eq!(syncmer.position, 2);
+    }
+}
