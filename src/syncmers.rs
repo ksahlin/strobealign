@@ -137,7 +137,7 @@ impl<'a> Iterator for SyncmerIterator<'a> {
                 if self.qs.len() == (self.k - self.s + 1) { // We are at the last s-mer within the first k-mer, need to decide if we add it
                     // TODO use argmin
                     for j in 0..self.qs.len() {
-                        if self.qs[j] < self.qs_min_val {
+                        if self.qs[j] <= self.qs_min_val {
                             self.qs_min_val = self.qs[j];
                             self.qs_min_pos = i + j + 1 - self.k;
                         }
