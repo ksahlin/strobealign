@@ -167,10 +167,10 @@ impl IndexParameters {
 impl SyncmerParameters {
     /// Pick a suitable number of bits for indexing randstrobe start indices
     fn pick_bits(&self, size: usize) -> u8 {
-        let estimated_number_of_randstrobes = size / (self.k - self.s + 1);
+        let estimated_number_of_randstrobes = size / (self.k - self.s + 1) + 1;
         // Two randstrobes per bucket on average
         // TOOD checked_ilog2 or ilog2
-        ((estimated_number_of_randstrobes as f64).log2() as u32 - 1).clamp(8, 31) as u8
+        ((estimated_number_of_randstrobes as f64).log2() as u32).clamp(9, 32) as u8 - 1
     }
 }
 
@@ -720,5 +720,11 @@ mod tests {
             }
             assert_eq!(syncmers_forward, syncmers_reverse);
         }
+    }
+    
+    #[test]
+    fn test_pick_bits() {
+        let parameters = SyncmerParameters::new(20, 16);
+        assert_eq!(parameters.pick_bits(0), 8);
     }
 }
