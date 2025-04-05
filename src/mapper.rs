@@ -71,7 +71,6 @@ pub struct QueryRandstrobe {
     pub hash: u64,
     pub start: usize,
     pub end: usize,
-    pub is_revcomp: bool,
 }
 
 /// Generate randstrobes for a query sequence and its reverse complement.
@@ -99,7 +98,6 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> [Vec<Query
                     hash: randstrobe.hash,
                     start: randstrobe.strobe1_pos,
                     end: randstrobe.strobe2_pos + parameters.syncmer.k,
-                    is_revcomp
                 }
             );
         }

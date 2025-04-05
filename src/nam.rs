@@ -77,7 +77,7 @@ fn find_hits(
     let mut nonrepetitive_hits = 0;
     let mut total_hits = 0;
     let mut partial_hits = 0;
-    for query_randstrobes in query_randstrobes_pair {
+    for (is_revcomp, query_randstrobes) in query_randstrobes_pair.iter().enumerate() {
         for randstrobe in query_randstrobes {
             if let Some(position) = index.get_full(randstrobe.hash) {
                 total_hits += 1;
@@ -87,7 +87,7 @@ fn find_hits(
                 nonrepetitive_hits += 1;
 
                 let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.end, is_partial: false };
-                hits[randstrobe.is_revcomp as usize].push(hit);
+                hits[is_revcomp].push(hit);
             } else if use_mcs {
                 if let Some(position) = index.get_partial(randstrobe.hash) {
                     total_hits += 1;
@@ -96,7 +96,7 @@ fn find_hits(
                     }
                     partial_hits += 1;
                     let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.start + index.k(), is_partial: true };
-                    hits[randstrobe.is_revcomp as usize].push(hit);
+                    hits[is_revcomp].push(hit);
                 }
             }
         }
@@ -104,7 +104,7 @@ fn find_hits(
 
     // Rescue using partial hits even in non-MCS mode
     if total_hits == 0 && !use_mcs {
-        for query_randstrobes in query_randstrobes_pair {
+        for (is_revcomp, query_randstrobes) in query_randstrobes_pair.iter().enumerate() {
             for randstrobe in query_randstrobes {
                 if let Some(position) = index.get_partial(randstrobe.hash) {
                     total_hits += 1;
@@ -113,7 +113,7 @@ fn find_hits(
                     }
                     partial_hits += 1;
                     let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.start + index.k(), is_partial: true };
-                    hits[randstrobe.is_revcomp as usize].push(hit);
+                    hits[is_revcomp].push(hit);
                 }
             }
             sorting_needed = true;
@@ -153,7 +153,7 @@ pub fn find_nams_rescue(
 
     let mut hits = [Vec::with_capacity(5000), Vec::with_capacity(5000)];
 
-    for query_randstrobes in query_randstrobes_pair {
+    for (is_revcomp, query_randstrobes) in query_randstrobes_pair.iter().enumerate() {
         for randstrobe in query_randstrobes {
             if let Some(position) = index.get_full(randstrobe.hash) {
                 let count = index.get_count_full(position);
@@ -163,7 +163,7 @@ pub fn find_nams_rescue(
                     query_start: randstrobe.start,
                     query_end: randstrobe.end,
                 };
-                hits[randstrobe.is_revcomp as usize].push(rh);
+                hits[is_revcomp].push(rh);
             }
         }
     }
