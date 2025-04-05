@@ -76,8 +76,8 @@ pub struct QueryRandstrobe {
 
 /// Generate randstrobes for a query sequence and its reverse complement.
 /// TODO move to strobes.rs?
-pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> Vec<QueryRandstrobe> {
-    let mut randstrobes= Vec::<QueryRandstrobe>::new();
+pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> [Vec<QueryRandstrobe>; 2] {
+    let mut randstrobes= [Vec::<QueryRandstrobe>::new(), Vec::<QueryRandstrobe>::new()];
     if seq.len() < parameters.randstrobe.w_max {
         return randstrobes;
     }
@@ -94,7 +94,7 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> Vec<QueryR
         let randstrobe_iter = RandstrobeIterator::new(&mut syncmer_iter, &parameters.randstrobe);
 
         for randstrobe in randstrobe_iter {
-            randstrobes.push(
+            randstrobes[is_revcomp as usize].push(
                 QueryRandstrobe {
                     hash: randstrobe.hash,
                     start: randstrobe.strobe1_pos,
