@@ -401,21 +401,21 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, us
 
     let timer = Instant::now();
     let (nonrepetitive_fraction, nonrepetitive_hits, partial_hits, sorting_needed, mut matches_map) = find_matches(&query_randstrobes, index, index.filter_cutoff, use_mcs);
-    let mut nams = merge_matches_into_nams_forward_and_reverse(&mut matches_map, index.k(), sorting_needed);
-    let n_nams = nams.len();
+    let mut nams;
     let time_find_nams = timer.elapsed().as_secs_f64();
 
     let mut n_rescue_hits = 0;
     let mut n_rescue_nams = 0;
     let mut nam_rescue = false;
     let time_rescue;
-    if rescue_level > 1 && (nams.is_empty() || nonrepetitive_fraction < 0.7) {
+    if rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7) {
         let timer = Instant::now();
         nam_rescue = true;
         (n_rescue_hits, nams) = find_nams_rescue(&query_randstrobes, index, index.rescue_cutoff, use_mcs);
         n_rescue_nams = nams.len();
         time_rescue = timer.elapsed().as_secs_f64();
     } else {
+        nams = merge_matches_into_nams_forward_and_reverse(&mut matches_map, index.k(), sorting_needed);
         time_rescue = 0f64;
     }
 
@@ -434,7 +434,7 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, us
     let nam_details = NamDetails {
         n_reads: 1,
         n_randstrobes,
-        n_nams,
+        n_nams: nams.len(),
         n_rescue_nams,
         nam_rescue: nam_rescue as usize,
         n_hits: nonrepetitive_hits,
