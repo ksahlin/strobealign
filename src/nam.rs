@@ -439,8 +439,11 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, us
         time_rescue = timer.elapsed().as_secs_f64();
     } else {
         // TODO should not be mut
-        let mut matches_map = [hits_to_matches(&hits[0], index), hits_to_matches(&hits[1], index)];
-        nams = merge_matches_into_nams_forward_and_reverse(&mut matches_map, index.k(), sorting_needed);
+        nams = vec![];
+        for is_revcomp in [false, true] {
+            let mut matches_map = hits_to_matches(&hits[is_revcomp as usize], index);
+            merge_matches_into_nams(&mut matches_map, index.k(), sorting_needed, is_revcomp, &mut nams);
+        }
         time_rescue = 0f64;
     }
 
