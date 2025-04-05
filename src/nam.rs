@@ -144,16 +144,13 @@ pub fn find_nams_rescue(
         query_start: usize,
         query_end: usize,
     }
-/*
-        bool operator< (const RescueHit& rhs) const {
-            return std::tie(count, query_s, query_e, is_revcomp)
-                < std::tie(rhs.count, rhs.query_s, rhs.query_e, rhs.is_revcomp);
-        }
-    }*/
 
-    let mut hits = [Vec::with_capacity(5000), Vec::with_capacity(5000)];
-
+    let mut matches_map = [DefaultHashMap::default(), DefaultHashMap::default()];
+    let mut n_hits = 0;
     for (is_revcomp, query_randstrobes) in query_randstrobes_pair.iter().enumerate() {
+        matches_map[is_revcomp].reserve(100);
+        let mut hits = Vec::with_capacity(5000);
+
         for randstrobe in query_randstrobes {
             if let Some(position) = index.get_full(randstrobe.hash) {
                 let count = index.get_count_full(position);
@@ -163,22 +160,14 @@ pub fn find_nams_rescue(
                     query_start: randstrobe.start,
                     query_end: randstrobe.end,
                 };
-                hits[is_revcomp].push(rh);
+                hits.push(rh);
             }
         }
-    }
 
-    let cmp = |a: &RescueHit, b: &RescueHit| (a.count, a.query_start, a.query_end).cmp(&(b.count, b.query_start, b.query_end));
-    hits[0].sort_by(cmp);
-    hits[1].sort_by(cmp);
+        let cmp = |a: &RescueHit, b: &RescueHit| (a.count, a.query_start, a.query_end).cmp(&(b.count, b.query_start, b.query_end));
+        hits.sort_by(cmp);
 
-    let mut matches_map = [DefaultHashMap::default(), DefaultHashMap::default()];
-    matches_map[0].reserve(100);
-    matches_map[1].reserve(100);
-
-    let mut n_hits = 0;
-    for is_revcomp in 0..2 {
-        let rescue_hits = &hits[is_revcomp];
+        let rescue_hits = &hits;
         for (i, rh) in rescue_hits.iter().enumerate() {
             if (rh.count > rescue_cutoff && i >= 5) || rh.count > 1000 {
                 break;
