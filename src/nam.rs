@@ -69,59 +69,54 @@ type DefaultHashMap<K, V> = HashMap<K, V, BuildHasherDefault<DefaultHasher>>;
 /// Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
 ///
 fn find_hits(
-    query_randstrobes_pair: &[Vec<QueryRandstrobe>; 2], index: &StrobemerIndex, filter_cutoff: usize, use_mcs: bool
-) -> (f32, usize, usize, bool, [Vec<Hit>; 2]) {
+    query_randstrobes: &[QueryRandstrobe], index: &StrobemerIndex, filter_cutoff: usize, use_mcs: bool
+) -> (usize, usize, bool, Vec<Hit>) {
 
-    let mut hits = [vec![], vec![]];
+    let mut hits = vec![];
     let mut sorting_needed = use_mcs;
     let mut nonrepetitive_hits = 0;
     let mut total_hits = 0;
     let mut partial_hits = 0;
-    for (is_revcomp, query_randstrobes) in query_randstrobes_pair.iter().enumerate() {
-        for randstrobe in query_randstrobes {
-            if let Some(position) = index.get_full(randstrobe.hash) {
+    for randstrobe in query_randstrobes {
+        if let Some(position) = index.get_full(randstrobe.hash) {
+            total_hits += 1;
+            if index.is_too_frequent(position, filter_cutoff) {
+                continue;
+            }
+            nonrepetitive_hits += 1;
+
+            let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.end, is_partial: false };
+            hits.push(hit);
+        } else if use_mcs {
+            if let Some(position) = index.get_partial(randstrobe.hash) {
                 total_hits += 1;
-                if index.is_too_frequent(position, filter_cutoff) {
+                if index.is_too_frequent_partial(position, filter_cutoff) {
                     continue;
                 }
-                nonrepetitive_hits += 1;
-
-                let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.end, is_partial: false };
-                hits[is_revcomp].push(hit);
-            } else if use_mcs {
-                if let Some(position) = index.get_partial(randstrobe.hash) {
-                    total_hits += 1;
-                    if index.is_too_frequent_partial(position, filter_cutoff) {
-                        continue;
-                    }
-                    partial_hits += 1;
-                    let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.start + index.k(), is_partial: true };
-                    hits[is_revcomp].push(hit);
-                }
+                partial_hits += 1;
+                let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.start + index.k(), is_partial: true };
+                hits.push(hit);
             }
         }
     }
 
     // Rescue using partial hits even in non-MCS mode
     if total_hits == 0 && !use_mcs {
-        for (is_revcomp, query_randstrobes) in query_randstrobes_pair.iter().enumerate() {
-            for randstrobe in query_randstrobes {
-                if let Some(position) = index.get_partial(randstrobe.hash) {
-                    total_hits += 1;
-                    if index.is_too_frequent_partial(position, filter_cutoff) {
-                        continue;
-                    }
-                    partial_hits += 1;
-                    let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.start + index.k(), is_partial: true };
-                    hits[is_revcomp].push(hit);
+        for randstrobe in query_randstrobes {
+            if let Some(position) = index.get_partial(randstrobe.hash) {
+                total_hits += 1;
+                if index.is_too_frequent_partial(position, filter_cutoff) {
+                    continue;
                 }
+                partial_hits += 1;
+                let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.start + index.k(), is_partial: true };
+                hits.push(hit);
             }
-            sorting_needed = true;
         }
+        sorting_needed = true;
     }
-    let nonrepetitive_fraction = if total_hits > 0 { (nonrepetitive_hits as f32) / (total_hits as f32) } else { 1.0 };
 
-    (nonrepetitive_fraction, nonrepetitive_hits, partial_hits, sorting_needed, hits)
+    (total_hits, partial_hits, sorting_needed, hits)
 }
 
 /// Find a query’s NAMs, using also some of the randstrobes that occur more often
@@ -213,7 +208,7 @@ fn add_to_matches_map_partial(
     position: usize,
 ) {
     let hash = index.get_hash_partial(position);
-    for pos in position.. {
+    for pos in position..index.randstrobes.len() {
         if index.get_hash_partial(pos) != hash {
             break;
         }
@@ -226,7 +221,9 @@ fn add_to_matches_map_partial(
 }
 
 // TODO should not be mut
-fn merge_matches_into_nams(matches_map: &mut DefaultHashMap<usize, Vec<Match>>, k: usize, sort: bool, is_revcomp: bool, nams: &mut Vec<Nam>) {
+fn merge_matches_into_nams(
+    matches_map: &mut DefaultHashMap<usize, Vec<Match>>, k: usize, sort: bool, is_revcomp: bool, nams: &mut Vec<Nam>
+) {
     for (ref_id, matches) in matches_map.iter_mut() {
         if sort {
             // -k.query_end to prefer full matches over partial ones
@@ -372,6 +369,7 @@ pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, references: &[RefSequen
     }
 }
 
+#[derive(Debug)]
 struct Hit {
     query_start: usize,
     query_end: usize,
@@ -404,7 +402,26 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, us
     let time_randstrobes = timer.elapsed().as_secs_f64();
 
     let timer = Instant::now();
-    let (nonrepetitive_fraction, nonrepetitive_hits, partial_hits, sorting_needed, hits) = find_hits(&query_randstrobes, index, index.filter_cutoff, use_mcs);
+
+    let mut total_hits = 0;
+    let mut partial_hits = 0;
+    let mut sorting_needed = false;
+
+    let mut hits = [vec![], vec![]];
+
+    for is_revcomp in 0..2 {
+        let total_hits1;
+        let partial_hits1;
+        let sorting_needed1;
+
+        (total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) = find_hits(&query_randstrobes[is_revcomp], index, index.filter_cutoff, use_mcs);
+        sorting_needed = sorting_needed || sorting_needed1;
+        total_hits += total_hits1;
+        partial_hits += partial_hits1;
+    }
+    let nonrepetitive_hits = hits[0].len() + hits[1].len();
+    let nonrepetitive_fraction = if total_hits > 0 { (nonrepetitive_hits as f32) / (total_hits as f32) } else { 1.0 };
+
     let mut nams;
     let time_find_nams = timer.elapsed().as_secs_f64();
 
@@ -415,9 +432,6 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, us
     if rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7) {
         let timer = Instant::now();
         nam_rescue = true;
-
-        let mut n_rescue_hits = 0;
-
         nams = vec![];
         for is_revcomp in [false, true] {
             let (n_rescue_hits_oriented, mut matches_map) = find_matches_rescue(&query_randstrobes[is_revcomp as usize], index, index.rescue_cutoff, use_mcs);
@@ -428,7 +442,6 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, us
         }
         time_rescue = timer.elapsed().as_secs_f64();
     } else {
-        // TODO should not be mut
         nams = vec![];
         for is_revcomp in [false, true] {
             let mut matches_map = hits_to_matches(&hits[is_revcomp as usize], index);
