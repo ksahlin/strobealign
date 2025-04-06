@@ -80,7 +80,7 @@ fn find_hits(
     for randstrobe in query_randstrobes {
         if let Some(position) = index.get_full(randstrobe.hash) {
             total_hits += 1;
-            if index.is_too_frequent(position, filter_cutoff) {
+            if index.is_too_frequent(position, filter_cutoff, randstrobe.hash_revcomp) {
                 continue;
             }
             nonrepetitive_hits += 1;
@@ -90,7 +90,7 @@ fn find_hits(
         } else if use_mcs {
             if let Some(position) = index.get_partial(randstrobe.hash) {
                 total_hits += 1;
-                if index.is_too_frequent_partial(position, filter_cutoff) {
+                if index.is_too_frequent_partial(position, filter_cutoff, randstrobe.hash_revcomp) {
                     continue;
                 }
                 partial_hits += 1;
@@ -105,7 +105,7 @@ fn find_hits(
         for randstrobe in query_randstrobes {
             if let Some(position) = index.get_partial(randstrobe.hash) {
                 total_hits += 1;
-                if index.is_too_frequent_partial(position, filter_cutoff) {
+                if index.is_too_frequent_partial(position, filter_cutoff, randstrobe.hash_revcomp) {
                     continue;
                 }
                 partial_hits += 1;

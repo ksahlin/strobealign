@@ -69,6 +69,7 @@ impl Alignment {
 #[derive(Debug)]
 pub struct QueryRandstrobe {
     pub hash: u64,
+    pub hash_revcomp: u64,
     pub start: usize,
     pub end: usize,
 }
@@ -96,6 +97,7 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> [Vec<Query
             randstrobes[is_revcomp as usize].push(
                 QueryRandstrobe {
                     hash: randstrobe.hash,
+                    hash_revcomp: randstrobe.hash_revcomp,
                     start: randstrobe.strobe1_pos,
                     end: randstrobe.strobe2_pos + parameters.syncmer.k,
                 }

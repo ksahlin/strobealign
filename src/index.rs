@@ -272,7 +272,7 @@ pub struct StrobemerIndex<'a> {
     bits: u8,
 
     /// Regular (non-rescue) NAM finding ignores randstrobes that occur more often than
-    /// this (see StrobemerIndex::is_filtered())
+    /// this (see StrobemerIndex::is_too_frequent())
     pub filter_cutoff: usize,
 
     /// Filter partial seeds that occur more often than this
@@ -464,7 +464,7 @@ impl<'a> StrobemerIndex<'a> {
         randstrobes
     }
 */
-    
+
     fn make_randstrobes_parallel(&mut self, randstrobe_counts: &[usize], n_threads: usize) -> Vec<RefRandstrobe> {
         let mut randstrobes = vec![RefRandstrobe::default(); randstrobe_counts.iter().sum()];
         let mut slices = vec![];
@@ -610,7 +610,7 @@ impl<'a> StrobemerIndex<'a> {
     }
 
     /// Return whether the randstrobe at the given position occurs more often than cutoff
-    pub fn is_too_frequent(&self, position: usize, cutoff: usize) -> bool {
+    pub fn is_too_frequent_forward(&self, position: usize, cutoff: usize) -> bool {
         if position + self.filter_cutoff < self.randstrobes.len() {
             self.randstrobes[position].hash() == self.randstrobes[position + cutoff].hash()
         } else {
@@ -618,12 +618,44 @@ impl<'a> StrobemerIndex<'a> {
         }
     }
 
-    pub fn is_too_frequent_partial(&self, position: usize, cutoff: usize) -> bool {
+    pub fn is_too_frequent(&self, position: usize, cutoff: usize, hash_revcomp: u64) -> bool {
+        if self.is_too_frequent_forward(position, cutoff) {
+            return true;
+        }
+        if let Some(position_revcomp) = self.get_full(hash_revcomp) {
+            if self.is_too_frequent_forward(position_revcomp, cutoff) {
+                return true;
+            }
+            let count = self.get_count_full(position) + self.get_count_full(position_revcomp);
+            
+            return count > cutoff;
+        }
+        
+        false
+    }
+
+    pub fn is_too_frequent_forward_partial(&self, position: usize, cutoff: usize) -> bool {
         if position + cutoff < self.randstrobes.len() {
             self.randstrobes[position].hash() & self.parameters.randstrobe.main_hash_mask == self.randstrobes[position + cutoff].hash() & self.parameters.randstrobe.main_hash_mask
         } else {
             false
         }
+    }
+
+    pub fn is_too_frequent_partial(&self, position: usize, cutoff: usize, hash_revcomp: u64) -> bool {
+        if self.is_too_frequent_forward_partial(position, cutoff) {
+            return true;
+        }
+        if let Some(position_revcomp) = self.get_partial(hash_revcomp) {
+            if self.is_too_frequent_forward_partial(position_revcomp, cutoff) {
+                return true;
+            }
+            let count = self.get_count_partial(position) + self.get_count_partial(position_revcomp);
+
+            return count > cutoff;
+        }
+
+        false
     }
 }
 
@@ -698,7 +730,7 @@ mod tests {
         assert_eq!(ip.randstrobe, rp);
         assert_eq!(ip.syncmer, sp);
     }
-    
+
     fn syncmers_of(seq: &[u8], parameters: &SyncmerParameters) -> Vec<Syncmer> {
         SyncmerIterator::new(seq, parameters.k, parameters.s, parameters.t).collect()
     }
@@ -721,7 +753,7 @@ mod tests {
             assert_eq!(syncmers_forward, syncmers_reverse);
         }
     }
-    
+
     #[test]
     fn test_pick_bits() {
         let parameters = SyncmerParameters::new(20, 16);

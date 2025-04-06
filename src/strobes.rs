@@ -29,6 +29,7 @@ pub struct RandstrobeParameters {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Randstrobe {
     pub hash: u64,
+    pub hash_revcomp: u64,
     pub strobe1_pos: usize,
     pub strobe2_pos: usize,
 }
@@ -37,6 +38,7 @@ impl Randstrobe {
     pub fn from_strobes(strobe1: Syncmer, strobe2: Syncmer, main_hash_mask: u64) -> Self {
         Randstrobe {
             hash: Randstrobe::hash(strobe1.hash, strobe2.hash, main_hash_mask),
+            hash_revcomp: Randstrobe::hash(strobe2.hash, strobe1.hash, main_hash_mask),
             strobe1_pos: strobe1.position,
             strobe2_pos: strobe2.position,
         }
