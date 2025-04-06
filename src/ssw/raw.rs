@@ -25,7 +25,7 @@ pub struct s_profile {
 }
 
 #[link(name = "ssw")]
-extern {
+extern "C" {
     pub fn ssw_init(read: *const i8, read_length: i32, mat: *const i8, n: i32, score_size: i8) -> *mut s_profile;
 
     pub fn init_destroy(p: *mut s_profile);

@@ -16,7 +16,7 @@ use rstrobes::details::Details;
 use rstrobes::fastq::{record_iterator, PeekableFastqReader, SequenceRecord};
 use rstrobes::fasta;
 use rstrobes::fasta::{FastaError, RefSequence};
-use rstrobes::index::{IndexCreationStatistics, IndexParameters, StrobemerIndex, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES};
+use rstrobes::index::{IndexParameters, StrobemerIndex, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES};
 use rstrobes::insertsize::InsertSizeDistribution;
 use rstrobes::maponly::{abundances_paired_end_read, abundances_single_end_read, map_paired_end_read, map_single_end_read};
 use rstrobes::mapper::{align_paired_end_read, align_single_end_read, MappingParameters, SamOutput};

@@ -74,7 +74,6 @@ fn find_hits(
 
     let mut hits = vec![];
     let mut sorting_needed = use_mcs;
-    let mut nonrepetitive_hits = 0;
     let mut total_hits = 0;
     let mut partial_hits = 0;
     for randstrobe in query_randstrobes {
@@ -83,7 +82,6 @@ fn find_hits(
             if index.is_too_frequent(position, filter_cutoff, randstrobe.hash_revcomp) {
                 continue;
             }
-            nonrepetitive_hits += 1;
 
             let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.end, is_partial: false };
             hits.push(hit);
@@ -123,7 +121,7 @@ fn find_hits(
 /// than the normal (non-rescue) filter cutoff.
 ///
 /// Return the number of hits and the matches_map
-pub fn find_matches_rescue(
+fn find_matches_rescue(
     query_randstrobes: &[QueryRandstrobe],
     index: &StrobemerIndex,
     rescue_cutoff: usize,
