@@ -148,7 +148,7 @@ struct StrobemerIndex {
         if (is_partial_filtered_forward(position)) {
             return true;
         }
-        bucket_index_t position_revcomp = find_full(hash_revcomp);
+        bucket_index_t position_revcomp = find_partial(hash_revcomp);
         if (is_partial_filtered_forward(position_revcomp)) {
             return true;
         }
