@@ -127,13 +127,13 @@ fn find_hits(
 /// Find a query’s NAMs, using also some of the randstrobes that occur more often
 /// than the normal (non-rescue) filter cutoff.
 ///
-/// Return the number of hits and the vector of NAMs
+/// Return the number of hits and the matches_map
 pub fn find_nams_rescue(
-    query_randstrobes_pair: &[Vec<QueryRandstrobe>; 2],
+    query_randstrobes: &[QueryRandstrobe],
     index: &StrobemerIndex,
     rescue_cutoff: usize,
     _use_mcs: bool,
-) -> (usize, Vec<Nam>) {
+) -> (usize, DefaultHashMap<usize, Vec<Match>>) {
 
     // TODO we ignore use_mcs
     // if we implement use_mcs, we also need to return the no. of partial_hits
@@ -145,39 +145,38 @@ pub fn find_nams_rescue(
         query_end: usize,
     }
 
-    let mut matches_map = [DefaultHashMap::default(), DefaultHashMap::default()];
+    let mut matches_map = DefaultHashMap::default();
+    matches_map.reserve(100);
     let mut n_hits = 0;
-    for (is_revcomp, query_randstrobes) in query_randstrobes_pair.iter().enumerate() {
-        matches_map[is_revcomp].reserve(100);
-        let mut hits = Vec::with_capacity(5000);
 
-        for randstrobe in query_randstrobes {
-            if let Some(position) = index.get_full(randstrobe.hash) {
-                let count = index.get_count_full(position);
-                let rh = RescueHit {
-                    count,
-                    position,
-                    query_start: randstrobe.start,
-                    query_end: randstrobe.end,
-                };
-                hits.push(rh);
-            }
-        }
+    let mut hits = Vec::with_capacity(5000);
 
-        let cmp = |a: &RescueHit, b: &RescueHit| (a.count, a.query_start, a.query_end).cmp(&(b.count, b.query_start, b.query_end));
-        hits.sort_by(cmp);
-
-        let rescue_hits = &hits;
-        for (i, rh) in rescue_hits.iter().enumerate() {
-            if (rh.count > rescue_cutoff && i >= 5) || rh.count > 1000 {
-                break;
-            }
-            add_to_matches_map_full(&mut matches_map[is_revcomp], rh.query_start, rh.query_end, index, rh.position);
-            n_hits += 1;
+    for randstrobe in query_randstrobes {
+        if let Some(position) = index.get_full(randstrobe.hash) {
+            let count = index.get_count_full(position);
+            let rh = RescueHit {
+                count,
+                position,
+                query_start: randstrobe.start,
+                query_end: randstrobe.end,
+            };
+            hits.push(rh);
         }
     }
 
-    (n_hits, merge_matches_into_nams_forward_and_reverse(&mut matches_map, index.parameters.syncmer.k, true))
+    let cmp = |a: &RescueHit, b: &RescueHit| (a.count, a.query_start, a.query_end).cmp(&(b.count, b.query_start, b.query_end));
+    hits.sort_by(cmp);
+
+    let rescue_hits = &hits;
+    for (i, rh) in rescue_hits.iter().enumerate() {
+        if (rh.count > rescue_cutoff && i >= 5) || rh.count > 1000 {
+            break;
+        }
+        add_to_matches_map_full(&mut matches_map, rh.query_start, rh.query_end, index, rh.position);
+        n_hits += 1;
+    }
+
+    (n_hits, matches_map)
 }
 
 fn add_to_matches_map_full(
@@ -331,19 +330,6 @@ fn merge_matches_into_nams(matches_map: &mut DefaultHashMap<usize, Vec<Match>>, 
     }
 }
 
-fn merge_matches_into_nams_forward_and_reverse(
-    matches_map: &mut [DefaultHashMap<usize, Vec<Match>>; 2],
-    k: usize,
-    sort: bool
-) -> Vec<Nam> {
-    let mut nams = Vec::new();
-    for is_revcomp in [false, true] {
-        merge_matches_into_nams(&mut matches_map[is_revcomp as usize], k, sort, is_revcomp, &mut nams);
-    }
-
-    nams
-}
-
 /// Determine whether the NAM represents a match to the forward or
 /// reverse-complemented sequence by checking in which orientation the
 /// first and last strobe in the NAM match
@@ -429,8 +415,17 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, us
     if rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7) {
         let timer = Instant::now();
         nam_rescue = true;
-        (n_rescue_hits, nams) = find_nams_rescue(&query_randstrobes, index, index.rescue_cutoff, use_mcs);
-        n_rescue_nams = nams.len();
+
+        let mut n_rescue_hits = 0;
+
+        nams = vec![];
+        for is_revcomp in [false, true] {
+            let (n_rescue_hits_oriented, mut matches_map) = find_nams_rescue(&query_randstrobes[is_revcomp as usize], index, index.rescue_cutoff, use_mcs);
+            // TODO is sort: true correct?
+            merge_matches_into_nams(&mut matches_map, index.k(), true, is_revcomp, &mut nams);
+            n_rescue_hits += n_rescue_hits_oriented;
+            n_rescue_nams += nams.len();
+        }
         time_rescue = timer.elapsed().as_secs_f64();
     } else {
         // TODO should not be mut
