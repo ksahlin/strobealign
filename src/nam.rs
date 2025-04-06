@@ -128,7 +128,7 @@ fn find_hits(
 /// than the normal (non-rescue) filter cutoff.
 ///
 /// Return the number of hits and the matches_map
-pub fn find_nams_rescue(
+pub fn find_matches_rescue(
     query_randstrobes: &[QueryRandstrobe],
     index: &StrobemerIndex,
     rescue_cutoff: usize,
@@ -420,7 +420,7 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, us
 
         nams = vec![];
         for is_revcomp in [false, true] {
-            let (n_rescue_hits_oriented, mut matches_map) = find_nams_rescue(&query_randstrobes[is_revcomp as usize], index, index.rescue_cutoff, use_mcs);
+            let (n_rescue_hits_oriented, mut matches_map) = find_matches_rescue(&query_randstrobes[is_revcomp as usize], index, index.rescue_cutoff, use_mcs);
             // TODO is sort: true correct?
             merge_matches_into_nams(&mut matches_map, index.k(), true, is_revcomp, &mut nams);
             n_rescue_hits += n_rescue_hits_oriented;
