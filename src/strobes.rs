@@ -42,6 +42,14 @@ impl Randstrobe {
         }
     }
 
+    /// Combines two individual syncmer hashes into a randstrobe hash
+    ///
+    /// The first syncmer is designated as the "main", the other is
+    /// the "auxiliary".
+    /// The combined hash is obtained by setting the top bits to the bits of
+    /// the main hash and the bottom bits to the bits of the auxiliary
+    /// hash. Since entries in the index are sorted by randstrobe hash, this allows
+    /// us to search for the main syncmer by masking out the lower bits.
     pub fn hash(hash1: u64, hash2: u64, main_hash_mask: u64) -> u64 {
         ((hash1 & main_hash_mask) | (hash2 & !main_hash_mask)) & REF_RANDSTROBE_HASH_MASK
     }
