@@ -269,7 +269,7 @@ pub struct StrobemerIndex<'a> {
     stats: IndexCreationStatistics,
 
     /// no. of bits of the hash to use when indexing a randstrobe bucket
-    bits: u8,
+    pub bits: u8,
 
     /// Regular (non-rescue) NAM finding ignores randstrobes that occur more often than
     /// this (see StrobemerIndex::is_too_frequent())

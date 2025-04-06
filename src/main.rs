@@ -233,7 +233,7 @@ fn main() -> Result<(), CliError> {
         error!("Too many reference sequences. Current maximum is {}.", REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES);
         exit(1);
     }
-    
+
     // Open R1 FASTQ file and estimate read length if necessary
     let f1 = xopen(&args.fastq_path)?;
     let mut fastq_reader1 = PeekableFastqReader::new(f1);
@@ -246,13 +246,17 @@ fn main() -> Result<(), CliError> {
         },
     };
     let parameters = IndexParameters::from_read_length(read_length, args.k, args.s, args.l, args.u, args.c, args.max_seed_length, args.aux_len);
-    info!("Using canonical read length {} bp", parameters.canonical_read_length);
+    info!("Canonical read length: {} bp", parameters.canonical_read_length);
 
     // Create the index
     let timer = Instant::now();
-    info!("Indexing ...");
-    debug!("{:?}", parameters);
+    debug!("{:?}", parameters.syncmer);
+    debug!("{:?}", parameters.randstrobe);
+    info!("Using multi-context seeds: {}", if args.use_mcs { "yes" } else { "no" });
+
     let mut index = StrobemerIndex::new(&references, parameters.clone(), args.bits);
+    info!("Bits used to index buckets: {}", index.bits);
+    info!("Indexing ...");
     index.populate(args.filter_fraction, args.threads);
     let index = index;
     info!("Total time indexing: {:.2} s", timer.elapsed().as_secs_f64());
@@ -272,6 +276,10 @@ fn main() -> Result<(), CliError> {
         gap_extend: args.gap_extension_penalty,
         end_bonus: args.end_bonus,
     };
+    debug!("{:?}", &mapping_parameters);
+    debug!("{:?}", &scores);
+    debug!("Auxiliary hash length: {}", args.aux_len);
+
     let aligner = Aligner::new(scores);
 
     let cmd_line = env::args().skip(1).collect::<Vec<_>>().join(" ");
@@ -307,6 +315,7 @@ fn main() -> Result<(), CliError> {
         let chunk = record_iter.by_ref().take(args.chunk_size).collect::<Vec<_>>();
         if chunk.is_empty() { None } else { Some(chunk) }
     });
+
     let mapper = Mapper {
         index: &index,
         references: &references,

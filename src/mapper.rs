@@ -20,6 +20,7 @@ use crate::insertsize::InsertSizeDistribution;
 use crate::math::normal_pdf;
 use crate::nam;
 
+#[derive(Debug)]
 pub struct MappingParameters {
     pub r: usize,
     pub max_secondary: usize,
