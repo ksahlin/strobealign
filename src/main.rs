@@ -16,7 +16,7 @@ use rstrobes::details::Details;
 use rstrobes::fastq::{record_iterator, PeekableFastqReader, SequenceRecord};
 use rstrobes::fasta;
 use rstrobes::fasta::{FastaError, RefSequence};
-use rstrobes::index::{IndexParameters, StrobemerIndex, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES};
+use rstrobes::index::{IndexCreationStatistics, IndexParameters, StrobemerIndex, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES};
 use rstrobes::insertsize::InsertSizeDistribution;
 use rstrobes::maponly::{abundances_paired_end_read, abundances_single_end_read, map_paired_end_read, map_single_end_read};
 use rstrobes::mapper::{align_paired_end_read, align_single_end_read, MappingParameters, SamOutput};
@@ -260,6 +260,9 @@ fn main() -> Result<(), CliError> {
     index.populate(args.filter_fraction, args.threads);
     let index = index;
     info!("Total time indexing: {:.2} s", timer.elapsed().as_secs_f64());
+    debug!("{}", &index.stats);
+    debug!("Filtered cutoff count: {}", index.filter_cutoff);
+    debug!("Using rescue cutoff: {}", index.rescue_cutoff);
 
     let timer = Instant::now();
     let mapping_parameters = MappingParameters {

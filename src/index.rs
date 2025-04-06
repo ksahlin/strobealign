@@ -3,6 +3,7 @@ use crate::strobes::{RandstrobeIterator, RandstrobeParameters, DEFAULT_AUX_LEN};
 use crate::syncmers::{SyncmerIterator, SyncmerParameters};
 use log::debug;
 use std::cmp::{max, min, Reverse};
+use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -178,7 +179,7 @@ type RandstrobeHash = u64;
 type BucketIndex = u64;
 
 #[derive(Default)]
-struct IndexCreationStatistics {
+pub struct IndexCreationStatistics {
     tot_strobemer_count: u64,
     tot_occur_once: u64,
     tot_high_ab: u64,
@@ -186,6 +187,27 @@ struct IndexCreationStatistics {
     index_cutoff: usize,
     distinct_strobemers: u64,
 }
+
+impl Display for IndexCreationStatistics {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Index statistics")?;
+        writeln!(f, "  Total strobemers:    {:14}", self.tot_strobemer_count)?;
+        writeln!(f, "  Distinct strobemers: {:14} (100.00%)", self.distinct_strobemers)?;
+        writeln!(f, "    1 occurrence:      {:14} ({:6.2}%)", self.tot_occur_once, 100.0 * self.tot_occur_once as f64 / self.distinct_strobemers as f64)?;
+        writeln!(f, "    2..100 occurrences:{:14} ({:6.2}%)", self.tot_mid_ab,  100.0 * self.tot_mid_ab as f64 / self.distinct_strobemers as f64)?;
+        writeln!(f, "    >100 occurrences:  {:14} ({:6.2}%)", self.tot_high_ab, 100.0 * self.tot_high_ab as f64 / self.distinct_strobemers as f64)?;
+        if self.tot_high_ab >= 1 {
+            writeln!(f, "Ratio distinct to highly abundant: {}", self.distinct_strobemers / self.tot_high_ab)?;
+        }
+        if self.tot_mid_ab >= 1 {
+            writeln!(f, "Ratio distinct to non distinct: {}", self.distinct_strobemers / (self.tot_high_ab + self.tot_mid_ab))?;
+        }
+        write!(f, "Filtered cutoff index: {}", self.index_cutoff)?;
+        
+        Ok(())
+    }
+}
+
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Default, Clone)]
 pub struct RefRandstrobe {
@@ -266,7 +288,7 @@ fn count_all_randstrobes(
 pub struct StrobemerIndex<'a> {
     references: &'a [RefSequence],
     pub parameters: IndexParameters,
-    stats: IndexCreationStatistics,
+    pub stats: IndexCreationStatistics,
 
     /// no. of bits of the hash to use when indexing a randstrobe bucket
     pub bits: u8,
@@ -325,7 +347,7 @@ impl<'a> StrobemerIndex<'a> {
         // stats.elapsed_counting_hashes = count_hash.duration();
 
         let total_randstrobes: usize = randstrobe_counts.iter().sum();
-        // stats.tot_strobemer_count = total_randstrobes;
+        self.stats.tot_strobemer_count = total_randstrobes as u64;
 
         debug!("  Total number of randstrobes: {}", total_randstrobes);
         let total_length: usize = self
@@ -627,10 +649,10 @@ impl<'a> StrobemerIndex<'a> {
                 return true;
             }
             let count = self.get_count_full(position) + self.get_count_full(position_revcomp);
-            
+
             return count > cutoff;
         }
-        
+
         false
     }
 
