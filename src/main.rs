@@ -338,14 +338,14 @@ fn main() -> Result<(), CliError> {
     };
     info!("Processing reads{} using {} thread{}", mode_message, args.threads, if args.threads != 1 { "s" } else {""});
     // TODO channel size?
-    let (tx, rx) = sync_channel(args.threads);
+    let (chunks_tx, chunks_rx) = sync_channel(args.threads);
     let reader_thread = thread::spawn(move || {
         for chunk in chunks_iter.enumerate() {
-            tx.send(chunk).unwrap();
+            chunks_tx.send(chunk).unwrap();
         }
-        drop(tx);
+        drop(chunks_tx);
     });
-    let rx = Arc::new(Mutex::new(rx));
+    let chunks_rx = Arc::new(Mutex::new(chunks_rx));
 
     let (out_tx, out_rx): (Sender<(usize, (Vec<u8>, Details))>, Receiver<(usize, (Vec<u8>, Details))>) = channel();
 
@@ -372,7 +372,7 @@ fn main() -> Result<(), CliError> {
         for _ in 0..args.threads {
             let mut mapper = mapper.clone();
             let out_tx = out_tx.clone();
-            let rrx = rx.clone();
+            let rrx = chunks_rx.clone();
             s.spawn(move || {
                 loop {
                     let msg = rrx.lock().unwrap().recv();
