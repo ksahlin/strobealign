@@ -1,16 +1,16 @@
 //! Statistics about mapping a single or multiple reads
- 
+
 use std::ops;
 
 #[derive(Default, Debug, Clone)]
 pub struct NamDetails {
     pub n_reads: usize,
-    
+
     pub n_randstrobes: usize,
 
     // Number of NAMs found
     pub n_nams: usize,
-    
+
     /// Number of rescue NAMs found
     pub n_rescue_nams: usize,
 
@@ -23,7 +23,7 @@ pub struct NamDetails {
     /// Number of partial hits. These are counted twice:
     /// They are also reported as part of n_hits or n_rescue_hits.
     pub n_partial_hits: usize,
-    
+
     /// Number of rescue hits
     pub n_rescue_hits: usize,
 
@@ -54,7 +54,7 @@ impl ops::AddAssign<NamDetails> for NamDetails {
 #[derive(Default, Debug, Clone)]
 pub struct Details {
     pub nam: NamDetails,
-    
+
     pub inconsistent_nams: usize,
 
     /// No. of times rescue by local alignment was attempted
@@ -68,6 +68,8 @@ pub struct Details {
 
     /// No. of best alignments with same score
     pub best_alignments: usize,
+    
+    pub time_extend: f64,
 }
 
 impl ops::AddAssign<Details> for Details {
@@ -78,8 +80,9 @@ impl ops::AddAssign<Details> for Details {
         self.tried_alignment += rhs.tried_alignment;
         self.gapped += rhs.gapped;
         self.best_alignments += rhs.best_alignments;
-    }    
-} 
+        self.time_extend += rhs.time_extend;
+    }
+}
 
 impl Details {
     pub fn new() -> Self {
@@ -92,6 +95,6 @@ impl From<NamDetails> for Details {
         Details {
             nam: nam_details,
             .. Details::default()
-        }    
+        }
     }
 }

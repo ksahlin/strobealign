@@ -426,7 +426,7 @@ fn main() -> Result<(), CliError> {
     info!("Total time finding NAMs (non-rescue mode): {:.2} s", details.nam.time_find_nams);
     info!("Total time finding NAMs (rescue mode): {:.2} s", details.nam.time_rescue);
     info!("Total time sorting NAMs (candidate sites): {:.2} s", details.nam.time_sort_nams);
-    //info!("Total time extending and pairing seeds: {:.2} s", );
+    info!("Total time extending and pairing seeds: {:.2} s", details.time_extend);
     
     Ok(())
 }

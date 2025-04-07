@@ -1,6 +1,7 @@
 use std::cmp::{min, Reverse};
 use std::collections::{HashMap, HashSet};
 use std::mem;
+use std::time::Instant;
 use fastrand::Rng;
 use memchr::memmem;
 use crate::aligner::{hamming_align, hamming_distance, AlignmentInfo};
@@ -304,7 +305,7 @@ pub fn align_single_end_read(
     let (nam_details, mut nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, mapping_parameters.use_mcs, rng);
     let mut details: Details = nam_details.into();
 
-    // Timer extend_timer;
+    let timer = Instant::now();
     if nams.is_empty() {
         return (vec![sam_output.make_unmapped_record(record, details.clone())], details);
     }
@@ -390,7 +391,6 @@ pub fn align_single_end_read(
         // Output secondary alignments
         //let max_out = min(alignments.len(), mapping_parameters.max_secondary + 1);
         for (i, alignment) in alignments.iter().enumerate() {
-
             if i >= mapping_parameters.max_secondary || alignment.score - best_score > 2 * aligner.scores.mismatch as u32 + aligner.scores.gap_open as u32 {
                 break;
             }
@@ -399,7 +399,8 @@ pub fn align_single_end_read(
             sam_records.push(sam_output.make_mapped_record(alignment, references, record, mapq, is_primary, details.clone()));
         }
     }
-    // TODO statistics.tot_extend += extend_timer.duration();
+    details.time_extend = timer.elapsed().as_secs_f64();
+    
     (sam_records, details)
 }
 
@@ -488,7 +489,7 @@ pub fn align_paired_end_read(
         nams_pair[is_r1] = nams;
     }
 
-    // Timer extend_timer;
+    let timer = Instant::now();
     let read1 = Read::new(&r1.sequence); // TODO pass r1, r2 to extend_paired_seeds instead
     let read2 = Read::new(&r2.sequence);
     let alignment_pairs = extend_paired_seeds(
@@ -552,13 +553,12 @@ pub fn align_paired_end_read(
             ));
         }
     }
-    // TODO
-    // statistics.tot_extend += extend_timer.duration();
 
-    let mut details2 = details[0].clone();
-    details2 += details[1].clone();
+    let mut details_both = details[0].clone();
+    details_both += details[1].clone();
+    details_both.time_extend = timer.elapsed().as_secs_f64();
 
-    (sam_records, details2)
+    (sam_records, details_both)
 }
 
 #[derive(Debug)]
