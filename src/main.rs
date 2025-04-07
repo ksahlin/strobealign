@@ -350,7 +350,7 @@ fn main() -> Result<(), CliError> {
     let (out_tx, out_rx): (Sender<(usize, (Vec<u8>, Details))>, Receiver<(usize, (Vec<u8>, Details))>) = channel();
 
     let (details_tx, details_rx): (Sender<Details>, Receiver<Details>) = channel();
-    let out = Arc::new(Mutex::new(out));
+    let out_arc = Arc::new(Mutex::new(out));
     let writer_thread = thread::spawn(move || {
         let mut map = HashMap::new();
         let mut next_index = 0;
@@ -358,24 +358,29 @@ fn main() -> Result<(), CliError> {
         while let Ok((index, msg)) = out_rx.recv() {
             map.insert(index, msg);
             while let Some((data, details)) = map.remove(&next_index) {
-                out.lock().unwrap().write_all(data.as_ref()).unwrap();
+                out_arc.lock().unwrap().write_all(data.as_ref()).unwrap();
                 total_details += details;
                 next_index += 1;
             }
         }
         details_tx.send(total_details).unwrap();
         drop(out_rx);
+        
+        out_arc
     });
+
+    let (abundances_tx, abundances_rx) = channel();
 
     // worker threads
     thread::scope(|s| {
         for _ in 0..args.threads {
             let mut mapper = mapper.clone();
             let out_tx = out_tx.clone();
-            let rrx = chunks_rx.clone();
+            let chunks_rx = chunks_rx.clone();
+            let abundances_tx = abundances_tx.clone();
             s.spawn(move || {
                 loop {
-                    let msg = rrx.lock().unwrap().recv();
+                    let msg = chunks_rx.lock().unwrap().recv();
                     if let Ok((index, chunk)) = msg {
                         let mapped_chunk = mapper.map_chunk(chunk).unwrap();
                         out_tx.send((index, mapped_chunk)).unwrap();
@@ -383,16 +388,31 @@ fn main() -> Result<(), CliError> {
                         break;
                     }
                 }
-                drop(rrx);
+                drop(chunks_rx);
                 drop(out_tx);
-                drop(mapper);
+                if mode == Mode::Abundances {
+                    abundances_tx.send(mapper.abundances).unwrap();
+                }
             });
         }
     });
     drop(out_tx);
     reader_thread.join().unwrap();
     let details = details_rx.recv().unwrap();
-    writer_thread.join().unwrap();
+    let out = writer_thread.join().unwrap();
+    
+    let mut out = Arc::into_inner(out).unwrap().into_inner().unwrap();
+    
+    if mode == Mode::Abundances {
+        let mut abundances = vec![0f64; references.len()];
+        for _ in 0..args.threads {
+            let worker_abundances = abundances_rx.recv().unwrap();
+            for i in 0..abundances.len() {
+                abundances[i] += worker_abundances[i];
+            }
+        }
+        output_abundances(&abundances, &references, &mut out)?;
+    }
 
     debug!("Number of reads:               {:12}", details.nam.n_reads);
     debug!("Number of randstrobes:         {:12}  Per read: {:7.1}", details.nam.n_randstrobes, details.nam.n_randstrobes as f64 / details.nam.n_reads as f64);
@@ -503,14 +523,14 @@ impl<'a> Mapper<'a> {
         }
         Ok((out, cumulative_details))
     }
+}
 
-    pub fn output_abundances<T: Write>(&self, out: &mut T) -> io::Result<()> {
-        for i in 0..self.references.len() {
-            let normalized = self.abundances[i] / self.references[i].sequence.len() as f64;
-            writeln!(out, "{}\t{:.6}", self.references[i].name, normalized)?;
-        }
-        Ok(())
+pub fn output_abundances<T: Write>(abundances: &[f64], references: &[RefSequence], out: &mut T) -> io::Result<()> {
+    for i in 0..references.len() {
+        let normalized = abundances[i] / references[i].sequence.len() as f64;
+        writeln!(out, "{}\t{:.6}", references[i].name, normalized)?;
     }
+    Ok(())
 }
 
 fn estimate_read_length(records: &[SequenceRecord]) -> usize {
