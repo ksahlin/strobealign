@@ -1,8 +1,9 @@
 use rstrobes::strobes::DEFAULT_AUX_LEN;
-use std::{env, io, thread};
+use std::{env, io, thread, time};
+use std::cmp::min;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Write};
+use std::io::{BufReader, BufWriter, IsTerminal, Write};
 use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, sync_channel, Receiver, Sender};
@@ -53,7 +54,9 @@ struct Args {
     #[arg(long = "trace", hide = true)]
     trace: bool,
 
-    //args::Flag no_progress(parser, "no-progress", "Disable progress report (enabled by default if output is a terminal)", {"no-progress"});
+    /// Disable progress report (enabled by default if output is a terminal)
+    #[arg(long = "no-progress", default_value_t = false, help_heading = "Input/output")]
+    no_progress: bool,
 
     /// Only map reads, no base level alignment (produces PAF file)
     #[arg(short = 'x', help_heading = "Input/output")]
@@ -337,6 +340,8 @@ fn main() -> Result<(), CliError> {
         Mode::Abundances => " in abundance estimation mode"
     };
     info!("Processing reads{} using {} thread{}", mode_message, args.threads, if args.threads != 1 { "s" } else {""});
+
+    let show_progress = !args.no_progress && io::stderr().is_terminal();
     // TODO channel size?
     let (chunks_tx, chunks_rx) = sync_channel(args.threads);
     let reader_thread = thread::spawn(move || {
@@ -348,7 +353,7 @@ fn main() -> Result<(), CliError> {
     let chunks_rx = Arc::new(Mutex::new(chunks_rx));
 
     let (out_tx, out_rx): (Sender<(usize, (Vec<u8>, Details))>, Receiver<(usize, (Vec<u8>, Details))>) = channel();
-
+    let (progress_tx, progress_rx): (Sender<usize>, Receiver<_>) = channel();
     let (details_tx, details_rx): (Sender<Details>, Receiver<Details>) = channel();
     let out_arc = Arc::new(Mutex::new(out));
     let writer_thread = thread::spawn(move || {
@@ -360,16 +365,44 @@ fn main() -> Result<(), CliError> {
             while let Some((data, details)) = map.remove(&next_index) {
                 out_arc.lock().unwrap().write_all(data.as_ref()).unwrap();
                 total_details += details;
+                if show_progress {
+                    progress_tx.send(total_details.nam.n_reads).unwrap();
+                }
                 next_index += 1;
             }
         }
         details_tx.send(total_details).unwrap();
+        drop(progress_tx);
         drop(out_rx);
-        
+
         out_arc
     });
 
     let (abundances_tx, abundances_rx) = channel();
+
+    // TODO
+    // this thread should be joined after the workers are done
+    if show_progress {
+        thread::spawn(move || {
+            let timer = Instant::now();
+            let mut time_to_wait = time::Duration::from_millis(10);
+            let mut reported_time = Instant::now();
+            let mut total_reads = 0;
+            while let Ok(n_reads) = progress_rx.recv() {
+                total_reads = n_reads;
+                // Start with a small waiting time between updates so that there’s no delay if
+                // there are very few reads to align.
+                time_to_wait = min(time_to_wait * 2, time::Duration::from_millis(1000));
+                let elapsed = timer.elapsed();
+                if Instant::now() >= reported_time + time_to_wait {
+                    eprint!(" Mapped {:12.3} M reads @ {:8.2} us/read                   \r", n_reads as f64 / 1E6, elapsed.as_secs_f64() * 1E6 / n_reads as f64);
+                    reported_time = Instant::now();
+                }
+            }
+            eprintln!(" Mapped {:12.3} M reads @ {:8.2} us/read                   \r", total_reads as f64 / 1E6, timer.elapsed().as_secs_f64() * 1E6 / total_reads as f64);
+            eprintln!("Done!");
+        });
+    }
 
     // worker threads
     thread::scope(|s| {
@@ -400,9 +433,9 @@ fn main() -> Result<(), CliError> {
     reader_thread.join().unwrap();
     let details = details_rx.recv().unwrap();
     let out = writer_thread.join().unwrap();
-    
+
     let mut out = Arc::into_inner(out).unwrap().into_inner().unwrap();
-    
+
     if mode == Mode::Abundances {
         let mut abundances = vec![0f64; references.len()];
         for _ in 0..args.threads {
@@ -439,7 +472,6 @@ fn main() -> Result<(), CliError> {
     */
     // TODO out.lock().unwrap().flush()?;
 
-    info!("Done!");
     info!("Total time mapping: {:.2} s", timer.elapsed().as_secs_f64());
     //info!("Total time reading read-file(s): {:.2} s", );
     info!("Total time creating strobemers: {:.2} s", details.nam.time_randstrobes);
@@ -447,7 +479,7 @@ fn main() -> Result<(), CliError> {
     info!("Total time finding NAMs (rescue mode): {:.2} s", details.nam.time_rescue);
     info!("Total time sorting NAMs (candidate sites): {:.2} s", details.nam.time_sort_nams);
     info!("Total time extending and pairing seeds: {:.2} s", details.time_extend);
-    
+
     Ok(())
 }
 
