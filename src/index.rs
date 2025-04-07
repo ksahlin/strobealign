@@ -80,7 +80,7 @@ static PROFILES: [Profile; 7] = [
 ];
 
 /* Settings that influence index creation */
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IndexParameters {
     pub canonical_read_length: usize,
     pub syncmer: SyncmerParameters,
@@ -685,6 +685,7 @@ impl<'a> StrobemerIndex<'a> {
 mod tests {
     use std::fs::File;
     use std::io::BufReader;
+    use std::path::Path;
     use crate::fasta::read_fasta;
     use crate::revcomp::reverse_complement;
     use crate::syncmers::Syncmer;
@@ -692,20 +693,6 @@ mod tests {
 
     #[test]
     fn test_ref_randstrobe() {
-        let hash: u64 = 0x1234567890ABCDEFu64 & REF_RANDSTROBE_HASH_MASK;
-        let ref_index: u32 = (REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES - 1) as u32;
-        let offset = 255;
-        let position = !0;
-        let rr = RefRandstrobe::new(hash, ref_index, position, offset);
-
-        assert_eq!(rr.hash(), hash);
-        assert_eq!(rr.position(), position as usize);
-        assert_eq!(rr.reference_index(), ref_index as usize);
-        assert_eq!(rr.strobe2_offset(), offset as usize);
-    }
-
-    #[test]
-    fn test_ref_randstrobe2() {
         let hash: u64 = 0x1234567890ABCDEFu64 & REF_RANDSTROBE_HASH_MASK;
         let ref_index: u32 = (REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES - 1) as u32;
         let offset = 255;
@@ -753,6 +740,15 @@ mod tests {
         assert_eq!(ip.syncmer, sp);
     }
 
+    fn test_index_parameters_similar_read_length() {
+        let ip150 = IndexParameters::default_from_read_length(150);
+        let ip149 = IndexParameters::default_from_read_length(149);
+        let ip151 = IndexParameters::default_from_read_length(151);
+        
+        assert_eq!(ip150, ip149);
+        assert_eq!(ip150, ip151);
+    }
+    
     fn syncmers_of(seq: &[u8], parameters: &SyncmerParameters) -> Vec<Syncmer> {
         SyncmerIterator::new(seq, parameters.k, parameters.s, parameters.t).collect()
     }
@@ -780,5 +776,30 @@ mod tests {
     fn test_pick_bits() {
         let parameters = SyncmerParameters::new(20, 16);
         assert_eq!(parameters.pick_bits(0), 8);
+    }
+
+    pub fn read_ref<P: AsRef<Path>>(path: P) -> Vec<RefSequence> {
+        let f = File::open(path).unwrap();
+        let mut reader = BufReader::new(f);
+
+        read_fasta(&mut reader).unwrap()
+    }
+
+    #[test]
+    fn test_index_phix() {
+        let references = read_ref("tests/phix.fasta");
+        let parameters = IndexParameters::default_from_read_length(150);
+        let mut index = StrobemerIndex::new(&references, parameters, None);
+        index.populate(0.1, 1);
+        assert!(index.stats.distinct_strobemers > 0);
+    }
+
+    #[test]
+    fn test_index_empty_reference() {
+        let references = vec![RefSequence { name: "name".to_string(), sequence: vec![] }];
+        let parameters = IndexParameters::default_from_read_length(150);
+        let mut index = StrobemerIndex::new(&references, parameters, None);
+        index.populate(0.1, 1);
+        assert_eq!(index.stats.distinct_strobemers, 0);
     }
 }
