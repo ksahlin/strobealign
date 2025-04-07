@@ -203,7 +203,7 @@ impl Display for IndexCreationStatistics {
             writeln!(f, "Ratio distinct to non distinct: {}", self.distinct_strobemers / (self.tot_high_ab + self.tot_mid_ab))?;
         }
         write!(f, "Filtered cutoff index: {}", self.index_cutoff)?;
-        
+
         Ok(())
     }
 }

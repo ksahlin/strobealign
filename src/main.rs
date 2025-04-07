@@ -255,6 +255,7 @@ fn main() -> Result<(), CliError> {
     info!("Using multi-context seeds: {}", if args.use_mcs { "yes" } else { "no" });
 
     let mut index = StrobemerIndex::new(&references, parameters.clone(), args.bits);
+    debug!("Auxiliary hash length: {}", args.aux_len);
     info!("Bits used to index buckets: {}", index.bits);
     info!("Indexing ...");
     index.populate(args.filter_fraction, args.threads);
@@ -281,7 +282,6 @@ fn main() -> Result<(), CliError> {
     };
     debug!("{:?}", &mapping_parameters);
     debug!("{:?}", &scores);
-    debug!("Auxiliary hash length: {}", args.aux_len);
 
     let aligner = Aligner::new(scores);
 
@@ -403,7 +403,9 @@ fn main() -> Result<(), CliError> {
     debug!("Number of rescue hits:         {:12}  Per rescue attempt: {:7.1}", details.nam.n_rescue_hits, details.nam.n_rescue_hits as f64 / details.nam.nam_rescue as f64);
     debug!("Number of rescue NAMs:         {:12}  Per rescue attempt: {:7.1}", details.nam.n_rescue_nams, details.nam.n_rescue_nams as f64 / details.nam.nam_rescue as f64);
 
-    debug!("Details: {:?}", details);
+    debug!("Total mapping sites tried: {}", details.tried_alignment);
+    debug!("Inconsistent NAM ends: {}", details.inconsistent_nams);
+    debug!("Mates rescued by alignment: {}", details.mate_rescue);
     // Single-threaded:
     // for chunk in chunks_iter {
     //     mapper.map_chunk(&mut out, &mut rng, chunk)?;
@@ -419,6 +421,13 @@ fn main() -> Result<(), CliError> {
 
     info!("Done!");
     info!("Total time mapping: {:.2} s", timer.elapsed().as_secs_f64());
+    //info!("Total time reading read-file(s): {:.2} s", );
+    info!("Total time creating strobemers: {:.2} s", details.nam.time_randstrobes);
+    info!("Total time finding NAMs (non-rescue mode): {:.2} s", details.nam.time_find_nams);
+    info!("Total time finding NAMs (rescue mode): {:.2} s", details.nam.time_rescue);
+    info!("Total time sorting NAMs (candidate sites): {:.2} s", details.nam.time_sort_nams);
+    //info!("Total time extending and pairing seeds: {:.2} s", );
+    
     Ok(())
 }
 
