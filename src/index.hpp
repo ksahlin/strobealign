@@ -101,7 +101,7 @@ struct StrobemerIndex {
 
         auto pos = std::lower_bound(randstrobes.begin() + position_start,
                                     randstrobes.begin() + position_end,
-                                    RefRandstrobe{key, 0, 0, 0, 0},
+                                    RefRandstrobe{key, 0, 0, 0},
                                     cmp);
         if ((pos->hash() & hash_mask) == masked_key) return pos - randstrobes.begin();
         return end();
@@ -123,16 +123,38 @@ struct StrobemerIndex {
         }
     }
 
-    bool first_strobe_is_main(bucket_index_t position) const {
-        return randstrobes[position].first_strobe_is_main();
-    }
-    
-    bool is_filtered(bucket_index_t position) const {
+    bool is_filtered_forward(bucket_index_t position) const {
         return get_hash(position) == get_hash(position + filter_cutoff);
     }
 
-    bool is_partial_filtered(bucket_index_t position) const {
+    bool is_filtered(bucket_index_t position, randstrobe_hash_t hash_revcomp) const {
+        if (is_filtered_forward(position)) {
+            return true;
+        }
+        bucket_index_t position_revcomp = find_full(hash_revcomp);
+        if (is_filtered_forward(position_revcomp)) {
+            return true;
+        }
+        size_t count = get_count_full(position) + get_count_full(position_revcomp);
+
+        return count > filter_cutoff;
+    }
+
+    bool is_partial_filtered_forward(bucket_index_t position) const {
         return get_main_hash(position) == get_main_hash(position + partial_filter_cutoff);
+    }
+
+    bool is_partial_filtered(bucket_index_t position, randstrobe_hash_t hash_revcomp) const {
+        if (is_partial_filtered_forward(position)) {
+            return true;
+        }
+        bucket_index_t position_revcomp = find_partial(hash_revcomp);
+        if (is_partial_filtered_forward(position_revcomp)) {
+            return true;
+        }
+        size_t count = get_count_partial(position) + get_count_partial(position_revcomp);
+
+        return count > filter_cutoff;
     }
 
     unsigned int get_strobe1_position(bucket_index_t position) const {
@@ -146,9 +168,6 @@ struct StrobemerIndex {
     std::pair<int, int> strobe_extent_partial(bucket_index_t position) const {
         // Construct the match from the strobe that was selected as the main part of the hash
         int ref_start = get_strobe1_position(position);
-        if (!first_strobe_is_main(position)) {
-            ref_start += strobe2_offset(position);
-        }
         return {ref_start, ref_start + k()};
     }
 
@@ -206,7 +225,7 @@ struct StrobemerIndex {
 
         auto pos = std::upper_bound(randstrobes.begin() + position,
                                     randstrobes.begin() + position_end,
-                                    RefRandstrobe{key, 0, 0, 0, 0},
+                                    RefRandstrobe{key, 0, 0, 0},
                                     cmp);
         return (pos - randstrobes.begin() - 1) - position + 1;
     }

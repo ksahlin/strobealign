@@ -309,8 +309,7 @@ void StrobemerIndex::assign_randstrobes(size_t ref_index, size_t offset) {
                 randstrobe.hash,
                 randstrobe.strobe1_pos,
                 static_cast<uint32_t>(ref_index),
-                static_cast<uint8_t>(randstrobe.strobe2_pos - randstrobe.strobe1_pos),
-                randstrobe.first_strobe_is_main
+                static_cast<uint8_t>(randstrobe.strobe2_pos - randstrobe.strobe1_pos)
             };
         }
         chunk.clear();
