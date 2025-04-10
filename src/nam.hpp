@@ -22,6 +22,8 @@ struct Match {
 };
 
 bool operator==(const Match& lhs, const Match& rhs);
+std::ostream& operator<<(std::ostream& os, const Match& match);
+
 
 // Non-overlapping approximate match
 struct Nam {

@@ -31,7 +31,7 @@ def test_reverse_complement():
     assert strobealign.reverse_complement("AAAACCCGGT") == "ACCGGGTTTT"
 
 
-def test_indexing_and_hit_finding():
+def test_indexing_and_match_finding():
     refs = strobealign.References.from_fasta("tests/phix.fasta")
     index_parameters = strobealign.IndexParameters.from_read_length(100)
     index = strobealign.StrobemerIndex(refs, index_parameters)
@@ -53,7 +53,8 @@ def test_indexing_and_hit_finding():
         ref_aligned = ref[reference_start:reference_end]
         query_aligned = query[hit.query_start:hit.query_end]
         assert ref_aligned == query_aligned
-        hit.is_partial
+
+    matches = strobealign.hits_to_matches(hits, index)
 
 
 def test_index_find():

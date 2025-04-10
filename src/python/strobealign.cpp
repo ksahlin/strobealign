@@ -1,6 +1,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/string_view.h>
+#include <nanobind/stl/unordered_map.h>
 #include <nanobind/stl/bind_vector.h>
 #include <nanobind/stl/pair.h>
 #include <nanobind/stl/array.h>
@@ -164,6 +165,7 @@ NB_MODULE(strobealign_extension, m_) {
     ;
     nb::bind_vector<std::vector<Nam>>(m, "NamVector");
     nb::bind_vector<std::vector<Hit>>(m, "HitVector");
+    nb::bind_vector<std::vector<Match>>(m, "MatchVector");
 
     nb::class_<Hit>(m, "Hit")
         .def_ro("position", &Hit::position)
@@ -174,12 +176,31 @@ NB_MODULE(strobealign_extension, m_) {
             std::stringstream s; s << hit; return s.str();
         })
     ;
+
+    nb::class_<Match>(m, "Match")
+        .def_ro("query_start", &Match::query_start)
+        .def_ro("query_end", &Match::query_end)
+        .def_ro("ref_start", &Match::ref_start)
+        .def_ro("ref_end", &Match::ref_end)
+        .def("__repr__", [](const Match& match) {
+            std::stringstream s; s << match; return s.str();
+        })
+    ;
+
     m.def("reverse_complement", &reverse_complement);
     m.def("randstrobes_query", &randstrobes_query);
 
     m.def("find_hits", [](const std::vector<QueryRandstrobe>& query_randstrobes, const StrobemerIndex& index, bool use_mcs) -> std::vector<Hit> {
         auto [total_hits, partial_hits, sorting_needed, hits] = find_hits(query_randstrobes, index, use_mcs);
         return hits;
-    }, nb::arg("query_randstrobes_pair"), nb::arg("index"), nb::arg("use_mcs"));
+    }, nb::arg("query_randstrobes"), nb::arg("index"), nb::arg("use_mcs"));
 
+    m.def("hits_to_matches", [](const std::vector<Hit>& hits, const StrobemerIndex& index) -> std::unordered_map<unsigned int, std::vector<Match>> {
+        auto rhmap = hits_to_matches(hits, index);
+        std::unordered_map<unsigned int, std::vector<Match>> map;
+        for (const auto& [key, value] : rhmap)
+            map.insert({key, value});
+
+        return map;
+    }, nb::arg("hits"), nb::arg("index"));
 }

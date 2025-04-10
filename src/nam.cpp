@@ -4,6 +4,7 @@ bool operator==(const Match& lhs, const Match& rhs) {
     return (lhs.query_start == rhs.query_start) && (lhs.query_end == rhs.query_end) && (lhs.ref_start == rhs.ref_start) && (lhs.ref_end == rhs.ref_end);
 }
 
+
 namespace {
 
 inline void add_to_matches_map_full(
@@ -335,6 +336,12 @@ std::ostream& operator<<(std::ostream& os, const Hit& hit) {
     os << "Hit(query_start=" << hit.query_start << ", query_end=" << hit.query_end << ", position=" << hit.position << ", is_partial=" << hit.is_partial << ")";
     return os;
 }
+
+std::ostream& operator<<(std::ostream& os, const Match& match) {
+    os << "Match(query_start=" << match.query_start << ", query_end=" << match.query_end << ", ref_start=" << match.ref_start << ", ref_end=" << match.ref_end << ")";
+    return os;
+}
+
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {
     os << "Nam(ref_id=" << n.ref_id << ", query: " << n.query_start << ".." << n.query_end << ", ref: " << n.ref_start << ".." << n.ref_end << ", rc=" << static_cast<int>(n.is_revcomp) << ", score=" << n.score << ")";
