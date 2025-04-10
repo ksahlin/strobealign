@@ -12,6 +12,8 @@ struct Hit {
     bool is_partial;
 };
 
+std::ostream& operator<<(std::ostream& os, const Hit& hit);
+
 struct Match {
     int query_start;
     int query_end;

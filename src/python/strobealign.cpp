@@ -170,6 +170,9 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("query_start", &Hit::query_start)
         .def_ro("query_end", &Hit::query_end)
         .def_ro("is_partial", &Hit::is_partial)
+        .def("__repr__", [](const Hit& hit) {
+            std::stringstream s; s << hit; return s.str();
+        })
     ;
     m.def("reverse_complement", &reverse_complement);
     m.def("randstrobes_query", &randstrobes_query);
