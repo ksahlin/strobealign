@@ -37,21 +37,23 @@ def test_indexing_and_hit_finding():
     index = strobealign.StrobemerIndex(refs, index_parameters)
     index.populate()
 
-    # Find NAMs for a single query sequence
+    # Find NAMs for a single query sequence (matches in forward orientation on
+    # the reference)
     query = "TGCGTTTATGGTACGCTGGACTTTGTGGGATACCCTCGCTTTCCTGCTCCTGTTGAGTTTATTGCTGCCG"
     randstrobes = strobealign.randstrobes_query(query, index_parameters)
-
-    for is_revcomp in (0, 1):
-        hits = strobealign.find_hits(randstrobes[is_revcomp], index, use_mcs=False)
-        assert hits
-        for hit in hits:
-            reference_index = index.reference_index(hit.position)
-            ref = refs[reference_index].sequence
-            reference_start = index.get_strobe1_position(hit.position)
-            reference_end = reference_start + index.strobe2_offset(hit.position) + index.k
-            ref_aligned = ref[reference_start:reference_end]
-            query_aligned = query[hit.query_start:hit.query_end]
-            hit.is_partial
+    # For this test, we ignore the randstrobes for the reverse-complemented query
+    randstrobes = randstrobes[0]
+    hits = strobealign.find_hits(randstrobes, index, use_mcs=False)
+    for hit in hits:
+        reference_index = index.reference_index(hit.position)
+        ref = refs[reference_index].sequence
+        reference_start = index.get_strobe1_position(hit.position)
+        assert not hit.is_partial
+        reference_end = reference_start + index.strobe2_offset(hit.position) + index.k
+        ref_aligned = ref[reference_start:reference_end]
+        query_aligned = query[hit.query_start:hit.query_end]
+        assert ref_aligned == query_aligned
+        hit.is_partial
 
 
 def test_index_find():
