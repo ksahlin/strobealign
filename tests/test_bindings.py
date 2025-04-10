@@ -55,6 +55,10 @@ def test_indexing_and_match_finding():
         assert ref_aligned == query_aligned
 
     matches = strobealign.hits_to_matches(hits, index)
+    assert matches
+    nams = strobealign.merge_matches_into_nams(matches, index.k, sort=False, is_revcomp=False)
+    assert nams
+    print(nams)
 
 
 def test_index_find():

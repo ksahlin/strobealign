@@ -203,4 +203,20 @@ NB_MODULE(strobealign_extension, m_) {
 
         return map;
     }, nb::arg("hits"), nb::arg("index"));
+
+    m.def("merge_matches_into_nams", [](
+            const std::unordered_map<unsigned int, std::vector<Match>>& matches_map,
+            int k,
+            bool sort,
+            bool is_revcomp
+        ) -> std::vector<Nam> {
+        std::vector<Nam> nams;
+
+        robin_hood::unordered_map<unsigned int, std::vector<Match>> rhmap;
+        for (const auto& [key, value] : matches_map)
+            rhmap.insert({key, value});
+        merge_matches_into_nams(rhmap, k, sort, is_revcomp, nams);
+
+        return nams;
+    }, nb::arg("matches_map"), nb::arg("k"), nb::arg("sort"), nb::arg("is_revcomp"));
 }
