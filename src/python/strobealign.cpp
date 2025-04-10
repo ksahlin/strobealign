@@ -8,6 +8,7 @@
 #include <iostream>
 #include <sstream>
 #include "randstrobes.hpp"
+#include "revcomp.hpp"
 #include "refs.hpp"
 #include "index.hpp"
 #include "nam.hpp"
@@ -170,6 +171,7 @@ NB_MODULE(strobealign_extension, m_) {
         .def_ro("query_end", &Hit::query_end)
         .def_ro("is_partial", &Hit::is_partial)
     ;
+    m.def("reverse_complement", &reverse_complement);
     m.def("randstrobes_query", &randstrobes_query);
 
     m.def("find_hits", [](const std::vector<QueryRandstrobe>& query_randstrobes, const StrobemerIndex& index, bool use_mcs) -> std::vector<Hit> {

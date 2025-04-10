@@ -25,6 +25,12 @@ def test_index_parameters():
     assert isinstance(params.randstrobe.w_max, int)
 
 
+def test_reverse_complement():
+    assert strobealign.reverse_complement("") == ""
+    assert strobealign.reverse_complement("A") == "T"
+    assert strobealign.reverse_complement("AAAACCCGGT") == "ACCGGGTTTT"
+
+
 def test_indexing_and_hit_finding():
     refs = strobealign.References.from_fasta("tests/phix.fasta")
     index_parameters = strobealign.IndexParameters.from_read_length(100)
