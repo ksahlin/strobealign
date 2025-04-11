@@ -25,27 +25,40 @@ def test_index_parameters():
     assert isinstance(params.randstrobe.w_max, int)
 
 
-def test_indexing_and_hit_finding():
+def test_reverse_complement():
+    assert strobealign.reverse_complement("") == ""
+    assert strobealign.reverse_complement("A") == "T"
+    assert strobealign.reverse_complement("AAAACCCGGT") == "ACCGGGTTTT"
+
+
+def test_indexing_and_match_finding():
     refs = strobealign.References.from_fasta("tests/phix.fasta")
     index_parameters = strobealign.IndexParameters.from_read_length(100)
     index = strobealign.StrobemerIndex(refs, index_parameters)
     index.populate()
 
-    # Find NAMs for a single query sequence
+    # Find NAMs for a single query sequence (matches in forward orientation on
+    # the reference)
     query = "TGCGTTTATGGTACGCTGGACTTTGTGGGATACCCTCGCTTTCCTGCTCCTGTTGAGTTTATTGCTGCCG"
     randstrobes = strobealign.randstrobes_query(query, index_parameters)
+    # For this test, we ignore the randstrobes for the reverse-complemented query
+    randstrobes = randstrobes[0]
+    hits = strobealign.find_hits(randstrobes, index, use_mcs=False)
+    for hit in hits:
+        reference_index = index.reference_index(hit.position)
+        ref = refs[reference_index].sequence
+        reference_start = index.get_strobe1_position(hit.position)
+        assert not hit.is_partial
+        reference_end = reference_start + index.strobe2_offset(hit.position) + index.k
+        ref_aligned = ref[reference_start:reference_end]
+        query_aligned = query[hit.query_start:hit.query_end]
+        assert ref_aligned == query_aligned
 
-    for is_revcomp in (0, 1):
-        hits = strobealign.find_hits(randstrobes[is_revcomp], index, use_mcs=False)
-        assert hits
-        for hit in hits:
-            reference_index = index.reference_index(hit.position)
-            ref = refs[reference_index].sequence
-            reference_start = index.get_strobe1_position(hit.position)
-            reference_end = reference_start + index.strobe2_offset(hit.position) + index.k
-            ref_aligned = ref[reference_start:reference_end]
-            query_aligned = query[hit.query_start:hit.query_end]
-            hit.is_partial
+    matches = strobealign.hits_to_matches(hits, index)
+    assert matches
+    nams = strobealign.merge_matches_into_nams(matches, index.k, sort=False, is_revcomp=False)
+    assert nams
+    print(nams)
 
 
 def test_index_find():

@@ -12,6 +12,8 @@ struct Hit {
     bool is_partial;
 };
 
+std::ostream& operator<<(std::ostream& os, const Hit& hit);
+
 struct Match {
     int query_start;
     int query_end;
@@ -20,6 +22,8 @@ struct Match {
 };
 
 bool operator==(const Match& lhs, const Match& rhs);
+std::ostream& operator<<(std::ostream& os, const Match& match);
+
 
 // Non-overlapping approximate match
 struct Nam {

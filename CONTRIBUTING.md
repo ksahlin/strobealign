@@ -32,10 +32,11 @@ re-compile strobealign. This outputs a list of the found NAMs for each read.
 
 ## Testing
 
-After CMake has been run, you can use this one-liner to compile strobealign and
-run the tests:
+When your `build/` directory already exists
+(i.e., after you have run `cmake -B build`),
+you can use this one-liner to compile strobealign and run the tests:
 ```
-make -s -j -C build && tests/run.sh
+cmake --build build -j && tests/run.sh
 ```
 
 Whenever you make changes that could potentially affect mapping results, you can
@@ -48,9 +49,11 @@ The first time, it will download a *D. melanogaster* genome and some reads from
 the Sequence Read Archive (SRA). Since the dataset is truncated to the first
 100'000 reads, mapping it should take less than 30 seconds.
 
-The baseline commit is configured in `tests/baseline-commit.txt`. The script
-builds strobealign from that commit and runs it against the downloaded test
-data, then builds strobealign as it is in your working copy and compares the
+The baseline commit is the most recent commit that contains the trailer
+`Is-new-baseline: yes`.
+The script builds strobealign from that commit
+and runs it against the downloaded test data,
+then builds strobealign as it is in your working copy and compares the
 two produced BAM files. The baseline BAM is cached and re-used as long as the
 baseline commit does not change.
 
