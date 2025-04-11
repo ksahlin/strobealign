@@ -1,6 +1,6 @@
 # Strobealign Changelog
 
-## development version
+## v0.16.0 (2025-04-11)
 
 * #476: Improve accuracy by enabling (by default) a variant of multi-context
   seeds: When no regular seeds - which consist of two strobes - can be found
@@ -8,6 +8,11 @@
   single-strobe ("partial") seeds.
   The `--mcs` option is still available for now. It is a bit slower, but
   slightly more accurate.
+* #492: Switch to “asymmetric randstrobes”, which makes the code simpler and
+  even leads to some speedups and increased accuracy for very short reads.
+* #489: Speed up mapping by a few percent by avoiding to process repetitive hits
+  any further as soon it is clear that we need to start over with different
+  thresholds anyway.
 * #468: Be less strict when checking reference sequence names.
 
 ## v0.15.0 (2024-12-13)
