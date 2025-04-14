@@ -15,8 +15,13 @@ python3 -c 'import pysam'
 ends="pe"
 threads=4
 mcs=0
-while getopts "st:m" opt; do
+baseline_commit=$(git --no-pager log -n1 --pretty=format:%H --grep='^Is-new-baseline: yes')
+
+while getopts "b:st:m" opt; do
   case "${opt}" in
+    b)
+      baseline_commit=$(git rev-parse "${OPTARG}")
+      ;;
     t)
       threads=$OPTARG
       ;;
@@ -26,6 +31,7 @@ while getopts "st:m" opt; do
     m)
       mcs=1
       ;;
+
     \?)
       exit 1
       ;;
@@ -41,8 +47,6 @@ fi
 # Ensure test data is available
 tests/download.sh
 
-
-baseline_commit=$(git --no-pager log -n1 --pretty=format:%H --grep='^Is-new-baseline: yes')
 
 baseline_binary=baseline/strobealign-${baseline_commit}
 cmake_options=-DCMAKE_BUILD_TYPE=RelWithDebInfo
