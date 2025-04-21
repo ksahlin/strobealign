@@ -141,6 +141,10 @@ add_executable(dumpstrobes src/dumpstrobes.cpp)
 target_link_libraries(dumpstrobes salib)
 target_include_directories(dumpstrobes PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 
+add_executable(chaining src/chaining.cpp)
+target_link_libraries(chaining PRIVATE salib)
+target_include_directories(chaining PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
+
 if(PYTHON_BINDINGS)
   add_subdirectory(src/python)
 endif()
