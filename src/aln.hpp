@@ -19,6 +19,12 @@ enum class OutputFormat {
     Abundance
 };
 
+struct ChainingPrameters {
+    int h;
+    float gd;
+    float gl;
+};
+
 struct MappingParameters {
     int r { 150 };
     int max_secondary { 0 };
@@ -32,6 +38,10 @@ struct MappingParameters {
     bool output_unmapped { true };
     bool details{false};
     bool fastq_comments{false};
+
+    //tmp
+    bool use_chaining{false};
+    ChainingPrameters ch_params;
 
     void verify() const {
         if (max_tries < 1) {

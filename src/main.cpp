@@ -194,6 +194,12 @@ int run_strobealign(int argc, char **argv) {
     map_param.fastq_comments = opt.fastq_comments;
     map_param.verify();
 
+    //tmp
+    map_param.use_chaining = opt.chain;
+    map_param.ch_params.h = opt.h;
+    map_param.ch_params.gd = opt.gd;
+    map_param.ch_params.gl = opt.gl;
+
     logger.debug() << index_parameters << '\n';
     logger.debug()
         << "  Maximum seed length: " << index_parameters.randstrobe.max_dist + index_parameters.syncmer.k << '\n'
