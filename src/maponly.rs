@@ -24,7 +24,7 @@ pub fn map_single_end_read(
     if nams.is_empty() {
         (vec![], nam_details.into())
     } else {
-        (vec![paf_record_from_nam(&nams[0], &record.name, &references, record.sequence.len())], nam_details.into())
+        (vec![paf_record_from_nam(&nams[0], &record.name, references, record.sequence.len())], nam_details.into())
     }
 }
 
@@ -93,15 +93,15 @@ pub fn map_paired_end_read(
     match mapped_nam {
         MappedNams::Individual(nam1, nam2) => {
             if let Some(nam) = nam1 {
-                records.push(paf_record_from_nam(&nam, &r1.name, &references, r1.sequence.len()))
+                records.push(paf_record_from_nam(&nam, &r1.name, references, r1.sequence.len()))
             }
             if let Some(nam) = nam2 {
-                records.push(paf_record_from_nam(&nam, &r2.name, &references, r2.sequence.len()))
+                records.push(paf_record_from_nam(&nam, &r2.name, references, r2.sequence.len()))
             }
         }
         MappedNams::Pair(nam1, nam2) => {
-            records.push(paf_record_from_nam(&nam1, &r1.name, &references, r1.sequence.len()));
-            records.push(paf_record_from_nam(&nam2, &r2.name, &references, r2.sequence.len()));
+            records.push(paf_record_from_nam(&nam1, &r1.name, references, r1.sequence.len()));
+            records.push(paf_record_from_nam(&nam2, &r2.name, references, r2.sequence.len()));
         }
         MappedNams::Unmapped => {},
     }

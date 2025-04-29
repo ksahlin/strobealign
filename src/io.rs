@@ -36,7 +36,7 @@ mod test {
         let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
         encoder.write_all(b"def")?;
         let second = encoder.finish()?;
-        let both = vec![first, second].concat();
+        let both = [first, second].concat();
         let tmp = TempFileBuilder::new().suffix(".gz").build()?.with_contents(&both)?;
         
         let mut buf = vec![];

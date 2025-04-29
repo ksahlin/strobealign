@@ -105,7 +105,7 @@ fn syncmer_smer_hash(value: u64) -> u64 {
     xxh64(value)
 }
 
-impl<'a> Iterator for SyncmerIterator<'a> {
+impl Iterator for SyncmerIterator<'_> {
     type Item = Syncmer;
 
     fn next(&mut self) -> Option<Self::Item> {

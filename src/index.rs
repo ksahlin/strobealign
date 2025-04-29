@@ -492,8 +492,8 @@ impl<'a> StrobemerIndex<'a> {
         let mut slices = vec![];
         {
             let mut slice = &mut randstrobes[..];
-            for ref_index in 0..self.references.len()-1 {
-                let (left, right) = slice.split_at_mut(randstrobe_counts[ref_index]);
+            for &mid in randstrobe_counts.iter().take(self.references.len() - 1) {
+                let (left, right) = slice.split_at_mut(mid);
                 slices.push(Arc::new(Mutex::new(left)));
                 slice = right;
             }
@@ -744,11 +744,11 @@ mod tests {
         let ip150 = IndexParameters::default_from_read_length(150);
         let ip149 = IndexParameters::default_from_read_length(149);
         let ip151 = IndexParameters::default_from_read_length(151);
-        
+
         assert_eq!(ip150, ip149);
         assert_eq!(ip150, ip151);
     }
-    
+
     fn syncmers_of(seq: &[u8], parameters: &SyncmerParameters) -> Vec<Syncmer> {
         SyncmerIterator::new(seq, parameters.k, parameters.s, parameters.t).collect()
     }

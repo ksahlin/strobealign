@@ -177,7 +177,7 @@ impl<'a> SamHeader<'a> {
     }
 }
 
-impl<'a> Display for SamHeader<'a> {
+impl Display for SamHeader<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "@HD\tVN:1.6\tSO:unsorted")?;
 

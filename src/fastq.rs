@@ -66,7 +66,7 @@ impl<R: Read + Send> PeekableFastqReader<R> {
             }
         }
 
-        Ok(self.buffer.make_contiguous().iter().cloned().collect())
+        Ok(self.buffer.make_contiguous().to_vec())
     }
 }
 

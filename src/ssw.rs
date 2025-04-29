@@ -31,19 +31,19 @@ struct SswAlignment<'a> {
     _align: PhantomData<&'a raw::s_align>,
 }
 
-impl<'a> SswAlignment<'a> {
+impl SswAlignment<'_> {
     fn is_valid(&self) -> bool {
         unsafe { (*self.raw).flag == 0 }
     }
 }
 
-impl<'a> Drop for SswAlignment<'a> {
+impl Drop for SswAlignment<'_> {
     fn drop(&mut self) {
         unsafe { raw::align_destroy(self.raw); }
     }
 }
 
-impl<'a> From<SswAlignment<'a>> for AlignmentInfo {
+impl From<SswAlignment<'_>> for AlignmentInfo {
     fn from(alignment: SswAlignment) -> AlignmentInfo {
         let raw = unsafe { alignment.raw.as_ref().unwrap() };
         let cigar_slice = unsafe { std::slice::from_raw_parts(raw.cigar, raw.cigar_length as usize) };

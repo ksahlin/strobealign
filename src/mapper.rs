@@ -1,5 +1,6 @@
 use std::cmp::{min, Reverse};
 use std::collections::{HashMap, HashSet};
+use std::collections::hash_map::Entry;
 use std::mem;
 use std::time::Instant;
 use fastrand::Rng;
@@ -372,7 +373,7 @@ pub fn align_single_end_read(
     if best_alignment.is_none() {
         return (vec![sam_output.make_unmapped_record(record, details.clone())], details);
     }
-    let mapq = ((60 * (best_score - second_best_score) + best_score - 1) / best_score) as u8;
+    let mapq = (60 * (best_score - second_best_score)).div_ceil(best_score) as u8;
 
     let best_alignment = best_alignment.unwrap();
     let mut is_primary = true;
@@ -400,7 +401,7 @@ pub fn align_single_end_read(
         }
     }
     details.time_extend = timer.elapsed().as_secs_f64();
-    
+
     (sam_records, details)
 }
 
@@ -699,15 +700,15 @@ fn extend_paired_seeds(
         for i in 0..2 {
             let alignment;
             if let Some(mut this_nam) = namsp[i].clone() {
-                if alignment_cache[i].contains_key(&this_nam.nam_id) {
-                    alignment = alignment_cache[i].get(&this_nam.nam_id).unwrap().clone();
-                } else {
+                if let Entry::Vacant(e) = alignment_cache[i].entry(this_nam.nam_id) {
                     let consistent_nam = reverse_nam_if_needed(&mut this_nam, reads[i], references, k);
                     details[i].inconsistent_nams += !consistent_nam as usize;
                     alignment = extend_seed(aligner, &this_nam, references, reads[i], consistent_nam);
                     details[i].tried_alignment += 1;
                     details[i].gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
-                    alignment_cache[i].insert(this_nam.nam_id, alignment.clone());
+                    e.insert(alignment.clone());
+                } else {
+                    alignment = alignment_cache[i].get(&this_nam.nam_id).unwrap().clone();
                 }
             } else {
                 let mut other_nam = namsp[1-i].clone().unwrap();

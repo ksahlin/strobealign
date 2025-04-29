@@ -73,7 +73,7 @@ impl<'a> RandstrobeIterator<'a> {
     }
 }
 
-impl<'a> Iterator for RandstrobeIterator<'a> {
+impl Iterator for RandstrobeIterator<'_> {
     type Item = Randstrobe;
     fn next(&mut self) -> Option<Self::Item> {
         while self.syncmers.len() <= self.parameters.w_max {

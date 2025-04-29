@@ -501,7 +501,7 @@ struct Mapper<'a> {
     abundances: Vec<f64>,
 }
 
-impl<'a> Mapper<'a> {
+impl Mapper<'_> {
     fn map_chunk(
         &mut self, // TODO only because of abundances
         chunk: Vec<io::Result<(SequenceRecord, Option<SequenceRecord>)>>,
