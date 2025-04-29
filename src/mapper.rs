@@ -159,9 +159,12 @@ impl SamOutput {
             record.sequence.clone()
         };
         let query_qualities = if alignment.is_revcomp {
-            let mut rev = record.qualities.clone();
-            rev.reverse();
-            rev
+            if let Some(mut qualities) = record.qualities.clone() {
+                qualities.reverse();
+                Some(qualities)
+            } else {
+                None
+            }
         } else {
             record.qualities.clone()
         };
@@ -181,7 +184,7 @@ impl SamOutput {
             mapq,
             cigar,
             query_sequence: Some(query_sequence),
-            query_qualities: Some(query_qualities),
+            query_qualities,
             edit_distance: Some(alignment.edit_distance as u32),
             alignment_score: Some(alignment.score),
             details,
@@ -198,7 +201,7 @@ impl SamOutput {
             query_name: strip_suffix(&record.name).into(),
             flags: UNMAP,
             query_sequence: Some(record.sequence.clone()),
-            query_qualities: Some(record.qualities.clone()),
+            query_qualities: record.qualities.clone(),
             details,
             rg_id: self.rg_id.clone(),
             extra,

@@ -9,11 +9,11 @@ pub struct SequenceRecord {
     pub name: String,
     pub comment: Option<String>,
     pub sequence: Vec<u8>,
-    pub qualities: Vec<u8>,
+    pub qualities: Option<Vec<u8>>,
 }
 
 impl SequenceRecord {
-    pub fn new(name: String, comment: Option<String>, sequence: Vec<u8>, qualities: Vec<u8>) -> Self {
+    pub fn new(name: String, comment: Option<String>, sequence: Vec<u8>, qualities: Option<Vec<u8>>) -> Self {
         SequenceRecord { name, comment, sequence, qualities }
     }
 
@@ -29,7 +29,8 @@ impl SequenceRecord {
 impl fmt::Display for SequenceRecord {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = str::from_utf8(&self.sequence).unwrap();
-        let q = str::from_utf8(&self.qualities).unwrap();
+        let e = vec![];
+        let q = str::from_utf8(self.qualities.as_ref().unwrap_or(&e)).unwrap();
         write!(
             f,
             "name={}, length={}, sequence={}, qualities={}",
@@ -148,7 +149,7 @@ impl<R: Read> Iterator for FastqReader<R> {
             name: name.to_string(),
             comment: comment.map(|s| s.to_string()),
             sequence: sequence.iter().map(|&c| c.to_ascii_uppercase()).collect(),
-            qualities,
+            qualities: Some(qualities),
         }))
     }
 }
@@ -170,7 +171,7 @@ impl<W: Write> FastqWriter<W> {
         self.writer.write_all(b"\n").unwrap();
         self.writer.write_all(&record.sequence).unwrap();
         self.writer.write_all(b"\n+\n").unwrap();
-        self.writer.write_all(&record.qualities).unwrap();
+        self.writer.write_all(&record.qualities.as_ref().unwrap()).unwrap();
         self.writer.write_all(b"\n").unwrap();
         //write!(self.writer, "@{}\n{:?}\n+\n{:?}\n", record.name, record.sequence, record.qualities);
     }

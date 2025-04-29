@@ -28,7 +28,7 @@ pub enum FastaError {
 }
 
 /// Check whether a name is fine to use in SAM output.
-/// The SAM specification is much stricter than this and forbids these
+/// The SAM specification is quite strict and forbids these
 /// characters: "\'()*,<=>[\\]`{}
 /// However, because even samtools itself does not complain when it encounters
 /// one of them, contig names with these characters *are* used in practice, so
