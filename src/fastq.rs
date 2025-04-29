@@ -43,15 +43,15 @@ impl fmt::Display for SequenceRecord {
 }
 
 #[derive(Debug)]
-pub struct PeekableFastqReader<R: Read + Send> {
+pub struct PeekableSequenceReader<R: Read + Send> {
     fastq_reader: FastqReader<R>,
     buffer: VecDeque<SequenceRecord>,
 }
 
-impl<R: Read + Send> PeekableFastqReader<R> {
-    pub fn new(reader: R) -> PeekableFastqReader<R> {
+impl<R: Read + Send> PeekableSequenceReader<R> {
+    pub fn new(reader: R) -> Self {
         let fastq_reader = FastqReader::new(reader);
-        PeekableFastqReader {
+        PeekableSequenceReader {
             fastq_reader,
             buffer: VecDeque::new(),
         }
@@ -71,7 +71,7 @@ impl<R: Read + Send> PeekableFastqReader<R> {
     }
 }
 
-impl<R: Read + Send> Iterator for PeekableFastqReader<R> {
+impl<R: Read + Send> Iterator for PeekableSequenceReader<R> {
     type Item = Result<SequenceRecord>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -171,7 +171,7 @@ impl<W: Write> FastqWriter<W> {
         self.writer.write_all(b"\n").unwrap();
         self.writer.write_all(&record.sequence).unwrap();
         self.writer.write_all(b"\n+\n").unwrap();
-        self.writer.write_all(&record.qualities.as_ref().unwrap()).unwrap();
+        self.writer.write_all(record.qualities.as_ref().unwrap()).unwrap();
         self.writer.write_all(b"\n").unwrap();
         //write!(self.writer, "@{}\n{:?}\n+\n{:?}\n", record.name, record.sequence, record.qualities);
     }
@@ -179,7 +179,7 @@ impl<W: Write> FastqWriter<W> {
 
 /// Iterate over paired-end *or* single-end reads
 pub fn record_iterator<'a, R: Read + Send + 'a>(
-    fastq_reader1: PeekableFastqReader<R>, path_r2: Option<&str>
+    fastq_reader1: PeekableSequenceReader<R>, path_r2: Option<&str>
 ) -> Result<Box<dyn Iterator<Item=Result<(SequenceRecord, Option<SequenceRecord>)>> + Send + 'a>> 
 {
     if let Some(r2_path) = path_r2 {
@@ -210,12 +210,12 @@ pub fn record_iterator<'a, R: Read + Send + 'a>(
 #[cfg(test)]
 mod tests {
     use std::fs::File;
-    use crate::fastq::PeekableFastqReader;
+    use crate::fastq::PeekableSequenceReader;
 
     #[test]
-    fn test_peekable_fastq_reader() {
+    fn test_peekable_sequence_reader() {
         let f = File::open("tests/phix.1.fastq").unwrap();
-        let mut reader = PeekableFastqReader::new(f);
+        let mut reader = PeekableSequenceReader::new(f);
 
         assert_eq!(reader.next().unwrap().unwrap().name, "SRR1377138.1");
         assert_eq!(

@@ -14,7 +14,7 @@ use fastrand::Rng;
 use thiserror::Error;
 use rstrobes::aligner::{Aligner, Scores};
 use rstrobes::details::Details;
-use rstrobes::fastq::{record_iterator, PeekableFastqReader, SequenceRecord};
+use rstrobes::fastq::{record_iterator, PeekableSequenceReader, SequenceRecord};
 use rstrobes::fasta;
 use rstrobes::fasta::{FastaError, RefSequence};
 use rstrobes::index::{IndexParameters, StrobemerIndex, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES};
@@ -239,7 +239,7 @@ fn main() -> Result<(), CliError> {
 
     // Open R1 FASTQ file and estimate read length if necessary
     let f1 = xopen(&args.fastq_path)?;
-    let mut fastq_reader1 = PeekableFastqReader::new(f1);
+    let mut fastq_reader1 = PeekableSequenceReader::new(f1);
     let read_length = match args.read_length {
         Some(r) => r,
         None => {

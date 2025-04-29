@@ -740,6 +740,7 @@ mod tests {
         assert_eq!(ip.syncmer, sp);
     }
 
+    #[test]
     fn test_index_parameters_similar_read_length() {
         let ip150 = IndexParameters::default_from_read_length(150);
         let ip149 = IndexParameters::default_from_read_length(149);
