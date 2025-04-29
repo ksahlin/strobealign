@@ -154,29 +154,6 @@ impl<R: Read> Iterator for FastqReader<R> {
     }
 }
 
-pub struct FastqWriter<W: Write> {
-    writer: BufWriter<W>,
-}
-
-impl<W: Write> FastqWriter<W> {
-    pub fn new(writer: W) -> Self {
-        FastqWriter {
-            writer: BufWriter::new(writer),
-        }
-    }
-
-    pub fn write_record(&mut self, record: &SequenceRecord) {
-        self.writer.write_all(b"@").unwrap();
-        self.writer.write_all(record.name.as_bytes()).unwrap();
-        self.writer.write_all(b"\n").unwrap();
-        self.writer.write_all(&record.sequence).unwrap();
-        self.writer.write_all(b"\n+\n").unwrap();
-        self.writer.write_all(record.qualities.as_ref().unwrap()).unwrap();
-        self.writer.write_all(b"\n").unwrap();
-        //write!(self.writer, "@{}\n{:?}\n+\n{:?}\n", record.name, record.sequence, record.qualities);
-    }
-}
-
 /// Iterate over paired-end *or* single-end reads
 pub fn record_iterator<'a, R: Read + Send + 'a>(
     fastq_reader1: PeekableSequenceReader<R>, path_r2: Option<&str>
