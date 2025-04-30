@@ -145,6 +145,10 @@ add_executable(chaining src/chaining.cpp)
 target_link_libraries(chaining PRIVATE salib)
 target_include_directories(chaining PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 
+# tmp
+add_executable(run_alignment src/run_alignment.cpp)
+target_link_libraries(run_alignment PRIVATE salib)
+
 if(PYTHON_BINDINGS)
   add_subdirectory(src/python)
 endif()
