@@ -1,7 +1,8 @@
-use std::io::BufRead;
+use std::io::{BufRead, BufReader, Read};
 use std::io;
 use std::string::FromUtf8Error;
 use thiserror::Error;
+use crate::fastq::SequenceRecord;
 
 #[derive(Debug, Clone)]
 pub struct RefSequence {
@@ -54,8 +55,79 @@ fn check_duplicate_names(records: &[RefSequence]) -> Result<(), FastaError> {
             return Err(FastaError::DuplicateName(window[0].to_string()));
         }
     }
-    
+
     Ok(())
+}
+
+#[derive(Debug)]
+struct FastaReader<R> {
+    reader: BufReader<R>,
+    err: bool,
+    header: Option<String>,
+    sequence: Vec<u8>,
+}
+
+impl<R: Read> FastaReader<R> {
+    pub fn new(reader: R) -> FastaReader<R> {
+        FastaReader {
+            reader: BufReader::new(reader),
+            err: false,
+            header: None,
+            sequence: vec![],
+        }
+    }
+}
+
+impl<R: Read> Iterator for FastaReader<R> {
+    type Item = Result<SequenceRecord, FastaError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.err {
+            return None;
+        }
+        loop {
+            let mut line = String::new();
+            match self.reader.read_line(&mut line) {
+                Ok(n) => {
+                    if n == 0 || line.starts_with('>') {
+                        if let Some(header) = &self.header {
+                            let (name, comment) = split_header(header[1..].trim_ascii_end());
+                            self.header = if n > 0 { Some(line) } else { None };
+                            let record = SequenceRecord {
+                                name: name.to_string(),
+                                comment,
+                                sequence: std::mem::take(&mut self.sequence),
+                                qualities: None,
+                            };
+
+                            return Some(Ok(record))
+                        }
+                        if n == 0 {
+                            return None;
+                        }
+                        self.header = Some(line)
+                    } else {
+                        if self.header.is_none() {
+                            return Some(Err(FastaError::Parse("FASTA file must start with '>'".to_string())));
+                        }
+                        self.sequence.extend(line.trim_ascii_end().bytes().map(|c| c.to_ascii_uppercase()));
+                    }
+                }
+                Err(e) => {
+                    self.err = true;
+                    return Some(Err(FastaError::IO(e)));
+                }
+            }
+        }
+    }
+}
+
+/// Split header into name and comment
+pub fn split_header(header: &str) -> (String, Option<String>) {
+    match header.split_once(' ') {
+        Some((name, comment)) => (name.to_string(), Some(comment.to_string())),
+        None => (header.to_string(), None),
+    }
 }
 
 pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, FastaError> {
@@ -116,6 +188,59 @@ mod tests {
         assert_eq!(&records[0].sequence[..5], b"GAGTT");
     }
 
+    #[test]
+    fn test_fasta_reader_empty_file() {
+        let buf = BufReader::new(b"".as_slice());
+        let reader = FastaReader::new(buf);
+        let records = reader.collect::<Result<Vec<_>, _>>().unwrap();
+
+        assert_eq!(records.len(), 0);
+    }
+
+    #[test]
+    fn test_fasta_reader() {
+        let f = File::open("tests/phix.fasta").unwrap();
+        let mut bufreader = BufReader::new(f);
+        let reader = FastaReader::new(&mut bufreader);
+
+        let records = reader.collect::<Result<Vec<_>, _>>().unwrap();
+
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].name, "NC_001422.1");
+        assert_eq!(records[0].sequence.len(), 5386);
+        assert_eq!(&records[0].sequence[..5], b"GAGTT");
+    }
+
+    #[test]
+    fn test_fasta_reader_only_name() {
+        let mut buf = BufReader::new(b">name\n".as_slice());
+        let records = FastaReader::new(&mut buf).collect::<Result<Vec<_>, _>>().unwrap();
+
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].name, "name");
+        assert_eq!(records[0].sequence.len(), 0);
+    }
+
+    #[test]
+    fn test_fasta_reader_uppercase() {
+        let mut buf = BufReader::new(b">name\r\nacgt\n>name2\nTgCa".as_slice());
+        let records = FastaReader::new(&mut buf).collect::<Result<Vec<_>, _>>().unwrap();
+
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0].name, "name");
+        assert_eq!(records[0].sequence, b"ACGT");
+        
+        assert_eq!(records[1].name, "name2");
+        assert_eq!(records[1].sequence, b"TGCA");
+    }
+
+    #[test]
+    fn test_fasta_must_start_with_greater_than() {
+        let mut buf = BufReader::new(b"bla".as_slice());
+        let result = FastaReader::new(&mut buf).next().unwrap();
+        assert!(result.is_err());
+    }
+    
     #[test]
     fn test_parse() {
         let tmp = temp_file::with_contents(b">ref1 a comment\nacgt\n\n>ref2\naacc\ngg\n\ntt\n>empty\n>empty_at_end_of_file");

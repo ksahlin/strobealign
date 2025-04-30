@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
 use std::fmt;
-use std::io::{BufRead, BufReader, BufWriter, Read, Result, Write};
+use std::io::{BufRead, BufReader, Read, Result, Write};
 use std::str;
+use crate::fasta::split_header;
 use crate::io::xopen;
 
 #[derive(Debug, Clone)]
@@ -118,10 +119,7 @@ impl<R: Read> Iterator for FastqReader<R> {
             }
         }
         let name = name[1..].trim_end();
-        let (name, comment) = match name.split_once(' ') {
-            Some((name, comment)) => (name, Some(comment)),
-            None => (name, None),
-        };
+        let (name, comment) = split_header(&name);
 
         if name.is_empty() {
             //self.err = true;
@@ -146,8 +144,8 @@ impl<R: Read> Iterator for FastqReader<R> {
         }
         assert_eq!(sequence.len(), qualities.len());
         Some(Ok(SequenceRecord {
-            name: name.to_string(),
-            comment: comment.map(|s| s.to_string()),
+            name,
+            comment,
             sequence: sequence.iter().map(|&c| c.to_ascii_uppercase()).collect(),
             qualities: Some(qualities),
         }))
