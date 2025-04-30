@@ -1,5 +1,7 @@
 #include <algorithm>
-#include <cmath>
+#include <array>
+#include <cstddef>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -9,72 +11,342 @@
 #include "logger.hpp"
 #include "nam.hpp"
 #include "randstrobes.hpp"
+#include "readlen.hpp"
+#include "robin_hood.h"
 
-static inline int
-compute_score_match(const Match& ai, const Match& aj, float gap_diff_penalty, float gap_span_penalty) {
-    int q_gain = ai.query_end - aj.query_end;
-    int r_gain = ai.ref_end - aj.ref_end;
-    if (q_gain <= 0 || r_gain <= 0)
+struct Anchor {
+    int query_start;
+    int ref_start;
+};
+
+inline void add_to_anchors_map_full(
+    robin_hood::unordered_map<unsigned int, std::vector<Anchor>>& anchors_map,
+    int query_start,
+    int query_end,
+    const StrobemerIndex& index,
+    size_t position
+) {
+    int min_diff = std::numeric_limits<int>::max();
+    for (const auto hash = index.get_hash(position); index.get_hash(position) == hash; ++position) {
+        int ref_start = index.get_strobe1_position(position);
+        int ref_end = ref_start + index.strobe2_offset(position) + index.k();
+        int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
+        if (diff <= min_diff) {
+            anchors_map[index.reference_index(position)].push_back(Anchor{query_start, ref_start});
+            anchors_map[index.reference_index(position)].push_back(
+                Anchor{query_end - index.k(), ref_end - index.k()}
+            );
+            min_diff = diff;
+        }
+    }
+}
+
+inline void add_to_anchors_map_partial(
+    robin_hood::unordered_map<unsigned int, std::vector<Anchor>>& anchors_map,
+    int query_start,
+    const StrobemerIndex& index,
+    size_t position
+) {
+    for (const auto hash = index.get_main_hash(position); index.get_main_hash(position) == hash; ++position) {
+        auto [ref_start, ref_end] = index.strobe_extent_partial(position);
+        anchors_map[index.reference_index(position)].push_back(Anchor{query_start, ref_start});
+    }
+}
+
+robin_hood::unordered_map<unsigned int, std::vector<Anchor>>
+hits_to_anchors(const std::vector<Hit>& hits, const StrobemerIndex& index) {
+    robin_hood::unordered_map<unsigned int, std::vector<Anchor>> anchor_map;
+    anchor_map.reserve(100);  // idk why ?
+
+    for (const Hit& hit : hits) {
+        if (hit.is_partial) {
+            add_to_anchors_map_partial(anchor_map, hit.query_start, index, hit.position);
+        } else {
+            add_to_anchors_map_full(anchor_map, hit.query_start, hit.query_end, index, hit.position);
+        }
+    }
+
+    return anchor_map;
+}
+
+std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Anchor>>> find_anchors_rescue(
+    const std::vector<QueryRandstrobe>& query_randstrobes,
+    const StrobemerIndex& index,
+    unsigned int rescue_cutoff,
+    bool use_mcs
+) {
+    struct RescueHit {
+        size_t position;
+        unsigned int count;
+        unsigned int query_start;
+        unsigned int query_end;
+        bool is_partial;
+
+        bool operator<(const RescueHit& rhs) const {
+            return std::tie(count, query_start, query_end) <
+                   std::tie(rhs.count, rhs.query_start, rhs.query_end);
+        }
+    };
+    robin_hood::unordered_map<unsigned int, std::vector<Anchor>> anchors_map;
+    anchors_map.reserve(100);
+    int n_hits = 0;
+    int partial_hits = 0;
+    std::vector<RescueHit> rescue_hits;
+    rescue_hits.reserve(5000);
+    for (auto& qr : query_randstrobes) {
+        size_t position = index.find_full(qr.hash);
+        if (position != index.end()) {
+            unsigned int count = index.get_count_full(position);
+
+            size_t position_revcomp = index.find_full(qr.hash_revcomp);
+            if (position_revcomp != index.end()) {
+                count += index.get_count_full(position_revcomp);
+            }
+            RescueHit rh{position, count, qr.start, qr.end, false};
+            rescue_hits.push_back(rh);
+        } else if (use_mcs) {
+            size_t partial_pos = index.find_partial(qr.hash);
+            if (partial_pos != index.end()) {
+                unsigned int partial_count = index.get_count_partial(partial_pos);
+                size_t position_revcomp = index.find_partial(qr.hash_revcomp);
+                if (position_revcomp != index.end()) {
+                    partial_count += index.get_count_partial(position_revcomp);
+                }
+                RescueHit rh{partial_pos, partial_count, qr.start, qr.start + index.k(), true};
+                rescue_hits.push_back(rh);
+                partial_hits++;
+            }
+        }
+    }
+    std::sort(rescue_hits.begin(), rescue_hits.end());
+
+    int cnt = 0;
+    for (auto& rh : rescue_hits) {
+        if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
+            break;
+        }
+        if (rh.is_partial) {
+            partial_hits++;
+            add_to_anchors_map_partial(anchors_map, rh.query_start, index, rh.position);
+        } else {
+            add_to_anchors_map_full(anchors_map, rh.query_start, rh.query_end, index, rh.position);
+        }
+        cnt++;
+        n_hits++;
+    }
+
+    return {n_hits, partial_hits, anchors_map};
+}
+
+struct Chain {
+    int query_start;
+    int query_end;
+    int ref_start;
+    int ref_end;
+
+    // for debugging :p
+    std::vector<Anchor> anchors;
+
+    int ref_id;
+    float score;
+    bool is_revcomp = false;
+
+    int ref_span() const { return ref_end - ref_start; }
+
+    int query_span() const { return query_end - query_start; }
+
+    int projected_ref_start() const { return std::max(0, ref_start - query_start); }
+};
+
+static inline int compute_score(const Anchor& ai, const Anchor& aj, const int k) {
+    int dq = ai.query_start - aj.query_start;
+    int dr = ai.ref_start - aj.ref_start;
+    if (dq < 0 || dr < 0)
         return INT32_MIN;
 
-    int gap_diff = std::abs(r_gain - q_gain);
-    int gap_span = std::min(q_gain, r_gain);
+    int dd = std::abs(dr - dq);
+    int dg = std::min(dq, dr);
+    int score = std::min(k, dg);
 
-    int score = gap_span;
+    const float gap_open = 1.0f;
+    const float gap_extend = 0.05f;
+    float penalty = gap_open * dd + gap_extend * dg;
+    score -= static_cast<int>(penalty);
 
-    if (gap_diff > 0 || gap_span > (aj.query_end - aj.query_start)) {
-        float lin_pen = gap_diff_penalty * gap_diff + gap_span_penalty * gap_span;
-        float log_pen = gap_diff >= 1 ? std::log2(gap_diff + 1.0f) : 0.0f;
-        score -= static_cast<int>(lin_pen + 0.5f * log_pen);
-    }
     return score;
 }
 
-std::vector<Match> chain_matches(std::vector<Match> matches) {
-    if (matches.empty())
-        return {};
+void collinear_chaining(
+    int ref_id,
+    std::vector<Anchor>& anchors,
+    const int k,
+    bool sort,
+    bool is_revcomp,
+    std::vector<Chain>& chains  // inout
+) {
+    int n = anchors.size();
+    if (n == 0) {
+        return;
+    }
 
-    std::sort(matches.begin(), matches.end(), [](Match& a, Match& b) {
-        if (a.ref_start == b.ref_start) {
-            return a.query_start < b.query_start;
-        }
-        return a.ref_start < b.ref_start;
-    });
+    if (sort) {
+        std::sort(anchors.begin(), anchors.end(), [](const Anchor& a, const Anchor& b) {
+            return (a.ref_start < b.ref_start) ||
+                   (a.ref_start == b.ref_start && a.query_start < b.query_start);
+        });
+    }
 
-    const float gap_diff_pen = 0.5f;
-    const float gap_span_pen = 0.1f;
-    int n = static_cast<int>(matches.size());
+    std::vector<int> dp(n, 0);
+    std::vector<int> backtrack(n, -1);
 
-    std::vector<int> dp(n), prev(n, -1);
-    int best_i = 0, best_score = INT32_MIN;
+    int best_score = 0;
+    int best_index = -1;
 
     for (int i = 0; i < n; ++i) {
-        dp[i] = matches[i].query_end - matches[i].query_start;
+        dp[i] = k;
 
         for (int j = 0; j < i; ++j) {
-            int score = compute_score_match(matches[i], matches[j], gap_diff_pen, gap_span_pen);
+            int score = compute_score(anchors[i], anchors[j], k);
             if (score == INT32_MIN)
                 continue;
 
-            score += dp[j];
-
-            if (score > dp[i]) {
-                dp[i] = score;
-                prev[i] = j;
+            int new_score = dp[j] + score;
+            if (new_score > dp[i]) {
+                dp[i] = new_score;
+                backtrack[i] = j;
             }
         }
         if (dp[i] > best_score) {
             best_score = dp[i];
-            best_i = i;
+            best_index = i;
         }
     }
 
-    std::vector<Match> chain;
-    for (int cur = best_i; cur >= 0; cur = prev[cur]) {
-        chain.push_back(matches[cur]);
+    if (best_index < 0)
+        return;
+
+    std::vector<Anchor> chain_anchors;
+    for (int i = best_index; i >= 0; i = backtrack[i]) {
+        chain_anchors.push_back(anchors[i]);
     }
-    std::reverse(chain.begin(), chain.end());
-    return chain;
+    std::reverse(chain_anchors.begin(), chain_anchors.end());
+
+    const Anchor& first = chain_anchors.front();
+    const Anchor& last = chain_anchors.back();
+
+    chains.push_back(Chain{
+        first.query_start, last.query_start + k, first.ref_start, last.ref_start + k,
+        std::move(chain_anchors), ref_id, float(best_score), is_revcomp
+
+    });
+}
+
+template <typename T>
+bool by_score(const T& a, const T& b) {
+    return a.score > b.score;
+}
+
+void shuffle_top_chains(std::vector<Chain>& chains, std::minstd_rand& random_engine) {
+    if (chains.empty()) {
+        return;
+    }
+    auto best_score = chains[0].score;
+    auto it = std::find_if(chains.begin(), chains.end(), [&](const Chain& chain) {
+        return chain.score != best_score;
+    });
+    if (it > chains.begin() + 1) {
+        std::shuffle(chains.begin(), it, random_engine);
+    }
+}
+
+std::vector<Chain> get_chains(
+    const klibpp::KSeq& record,
+    const StrobemerIndex& index,
+    // AlignmentStatistics& statistics,
+    // Details& details,
+    const MappingParameters& map_param,
+    const IndexParameters& index_parameters,
+    std::minstd_rand& random_engine
+) {
+    // Compute randstrobes
+    // Timer strobe_timer;
+    auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
+    // statistics.n_randstrobes += query_randstrobes[0].size() + query_randstrobes[1].size();
+    // statistics.tot_construct_strobemers += strobe_timer.duration();
+
+    // Find NAMs
+    // Timer nam_timer;
+
+    int total_hits = 0;
+    // int partial_hits = 0;
+    bool sorting_needed = false;
+    std::array<std::vector<Hit>, 2> hits;
+    for (int is_revcomp : {0, 1}) {
+        int total_hits1, partial_hits1;
+        bool sorting_needed1;
+        std::tie(total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) =
+            find_hits(query_randstrobes[is_revcomp], index, map_param.use_mcs);
+        sorting_needed = sorting_needed || sorting_needed1;
+        total_hits += total_hits1;
+        // partial_hits += partial_hits1;
+    }
+    int nonrepetitive_hits = hits[0].size() + hits[1].size();
+    float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
+    // statistics.n_hits += nonrepetitive_hits;
+    // statistics.n_partial_hits += partial_hits;
+
+    std::vector<Chain> chains;
+
+    // Rescue if requested and needed
+    if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
+        // Timer rescue_timer;
+        chains.clear();
+        // int n_rescue_hits{0};
+        // int n_partial_hits{0};
+        for (int is_revcomp : {0, 1}) {
+            auto [n_rescue_hits_oriented, n_partial_hits_oriented, anchors_map] = find_anchors_rescue(
+                query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.use_mcs
+            );
+
+            for (auto& [ref_id, anchors] : anchors_map) {
+                collinear_chaining(ref_id, anchors, index.k(), sorting_needed, is_revcomp, chains);
+            }
+
+            // n_rescue_hits += n_rescue_hits_oriented;
+            // n_partial_hits += n_partial_hits_oriented;
+        }
+        // statistics.n_rescue_hits += n_rescue_hits;
+        // statistics.n_partial_hits += partial_hits;
+        // details.rescue_nams = nams.size();
+        // details.nam_rescue = true;
+        // statistics.tot_time_rescue += rescue_timer.duration();
+    } else {
+        for (int is_revcomp : {0, 1}) {
+            auto anchors_map = hits_to_anchors(hits[is_revcomp], index);
+
+            for (auto& [ref_id, anchors] : anchors_map) {
+                collinear_chaining(ref_id, anchors, index.k(), sorting_needed, is_revcomp, chains);
+            }
+            // details.nams = nams.size();
+            // statistics.tot_find_nams += nam_timer.duration();
+        }
+    }
+
+    // Sort by score
+    // Timer nam_sort_timer;
+    std::sort(chains.begin(), chains.end(), by_score<Chain>);
+    shuffle_top_chains(chains, random_engine);
+    // statistics.tot_sort_nams += nam_sort_timer.duration();
+
+#ifdef TRACE
+    std::cerr << "Query: " << record.name << '\n';
+    std::cerr << "Found " << nams.size() << " NAMs\n";
+    for (const auto& nam : nams) {
+        std::cerr << "- " << nam << '\n';
+    }
+#endif
+
+    return chains;
 }
 
 int main() {
@@ -82,60 +354,57 @@ int main() {
     logger.set_level(LOG_INFO);
 
     const std::string fasta_file = "/home/nico/data/strobealign/drosophila.fa";
-    References refs = References::from_fasta(fasta_file);
-    logger.info() << "Loaded " << refs.size() << " reference(s).";
-
-    int read_len = 150;
-    IndexParameters idx_params = IndexParameters::from_read_length(read_len);
-    StrobemerIndex index(refs, idx_params);
-    index.populate(0.0002f, 1);
-    logger.info() << "Index built: " << index.stats.tot_strobemer_count << " strobemers.";
-
     const std::string fastq_file = "/home/nico/data/strobealign/sim3-drosophila-500.1.fastq";
+
+    References refs = References::from_fasta(fasta_file);
+    logger.info() << "Loaded " << refs.size() << " reference(s).\n";
+
+    InputBuffer input_buffer(fastq_file, "", 100000, false);
+    uint64_t read_len = estimate_read_length(input_buffer);
+    logger.info() << "Estimated read length: " << read_len << " bp\n";
+
+    IndexParameters index_parameters = IndexParameters::from_read_length(read_len);
+    StrobemerIndex index(refs, index_parameters);
+    index.populate(0.0002f, 1);
+    logger.info() << "Index built: " << index.stats.tot_strobemer_count << " strobemers.\n";
+
     std::unique_ptr<RewindableFile> fq = open_fastq(const_cast<std::string&>(fastq_file));
-    std::vector<klibpp::KSeq> records = fq->stream().read(1000);
+    std::vector<klibpp::KSeq> records = fq->stream().read(100000);
 
-    size_t best_chain_len = 0;
-    std::string best_read;
-    int best_ori = -1;
-    std::vector<Match> best_chain;
+    std::minstd_rand random_engine;
+    MappingParameters map_param;
+    std::ofstream out("alignment-col.txt");
 
-    for (klibpp::KSeq& rec : records) {
-        // logger.info() << "Read: " << rec.name << "\n";
+    for (const klibpp::KSeq& record : records) {
+        std::vector<Chain> chains = get_chains(record, index, map_param, index_parameters, random_engine);
 
-        std::array<std::vector<QueryRandstrobe>, 2> qr = randstrobes_query(rec.seq, idx_params);
-        for (int ori : {0, 1}) {
-            std::tuple<uint64_t, uint64_t, bool, std::vector<Hit>> result = find_hits(qr[ori], index, false);
-            std::vector<Hit>& hits = std::get<3>(result);
-            // logger.info() << " ori=" << (ori ? "rev" : "fwd") << " hits=" << hits.size() << "\n";
+        logger.info() << "Read: " << record.name << "\tnb chains: " << chains.size();
+        out << "Read: " << record.name << "\tnb chains: " << chains.size();
 
-            robin_hood::unordered_map<uint, std::vector<Match>> matches_map = hits_to_matches(hits, index);
+        if (chains.size() != 0) {
+            const Chain best_chain = chains[0];
 
-            std::vector<Match> all_matches;
-            for (robin_hood::pair<uint, std::vector<Match>>& kv : matches_map) {
-                std::vector<Match>& mv = kv.second;
-                all_matches.insert(all_matches.end(), mv.begin(), mv.end());
-            }
+            logger.info() << "  Best Chain at " << refs.names[best_chain.ref_id]
+                          << "\tori: " << (best_chain.is_revcomp ? "rev" : "fwd")
+                          << "\tscore: " << best_chain.score << "\tanchors: " << best_chain.anchors.size()
+                          << "\tq: " << best_chain.query_start << "-" << best_chain.query_end
+                          << "\tr: " << best_chain.ref_start << "-" << best_chain.ref_end;
 
-            std::vector<Match> chain = chain_matches(std::move(all_matches));
-            // logger.info() << "  chain_size=" << chain.size() << "\n";
+            out << "  Best Chain at " << refs.names[best_chain.ref_id]
+                << "\tori: " << (best_chain.is_revcomp ? "rev" : "fwd") << "\tscore: " << best_chain.score
+                << "\tanchors: " << best_chain.anchors.size() << "\tq: " << best_chain.query_start << "-"
+                << best_chain.query_end << "\tr: " << best_chain.ref_start << "-" << best_chain.ref_end;
 
-            if (chain.size() > best_chain_len) {
-                best_chain_len = chain.size();
-                best_chain = chain;
-                best_read = rec.name;
-                best_ori = ori;
-            }
+            // for (const Anchor& anchor : best_chain.anchors) {
+            //     logger.info() << "    Anchor: q=" << anchor.query_start << " r=" << anchor.ref_start << "\n";
+            // }
         }
+
+        logger.info() << "\n";
+        out << "\n";
     }
 
-    logger.info() << "\n=== Best match chain ===\n"
-                  << " Read: " << best_read << "\n"
-                  << " Ori : " << (best_ori ? "rev" : "fwd") << "\n"
-                  << " Len : " << best_chain_len << "\n";
-    for (const Match& m : best_chain) {
-        logger.info() << "    q=[" << m.query_start << "," << m.query_end << "]  r=[" << m.ref_start << ","
-                      << m.ref_end << "]" << "\n";
-    }
+    out.close();
+
     return 0;
 }
