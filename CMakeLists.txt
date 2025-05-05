@@ -67,6 +67,7 @@ add_library(salib STATIC ${SOURCES}
   src/io.cpp
   src/insertsizedistribution.cpp
   src/iowrap.cpp
+  src/chain.cpp
   ext/xxhash.c
   ext/ssw/ssw_cpp.cpp
   ext/ssw/ssw.c
@@ -140,14 +141,6 @@ target_include_directories(test-strobealign PUBLIC src/ ext/ ${PROJECT_BINARY_DI
 add_executable(dumpstrobes src/dumpstrobes.cpp)
 target_link_libraries(dumpstrobes salib)
 target_include_directories(dumpstrobes PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
-
-add_executable(chaining src/chaining.cpp)
-target_link_libraries(chaining PRIVATE salib)
-target_include_directories(chaining PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
-
-# tmp
-add_executable(run_alignment src/run_alignment.cpp)
-target_link_libraries(run_alignment PRIVATE salib)
 
 if(PYTHON_BINDINGS)
   add_subdirectory(src/python)
