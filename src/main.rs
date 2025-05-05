@@ -14,7 +14,7 @@ use fastrand::Rng;
 use thiserror::Error;
 use rstrobes::aligner::{Aligner, Scores};
 use rstrobes::details::Details;
-use rstrobes::fastq::{record_iterator, PeekableSequenceReader, SequenceRecord};
+use rstrobes::fastq::{interleaved_record_iterator, record_iterator, PeekableSequenceReader, SequenceRecord};
 use rstrobes::fasta;
 use rstrobes::fasta::{FastaError, RefSequence};
 use rstrobes::index::{IndexParameters, StrobemerIndex, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES};
@@ -66,6 +66,10 @@ struct Args {
     #[arg(long, help_heading = "Input/output", conflicts_with = "map_only")]
     aemb: bool,
 
+    /// Interleaved (or mixed single-end/paired-end) input
+    #[arg(short = 'p', long, help_heading = "Input/output", conflicts_with = "fastq_path2")]
+    interleaved: bool,
+    
     // SAM output
 
     /// Emit =/X instead of M CIGAR operations
@@ -315,7 +319,11 @@ fn main() -> Result<(), CliError> {
         write!(out, "{}", header)?;
     }
 
-    let mut record_iter = record_iterator(fastq_reader1, args.fastq_path2.as_deref())?;
+    let mut record_iter = if args.interleaved {
+        interleaved_record_iterator(fastq_reader1)
+    } else {
+        record_iterator(fastq_reader1, args.fastq_path2.as_deref())?
+    };
 
     let chunks_iter = std::iter::from_fn(move || {
         let chunk = record_iter.by_ref().take(args.chunk_size).collect::<Vec<_>>();
