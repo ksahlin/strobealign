@@ -64,7 +64,7 @@ struct CommandLineOptions {
     // Chaining
     bool chain{false};
     int h{50};
-    float gd{0.01};
+    float gd{0.1};
     float gl{0.05};
 
     // Search parameters
