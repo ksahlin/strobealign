@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 
+#include "aln.hpp"
 #include "chain.hpp"
 #include "randstrobes.hpp"
 #include "robin_hood.h"
@@ -124,7 +125,8 @@ std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Anchor>
     return {n_hits, partial_hits, anchors_map};
 }
 
-static inline int compute_score(const Anchor& ai, const Anchor& aj, const int k) {
+static inline int
+compute_score(const Anchor& ai, const Anchor& aj, const int k, const ChainingPrameters& ch_params) {
     int dq = ai.query_start - aj.query_start;
     int dr = ai.ref_start - aj.ref_start;
     if (dq < 0 || dr < 0)
@@ -134,9 +136,7 @@ static inline int compute_score(const Anchor& ai, const Anchor& aj, const int k)
     int dg = std::min(dq, dr);
     int score = std::min(k, dg);
 
-    const float gap_open = 0.1f;
-    const float gap_extend = 0.05f;
-    float penalty = gap_open * dd + gap_extend * dg;
+    float penalty = ch_params.gd * dd + ch_params.gl * dg;
     score -= int(penalty);
 
     return score;
@@ -148,7 +148,8 @@ void collinear_chaining(
     const int k,
     bool sort,
     bool is_revcomp,
-    std::vector<Nam>& chains
+    std::vector<Nam>& chains,
+    const ChainingPrameters& ch_params
 ) {
     const int n = anchors.size();
     if (n == 0) {
@@ -167,14 +168,12 @@ void collinear_chaining(
 
     int best_score = 0;
 
-    const int look_back = 50;
-
     for (int i = 0; i < n; ++i) {
         dp[i] = k;
 
-        const int lookup_end = std::max(0, i - look_back);
+        const int lookup_end = std::max(0, i - ch_params.h);
         for (int j = i - 1; j >= lookup_end; --j) {
-            int score = compute_score(anchors[i], anchors[j], k);
+            int score = compute_score(anchors[i], anchors[j], k, ch_params);
             if (score == INT_MIN)
                 continue;
 
@@ -283,7 +282,9 @@ std::vector<Nam> get_chains(
             );
 
             for (auto& [ref_id, anchors] : anchors_map) {
-                collinear_chaining(ref_id, anchors, index.k(), sorting_needed, is_revcomp, chains);
+                collinear_chaining(
+                    ref_id, anchors, index.k(), sorting_needed, is_revcomp, chains, map_param.ch_params
+                );
             }
 
             // n_rescue_hits += n_rescue_hits_oriented;
@@ -299,7 +300,9 @@ std::vector<Nam> get_chains(
             auto anchors_map = hits_to_anchors(hits[is_revcomp], index);
 
             for (auto& [ref_id, anchors] : anchors_map) {
-                collinear_chaining(ref_id, anchors, index.k(), sorting_needed, is_revcomp, chains);
+                collinear_chaining(
+                    ref_id, anchors, index.k(), sorting_needed, is_revcomp, chains, map_param.ch_params
+                );
             }
             // details.nams = nams.size();
             // statistics.tot_find_nams += nam_timer.duration();
