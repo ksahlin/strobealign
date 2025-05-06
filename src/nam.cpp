@@ -216,42 +216,19 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
     int nonrepetitive_hits = 0;
     int total_hits = 0;
     int partial_hits = 0;
+
     for (const auto &q : query_randstrobes) {
-        size_t position = index.find_full(q.hash);
-        if (position != index.end()) {
+        size_t partial_pos = index.find_partial(q.hash);
+        if (partial_pos != index.end()) {
             total_hits++;
-            if (index.is_filtered(position, q.hash_revcomp)) {
+            if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
                 continue;
             }
-            hits.push_back(Hit{position, q.start, q.end, false});
-        } else if (use_mcs) {
-            size_t partial_pos = index.find_partial(q.hash);
-            if (partial_pos != index.end()) {
-                total_hits++;
-                if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
-                    continue;
-                }
-                partial_hits++;
-                hits.push_back(Hit{partial_pos, q.start, q.start + index.k(), true});
-            }
+            partial_hits++;
+            hits.push_back(Hit{partial_pos, q.start, q.start + index.k(), true});
         }
     }
-
-    // Rescue using partial hits, even in non-MCS mode
-    if (total_hits == 0 && !use_mcs) {
-        for (const auto &q : query_randstrobes) {
-            size_t partial_pos = index.find_partial(q.hash);
-            if (partial_pos != index.end()) {
-                total_hits++;
-                if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
-                    continue;
-                }
-                partial_hits++;
-                hits.push_back(Hit{partial_pos, q.start, q.start + index.k(), true});
-            }
-        }
-        sorting_needed = true;
-    }
+    sorting_needed = true;
 
     return {total_hits, partial_hits, sorting_needed, hits};
 }
@@ -287,29 +264,16 @@ std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>
     std::vector<RescueHit> rescue_hits;
     rescue_hits.reserve(5000);
     for (auto &qr : query_randstrobes) {
-        size_t position = index.find_full(qr.hash);
-        if (position != index.end()) {
-            unsigned int count = index.get_count_full(position);
-
-            size_t position_revcomp = index.find_full(qr.hash_revcomp);
+        size_t partial_pos = index.find_partial(qr.hash);
+        if (partial_pos != index.end()) {
+            unsigned int partial_count = index.get_count_partial(partial_pos);
+            size_t position_revcomp = index.find_partial(qr.hash_revcomp);
             if (position_revcomp != index.end()) {
-                count += index.get_count_full(position_revcomp);
+                partial_count += index.get_count_partial(position_revcomp);
             }
-            RescueHit rh{position, count, qr.start, qr.end, false};
+            RescueHit rh{partial_pos, partial_count, qr.start, qr.start + index.k(), true};
             rescue_hits.push_back(rh);
-        }
-        else if (use_mcs) {
-            size_t partial_pos = index.find_partial(qr.hash);
-            if (partial_pos != index.end()) {
-                unsigned int partial_count = index.get_count_partial(partial_pos);
-                size_t position_revcomp = index.find_partial(qr.hash_revcomp);
-                if (position_revcomp != index.end()) {
-                    partial_count += index.get_count_partial(position_revcomp);
-                }
-                RescueHit rh{partial_pos, partial_count, qr.start, qr.start + index.k(), true};
-                rescue_hits.push_back(rh);
-                partial_hits++;
-            }
+            partial_hits++;
         }
     }
     std::sort(rescue_hits.begin(), rescue_hits.end());
