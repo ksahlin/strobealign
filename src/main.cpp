@@ -1,33 +1,33 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <string>
-#include <sstream>
 #include <algorithm>
-#include <numeric>
-#include <thread>
 #include <cassert>
-#include <iomanip>
 #include <chrono>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <map>
+#include <numeric>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <vector>
 #ifdef _WIN32
 #include <io.h>
 #else
 #include <unistd.h>
 #endif
 
-#include "refs.hpp"
-#include "exceptions.hpp"
-#include "cmdline.hpp"
-#include "index.hpp"
-#include "pc.hpp"
 #include "aln.hpp"
-#include "logger.hpp"
-#include "timer.hpp"
-#include "readlen.hpp"
-#include "version.hpp"
-#include "randstrobes.hpp"
 #include "buildconfig.hpp"
-
+#include "cmdline.hpp"
+#include "exceptions.hpp"
+#include "index.hpp"
+#include "logger.hpp"
+#include "pc.hpp"
+#include "randstrobes.hpp"
+#include "readlen.hpp"
+#include "refs.hpp"
+#include "timer.hpp"
+#include "version.hpp"
 
 static Logger& logger = Logger::get();
 
@@ -47,7 +47,7 @@ std::string sam_header(
     if (!read_group_id.empty()) {
         out << "@RG\tID:" << read_group_id;
         for (const auto& field : read_group_fields) {
-           out << '\t' << field;
+            out << '\t' << field;
         }
         out << '\n';
     }
@@ -62,7 +62,8 @@ std::string pg_header(const std::string& cmd_line) {
 
 void warn_if_no_optimizations() {
     if (std::string(CMAKE_BUILD_TYPE) == "Debug") {
-        logger.info() << "\n    ***** Binary was compiled without optimizations - this will be very slow *****\n\n";
+        logger.info(
+        ) << "\n    ***** Binary was compiled without optimizations - this will be very slow *****\n\n";
     }
 }
 
@@ -87,10 +88,15 @@ InputBuffer get_input_buffer(const CommandLineOptions& opt) {
     }
 }
 
-void output_abundance(std::ostream& out, const std::vector<double>& abundances, const References& references){
-        for (size_t i = 0; i < references.size(); ++i) {
-            out << references.names[i] << '\t' << std::fixed << std::setprecision(6) << abundances[i] / double(references.sequences[i].size()) << std::endl;
-        }
+void output_abundance(
+    std::ostream& out,
+    const std::vector<double>& abundances,
+    const References& references
+) {
+    for (size_t i = 0; i < references.size(); ++i) {
+        out << references.names[i] << '\t' << std::fixed << std::setprecision(6)
+            << abundances[i] / double(references.sequences[i].size()) << std::endl;
+    }
 }
 
 void show_progress_until_done(std::vector<int>& worker_done, std::vector<AlignmentStatistics>& stats) {
@@ -118,10 +124,8 @@ void show_progress_until_done(std::vector<int>& worker_done, std::vector<Alignme
         }
         auto elapsed = timer.elapsed();
         if (elapsed >= 1.0) {
-            std::cerr
-                << " Mapped "
-                << std::setw(12) << (n_reads / 1E6) << " M reads @ "
-                << std::setw(8) << (timer.elapsed() * 1E6 / n_reads) << " us/read                   \r";
+            std::cerr << " Mapped " << std::setw(12) << (n_reads / 1E6) << " M reads @ " << std::setw(8)
+                      << (timer.elapsed() * 1E6 / n_reads) << " us/read                   \r";
             reported = true;
         }
     }
@@ -130,7 +134,7 @@ void show_progress_until_done(std::vector<int>& worker_done, std::vector<Alignme
     }
 }
 
-int run_strobealign(int argc, char **argv) {
+int run_strobealign(int argc, char** argv) {
     auto opt = parse_command_line_arguments(argc, argv);
 
     logger.set_level(opt.verbose ? LOG_DEBUG : LOG_INFO);
@@ -144,7 +148,7 @@ int run_strobealign(int argc, char **argv) {
         throw BadParameter("c must be greater than 0 and less than 64");
     }
 
-    if (!opt.is_sam_out && opt.is_abundance_out){
+    if (!opt.is_sam_out && opt.is_abundance_out) {
         throw BadParameter("Can not use -x and --aemb at the same time");
     }
 
@@ -155,11 +159,8 @@ int run_strobealign(int argc, char **argv) {
         input_buffer.rewind_reset();
     }
     IndexParameters index_parameters = IndexParameters::from_read_length(
-        opt.r,
-        opt.k_set ? opt.k : IndexParameters::DEFAULT,
-        opt.s_set ? opt.s : IndexParameters::DEFAULT,
-        opt.l_set ? opt.l : IndexParameters::DEFAULT,
-        opt.u_set ? opt.u : IndexParameters::DEFAULT,
+        opt.r, opt.k_set ? opt.k : IndexParameters::DEFAULT, opt.s_set ? opt.s : IndexParameters::DEFAULT,
+        opt.l_set ? opt.l : IndexParameters::DEFAULT, opt.u_set ? opt.u : IndexParameters::DEFAULT,
         opt.c_set ? opt.c : IndexParameters::DEFAULT,
         opt.max_seed_len_set ? opt.max_seed_len : IndexParameters::DEFAULT,
         opt.aux_len ? opt.aux_len : IndexParameters::DEFAULT
@@ -178,26 +179,38 @@ int run_strobealign(int argc, char **argv) {
     map_param.rescue_level = opt.rescue_level;
     map_param.max_tries = opt.max_tries;
     map_param.use_mcs = opt.mcs;
-    map_param.output_format = (
-            opt.is_abundance_out ? OutputFormat::Abundance :
-            opt.is_sam_out ? OutputFormat::SAM :
-                OutputFormat::PAF);
+    map_param.output_format =
+        (opt.is_abundance_out ? OutputFormat::Abundance
+         : opt.is_sam_out     ? OutputFormat::SAM
+                              : OutputFormat::PAF);
     map_param.cigar_ops = opt.cigar_eqx ? CigarOps::EQX : CigarOps::M;
     map_param.output_unmapped = opt.output_unmapped;
     map_param.details = opt.details;
     map_param.fastq_comments = opt.fastq_comments;
     map_param.verify();
 
+    //tmp
+    map_param.use_chaining = opt.chain;
+    map_param.ch_params.h = opt.h;
+    map_param.ch_params.gd = opt.gd;
+    map_param.ch_params.gl = opt.gl;
+
     logger.debug() << index_parameters << '\n';
-    logger.debug()
-        << "  Maximum seed length: " << index_parameters.randstrobe.max_dist + index_parameters.syncmer.k << '\n'
-        << "  Expected [w_min, w_max] in #syncmers: [" << index_parameters.randstrobe.w_min << ", " << index_parameters.randstrobe.w_max << "]\n"
-        << "  Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_min << ", " << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_max << "]\n";
+    logger.debug(
+    ) << "  Maximum seed length: "
+      << index_parameters.randstrobe.max_dist + index_parameters.syncmer.k << '\n'
+      << "  Expected [w_min, w_max] in #syncmers: [" << index_parameters.randstrobe.w_min << ", "
+      << index_parameters.randstrobe.w_max << "]\n"
+      << "  Expected [w_min, w_max] in #nucleotides: ["
+      << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_min
+      << ", "
+      << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_max
+      << "]\n";
     logger.debug() << aln_params << '\n';
     logger.debug() << "Rescue level (R): " << map_param.rescue_level << '\n';
     logger.debug() << "Threads: " << opt.n_threads << std::endl;
 
-//    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
+    //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
 
     // Create index
     References references;
@@ -205,16 +218,19 @@ int run_strobealign(int argc, char **argv) {
     references = References::from_fasta(opt.ref_filename);
     logger.info() << "Time reading reference: " << read_refs_timer.elapsed() << " s\n";
 
-    logger.info() << "Reference size: " << references.total_length() / 1E6 << " Mbp ("
-        << references.size() << " contig" << (references.size() == 1 ? "" : "s")
-        << "; largest: "
-        << (*std::max_element(references.lengths.begin(), references.lengths.end()) / 1E6) << " Mbp)\n";
+    logger.info() << "Reference size: " << references.total_length() / 1E6 << " Mbp (" << references.size()
+                  << " contig" << (references.size() == 1 ? "" : "s") << "; largest: "
+                  << (*std::max_element(references.lengths.begin(), references.lengths.end()) / 1E6)
+                  << " Mbp)\n";
     if (references.total_length() == 0) {
         throw InvalidFasta("No reference sequences found");
     }
 
     if (references.size() > RefRandstrobe::max_number_of_references) {
-        throw InvalidFasta("Too many reference sequences. Current maximum is " + std::to_string(RefRandstrobe::max_number_of_references));
+        throw InvalidFasta(
+            "Too many reference sequences. Current maximum is " +
+            std::to_string(RefRandstrobe::max_number_of_references)
+        );
     }
 
     logger.debug() << "Auxiliary hash length: " << opt.aux_len << "\n";
@@ -234,33 +250,40 @@ int run_strobealign(int argc, char **argv) {
         logger.info() << "Indexing ...\n";
         Timer index_timer;
         index.populate(opt.f, opt.n_threads);
-        
-        logger.info() << "  Time counting seeds: " << index.stats.elapsed_counting_hashes.count() << " s" <<  std::endl;
-        logger.info() << "  Time generating seeds: " << index.stats.elapsed_generating_seeds.count() << " s" <<  std::endl;
-        logger.info() << "  Time sorting seeds: " << index.stats.elapsed_sorting_seeds.count() << " s" <<  std::endl;
-        logger.info() << "  Time generating hash table index: " << index.stats.elapsed_hash_index.count() << " s" <<  std::endl;
+
+        logger.info() << "  Time counting seeds: " << index.stats.elapsed_counting_hashes.count() << " s"
+                      << std::endl;
+        logger.info() << "  Time generating seeds: " << index.stats.elapsed_generating_seeds.count() << " s"
+                      << std::endl;
+        logger.info() << "  Time sorting seeds: " << index.stats.elapsed_sorting_seeds.count() << " s"
+                      << std::endl;
+        logger.info() << "  Time generating hash table index: " << index.stats.elapsed_hash_index.count()
+                      << " s" << std::endl;
         logger.info() << "Total time indexing: " << index_timer.elapsed() << " s\n";
 
-        logger.debug()
-            << "Index statistics\n"
-            << "  Total strobemers:    " << std::setw(14) << index.stats.tot_strobemer_count << '\n'
-            << "  Distinct strobemers: " << std::setw(14) << index.stats.distinct_strobemers << " (100.00%)\n"
-            << "    1 occurrence:      " << std::setw(14) << index.stats.tot_occur_once
-                << " (" << std::setw(6) << (100.0 * index.stats.tot_occur_once / index.stats.distinct_strobemers) << "%)\n"
-            << "    2..100 occurrences:" << std::setw(14) << index.stats.tot_mid_ab
-                << " (" << std::setw(6) << (100.0 * index.stats.tot_mid_ab / index.stats.distinct_strobemers) << "%)\n"
-            << "    >100 occurrences:  " << std::setw(14) << index.stats.tot_high_ab
-                << " (" << std::setw(6) << (100.0 * index.stats.tot_high_ab / index.stats.distinct_strobemers) << "%)\n"
-            ;
+        logger.debug(
+        ) << "Index statistics\n"
+          << "  Total strobemers:    " << std::setw(14) << index.stats.tot_strobemer_count << '\n'
+          << "  Distinct strobemers: " << std::setw(14) << index.stats.distinct_strobemers << " (100.00%)\n"
+          << "    1 occurrence:      " << std::setw(14) << index.stats.tot_occur_once << " (" << std::setw(6)
+          << (100.0 * index.stats.tot_occur_once / index.stats.distinct_strobemers) << "%)\n"
+          << "    2..100 occurrences:" << std::setw(14) << index.stats.tot_mid_ab << " (" << std::setw(6)
+          << (100.0 * index.stats.tot_mid_ab / index.stats.distinct_strobemers) << "%)\n"
+          << "    >100 occurrences:  " << std::setw(14) << index.stats.tot_high_ab << " (" << std::setw(6)
+          << (100.0 * index.stats.tot_high_ab / index.stats.distinct_strobemers) << "%)\n";
         if (index.stats.tot_high_ab >= 1) {
-            logger.debug() << "Ratio distinct to highly abundant: " << index.stats.distinct_strobemers / index.stats.tot_high_ab << std::endl;
+            logger.debug() << "Ratio distinct to highly abundant: "
+                           << index.stats.distinct_strobemers / index.stats.tot_high_ab << std::endl;
         }
         if (index.stats.tot_mid_ab >= 1) {
-            logger.debug() << "Ratio distinct to non distinct: " << index.stats.distinct_strobemers / (index.stats.tot_high_ab + index.stats.tot_mid_ab) << std::endl;
+            logger.debug() << "Ratio distinct to non distinct: "
+                           << index.stats.distinct_strobemers /
+                                  (index.stats.tot_high_ab + index.stats.tot_mid_ab)
+                           << std::endl;
         }
         logger.debug() << "Filtered cutoff index: " << index.stats.index_cutoff << std::endl;
         logger.debug() << "Filtered cutoff count: " << index.stats.filter_cutoff << std::endl;
-        
+
         if (!opt.logfile_name.empty()) {
             index.print_diagnostics(opt.logfile_name, index_parameters.syncmer.k);
             logger.debug() << "Finished printing log stats" << std::endl;
@@ -276,9 +299,10 @@ int run_strobealign(int argc, char **argv) {
     }
 
     // Map/align reads
-        
+
     Timer map_align_timer;
-    map_param.rescue_cutoff = map_param.rescue_level < 100 ? map_param.rescue_level * index.filter_cutoff : 1000;
+    map_param.rescue_cutoff =
+        map_param.rescue_level < 100 ? map_param.rescue_level * index.filter_cutoff : 1000;
     logger.debug() << "Using rescue cutoff: " << map_param.rescue_cutoff << std::endl;
 
     std::streambuf* buf;
@@ -287,26 +311,25 @@ int run_strobealign(int argc, char **argv) {
     if (!opt.write_to_stdout) {
         of.open(opt.output_file_name);
         buf = of.rdbuf();
-    }
-    else {
+    } else {
         buf = std::cout.rdbuf();
     }
 
     std::ostream out(buf);
-    
+
     if (map_param.output_format == OutputFormat::SAM) {
-            std::stringstream cmd_line;
-            for(int i = 0; i < argc; ++i) {
-                cmd_line << argv[i] << " ";
-            }
-            out << sam_header(references, opt.read_group_id, opt.read_group_fields);
-            if (opt.pg_header) {
-                out << pg_header(cmd_line.str());
-            }
+        std::stringstream cmd_line;
+        for (int i = 0; i < argc; ++i) {
+            cmd_line << argv[i] << " ";
+        }
+        out << sam_header(references, opt.read_group_id, opt.read_group_fields);
+        if (opt.pg_header) {
+            out << pg_header(cmd_line.str());
+        }
     }
 
     std::vector<AlignmentStatistics> worker_statistics(opt.n_threads);
-    
+
     logger.info() << "Processing " << (opt.is_SE ? "single-end" : "paired-end") << " reads ";
     if (map_param.output_format == OutputFormat::PAF) {
         logger.info() << "in mapping-only mode ";
@@ -319,12 +342,15 @@ int run_strobealign(int argc, char **argv) {
     OutputBuffer output_buffer(out);
     std::vector<std::thread> workers;
     std::vector<int> worker_done(opt.n_threads);  // each thread sets its entry to 1 when it’s done
-    std::vector<std::vector<double>> worker_abundances(opt.n_threads, std::vector<double>(references.size(), 0));
+    std::vector<std::vector<double>> worker_abundances(
+        opt.n_threads, std::vector<double>(references.size(), 0)
+    );
     for (int i = 0; i < opt.n_threads; ++i) {
-        std::thread consumer(perform_task, std::ref(input_buffer), std::ref(output_buffer),
-            std::ref(worker_statistics[i]), std::ref(worker_done[i]), std::ref(aln_params),
-            std::ref(map_param), std::ref(index_parameters), std::ref(references),
-            std::ref(index), std::ref(opt.read_group_id), std::ref(worker_abundances[i]));
+        std::thread consumer(
+            perform_task, std::ref(input_buffer), std::ref(output_buffer), std::ref(worker_statistics[i]),
+            std::ref(worker_done[i]), std::ref(aln_params), std::ref(map_param), std::ref(index_parameters),
+            std::ref(references), std::ref(index), std::ref(opt.read_group_id), std::ref(worker_abundances[i])
+        );
         workers.push_back(std::move(consumer));
     }
     if (opt.show_progress && isatty(2)) {
@@ -350,36 +376,45 @@ int run_strobealign(int argc, char **argv) {
         output_abundance(out, abundances, references);
     }
 
-    logger.debug()
-        << "Number of reads:               " << std::setw(12) << statistics.n_reads << std::endl
-        << "Number of randstrobes:         " << std::setw(12) << statistics.n_randstrobes
-        << "  Per read: " << std::setw(7) << static_cast<float>(statistics.n_randstrobes) / statistics.n_reads << std::endl
-        << "Number of partial hits:        " << std::setw(12) << statistics.n_partial_hits << '\n'
-        << "Number of non-rescue hits:     " << std::setw(12) << statistics.n_hits
-        << "  Per read: " << std::setw(7) << static_cast<float>(statistics.n_hits) / statistics.n_reads << std::endl
-        << "Number of non-rescue NAMs:     " << std::setw(12) << statistics.n_nams
-        << "  Per read: " << std::setw(7) << static_cast<float>(statistics.n_nams) / statistics.n_reads << std::endl
-        << "Number of NAM rescue attempts: " << std::setw(12) << statistics.nam_rescue << std::endl
-        << "Number of rescue hits:         " << std::setw(12) << statistics.n_rescue_hits
-        << "  Per rescue attempt: " << std::setw(7) << static_cast<float>(statistics.n_rescue_hits) / statistics.nam_rescue << std::endl
-        << "Number of rescue NAMs:         " << std::setw(12) << statistics.n_rescue_nams
-        << "  Per rescue attempt: " << std::setw(7) << static_cast<float>(statistics.n_rescue_nams) / statistics.nam_rescue << std::endl;
-    logger.info()
-        << "Total mapping sites tried: " << statistics.tried_alignment << std::endl
-        << "Total calls to ssw: " << statistics.tot_aligner_calls << std::endl
-        << "Inconsistent NAM ends: " << statistics.inconsistent_nams << std::endl
-        << "Mates rescued by alignment: " << statistics.tot_rescued << std::endl
-        << "Total time mapping: " << map_align_timer.elapsed() << " s." << std::endl
-        << "Total time reading read-file(s): " << statistics.tot_read_file.count() / opt.n_threads << " s." << std::endl
-        << "Total time creating strobemers: " << statistics.tot_construct_strobemers.count() / opt.n_threads << " s." << std::endl
-        << "Total time finding NAMs (non-rescue mode): " << statistics.tot_find_nams.count() / opt.n_threads << " s." << std::endl
-        << "Total time finding NAMs (rescue mode): " << statistics.tot_time_rescue.count() / opt.n_threads << " s." << std::endl
-        << "Total time sorting NAMs (candidate sites): " << statistics.tot_sort_nams.count() / opt.n_threads << " s." << std::endl
-        << "Total time extending and pairing seeds: " << statistics.tot_extend.count() / opt.n_threads << " s." << std::endl;
+    logger.debug() << "Number of reads:               " << std::setw(12) << statistics.n_reads << std::endl
+                   << "Number of randstrobes:         " << std::setw(12) << statistics.n_randstrobes
+                   << "  Per read: " << std::setw(7)
+                   << static_cast<float>(statistics.n_randstrobes) / statistics.n_reads << std::endl
+                   << "Number of partial hits:        " << std::setw(12) << statistics.n_partial_hits << '\n'
+                   << "Number of non-rescue hits:     " << std::setw(12) << statistics.n_hits
+                   << "  Per read: " << std::setw(7)
+                   << static_cast<float>(statistics.n_hits) / statistics.n_reads << std::endl
+                   << "Number of non-rescue NAMs:     " << std::setw(12) << statistics.n_nams
+                   << "  Per read: " << std::setw(7)
+                   << static_cast<float>(statistics.n_nams) / statistics.n_reads << std::endl
+                   << "Number of NAM rescue attempts: " << std::setw(12) << statistics.nam_rescue << std::endl
+                   << "Number of rescue hits:         " << std::setw(12) << statistics.n_rescue_hits
+                   << "  Per rescue attempt: " << std::setw(7)
+                   << static_cast<float>(statistics.n_rescue_hits) / statistics.nam_rescue << std::endl
+                   << "Number of rescue NAMs:         " << std::setw(12) << statistics.n_rescue_nams
+                   << "  Per rescue attempt: " << std::setw(7)
+                   << static_cast<float>(statistics.n_rescue_nams) / statistics.nam_rescue << std::endl;
+    logger.info() << "Total mapping sites tried: " << statistics.tried_alignment << std::endl
+                  << "Total calls to ssw: " << statistics.tot_aligner_calls << std::endl
+                  << "Inconsistent NAM ends: " << statistics.inconsistent_nams << std::endl
+                  << "Mates rescued by alignment: " << statistics.tot_rescued << std::endl
+                  << "Total time mapping: " << map_align_timer.elapsed() << " s." << std::endl
+                  << "Total time reading read-file(s): " << statistics.tot_read_file.count() / opt.n_threads
+                  << " s." << std::endl
+                  << "Total time creating strobemers: "
+                  << statistics.tot_construct_strobemers.count() / opt.n_threads << " s." << std::endl
+                  << "Total time finding NAMs (non-rescue mode): "
+                  << statistics.tot_find_nams.count() / opt.n_threads << " s." << std::endl
+                  << "Total time finding NAMs (rescue mode): "
+                  << statistics.tot_time_rescue.count() / opt.n_threads << " s." << std::endl
+                  << "Total time sorting NAMs (candidate sites): "
+                  << statistics.tot_sort_nams.count() / opt.n_threads << " s." << std::endl
+                  << "Total time extending and pairing seeds: "
+                  << statistics.tot_extend.count() / opt.n_threads << " s." << std::endl;
     return EXIT_SUCCESS;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
     try {
         return run_strobealign(argc, argv);
     } catch (BadParameter& e) {

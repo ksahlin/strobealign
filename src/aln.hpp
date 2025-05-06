@@ -1,37 +1,42 @@
 #ifndef STROBEALIGN_ALN_HPP
 #define STROBEALIGN_ALN_HPP
 
+#include <random>
 #include <string>
 #include <vector>
-#include <random>
-#include "kseq++/kseq++.hpp"
+#include "aligner.hpp"
 #include "index.hpp"
+#include "insertsizedistribution.hpp"
+#include "kseq++/kseq++.hpp"
 #include "refs.hpp"
 #include "sam.hpp"
-#include "aligner.hpp"
-#include "insertsizedistribution.hpp"
 #include "statistics.hpp"
 
+enum class OutputFormat { SAM, PAF, Abundance };
 
-enum class OutputFormat {
-    SAM,
-    PAF,
-    Abundance
+struct ChainingPrameters {
+    int h;
+    float gd;
+    float gl;
 };
 
 struct MappingParameters {
-    int r { 150 };
-    int max_secondary { 0 };
-    float dropoff_threshold { 0.5 };
-    int rescue_level { 2 };
-    int max_tries { 20 };
+    int r{150};
+    int max_secondary{0};
+    float dropoff_threshold{0.5};
+    int rescue_level{2};
+    int max_tries{20};
     int rescue_cutoff;
     bool use_mcs{false};  // multi-context seeds
-    OutputFormat output_format {OutputFormat::SAM};
+    OutputFormat output_format{OutputFormat::SAM};
     CigarOps cigar_ops{CigarOps::M};
-    bool output_unmapped { true };
+    bool output_unmapped{true};
     bool details{false};
     bool fastq_comments{false};
+
+    //tmp
+    bool use_chaining{false};
+    ChainingPrameters ch_params;
 
     void verify() const {
         if (max_tries < 1) {
@@ -53,7 +58,7 @@ void align_or_map_paired(
     const References& references,
     const StrobemerIndex& index,
     std::minstd_rand& random_engine,
-    std::vector<double> &abundances
+    std::vector<double>& abundances
 );
 
 void align_or_map_single(
@@ -67,7 +72,7 @@ void align_or_map_single(
     const References& references,
     const StrobemerIndex& index,
     std::minstd_rand& random_engine,
-    std::vector<double> &abundances
+    std::vector<double>& abundances
 );
 
 // Private declarations, only needed for tests
