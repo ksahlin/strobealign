@@ -163,15 +163,14 @@ void collinear_chaining(
         });
     }
 
-    std::vector<int> dp(n, 0);
+    std::vector<int> dp(n, k);
     std::vector<int> backtrack(n, -1);
 
     int best_score = 0;
 
     for (int i = 0; i < n; ++i) {
-        dp[i] = k;
-
         const int lookup_end = std::max(0, i - ch_params.h);
+
         for (int j = i - 1; j >= lookup_end; --j) {
             int score = compute_score(anchors[i], anchors[j], k, ch_params);
             if (score == INT_MIN)

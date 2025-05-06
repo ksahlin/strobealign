@@ -87,7 +87,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char** argv) {
 
     args::Group chaining(parser, "Collinear Chaining:");
     args::Flag chain(parser, "chain", "Use collinear chaining intead of NAMs for alignments", {"chain"});
-    args::ValueFlag<int> h(parser, "INT", "Collinear chaining look back heuristic [50]", {'h'});
+    args::ValueFlag<int> h(parser, "INT", "Collinear chaining look back heuristic [50]", {'H'});
     args::ValueFlag<float> gd(parser, "FLOAT", "Collinear chaining diagonal gap cost [0.1]", {"gd"});
     args::ValueFlag<float> gl(parser, "FLOAT", "Collinear chaining gap length cost [0.05]", {"gl"});
 
