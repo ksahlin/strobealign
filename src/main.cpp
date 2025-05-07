@@ -194,6 +194,7 @@ int run_strobealign(int argc, char** argv) {
     map_param.ch_params.h = opt.h;
     map_param.ch_params.gd = opt.gd;
     map_param.ch_params.gl = opt.gl;
+    map_param.ch_params.vp = opt.vp;
 
     logger.debug() << index_parameters << '\n';
     logger.debug(

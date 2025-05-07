@@ -172,7 +172,6 @@ void collinear_chaining(
     int ref_id,
     std::vector<Anchor>& anchors,
     const int k,
-    bool sort,
     bool is_revcomp,
     std::vector<Nam>& chains,
     const ChainingPrameters& ch_params
@@ -180,13 +179,6 @@ void collinear_chaining(
     const int n = anchors.size();
     if (n == 0) {
         return;
-    }
-
-    if (sort) {
-        std::sort(anchors.begin(), anchors.end(), [](const Anchor& a, const Anchor& b) {
-            return (a.ref_start < b.ref_start) ||
-                   (a.ref_start == b.ref_start && a.query_start < b.query_start);
-        });
     }
 
     std::vector<int> dp(n, k);
@@ -213,8 +205,7 @@ void collinear_chaining(
         }
     }
 
-    const float valid_percent = 0.9;
-    const int valid_score = best_score * valid_percent;
+    const int valid_score = best_score * ch_params.vp;
 
     for (int i = 0; i < n; ++i) {
         if (dp[i] < valid_score) {
@@ -277,14 +268,12 @@ std::vector<Nam> get_chains(
 
     int total_hits = 0;
     // int partial_hits = 0;
-    bool sorting_needed = false;
     std::array<std::vector<Hit>, 2> hits;
     for (int is_revcomp : {0, 1}) {
         int total_hits1, partial_hits1;
         bool sorting_needed1;
         std::tie(total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) =
             find_hits(query_randstrobes[is_revcomp], index, map_param.use_mcs);
-        sorting_needed = sorting_needed || sorting_needed1;
         total_hits += total_hits1;
         // partial_hits += partial_hits1;
     }
@@ -307,9 +296,7 @@ std::vector<Nam> get_chains(
             );
 
             for (auto& [ref_id, anchors] : anchors_map) {
-                collinear_chaining(
-                    ref_id, anchors, index.k(), sorting_needed, is_revcomp, chains, map_param.ch_params
-                );
+                collinear_chaining(ref_id, anchors, index.k(), is_revcomp, chains, map_param.ch_params);
             }
 
             // n_rescue_hits += n_rescue_hits_oriented;
@@ -325,9 +312,7 @@ std::vector<Nam> get_chains(
             auto anchors_map = hits_to_anchors(hits[is_revcomp], index);
 
             for (auto& [ref_id, anchors] : anchors_map) {
-                collinear_chaining(
-                    ref_id, anchors, index.k(), sorting_needed, is_revcomp, chains, map_param.ch_params
-                );
+                collinear_chaining(ref_id, anchors, index.k(), is_revcomp, chains, map_param.ch_params);
             }
 
             // details.nams = nams.size();

@@ -18,6 +18,7 @@ struct ChainingPrameters {
     int h;
     float gd;
     float gl;
+    float vp;
 };
 
 struct MappingParameters {
