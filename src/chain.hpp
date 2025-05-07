@@ -13,6 +13,10 @@ struct Anchor {
         return (ref_start < other.ref_start) ||
                (ref_start == other.ref_start && query_start < other.query_start);
     }
+
+    bool operator==(const Anchor& other) const {
+        return ref_start == other.ref_start && query_start == other.query_start;
+    }
 };
 
 // struct Chain {
