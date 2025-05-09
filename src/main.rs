@@ -525,16 +525,26 @@ impl Mapper<'_> {
                 Mode::Sam => {
                     let (sam_records, details) =
                         if let Some(r2) = r2 {
-                            align_paired_end_read(
+                            let (mut records, details) = align_paired_end_read(
                                 &r1, &r2, self.index, self.references, self.mapping_parameters, self.sam_output, self.index_parameters, &mut isizedist, &self.aligner, &mut rng
-                            )
+                            );
+                            if !self.include_unmapped && !records[0].is_mapped() && !records[1].is_mapped() {
+                                records = vec![];
+                            }
+                            
+                            (records, details)
                         } else {
-                            align_single_end_read(&r1, self.index, self.references, self.mapping_parameters, self.sam_output, &self.aligner, &mut rng)
+                            let (mut records, details) = 
+                                align_single_end_read(&r1, self.index, self.references, self.mapping_parameters, self.sam_output, &self.aligner, &mut rng);
+                            if !self.include_unmapped && !records[0].is_mapped() {
+                                records = vec![];
+                            }
+
+                            (records, details)
                         };
+                    
                     for sam_record in sam_records {
-                        if sam_record.is_mapped() || self.include_unmapped {
-                            writeln!(out, "{}", sam_record)?;
-                        }
+                        writeln!(out, "{}", sam_record)?;
                     }
                     cumulative_details += details;
                 }
