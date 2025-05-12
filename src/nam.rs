@@ -235,7 +235,7 @@ fn merge_matches_into_nams(
             assert_ne!(prev_match, *m);
 
             if m.query_end - m.query_start == k && (prev_match.query_start == m.query_start) && (prev_match.ref_start == m.ref_start) {
-                panic!("redundant partial hit encountered");
+                continue; //panic!("redundant partial hit encountered");
             }
             let mut is_added = false;
             for o in &mut open_nams {
