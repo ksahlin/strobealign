@@ -4,6 +4,8 @@ use crate::syncmers::{SyncmerIterator, SyncmerParameters};
 use log::debug;
 use std::cmp::{max, min, Reverse};
 use std::fmt::{Display, Formatter};
+use std::fs::File;
+use std::io::{Error, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -85,6 +87,20 @@ pub struct IndexParameters {
     pub canonical_read_length: usize,
     pub syncmer: SyncmerParameters,
     pub randstrobe: RandstrobeParameters,
+}
+
+impl IndexParameters {
+    /// Return a parameter-specific filename extension such as ".r100.sti"
+    ///
+    /// If any of the parameters deviate from the defaults for the current
+    /// canonical read length, the returned extension is just ".sti".
+    pub fn filename_extension(&self) -> String {
+        if *self != IndexParameters::default_from_read_length(self.canonical_read_length) {
+            ".sti".to_string()
+        } else {
+            format!(".r{}.sti", self.canonical_read_length)
+        }
+    }
 }
 
 impl IndexParameters {
@@ -210,6 +226,7 @@ impl Display for IndexCreationStatistics {
 
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Default, Clone)]
+#[repr(C)]
 pub struct RefRandstrobe {
     /// packed representation of the hash and the strobe offset
     hash_offset: u64,
@@ -680,6 +697,51 @@ impl<'a> StrobemerIndex<'a> {
         false
     }
 }
+
+const STI_FILE_FORMAT_VERSION: u32 = 6;
+
+impl<'a> StrobemerIndex<'a> {
+    pub fn write(&self, path: String) -> Result<(), Error> {
+        let mut file = File::create(path)?;
+
+        file.write_all(b"STI\x01")?; // Magic number
+        file.write_all(&STI_FILE_FORMAT_VERSION.to_ne_bytes())?;
+
+        // Variable-length chunk reserved for future use
+        file.write_all(&8u64.to_ne_bytes())?; // length in bytes
+        file.write_all(&0u64.to_ne_bytes())?; // contents
+
+        file.write_all(&(self.filter_cutoff as u64).to_ne_bytes())?;
+        file.write_all(&(self.bits as u64).to_ne_bytes())?;
+
+        file.write_all(&(self.parameters.canonical_read_length as u64).to_ne_bytes())?;
+        let sp = &self.parameters.syncmer;
+        for val in [sp.k, sp.s, sp.t].iter() {
+            file.write_all(&(*val as u32).to_ne_bytes())?
+        }
+        let rp = &self.parameters.randstrobe;
+        for val in [rp.w_min as u64, rp.w_max as u64, rp.q, rp.max_dist as u64, rp.main_hash_mask].iter() {
+            file.write_all(&val.to_ne_bytes())?;
+        }
+
+        write_vec(&mut file, &self.randstrobes)?;
+        write_vec(&mut file, &self.randstrobe_start_indices)?;
+
+        Ok(())
+    }
+}
+
+fn write_vec<T>(file: &mut File, data: &[T]) -> Result<(), Error> {
+    // write length
+    file.write_all(&(data.len().to_ne_bytes()))?;
+    // write data
+    let data: &[u8] = unsafe {
+        std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * size_of::<T>())
+    };
+
+    file.write_all(data)
+}
+
 
 #[cfg(test)]
 mod tests {

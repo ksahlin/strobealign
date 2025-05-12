@@ -69,7 +69,16 @@ struct Args {
     /// Interleaved (or mixed single-end/paired-end) input
     #[arg(short = 'p', long, help_heading = "Input/output", conflicts_with = "fastq_path2")]
     interleaved: bool,
-    
+
+    // args::ValueFlag<std::string> index_statistics(parser, "PATH", "Print statistics of indexing to PATH", {"index-statistics"});
+
+    /// Do not map reads; only generate the strobemer index and write it to disk.
+    /// If read files are provided, they are used to estimate read length
+    #[arg(short = 'i',  long = "create-index", help_heading = "Input/output")]
+    create_index: bool,
+
+    // args::Flag use_index(parser, "use_index", "Use a pre-generated index previously written with --create-index.", { "use-index" });
+
     // SAM output
 
     /// Emit =/X instead of M CIGAR operations
@@ -83,8 +92,6 @@ struct Args {
     /// Do not output unmapped single-end reads. Do not output pairs where both reads are unmapped
     #[arg(short = 'U', help_heading = "SAM output")]
     only_mapped: bool,
-
-    // args::Flag interleaved(parser, "interleaved", "Interleaved input", {"interleaved"});
 
     /// Read group ID
     #[arg(long, help_heading = "SAM output")]
@@ -105,10 +112,6 @@ struct Args {
     /// Retain at most N secondary alignments (is upper bounded by -M and depends on -S)
     #[arg(short = 'N', default_value_t = 0, value_name = "N", help_heading = "SAM output")]
     max_secondary: usize,
-
-    // args::ValueFlag<std::string> index_statistics(parser, "PATH", "Print statistics of indexing to PATH", {"index-statistics"});
-    // args::Flag i(parser, "index", "Do not map reads; only generate the strobemer index and write it to disk. If read files are provided, they are used to estimate read length", {"create-index", 'i'});
-    // args::Flag use_index(parser, "use_index", "Use a pre-generated index previously written with --create-index.", { "use-index" });
 
     // Seeding arguments
 
@@ -200,7 +203,7 @@ struct Args {
     ref_path: String,
 
     /// Path to input FASTQ
-    fastq_path: String,
+    fastq_path: Option<String>,
 
     /// Path to input FASTQ with R2 reads (if paired end)
     fastq_path2: Option<String>,
@@ -241,17 +244,36 @@ fn main() -> Result<(), CliError> {
         exit(1);
     }
 
-    // Open R1 FASTQ file and estimate read length if necessary
-    let f1 = xopen(&args.fastq_path)?;
-    let mut fastq_reader1 = PeekableSequenceReader::new(f1);
-    let read_length = match args.read_length {
-        Some(r) => r,
-        None => {
-            let r = estimate_read_length(&fastq_reader1.peek(500)?);
-            info!("Estimated read length: {} bp", r);
-            r
-        },
-    };
+    let read_length;
+    let fastq_reader1;
+
+    if let Some(fastq_path) = args.fastq_path {
+        // Open R1 FASTQ file and estimate read length if necessary
+        let f1 = xopen(&fastq_path)?;
+        let mut fastq_reader = PeekableSequenceReader::new(f1);
+        read_length = match args.read_length {
+            Some(r) => r,
+            None => {
+                let r = estimate_read_length(&fastq_reader.peek(500)?);
+                info!("Estimated read length: {} bp", r);
+                r
+            },
+        };
+        fastq_reader1 = Some(fastq_reader);
+    } else {
+        if !args.create_index {
+            error!("FASTQ path is required");
+            exit(1);
+        }
+        if let Some(rl) = args.read_length {
+            read_length = rl;
+        } else {
+            error!("With --create-index, either provide a FASTQ path or specify the read length with -r");
+            exit(1);
+        }
+        fastq_reader1 = None;
+    }
+
     let parameters = IndexParameters::from_read_length(read_length, args.k, args.s, args.l, args.u, args.c, args.max_seed_length, args.aux_len);
     info!("Canonical read length: {} bp", parameters.canonical_read_length);
 
@@ -271,6 +293,17 @@ fn main() -> Result<(), CliError> {
     debug!("{}", &index.stats);
     debug!("Filtered cutoff count: {}", index.filter_cutoff);
     debug!("Using rescue cutoff: {}", index.rescue_cutoff);
+
+    if args.create_index {
+        let timer = Instant::now();
+        let sti_path = args.ref_path + &parameters.filename_extension();
+        info!("Writing index to {}", sti_path);
+        index.write(sti_path)?;
+        info!("Total time writing index: {:.2} s", timer.elapsed().as_secs_f32());
+
+        exit(0);
+    }
+    let fastq_reader1 = fastq_reader1.unwrap();
 
     let timer = Instant::now();
     let mapping_parameters = MappingParameters {
@@ -531,10 +564,10 @@ impl Mapper<'_> {
                             if !self.include_unmapped && !records[0].is_mapped() && !records[1].is_mapped() {
                                 records = vec![];
                             }
-                            
+
                             (records, details)
                         } else {
-                            let (mut records, details) = 
+                            let (mut records, details) =
                                 align_single_end_read(&r1, self.index, self.references, self.mapping_parameters, self.sam_output, &self.aligner, &mut rng);
                             if !self.include_unmapped && !records[0].is_mapped() {
                                 records = vec![];
@@ -542,7 +575,7 @@ impl Mapper<'_> {
 
                             (records, details)
                         };
-                    
+
                     for sam_record in sam_records {
                         writeln!(out, "{}", sam_record)?;
                     }
