@@ -18,7 +18,7 @@ jobs:
       - name: Check for tab characters
         run: "! grep -P -R '\\t' src/ tests/*.{cpp,py}"
 
-  build:
+  build_and_test:
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
@@ -47,6 +47,17 @@ jobs:
         run: brew install samtools
       - name: Run
         run: tests/run.sh
+
+# Temporary extra tests
+      - name: Cache test dataset
+        uses: actions/cache@v4
+        with:
+          key: test-data-${{ hashFiles('tests/download.sh') }}
+          path: tests/drosophila/
+      - name: Download test data
+        run: tests/download.sh
+      - name: Run on fruit fly
+        run: build/strobealign -o /dev/null tests/drosophila/ref.fasta tests/drosophila/reads.1.fastq.gz
 
   # Test building with a downloaded ISA-L
   externalisal:
@@ -105,7 +116,7 @@ jobs:
         run: sudo apt-get install samtools python3-pysam picard-tools libisal-dev
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
-        run: brew install samtools pysam picard-tools isa-l
+        run: brew install samtools picard-tools isa-l && pip install pysam
       - name: Cache test dataset
         uses: actions/cache@v4
         with:
