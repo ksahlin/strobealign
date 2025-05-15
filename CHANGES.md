@@ -1,5 +1,9 @@
 # Strobealign Changelog
 
+## development version
+
+* #497: Fix a crash on macOS (ARM) and possible undefined behavior on Linux.
+
 ## v0.16.0 (2025-04-11)
 
 * #476: Improve accuracy by enabling (by default) a variant of multi-context
