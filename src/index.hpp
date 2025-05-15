@@ -124,14 +124,19 @@ struct StrobemerIndex {
     }
 
     bool is_filtered_forward(bucket_index_t position) const {
+        assert(position < randstrobes.size());
         return get_hash(position) == get_hash(position + filter_cutoff);
     }
 
     bool is_filtered(bucket_index_t position, randstrobe_hash_t hash_revcomp) const {
+        assert(position < randstrobes.size());
         if (is_filtered_forward(position)) {
             return true;
         }
         bucket_index_t position_revcomp = find_full(hash_revcomp);
+        if (position_revcomp == end()) {
+            return false;
+        }
         if (is_filtered_forward(position_revcomp)) {
             return true;
         }
@@ -141,14 +146,19 @@ struct StrobemerIndex {
     }
 
     bool is_partial_filtered_forward(bucket_index_t position) const {
+        assert(position < randstrobes.size());
         return get_main_hash(position) == get_main_hash(position + partial_filter_cutoff);
     }
 
     bool is_partial_filtered(bucket_index_t position, randstrobe_hash_t hash_revcomp) const {
+        assert(position < randstrobes.size());
         if (is_partial_filtered_forward(position)) {
             return true;
         }
         bucket_index_t position_revcomp = find_partial(hash_revcomp);
+        if (position_revcomp == end()) {
+            return false;
+        }
         if (is_partial_filtered_forward(position_revcomp)) {
             return true;
         }
