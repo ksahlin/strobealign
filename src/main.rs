@@ -45,7 +45,6 @@ struct Args {
     /// Number of reads processed by a worker thread at once
     #[arg(long, default_value_t = 10000, hide = true)]
     chunk_size: usize,
-    //args::ValueFlag<int> chunk_size(parser, "INT", " [10000]", {"chunk-size"}, args::Options::Hidden);
 
     /// Write output to PATH instead of stdout
     #[arg(short = 'o', value_name = "PATH", help_heading = "Input/output")]
