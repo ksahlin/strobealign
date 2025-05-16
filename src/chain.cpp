@@ -1,8 +1,12 @@
 #include <algorithm>
 #include <array>
+#include <cfloat>
 #include <cstdlib>
 #include <iostream>
+#include <ostream>
 #include <set>
+#include <sstream>
+#include <utility>
 
 #include "aln.hpp"
 #include "chain.hpp"
@@ -151,19 +155,20 @@ std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Anchor>
     return {n_hits, partial_hits, anchor_map};
 }
 
-static inline int
+static inline float
 compute_score(const Anchor& ai, const Anchor& aj, const int k, const ChainingPrameters& ch_params) {
     int dq = ai.query_start - aj.query_start;
     int dr = ai.ref_start - aj.ref_start;
-    if (dq < 0 || dr < 0)
-        return INT_MIN;
+
+    if (dq <= 0 || dr <= 0)
+        return FLT_MIN;
 
     int dd = std::abs(dr - dq);
     int dg = std::min(dq, dr);
-    int score = std::min(k, dg);
+    float score = std::min(k, dg);
 
     float penalty = ch_params.gd * dd + ch_params.gl * dg;
-    score -= int(penalty);
+    score -= penalty;
 
     return score;
 }
@@ -181,7 +186,7 @@ void collinear_chaining(
         return;
     }
 
-    std::vector<int> dp(n, k);
+    std::vector<float> dp(n, k);
     std::vector<int> backtrack(n, -1);
 
     int best_score = 0;
@@ -190,8 +195,8 @@ void collinear_chaining(
         const int lookup_end = std::max(0, i - ch_params.h);
 
         for (int j = i - 1; j >= lookup_end; --j) {
-            int score = compute_score(anchors[i], anchors[j], k, ch_params);
-            if (score == INT_MIN)
+            float score = compute_score(anchors[i], anchors[j], k, ch_params);
+            if (score == FLT_MIN)
                 continue;
 
             int new_score = dp[j] + score;
@@ -205,26 +210,30 @@ void collinear_chaining(
         }
     }
 
-    const int valid_score = best_score * ch_params.vp;
+    const float valid_score = best_score * ch_params.vp;
+    std::vector<bool> used(n, false);
 
-    for (int i = 0; i < n; ++i) {
-        if (dp[i] < valid_score) {
+    for (int i = n - 1; i >= 0; --i) {
+        if (dp[i] < valid_score || used[i]) {
             continue;
         }
 
         int j = i;
         int c = 0;
+
         while (backtrack[j] >= 0) {
             j = backtrack[j];
+            used[j] = true;
             c++;
         }
 
         const Anchor& first = anchors[j];
         const Anchor& last = anchors[i];
+        const float score = dp[i];
 
         chains.push_back(Nam{
             int(chains.size()), first.query_start, last.query_start + k, -1, first.ref_start,
-            last.ref_start + k, -1, c, ref_id, float(best_score), is_revcomp
+            last.ref_start + k, -1, c, ref_id, score, is_revcomp
 
         });
     }
@@ -252,7 +261,6 @@ std::vector<Nam> get_chains(
     const klibpp::KSeq& record,
     const StrobemerIndex& index,
     // AlignmentStatistics& statistics,
-    // Details& details,
     const MappingParameters& map_param,
     const IndexParameters& index_parameters,
     std::minstd_rand& random_engine
@@ -328,8 +336,8 @@ std::vector<Nam> get_chains(
 
 #ifdef TRACE
     std::cerr << "Query: " << record.name << '\n';
-    std::cerr << "Found " << nams.size() << " NAMs\n";
-    for (const auto& nam : nams) {
+    std::cerr << "Found " << chains.size() << " NAMs\n";
+    for (const auto& nam : chains) {
         std::cerr << "- " << nam << '\n';
     }
 #endif
