@@ -1,6 +1,6 @@
 # Strobealign Changelog
 
-## development version
+## v0.16.1 (2025-05-16)
 
 * #497: Fix a crash on macOS (ARM) and possible undefined behavior on Linux.
 
