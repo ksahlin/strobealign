@@ -225,30 +225,11 @@ fn main() -> Result<(), CliError> {
     logger::init(level).unwrap();
     info!("This is {} {}", NAME, VERSION);
 
-    // Read reference FASTA
-    let timer = Instant::now();
-    let mut reader = BufReader::new(xopen(&args.ref_path)?);
-    let references = fasta::read_fasta(&mut reader)?;
-    drop(reader);
-    info!("Time reading references: {:.2} s", timer.elapsed().as_secs_f64());
-    let total_ref_size = references.iter().map(|r| r.sequence.len()).sum::<usize>();
-    let max_contig_size = references.iter().map(|r| r.sequence.len()).max().expect("No reference found");
-    info!("Reference size: {:.2} Mbp ({} contig{}; largest: {:.2} Mbp)",
-        total_ref_size as f64 / 1E6,
-        references.len(),
-        if references.len() != 1 { "s" } else { "" },
-        max_contig_size as f64 / 1E6
-    );
-    if references.len() > REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES {
-        error!("Too many reference sequences. Current maximum is {}.", REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES);
-        exit(1);
-    }
-
+    // Open R1 FASTQ file and estimate read length if necessary
     let read_length;
     let fastq_reader1;
 
     if let Some(fastq_path) = args.fastq_path {
-        // Open R1 FASTQ file and estimate read length if necessary
         let f1 = xopen(&fastq_path)?;
         let mut fastq_reader = PeekableSequenceReader::new(f1);
         read_length = match args.read_length {
@@ -272,6 +253,25 @@ fn main() -> Result<(), CliError> {
             exit(1);
         }
         fastq_reader1 = None;
+    }
+
+    // Read reference FASTA
+    let timer = Instant::now();
+    let mut reader = BufReader::new(xopen(&args.ref_path)?);
+    let references = fasta::read_fasta(&mut reader)?;
+    drop(reader);
+    info!("Time reading references: {:.2} s", timer.elapsed().as_secs_f64());
+    let total_ref_size = references.iter().map(|r| r.sequence.len()).sum::<usize>();
+    let max_contig_size = references.iter().map(|r| r.sequence.len()).max().expect("No reference found");
+    info!("Reference size: {:.2} Mbp ({} contig{}; largest: {:.2} Mbp)",
+        total_ref_size as f64 / 1E6,
+        references.len(),
+        if references.len() != 1 { "s" } else { "" },
+        max_contig_size as f64 / 1E6
+    );
+    if references.len() > REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES {
+        error!("Too many reference sequences. Current maximum is {}.", REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES);
+        exit(1);
     }
 
     let parameters = IndexParameters::from_read_length(read_length, args.k, args.s, args.l, args.u, args.c, args.max_seed_length, args.aux_len);
