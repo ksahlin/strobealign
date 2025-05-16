@@ -408,7 +408,7 @@ fn main() -> Result<(), CliError> {
         let mut map = HashMap::new();
         let mut next_index = 0;
         let mut total_details = Details::default();
-        while let Ok((index, msg)) = out_rx.recv() {
+        for (index, msg) in out_rx {
             map.insert(index, msg);
             while let Some((data, details)) = map.remove(&next_index) {
                 out_arc.lock().unwrap().write_all(data.as_ref()).unwrap();
@@ -421,7 +421,6 @@ fn main() -> Result<(), CliError> {
         }
         details_tx.send(total_details).unwrap();
         drop(progress_tx);
-        drop(out_rx);
 
         out_arc
     });
@@ -436,7 +435,7 @@ fn main() -> Result<(), CliError> {
             let mut time_to_wait = time::Duration::from_millis(10);
             let mut reported_time = Instant::now();
             let mut total_reads = 0;
-            while let Ok(n_reads) = progress_rx.recv() {
+            for n_reads in progress_rx {
                 total_reads = n_reads;
                 // Start with a small waiting time between updates so that there’s no delay if
                 // there are very few reads to align.
