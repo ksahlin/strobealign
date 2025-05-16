@@ -8,6 +8,8 @@ use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, sync_channel, Receiver, Sender};
 use std::time::Instant;
+use clap::builder::Styles;
+use clap::builder::styling::AnsiColor;
 use log::{debug, error, info, trace};
 use clap::Parser;
 use fastrand::Rng;
@@ -28,10 +30,13 @@ mod logger;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const NAME: &str = env!("CARGO_PKG_NAME");
-
+const STYLES: Styles = Styles::plain()
+    .header(AnsiColor::Blue.on_default())
+    .usage(AnsiColor::Blue.on_default())
+    .placeholder(AnsiColor::Green.on_default());
 
 #[derive(Parser, Debug)]
-#[command(version, long_about = None)]
+#[command(version, long_about = None, styles = STYLES)]
 struct Args {
     /// Number of threads
     #[arg(short, default_value_t = 1, value_name = "N")]
