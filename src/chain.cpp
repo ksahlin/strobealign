@@ -8,6 +8,8 @@
 #include <sstream>
 #include <utility>
 
+#include "pdqsort/pdqsort.h"
+
 #include "aln.hpp"
 #include "chain.hpp"
 #include "randstrobes.hpp"
@@ -59,7 +61,6 @@ void hits_to_anchors_vector(const std::vector<Hit>& hits, const StrobemerIndex& 
             add_to_anchors_vector_full(anchors, hit.query_start, hit.query_end, index, hit.position);
         }
     }
-    std::sort(anchors.begin(), anchors.end());
 }
 
 std::tuple<int, int> find_anchors_rescue(
@@ -297,7 +298,7 @@ std::vector<Nam> get_chains(
         for (int is_revcomp : {0, 1}) {
             anchors_vector.clear();
             hits_to_anchors_vector(hits[is_revcomp], index, anchors_vector);
-            std::sort(anchors_vector.begin(), anchors_vector.end());
+            pdqsort(anchors_vector.begin(), anchors_vector.end());
             anchors_vector.erase(std::unique(anchors_vector.begin(), anchors_vector.end()), anchors_vector.end());
             collinear_chaining(anchors_vector, index.k(), is_revcomp, chains, map_param.ch_params);
             // details.nams = nams.size();
