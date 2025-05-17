@@ -8,14 +8,16 @@
 struct Anchor {
     int query_start;
     int ref_start;
+    int ref_id;
 
     bool operator<(const Anchor& other) const {
-        return (ref_start < other.ref_start) ||
-               (ref_start == other.ref_start && query_start < other.query_start);
+        return (ref_id < other.ref_id) ||
+               (ref_id == other.ref_id && ref_start < other.ref_start) ||
+               (ref_id == other.ref_id && ref_start == other.ref_start && query_start < other.query_start);
     }
 
     bool operator==(const Anchor& other) const {
-        return ref_start == other.ref_start && query_start == other.query_start;
+        return (ref_id == other.ref_id) && ref_start == other.ref_start && query_start == other.query_start;
     }
 };
 

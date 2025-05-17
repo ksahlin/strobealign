@@ -13,9 +13,12 @@
 #include "randstrobes.hpp"
 #include "robin_hood.h"
 
-inline void add_to_anchors_map_full(
-    // robin_hood::unordered_map<unsigned int, std::vector<Anchor>>& anchors_map,
-    robin_hood::unordered_map<unsigned int, std::set<Anchor>>& anchors_map,
+inline void add_anchor(std::vector<Anchor>& anchors, int query_start, int ref_start, int ref_index) {
+    anchors.push_back({query_start, ref_start, ref_index});
+}
+
+inline void add_to_anchors_vector_full(
+    std::vector<Anchor>& anchors,
     int query_start,
     int query_end,
     const StrobemerIndex& index,
@@ -27,56 +30,41 @@ inline void add_to_anchors_map_full(
         int ref_end = ref_start + index.strobe2_offset(position) + index.k();
         int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
         if (diff <= min_diff) {
-            // anchors_map[index.reference_index(position)].push_back(Anchor{query_start, ref_start});
-            // anchors_map[index.reference_index(position)].push_back(
-            //     Anchor{query_end - index.k(), ref_end - index.k()}
-            // );
-            anchors_map[index.reference_index(position)].insert({query_start, ref_start});
-            anchors_map[index.reference_index(position)].insert({query_end - index.k(), ref_end - index.k()});
+            int ref_idx = index.reference_index(position);
+            add_anchor(anchors, query_start, ref_start, ref_idx);
+            add_anchor(anchors, query_end - index.k(), ref_end - index.k(), ref_idx);
             min_diff = diff;
         }
     }
 }
 
-inline void add_to_anchors_map_partial(
-    // robin_hood::unordered_map<unsigned int, std::vector<Anchor>>& anchors_map,
-    robin_hood::unordered_map<unsigned int, std::set<Anchor>>& anchors_map,
+inline void add_to_anchors_vector_partial(
+    std::vector<Anchor>& anchors,
     int query_start,
     const StrobemerIndex& index,
     size_t position
 ) {
     for (const auto hash = index.get_main_hash(position); index.get_main_hash(position) == hash; ++position) {
         auto [ref_start, ref_end] = index.strobe_extent_partial(position);
-        // anchors_map[index.reference_index(position)].push_back(Anchor{query_start, ref_start});
-        anchors_map[index.reference_index(position)].insert({query_start, ref_start});
+        int ref_idx = index.reference_index(position);
+        add_anchor(anchors, query_start, ref_start, ref_idx);
     }
 }
 
-robin_hood::unordered_map<unsigned int, std::vector<Anchor>>
-hits_to_anchors(const std::vector<Hit>& hits, const StrobemerIndex& index) {
-    // robin_hood::unordered_map<unsigned int, std::vector<Anchor>> anchor_map;
-    robin_hood::unordered_map<unsigned int, std::set<Anchor>> anchor_map_set;
-
-    anchor_map_set.reserve(100);  // idk why ?
-
+std::vector<Anchor> hits_to_anchors_vector(const std::vector<Hit>& hits, const StrobemerIndex& index) {
+    std::vector<Anchor> anchors;
     for (const Hit& hit : hits) {
         if (hit.is_partial) {
-            add_to_anchors_map_partial(anchor_map_set, hit.query_start, index, hit.position);
+            add_to_anchors_vector_partial(anchors, hit.query_start, index, hit.position);
         } else {
-            add_to_anchors_map_full(anchor_map_set, hit.query_start, hit.query_end, index, hit.position);
+            add_to_anchors_vector_full(anchors, hit.query_start, hit.query_end, index, hit.position);
         }
     }
-    robin_hood::unordered_map<unsigned int, std::vector<Anchor>> anchor_map;
-    anchor_map.reserve(anchor_map_set.size());
-
-    for (auto& [ref_id, anchor_set] : anchor_map_set) {
-        anchor_map[ref_id] = std::vector<Anchor>(anchor_set.begin(), anchor_set.end());
-    }
-
-    return anchor_map;
+    std::sort(anchors.begin(), anchors.end());
+    return anchors;
 }
 
-std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Anchor>>> find_anchors_rescue(
+std::tuple<int, int, std::vector<Anchor>> find_anchors_rescue(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
@@ -98,18 +86,15 @@ std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Anchor>
     int n_hits = 0;
     int partial_hits = 0;
     std::vector<RescueHit> rescue_hits;
-    rescue_hits.reserve(5000);
     for (auto& qr : query_randstrobes) {
         size_t position = index.find_full(qr.hash);
         if (position != index.end()) {
             unsigned int count = index.get_count_full(position);
-
             size_t position_revcomp = index.find_full(qr.hash_revcomp);
             if (position_revcomp != index.end()) {
                 count += index.get_count_full(position_revcomp);
             }
-            RescueHit rh{position, count, qr.start, qr.end, false};
-            rescue_hits.push_back(rh);
+            rescue_hits.push_back({position, count, qr.start, qr.end, false});
         } else if (use_mcs) {
             size_t partial_pos = index.find_partial(qr.hash);
             if (partial_pos != index.end()) {
@@ -118,17 +103,14 @@ std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Anchor>
                 if (position_revcomp != index.end()) {
                     partial_count += index.get_count_partial(position_revcomp);
                 }
-                RescueHit rh{partial_pos, partial_count, qr.start, qr.start + index.k(), true};
-                rescue_hits.push_back(rh);
+                rescue_hits.push_back({partial_pos, partial_count, qr.start, qr.start + index.k(), true});
                 partial_hits++;
             }
         }
     }
-    std::sort(rescue_hits.begin(), rescue_hits.end());
 
-    // robin_hood::unordered_map<unsigned int, std::vector<Anchor>> anchors_map;
-    robin_hood::unordered_map<unsigned int, std::set<Anchor>> anchors_map_set;
-    anchors_map_set.reserve(100);
+    std::sort(rescue_hits.begin(), rescue_hits.end());
+    std::vector<Anchor> anchors;
 
     int cnt = 0;
     for (auto& rh : rescue_hits) {
@@ -137,26 +119,23 @@ std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Anchor>
         }
         if (rh.is_partial) {
             partial_hits++;
-            add_to_anchors_map_partial(anchors_map_set, rh.query_start, index, rh.position);
+            add_to_anchors_vector_partial(anchors, rh.query_start, index, rh.position);
         } else {
-            add_to_anchors_map_full(anchors_map_set, rh.query_start, rh.query_end, index, rh.position);
+            add_to_anchors_vector_full(anchors, rh.query_start, rh.query_end, index, rh.position);
         }
         cnt++;
         n_hits++;
     }
 
-    robin_hood::unordered_map<unsigned int, std::vector<Anchor>> anchor_map;
-    anchor_map.reserve(anchors_map_set.size());
-
-    for (auto& [ref_id, anchor_set] : anchors_map_set) {
-        anchor_map[ref_id] = std::vector<Anchor>(anchor_set.begin(), anchor_set.end());
-    }
-
-    return {n_hits, partial_hits, anchor_map};
+    std::sort(anchors.begin(), anchors.end());
+    return {n_hits, partial_hits, anchors};
 }
 
 static inline float
 compute_score(const Anchor& ai, const Anchor& aj, const int k, const ChainingPrameters& ch_params) {
+    if (ai.ref_id != aj.ref_id)
+        return FLT_MIN; 
+
     int dq = ai.query_start - aj.query_start;
     int dr = ai.ref_start - aj.ref_start;
 
@@ -174,7 +153,6 @@ compute_score(const Anchor& ai, const Anchor& aj, const int k, const ChainingPra
 }
 
 void collinear_chaining(
-    int ref_id,
     std::vector<Anchor>& anchors,
     const int k,
     bool is_revcomp,
@@ -233,7 +211,7 @@ void collinear_chaining(
 
         chains.push_back(Nam{
             int(chains.size()), first.query_start, last.query_start + k, -1, first.ref_start,
-            last.ref_start + k, -1, c, ref_id, score, is_revcomp
+            last.ref_start + k, -1, c, last.ref_id, score, is_revcomp
 
         });
     }
@@ -299,13 +277,13 @@ std::vector<Nam> get_chains(
         // int n_rescue_hits{0};
         // int n_partial_hits{0};
         for (int is_revcomp : {0, 1}) {
-            auto [n_rescue_hits_oriented, n_partial_hits_oriented, anchors_map] = find_anchors_rescue(
+            auto [n_rescue_hits_oriented, n_partial_hits_oriented, anchors_vector] = find_anchors_rescue(
                 query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.use_mcs
             );
-
-            for (auto& [ref_id, anchors] : anchors_map) {
-                collinear_chaining(ref_id, anchors, index.k(), is_revcomp, chains, map_param.ch_params);
-            }
+            std::sort(anchors_vector.begin(), anchors_vector.end());
+            anchors_vector.erase(std::unique(anchors_vector.begin(), anchors_vector.end()), anchors_vector.end());
+            collinear_chaining(anchors_vector, index.k(), is_revcomp, chains, map_param.ch_params);
+        
 
             // n_rescue_hits += n_rescue_hits_oriented;
             // n_partial_hits += n_partial_hits_oriented;
@@ -317,12 +295,10 @@ std::vector<Nam> get_chains(
         // statistics.tot_time_rescue += rescue_timer.duration();
     } else {
         for (int is_revcomp : {0, 1}) {
-            auto anchors_map = hits_to_anchors(hits[is_revcomp], index);
-
-            for (auto& [ref_id, anchors] : anchors_map) {
-                collinear_chaining(ref_id, anchors, index.k(), is_revcomp, chains, map_param.ch_params);
-            }
-
+            auto anchors_vector = hits_to_anchors_vector(hits[is_revcomp], index);
+            std::sort(anchors_vector.begin(), anchors_vector.end());
+            anchors_vector.erase(std::unique(anchors_vector.begin(), anchors_vector.end()), anchors_vector.end());
+            collinear_chaining(anchors_vector, index.k(), is_revcomp, chains, map_param.ch_params);
             // details.nams = nams.size();
             // statistics.tot_find_nams += nam_timer.duration();
         }
