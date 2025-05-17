@@ -51,8 +51,7 @@ inline void add_to_anchors_vector_partial(
     }
 }
 
-std::vector<Anchor> hits_to_anchors_vector(const std::vector<Hit>& hits, const StrobemerIndex& index) {
-    std::vector<Anchor> anchors;
+void hits_to_anchors_vector(const std::vector<Hit>& hits, const StrobemerIndex& index, std::vector<Anchor>& anchors) {
     for (const Hit& hit : hits) {
         if (hit.is_partial) {
             add_to_anchors_vector_partial(anchors, hit.query_start, index, hit.position);
@@ -61,14 +60,14 @@ std::vector<Anchor> hits_to_anchors_vector(const std::vector<Hit>& hits, const S
         }
     }
     std::sort(anchors.begin(), anchors.end());
-    return anchors;
 }
 
-std::tuple<int, int, std::vector<Anchor>> find_anchors_rescue(
+std::tuple<int, int> find_anchors_rescue(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
-    bool use_mcs
+    bool use_mcs,
+    std::vector<Anchor>& anchors
 ) {
     struct RescueHit {
         size_t position;
@@ -110,7 +109,6 @@ std::tuple<int, int, std::vector<Anchor>> find_anchors_rescue(
     }
 
     std::sort(rescue_hits.begin(), rescue_hits.end());
-    std::vector<Anchor> anchors;
 
     int cnt = 0;
     for (auto& rh : rescue_hits) {
@@ -128,7 +126,7 @@ std::tuple<int, int, std::vector<Anchor>> find_anchors_rescue(
     }
 
     std::sort(anchors.begin(), anchors.end());
-    return {n_hits, partial_hits, anchors};
+    return {n_hits, partial_hits};
 }
 
 static inline float
@@ -269,7 +267,8 @@ std::vector<Nam> get_chains(
     // statistics.n_partial_hits += partial_hits;
 
     std::vector<Nam> chains;
-
+    std::vector<Anchor> anchors_vector;
+    anchors_vector.reserve(100);
     // Rescue if requested and needed
     if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
         // Timer rescue_timer;
@@ -277,8 +276,9 @@ std::vector<Nam> get_chains(
         // int n_rescue_hits{0};
         // int n_partial_hits{0};
         for (int is_revcomp : {0, 1}) {
-            auto [n_rescue_hits_oriented, n_partial_hits_oriented, anchors_vector] = find_anchors_rescue(
-                query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.use_mcs
+            anchors_vector.clear();
+            auto [n_rescue_hits_oriented, n_partial_hits_oriented] = find_anchors_rescue(
+                query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.use_mcs, anchors_vector
             );
             std::sort(anchors_vector.begin(), anchors_vector.end());
             anchors_vector.erase(std::unique(anchors_vector.begin(), anchors_vector.end()), anchors_vector.end());
@@ -295,7 +295,8 @@ std::vector<Nam> get_chains(
         // statistics.tot_time_rescue += rescue_timer.duration();
     } else {
         for (int is_revcomp : {0, 1}) {
-            auto anchors_vector = hits_to_anchors_vector(hits[is_revcomp], index);
+            anchors_vector.clear();
+            hits_to_anchors_vector(hits[is_revcomp], index, anchors_vector);
             std::sort(anchors_vector.begin(), anchors_vector.end());
             anchors_vector.erase(std::unique(anchors_vector.begin(), anchors_vector.end()), anchors_vector.end());
             collinear_chaining(anchors_vector, index.k(), is_revcomp, chains, map_param.ch_params);
