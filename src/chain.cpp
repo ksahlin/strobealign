@@ -126,7 +126,7 @@ std::tuple<int, int> find_anchors_rescue(
         n_hits++;
     }
 
-    std::sort(anchors.begin(), anchors.end());
+    //std::sort(anchors.begin(), anchors.end());
     return {n_hits, partial_hits};
 }
 
@@ -299,7 +299,7 @@ std::vector<Nam> get_chains(
             auto [n_rescue_hits_oriented, n_partial_hits_oriented] = find_anchors_rescue(
                 query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.use_mcs, anchors_vector[is_revcomp]
             );
-            std::sort(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end());
+            pdqsort(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end());
             anchors_vector[is_revcomp].erase(std::unique(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end()), anchors_vector[is_revcomp].end());
             // collinear_chaining(anchors_vector, index.k(), is_revcomp, chains, map_param.ch_params);
             float score = collinear_chaining(anchors_vector[is_revcomp], index.k(), map_param.ch_params, dp[is_revcomp], backtrack[is_revcomp]);
@@ -331,7 +331,7 @@ std::vector<Nam> get_chains(
     }
     
     std::vector<Nam> chains;
-    // float max_score = std::max(best_score[0], best_score[1]); # this is apparently really bad for results!!?
+    // float max_score = std::max(best_score[0], best_score[1]); // this is apparently really bad for results!!?
     for (int is_revcomp : {0, 1}) {
         extract_chains_from_dp(anchors_vector[is_revcomp], dp[is_revcomp], backtrack[is_revcomp], best_score[is_revcomp], index.k(), is_revcomp, chains, map_param.ch_params);
     }
