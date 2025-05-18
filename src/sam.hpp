@@ -10,14 +10,14 @@
 
 
 struct Alignment {
-    int ref_id;
-    int ref_start;
+    int ref_id{-1};
+    int ref_start{-1};
     Cigar cigar;
-    int edit_distance;
-    int global_ed;
-    int score;
-    int length;
-    bool is_revcomp;
+    int edit_distance{0};
+    int global_ed{-1};
+    int score{0};
+    int length{0};
+    bool is_revcomp{false};
     bool is_unaligned{false};
     // Whether a gapped alignment function was used to obtain this alignment
     // (even if true, the alignment can still be without gaps)
