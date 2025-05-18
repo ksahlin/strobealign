@@ -59,7 +59,8 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlag<int> h(parser, "INT", "Collinear chaining look back heuristic [50]", {'H'});
     args::ValueFlag<float> gd(parser, "FLOAT", "Collinear chaining diagonal gap cost [0.1]", {"gd"});
     args::ValueFlag<float> gl(parser, "FLOAT", "Collinear chaining gap length cost [0.05]", {"gl"});
-    args::ValueFlag<float> vp(parser, "FLOAT", "Collinear chaining best chain score threshold [0.9]", {"vp"});
+    args::ValueFlag<float> vp(parser, "FLOAT", "Collinear chaining best chain score threshold [0.7]", {"vp"});
+    args::ValueFlag<int> sg(parser, "INT", "Collinear chaining skip distance, how far on the reference do we allow anchors to chain [10000]", {"sg"});
 
     args::Group search(parser, "Search parameters:");
     args::Flag mcs(parser, "mcs", "Use extended multi-context seed mode for finding hits. Slightly more accurate, but slower", {"mcs"});
