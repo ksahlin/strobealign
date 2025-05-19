@@ -44,7 +44,7 @@ void add_to_anchors_vector_partial(
     const StrobemerIndex& index,
     size_t position
 ) {
-    for (const auto hash = index.get_main_hash(position); index.get_main_hash(position) == hash; ++position) {
+    for (const auto hash = index.get_main_hash(position, 2); index.get_main_hash(position, 2) == hash; ++position) {
         auto [ref_start, ref_end] = index.strobe_extent_partial(position);
         int ref_idx = index.reference_index(position);
         anchors.push_back({uint(query_start), uint(ref_start), uint(ref_idx)});
@@ -98,12 +98,12 @@ std::tuple<int, int> find_anchors_rescue(
             }
             rescue_hits.push_back({position, count, qr.start, qr.end, false});
         } else if (mcs_strategy == McsStrategy::Always) {
-            size_t partial_pos = index.find_partial(qr.hash);
+            size_t partial_pos = index.find_partial(qr.hash, 2);
             if (partial_pos != index.end()) {
-                unsigned int partial_count = index.get_count_partial(partial_pos);
-                size_t position_revcomp = index.find_partial(qr.hash_revcomp);
+                unsigned int partial_count = index.get_count_partial(partial_pos, 2);
+                size_t position_revcomp = index.find_partial(qr.hash_revcomp, 2);
                 if (position_revcomp != index.end()) {
-                    partial_count += index.get_count_partial(position_revcomp);
+                    partial_count += index.get_count_partial(position_revcomp, 2);
                 }
                 rescue_hits.push_back({partial_pos, partial_count, qr.start, qr.start + index.k(), true});
                 partial_hits++;
