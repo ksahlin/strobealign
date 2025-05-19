@@ -14,8 +14,8 @@ TEST_CASE("test IndexParameters constructor") {
     unsigned w_max = 16;
     int max_dist = 180;
     uint64_t q = 255;
-    uint64_t mask1 = 0xffffffffff000000;
-    uint64_t mask2 = 0xff0000;
+    uint64_t mask1 = 0xffffffff00000000;
+    uint64_t mask2 = 0xff000000;
     int aux_len = 8;
 
     SyncmerParameters sp{k, s};
