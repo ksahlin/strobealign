@@ -39,7 +39,7 @@ void add_to_anchors_partial(
     const StrobemerIndex& index,
     size_t position
 ) {
-    for (const auto hash = index.get_main_hash(position); index.get_main_hash(position) == hash; ++position) {
+    for (const auto hash = index.get_main_hash(position, 2); index.get_main_hash(position, 2) == hash; ++position) {
         auto [ref_start, ref_end] = index.strobe_extent_partial(position);
         int ref_idx = index.reference_index(position);
         anchors.push_back({uint(query_start), uint(ref_start), uint(ref_idx)});
