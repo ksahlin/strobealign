@@ -53,7 +53,11 @@ inline void add_to_anchors_vector_partial(
     }
 }
 
-void hits_to_anchors_vector(const std::vector<Hit>& hits, const StrobemerIndex& index, std::vector<Anchor>& anchors) {
+void hits_to_anchors_vector(
+    const std::vector<Hit>& hits,
+    const StrobemerIndex& index,
+    std::vector<Anchor>& anchors
+) {
     for (const Hit& hit : hits) {
         if (hit.is_partial) {
             add_to_anchors_vector_partial(anchors, hit.query_start, index, hit.position);
@@ -132,8 +136,8 @@ std::tuple<int, int> find_anchors_rescue(
 
 static inline float
 compute_score(const Anchor& ai, const Anchor& aj, const int k, const ChainingPrameters& ch_params) {
-    if (ai.ref_id != aj.ref_id)
-        return FLT_MIN; 
+    // if (ai.ref_id != aj.ref_id)
+    //     return FLT_MIN;
 
     int dq = ai.query_start - aj.query_start;
     int dr = ai.ref_start - aj.ref_start;
@@ -156,7 +160,7 @@ float collinear_chaining(
     const int k,
     const ChainingPrameters& ch_params,
     std::vector<float>& dp,
-    std::vector<int>& backtrack   
+    std::vector<int>& backtrack
 ) {
     const int n = anchors.size();
     if (n == 0) {
@@ -169,6 +173,10 @@ float collinear_chaining(
     for (int i = 0; i < n; ++i) {
         const int lookup_end = std::max(0, i - ch_params.h);
         for (int j = i - 1; j >= lookup_end; --j) {
+            if (anchors[i].ref_id != anchors[j].ref_id) {
+                break;
+            }
+
             float score = compute_score(anchors[i], anchors[j], k, ch_params);
             if (score == FLT_MIN)
                 continue;
@@ -218,10 +226,10 @@ void extract_chains_from_dp(
         const Anchor& last = anchors[i];
         const float score = dp[i];
 
-        chains.push_back(Nam{
-            int(chains.size()), first.query_start, last.query_start + k, -1, first.ref_start,
-            last.ref_start + k, -1, c, last.ref_id, score, is_revcomp
-        });
+        chains.push_back(
+            Nam{int(chains.size()), first.query_start, last.query_start + k, -1, first.ref_start,
+                last.ref_start + k, -1, c, last.ref_id, score, is_revcomp}
+        );
     }
 }
 
@@ -297,16 +305,23 @@ std::vector<Nam> get_chains(
             // std::vector<float> dp;
             // std::vector<int> backtrack;
             auto [n_rescue_hits_oriented, n_partial_hits_oriented] = find_anchors_rescue(
-                query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.use_mcs, anchors_vector[is_revcomp]
+                query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.use_mcs,
+                anchors_vector[is_revcomp]
             );
             pdqsort(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end());
-            anchors_vector[is_revcomp].erase(std::unique(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end()), anchors_vector[is_revcomp].end());
+            anchors_vector[is_revcomp].erase(
+                std::unique(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end()),
+                anchors_vector[is_revcomp].end()
+            );
             // collinear_chaining(anchors_vector, index.k(), is_revcomp, chains, map_param.ch_params);
-            float score = collinear_chaining(anchors_vector[is_revcomp], index.k(), map_param.ch_params, dp[is_revcomp], backtrack[is_revcomp]);
+            float score = collinear_chaining(
+                anchors_vector[is_revcomp], index.k(), map_param.ch_params, dp[is_revcomp],
+                backtrack[is_revcomp]
+            );
             //if (score > best_score[is_revcomp]) {
             best_score[is_revcomp] = score;
             //}
-        
+
             // n_rescue_hits += n_rescue_hits_oriented;
             // n_partial_hits += n_partial_hits_oriented;
         }
@@ -320,8 +335,14 @@ std::vector<Nam> get_chains(
         for (int is_revcomp : {0, 1}) {
             hits_to_anchors_vector(hits[is_revcomp], index, anchors_vector[is_revcomp]);
             pdqsort(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end());
-            anchors_vector[is_revcomp].erase(std::unique(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end()), anchors_vector[is_revcomp].end());
-            float score = collinear_chaining(anchors_vector[is_revcomp], index.k(), map_param.ch_params, dp[is_revcomp], backtrack[is_revcomp]);
+            anchors_vector[is_revcomp].erase(
+                std::unique(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end()),
+                anchors_vector[is_revcomp].end()
+            );
+            float score = collinear_chaining(
+                anchors_vector[is_revcomp], index.k(), map_param.ch_params, dp[is_revcomp],
+                backtrack[is_revcomp]
+            );
             //if (score > best_score[is_revcomp]) {
             best_score[is_revcomp] = score;
             //}
@@ -329,11 +350,14 @@ std::vector<Nam> get_chains(
             // statistics.tot_find_nams += nam_timer.duration();
         }
     }
-    
+
     std::vector<Nam> chains;
     // float max_score = std::max(best_score[0], best_score[1]); // this is apparently really bad for results!!?
     for (int is_revcomp : {0, 1}) {
-        extract_chains_from_dp(anchors_vector[is_revcomp], dp[is_revcomp], backtrack[is_revcomp], best_score[is_revcomp], index.k(), is_revcomp, chains, map_param.ch_params);
+        extract_chains_from_dp(
+            anchors_vector[is_revcomp], dp[is_revcomp], backtrack[is_revcomp], best_score[is_revcomp],
+            index.k(), is_revcomp, chains, map_param.ch_params
+        );
     }
     // Sort by score
     // Timer nam_sort_timer;
