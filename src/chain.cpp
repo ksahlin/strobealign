@@ -136,20 +136,17 @@ std::tuple<int, int> find_anchors_rescue(
 
 static inline float
 compute_score(const Anchor& ai, const Anchor& aj, const int k, const ChainingPrameters& ch_params) {
-    // if (ai.ref_id != aj.ref_id)
-    //     return FLT_MIN;
-
-    int dq = ai.query_start - aj.query_start;
-    int dr = ai.ref_start - aj.ref_start;
+    const int dq = ai.query_start - aj.query_start;
+    const int dr = ai.ref_start - aj.ref_start;
 
     if (dq <= 0 || dr <= 0)
         return FLT_MIN;
 
-    int dd = std::abs(dr - dq);
-    int dg = std::min(dq, dr);
+    const int dd = std::abs(dr - dq);
+    const int dg = std::min(dq, dr);
     float score = std::min(k, dg);
 
-    float penalty = ch_params.gd * dd + ch_params.gl * dg;
+    const float penalty = ch_params.gd * dd + ch_params.gl * dg;
     score -= penalty;
 
     return score;
@@ -170,9 +167,25 @@ float collinear_chaining(
     backtrack.assign(n, -1);
     float best_score = 0;
 
+    const float skip_distance = k / std::min(ch_params.gd, ch_params.gl);
+
     for (int i = 0; i < n; ++i) {
         const int lookup_end = std::max(0, i - ch_params.h);
         for (int j = i - 1; j >= lookup_end; --j) {
+            const Anchor& ai = anchors[i];
+            const Anchor& aj = anchors[j];
+            const int dq = ai.query_start - aj.query_start;
+            const int dr = ai.ref_start - aj.ref_start;
+
+            if (dr >= skip_distance) {
+                // const float score = compute_score(anchors[i], anchors[j], k, ch_params);
+                // if (score > 0.0001) {
+                //     std::cout << "OH NO ERROR WHEN SKIPPING!!! dr = " << dr
+                //               << "  skip_distance = " << skip_distance << "   score:" << score << "\n";
+                // }
+                break;
+            }
+
             if (anchors[i].ref_id != anchors[j].ref_id) {
                 break;
             }
