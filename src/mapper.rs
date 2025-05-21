@@ -685,11 +685,11 @@ fn extend_paired_seeds(
     // Turn pairs of high-scoring NAMs into pairs of alignments
     let nam_pairs = get_best_scoring_nam_pairs(&nams[0], &nams[1], mu, sigma);
     let mut alignment_pairs = vec![];
-    let max_score = nam_pairs[0].n_hits;
+    let max_score = nam_pairs[0].score as f32;
     for nam_pair in nam_pairs {
-        let score_ = nam_pair.n_hits;
+        let score_ = nam_pair.score;
         let namsp = [nam_pair.nam1, nam_pair.nam2];
-        let score_dropoff = score_ as f32 / max_score as f32;
+        let score_dropoff = score_ as f32 / max_score;
 
         if alignment_pairs.len() >= max_tries || score_dropoff < dropoff {
             break;
@@ -965,7 +965,7 @@ pub fn get_best_scoring_nam_pairs(
                 break;
             }
             if is_proper_nam_pair(nam1, nam2, mu, sigma) {
-                nam_pairs.push(NamPair{n_hits: joint_matches, nam1: Some(nam1.clone()), nam2: Some(nam2.clone())});
+                nam_pairs.push(NamPair{score: nam1.score + nam2.score, nam1: Some(nam1.clone()), nam2: Some(nam2.clone())});
                 added_n1.insert(nam1.nam_id);
                 added_n2.insert(nam2.nam_id);
                 best_joint_matches = joint_matches.max(best_joint_matches);
@@ -983,7 +983,7 @@ pub fn get_best_scoring_nam_pairs(
             if added_n1.contains(&nam1.nam_id) {
                 continue;
             }
-            nam_pairs.push(NamPair{n_hits: nam1.n_matches, nam1: Some(nam1.clone()), nam2: None});
+            nam_pairs.push(NamPair{score: nam1.score, nam1: Some(nam1.clone()), nam2: None});
         }
     }
 
@@ -997,10 +997,10 @@ pub fn get_best_scoring_nam_pairs(
             if added_n2.contains(&nam2.nam_id) {
                 continue;
             }
-            nam_pairs.push(NamPair{n_hits: nam2.n_matches, nam1: None, nam2: Some(nam2.clone())});
+            nam_pairs.push(NamPair{score: nam2.score, nam1: None, nam2: Some(nam2.clone())});
         }
     }
-    nam_pairs.sort_by_key(|nam_pair| Reverse(nam_pair.n_hits));
+    nam_pairs.sort_by_key(|np| Reverse(np.score));
 
     nam_pairs
 }
@@ -1020,7 +1020,7 @@ fn proper_pair_mapq(nams: &[Nam]) -> u8 {
 
 #[derive(Debug)]
 pub struct NamPair {
-    pub n_hits: usize,
+    pub score: u32,
     pub nam1: Option<Nam>,
     pub nam2: Option<Nam>,
 }
