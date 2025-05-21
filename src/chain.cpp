@@ -135,10 +135,7 @@ std::tuple<int, int> find_anchors_rescue(
 }
 
 static inline float
-compute_score(const Anchor& ai, const Anchor& aj, const int k, const ChainingPrameters& ch_params) {
-    const int dq = ai.query_start - aj.query_start;
-    const int dr = ai.ref_start - aj.ref_start;
-
+compute_score(const int dq, const int dr, const int k, const ChainingPrameters& ch_params) {
     if (dq <= 0 || dr <= 0)
         return FLT_MIN;
 
@@ -174,23 +171,19 @@ float collinear_chaining(
         for (int j = i - 1; j >= lookup_end; --j) {
             const Anchor& ai = anchors[i];
             const Anchor& aj = anchors[j];
+
+            if (ai.ref_id != aj.ref_id) {
+                break;
+            }
+
             const int dq = ai.query_start - aj.query_start;
             const int dr = ai.ref_start - aj.ref_start;
 
             if (dr >= skip_distance) {
-                // const float score = compute_score(anchors[i], anchors[j], k, ch_params);
-                // if (score > 0.0001) {
-                //     std::cout << "OH NO ERROR WHEN SKIPPING!!! dr = " << dr
-                //               << "  skip_distance = " << skip_distance << "   score:" << score << "\n";
-                // }
                 break;
             }
 
-            if (anchors[i].ref_id != anchors[j].ref_id) {
-                break;
-            }
-
-            float score = compute_score(anchors[i], anchors[j], k, ch_params);
+            float score = compute_score(dq, dr, k, ch_params);
             if (score == FLT_MIN)
                 continue;
 
