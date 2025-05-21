@@ -16,7 +16,7 @@ using namespace klibpp;
 namespace {
 
 struct NamPair {
-    int n_hits;
+    float score;
     Nam nam1;
     Nam nam2;
 };
@@ -119,7 +119,7 @@ inline void align_single(
     best_alignment.is_unaligned = true;
 
     for (auto &nam : nams) {
-        float score_dropoff = (float) nam.n_matches / n_max.n_matches;
+        float score_dropoff = (float) nam.score / n_max.score;
         if (tries >= max_tries || (tries > 1 && best_edit_distance == 0) || score_dropoff < dropoff_threshold) {
             break;
         }
@@ -393,7 +393,7 @@ inline std::vector<NamPair> get_best_scoring_nam_pairs(
                 break;
             }
             if (is_proper_nam_pair(nam1, nam2, mu, sigma)) {
-                nam_pairs.push_back(NamPair{joint_hits, nam1, nam2});
+                nam_pairs.push_back(NamPair{nam1.score + nam2.score, nam1, nam2});
                 added_n1.insert(nam1.nam_id);
                 added_n2.insert(nam2.nam_id);
                 best_joint_hits = std::max(joint_hits, best_joint_hits);
@@ -414,7 +414,7 @@ inline std::vector<NamPair> get_best_scoring_nam_pairs(
                 continue;
             }
 //            int n1_penalty = std::abs(nam1.query_span() - nam1.ref_span());
-            nam_pairs.push_back(NamPair{nam1.n_matches, nam1, dummy_nam});
+            nam_pairs.push_back(NamPair{nam1.score, nam1, dummy_nam});
         }
     }
 
@@ -429,14 +429,14 @@ inline std::vector<NamPair> get_best_scoring_nam_pairs(
                 continue;
             }
 //            int n2_penalty = std::abs(nam2.query_span() - nam2.ref_span());
-            nam_pairs.push_back(NamPair{nam2.n_matches, dummy_nam, nam2});
+            nam_pairs.push_back(NamPair{nam2.score, dummy_nam, nam2});
         }
     }
 
     std::sort(
         nam_pairs.begin(),
         nam_pairs.end(),
-        [](const NamPair& a, const NamPair& b) -> bool { return a.n_hits > b.n_hits; }
+        [](const NamPair& a, const NamPair& b) -> bool { return a.score > b.score; }
     ); // Sort by highest score first
 
     return nam_pairs;
@@ -803,7 +803,7 @@ std::vector<ScoredAlignmentPair> align_paired(
 
     // Turn pairs of high-scoring NAMs into pairs of alignments
     std::vector<ScoredAlignmentPair> high_scores;
-    auto max_score = nam_pairs[0].n_hits;
+    auto max_score = nam_pairs[0].score;
     for (auto &[score_, n1, n2] : nam_pairs) {
         float score_dropoff = (float) score_ / max_score;
 
