@@ -146,6 +146,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (gd) { opt.gd = args::get(gd); }
     if (gl) { opt.gl = args::get(gl); }
     if (vp) { opt.vp = args::get(vp); }
+    if (sg) { opt.sg = args::get(sg); }
 
     // Search parameters
     if (mcs) { opt.mcs = args::get(mcs); }
