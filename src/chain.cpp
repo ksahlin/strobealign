@@ -164,7 +164,7 @@ float collinear_chaining(
     backtrack.assign(n, -1);
     float best_score = 0;
 
-    const float skip_distance = k / std::min(ch_params.gd, ch_params.gl);
+    // const float skip_distance = k / std::min(ch_params.gd, ch_params.gl);
 
     for (int i = 0; i < n; ++i) {
         const int lookup_end = std::max(0, i - ch_params.h);
@@ -179,7 +179,8 @@ float collinear_chaining(
             const int dq = ai.query_start - aj.query_start;
             const int dr = ai.ref_start - aj.ref_start;
 
-            if (dr >= skip_distance) {
+            // if (dr >= skip_distance) {
+            if (dr >= ch_params.sg) {
                 break;
             }
 
