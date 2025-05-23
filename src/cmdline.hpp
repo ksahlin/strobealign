@@ -67,6 +67,7 @@ struct CommandLineOptions {
     float gd{0.1};
     float gl{0.05};
     float vp{0.7};
+    int sg{10000};
 
     // Search parameters
     bool mcs{false};
