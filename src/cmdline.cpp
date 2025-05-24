@@ -93,7 +93,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char** argv) {
     args::ValueFlag<float> vp(parser, "FLOAT", "Collinear chaining best chain score threshold [0.7]", {"vp"});
     args::ValueFlag<int> sg(
         parser, "INT",
-        "Collinear chaining skip distance, how far on the reference do we allow anchors to chain [10 000]",
+        "Collinear chaining skip distance, how far on the reference do we allow anchors to chain [10000]",
         {"sg"}
     );
 
