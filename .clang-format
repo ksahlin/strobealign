@@ -1,13 +1,22 @@
 ---
-Language:        Cpp
-BasedOnStyle:  Chromium
+Language: Cpp
+BasedOnStyle: Chromium
 AlignAfterOpenBracket: BlockIndent
-IndentWidth:     4
-ColumnLimit:     110
-ReflowComments:  false
+AlignOperands: DontAlign
+BinPackArguments: false
+IndentWidth: 4
+ColumnLimit: 110
+ReflowComments: false
 BreakConstructorInitializers: BeforeComma
 BreakInheritanceList: BeforeComma
 SpaceAfterCStyleCast: true
 SpaceInEmptyBlock: true
+AccessModifierOffset: -2
+BreakBeforeBraces: Custom
+BraceWrapping:
+    AfterControlStatement: MultiLine
+AllowShortBlocksOnASingleLine: Empty
+AlignTrailingComments:
+    Kind: Never
 
 # Possibly configure IncludeCategories
