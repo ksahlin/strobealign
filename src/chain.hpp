@@ -11,30 +11,13 @@ struct Anchor {
     int ref_id;
 
     bool operator<(const Anchor& other) const {
-        return (ref_id < other.ref_id) ||
-               (ref_id == other.ref_id && ref_start < other.ref_start) ||
-               (ref_id == other.ref_id && ref_start == other.ref_start && query_start < other.query_start);
+        return (ref_id < other.ref_id) || (ref_id == other.ref_id && ref_start < other.ref_start) || (ref_id == other.ref_id && ref_start == other.ref_start && query_start < other.query_start);
     }
 
     bool operator==(const Anchor& other) const {
         return (ref_id == other.ref_id) && ref_start == other.ref_start && query_start == other.query_start;
     }
 };
-
-// struct Chain {
-//     int query_start;
-//     int query_end;
-//     int ref_start;
-//     int ref_end;
-//     std::vector<Anchor> anchors;
-//     int ref_id;
-//     float score;
-//     bool is_revcomp;
-//
-//     int ref_span() const;
-//     int query_span() const;
-//     int projected_ref_start() const;
-// };
 
 std::vector<Nam> get_chains(
     const klibpp::KSeq& record,
