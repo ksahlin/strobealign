@@ -130,14 +130,14 @@ std::tuple<int, int> find_anchors_rescue(
         n_hits++;
     }
 
-    //std::sort(anchors.begin(), anchors.end());
     return {n_hits, partial_hits};
 }
 
 static inline float
 compute_score(const int dq, const int dr, const int k, const ChainingPrameters& ch_params) {
-    if (dq <= 0 || dr <= 0)
+    if (dq <= 0 || dr <= 0) {
         return FLT_MIN;
+    }
 
     const int dd = std::abs(dr - dq);
     const int dg = std::min(dq, dr);
@@ -160,14 +160,14 @@ float collinear_chaining(
     if (n == 0) {
         return 0;
     }
+
     dp.assign(n, k);
     backtrack.assign(n, -1);
     float best_score = 0;
 
-    // const float skip_distance = k / std::min(ch_params.gd, ch_params.gl);
-
     for (int i = 0; i < n; ++i) {
         const int lookup_end = std::max(0, i - ch_params.h);
+
         for (int j = i - 1; j >= lookup_end; --j) {
             const Anchor& ai = anchors[i];
             const Anchor& aj = anchors[j];
@@ -179,14 +179,14 @@ float collinear_chaining(
             const int dq = ai.query_start - aj.query_start;
             const int dr = ai.ref_start - aj.ref_start;
 
-            // if (dr >= skip_distance) {
             if (dr >= ch_params.sg) {
                 break;
             }
 
             float score = compute_score(dq, dr, k, ch_params);
-            if (score == FLT_MIN)
+            if (score == FLT_MIN) {
                 continue;
+            }
 
             float new_score = dp[j] + score;
             if (new_score > dp[i]) {
@@ -261,22 +261,13 @@ void shuffle_top_chains(std::vector<Nam>& chains, std::minstd_rand& random_engin
 std::vector<Nam> get_chains(
     const klibpp::KSeq& record,
     const StrobemerIndex& index,
-    // AlignmentStatistics& statistics,
     const MappingParameters& map_param,
     const IndexParameters& index_parameters,
     std::minstd_rand& random_engine
 ) {
-    // Compute randstrobes
-    // Timer strobe_timer;
     auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
-    // statistics.n_randstrobes += query_randstrobes[0].size() + query_randstrobes[1].size();
-    // statistics.tot_construct_strobemers += strobe_timer.duration();
-
-    // Find NAMs
-    // Timer nam_timer;
 
     int total_hits = 0;
-    // int partial_hits = 0;
     std::array<std::vector<Hit>, 2> hits;
     for (int is_revcomp : {0, 1}) {
         int total_hits1, partial_hits1;
@@ -284,18 +275,13 @@ std::vector<Nam> get_chains(
         std::tie(total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) =
             find_hits(query_randstrobes[is_revcomp], index, map_param.use_mcs);
         total_hits += total_hits1;
-        // partial_hits += partial_hits1;
     }
     int nonrepetitive_hits = hits[0].size() + hits[1].size();
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
-    // statistics.n_hits += nonrepetitive_hits;
-    // statistics.n_partial_hits += partial_hits;
 
     std::array<std::vector<Anchor>, 2> anchors_vector;
     anchors_vector[0].reserve(100);
     anchors_vector[1].reserve(100);
-    //std::vector<Anchor> anchors_vector;
-    //anchors_vector.reserve(100);
     std::array<std::vector<float>, 2> dp;
     std::array<std::vector<int>, 2> backtrack;
     std::array<float, 2> best_score;
@@ -304,13 +290,7 @@ std::vector<Nam> get_chains(
 
     // Rescue if requested and needed
     if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
-        // Timer rescue_timer;
-        // int n_rescue_hits{0};
-        // int n_partial_hits{0};
         for (int is_revcomp : {0, 1}) {
-            // anchors_vector.clear();
-            // std::vector<float> dp;
-            // std::vector<int> backtrack;
             auto [n_rescue_hits_oriented, n_partial_hits_oriented] = find_anchors_rescue(
                 query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.use_mcs,
                 anchors_vector[is_revcomp]
@@ -320,24 +300,13 @@ std::vector<Nam> get_chains(
                 std::unique(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end()),
                 anchors_vector[is_revcomp].end()
             );
-            // collinear_chaining(anchors_vector, index.k(), is_revcomp, chains, map_param.ch_params);
             float score = collinear_chaining(
                 anchors_vector[is_revcomp], index.k(), map_param.ch_params, dp[is_revcomp],
                 backtrack[is_revcomp]
             );
-            //if (score > best_score[is_revcomp]) {
             best_score[is_revcomp] = score;
-            //}
-
-            // n_rescue_hits += n_rescue_hits_oriented;
-            // n_partial_hits += n_partial_hits_oriented;
         }
 
-        // statistics.n_rescue_hits += n_rescue_hits;
-        // statistics.n_partial_hits += partial_hits;
-        // details.rescue_nams = nams.size();
-        // details.nam_rescue = true;
-        // statistics.tot_time_rescue += rescue_timer.duration();
     } else {
         for (int is_revcomp : {0, 1}) {
             hits_to_anchors_vector(hits[is_revcomp], index, anchors_vector[is_revcomp]);
@@ -350,16 +319,11 @@ std::vector<Nam> get_chains(
                 anchors_vector[is_revcomp], index.k(), map_param.ch_params, dp[is_revcomp],
                 backtrack[is_revcomp]
             );
-            //if (score > best_score[is_revcomp]) {
             best_score[is_revcomp] = score;
-            //}
-            // details.nams = nams.size();
-            // statistics.tot_find_nams += nam_timer.duration();
         }
     }
 
     std::vector<Nam> chains;
-    // float max_score = std::max(best_score[0], best_score[1]); // this is apparently really bad for results!!?
     for (int is_revcomp : {0, 1}) {
         extract_chains_from_dp(
             anchors_vector[is_revcomp], dp[is_revcomp], backtrack[is_revcomp], best_score[is_revcomp],
@@ -367,16 +331,14 @@ std::vector<Nam> get_chains(
         );
     }
     // Sort by score
-    // Timer nam_sort_timer;
     std::sort(chains.begin(), chains.end(), by_score<Nam>);
     shuffle_top_chains(chains, random_engine);
-    // statistics.tot_sort_nams += nam_sort_timer.duration();
 
 #ifdef TRACE
     std::cerr << "Query: " << record.name << '\n';
     std::cerr << "Found " << chains.size() << " NAMs\n";
-    for (const auto& nam : chains) {
-        std::cerr << "- " << nam << '\n';
+    for (const auto& chain : chains) {
+        std::cerr << "- " << chain << '\n';
     }
 #endif
 
