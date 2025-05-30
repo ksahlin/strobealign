@@ -55,7 +55,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlag<int> end_bonus(parser, "INT", "Soft clipping penalty [10]", {'L'});
 
     args::Group chaining(parser, "Collinear Chaining:");
-    args::Flag chain(parser, "chain", "Use collinear chaining intead of NAMs for alignments", {"chain"});
+    args::Flag nams(parser, "nams", "Use NAMs instead of collinear chaining for alignments", {"nams"});
     args::ValueFlag<int> h(parser, "INT", "Collinear chaining look back heuristic [50]", {'H'});
     args::ValueFlag<float> gd(parser, "FLOAT", "Collinear chaining diagonal gap cost [0.1]", {"gd"});
     args::ValueFlag<float> gl(parser, "FLOAT", "Collinear chaining gap length cost [0.05]", {"gl"});
@@ -141,7 +141,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (end_bonus) { opt.end_bonus = args::get(end_bonus); }
 
     // Chaining
-    if (chain) { opt.chain = true; }
+    if (nams) { opt.nams = true; }
     if (h) { opt.h = args::get(h); }
     if (gd) { opt.gd = args::get(gd); }
     if (gl) { opt.gl = args::get(gl); }

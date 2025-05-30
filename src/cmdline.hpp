@@ -57,7 +57,7 @@ struct CommandLineOptions {
     int end_bonus { 10 };
 
     // Chaining
-    bool chain{false};
+    bool nams{false};
     int h{50};
     float gd{0.1};
     float gl{0.05};

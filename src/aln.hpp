@@ -41,8 +41,7 @@ struct MappingParameters {
     bool details{false};
     bool fastq_comments{false};
 
-    //tmp
-    bool use_chaining{false};
+    bool use_nams{false};
     ChainingPrameters ch_params;
 
     void verify() const {
