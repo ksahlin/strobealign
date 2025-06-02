@@ -14,6 +14,7 @@
 #include <zlib.h>
 #include <memory>
 #include <iostream>
+#include <cstdint>
 #include "strict_fstream.hpp"
 
 #if defined(__GNUC__) && !defined(__clang__)
