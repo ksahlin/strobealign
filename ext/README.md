@@ -58,5 +58,5 @@ License: See xxhash.c
 ## zstr
 
 Homepage: https://github.com/mateidavid/zstr
-Commit used: 755da7890ea22478a702e3139092e6c964fab1f5
+Commit used: b2733132385eeb420f1e2d0bce43487fd0c504e9
 License: See zstr/LICENSE
