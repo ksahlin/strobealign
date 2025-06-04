@@ -9,6 +9,7 @@
 #include "nam.hpp"
 #include "paf.hpp"
 #include "aligner.hpp"
+#include "chain.hpp"
 
 using namespace klibpp;
 
@@ -1126,7 +1127,13 @@ void align_or_map_paired(
 #ifdef TRACE
         std::cerr << "R" << is_r1 + 1 << '\n';
 #endif
-        nams_pair[is_r1] = get_nams(record, index, statistics, details[is_r1], map_param, index_parameters, random_engine);
+        if (map_param.use_nams) {
+            nams_pair[is_r1] = get_nams(
+                record, index, statistics, details[is_r1], map_param, index_parameters, random_engine
+            );
+        } else {
+            nams_pair[is_r1] = get_chains(record, index, map_param, index_parameters, random_engine);
+        }
     }
 
     Timer extend_timer;
@@ -1216,7 +1223,6 @@ void align_or_map_paired(
     statistics += details[1];
 }
 
-
 void align_or_map_single(
     const KSeq &record,
     Sam& sam,
@@ -1231,7 +1237,13 @@ void align_or_map_single(
     std::vector<double> &abundances
 ) {
     Details details;
-    std::vector<Nam> nams = get_nams(record, index, statistics, details, map_param, index_parameters, random_engine);
+    std::vector<Nam> nams;
+
+    if (map_param.use_nams) {
+        nams = get_nams(record, index, statistics, details, map_param, index_parameters, random_engine);
+    } else {
+        nams = get_chains(record, index, map_param, index_parameters, random_engine);
+    }
 
     Timer extend_timer;
     size_t n_best = 0;

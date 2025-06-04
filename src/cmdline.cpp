@@ -53,6 +53,14 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlag<int> E(parser, "INT", "Gap extension penalty [1]", {'E'});
     args::ValueFlag<int> end_bonus(parser, "INT", "Soft clipping penalty [10]", {'L'});
 
+    args::Group chaining(parser, "Collinear Chaining:");
+    args::Flag nams(parser, "nams", "Use NAMs instead of collinear chaining for alignments", {"nams"});
+    args::ValueFlag<int> h(parser, "INT", "Collinear chaining look back heuristic [50]", {'H'});
+    args::ValueFlag<float> gd(parser, "FLOAT", "Collinear chaining diagonal gap cost [0.1]", {"gd"});
+    args::ValueFlag<float> gl(parser, "FLOAT", "Collinear chaining gap length cost [0.05]", {"gl"});
+    args::ValueFlag<float> vp(parser, "FLOAT", "Collinear chaining best chain score threshold [0.7]", {"vp"});
+    args::ValueFlag<int> sg(parser, "INT", "Collinear chaining skip distance, how far on the reference do we allow anchors to chain [10000]", {"sg"});
+
     args::Group search(parser, "Search parameters:");
     args::Flag mcs(parser, "mcs", "Use extended multi-context seed mode for finding hits. Slightly more accurate, but slower", {"mcs"});
     args::ValueFlag<float> f(parser, "FLOAT", "Top fraction of repetitive strobemers to filter out from sampling [0.0002]", {'f'});
@@ -129,6 +137,14 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (O) { opt.O = args::get(O); }
     if (E) { opt.E = args::get(E); }
     if (end_bonus) { opt.end_bonus = args::get(end_bonus); }
+
+    // Chaining
+    if (nams) { opt.nams = true; }
+    if (h) { opt.h = args::get(h); }
+    if (gd) { opt.gd = args::get(gd); }
+    if (gl) { opt.gl = args::get(gl); }
+    if (vp) { opt.vp = args::get(vp); }
+    if (sg) { opt.sg = args::get(sg); }
 
     // Search parameters
     if (mcs) { opt.mcs = args::get(mcs); }
