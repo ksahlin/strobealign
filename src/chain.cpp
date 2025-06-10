@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <cfloat>
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <ostream>
@@ -143,8 +144,9 @@ compute_score(const int dq, const int dr, const int k, const ChainingPrameters& 
     const int dg = std::min(dq, dr);
     float score = std::min(k, dg);
 
-    const float penalty = ch_params.gd * dd + ch_params.gl * dg;
-    score -= penalty;
+    const float lin_penalty = ch_params.gd * dd + ch_params.gl * dg;
+    const float log_penalty = dd >= 1 ? std::log2(dd + 1) : 0.0f;
+    score -= lin_penalty + 0.5 * log_penalty;
 
     return score;
 }
