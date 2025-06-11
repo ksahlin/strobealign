@@ -225,10 +225,19 @@ void extract_chains_from_dp(
         int j = i;
         int c = 0;
 
+        bool ignore = false;
         while (backtrack[j] >= 0) {
             j = backtrack[j];
+            if (used[j]) {
+                ignore = true;
+                break;
+            }
             used[j] = true;
             c++;
+        }
+
+        if (ignore) {
+            continue;
         }
 
         const Anchor& first = anchors[j];
