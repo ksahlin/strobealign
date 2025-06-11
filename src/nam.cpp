@@ -237,22 +237,6 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
         }
     }
 
-    // Rescue using partial hits, even in non-MCS mode
-    if (total_hits == 0 && !use_mcs) {
-        for (const auto &q : query_randstrobes) {
-            size_t partial_pos = index.find_partial(q.hash);
-            if (partial_pos != index.end()) {
-                total_hits++;
-                if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
-                    continue;
-                }
-                partial_hits++;
-                hits.push_back(Hit{partial_pos, q.start, q.start + index.k(), true});
-            }
-        }
-        sorting_needed = true;
-    }
-
     return {total_hits, partial_hits, sorting_needed, hits};
 }
 
