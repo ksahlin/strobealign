@@ -15,10 +15,6 @@ std::optional<AlignmentInfo> Aligner::align(const std::string &query, const std:
     AlignmentInfo aln;
     int32_t maskLen = query.length() / 2;
     maskLen = std::max(maskLen, 15);
-    if (ref.length() > 2000){
-//        std::cerr << "ALIGNMENT TO REF LONGER THAN 2000bp - REPORT TO DEVELOPER. Happened for read: " <<  query << " ref len:" << ref.length() << std::endl;
-        return {};
-    }
 
     StripedSmithWaterman::Alignment alignment_ssw;
 
