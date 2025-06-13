@@ -19,7 +19,7 @@ enum class OutputFormat {
     Abundance
 };
 
-struct ChainingPrameters {
+struct ChainingParameters {
     int h;
     float gd;
     float gl;
@@ -42,7 +42,7 @@ struct MappingParameters {
     bool fastq_comments{false};
 
     bool use_nams{false};
-    ChainingPrameters ch_params;
+    ChainingParameters chaining_params;
 
     void verify() const {
         if (max_tries < 1) {
