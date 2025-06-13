@@ -193,11 +193,11 @@ int run_strobealign(int argc, char **argv) {
     map_param.details = opt.details;
     map_param.fastq_comments = opt.fastq_comments;
     map_param.use_nams = opt.nams;
-    map_param.ch_params.h = opt.h;
-    map_param.ch_params.gd = opt.gd;
-    map_param.ch_params.gl = opt.gl;
-    map_param.ch_params.vp = opt.vp;
-    map_param.ch_params.sg = opt.sg;
+    map_param.chaining_params.h = opt.h;
+    map_param.chaining_params.gd = opt.gd;
+    map_param.chaining_params.gl = opt.gl;
+    map_param.chaining_params.vp = opt.vp;
+    map_param.chaining_params.sg = opt.sg;
     map_param.verify();
 
     logger.debug() << index_parameters << '\n';
