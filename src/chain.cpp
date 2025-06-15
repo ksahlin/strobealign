@@ -208,40 +208,58 @@ void extract_chains_from_dp(
     std::vector<Nam>& chains,
     const ChainingParameters& chaining_params
 ) {
-    const int n = anchors.size();
+    const size_t n = anchors.size();
     const float valid_score = best_score * chaining_params.vp;
     std::vector<bool> used(n, false);
 
-    for (int i = n - 1; i >= 0; --i) {
-        if (dp[i] < valid_score || used[i]) {
+    std::vector<std::pair<int, float>> candidates;
+    for (int i = 0; i < n; ++i) {
+        if (dp[i] >= valid_score) {
+            candidates.push_back(std::make_pair(i, dp[i]));
+        }
+    }
+
+    std::sort(candidates.begin(), candidates.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
+
+    for (const auto& [i, score] : candidates) {
+        if (used[i]) {
             continue;
         }
 
         int j = i;
         int c = 0;
+        bool overlaps = false;
 
-        bool ignore = false;
         while (predecessors[j] >= 0) {
             j = predecessors[j];
             if (used[j]) {
-                ignore = true;
+                overlaps = true;
                 break;
             }
             used[j] = true;
             c++;
         }
 
-        if (ignore) {
+        if (overlaps) {
             continue;
         }
 
         const Anchor& first = anchors[j];
         const Anchor& last = anchors[i];
-        const float score = dp[i];
 
         chains.push_back(
-            Nam{int(chains.size()), first.query_start, last.query_start + k, -1, first.ref_start,
-                last.ref_start + k, -1, c, last.ref_id, score, is_revcomp}
+            Nam{int(chains.size()),
+            first.query_start,
+            last.query_start + k,
+            -1,
+            first.ref_start,
+            last.ref_start + k,
+            -1,
+            c,
+            last.ref_id,
+            score,
+            is_revcomp
+            }
         );
     }
 }
