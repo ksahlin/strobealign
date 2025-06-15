@@ -61,6 +61,14 @@ struct CommandLineOptions {
     int E { 1 };
     int end_bonus { 10 };
 
+    // Chaining
+    bool nams{ false };
+    int h{ 50 };
+    float gd{ 0.1 };
+    float gl{ 0.05 };
+    float vp{ 0.7 };
+    int sg{ 10000 };
+
     // Search parameters
     bool mcs { false };
     float f { 0.0002 };
