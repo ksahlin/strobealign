@@ -140,7 +140,7 @@ static float compute_score(const int dq, const int dr, const int k, const Chaini
     float score = std::min(k, dg);
 
     const float lin_penalty = chaining_params.gd * dd + chaining_params.gl * dg;
-    const float log_penalty = dd >= 1 ? std::log2(dd + 1) : 0.0f;
+    const float log_penalty = dd >= 1 ? mg_log2(dd + 1) : 0.0f;
     score -= lin_penalty + 0.5 * log_penalty;
 
     return score;
