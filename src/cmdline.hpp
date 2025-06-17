@@ -70,7 +70,7 @@ struct CommandLineOptions {
     int sg{ 10000 };
 
     // Search parameters
-    bool mcs { false };
+    bool mcs { true };
     float f { 0.0002 };
     float dropoff_threshold { 0.5 };
     int max_tries { 20 };
