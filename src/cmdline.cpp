@@ -56,11 +56,11 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
 
     args::Group chaining(parser, "Collinear Chaining:");
     args::Flag nams(parser, "nams", "Use NAMs instead of collinear chaining for alignments", {"nams"});
-    args::ValueFlag<int> h(parser, "INT", "Collinear chaining look back heuristic [50]", {'H'});
-    args::ValueFlag<float> gd(parser, "FLOAT", "Collinear chaining diagonal gap cost [0.1]", {"gd"});
-    args::ValueFlag<float> gl(parser, "FLOAT", "Collinear chaining gap length cost [0.05]", {"gl"});
-    args::ValueFlag<float> vp(parser, "FLOAT", "Collinear chaining best chain score threshold [0.7]", {"vp"});
-    args::ValueFlag<int> sg(parser, "INT", "Collinear chaining skip distance, how far on the reference do we allow anchors to chain [10000]", {"sg"});
+    args::ValueFlag<int> max_lookback(parser, "INT", "Collinear chaining look back heuristic [50]", {'H'});
+    args::ValueFlag<float> diag_diff_penalty(parser, "FLOAT", "Collinear chaining diagonal gap cost [0.1]", {"gd"});
+    args::ValueFlag<float> gap_length_penalty(parser, "FLOAT", "Collinear chaining gap length cost [0.05]", {"gl"});
+    args::ValueFlag<float> valid_score_threshold(parser, "FLOAT", "Collinear chaining best chain score threshold [0.7]", {"vp"});
+    args::ValueFlag<int> max_ref_gap(parser, "INT", "Collinear chaining skip distance, how far on the reference do we allow anchors to chain [10000]", {"sg"});
 
     args::Group search(parser, "Search parameters:");
     args::Flag mcs(parser, "mcs", "Use extended multi-context seed mode for finding hits. Slightly more accurate, but slower", {"mcs"});
@@ -142,11 +142,11 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
 
     // Chaining
     if (nams) { opt.nams = true; }
-    if (h) { opt.h = args::get(h); }
-    if (gd) { opt.gd = args::get(gd); }
-    if (gl) { opt.gl = args::get(gl); }
-    if (vp) { opt.vp = args::get(vp); }
-    if (sg) { opt.sg = args::get(sg); }
+    if (max_lookback) { opt.max_lookback = args::get(max_lookback); }
+    if (diag_diff_penalty) { opt.diag_diff_penalty = args::get(diag_diff_penalty); }
+    if (gap_length_penalty) { opt.gap_length_penalty = args::get(gap_length_penalty); }
+    if (valid_score_threshold) { opt.valid_score_threshold = args::get(valid_score_threshold); }
+    if (max_ref_gap) { opt.max_ref_gap = args::get(max_ref_gap); }
 
     // Search parameters
     if (mcs) { opt.mcs = args::get(mcs); }
