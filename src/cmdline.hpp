@@ -63,11 +63,11 @@ struct CommandLineOptions {
 
     // Chaining
     bool nams{ false };
-    int h{ 50 };
-    float gd{ 0.1 };
-    float gl{ 0.05 };
-    float vp{ 0.7 };
-    int sg{ 10000 };
+    int max_lookback{ 50 };
+    float diag_diff_penalty{ 0.1 };
+    float gap_length_penalty{ 0.05 };
+    float valid_score_threshold{ 0.7 };
+    int max_ref_gap{ 10000 };
 
     // Search parameters
     bool mcs { false };

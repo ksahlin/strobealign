@@ -20,11 +20,11 @@ enum class OutputFormat {
 };
 
 struct ChainingParameters {
-    int h;
-    float gd;
-    float gl;
-    float vp;
-    int sg;
+    int max_lookback;
+    float diag_diff_penalty;
+    float gap_length_penalty;
+    float valid_score_threshold;
+    int max_ref_gap;
 };
 
 struct MappingParameters {
