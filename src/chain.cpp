@@ -139,7 +139,7 @@ static float compute_score(const int dq, const int dr, const int k, const Chaini
     const int dg = std::min(dq, dr);
     float score = std::min(k, dg);
 
-    const float lin_penalty = chaining_params.gd * dd + chaining_params.gl * dg;
+    const float lin_penalty = chaining_params.diag_diff_penalty * dd + chaining_params.gap_length_penalty * dg;
     const float log_penalty = dd >= 1 ? mg_log2(dd + 1) : 0.0f;
     score -= lin_penalty + 0.5 * log_penalty;
 
@@ -163,7 +163,7 @@ float collinear_chaining(
     float best_score = 0;
 
     for (int i = 0; i < n; ++i) {
-        const int lookup_end = std::max(0, i - chaining_params.h);
+        const int lookup_end = std::max(0, i - chaining_params.max_lookback);
 
         for (int j = i - 1; j >= lookup_end; --j) {
             const Anchor& ai = anchors[i];
@@ -176,7 +176,7 @@ float collinear_chaining(
             const int dq = ai.query_start - aj.query_start;
             const int dr = ai.ref_start - aj.ref_start;
 
-            if (dr >= chaining_params.sg) {
+            if (dr >= chaining_params.max_ref_gap) {
                 break;
             }
 
@@ -209,7 +209,7 @@ void extract_chains_from_dp(
     const ChainingParameters& chaining_params
 ) {
     const size_t n = anchors.size();
-    const float valid_score = best_score * chaining_params.vp;
+    const float valid_score = best_score * chaining_params.valid_score_threshold;
     std::vector<bool> used(n, false);
 
     std::vector<std::pair<int, float>> candidates;
