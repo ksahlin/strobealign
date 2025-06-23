@@ -15,9 +15,12 @@ function strobealign() {
 function diff() {
     if ! env diff -u ${color} "$1" "$2"; then
       echo "Failure running 'diff $1 $2'"
-      exit 1
+      return 1
     fi
 }
+
+
+trap 'echo -e "\e[1;31mFailure\e[0m"' ERR
 
 build/test-strobealign --no-intro
 
@@ -121,4 +124,4 @@ strobealign --mcs -x tests/phix.fasta tests/phix.1.fastq | tail -n 11 > phix.mcs
 diff tests/phix.mcs.se.paf phix.mcs.se.paf
 rm phix.mcs.se.paf
 
-echo "Success"
+echo -e "\e[1;31mSuccess\e[0m"
