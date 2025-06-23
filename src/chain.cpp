@@ -50,7 +50,7 @@ void add_to_anchors_vector_partial(
     }
 }
 
-void hits_to_anchors_vector(
+void add_hits_to_anchors_vector(
     const std::vector<Hit>& hits,
     const StrobemerIndex& index,
     std::vector<Anchor>& anchors
@@ -130,11 +130,25 @@ std::tuple<int, int> find_anchors_rescue(
     return {n_hits, partial_hits};
 }
 
+/**
+ * @brief Compute the chaining score between two anchors based on their distance.
+ *
+ * This function calculates the score contribution when chaining two anchors,
+ * considering their relative positions on the query and reference sequences.
+ * It penalizes large gaps and diagonal differences to encourage collinear chains.
+ *
+ * @param dq Difference in query start positions between anchor i and anchor j
+ *           (i.e., ai.query_start - aj.query_start). Must be > 0.
+ * @param dr Difference in reference start positions between anchor i and anchor j
+ *           (i.e., ai.ref_start - aj.ref_start). Must be > 0.
+ * @param k  Length of the k-mer used to form the anchor.
+ * @param chaining_params Parameters controlling penalties:
+ *        - diag_diff_penalty: Multiplier for the absolute difference |dr - dq|, penalizing non-diagonal moves.
+ *        - gap_length_penalty: Multiplier for min(dq, dr), penalizing longer gaps.
+ *
+ * @return A float representing the score for chaining the two anchors.
+ */
 static float compute_score(const int dq, const int dr, const int k, const ChainingParameters& chaining_params) {
-    if (dq <= 0 || dr <= 0) {
-        return std::numeric_limits<float>::min();
-    }
-
     const int dd = std::abs(dr - dq);
     const int dg = std::min(dq, dr);
     float score = std::min(k, dg);
@@ -179,11 +193,11 @@ float collinear_chaining(
             if (dr >= chaining_params.max_ref_gap) {
                 break;
             }
-
-            const float score = compute_score(dq, dr, k, chaining_params);
-            if (score == std::numeric_limits<float>::min()) {
+            if (dq <= 0 || dr <= 0) {
                 continue;
             }
+
+            const float score = compute_score(dq, dr, k, chaining_params);
 
             const float new_score = dp[j] + score;
             if (new_score > dp[i]) {
@@ -249,14 +263,14 @@ void extract_chains_from_dp(
 
         chains.push_back(
             Nam{int(chains.size()),
-            first.query_start,
-            last.query_start + k,
+            int(first.query_start),
+            int(last.query_start + k),
             -1,
-            first.ref_start,
-            last.ref_start + k,
+            int(first.ref_start),
+            int(last.ref_start + k),
             -1,
             c,
-            last.ref_id,
+            int(last.ref_id),
             score,
             is_revcomp
             }
@@ -333,7 +347,7 @@ std::vector<Nam> get_chains(
 
     } else {
         for (int is_revcomp : {0, 1}) {
-            hits_to_anchors_vector(hits[is_revcomp], index, anchors_vector[is_revcomp]);
+            add_hits_to_anchors_vector(hits[is_revcomp], index, anchors_vector[is_revcomp]);
             pdqsort(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end());
             anchors_vector[is_revcomp].erase(
                 std::unique(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end()),
