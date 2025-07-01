@@ -6,7 +6,6 @@ include(ExternalProject)
 
 option(ENABLE_AVX "Enable AVX2 support" OFF)
 option(PYTHON_BINDINGS "Build Python bindings" OFF)
-option(TRACE "Highly verbose debugging output" OFF)
 
 find_package(ZLIB)
 find_package(Threads)

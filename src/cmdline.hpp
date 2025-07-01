@@ -7,18 +7,13 @@
 
 struct CommandLineOptions {
     int n_threads { 1 };
-    int chunk_size {
-#ifdef TRACE
-        1
-#else
-        10000
-#endif
-    };
+    int chunk_size{10000};
 
     // Input/output
     std::string output_file_name;
     bool write_to_stdout { true };
     bool verbose { false };
+    bool trace { false };
     bool show_progress { true };
     std::string logfile_name { "" };
     bool only_gen_index { false };
