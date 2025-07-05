@@ -7,6 +7,7 @@
 #include <ostream>
 #include <set>
 #include <sstream>
+#include <string>
 #include <utility>
 
 #include "pdqsort/pdqsort.h"
@@ -241,7 +242,7 @@ void extract_chains_from_dp(
         }
 
         int j = i;
-        int c = 0;
+        int c = 1;
         bool overlaps = false;
 
         while (predecessors[j] >= 0) {
@@ -271,7 +272,7 @@ void extract_chains_from_dp(
             -1,
             c,
             int(last.ref_id),
-            score,
+            score * c,
             is_revcomp
             }
         );
@@ -374,7 +375,7 @@ std::vector<Nam> get_chains(
 
 #ifdef TRACE
     std::cerr << "Query: " << record.name << '\n';
-    std::cerr << "Found " << chains.size() << " NAMs\n";
+    std::cerr << "Found " << chains.size() << " CHAINS\n";
     for (const auto& chain : chains) {
         std::cerr << "- " << chain << '\n';
     }
