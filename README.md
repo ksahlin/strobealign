@@ -248,6 +248,22 @@ available by using option `--mcs`: With it, the strategy is changed to a
 fallback *per seed*: If an individual full seed cannot be found, its partial
 version is looked up in the index.
 
+### Collinear chaining
+
+Strobealign uses collinear chaining as its default mapping and alignment method,
+replacing the previous NAM approach. The collinear chaining algorithm reproduces
+the method used in Minimap2.
+
+Collinear chaining works by splitting strobemer hits into anchors (two anchors for full
+hits, one for partial hits) and then constructing chains using these anchors with
+a scoring function. Chains are created in O(N×h) time complexity, where N is the
+number of anchors and h is a constant set at 50 by default.
+
+Several command line options allow fine tuning of the chaining behavior: `-H` 
+controls the chaining look-back window heuristic, `--gd` sets the diagonal gap cost, 
+`--gl` sets the gap length cost, `--vp` determines the best-chain score threshold, 
+and `--sg` controls the maximum skip distance on the reference. The previous NAM method 
+remains available via the `--nams` flag.
 
 ## Changelog
 

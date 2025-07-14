@@ -1,5 +1,12 @@
 # Strobealign Changelog
 
+## development version
+
+* #504: Introduce collinear chaining as the new default mapping and alignment
+  method, replacing NAMs. This reproduces the Minimap2 chaining algorithm
+  providing better mapping accuracy. NAMs remain available via the `--nams`
+  flag.
+
 ## v0.16.1 (2025-05-16)
 
 * #497: Fix a crash on macOS (ARM) and possible undefined behavior on Linux.
