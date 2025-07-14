@@ -198,6 +198,7 @@ int run_strobealign(int argc, char **argv) {
     map_param.chaining_params.gap_length_penalty = opt.gap_length_penalty;
     map_param.chaining_params.valid_score_threshold = opt.valid_score_threshold;
     map_param.chaining_params.max_ref_gap = opt.max_ref_gap;
+    map_param.chaining_params.matches_weight = opt.matches_weight;
     map_param.verify();
 
     logger.debug() << index_parameters << '\n';

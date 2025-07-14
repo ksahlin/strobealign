@@ -61,6 +61,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlag<float> gap_length_penalty(parser, "FLOAT", "Collinear chaining gap length cost [0.05]", {"gl"});
     args::ValueFlag<float> valid_score_threshold(parser, "FLOAT", "Collinear chaining best chain score threshold [0.7]", {"vp"});
     args::ValueFlag<int> max_ref_gap(parser, "INT", "Collinear chaining skip distance, how far on the reference do we allow anchors to chain [10000]", {"sg"});
+    args::ValueFlag<float> matches_weight(parser, "FLOAT", "Weight given to the number of anchors for the final score of chains [0.01]", {"mw"});
 
     args::Group search(parser, "Search parameters:");
     args::Flag mcs(parser, "mcs", "Use extended multi-context seed mode for finding hits. Slightly more accurate, but slower", {"mcs"});
@@ -147,6 +148,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (gap_length_penalty) { opt.gap_length_penalty = args::get(gap_length_penalty); }
     if (valid_score_threshold) { opt.valid_score_threshold = args::get(valid_score_threshold); }
     if (max_ref_gap) { opt.max_ref_gap = args::get(max_ref_gap); }
+    if (matches_weight) { opt.matches_weight = args::get(matches_weight); }
 
     // Search parameters
     if (mcs) { opt.mcs = args::get(mcs); }

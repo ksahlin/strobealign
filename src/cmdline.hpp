@@ -63,6 +63,7 @@ struct CommandLineOptions {
     float gap_length_penalty{ 0.05 };
     float valid_score_threshold{ 0.7 };
     int max_ref_gap{ 10000 };
+    float matches_weight { 0.01 };
 
     // Search parameters
     bool mcs { false };

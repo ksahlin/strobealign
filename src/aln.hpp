@@ -25,6 +25,7 @@ struct ChainingParameters {
     float gap_length_penalty;
     float valid_score_threshold;
     int max_ref_gap;
+    float matches_weight;
 };
 
 struct MappingParameters {
