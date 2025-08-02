@@ -19,10 +19,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g")
 
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release" CACHE STRING
-      "Choose the type of build, options are: RelWithDebInfo Debug Release" FORCE)
-  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-    "RelWithDebInfo" "Debug" "Release")
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING
+        "Choose the type of build, options are: RelWithDebInfo Debug Release" FORCE)
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+        "RelWithDebInfo" "Debug" "Release")
 endif()
 
 set(ISAL "system" CACHE STRING "Where to find ISA-L: system (uses pkg-config), download (at build time)")
@@ -33,107 +33,138 @@ add_compile_options(-Wall -Wextra -Werror=maybe-uninitialized)
 
 add_subdirectory(ext/zstr)
 
-# Obtain version from Git or fall back to PROJECT_VERSION if not building
-# from a Git repository
+find_program(CARGO_EXECUTABLE cargo REQUIRED)
+set(BLOCK_ALIGNER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ext/block-aligner)
+set(BLOCK_ALIGNER_C_DIR ${BLOCK_ALIGNER_DIR}/c)
+set(BLOCK_ALIGNER_LIB_DIR ${BLOCK_ALIGNER_C_DIR}/target/release)
+set(BLOCK_ALIGNER_HEADER ${BLOCK_ALIGNER_C_DIR}/block_aligner.h)
+
+if(WIN32)
+    set(BLOCK_ALIGNER_LIB ${BLOCK_ALIGNER_LIB_DIR}/block_aligner_c.lib)
+else()
+    set(BLOCK_ALIGNER_LIB ${BLOCK_ALIGNER_LIB_DIR}/libblock_aligner_c.a)
+endif()
+
+add_custom_target(block_aligner_build
+    COMMAND ${CARGO_EXECUTABLE} build --release --features simd_avx2 --offline
+    WORKING_DIRECTORY ${BLOCK_ALIGNER_C_DIR}
+    BYPRODUCTS ${BLOCK_ALIGNER_LIB}
+    COMMENT "Building block-aligner Rust library"
+)
+
+add_library(block_aligner STATIC IMPORTED)
+set_target_properties(block_aligner PROPERTIES
+    IMPORTED_LOCATION ${BLOCK_ALIGNER_LIB}
+    INTERFACE_INCLUDE_DIRECTORIES ${BLOCK_ALIGNER_C_DIR}
+)
+add_dependencies(block_aligner block_aligner_build)
+
 add_custom_target(version
-  ${CMAKE_COMMAND}
-  -D CONFIGIN="${PROJECT_SOURCE_DIR}/src/version.hpp.in"
-  -D CONFIGOUT="${PROJECT_BINARY_DIR}/version.hpp"
-  -D DEFAULT_VERSION="${PROJECT_VERSION}"
-  -P ${CMAKE_SOURCE_DIR}/GitVersion.cmake
+    ${CMAKE_COMMAND}
+    -D CONFIGIN="${PROJECT_SOURCE_DIR}/src/version.hpp.in"
+    -D CONFIGOUT="${PROJECT_BINARY_DIR}/version.hpp"
+    -D DEFAULT_VERSION="${PROJECT_VERSION}"
+    -P ${CMAKE_SOURCE_DIR}/GitVersion.cmake
 )
 
 configure_file(
-  "${PROJECT_SOURCE_DIR}/src/buildconfig.hpp.in"
-  "${PROJECT_BINARY_DIR}/buildconfig.hpp"
+    "${PROJECT_SOURCE_DIR}/src/buildconfig.hpp.in"
+    "${PROJECT_BINARY_DIR}/buildconfig.hpp"
 )
 
 add_library(salib STATIC ${SOURCES}
-  src/refs.cpp
-  src/fastq.cpp
-  src/cmdline.cpp
-  src/index.cpp
-  src/indexparameters.cpp
-  src/sam.cpp
-  src/paf.cpp
-  src/pc.cpp
-  src/aln.cpp
-  src/cigar.cpp
-  src/aligner.cpp
-  src/nam.cpp
-  src/randstrobes.cpp
-  src/readlen.cpp
-  src/version.cpp
-  src/io.cpp
-  src/insertsizedistribution.cpp
-  src/iowrap.cpp
-  src/chain.cpp
-  ext/xxhash.c
-  ext/ssw/ssw_cpp.cpp
-  ext/ssw/ssw.c
+    src/refs.cpp
+    src/fastq.cpp
+    src/cmdline.cpp
+    src/index.cpp
+    src/indexparameters.cpp
+    src/sam.cpp
+    src/paf.cpp
+    src/pc.cpp
+    src/aln.cpp
+    src/cigar.cpp
+    src/aligner.cpp
+    src/nam.cpp
+    src/randstrobes.cpp
+    src/readlen.cpp
+    src/version.cpp
+    src/io.cpp
+    src/insertsizedistribution.cpp
+    src/iowrap.cpp
+    src/chain.cpp
+    src/baligner.cpp
+    src/piecewise.cpp
+    ext/xxhash.c
+    ext/ssw/ssw_cpp.cpp
+    ext/ssw/ssw.c
 )
+
 if(ISAL STREQUAL "system")
-  pkg_check_modules(ISAL IMPORTED_TARGET GLOBAL libisal>=2.30.0)
-  if (NOT ISAL_FOUND)
-    message(FATAL_ERROR "libisal (ISA-L) could not be found. You have two options:\n"
-        "- Install the library using your package manager (try 'sudo apt install "
-        "libisal-dev' or 'brew install isa-l')\n"
-        "- or add '-DISAL=download' to "
-        "the CMake options in order to download ISA-L at build time."
-      )
-  endif()
-  add_library(ISAL ALIAS PkgConfig::ISAL)
+    pkg_check_modules(ISAL IMPORTED_TARGET GLOBAL libisal>=2.30.0)
+    if (NOT ISAL_FOUND)
+        message(FATAL_ERROR "libisal (ISA-L) could not be found. You have two options:\n"
+            "- Install the library using your package manager (try 'sudo apt install "
+            "libisal-dev' or 'brew install isa-l')\n"
+            "- or add '-DISAL=download' to "
+            "the CMake options in order to download ISA-L at build time."
+        )
+    endif()
+    add_library(ISAL ALIAS PkgConfig::ISAL)
 elseif(ISAL STREQUAL "download")
-  find_program(NASM NAMES nasm)
-  if (NASM STREQUAL NASM-NOTFOUND)
-    message(FATAL_ERROR "NASM is required to build ISA-L. Try 'sudo apt "
-        "install nasm' or 'brew install nasm'"
+    find_program(NASM NAMES nasm)
+    if (NASM STREQUAL NASM-NOTFOUND)
+        message(FATAL_ERROR "NASM is required to build ISA-L. Try 'sudo apt "
+            "install nasm' or 'brew install nasm'"
+        )
+    endif()
+    set(ISAL_ROOT ${CMAKE_BINARY_DIR}/ISAL)
+    ExternalProject_Add(
+        isal_external
+        GIT_REPOSITORY https://github.com/intel/isa-l
+        GIT_TAG v2.30.0
+        BUILD_COMMAND make -f Makefile.unx
+        CONFIGURE_COMMAND ""
+        INSTALL_DIR ${ISAL_ROOT}
+        INSTALL_COMMAND make -f Makefile.unx install prefix=<INSTALL_DIR>
+        BUILD_IN_SOURCE ON
     )
-  endif()
-  set(ISAL_ROOT ${CMAKE_BINARY_DIR}/ISAL)
-  ExternalProject_Add(
-    isal_external
-    GIT_REPOSITORY https://github.com/intel/isa-l
-    GIT_TAG v2.30.0
-    BUILD_COMMAND make -f Makefile.unx
-    CONFIGURE_COMMAND ""
-    INSTALL_DIR ${ISAL_ROOT}
-    INSTALL_COMMAND make -f Makefile.unx install prefix=<INSTALL_DIR>
-    BUILD_IN_SOURCE ON
-  )
-  target_include_directories(salib PUBLIC "${ISAL_ROOT}/include")
-  add_library(ISAL STATIC IMPORTED)
-  set_target_properties(ISAL PROPERTIES IMPORTED_LOCATION ${ISAL_ROOT}/lib/libisal.a)
-  add_dependencies(salib isal_external)
+    target_include_directories(salib PUBLIC "${ISAL_ROOT}/include")
+    add_library(ISAL STATIC IMPORTED)
+    set_target_properties(ISAL PROPERTIES IMPORTED_LOCATION ${ISAL_ROOT}/lib/libisal.a)
+    add_dependencies(salib isal_external)
 #elseif(ISAL STREQUAL "off")
-#  message(FATAL_ERROR "Building without ISA-L support is currently not supported")
+# message(FATAL_ERROR "Building without ISA-L support is currently not supported")
 endif()
 
 target_include_directories(salib PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
-target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr ISAL)
+target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr ISAL block_aligner)
+
 IF(ENABLE_AVX)
-  target_compile_options(salib PUBLIC "-mavx2")
+    target_compile_options(salib PUBLIC "-mavx2")
 ENDIF()
+
 if (TRACE)
-   target_compile_definitions(salib PUBLIC "TRACE")
+    target_compile_definitions(salib PUBLIC "TRACE")
 endif()
 
 add_dependencies(salib version)
 
 add_executable(strobealign src/main.cpp)
 target_link_libraries(strobealign PUBLIC salib)
+
 if(NOT PYTHON_BINDINGS)
-  install(TARGETS strobealign DESTINATION bin)
+    install(TARGETS strobealign DESTINATION bin)
 endif()
+
 add_executable(test-strobealign
-  tests/tests.cpp
-  tests/test_input.cpp
-  tests/test_refs.cpp
-  tests/test_sam.cpp
-  tests/test_aligner.cpp
-  tests/test_cigar.cpp
-  tests/test_randstrobes.cpp
-  tests/test_indexparameters.cpp
+    tests/tests.cpp
+    tests/test_input.cpp
+    tests/test_refs.cpp
+    tests/test_sam.cpp
+    tests/test_aligner.cpp
+    tests/test_cigar.cpp
+    tests/test_randstrobes.cpp
+    tests/test_indexparameters.cpp
 )
 target_link_libraries(test-strobealign salib)
 target_include_directories(test-strobealign PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
@@ -143,5 +174,5 @@ target_link_libraries(dumpstrobes salib)
 target_include_directories(dumpstrobes PUBLIC src/ ext/ ${PROJECT_BINARY_DIR})
 
 if(PYTHON_BINDINGS)
-  add_subdirectory(src/python)
+    add_subdirectory(src/python)
 endif()

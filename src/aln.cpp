@@ -9,7 +9,7 @@
 #include "nam.hpp"
 #include "paf.hpp"
 #include "aligner.hpp"
-#include "chain.hpp"
+#include "piecewise.hpp"
 
 using namespace klibpp;
 
@@ -1121,6 +1121,7 @@ void align_or_map_paired(
 ) {
     std::array<Details, 2> details;
     std::array<std::vector<Nam>, 2> nams_pair;
+    std::array<std::vector<Chain>, 2> chains_pair;
 
     for (size_t is_r1 : {0, 1}) {
         const auto& record = is_r1 == 0 ? record1 : record2;
@@ -1132,7 +1133,7 @@ void align_or_map_paired(
                 record, index, statistics, details[is_r1], map_param, index_parameters, random_engine
             );
         } else {
-            nams_pair[is_r1] = get_chains(record, index, map_param, index_parameters, random_engine);
+            chains_pair[is_r1] = get_chains(record, index, map_param, index_parameters, random_engine);
         }
     }
 
@@ -1238,11 +1239,12 @@ void align_or_map_single(
 ) {
     Details details;
     std::vector<Nam> nams;
+    std::vector<Chain> chains;
 
     if (map_param.use_nams) {
         nams = get_nams(record, index, statistics, details, map_param, index_parameters, random_engine);
     } else {
-        nams = get_chains(record, index, map_param, index_parameters, random_engine);
+        chains = get_chains(record, index, map_param, index_parameters, random_engine);
     }
 
     Timer extend_timer;
@@ -1275,11 +1277,17 @@ void align_or_map_single(
                             record.seq.length());
             break;
         case OutputFormat::SAM:
-            align_single(
-                aligner, sam, nams, record, index_parameters.syncmer.k,
-                references, details, map_param.dropoff_threshold, map_param.max_tries,
-                map_param.max_secondary, random_engine
-            );
+            if (map_param.use_nams) {
+                align_single(
+                    aligner, sam, nams, record, index_parameters.syncmer.k,
+                    references, details, map_param.dropoff_threshold, map_param.max_tries,
+                    map_param.max_secondary, random_engine
+                );
+            } else {
+                align_single_piecewse(aligner.parameters, sam, chains, record,
+                    index_parameters.syncmer.k, references, details, map_param.dropoff_threshold,
+                    map_param.max_tries, map_param.max_secondary, random_engine);
+            }
             break;
     }
     statistics.tot_extend += extend_timer.duration();

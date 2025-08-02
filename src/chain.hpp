@@ -19,7 +19,18 @@ struct Anchor {
     }
 };
 
-std::vector<Nam> get_chains(
+struct Chain {
+    uint ref_id;
+    float score;
+    std::vector<Anchor> anchors;
+    uint query_start;
+    uint query_end;
+    uint ref_start;
+    uint ref_end;
+    bool is_revcomp;
+};
+
+std::vector<Chain> get_chains(
     const klibpp::KSeq& record,
     const StrobemerIndex& index,
     const MappingParameters& map_param,
