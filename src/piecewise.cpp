@@ -11,32 +11,46 @@
 std::pair<Cigar, int> merge_cigar_elements_with_edit_distance(const std::vector<OpLen>& elements) {
     Cigar cigar;
     int edit_dist = 0;
-
     if (elements.empty()) {
         return {cigar, 0};
     }
-
+    
+    auto operation_to_cigar = [](uint8_t op) -> uint8_t {
+        switch (op) {
+            case Operation::M:  return CIGAR_MATCH;
+            case Operation::Eq: return CIGAR_EQ;
+            case Operation::X:  return CIGAR_X;
+            case Operation::I:  return CIGAR_INS;
+            case Operation::D:  return CIGAR_DEL;
+            default: 
+                assert(false && "Unknown operation");
+                return CIGAR_MATCH;
+        }
+    };
+    
     uint8_t last_op = elements[0].op;
     uintptr_t last_len = elements[0].len;
-
+    
     for (size_t i = 1; i < elements.size(); ++i) {
         if (elements[i].op == last_op) {
             last_len += elements[i].len;
         } else {
-            cigar.push(last_op, static_cast<int>(last_len));
-            if (last_op == Operation::X) {
+            cigar.push(operation_to_cigar(last_op), static_cast<int>(last_len));
+            
+            if (last_op == Operation::X || last_op == Operation::I || last_op == Operation::D) {
                 edit_dist += last_len;
             }
+            
             last_op = elements[i].op;
             last_len = elements[i].len;
         }
     }
-
-    cigar.push(last_op, static_cast<int>(last_len));
-    if (last_op == Operation::I || last_op == Operation::D || last_op == Operation::X) {
+    
+    cigar.push(operation_to_cigar(last_op), static_cast<int>(last_len));
+    if (last_op == Operation::X || last_op == Operation::I || last_op == Operation::D) {
         edit_dist += last_len;
     }
-
+    
     return {cigar, edit_dist};
 }
 
