@@ -220,7 +220,7 @@ void extract_chains_from_dp(
     float best_score,
     const int k,
     bool is_revcomp,
-    std::vector<Nam>& chains,
+    std::vector<Chain>& chains,
     const ChainingParameters& chaining_params
 ) {
     const size_t n = anchors.size();
@@ -244,6 +244,8 @@ void extract_chains_from_dp(
         int j = i;
         int c = 1;
         bool overlaps = false;
+        std::vector<Anchor> chain;
+        chain.insert(chain.begin(), anchors[j]);
 
         while (predecessors[j] >= 0) {
             j = predecessors[j];
@@ -251,6 +253,7 @@ void extract_chains_from_dp(
                 overlaps = true;
                 break;
             }
+            chain.insert(chain.begin(), anchors[j]);
             used[j] = true;
             c++;
         }
@@ -263,16 +266,14 @@ void extract_chains_from_dp(
         const Anchor& last = anchors[i];
 
         chains.push_back(
-            Nam{int(chains.size()),
-            int(first.query_start),
-            int(last.query_start + k),
-            -1,
-            int(first.ref_start),
-            int(last.ref_start + k),
-            -1,
-            c,
-            int(last.ref_id),
+            Chain{
+            anchors[i].ref_id,
             score * c,
+            chain,
+            first.query_start,
+            last.query_start + k,
+            first.ref_start,
+            last.ref_start + k,
             is_revcomp
             }
         );
@@ -284,12 +285,12 @@ bool by_score(const T& a, const T& b) {
     return a.score > b.score;
 }
 
-void shuffle_top_chains(std::vector<Nam>& chains, std::minstd_rand& random_engine) {
+void shuffle_top_chains(std::vector<Chain>& chains, std::minstd_rand& random_engine) {
     if (chains.empty()) {
         return;
     }
     auto best_score = chains[0].score;
-    auto it = std::find_if(chains.begin(), chains.end(), [&](const Nam& chain) {
+    auto it = std::find_if(chains.begin(), chains.end(), [&](const Chain& chain) {
         return chain.score != best_score;
     });
     if (it > chains.begin() + 1) {
@@ -297,7 +298,7 @@ void shuffle_top_chains(std::vector<Nam>& chains, std::minstd_rand& random_engin
     }
 }
 
-std::vector<Nam> get_chains(
+std::vector<Chain> get_chains(
     const klibpp::KSeq& record,
     const StrobemerIndex& index,
     const MappingParameters& map_param,
@@ -362,7 +363,7 @@ std::vector<Nam> get_chains(
         }
     }
 
-    std::vector<Nam> chains;
+    std::vector<Chain> chains;
     for (int is_revcomp : {0, 1}) {
         extract_chains_from_dp(
             anchors_vector[is_revcomp], dp[is_revcomp], predecessors[is_revcomp], best_score[is_revcomp],
@@ -370,7 +371,7 @@ std::vector<Nam> get_chains(
         );
     }
     // Sort by score
-    std::sort(chains.begin(), chains.end(), by_score<Nam>);
+    std::sort(chains.begin(), chains.end(), by_score<Chain>);
     shuffle_top_chains(chains, random_engine);
 
 #ifdef TRACE

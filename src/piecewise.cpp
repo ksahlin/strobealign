@@ -1,0 +1,334 @@
+#include <algorithm>
+#include <string>
+#include <vector>
+#include "baligner.hpp"
+#include "revcomp.hpp"
+#include "piecewise.hpp"
+#include "revcomp.hpp"
+#include "aligner.hpp"
+#include "sam.hpp"
+
+std::pair<Cigar, int> merge_cigar_elements_with_edit_distance(const std::vector<OpLen>& elements) {
+    Cigar cigar;
+    int edit_dist = 0;
+
+    if (elements.empty()) {
+        return {cigar, 0};
+    }
+
+    uint8_t last_op = elements[0].op;
+    uintptr_t last_len = elements[0].len;
+
+    for (size_t i = 1; i < elements.size(); ++i) {
+        if (elements[i].op == last_op) {
+            last_len += elements[i].len;
+        } else {
+            cigar.push(last_op, static_cast<int>(last_len));
+            if (last_op == Operation::X) {
+                edit_dist += last_len;
+            }
+            last_op = elements[i].op;
+            last_len = elements[i].len;
+        }
+    }
+
+    cigar.push(last_op, static_cast<int>(last_len));
+    if (last_op == Operation::I || last_op == Operation::D || last_op == Operation::X) {
+        edit_dist += last_len;
+    }
+
+    return {cigar, edit_dist};
+}
+
+AlignmentInfo piecewise_extension_alignment(
+    const std::string& reference,
+    const std::string& query,
+    const std::vector<Anchor>& anchors,
+    const int k,
+    const int padding,
+    const AlignmentScoring& scoring_params
+) {
+    AlignmentInfo result;
+    result.sw_score = 0;
+    std::vector<OpLen> temp_cigar_elements;
+
+    const Anchor& first_anchor = anchors[0];
+    if (first_anchor.query_start > 0 && first_anchor.ref_start > 0) {
+        std::string query_part = query.substr(0, first_anchor.query_start);
+        const size_t ref_start = std::max(0, static_cast<int>(first_anchor.ref_start) - (static_cast<int>(query_part.length()) + padding));
+        std::string ref_part = reference.substr(ref_start, first_anchor.ref_start - ref_start);
+
+        AlignmentResult pre_align = free_query_start_alignment(query_part, ref_part, scoring_params);
+
+        if (pre_align.score == 0) {
+            result.query_start = first_anchor.query_start;
+            result.ref_start = first_anchor.ref_start;
+        } else {
+            result.sw_score += pre_align.score;
+            result.query_start = pre_align.query_start;
+            result.ref_start = ref_start + pre_align.ref_start;
+            temp_cigar_elements.insert(temp_cigar_elements.end(), pre_align.cigar.begin(), pre_align.cigar.end());
+        }
+    } else {
+        result.query_start = first_anchor.query_start;
+        result.ref_start = first_anchor.ref_start;
+    }
+
+    result.sw_score += k * scoring_params.match;
+    temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)k});
+
+    for (size_t i = 1; i < anchors.size(); ++i) {
+        const Anchor& anchor = anchors[i];
+        const Anchor& prev_anchor = anchors[i - 1];
+
+        int curr_start_query = anchor.query_start;
+        int curr_start_ref = anchor.ref_start;
+        int prev_end_query = prev_anchor.query_start + k;
+        int prev_end_ref = prev_anchor.ref_start + k;
+
+        int ref_diff = curr_start_ref - prev_end_ref;
+        int query_diff = curr_start_query - prev_end_query;
+
+        if (ref_diff > 0 && query_diff > 0){
+            std::string query_part = query.substr(prev_end_query, query_diff);
+            std::string ref_part = reference.substr(prev_end_ref, ref_diff);
+
+            AlignmentResult aligned = global_alignment(query_part, ref_part, scoring_params);
+            result.sw_score += aligned.score;
+            temp_cigar_elements.insert(temp_cigar_elements.end(), aligned.cigar.begin(), aligned.cigar.end());
+
+            result.sw_score += k * scoring_params.match;
+            temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)k});
+        } else {
+             if (ref_diff < query_diff) {
+                const size_t inserted_part = -ref_diff + query_diff;
+                result.sw_score += scoring_params.gap_open + (inserted_part - 1) * scoring_params.gap_extend;
+                temp_cigar_elements.push_back({Operation::I, (uintptr_t)inserted_part});
+
+                const size_t matching_part = k + ref_diff;
+                result.sw_score += matching_part * scoring_params.match;
+                temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)matching_part});
+            } else if (ref_diff > query_diff) {
+                const size_t deleted_part = -query_diff + ref_diff;
+                result.sw_score += scoring_params.gap_open + (deleted_part - 1) * scoring_params.gap_extend;
+                temp_cigar_elements.push_back({Operation::D, (uintptr_t)deleted_part});
+
+                const size_t matching_part = k + query_diff;
+                result.sw_score += matching_part * scoring_params.match;
+                temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)matching_part});
+            } else {
+                const size_t matching_part = k + ref_diff;
+                result.sw_score += matching_part * scoring_params.match;
+                temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)matching_part});
+            }
+        }
+    }
+
+    const Anchor& last_anchor = anchors.back();
+    const size_t last_anchor_end_query = last_anchor.query_start + k;
+    const size_t last_anchor_end_ref = last_anchor.ref_start + k;
+    if (last_anchor_end_query < query.length() && last_anchor_end_ref < reference.length()) {
+        std::string query_part = query.substr(last_anchor_end_query);
+        const size_t ref_part_end = std::min(reference.length(), last_anchor_end_ref + query_part.length() + padding);
+        std::string ref_part = reference.substr(last_anchor_end_ref, ref_part_end - last_anchor_end_ref);
+
+        AlignmentResult post_align = free_query_end_alignment(query_part, ref_part, scoring_params);
+
+        if (post_align.score == 0) {
+            result.query_end = last_anchor_end_query;
+            result.ref_end = last_anchor_end_ref;
+        } else {
+            result.sw_score += post_align.score;
+            result.query_end = last_anchor_end_query + post_align.query_end;
+            result.ref_end = last_anchor_end_ref + post_align.ref_end;
+            temp_cigar_elements.insert(temp_cigar_elements.end(), post_align.cigar.begin(), post_align.cigar.end());
+        }
+    } else {
+        result.query_end = last_anchor_end_query;
+        result.ref_end = last_anchor_end_ref;
+    }
+
+    const std::pair<Cigar, int> cigar_ed = merge_cigar_elements_with_edit_distance(temp_cigar_elements);
+    result.cigar = cigar_ed.first;
+    result.edit_distance = cigar_ed.second;
+
+    return result;
+}
+
+inline Alignment extend_seed_piecewise(
+    const AlignmentParameters& scoring_params,
+    const Chain& chain,
+    const int k,
+    const References& references,
+    const Read& read
+) {
+    const std::string query = chain.is_revcomp ? read.rc : read.seq;
+    const std::string& ref = references.sequences[chain.ref_id];
+
+    const auto projected_ref_start = std::max(0, int(chain.ref_start) - int(chain.query_start));
+    const auto projected_ref_end = std::min(chain.ref_end + query.size() - chain.query_end, ref.size());
+
+    AlignmentInfo info;
+    int result_ref_start;
+    bool gapped = true;
+    if (projected_ref_end - projected_ref_start == query.size()) {
+        std::string ref_segm_ham = ref.substr(projected_ref_start, query.size());
+        auto hamming_dist = hamming_distance(query, ref_segm_ham);
+
+        if (hamming_dist >= 0 && (((float) hamming_dist / query.size()) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
+            info = hamming_align(query, ref_segm_ham, scoring_params.match, scoring_params.mismatch, scoring_params.end_bonus);
+            result_ref_start = projected_ref_start + info.ref_start;
+            gapped = false;
+        }
+    }
+    if (gapped) {
+        const AlignmentScoring params = {
+            .match = int8_t (scoring_params.match),
+            .mismatch = int8_t(-scoring_params.mismatch),
+            .gap_open = int8_t(-scoring_params.gap_open),
+            .gap_extend = int8_t(-scoring_params.gap_extend)
+        };
+        info = piecewise_extension_alignment(ref, query, chain.anchors, k, 50, params);
+        result_ref_start = info.ref_start;
+    }
+    int softclipped = info.query_start + (query.size() - info.query_end);
+    Alignment alignment;
+    alignment.cigar = std::move(info.cigar);
+    alignment.edit_distance = info.edit_distance;
+    alignment.global_ed = info.edit_distance + softclipped;
+    alignment.score = info.sw_score;
+    alignment.ref_start = result_ref_start;
+    alignment.length = info.ref_span();
+    alignment.is_revcomp = chain.is_revcomp;
+    alignment.is_unaligned = false;
+    alignment.ref_id = chain.ref_id;
+    alignment.gapped = gapped;
+
+    return alignment;
+}
+
+using namespace klibpp;
+
+void align_single_piecewse(
+    const AlignmentParameters& scoring_params,
+    Sam& sam,
+    const std::vector<Chain>& chains,
+    const KSeq& record,
+    const int k,
+    const References& references,
+    Details& details,
+    float dropoff_threshold,
+    int max_tries,
+    unsigned max_secondary,
+    std::minstd_rand& random_engine
+) {
+    if (chains.empty()) {
+        sam.add_unmapped(record);
+        return;
+    }
+
+    Read read(record.seq);
+    std::vector<Alignment> alignments;
+    int tries = 0;
+    Chain n_max = chains[0];
+
+    int best_edit_distance = std::numeric_limits<int>::max();
+    int best_score = 0;
+    int second_best_score = 0;
+    int alignments_with_best_score = 0;
+    size_t best_index = 0;
+
+    Alignment best_alignment;
+    best_alignment.is_unaligned = true;
+
+    for (auto &chain : chains) {
+        float score_dropoff = (float) chain.score / n_max.score;
+        if (tries >= max_tries || (tries > 1 && best_edit_distance == 0) || score_dropoff < dropoff_threshold) {
+            break;
+        }
+        // bool consistent_nam = reverse_nam_if_needed(nam, read, references, k);
+        // details.inconsistent_nams += !consistent_nam;
+        auto alignment = extend_seed_piecewise(scoring_params, chain, k, references, read);
+        details.tried_alignment++;
+        if (alignment.is_unaligned) {
+            tries++;
+            continue;
+        }
+        details.gapped += alignment.gapped;
+
+        if (max_secondary > 0) {
+            alignments.emplace_back(alignment);
+        }
+
+        if (alignment.score >= best_score) {
+            second_best_score = best_score;
+            bool update_best = false;
+            if (alignment.score > best_score) {
+                alignments_with_best_score = 1;
+                update_best = true;
+            } else {
+                assert(alignment.score == best_score);
+                // Two or more alignments have the same best score - count them
+                alignments_with_best_score++;
+
+                // Pick one randomly using reservoir sampling
+                std::uniform_int_distribution<> distrib(1, alignments_with_best_score);
+                if (distrib(random_engine) == 1) {
+                    update_best = true;
+                }
+            }
+            if (update_best) {
+                best_score = alignment.score;
+                best_alignment = std::move(alignment);
+                best_index = tries;
+                if (max_secondary == 0) {
+                    best_edit_distance = best_alignment.global_ed;
+                }
+            }
+        } else if (alignment.score > second_best_score) {
+            second_best_score = alignment.score;
+        }
+        tries++;
+    }
+    if (best_alignment.is_unaligned) {
+        sam.add_unmapped(record);
+        return;
+    }
+    details.best_alignments = alignments_with_best_score;
+    uint8_t mapq = (60.0 * (best_score - second_best_score) + best_score - 1) / best_score;
+    bool is_primary = true;
+    sam.add(best_alignment, record, read.rc, mapq, is_primary, details);
+
+    if (max_secondary == 0) {
+        return;
+    }
+
+    // Secondary alignments
+
+    // Remove the alignment that was already output
+    if (alignments.size() > 1) {
+        std::swap(alignments[best_index], alignments[alignments.size() - 1]);
+    }
+    alignments.resize(alignments.size() - 1);
+
+    // Sort remaining alignments by score, highest first
+    std::sort(alignments.begin(), alignments.end(),
+        [](const Alignment& a, const Alignment& b) -> bool {
+            return a.score > b.score;
+        }
+    );
+
+    // Output secondary alignments
+    size_t n = 0;
+    for (const auto& alignment : alignments) {
+        if (
+            n >= max_secondary
+            || alignment.score - best_score > 2*scoring_params.mismatch + scoring_params.gap_open
+        ) {
+            break;
+        }
+        bool is_primary = false;
+        sam.add(alignment, record, read.rc, mapq, is_primary, details);
+        n++;
+    }
+}
