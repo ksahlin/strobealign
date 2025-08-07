@@ -8,7 +8,9 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <utility>
+#include "nam.hpp"
 
 #include "pdqsort/pdqsort.h"
 
@@ -268,7 +270,7 @@ void extract_chains_from_dp(
         chains.push_back(
             Chain{
             anchors[i].ref_id,
-            score * c,
+            score + c * 0.01f,
             chain,
             first.query_start,
             last.query_start + k,
@@ -376,7 +378,17 @@ std::vector<Chain> get_chains(
 
 #ifdef TRACE
     std::cerr << "Query: " << record.name << '\n';
-    std::cerr << "Found " << chains.size() << " CHAINS\n";
+    std::cerr << "k=" << index.k() << '\n';
+    std::cerr << "Anchors for forward strand (" << anchors_vector[0].size() << "):\n";
+    for (const auto& anchor : anchors_vector[0]) {
+        std::cerr << anchor << ';';
+    }
+
+    std::cerr << "\nAnchors for reverse strand (" << anchors_vector[1].size() << "):\n";
+    for (const auto& anchor : anchors_vector[1]) {
+        std::cerr << anchor << ';';
+    }
+    std::cerr << "\nFound " << chains.size() << " CHAINS\n";
     for (const auto& chain : chains) {
         std::cerr << "- " << chain << '\n';
     }
@@ -384,3 +396,30 @@ std::vector<Chain> get_chains(
 
     return chains;
 }
+
+std::ostream& operator<<(std::ostream& os, const Anchor& anchor) {
+    os << "{" << anchor.query_start << "," << anchor.ref_start << "}";
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Chain& chain) {
+    os << "(ref_id:" << chain.ref_id
+       << ",score:" << chain.score
+       << ",query_start:" << chain.query_start
+       << ",query_end:" << chain.query_end
+       << ",ref_start:" << chain.ref_start
+       << ",ref_end:" << chain.ref_end
+       << ",is_revcomp:" << (chain.is_revcomp ? "true" : "false")
+       << ",anchors:[";
+
+    for (size_t i = 0; i < chain.anchors.size(); ++i) {
+        os << chain.anchors[i];
+        if (i + 1 < chain.anchors.size()) {
+            os << ";";
+        }
+    }
+
+    os << "])";
+    return os;
+}
+

@@ -2,7 +2,6 @@
 
 #include "index.hpp"
 #include "indexparameters.hpp"
-#include "nam.hpp"
 #include "readlen.hpp"
 
 struct Anchor {
@@ -46,3 +45,6 @@ static inline float mg_log2(float x) {
     log_2 += (-0.34484843f * z.f + 2.02466578f) * z.f - 0.67487759f;
     return log_2;
 }
+
+std::ostream& operator<<(std::ostream& os, const Chain& chain);
+std::ostream& operator<<(std::ostream& os, const Anchor& anchor);
