@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 #include "baligner.hpp"
@@ -37,7 +39,7 @@ std::pair<Cigar, int> merge_cigar_elements_with_edit_distance(const std::vector<
         } else {
             cigar.push(operation_to_cigar(last_op), static_cast<int>(last_len));
             
-            if (last_op == Operation::X || last_op == Operation::I || last_op == Operation::D) {
+            if (last_op == Operation::X || last_op == Operation::D || last_op == Operation::I) {
                 edit_dist += last_len;
             }
             
@@ -47,7 +49,7 @@ std::pair<Cigar, int> merge_cigar_elements_with_edit_distance(const std::vector<
     }
     
     cigar.push(operation_to_cigar(last_op), static_cast<int>(last_len));
-    if (last_op == Operation::X || last_op == Operation::I || last_op == Operation::D) {
+    if (last_op == Operation::X || last_op == Operation::D || last_op == Operation::I) {
         edit_dist += last_len;
     }
     
@@ -68,9 +70,9 @@ AlignmentInfo piecewise_extension_alignment(
 
     const Anchor& first_anchor = anchors[0];
     if (first_anchor.query_start > 0 && first_anchor.ref_start > 0) {
-        std::string query_part = query.substr(0, first_anchor.query_start);
+        const std::string query_part = query.substr(0, first_anchor.query_start);
         const size_t ref_start = std::max(0, static_cast<int>(first_anchor.ref_start) - (static_cast<int>(query_part.length()) + padding));
-        std::string ref_part = reference.substr(ref_start, first_anchor.ref_start - ref_start);
+        const std::string ref_part = reference.substr(ref_start, first_anchor.ref_start - ref_start);
 
         AlignmentResult pre_align = free_query_start_alignment(query_part, ref_part, scoring_params);
 
@@ -95,17 +97,18 @@ AlignmentInfo piecewise_extension_alignment(
         const Anchor& anchor = anchors[i];
         const Anchor& prev_anchor = anchors[i - 1];
 
-        int curr_start_query = anchor.query_start;
-        int curr_start_ref = anchor.ref_start;
-        int prev_end_query = prev_anchor.query_start + k;
-        int prev_end_ref = prev_anchor.ref_start + k;
+        const int curr_start_query = anchor.query_start;
+        const int curr_start_ref = anchor.ref_start;
+        const int prev_end_query = prev_anchor.query_start + k;
+        const int prev_end_ref = prev_anchor.ref_start + k;
 
-        int ref_diff = curr_start_ref - prev_end_ref;
-        int query_diff = curr_start_query - prev_end_query;
+        const int ref_diff = curr_start_ref - prev_end_ref;
+        const int query_diff = curr_start_query - prev_end_query;
+
 
         if (ref_diff > 0 && query_diff > 0){
-            std::string query_part = query.substr(prev_end_query, query_diff);
-            std::string ref_part = reference.substr(prev_end_ref, ref_diff);
+            const std::string query_part = query.substr(prev_end_query, query_diff);
+            const std::string ref_part = reference.substr(prev_end_ref, ref_diff);
 
             AlignmentResult aligned = global_alignment(query_part, ref_part, scoring_params);
             result.sw_score += aligned.score;
@@ -142,9 +145,9 @@ AlignmentInfo piecewise_extension_alignment(
     const size_t last_anchor_end_query = last_anchor.query_start + k;
     const size_t last_anchor_end_ref = last_anchor.ref_start + k;
     if (last_anchor_end_query < query.length() && last_anchor_end_ref < reference.length()) {
-        std::string query_part = query.substr(last_anchor_end_query);
+        const std::string query_part = query.substr(last_anchor_end_query);
         const size_t ref_part_end = std::min(reference.length(), last_anchor_end_ref + query_part.length() + padding);
-        std::string ref_part = reference.substr(last_anchor_end_ref, ref_part_end - last_anchor_end_ref);
+        const std::string ref_part = reference.substr(last_anchor_end_ref, ref_part_end - last_anchor_end_ref);
 
         AlignmentResult post_align = free_query_end_alignment(query_part, ref_part, scoring_params);
 

@@ -69,7 +69,7 @@ AlignmentResult run_block_alignment(const std::string& query, const std::string&
     AlignResult res;
     Cigar* cigar_ptr = nullptr;
 
-    const int32_t x_drop_threshold = 0; // ????
+    const int32_t x_drop_threshold = 0; // todo: find a better value
 
     if (mode == AlignmentMode::Global) {
         block = block_new_aa_trace(original_query_len, original_ref_len, range.max);
