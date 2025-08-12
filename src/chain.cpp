@@ -378,27 +378,28 @@ std::vector<Chain> get_chains(
 
 #ifdef TRACE
     std::cerr << "Query: " << record.name << '\n';
-    std::cerr << "k=" << index.k() << '\n';
-    std::cerr << "Anchors for forward strand (" << anchors_vector[0].size() << "):\n";
+    std::cerr << "l=" << record.seq.length() << ",k=" << index.k() << '\n';
+    std::cerr << "Anchors for forward strand [";
     for (const auto& anchor : anchors_vector[0]) {
-        std::cerr << anchor << ';';
+        std::cerr << anchor;
     }
 
-    std::cerr << "\nAnchors for reverse strand (" << anchors_vector[1].size() << "):\n";
+    std::cerr << "]\nAnchors for reverse strand [";
     for (const auto& anchor : anchors_vector[1]) {
-        std::cerr << anchor << ';';
+        std::cerr << anchor;
     }
-    std::cerr << "\nFound " << chains.size() << " CHAINS\n";
+    std::cerr << "]\nChains[";
     for (const auto& chain : chains) {
-        std::cerr << "- " << chain << '\n';
+        std::cerr << chain;
     }
+    std::cerr << "]\n";
 #endif
 
     return chains;
 }
 
 std::ostream& operator<<(std::ostream& os, const Anchor& anchor) {
-    os << "{" << anchor.query_start << "," << anchor.ref_start << "}";
+    os << "{" << anchor.ref_start << "," << anchor.query_start << "}";
     return os;
 }
 
@@ -414,9 +415,6 @@ std::ostream& operator<<(std::ostream& os, const Chain& chain) {
 
     for (size_t i = 0; i < chain.anchors.size(); ++i) {
         os << chain.anchors[i];
-        if (i + 1 < chain.anchors.size()) {
-            os << ";";
-        }
     }
 
     os << "])";
