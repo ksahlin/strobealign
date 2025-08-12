@@ -258,11 +258,17 @@ void align_single_piecewse(
     Alignment best_alignment;
     best_alignment.is_unaligned = true;
 
+#ifdef TRACE
+    int considered = 0; 
+#endif
     for (auto &chain : chains) {
         float score_dropoff = (float) chain.score / n_max.score;
         if (tries >= max_tries || (tries > 1 && best_edit_distance == 0) || score_dropoff < dropoff_threshold) {
             break;
         }
+#ifdef TRACE
+    considered++; 
+#endif
         // bool consistent_nam = reverse_nam_if_needed(nam, read, references, k);
         // details.inconsistent_nams += !consistent_nam;
         auto alignment = extend_seed_piecewise(scoring_params, chain, k, references, read);
@@ -315,7 +321,16 @@ void align_single_piecewse(
     uint8_t mapq = (60.0 * (best_score - second_best_score) + best_score - 1) / best_score;
     bool is_primary = true;
     sam.add(best_alignment, record, read.rc, mapq, is_primary, details);
-
+#ifdef TRACE
+    std::cerr << "Cigars:[";
+    int curr = 0;
+    for (const auto& chain : chains) {
+        auto alignment = extend_seed_piecewise(scoring_params, chain, k, references, read);
+        std::cerr << "(" <<alignment.cigar << ",was_considered: "<< (curr < considered) << ')';
+        curr++;
+    }
+    std::cerr << "]\n";
+#endif
     if (max_secondary == 0) {
         return;
     }

@@ -1,3 +1,4 @@
+#include <climits>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -284,7 +285,13 @@ int run_strobealign(int argc, char **argv) {
     // Map/align reads
         
     Timer map_align_timer;
-    map_param.rescue_cutoff = map_param.rescue_level < 100 ? map_param.rescue_level * index.filter_cutoff : 1000;
+    if (map_param.rescue_level == 1000000) {
+        logger.info() << "recuse mode off :p\n";
+        map_param.rescue_cutoff = std::numeric_limits<int>::max();
+    }
+    else {
+        map_param.rescue_cutoff = map_param.rescue_level < 100 ? map_param.rescue_level * index.filter_cutoff : 1000;
+    }
     logger.debug() << "Using rescue cutoff: " << map_param.rescue_cutoff << std::endl;
 
     std::streambuf* buf;
