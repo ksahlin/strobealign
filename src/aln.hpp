@@ -19,6 +19,15 @@ enum class OutputFormat {
     Abundance
 };
 
+struct ChainingParameters {
+    int max_lookback;
+    float diag_diff_penalty;
+    float gap_length_penalty;
+    float valid_score_threshold;
+    int max_ref_gap;
+    float matches_weight;
+};
+
 struct MappingParameters {
     int r { 150 };
     int max_secondary { 0 };
@@ -32,6 +41,9 @@ struct MappingParameters {
     bool output_unmapped { true };
     bool details{false};
     bool fastq_comments{false};
+
+    bool use_nams{false};
+    ChainingParameters chaining_params;
 
     void verify() const {
         if (max_tries < 1) {
