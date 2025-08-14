@@ -272,7 +272,7 @@ void extract_chains_from_dp(
             -1,
             c,
             int(last.ref_id),
-            score * c,
+            score + c * chaining_params.matches_weight,
             is_revcomp
             }
         );
