@@ -25,6 +25,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::Group io(parser, "Input/output:");
     args::ValueFlag<std::string> o(parser, "PATH", "redirect output to file [stdout]", {'o'});
     args::Flag v(parser, "v", "Verbose output", {'v'});
+    args::Flag trace(parser, "trace", "Highly verbose debugging output", {"trace"}, args::Options::Hidden);
     args::Flag no_progress(parser, "no-progress", "Disable progress report (enabled by default if output is a terminal)", {"no-progress"});
     args::Flag x(parser, "x", "Only map reads, no base level alignment (produces PAF file)", {'x'});
     args::Flag aemb(parser, "aemb", "Output the estimated abundance value of contigs, the format of output file is: contig_id \t abundance_value", {"aemb"});
@@ -89,11 +90,12 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
 
     // Threading
     if (threads) { opt.n_threads = args::get(threads); }
-    if (chunk_size) { opt.chunk_size = args::get(chunk_size); }
+    if (chunk_size && !trace) { opt.chunk_size = args::get(chunk_size); }
 
     // Input/output
     if (o) { opt.output_file_name = args::get(o); opt.write_to_stdout = false; }
     if (v) { opt.verbose = true; }
+    if (trace) { opt.trace = true; }
     if (no_progress) { opt.show_progress = false; }
     if (x) { opt.is_sam_out = false; }
     if (index_statistics) { opt.logfile_name = args::get(index_statistics); }

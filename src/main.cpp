@@ -133,7 +133,13 @@ void show_progress_until_done(std::vector<int>& worker_done, std::vector<Alignme
 int run_strobealign(int argc, char **argv) {
     auto opt = parse_command_line_arguments(argc, argv);
 
-    logger.set_level(opt.verbose ? LOG_DEBUG : LOG_INFO);
+    if (opt.trace) {
+        logger.set_level(LOG_TRACE);
+    } else if (opt.verbose) {
+        logger.set_level(LOG_DEBUG);
+    } else {
+        logger.set_level(LOG_INFO);
+    }
     logger.info() << std::setprecision(2) << std::fixed;
     logger.info() << "This is strobealign " << version_string() << '\n';
     logger.debug() << "Build type: " << CMAKE_BUILD_TYPE << '\n';

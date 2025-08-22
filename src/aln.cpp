@@ -9,8 +9,12 @@
 #include "nam.hpp"
 #include "paf.hpp"
 #include "aligner.hpp"
+#include "logger.hpp"
 
 using namespace klibpp;
+
+static Logger& logger = Logger::get();
+
 
 namespace {
 
@@ -1092,13 +1096,13 @@ std::vector<Nam> get_nams(
     shuffle_top_nams(nams, random_engine);
     statistics.tot_sort_nams += nam_sort_timer.duration();
 
-#ifdef TRACE
-    std::cerr << "Query: " << record.name << '\n';
-    std::cerr << "Found " << nams.size() << " NAMs\n";
-    for (const auto& nam : nams) {
-        std::cerr << "- " << nam << '\n';
+    if (logger.level() <= LOG_TRACE) {
+        logger.trace() << "Query: " << record.name << '\n';
+        logger.trace() << "Found " << nams.size() << " NAMs\n";
+        for (const auto& nam : nams) {
+            logger.trace() << "- " << nam << '\n';
+        }
     }
-#endif
 
     return nams;
 }
@@ -1123,9 +1127,7 @@ void align_or_map_paired(
 
     for (size_t is_r1 : {0, 1}) {
         const auto& record = is_r1 == 0 ? record1 : record2;
-#ifdef TRACE
-        std::cerr << "R" << is_r1 + 1 << '\n';
-#endif
+        logger.trace() << "R" << is_r1 + 1 << '\n';
         nams_pair[is_r1] = get_nams(record, index, statistics, details[is_r1], map_param, index_parameters, random_engine);
     }
 
