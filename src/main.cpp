@@ -177,7 +177,7 @@ int run_strobealign(int argc, char **argv) {
     map_param.dropoff_threshold = opt.dropoff_threshold;
     map_param.rescue_level = opt.rescue_level;
     map_param.max_tries = opt.max_tries;
-    map_param.use_mcs = opt.mcs;
+    map_param.mcs_strategy = opt.mcs_strategy;
     map_param.output_format = (
             opt.is_abundance_out ? OutputFormat::Abundance :
             opt.is_sam_out ? OutputFormat::SAM :
@@ -225,7 +225,7 @@ int run_strobealign(int argc, char **argv) {
     }
 
     logger.debug() << "Auxiliary hash length: " << opt.aux_len << "\n";
-    logger.info() << "Using multi-context seeds: " << (map_param.use_mcs ? "yes" : "no") << '\n';
+    logger.info() << "Multi-context seed strategy: " << map_param.mcs_strategy << '\n';
     StrobemerIndex index(references, index_parameters, opt.bits);
     if (opt.use_index) {
         // Read the index from a file

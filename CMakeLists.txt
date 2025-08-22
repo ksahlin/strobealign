@@ -52,6 +52,7 @@ add_library(salib STATIC ${SOURCES}
   src/refs.cpp
   src/fastq.cpp
   src/cmdline.cpp
+  src/mcsstrategy.cpp
   src/index.cpp
   src/indexparameters.cpp
   src/sam.cpp
