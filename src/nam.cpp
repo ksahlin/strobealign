@@ -207,11 +207,11 @@ robin_hood::unordered_map<unsigned int, std::vector<Match>> hits_to_matches(
 std::tuple<int, int, bool, std::vector<Hit>> find_hits(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
-    bool use_mcs
+    McsStrategy mcs_strategy
 ) {
     // If we produce matches in sorted order, then merge_matches_into_nams()
     // does not have to re-sort
-    bool sorting_needed{use_mcs};
+    bool sorting_needed{mcs_strategy == McsStrategy::Always};
     std::vector<Hit> hits;
     int nonrepetitive_hits = 0;
     int total_hits = 0;
@@ -224,7 +224,7 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
                 continue;
             }
             hits.push_back(Hit{position, q.start, q.end, false});
-        } else if (use_mcs) {
+        } else if (mcs_strategy == McsStrategy::Always) {
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
                 total_hits++;
@@ -237,8 +237,8 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
         }
     }
 
-    // Rescue using partial hits, even in non-MCS mode
-    if (total_hits == 0 && !use_mcs) {
+    // Rescue using partial hits
+    if (mcs_strategy == McsStrategy::Rescue && total_hits == 0) {
         for (const auto &q : query_randstrobes) {
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
@@ -266,7 +266,7 @@ std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
-    bool use_mcs
+    McsStrategy mcs_strategy
 ) {
     struct RescueHit {
         size_t position;
@@ -298,7 +298,7 @@ std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>
             RescueHit rh{position, count, qr.start, qr.end, false};
             rescue_hits.push_back(rh);
         }
-        else if (use_mcs) {
+        else if (mcs_strategy == McsStrategy::Always) {
             size_t partial_pos = index.find_partial(qr.hash);
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_count_partial(partial_pos);

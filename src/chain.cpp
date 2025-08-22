@@ -68,7 +68,7 @@ std::tuple<int, int> find_anchors_rescue(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
-    bool use_mcs,
+    McsStrategy mcs_strategy,
     std::vector<Anchor>& anchors
 ) {
     struct RescueHit {
@@ -96,7 +96,7 @@ std::tuple<int, int> find_anchors_rescue(
                 count += index.get_count_full(position_revcomp);
             }
             rescue_hits.push_back({position, count, qr.start, qr.end, false});
-        } else if (use_mcs) {
+        } else if (mcs_strategy == McsStrategy::Always) {
             size_t partial_pos = index.find_partial(qr.hash);
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_count_partial(partial_pos);
@@ -293,7 +293,7 @@ std::vector<Nam> get_chains(
         int total_hits1, partial_hits1;
         bool sorting_needed1;
         std::tie(total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) =
-            find_hits(query_randstrobes[is_revcomp], index, map_param.use_mcs);
+            find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy);
         total_hits += total_hits1;
     }
     int nonrepetitive_hits = hits[0].size() + hits[1].size();
@@ -311,8 +311,8 @@ std::vector<Nam> get_chains(
     // Rescue if requested and needed
     if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
         for (int is_revcomp : {0, 1}) {
-            find_anchors_rescue(
-                query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.use_mcs,
+            auto [n_rescue_hits_oriented, n_partial_hits_oriented] = find_anchors_rescue(
+                query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy,
                 anchors_vector[is_revcomp]
             );
             pdqsort(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end());

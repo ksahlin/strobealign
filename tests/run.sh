@@ -120,7 +120,7 @@ diff tests/phix.se.sam multiblock.sam
 rm multiblock.fastq.gz multiblock.sam
 
 # Single-end PAF with multi-context seeds
-strobealign --mcs -x tests/phix.fasta tests/phix.1.fastq | tail -n 11 > phix.mcs.se.paf
+strobealign --mcs=always -x tests/phix.fasta tests/phix.1.fastq | tail -n 11 > phix.mcs.se.paf
 diff tests/phix.mcs.se.paf phix.mcs.se.paf
 rm phix.mcs.se.paf
 
