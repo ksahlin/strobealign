@@ -13,8 +13,11 @@ enum class McsStrategy {
     // query, no hits were generated, do partial lookups of each strobemer.
     Rescue,
 
-    // Do full lookups only
+    // Do full lookups only.
     Off,
+
+    // Do partial lookups only, that is, use only the first strobe.
+    FirstStrobe,
 };
 
 std::ostream& operator<<(std::ostream& os, const McsStrategy& mcs_strategy);
