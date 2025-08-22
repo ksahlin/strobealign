@@ -190,10 +190,10 @@ NB_MODULE(strobealign_extension, m_) {
     m.def("reverse_complement", &reverse_complement);
     m.def("randstrobes_query", &randstrobes_query);
 
-    m.def("find_hits", [](const std::vector<QueryRandstrobe>& query_randstrobes, const StrobemerIndex& index, bool use_mcs) -> std::vector<Hit> {
-        auto [total_hits, partial_hits, sorting_needed, hits] = find_hits(query_randstrobes, index, use_mcs);
+    m.def("find_hits", [](const std::vector<QueryRandstrobe>& query_randstrobes, const StrobemerIndex& index, McsMode mcs_mode) -> std::vector<Hit> {
+        auto [total_hits, partial_hits, sorting_needed, hits] = find_hits(query_randstrobes, index, mcs_mode);
         return hits;
-    }, nb::arg("query_randstrobes"), nb::arg("index"), nb::arg("use_mcs"));
+    }, nb::arg("query_randstrobes"), nb::arg("index"), nb::arg("mcs_mode"));
 
     m.def("hits_to_matches", [](const std::vector<Hit>& hits, const StrobemerIndex& index) -> std::unordered_map<unsigned int, std::vector<Match>> {
         auto rhmap = hits_to_matches(hits, index);

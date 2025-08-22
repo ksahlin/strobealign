@@ -4,6 +4,7 @@
 #include <vector>
 #include "index.hpp"
 #include "randstrobes.hpp"
+#include "mcsstrategy.hpp"
 
 struct Hit {
     size_t position;
@@ -59,14 +60,14 @@ std::ostream& operator<<(std::ostream& os, const Nam& nam);
 std::tuple<int, int, bool, std::vector<Hit>> find_hits(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
-    bool use_mcs
+    McsStrategy mcs_strategy
 );
 
 std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>> find_matches_rescue(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
-    bool use_mcs
+    McsStrategy mcs_strategy
 );
 
 void merge_matches_into_nams(
