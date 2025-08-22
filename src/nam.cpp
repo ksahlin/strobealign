@@ -211,11 +211,27 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
 ) {
     // If we produce matches in sorted order, then merge_matches_into_nams()
     // does not have to re-sort
-    bool sorting_needed{mcs_strategy == McsStrategy::Always};
+    bool sorting_needed{mcs_strategy == McsStrategy::Always || mcs_strategy == McsStrategy::FirstStrobe};
     std::vector<Hit> hits;
     int nonrepetitive_hits = 0;
     int total_hits = 0;
     int partial_hits = 0;
+
+    if (mcs_strategy == McsStrategy::FirstStrobe) {
+        for (const auto &q : query_randstrobes) {
+            size_t partial_position = index.find_partial(q.hash);
+            if (partial_position != index.end()) {
+                partial_hits++;
+                if (index.is_partial_filtered(partial_position, q.hash_revcomp)) {
+                    continue;
+                }
+                hits.push_back(Hit{partial_position, q.start, q.start + index.k(), true});
+            }
+        }
+
+        return {total_hits, partial_hits, sorting_needed, hits};
+    }
+
     for (const auto &q : query_randstrobes) {
         size_t position = index.find_full(q.hash);
         if (position != index.end()) {
