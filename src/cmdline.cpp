@@ -66,9 +66,10 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     std::unordered_map<std::string, McsStrategy> mcs_map{
         {"rescue", McsStrategy::Rescue},
         {"always", McsStrategy::Always},
+        {"off", McsStrategy::Off},
     };
     args::Group search(parser, "Search parameters:");
-    args::MapFlag mcs(parser, "mcs", "How multi-context seeds are used. Allowed: 'rescue' (default), 'always'", {"mcs"}, mcs_map);
+    args::MapFlag mcs(parser, "mcs", "How multi-context seeds are used. Allowed: 'rescue' (default), 'always', 'off'", {"mcs"}, mcs_map);
     args::ValueFlag<float> f(parser, "FLOAT", "Top fraction of repetitive strobemers to filter out from sampling [0.0002]", {'f'});
     args::ValueFlag<float> S(parser, "FLOAT", "Try candidate sites with mapping score at least S of maximum mapping score [0.5]", {'S'});
     args::ValueFlag<int> M(parser, "INT", "Maximum number of mapping sites to try [20]", {'M'});
