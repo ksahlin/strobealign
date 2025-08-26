@@ -1,3 +1,6 @@
+#ifndef STROBEALIGN_CHAIN_HPP
+#define STROBEALIGN_CHAIN_HPP
+
 #include <vector>
 
 #include "index.hpp"
@@ -39,3 +42,5 @@ static inline float mg_log2(float x) {
     log_2 += (-0.34484843f * z.f + 2.02466578f) * z.f - 0.67487759f;
     return log_2;
 }
+
+#endif
