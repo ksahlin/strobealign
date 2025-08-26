@@ -13,8 +13,6 @@
 #include "pdqsort/pdqsort.h"
 #include "aln.hpp"
 #include "chain.hpp"
-#include "randstrobes.hpp"
-#include "robin_hood.h"
 #include "logger.hpp"
 
 static Logger& logger = Logger::get();
