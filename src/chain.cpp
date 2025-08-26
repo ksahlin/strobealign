@@ -142,6 +142,15 @@ std::tuple<int, int> find_anchors_rescue(
  * @return A float representing the score for chaining the two anchors.
  */
 float Chainer::compute_score(const int dq, const int dr) const {
+    // dq == dr is usually the most common case
+    if (dq == dr && dq < N_PRECOMPUTED) {
+        return precomputed_scores[dq];
+    } else {
+        return compute_score_uncached(dq, dr);
+    }
+}
+
+float Chainer::compute_score_uncached(const int dq, const int dr) const {
     const int dd = std::abs(dr - dq);
     const int dg = std::min(dq, dr);
     float score = std::min(k, dg);
