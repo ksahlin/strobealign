@@ -2,12 +2,13 @@
 #define STROBEALIGN_CHAIN_HPP
 
 #include <vector>
+#include <random>
 
+#include "nam.hpp"
 #include "kseq++/kseq++.hpp"
 #include "index.hpp"
+#include "mappingparameters.hpp"
 #include "indexparameters.hpp"
-#include "nam.hpp"
-#include "aln.hpp"
 
 struct Anchor {
     uint query_start;
