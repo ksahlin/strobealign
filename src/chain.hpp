@@ -3,10 +3,11 @@
 
 #include <vector>
 
+#include "kseq++/kseq++.hpp"
 #include "index.hpp"
 #include "indexparameters.hpp"
 #include "nam.hpp"
-#include "readlen.hpp"
+#include "aln.hpp"
 
 struct Anchor {
     uint query_start;
