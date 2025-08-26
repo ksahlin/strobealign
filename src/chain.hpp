@@ -20,15 +20,32 @@ struct Anchor {
         return (ref_id == other.ref_id) && ref_start == other.ref_start && query_start == other.query_start;
     }
 };
+ 
+struct Chainer {
+    Chainer(ChainingParameters chaining_params, int k)
+        : k(k)
+        , chaining_params(chaining_params)
+    { }
 
-std::vector<Nam> get_chains(
-    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
-    const StrobemerIndex& index,
-    AlignmentStatistics& statistics,
-    Details& details,
-    const MappingParameters& map_param
-);
+    std::vector<Nam> get_chains(
+        const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
+        const StrobemerIndex& index,
+        AlignmentStatistics& statistics,
+        Details& details,
+        const MappingParameters& map_param
+    ) const;
 
+  private:
+    const int k;
+    const ChainingParameters chaining_params;
+
+    float collinear_chaining(
+        const std::vector<Anchor>& anchors,
+        std::vector<float>& dp,
+        std::vector<int>& predecessors
+    ) const;
+};
+ 
 /**
  * Fast log2 function for x >= 1.
  * Copied from https://github.com/lh3/minimap2/blob/master/mmpriv.h

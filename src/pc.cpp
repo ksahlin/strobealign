@@ -15,6 +15,7 @@
 #include "index.hpp"
 #include "kseq++/kseq++.hpp"
 #include "sam.hpp"
+#include "chain.hpp"
 
 // checks if two read names are the same ignoring /1 suffix on the first one
 // and /2 on the second one (if present)
@@ -144,6 +145,7 @@ void perform_task(
 ) {
     bool eof = false;
     Aligner aligner{aln_params};
+    Chainer chainer{map_param.chaining_params, index.k()};
     std::minstd_rand random_engine;
     while (!eof) {
         std::vector<klibpp::KSeq> records1;
@@ -171,12 +173,12 @@ void perform_task(
             to_uppercase(record1.seq);
             to_uppercase(record2.seq);
             align_or_map_paired(record1, record2, sam, sam_out, statistics, isize_est, aligner,
-                        map_param, index_parameters, references, index, random_engine, abundances);
+                        chainer, map_param, index_parameters, references, index, random_engine, abundances);
             statistics.n_reads += 2;
         }
         for (size_t i = 0; i < records3.size(); ++i) {
             auto record = records3[i];
-            align_or_map_single(record, sam, sam_out, statistics, aligner, map_param, index_parameters, references, index, random_engine, abundances);
+            align_or_map_single(record, sam, sam_out, statistics, aligner, chainer, map_param, index_parameters, references, index, random_engine, abundances);
             statistics.n_reads++;
         }
 

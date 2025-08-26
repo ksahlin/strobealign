@@ -4,11 +4,13 @@
 #include <string>
 #include <vector>
 #include <random>
+
 #include "kseq++/kseq++.hpp"
 #include "index.hpp"
 #include "refs.hpp"
 #include "sam.hpp"
 #include "aligner.hpp"
+#include "chain.hpp"
 #include "insertsizedistribution.hpp"
 #include "statistics.hpp"
 #include "nam.hpp"
@@ -22,6 +24,7 @@ void align_or_map_paired(
     AlignmentStatistics& statistics,
     InsertSizeDistribution& isize_est,
     const Aligner& aligner,
+    const Chainer& chainer,
     const MappingParameters& map_param,
     const IndexParameters& index_parameters,
     const References& references,
@@ -36,6 +39,7 @@ void align_or_map_single(
     std::string& outstring,
     AlignmentStatistics& statistics,
     const Aligner& aligner,
+    const Chainer& chainer,
     const MappingParameters& map_param,
     const IndexParameters& index_parameters,
     const References& references,
