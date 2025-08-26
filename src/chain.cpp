@@ -141,7 +141,7 @@ std::tuple<int, int> find_anchors_rescue(
  *
  * @return A float representing the score for chaining the two anchors.
  */
-static float compute_score(const int dq, const int dr, const int k, const ChainingParameters& chaining_params) {
+float Chainer::compute_score(const int dq, const int dr) const {
     const int dd = std::abs(dr - dq);
     const int dg = std::min(dq, dr);
     float score = std::min(k, dg);
@@ -188,7 +188,7 @@ float Chainer::collinear_chaining(
                 continue;
             }
 
-            const float score = compute_score(dq, dr, k, chaining_params);
+            const float score = compute_score(dq, dr);
 
             const float new_score = dp[j] + score;
             if (new_score > dp[i]) {

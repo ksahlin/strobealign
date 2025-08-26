@@ -44,8 +44,10 @@ struct Chainer {
         std::vector<float>& dp,
         std::vector<int>& predecessors
     ) const;
+
+    float compute_score(const int dq, const int dr) const;
 };
- 
+
 /**
  * Fast log2 function for x >= 1.
  * Copied from https://github.com/lh3/minimap2/blob/master/mmpriv.h
