@@ -219,10 +219,10 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
 
     if (mcs_strategy == McsStrategy::FirstStrobe) {
         for (const auto &q : query_randstrobes) {
-            size_t partial_position = index.find_partial(q.hash);
+            size_t partial_position = index.find_partial(q.hash, 2);
             if (partial_position != index.end()) {
                 partial_hits++;
-                if (index.is_partial_filtered(partial_position, q.hash_revcomp)) {
+                if (index.is_partial_filtered(partial_position, q.hash_revcomp, 2)) {
                     continue;
                 }
                 hits.push_back(Hit{partial_position, q.start, q.start + index.k(), true});
