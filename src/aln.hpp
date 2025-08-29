@@ -11,6 +11,7 @@
 #include "aligner.hpp"
 #include "insertsizedistribution.hpp"
 #include "statistics.hpp"
+#include "nam.hpp"
 
 
 enum class OutputFormat {
@@ -84,6 +85,11 @@ void align_or_map_single(
 
 // Private declarations, only needed for tests
 
+template <typename T>
+bool by_score(const T& a, const T& b);
+
 bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k);
+
+void shuffle_top_nams(std::vector<Nam>& nams, std::minstd_rand& random_engine);
 
 #endif

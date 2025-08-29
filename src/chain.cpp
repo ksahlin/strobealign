@@ -11,7 +11,6 @@
 #include <utility>
 
 #include "pdqsort/pdqsort.h"
-
 #include "aln.hpp"
 #include "chain.hpp"
 #include "randstrobes.hpp"
@@ -177,8 +176,8 @@ float collinear_chaining(
     predecessors.assign(n, -1);
     float best_score = 0;
 
-    for (int i = 0; i < n; ++i) {
-        const int lookup_end = std::max(0, i - chaining_params.max_lookback);
+    for (size_t i = 0; i < n; ++i) {
+        const int lookup_end = std::max(0, static_cast<int>(i) - chaining_params.max_lookback);
 
         for (int j = i - 1; j >= lookup_end; --j) {
             const Anchor& ai = anchors[i];
@@ -228,7 +227,7 @@ void extract_chains_from_dp(
     std::vector<bool> used(n, false);
 
     std::vector<std::pair<int, float>> candidates;
-    for (int i = 0; i < n; ++i) {
+    for (size_t i = 0; i < n; ++i) {
         if (dp[i] >= valid_score) {
             candidates.push_back(std::make_pair(i, dp[i]));
         }
@@ -279,24 +278,6 @@ void extract_chains_from_dp(
     }
 }
 
-template <typename T>
-bool by_score(const T& a, const T& b) {
-    return a.score > b.score;
-}
-
-void shuffle_top_chains(std::vector<Nam>& chains, std::minstd_rand& random_engine) {
-    if (chains.empty()) {
-        return;
-    }
-    auto best_score = chains[0].score;
-    auto it = std::find_if(chains.begin(), chains.end(), [&](const Nam& chain) {
-        return chain.score != best_score;
-    });
-    if (it > chains.begin() + 1) {
-        std::shuffle(chains.begin(), it, random_engine);
-    }
-}
-
 std::vector<Nam> get_chains(
     const klibpp::KSeq& record,
     const StrobemerIndex& index,
@@ -330,7 +311,7 @@ std::vector<Nam> get_chains(
     // Rescue if requested and needed
     if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
         for (int is_revcomp : {0, 1}) {
-            auto [n_rescue_hits_oriented, n_partial_hits_oriented] = find_anchors_rescue(
+            find_anchors_rescue(
                 query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.use_mcs,
                 anchors_vector[is_revcomp]
             );
@@ -371,7 +352,7 @@ std::vector<Nam> get_chains(
     }
     // Sort by score
     std::sort(chains.begin(), chains.end(), by_score<Nam>);
-    shuffle_top_chains(chains, random_engine);
+    shuffle_top_nams(chains, random_engine);
 
 #ifdef TRACE
     std::cerr << "Query: " << record.name << '\n';

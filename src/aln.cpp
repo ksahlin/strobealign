@@ -39,12 +39,6 @@ inline Alignment extend_seed(
     bool consistent_nam
 );
 
-template <typename T>
-bool by_score(const T& a, const T& b)
-{
-    return a.score > b.score;
-}
-
 /*
  * Determine whether the NAM represents a match to the forward or
  * reverse-complemented sequence by checking in which orientation the
@@ -989,6 +983,14 @@ inline void get_best_map_location(
     }
 }
 
+} // end of anonymous namespace
+
+template <typename T>
+bool by_score(const T& a, const T& b)
+{
+    return a.score > b.score;
+}
+
 /* Shuffle the top-scoring NAMs. Input must be sorted by score.
  *
  * This helps to ensure we pick a random location in case there are multiple
@@ -1004,8 +1006,6 @@ void shuffle_top_nams(std::vector<Nam>& nams, std::minstd_rand& random_engine) {
         std::shuffle(nams.begin(), it, random_engine);
     }
 }
-
-} // end of anonymous namespace
 
 /*
  * Determine (roughly) whether the read sequence has some l-mer (with l = k*2/3)
