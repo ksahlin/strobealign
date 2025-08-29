@@ -62,11 +62,18 @@ AlignmentInfo piecewise_extension_alignment(
     const std::vector<Anchor>& anchors,
     const int k,
     const int padding,
-    const AlignmentScoring& scoring_params
+    const AlignmentParameters& scoring_params
 ) {
     AlignmentInfo result;
     result.sw_score = 0;
     std::vector<OpLen> temp_cigar_elements;
+
+    const AlignmentScoring params = {
+        .match = int8_t (scoring_params.match),
+        .mismatch = int8_t(-scoring_params.mismatch),
+        .gap_open = int8_t(-scoring_params.gap_open),
+        .gap_extend = int8_t(-scoring_params.gap_extend)
+    };
 
     const Anchor& first_anchor = anchors[0];
     if (first_anchor.query_start > 0 && first_anchor.ref_start > 0) {
@@ -74,7 +81,7 @@ AlignmentInfo piecewise_extension_alignment(
         const size_t ref_start = std::max(0, static_cast<int>(first_anchor.ref_start) - (static_cast<int>(query_part.length()) + padding));
         const std::string ref_part = reference.substr(ref_start, first_anchor.ref_start - ref_start);
 
-        AlignmentResult pre_align = free_query_start_alignment(query_part, ref_part, scoring_params);
+        AlignmentResult pre_align = free_query_start_alignment(query_part, ref_part, params);
 
         if (pre_align.score == 0) {
             result.query_start = first_anchor.query_start;
@@ -90,7 +97,7 @@ AlignmentInfo piecewise_extension_alignment(
         result.ref_start = first_anchor.ref_start;
     }
 
-    result.sw_score += k * scoring_params.match;
+    result.sw_score += k * params.match;
     temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)k});
 
     for (size_t i = 1; i < anchors.size(); ++i) {
@@ -110,32 +117,32 @@ AlignmentInfo piecewise_extension_alignment(
             const std::string query_part = query.substr(prev_end_query, query_diff);
             const std::string ref_part = reference.substr(prev_end_ref, ref_diff);
 
-            AlignmentResult aligned = global_alignment(query_part, ref_part, scoring_params);
+            AlignmentResult aligned = global_alignment(query_part, ref_part, params);
             result.sw_score += aligned.score;
             temp_cigar_elements.insert(temp_cigar_elements.end(), aligned.cigar.begin(), aligned.cigar.end());
 
-            result.sw_score += k * scoring_params.match;
+            result.sw_score += k * params.match;
             temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)k});
         } else {
              if (ref_diff < query_diff) {
                 const size_t inserted_part = -ref_diff + query_diff;
-                result.sw_score += scoring_params.gap_open + (inserted_part - 1) * scoring_params.gap_extend;
+                result.sw_score += params.gap_open + (inserted_part - 1) * params.gap_extend;
                 temp_cigar_elements.push_back({Operation::I, (uintptr_t)inserted_part});
 
                 const size_t matching_part = k + ref_diff;
-                result.sw_score += matching_part * scoring_params.match;
+                result.sw_score += matching_part * params.match;
                 temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)matching_part});
             } else if (ref_diff > query_diff) {
                 const size_t deleted_part = -query_diff + ref_diff;
-                result.sw_score += scoring_params.gap_open + (deleted_part - 1) * scoring_params.gap_extend;
+                result.sw_score += params.gap_open + (deleted_part - 1) * params.gap_extend;
                 temp_cigar_elements.push_back({Operation::D, (uintptr_t)deleted_part});
 
                 const size_t matching_part = k + query_diff;
-                result.sw_score += matching_part * scoring_params.match;
+                result.sw_score += matching_part * params.match;
                 temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)matching_part});
             } else {
                 const size_t matching_part = k + ref_diff;
-                result.sw_score += matching_part * scoring_params.match;
+                result.sw_score += matching_part * params.match;
                 temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)matching_part});
             }
         }
@@ -149,7 +156,7 @@ AlignmentInfo piecewise_extension_alignment(
         const size_t ref_part_end = std::min(reference.length(), last_anchor_end_ref + query_part.length() + padding);
         const std::string ref_part = reference.substr(last_anchor_end_ref, ref_part_end - last_anchor_end_ref);
 
-        AlignmentResult post_align = free_query_end_alignment(query_part, ref_part, scoring_params);
+        AlignmentResult post_align = free_query_end_alignment(query_part, ref_part, params);
 
         if (post_align.score == 0) {
             result.query_end = last_anchor_end_query;
@@ -168,6 +175,13 @@ AlignmentInfo piecewise_extension_alignment(
     const std::pair<Cigar, int> cigar_ed = merge_cigar_elements_with_edit_distance(temp_cigar_elements);
     result.cigar = cigar_ed.first;
     result.edit_distance = cigar_ed.second;
+    
+    if (result.query_start == 0) {
+        result.sw_score += scoring_params.end_bonus;
+    }
+    if (result.query_end == query.length()) {
+        result.sw_score += scoring_params.end_bonus;
+    }
 
     return result;
 }
@@ -199,13 +213,7 @@ inline Alignment extend_seed_piecewise(
         }
     }
     if (gapped) {
-        const AlignmentScoring params = {
-            .match = int8_t (scoring_params.match),
-            .mismatch = int8_t(-scoring_params.mismatch),
-            .gap_open = int8_t(-scoring_params.gap_open),
-            .gap_extend = int8_t(-scoring_params.gap_extend)
-        };
-        info = piecewise_extension_alignment(ref, query, chain.anchors, k, 50, params);
+        info = piecewise_extension_alignment(ref, query, chain.anchors, k, 50, scoring_params);
         result_ref_start = info.ref_start;
     }
     int softclipped = info.query_start + (query.size() - info.query_end);
