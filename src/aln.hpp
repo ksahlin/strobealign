@@ -11,12 +11,22 @@
 #include "aligner.hpp"
 #include "insertsizedistribution.hpp"
 #include "statistics.hpp"
+#include "nam.hpp"
 
 
 enum class OutputFormat {
     SAM,
     PAF,
     Abundance
+};
+
+struct ChainingParameters {
+    int max_lookback;
+    float diag_diff_penalty;
+    float gap_length_penalty;
+    float valid_score_threshold;
+    int max_ref_gap;
+    float matches_weight;
 };
 
 struct MappingParameters {
@@ -32,6 +42,9 @@ struct MappingParameters {
     bool output_unmapped { true };
     bool details{false};
     bool fastq_comments{false};
+
+    bool use_nams{false};
+    ChainingParameters chaining_params;
 
     void verify() const {
         if (max_tries < 1) {
@@ -72,6 +85,11 @@ void align_or_map_single(
 
 // Private declarations, only needed for tests
 
+template <typename T>
+bool by_score(const T& a, const T& b);
+
 bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k);
+
+void shuffle_top_nams(std::vector<Nam>& nams, std::minstd_rand& random_engine);
 
 #endif

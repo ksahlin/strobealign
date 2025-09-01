@@ -66,6 +66,7 @@ add_library(salib STATIC ${SOURCES}
   src/io.cpp
   src/insertsizedistribution.cpp
   src/iowrap.cpp
+  src/chain.cpp
   ext/xxhash.c
   ext/ssw/ssw_cpp.cpp
   ext/ssw/ssw.c

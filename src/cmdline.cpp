@@ -54,6 +54,15 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlag<int> E(parser, "INT", "Gap extension penalty [1]", {'E'});
     args::ValueFlag<int> end_bonus(parser, "INT", "Soft clipping penalty [10]", {'L'});
 
+    args::Group chaining(parser, "Collinear Chaining:");
+    args::Flag nams(parser, "nams", "Use NAMs instead of collinear chaining for alignments", {"nams"});
+    args::ValueFlag<int> max_lookback(parser, "INT", "Collinear chaining look back heuristic [50]", {'H'});
+    args::ValueFlag<float> diag_diff_penalty(parser, "FLOAT", "Collinear chaining diagonal gap cost [0.1]", {"gd"});
+    args::ValueFlag<float> gap_length_penalty(parser, "FLOAT", "Collinear chaining gap length cost [0.05]", {"gl"});
+    args::ValueFlag<float> valid_score_threshold(parser, "FLOAT", "Collinear chaining best chain score threshold [0.7]", {"vp"});
+    args::ValueFlag<int> max_ref_gap(parser, "INT", "Collinear chaining skip distance, how far on the reference do we allow anchors to chain [10000]", {"sg"});
+    args::ValueFlag<float> matches_weight(parser, "FLOAT", "Weight given to the number of anchors for the final score of chains [0.01]", {"mw"});
+
     args::Group search(parser, "Search parameters:");
     args::Flag mcs(parser, "mcs", "Use extended multi-context seed mode for finding hits. Slightly more accurate, but slower", {"mcs"});
     args::ValueFlag<float> f(parser, "FLOAT", "Top fraction of repetitive strobemers to filter out from sampling [0.0002]", {'f'});
@@ -131,6 +140,15 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (O) { opt.O = args::get(O); }
     if (E) { opt.E = args::get(E); }
     if (end_bonus) { opt.end_bonus = args::get(end_bonus); }
+
+    // Chaining
+    if (nams) { opt.nams = true; }
+    if (max_lookback) { opt.max_lookback = args::get(max_lookback); }
+    if (diag_diff_penalty) { opt.diag_diff_penalty = args::get(diag_diff_penalty); }
+    if (gap_length_penalty) { opt.gap_length_penalty = args::get(gap_length_penalty); }
+    if (valid_score_threshold) { opt.valid_score_threshold = args::get(valid_score_threshold); }
+    if (max_ref_gap) { opt.max_ref_gap = args::get(max_ref_gap); }
+    if (matches_weight) { opt.matches_weight = args::get(matches_weight); }
 
     // Search parameters
     if (mcs) { opt.mcs = args::get(mcs); }

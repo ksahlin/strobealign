@@ -4,6 +4,7 @@
 #include <iostream>
 #include <math.h>
 #include <sstream>
+#include "chain.hpp"
 #include "revcomp.hpp"
 #include "timer.hpp"
 #include "nam.hpp"
@@ -37,12 +38,6 @@ inline Alignment extend_seed(
     const Read& read,
     bool consistent_nam
 );
-
-template <typename T>
-bool by_score(const T& a, const T& b)
-{
-    return a.score > b.score;
-}
 
 /*
  * Determine whether the NAM represents a match to the forward or
@@ -988,6 +983,14 @@ inline void get_best_map_location(
     }
 }
 
+} // end of anonymous namespace
+
+template <typename T>
+bool by_score(const T& a, const T& b)
+{
+    return a.score > b.score;
+}
+
 /* Shuffle the top-scoring NAMs. Input must be sorted by score.
  *
  * This helps to ensure we pick a random location in case there are multiple
@@ -1003,8 +1006,6 @@ void shuffle_top_nams(std::vector<Nam>& nams, std::minstd_rand& random_engine) {
         std::shuffle(nams.begin(), it, random_engine);
     }
 }
-
-} // end of anonymous namespace
 
 /*
  * Determine (roughly) whether the read sequence has some l-mer (with l = k*2/3)
@@ -1128,7 +1129,13 @@ void align_or_map_paired(
     for (size_t is_r1 : {0, 1}) {
         const auto& record = is_r1 == 0 ? record1 : record2;
         logger.trace() << "R" << is_r1 + 1 << '\n';
-        nams_pair[is_r1] = get_nams(record, index, statistics, details[is_r1], map_param, index_parameters, random_engine);
+        if (map_param.use_nams) {
+            nams_pair[is_r1] = get_nams(
+                record, index, statistics, details[is_r1], map_param, index_parameters, random_engine
+            );
+        } else {
+            nams_pair[is_r1] = get_chains(record, index, map_param, index_parameters, random_engine);
+        }
     }
 
     Timer extend_timer;
@@ -1233,7 +1240,13 @@ void align_or_map_single(
     std::vector<double> &abundances
 ) {
     Details details;
-    std::vector<Nam> nams = get_nams(record, index, statistics, details, map_param, index_parameters, random_engine);
+    std::vector<Nam> nams;
+
+    if (map_param.use_nams) {
+        nams = get_nams(record, index, statistics, details, map_param, index_parameters, random_engine);
+    } else {
+        nams = get_chains(record, index, map_param, index_parameters, random_engine);
+    }
 
     Timer extend_timer;
     size_t n_best = 0;
