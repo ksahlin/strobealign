@@ -15,6 +15,9 @@
 #include "chain.hpp"
 #include "randstrobes.hpp"
 #include "robin_hood.h"
+#include "logger.hpp"
+
+static Logger& logger = Logger::get();
 
 void add_to_anchors_vector_full(
     std::vector<Anchor>& anchors,
@@ -354,13 +357,13 @@ std::vector<Nam> get_chains(
     std::sort(chains.begin(), chains.end(), by_score<Nam>);
     shuffle_top_nams(chains, random_engine);
 
-#ifdef TRACE
-    std::cerr << "Query: " << record.name << '\n';
-    std::cerr << "Found " << chains.size() << " CHAINS\n";
-    for (const auto& chain : chains) {
-        std::cerr << "- " << chain << '\n';
+    if (logger.level() <= LOG_TRACE) {
+        logger.trace() << "Query: " << record.name << '\n';
+        logger.trace() << "Found " << chains.size() << " CHAINS\n";
+        for (const auto& chain : chains) {
+            std::cerr << "- " << chain << '\n';
+        }
     }
-#endif
 
     return chains;
 }
