@@ -12,7 +12,7 @@
 #include "insertsizedistribution.hpp"
 #include "statistics.hpp"
 #include "nam.hpp"
-
+#include "mcsstrategy.hpp"
 
 enum class OutputFormat {
     SAM,
@@ -36,7 +36,7 @@ struct MappingParameters {
     int rescue_level { 2 };
     int max_tries { 20 };
     int rescue_cutoff;
-    bool use_mcs{false};  // multi-context seeds
+    McsStrategy mcs_strategy{McsStrategy::Rescue};
     OutputFormat output_format {OutputFormat::SAM};
     CigarOps cigar_ops{CigarOps::M};
     bool output_unmapped { true };

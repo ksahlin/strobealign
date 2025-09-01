@@ -190,10 +190,17 @@ NB_MODULE(strobealign_extension, m_) {
     m.def("reverse_complement", &reverse_complement);
     m.def("randstrobes_query", &randstrobes_query);
 
-    m.def("find_hits", [](const std::vector<QueryRandstrobe>& query_randstrobes, const StrobemerIndex& index, bool use_mcs) -> std::vector<Hit> {
-        auto [total_hits, partial_hits, sorting_needed, hits] = find_hits(query_randstrobes, index, use_mcs);
+    nb::enum_<McsStrategy>(m, "McsStrategy")
+        .value("Always", McsStrategy::Always)
+        .value("Rescue", McsStrategy::Rescue)
+        .value("Off", McsStrategy::Off)
+        .value("FirstStrobe", McsStrategy::FirstStrobe)
+        .export_values();
+
+    m.def("find_hits", [](const std::vector<QueryRandstrobe>& query_randstrobes, const StrobemerIndex& index, McsStrategy mcs_strategy) -> std::vector<Hit> {
+        auto [total_hits, partial_hits, sorting_needed, hits] = find_hits(query_randstrobes, index, mcs_strategy);
         return hits;
-    }, nb::arg("query_randstrobes"), nb::arg("index"), nb::arg("use_mcs"));
+    }, nb::arg("query_randstrobes"), nb::arg("index"), nb::arg("mcs_strategy"));
 
     m.def("hits_to_matches", [](const std::vector<Hit>& hits, const StrobemerIndex& index) -> std::unordered_map<unsigned int, std::vector<Match>> {
         auto rhmap = hits_to_matches(hits, index);

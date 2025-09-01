@@ -5,6 +5,8 @@
 #include <string>
 #include <utility>
 
+#include "mcsstrategy.hpp"
+
 struct CommandLineOptions {
     int n_threads { 1 };
     int chunk_size{10000};
@@ -66,7 +68,7 @@ struct CommandLineOptions {
     float matches_weight { 0.01 };
 
     // Search parameters
-    bool mcs { false };
+    McsStrategy mcs_strategy { McsStrategy::Rescue };
     float f { 0.0002 };
     float dropoff_threshold { 0.5 };
     int max_tries { 20 };

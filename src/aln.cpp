@@ -1053,7 +1053,7 @@ std::vector<Nam> get_nams(
     for (int is_revcomp : {0, 1}) {
         int total_hits1, partial_hits1;
         bool sorting_needed1;
-        std::tie(total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) = find_hits(query_randstrobes[is_revcomp], index, map_param.use_mcs);
+        std::tie(total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) = find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy);
         sorting_needed = sorting_needed || sorting_needed1;
         total_hits += total_hits1;
         partial_hits += partial_hits1;
@@ -1072,7 +1072,7 @@ std::vector<Nam> get_nams(
         int n_rescue_hits{0};
         int n_partial_hits{0};
         for (int is_revcomp : {0, 1}) {
-            auto [n_rescue_hits_oriented, n_partial_hits_oriented, matches_map] = find_matches_rescue(query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.use_mcs);
+            auto [n_rescue_hits_oriented, n_partial_hits_oriented, matches_map] = find_matches_rescue(query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy);
             merge_matches_into_nams(matches_map, index.k(), true, is_revcomp, nams);
             n_rescue_hits += n_rescue_hits_oriented;
             n_partial_hits += n_partial_hits_oriented;
