@@ -2,19 +2,12 @@
 #define STROBEALIGN_NAM_HPP
 
 #include <vector>
+#include <iostream>
+
 #include "index.hpp"
 #include "randstrobes.hpp"
-#include "mcsstrategy.hpp"
 #include "mappingparameters.hpp"
-
-struct Hit {
-    size_t position;
-    size_t query_start;
-    size_t query_end;
-    bool is_partial;
-};
-
-std::ostream& operator<<(std::ostream& os, const Hit& hit);
+#include "hits.hpp"
 
 struct Match {
     int query_start;
@@ -56,12 +49,6 @@ struct Nam {
 };
 
 std::ostream& operator<<(std::ostream& os, const Nam& nam);
-
-std::tuple<int, int, bool, std::vector<Hit>> find_hits(
-    const std::vector<QueryRandstrobe>& query_randstrobes,
-    const StrobemerIndex& index,
-    McsStrategy mcs_strategy
-);
 
 void merge_matches_into_nams(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
