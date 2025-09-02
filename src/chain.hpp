@@ -28,8 +28,7 @@ std::vector<Nam> get_chains(
     const klibpp::KSeq& record,
     const StrobemerIndex& index,
     const MappingParameters& map_param,
-    const IndexParameters& index_parameters,
-    std::minstd_rand& random_engine
+    const IndexParameters& index_parameters
 );
 
 /**

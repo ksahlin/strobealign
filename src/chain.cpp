@@ -13,9 +13,6 @@
 #include "pdqsort/pdqsort.h"
 #include "aln.hpp"
 #include "chain.hpp"
-#include "logger.hpp"
-
-static Logger& logger = Logger::get();
 
 void add_to_anchors_vector_full(
     std::vector<Anchor>& anchors,
@@ -283,8 +280,7 @@ std::vector<Nam> get_chains(
     const klibpp::KSeq& record,
     const StrobemerIndex& index,
     const MappingParameters& map_param,
-    const IndexParameters& index_parameters,
-    std::minstd_rand& random_engine
+    const IndexParameters& index_parameters
 ) {
     auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
 
@@ -350,17 +346,6 @@ std::vector<Nam> get_chains(
             anchors_vector[is_revcomp], dp[is_revcomp], predecessors[is_revcomp], best_score[is_revcomp],
             index.k(), is_revcomp, chains, map_param.chaining_params
         );
-    }
-    // Sort by score
-    std::sort(chains.begin(), chains.end(), by_score<Nam>);
-    shuffle_top_nams(chains, random_engine);
-
-    if (logger.level() <= LOG_TRACE) {
-        logger.trace() << "Query: " << record.name << '\n';
-        logger.trace() << "Found " << chains.size() << " CHAINS\n";
-        for (const auto& chain : chains) {
-            std::cerr << "- " << chain << '\n';
-        }
     }
 
     return chains;

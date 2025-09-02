@@ -1034,8 +1034,7 @@ std::vector<Nam> get_nams(
     AlignmentStatistics& statistics,
     Details& details,
     const MappingParameters &map_param,
-    const IndexParameters& index_parameters,
-    std::minstd_rand& random_engine
+    const IndexParameters& index_parameters
 ) {
     // Compute randstrobes
     Timer strobe_timer;
@@ -1091,6 +1090,25 @@ std::vector<Nam> get_nams(
         statistics.tot_find_nams += nam_timer.duration();
     }
 
+    return nams;
+}
+
+std::vector<Nam> get_nams_or_chains(
+    const KSeq& record,
+    const StrobemerIndex& index,
+    AlignmentStatistics& statistics,
+    Details& details,
+    const MappingParameters &map_param,
+    const IndexParameters& index_parameters,
+    std::minstd_rand& random_engine
+) {
+    std::vector<Nam> nams;
+    if (map_param.use_nams) {
+        nams = get_nams(record, index, statistics, details, map_param, index_parameters);
+    } else {
+        nams = get_chains(record, index, map_param, index_parameters);
+    }
+
     // Sort by score
     Timer nam_sort_timer;
     std::sort(nams.begin(), nams.end(), by_score<Nam>);
@@ -1106,22 +1124,6 @@ std::vector<Nam> get_nams(
     }
 
     return nams;
-}
-
-std::vector<Nam> get_nams_or_chains(
-    const KSeq& record,
-    const StrobemerIndex& index,
-    AlignmentStatistics& statistics,
-    Details& details,
-    const MappingParameters &map_param,
-    const IndexParameters& index_parameters,
-    std::minstd_rand& random_engine
-) {
-    if (map_param.use_nams) {
-        return get_nams(record, index, statistics, details, map_param, index_parameters, random_engine);
-    } else {
-        return get_chains(record, index, map_param, index_parameters, random_engine);
-    }
 }
 
 void align_or_map_paired(
