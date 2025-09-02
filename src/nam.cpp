@@ -213,7 +213,6 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
     // does not have to re-sort
     bool sorting_needed{mcs_strategy == McsStrategy::Always || mcs_strategy == McsStrategy::FirstStrobe};
     std::vector<Hit> hits;
-    int nonrepetitive_hits = 0;
     int total_hits = 0;
     int partial_hits = 0;
 
