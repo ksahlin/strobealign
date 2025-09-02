@@ -1,11 +1,13 @@
 #include "nam.hpp"
 
+#include "timer.hpp"
+
 bool operator==(const Match& lhs, const Match& rhs) {
     return (lhs.query_start == rhs.query_start) && (lhs.query_end == rhs.query_end) && (lhs.ref_start == rhs.ref_start) && (lhs.ref_end == rhs.ref_end);
 }
 
-
 namespace {
+
 
 inline void add_to_matches_map_full(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
@@ -347,6 +349,70 @@ std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>
     return {n_hits, partial_hits, matches_map};
 }
 
+/*
+ * Obtain NAMs for a sequence record, doing rescue if needed.
+ * Return NAMs sorted by decreasing score.
+ */
+std::vector<Nam> get_nams(
+    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
+    const StrobemerIndex& index,
+    AlignmentStatistics& statistics,
+    Details& details,
+    const MappingParameters &map_param
+) {
+    // Find NAMs
+    Timer nam_timer;
+
+    int total_hits = 0;
+    int partial_hits = 0;
+    bool sorting_needed = false;
+    std::array<std::vector<Hit>, 2> hits;
+    for (int is_revcomp : {0, 1}) {
+        int total_hits1, partial_hits1;
+        bool sorting_needed1;
+        std::tie(total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) = find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy);
+        sorting_needed = sorting_needed || sorting_needed1;
+        total_hits += total_hits1;
+        partial_hits += partial_hits1;
+    }
+    int nonrepetitive_hits = hits[0].size() + hits[1].size();
+    float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
+    statistics.n_hits += nonrepetitive_hits;
+    statistics.n_partial_hits += partial_hits;
+    statistics.tot_find_nams += nam_timer.duration();
+
+    std::vector<Nam> nams;
+
+    // Rescue if requested and needed
+    if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
+        Timer rescue_timer;
+        nams.clear();
+        int n_rescue_hits{0};
+        int n_partial_hits{0};
+        for (int is_revcomp : {0, 1}) {
+            auto [n_rescue_hits_oriented, n_partial_hits_oriented, matches_map] = find_matches_rescue(query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy);
+            merge_matches_into_nams(matches_map, index.k(), true, is_revcomp, nams);
+            n_rescue_hits += n_rescue_hits_oriented;
+            n_partial_hits += n_partial_hits_oriented;
+        }
+        statistics.n_rescue_hits += n_rescue_hits;
+        statistics.n_partial_hits += partial_hits;
+        details.rescue_nams = nams.size();
+        details.nam_rescue = true;
+        statistics.tot_time_rescue += rescue_timer.duration();
+    } else {
+        Timer merge_matches_timer;
+        for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
+            auto matches_map = hits_to_matches(hits[is_revcomp], index);
+            merge_matches_into_nams(matches_map, index.k(), sorting_needed, is_revcomp, nams);
+        }
+        details.nams = nams.size();
+        statistics.tot_find_nams += merge_matches_timer.duration();
+    }
+
+    return nams;
+}
+
 std::ostream& operator<<(std::ostream& os, const Hit& hit) {
     os << "Hit(query_start=" << hit.query_start << ", query_end=" << hit.query_end << ", position=" << hit.position << ", is_partial=" << hit.is_partial << ")";
     return os;
@@ -356,7 +422,6 @@ std::ostream& operator<<(std::ostream& os, const Match& match) {
     os << "Match(query_start=" << match.query_start << ", query_end=" << match.query_end << ", ref_start=" << match.ref_start << ", ref_end=" << match.ref_end << ")";
     return os;
 }
-
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {
     os << "Nam(ref_id=" << n.ref_id << ", query: " << n.query_start << ".." << n.query_end << ", ref: " << n.ref_start << ".." << n.ref_end << ", rc=" << static_cast<int>(n.is_revcomp) << ", score=" << n.score << ")";

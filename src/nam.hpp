@@ -5,6 +5,7 @@
 #include "index.hpp"
 #include "randstrobes.hpp"
 #include "mcsstrategy.hpp"
+#include "mappingparameters.hpp"
 
 struct Hit {
     size_t position;
@@ -24,7 +25,6 @@ struct Match {
 
 bool operator==(const Match& lhs, const Match& rhs);
 std::ostream& operator<<(std::ostream& os, const Match& match);
-
 
 // Non-overlapping approximate match
 struct Nam {
@@ -63,13 +63,6 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
     McsStrategy mcs_strategy
 );
 
-std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>> find_matches_rescue(
-    const std::vector<QueryRandstrobe>& query_randstrobes,
-    const StrobemerIndex& index,
-    unsigned int rescue_cutoff,
-    McsStrategy mcs_strategy
-);
-
 void merge_matches_into_nams(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
     int k,
@@ -81,6 +74,18 @@ void merge_matches_into_nams(
 robin_hood::unordered_map<unsigned int, std::vector<Match>> hits_to_matches(
     const std::vector<Hit>& hits,
     const StrobemerIndex& index
+);
+
+/*
+ * Obtain NAMs for a sequence record, doing rescue if needed.
+ * Return NAMs sorted by decreasing score.
+ */
+std::vector<Nam> get_nams(
+    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
+    const StrobemerIndex& index,
+    AlignmentStatistics& statistics,
+    Details& details,
+    const MappingParameters &map_param
 );
 
 #endif
