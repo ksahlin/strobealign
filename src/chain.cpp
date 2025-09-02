@@ -305,28 +305,18 @@ std::vector<Nam> get_chains(
             find_anchors_rescue(
                 query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy, anchors
             );
-            pdqsort(anchors.begin(), anchors.end());
-            anchors.erase(
-                std::unique(anchors.begin(), anchors.end()), anchors.end()
-            );
-            float score = collinear_chaining(
-                anchors, index.k(), map_param.chaining_params, dp,
-                predecessors
-            );
-            best_score = score;
         } else {
             add_hits_to_anchors(hits[is_revcomp], index, anchors);
-            pdqsort(anchors.begin(), anchors.end());
-            anchors.erase(
-                std::unique(anchors.begin(), anchors.end()),
-                anchors.end()
-            );
-            float score = collinear_chaining(
-                anchors, index.k(), map_param.chaining_params, dp,
-                predecessors
-            );
-            best_score = score;
         }
+        pdqsort(anchors.begin(), anchors.end());
+        anchors.erase(
+            std::unique(anchors.begin(), anchors.end()), anchors.end()
+        );
+        float score = collinear_chaining(
+            anchors, index.k(), map_param.chaining_params, dp,
+            predecessors
+        );
+        best_score = score;
 
         extract_chains_from_dp(
             anchors, dp, predecessors, best_score,
