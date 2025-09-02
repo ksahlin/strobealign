@@ -13,7 +13,7 @@
 #include "pdqsort/pdqsort.h"
 #include "chain.hpp"
 
-void add_to_anchors_vector_full(
+void add_to_anchors_full(
     std::vector<Anchor>& anchors,
     int query_start,
     int query_end,
@@ -34,7 +34,7 @@ void add_to_anchors_vector_full(
     }
 }
 
-void add_to_anchors_vector_partial(
+void add_to_anchors_partial(
     std::vector<Anchor>& anchors,
     int query_start,
     const StrobemerIndex& index,
@@ -47,16 +47,16 @@ void add_to_anchors_vector_partial(
     }
 }
 
-void add_hits_to_anchors_vector(
+void add_hits_to_anchors(
     const std::vector<Hit>& hits,
     const StrobemerIndex& index,
     std::vector<Anchor>& anchors
 ) {
     for (const Hit& hit : hits) {
         if (hit.is_partial) {
-            add_to_anchors_vector_partial(anchors, hit.query_start, index, hit.position);
+            add_to_anchors_partial(anchors, hit.query_start, index, hit.position);
         } else {
-            add_to_anchors_vector_full(anchors, hit.query_start, hit.query_end, index, hit.position);
+            add_to_anchors_full(anchors, hit.query_start, hit.query_end, index, hit.position);
         }
     }
 }
@@ -116,9 +116,9 @@ std::tuple<int, int> find_anchors_rescue(
         }
         if (rh.is_partial) {
             partial_hits++;
-            add_to_anchors_vector_partial(anchors, rh.query_start, index, rh.position);
+            add_to_anchors_partial(anchors, rh.query_start, index, rh.position);
         } else {
-            add_to_anchors_vector_full(anchors, rh.query_start, rh.query_end, index, rh.position);
+            add_to_anchors_full(anchors, rh.query_start, rh.query_end, index, rh.position);
         }
         cnt++;
         n_hits++;
@@ -292,9 +292,9 @@ std::vector<Nam> get_chains(
     int nonrepetitive_hits = hits[0].size() + hits[1].size();
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
 
-    std::array<std::vector<Anchor>, 2> anchors_vector;
-    anchors_vector[0].reserve(100);
-    anchors_vector[1].reserve(100);
+    std::array<std::vector<Anchor>, 2> anchors;
+    anchors[0].reserve(100);
+    anchors[1].reserve(100);
     std::array<std::vector<float>, 2> dp;
     std::array<std::vector<int>, 2> predecessors;
     std::array<float, 2> best_score;
@@ -306,15 +306,15 @@ std::vector<Nam> get_chains(
         for (int is_revcomp : {0, 1}) {
             find_anchors_rescue(
                 query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy,
-                anchors_vector[is_revcomp]
+                anchors[is_revcomp]
             );
-            pdqsort(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end());
-            anchors_vector[is_revcomp].erase(
-                std::unique(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end()),
-                anchors_vector[is_revcomp].end()
+            pdqsort(anchors[is_revcomp].begin(), anchors[is_revcomp].end());
+            anchors[is_revcomp].erase(
+                std::unique(anchors[is_revcomp].begin(), anchors[is_revcomp].end()),
+                anchors[is_revcomp].end()
             );
             float score = collinear_chaining(
-                anchors_vector[is_revcomp], index.k(), map_param.chaining_params, dp[is_revcomp],
+                anchors[is_revcomp], index.k(), map_param.chaining_params, dp[is_revcomp],
                 predecessors[is_revcomp]
             );
             best_score[is_revcomp] = score;
@@ -322,14 +322,14 @@ std::vector<Nam> get_chains(
 
     } else {
         for (int is_revcomp : {0, 1}) {
-            add_hits_to_anchors_vector(hits[is_revcomp], index, anchors_vector[is_revcomp]);
-            pdqsort(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end());
-            anchors_vector[is_revcomp].erase(
-                std::unique(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end()),
-                anchors_vector[is_revcomp].end()
+            add_hits_to_anchors(hits[is_revcomp], index, anchors[is_revcomp]);
+            pdqsort(anchors[is_revcomp].begin(), anchors[is_revcomp].end());
+            anchors[is_revcomp].erase(
+                std::unique(anchors[is_revcomp].begin(), anchors[is_revcomp].end()),
+                anchors[is_revcomp].end()
             );
             float score = collinear_chaining(
-                anchors_vector[is_revcomp], index.k(), map_param.chaining_params, dp[is_revcomp],
+                anchors[is_revcomp], index.k(), map_param.chaining_params, dp[is_revcomp],
                 predecessors[is_revcomp]
             );
             best_score[is_revcomp] = score;
@@ -339,7 +339,7 @@ std::vector<Nam> get_chains(
     std::vector<Nam> chains;
     for (int is_revcomp : {0, 1}) {
         extract_chains_from_dp(
-            anchors_vector[is_revcomp], dp[is_revcomp], predecessors[is_revcomp], best_score[is_revcomp],
+            anchors[is_revcomp], dp[is_revcomp], predecessors[is_revcomp], best_score[is_revcomp],
             index.k(), is_revcomp, chains, map_param.chaining_params
         );
     }
