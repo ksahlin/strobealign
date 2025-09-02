@@ -1044,7 +1044,7 @@ std::vector<Nam> get_nams_or_chains(
     if (map_param.use_nams) {
         nams = get_nams(query_randstrobes, index, statistics, details, map_param);
     } else {
-        nams = get_chains(query_randstrobes, index, map_param);
+        nams = get_chains(query_randstrobes, index, statistics, details, map_param);
     }
 
     // Sort by score

@@ -25,6 +25,8 @@ struct Anchor {
 std::vector<Nam> get_chains(
     const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
     const StrobemerIndex& index,
+    AlignmentStatistics& statistics,
+    Details& details,
     const MappingParameters& map_param
 );
 

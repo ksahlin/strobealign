@@ -314,16 +314,12 @@ std::vector<Nam> get_nams(
     if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
         Timer rescue_timer;
         nams.clear();
-        int n_rescue_hits{0};
-        int n_partial_hits{0};
         for (int is_revcomp : {0, 1}) {
-            auto [n_rescue_hits_oriented, n_partial_hits_oriented, matches_map] = find_matches_rescue(query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy);
+            auto [n_rescue_hits, n_partial_hits, matches_map] = find_matches_rescue(query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy);
             merge_matches_into_nams(matches_map, index.k(), true, is_revcomp, nams);
-            n_rescue_hits += n_rescue_hits_oriented;
-            n_partial_hits += n_partial_hits_oriented;
+            statistics.n_rescue_hits += n_rescue_hits;
+            statistics.n_partial_hits += n_partial_hits;
         }
-        statistics.n_rescue_hits += n_rescue_hits;
-        statistics.n_partial_hits += n_partial_hits;
         details.rescue_nams = nams.size();
         details.nam_rescue = true;
         statistics.tot_time_rescue += rescue_timer.duration();
