@@ -323,7 +323,7 @@ std::vector<Nam> get_nams(
             n_partial_hits += n_partial_hits_oriented;
         }
         statistics.n_rescue_hits += n_rescue_hits;
-        statistics.n_partial_hits += partial_hits;
+        statistics.n_partial_hits += n_partial_hits;
         details.rescue_nams = nams.size();
         details.nam_rescue = true;
         statistics.tot_time_rescue += rescue_timer.duration();
