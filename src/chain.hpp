@@ -6,7 +6,6 @@
 #include "nam.hpp"
 #include "index.hpp"
 #include "mappingparameters.hpp"
-#include "indexparameters.hpp"
 
 struct Anchor {
     uint query_start;
@@ -23,10 +22,9 @@ struct Anchor {
 };
 
 std::vector<Nam> get_chains(
-    const std::string& seq,
+    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
     const StrobemerIndex& index,
-    const MappingParameters& map_param,
-    const IndexParameters& index_parameters
+    const MappingParameters& map_param
 );
 
 /**

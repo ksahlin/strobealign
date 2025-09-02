@@ -276,13 +276,10 @@ void extract_chains_from_dp(
 }
 
 std::vector<Nam> get_chains(
-    const std::string& seq,
+    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
     const StrobemerIndex& index,
-    const MappingParameters& map_param,
-    const IndexParameters& index_parameters
+    const MappingParameters& map_param
 ) {
-    auto query_randstrobes = randstrobes_query(seq, index_parameters);
-
     int total_hits = 0;
     std::array<std::vector<Hit>, 2> hits;
     for (int is_revcomp : {0, 1}) {

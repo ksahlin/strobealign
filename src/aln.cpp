@@ -1029,19 +1029,12 @@ bool has_shared_substring(const std::string& read_seq, const std::string& ref_se
  * Return NAMs sorted by decreasing score.
  */
 std::vector<Nam> get_nams(
-    const std::string& seq,
+    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
     const StrobemerIndex& index,
     AlignmentStatistics& statistics,
     Details& details,
-    const MappingParameters &map_param,
-    const IndexParameters& index_parameters
+    const MappingParameters &map_param
 ) {
-    // Compute randstrobes
-    Timer strobe_timer;
-    auto query_randstrobes = randstrobes_query(seq, index_parameters);
-    statistics.n_randstrobes += query_randstrobes[0].size() + query_randstrobes[1].size();
-    statistics.tot_construct_strobemers += strobe_timer.duration();
-
     // Find NAMs
     Timer nam_timer;
 
@@ -1104,11 +1097,18 @@ std::vector<Nam> get_nams_or_chains(
     const IndexParameters& index_parameters,
     std::minstd_rand& random_engine
 ) {
+
+    // Compute randstrobes
+    Timer strobe_timer;
+    auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
+    statistics.n_randstrobes += query_randstrobes[0].size() + query_randstrobes[1].size();
+    statistics.tot_construct_strobemers += strobe_timer.duration();
+
     std::vector<Nam> nams;
     if (map_param.use_nams) {
-        nams = get_nams(record.seq, index, statistics, details, map_param, index_parameters);
+        nams = get_nams(query_randstrobes, index, statistics, details, map_param);
     } else {
-        nams = get_chains(record.seq, index, map_param, index_parameters);
+        nams = get_chains(query_randstrobes, index, map_param);
     }
 
     // Sort by score
