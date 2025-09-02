@@ -312,7 +312,7 @@ std::vector<Nam> get_chains(
     // Rescue if requested and needed
     if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
         for (int is_revcomp : {0, 1}) {
-            auto [n_rescue_hits_oriented, n_partial_hits_oriented] = find_anchors_rescue(
+            find_anchors_rescue(
                 query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy,
                 anchors_vector[is_revcomp]
             );
