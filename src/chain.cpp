@@ -292,54 +292,44 @@ std::vector<Nam> get_chains(
     int nonrepetitive_hits = hits[0].size() + hits[1].size();
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
 
-    std::array<std::vector<Anchor>, 2> anchors;
-    anchors[0].reserve(100);
-    anchors[1].reserve(100);
-    std::array<std::vector<float>, 2> dp;
-    std::array<std::vector<int>, 2> predecessors;
-    std::array<float, 2> best_score;
-    best_score[0] = 0.0f;
-    best_score[1] = 0.0f;
-
-    // Rescue if requested and needed
-    if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
-        for (int is_revcomp : {0, 1}) {
-            find_anchors_rescue(
-                query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy,
-                anchors[is_revcomp]
-            );
-            pdqsort(anchors[is_revcomp].begin(), anchors[is_revcomp].end());
-            anchors[is_revcomp].erase(
-                std::unique(anchors[is_revcomp].begin(), anchors[is_revcomp].end()),
-                anchors[is_revcomp].end()
-            );
-            float score = collinear_chaining(
-                anchors[is_revcomp], index.k(), map_param.chaining_params, dp[is_revcomp],
-                predecessors[is_revcomp]
-            );
-            best_score[is_revcomp] = score;
-        }
-
-    } else {
-        for (int is_revcomp : {0, 1}) {
-            add_hits_to_anchors(hits[is_revcomp], index, anchors[is_revcomp]);
-            pdqsort(anchors[is_revcomp].begin(), anchors[is_revcomp].end());
-            anchors[is_revcomp].erase(
-                std::unique(anchors[is_revcomp].begin(), anchors[is_revcomp].end()),
-                anchors[is_revcomp].end()
-            );
-            float score = collinear_chaining(
-                anchors[is_revcomp], index.k(), map_param.chaining_params, dp[is_revcomp],
-                predecessors[is_revcomp]
-            );
-            best_score[is_revcomp] = score;
-        }
-    }
-
     std::vector<Nam> chains;
+
     for (int is_revcomp : {0, 1}) {
+        float best_score = 0.0f;
+        std::vector<Anchor> anchors;
+        std::vector<float> dp;
+        std::vector<int> predecessors;
+
+        // Rescue if requested and needed
+        if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
+            find_anchors_rescue(
+                query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy, anchors
+            );
+            pdqsort(anchors.begin(), anchors.end());
+            anchors.erase(
+                std::unique(anchors.begin(), anchors.end()), anchors.end()
+            );
+            float score = collinear_chaining(
+                anchors, index.k(), map_param.chaining_params, dp,
+                predecessors
+            );
+            best_score = score;
+        } else {
+            add_hits_to_anchors(hits[is_revcomp], index, anchors);
+            pdqsort(anchors.begin(), anchors.end());
+            anchors.erase(
+                std::unique(anchors.begin(), anchors.end()),
+                anchors.end()
+            );
+            float score = collinear_chaining(
+                anchors, index.k(), map_param.chaining_params, dp,
+                predecessors
+            );
+            best_score = score;
+        }
+
         extract_chains_from_dp(
-            anchors[is_revcomp], dp[is_revcomp], predecessors[is_revcomp], best_score[is_revcomp],
+            anchors, dp, predecessors, best_score,
             index.k(), is_revcomp, chains, map_param.chaining_params
         );
     }
