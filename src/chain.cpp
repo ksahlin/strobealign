@@ -11,7 +11,6 @@
 #include <utility>
 
 #include "pdqsort/pdqsort.h"
-#include "aln.hpp"
 #include "chain.hpp"
 
 void add_to_anchors_vector_full(
@@ -277,12 +276,12 @@ void extract_chains_from_dp(
 }
 
 std::vector<Nam> get_chains(
-    const klibpp::KSeq& record,
+    const std::string& seq,
     const StrobemerIndex& index,
     const MappingParameters& map_param,
     const IndexParameters& index_parameters
 ) {
-    auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
+    auto query_randstrobes = randstrobes_query(seq, index_parameters);
 
     int total_hits = 0;
     std::array<std::vector<Hit>, 2> hits;

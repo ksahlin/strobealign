@@ -1029,7 +1029,7 @@ bool has_shared_substring(const std::string& read_seq, const std::string& ref_se
  * Return NAMs sorted by decreasing score.
  */
 std::vector<Nam> get_nams(
-    const KSeq& record,
+    const std::string& seq,
     const StrobemerIndex& index,
     AlignmentStatistics& statistics,
     Details& details,
@@ -1038,7 +1038,7 @@ std::vector<Nam> get_nams(
 ) {
     // Compute randstrobes
     Timer strobe_timer;
-    auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
+    auto query_randstrobes = randstrobes_query(seq, index_parameters);
     statistics.n_randstrobes += query_randstrobes[0].size() + query_randstrobes[1].size();
     statistics.tot_construct_strobemers += strobe_timer.duration();
 
@@ -1104,9 +1104,9 @@ std::vector<Nam> get_nams_or_chains(
 ) {
     std::vector<Nam> nams;
     if (map_param.use_nams) {
-        nams = get_nams(record, index, statistics, details, map_param, index_parameters);
+        nams = get_nams(record.seq, index, statistics, details, map_param, index_parameters);
     } else {
-        nams = get_chains(record, index, map_param, index_parameters);
+        nams = get_chains(record.seq, index, map_param, index_parameters);
     }
 
     // Sort by score

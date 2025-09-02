@@ -2,10 +2,8 @@
 #define STROBEALIGN_CHAIN_HPP
 
 #include <vector>
-#include <random>
 
 #include "nam.hpp"
-#include "kseq++/kseq++.hpp"
 #include "index.hpp"
 #include "mappingparameters.hpp"
 #include "indexparameters.hpp"
@@ -25,7 +23,7 @@ struct Anchor {
 };
 
 std::vector<Nam> get_chains(
-    const klibpp::KSeq& record,
+    const std::string& seq,
     const StrobemerIndex& index,
     const MappingParameters& map_param,
     const IndexParameters& index_parameters
