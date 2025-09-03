@@ -1,9 +1,7 @@
 #include "aln.hpp"
 
 #include <algorithm>
-#include <iostream>
 #include <math.h>
-#include <sstream>
 #include "chain.hpp"
 #include "revcomp.hpp"
 #include "timer.hpp"

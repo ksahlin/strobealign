@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <iostream>
+#include "robin_hood.h"
 
 #include "index.hpp"
 #include "randstrobes.hpp"

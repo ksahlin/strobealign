@@ -6,7 +6,6 @@
 #include "nam.hpp"
 #include "index.hpp"
 #include "mappingparameters.hpp"
-#include "hits.hpp"
 
 struct Anchor {
     uint query_start;

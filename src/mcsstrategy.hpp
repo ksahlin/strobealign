@@ -1,7 +1,7 @@
 #ifndef STROBEALIGN_MCSSTRATEGY_HPP
 #define STROBEALIGN_MCSSTRATEGY_HPP
 
-#include <sstream>
+#include <iostream>
 
 // Different ways in which multi-context seeds (MCS) are used
 enum class McsStrategy {

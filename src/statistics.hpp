@@ -1,6 +1,9 @@
 #ifndef STROBEALIGN_STATISTICS_HPP
 #define STROBEALIGN_STATISTICS_HPP
 
+#include <chrono>
+#include <cstdint>
+
 /* Details about aligning a single or paired-end read */
 struct Details {
     bool nam_rescue{false}; // find_nams_rescue() was needed

@@ -3,11 +3,6 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdlib>
-#include <iostream>
-#include <ostream>
-#include <set>
-#include <sstream>
-#include <string>
 #include <utility>
 
 #include "pdqsort/pdqsort.h"

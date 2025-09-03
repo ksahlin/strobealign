@@ -6,12 +6,12 @@
 
 #include "pc.hpp"
 #include <mutex>
-#include <iostream>
 #include <chrono>
-#include <queue>
+#include <random>
 
+#include "aln.hpp"
+#include "insertsizedistribution.hpp"
 #include "timer.hpp"
-#include "robin_hood.h"
 #include "index.hpp"
 #include "kseq++/kseq++.hpp"
 #include "sam.hpp"

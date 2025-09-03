@@ -12,7 +12,6 @@
 #include "insertsizedistribution.hpp"
 #include "statistics.hpp"
 #include "nam.hpp"
-#include "mcsstrategy.hpp"
 #include "mappingparameters.hpp"
 
 void align_or_map_paired(

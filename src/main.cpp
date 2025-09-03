@@ -4,7 +4,6 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
-#include <numeric>
 #include <thread>
 #include <cassert>
 #include <iomanip>
@@ -20,7 +19,6 @@
 #include "cmdline.hpp"
 #include "index.hpp"
 #include "pc.hpp"
-#include "aln.hpp"
 #include "logger.hpp"
 #include "timer.hpp"
 #include "readlen.hpp"
