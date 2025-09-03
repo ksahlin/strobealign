@@ -16,6 +16,7 @@ AlignmentResult piecewise_extension_alignment(
 using namespace klibpp;
 
 void align_single_piecewse(
+    const Aligner &aligner,
     const AlignmentParameters& scoring_params,
     Sam& sam,
     const std::vector<Chain>& chains,
