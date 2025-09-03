@@ -1284,7 +1284,7 @@ void align_or_map_single(
                     map_param.max_secondary, random_engine
                 );
             } else {
-                align_single_piecewse(aligner.parameters, sam, chains, record,
+                align_single_piecewse(aligner, aligner.parameters, sam, chains, record,
                     index_parameters.syncmer.k, references, details, map_param.dropoff_threshold,
                     map_param.max_tries, map_param.max_secondary, random_engine);
             }

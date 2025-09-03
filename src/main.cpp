@@ -1,4 +1,5 @@
 #include <climits>
+#include <cstdint>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -288,6 +289,7 @@ int run_strobealign(int argc, char **argv) {
     if (map_param.rescue_level == 1000000) {
         logger.info() << "recuse mode off :p\n";
         map_param.rescue_cutoff = std::numeric_limits<int>::max();
+        index.filter_cutoff = std::numeric_limits<int64_t>::max();
     }
     else {
         map_param.rescue_cutoff = map_param.rescue_level < 100 ? map_param.rescue_level * index.filter_cutoff : 1000;
