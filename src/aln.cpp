@@ -241,10 +241,11 @@ inline Alignment extend_seed(
         }
     }
     if (gapped) {
+        const int padding = read.size()/10; 
         const int diff = std::abs(nam.ref_span() - nam.query_span());
-        const int ext_left = std::min(50, projected_ref_start);
+        const int ext_left = std::min(padding, projected_ref_start);
         const int ref_start = projected_ref_start - ext_left;
-        const int ext_right = std::min(std::size_t(50), ref.size() - nam.ref_end);
+        const int ext_right = std::min(std::size_t(padding), ref.size() - nam.ref_end);
         const auto ref_segm_size = read.size() + diff + ext_left + ext_right;
         const auto ref_segm = ref.substr(ref_start, ref_segm_size);
         auto opt_info = aligner.align(query, ref_segm);
