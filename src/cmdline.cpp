@@ -21,6 +21,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
 
     // Threading
     args::ValueFlag<int> threads(parser, "INT", "Number of threads [1]", {'t', "threads"});
+    args::ValueFlag<int> indexing_threads(parser, "INT", "Number of threads for indexing [same as -t]", {"ithreads"}, args::Options::Hidden);
     args::ValueFlag<int> chunk_size(parser, "INT", "Number of reads processed by a worker thread at once [10000]", {"chunk-size"}, args::Options::Hidden);
 
     args::Group io(parser, "Input/output:");
@@ -106,6 +107,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
 
     // Threading
     if (threads) { opt.n_threads = args::get(threads); }
+    opt.indexing_threads = indexing_threads ? args::get(indexing_threads) : opt.n_threads;
     if (chunk_size && !trace) { opt.chunk_size = args::get(chunk_size); }
 
     // Input/output
