@@ -1053,7 +1053,7 @@ std::vector<Nam> get_nams_or_chains(
 
     if (logger.level() <= LOG_TRACE) {
         logger.trace() << "Query: " << record.name << '\n';
-        logger.trace() << "Found " << nams.size() << " NAMs\n";
+        logger.trace() << "Found " << nams.size() << (map_param.use_nams ? " NAMs\n" : " chains\n");
         for (const auto& nam : nams) {
             logger.trace() << "- " << nam << '\n';
         }

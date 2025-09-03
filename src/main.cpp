@@ -384,9 +384,10 @@ int run_strobealign(int argc, char **argv) {
         << "Total time mapping: " << map_align_timer.elapsed() << " s." << std::endl
         << "Total time reading read-file(s): " << statistics.tot_read_file.count() / opt.n_threads << " s." << std::endl
         << "Total time creating strobemers: " << statistics.tot_construct_strobemers.count() / opt.n_threads << " s." << std::endl
-        << "Total time finding NAMs (non-rescue mode): " << statistics.time_hits.count() / opt.n_threads << " s." << std::endl
-        << "Total time finding NAMs (rescue mode): " << statistics.tot_time_rescue.count() / opt.n_threads << " s." << std::endl
-        << "Total time sorting NAMs (candidate sites): " << statistics.tot_sort_nams.count() / opt.n_threads << " s." << std::endl
+        << "Total time finding hits (non-rescue mode): " << statistics.time_hit_finding.count() / opt.n_threads << " s." << std::endl
+        << "Total time finding hits (rescue mode): " << statistics.tot_time_rescue.count() / opt.n_threads << " s." << std::endl
+        << "Total time chaining (non-rescue mode): " << statistics.time_chaining.count() / opt.n_threads << " s." << std::endl
+        << "Total time sorting NAMs/chains by score: " << statistics.tot_sort_nams.count() / opt.n_threads << " s." << std::endl
         << "Total time extending and pairing seeds: " << statistics.tot_extend.count() / opt.n_threads << " s." << std::endl;
     return EXIT_SUCCESS;
 }

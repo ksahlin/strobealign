@@ -288,7 +288,7 @@ std::vector<Nam> get_nams(
     const MappingParameters &map_param
 ) {
     // Find NAMs
-    Timer nam_timer;
+    Timer hits_timer;
 
     int total_hits = 0;
     int partial_hits = 0;
@@ -306,7 +306,7 @@ std::vector<Nam> get_nams(
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
     statistics.n_hits += nonrepetitive_hits;
     statistics.n_partial_hits += partial_hits;
-    statistics.time_hits += nam_timer.duration();
+    statistics.time_hit_finding += hits_timer.duration();
 
     std::vector<Nam> nams;
 
@@ -324,13 +324,13 @@ std::vector<Nam> get_nams(
         details.nam_rescue = true;
         statistics.tot_time_rescue += rescue_timer.duration();
     } else {
-        Timer merge_matches_timer;
+        Timer chaining_timer;
         for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
             auto matches_map = hits_to_matches(hits[is_revcomp], index);
             merge_matches_into_nams(matches_map, index.k(), sorting_needed, is_revcomp, nams);
         }
         details.nams = nams.size();
-        statistics.time_hits += merge_matches_timer.duration();
+        statistics.time_chaining += chaining_timer.duration();
     }
 
     return nams;

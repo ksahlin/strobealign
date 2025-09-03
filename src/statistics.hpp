@@ -31,7 +31,8 @@ struct Details {
 struct AlignmentStatistics {
     std::chrono::duration<double> tot_read_file{0};
     std::chrono::duration<double> tot_construct_strobemers{0};
-    std::chrono::duration<double> time_hits{0};
+    std::chrono::duration<double> time_hit_finding{0};
+    std::chrono::duration<double> time_chaining{0};
     std::chrono::duration<double> tot_time_rescue{0};
     std::chrono::duration<double> tot_sort_nams{0};
     std::chrono::duration<double> tot_extend{0};
@@ -52,7 +53,8 @@ struct AlignmentStatistics {
     AlignmentStatistics operator+=(const AlignmentStatistics& other) {
         this->tot_read_file += other.tot_read_file;
         this->tot_construct_strobemers += other.tot_construct_strobemers;
-        this->time_hits += other.time_hits;
+        this->time_hit_finding += other.time_hit_finding;
+        this->time_chaining += other.time_chaining;
         this->tot_time_rescue += other.tot_time_rescue;
         this->tot_sort_nams += other.tot_sort_nams;
         this->tot_extend += other.tot_extend;
