@@ -363,18 +363,18 @@ int run_strobealign(int argc, char **argv) {
     }
 
     logger.debug()
-        << "Number of reads:               " << std::setw(12) << statistics.n_reads << std::endl
-        << "Number of randstrobes:         " << std::setw(12) << statistics.n_randstrobes
+        << "Number of reads:                 " << std::setw(12) << statistics.n_reads << std::endl
+        << "Number of randstrobes:           " << std::setw(12) << statistics.n_randstrobes
         << "  Per read: " << std::setw(7) << static_cast<float>(statistics.n_randstrobes) / statistics.n_reads << std::endl
-        << "Number of partial hits:        " << std::setw(12) << statistics.n_partial_hits << '\n'
-        << "Number of non-rescue hits:     " << std::setw(12) << statistics.n_hits
+        << "Number of partial hits:          " << std::setw(12) << statistics.n_partial_hits << '\n'
+        << "Number of non-rescue hits:       " << std::setw(12) << statistics.n_hits
         << "  Per read: " << std::setw(7) << static_cast<float>(statistics.n_hits) / statistics.n_reads << std::endl
-        << "Number of non-rescue NAMs:     " << std::setw(12) << statistics.n_nams
+        << "Number of non-rescue chains:     " << std::setw(12) << statistics.n_nams
         << "  Per read: " << std::setw(7) << static_cast<float>(statistics.n_nams) / statistics.n_reads << std::endl
-        << "Number of NAM rescue attempts: " << std::setw(12) << statistics.nam_rescue << std::endl
-        << "Number of rescue hits:         " << std::setw(12) << statistics.n_rescue_hits
+        << "Number of chain rescue attempts: " << std::setw(12) << statistics.nam_rescue << std::endl
+        << "Number of rescue hits:           " << std::setw(12) << statistics.n_rescue_hits
         << "  Per rescue attempt: " << std::setw(7) << static_cast<float>(statistics.n_rescue_hits) / statistics.nam_rescue << std::endl
-        << "Number of rescue NAMs:         " << std::setw(12) << statistics.n_rescue_nams
+        << "Number of rescue chains:         " << std::setw(12) << statistics.n_rescue_nams
         << "  Per rescue attempt: " << std::setw(7) << static_cast<float>(statistics.n_rescue_nams) / statistics.nam_rescue << std::endl;
     logger.info()
         << "Total mapping sites tried: " << statistics.tried_alignment << std::endl
