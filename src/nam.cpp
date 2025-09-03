@@ -306,7 +306,7 @@ std::vector<Nam> get_nams(
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
     statistics.n_hits += nonrepetitive_hits;
     statistics.n_partial_hits += partial_hits;
-    statistics.tot_find_nams += nam_timer.duration();
+    statistics.time_hits += nam_timer.duration();
 
     std::vector<Nam> nams;
 
@@ -330,7 +330,7 @@ std::vector<Nam> get_nams(
             merge_matches_into_nams(matches_map, index.k(), sorting_needed, is_revcomp, nams);
         }
         details.nams = nams.size();
-        statistics.tot_find_nams += merge_matches_timer.duration();
+        statistics.time_hits += merge_matches_timer.duration();
     }
 
     return nams;

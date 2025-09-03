@@ -294,7 +294,7 @@ std::vector<Nam> get_chains(
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
     statistics.n_hits += nonrepetitive_hits;
     statistics.n_partial_hits += partial_hits;
-    statistics.tot_find_nams += hits_timer.duration();
+    statistics.time_hits += hits_timer.duration();
 
     std::vector<Nam> chains;
 
@@ -318,7 +318,7 @@ std::vector<Nam> get_chains(
         } else {
             Timer hits_timer;
             add_hits_to_anchors(hits[is_revcomp], index, anchors);
-            statistics.tot_find_nams += hits_timer.duration();
+            statistics.time_hits += hits_timer.duration();
         }
         Timer chaining_timer;
         pdqsort(anchors.begin(), anchors.end());
@@ -335,7 +335,7 @@ std::vector<Nam> get_chains(
             anchors, dp, predecessors, best_score,
             index.k(), is_revcomp, chains, map_param.chaining_params
         );
-        statistics.tot_find_nams += chaining_timer.duration();
+        statistics.time_hits += chaining_timer.duration();
     }
     details.nams += chains.size();
 

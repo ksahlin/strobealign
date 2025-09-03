@@ -5,7 +5,6 @@
 #include <string_view>
 #include "refs.hpp"
 #include "zstr.hpp"
-#include "exceptions.hpp"
 
 
 /* Convert string to uppercase in-place */
