@@ -233,7 +233,7 @@ inline Alignment extend_seed_piecewise(
         }
     }
     if (gapped) {
-        info = piecewise_extension_alignment(ref, query, chain.anchors, k, 50, scoring_params);
+        info = piecewise_extension_alignment(ref, query, chain.anchors, k, read.size()/10, scoring_params);
         result_ref_start = info.ref_start;
     }
     int softclipped = info.query_start + (query.size() - info.query_end);
