@@ -30,6 +30,9 @@ debug_size = []
 # Prepare code for analysis by llvm-mca
 mca = []
 
+[dependencies]
+paste = "1.0"
+
 [profile.release]
 debug-assertions = false
 lto = "thin"

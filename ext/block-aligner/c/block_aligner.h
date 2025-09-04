@@ -362,12 +362,14 @@ void block_set_bytes_rev_padded_aa(struct PaddedBytes *padded,
 void block_free_padded_aa(struct PaddedBytes *padded);
 
 /**
- *Create a new block aligner instance for global alignment of amino acid strings (no traceback).
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. Global alignment.
  */
-BlockHandle block_new_aa(uintptr_t query_len, uintptr_t reference_len, uintptr_t max_size);
+BlockHandle block_new_aa(uintptr_t query_len,
+                         uintptr_t reference_len,
+                         uintptr_t max_size);
 
 /**
- *Global alignment of two amino acid strings (no traceback).
+ *Alignment of two amino acid strings. No traceback. Global alignment.
  */
 void block_align_aa(BlockHandle b,
                     const struct PaddedBytes *q,
@@ -378,7 +380,7 @@ void block_align_aa(BlockHandle b,
                     int32_t x);
 
 /**
- *Global alignment of an amino acid sequence to a profile (no traceback).
+ *Alignment of an amino acid sequence to a profile. No traceback. Global alignment.
  */
 void block_align_profile_aa(BlockHandle b,
                             const struct PaddedBytes *q,
@@ -387,93 +389,24 @@ void block_align_profile_aa(BlockHandle b,
                             int32_t x);
 
 /**
- *Retrieves the result of global alignment of two amino acid strings (no traceback).
+ *Retrieves the result of alignment of two amino acid strings. No traceback. Global alignment.
  */
 struct AlignResult block_res_aa(BlockHandle b);
 
 /**
- *Don't use.
- */
-void _block_cigar_aa(BlockHandle b,
-                     uintptr_t query_idx,
-                     uintptr_t reference_idx,
-                     struct Cigar *cigar);
-
-/**
- *Don't use.
- */
-void _block_cigar_eq_aa(BlockHandle b,
-                        const struct PaddedBytes *q,
-                        const struct PaddedBytes *r,
-                        uintptr_t query_idx,
-                        uintptr_t reference_idx,
-                        struct Cigar *cigar);
-
-/**
- *Frees the block used for global alignment of two amino acid strings (no traceback).
+ *Frees the block used for alignment of two amino acid strings. No traceback. Global alignment.
  */
 void block_free_aa(BlockHandle b);
 
 /**
- *Create a new block aligner instance for X-drop alignment of amino acid strings (no traceback).
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. Global alignment.
  */
-BlockHandle block_new_aa_xdrop(uintptr_t query_len, uintptr_t reference_len, uintptr_t max_size);
+BlockHandle block_new_aa_trace(uintptr_t query_len,
+                               uintptr_t reference_len,
+                               uintptr_t max_size);
 
 /**
- *X-drop alignment of two amino acid strings (no traceback).
- */
-void block_align_aa_xdrop(BlockHandle b,
-                          const struct PaddedBytes *q,
-                          const struct PaddedBytes *r,
-                          const struct AAMatrix *m,
-                          struct Gaps g,
-                          struct SizeRange s,
-                          int32_t x);
-
-/**
- *X-drop alignment of an amino acid sequence to a profile (no traceback).
- */
-void block_align_profile_aa_xdrop(BlockHandle b,
-                                  const struct PaddedBytes *q,
-                                  const struct AAProfile *r,
-                                  struct SizeRange s,
-                                  int32_t x);
-
-/**
- *Retrieves the result of X-drop alignment of two amino acid strings (no traceback).
- */
-struct AlignResult block_res_aa_xdrop(BlockHandle b);
-
-/**
- *Don't use.
- */
-void _block_cigar_aa_xdrop(BlockHandle b,
-                           uintptr_t query_idx,
-                           uintptr_t reference_idx,
-                           struct Cigar *cigar);
-
-/**
- *Don't use.
- */
-void _block_cigar_eq_aa_xdrop(BlockHandle b,
-                              const struct PaddedBytes *q,
-                              const struct PaddedBytes *r,
-                              uintptr_t query_idx,
-                              uintptr_t reference_idx,
-                              struct Cigar *cigar);
-
-/**
- *Frees the block used for X-drop alignment of two amino acid strings (no traceback).
- */
-void block_free_aa_xdrop(BlockHandle b);
-
-/**
- *Create a new block aligner instance for global alignment of amino acid strings, with traceback.
- */
-BlockHandle block_new_aa_trace(uintptr_t query_len, uintptr_t reference_len, uintptr_t max_size);
-
-/**
- *Global alignment of two amino acid strings, with traceback.
+ *Alignment of two amino acid strings. With traceback. Global alignment.
  */
 void block_align_aa_trace(BlockHandle b,
                           const struct PaddedBytes *q,
@@ -484,7 +417,7 @@ void block_align_aa_trace(BlockHandle b,
                           int32_t x);
 
 /**
- *Global alignment of an amino acid sequence to a profile, with traceback.
+ *Alignment of an amino acid sequence to a profile. With traceback. Global alignment.
  */
 void block_align_profile_aa_trace(BlockHandle b,
                                   const struct PaddedBytes *q,
@@ -493,12 +426,17 @@ void block_align_profile_aa_trace(BlockHandle b,
                                   int32_t x);
 
 /**
- *Retrieves the result of global alignment of two amino acid strings, with traceback.
+ *Retrieves the result of alignment of two amino acid strings. With traceback. Global alignment.
  */
 struct AlignResult block_res_aa_trace(BlockHandle b);
 
 /**
- *Retrieves the resulting CIGAR string from global alignment of two amino acid strings, with traceback.
+ *Frees the block used for alignment of two amino acid strings. With traceback. Global alignment.
+ */
+void block_free_aa_trace(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. Global alignment.
  */
 void block_cigar_aa_trace(BlockHandle b,
                           uintptr_t query_idx,
@@ -506,7 +444,7 @@ void block_cigar_aa_trace(BlockHandle b,
                           struct Cigar *cigar);
 
 /**
- *Retrieves the resulting CIGAR string from global alignment of two amino acid strings, with traceback containing =/X.
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. Global alignment.
  */
 void block_cigar_eq_aa_trace(BlockHandle b,
                              const struct PaddedBytes *q,
@@ -516,19 +454,51 @@ void block_cigar_eq_aa_trace(BlockHandle b,
                              struct Cigar *cigar);
 
 /**
- *Frees the block used for global alignment of two amino acid strings, with traceback.
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. With X-drop. Global alignment.
  */
-void block_free_aa_trace(BlockHandle b);
+BlockHandle block_new_aa_xdrop(uintptr_t query_len,
+                               uintptr_t reference_len,
+                               uintptr_t max_size);
 
 /**
- *Create a new block aligner instance for X-drop alignment of amino acid strings, with traceback.
+ *Alignment of two amino acid strings. No traceback. With X-drop. Global alignment.
+ */
+void block_align_aa_xdrop(BlockHandle b,
+                          const struct PaddedBytes *q,
+                          const struct PaddedBytes *r,
+                          const struct AAMatrix *m,
+                          struct Gaps g,
+                          struct SizeRange s,
+                          int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. No traceback. With X-drop. Global alignment.
+ */
+void block_align_profile_aa_xdrop(BlockHandle b,
+                                  const struct PaddedBytes *q,
+                                  const struct AAProfile *r,
+                                  struct SizeRange s,
+                                  int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. No traceback. With X-drop. Global alignment.
+ */
+struct AlignResult block_res_aa_xdrop(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. No traceback. With X-drop. Global alignment.
+ */
+void block_free_aa_xdrop(BlockHandle b);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. With X-drop. Global alignment.
  */
 BlockHandle block_new_aa_trace_xdrop(uintptr_t query_len,
                                      uintptr_t reference_len,
                                      uintptr_t max_size);
 
 /**
- *X-drop alignment of two amino acid strings, with traceback.
+ *Alignment of two amino acid strings. With traceback. With X-drop. Global alignment.
  */
 void block_align_aa_trace_xdrop(BlockHandle b,
                                 const struct PaddedBytes *q,
@@ -539,7 +509,7 @@ void block_align_aa_trace_xdrop(BlockHandle b,
                                 int32_t x);
 
 /**
- *X-drop alignment of an amino acid sequence to a profile, with traceback.
+ *Alignment of an amino acid sequence to a profile. With traceback. With X-drop. Global alignment.
  */
 void block_align_profile_aa_trace_xdrop(BlockHandle b,
                                         const struct PaddedBytes *q,
@@ -548,12 +518,17 @@ void block_align_profile_aa_trace_xdrop(BlockHandle b,
                                         int32_t x);
 
 /**
- *Retrieves the result of X-drop alignment of two amino acid strings, with traceback.
+ *Retrieves the result of alignment of two amino acid strings. With traceback. With X-drop. Global alignment.
  */
 struct AlignResult block_res_aa_trace_xdrop(BlockHandle b);
 
 /**
- *Retrieves the resulting CIGAR string from X-drop alignment of two amino acid strings, with traceback.
+ *Frees the block used for alignment of two amino acid strings. With traceback. With X-drop. Global alignment.
+ */
+void block_free_aa_trace_xdrop(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. With X-drop. Global alignment.
  */
 void block_cigar_aa_trace_xdrop(BlockHandle b,
                                 uintptr_t query_idx,
@@ -561,7 +536,7 @@ void block_cigar_aa_trace_xdrop(BlockHandle b,
                                 struct Cigar *cigar);
 
 /**
- *Retrieves the resulting CIGAR string from X-drop alignment of two amino acid strings, with traceback containing =/X.
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. With X-drop. Global alignment.
  */
 void block_cigar_eq_aa_trace_xdrop(BlockHandle b,
                                    const struct PaddedBytes *q,
@@ -571,9 +546,1292 @@ void block_cigar_eq_aa_trace_xdrop(BlockHandle b,
                                    struct Cigar *cigar);
 
 /**
- *Frees the block used for X-drop alignment of two amino acid strings, with traceback.
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. Local alignment.
  */
-void block_free_aa_trace_xdrop(BlockHandle b);
+BlockHandle block_new_aa_local(uintptr_t query_len,
+                               uintptr_t reference_len,
+                               uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. No traceback. Local alignment.
+ */
+void block_align_aa_local(BlockHandle b,
+                          const struct PaddedBytes *q,
+                          const struct PaddedBytes *r,
+                          const struct AAMatrix *m,
+                          struct Gaps g,
+                          struct SizeRange s,
+                          int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. No traceback. Local alignment.
+ */
+void block_align_profile_aa_local(BlockHandle b,
+                                  const struct PaddedBytes *q,
+                                  const struct AAProfile *r,
+                                  struct SizeRange s,
+                                  int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. No traceback. Local alignment.
+ */
+struct AlignResult block_res_aa_local(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. No traceback. Local alignment.
+ */
+void block_free_aa_local(BlockHandle b);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. Local alignment.
+ */
+BlockHandle block_new_aa_trace_local(uintptr_t query_len,
+                                     uintptr_t reference_len,
+                                     uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. With traceback. Local alignment.
+ */
+void block_align_aa_trace_local(BlockHandle b,
+                                const struct PaddedBytes *q,
+                                const struct PaddedBytes *r,
+                                const struct AAMatrix *m,
+                                struct Gaps g,
+                                struct SizeRange s,
+                                int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. With traceback. Local alignment.
+ */
+void block_align_profile_aa_trace_local(BlockHandle b,
+                                        const struct PaddedBytes *q,
+                                        const struct AAProfile *r,
+                                        struct SizeRange s,
+                                        int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. With traceback. Local alignment.
+ */
+struct AlignResult block_res_aa_trace_local(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. With traceback. Local alignment.
+ */
+void block_free_aa_trace_local(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. Local alignment.
+ */
+void block_cigar_aa_trace_local(BlockHandle b,
+                                uintptr_t query_idx,
+                                uintptr_t reference_idx,
+                                struct Cigar *cigar);
+
+/**
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. Local alignment.
+ */
+void block_cigar_eq_aa_trace_local(BlockHandle b,
+                                   const struct PaddedBytes *q,
+                                   const struct PaddedBytes *r,
+                                   uintptr_t query_idx,
+                                   uintptr_t reference_idx,
+                                   struct Cigar *cigar);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. With X-drop. Local alignment.
+ */
+BlockHandle block_new_aa_xdrop_local(uintptr_t query_len,
+                                     uintptr_t reference_len,
+                                     uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. No traceback. With X-drop. Local alignment.
+ */
+void block_align_aa_xdrop_local(BlockHandle b,
+                                const struct PaddedBytes *q,
+                                const struct PaddedBytes *r,
+                                const struct AAMatrix *m,
+                                struct Gaps g,
+                                struct SizeRange s,
+                                int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. No traceback. With X-drop. Local alignment.
+ */
+void block_align_profile_aa_xdrop_local(BlockHandle b,
+                                        const struct PaddedBytes *q,
+                                        const struct AAProfile *r,
+                                        struct SizeRange s,
+                                        int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. No traceback. With X-drop. Local alignment.
+ */
+struct AlignResult block_res_aa_xdrop_local(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. No traceback. With X-drop. Local alignment.
+ */
+void block_free_aa_xdrop_local(BlockHandle b);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. With X-drop. Local alignment.
+ */
+BlockHandle block_new_aa_trace_xdrop_local(uintptr_t query_len,
+                                           uintptr_t reference_len,
+                                           uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. With traceback. With X-drop. Local alignment.
+ */
+void block_align_aa_trace_xdrop_local(BlockHandle b,
+                                      const struct PaddedBytes *q,
+                                      const struct PaddedBytes *r,
+                                      const struct AAMatrix *m,
+                                      struct Gaps g,
+                                      struct SizeRange s,
+                                      int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. With traceback. With X-drop. Local alignment.
+ */
+void block_align_profile_aa_trace_xdrop_local(BlockHandle b,
+                                              const struct PaddedBytes *q,
+                                              const struct AAProfile *r,
+                                              struct SizeRange s,
+                                              int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. With traceback. With X-drop. Local alignment.
+ */
+struct AlignResult block_res_aa_trace_xdrop_local(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. With traceback. With X-drop. Local alignment.
+ */
+void block_free_aa_trace_xdrop_local(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. With X-drop. Local alignment.
+ */
+void block_cigar_aa_trace_xdrop_local(BlockHandle b,
+                                      uintptr_t query_idx,
+                                      uintptr_t reference_idx,
+                                      struct Cigar *cigar);
+
+/**
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. With X-drop. Local alignment.
+ */
+void block_cigar_eq_aa_trace_xdrop_local(BlockHandle b,
+                                         const struct PaddedBytes *q,
+                                         const struct PaddedBytes *r,
+                                         uintptr_t query_idx,
+                                         uintptr_t reference_idx,
+                                         struct Cigar *cigar);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. Global alignment. Unconstrained query start position.
+ */
+BlockHandle block_new_aa_freestart(uintptr_t query_len,
+                                   uintptr_t reference_len,
+                                   uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. No traceback. Global alignment. Unconstrained query start position.
+ */
+void block_align_aa_freestart(BlockHandle b,
+                              const struct PaddedBytes *q,
+                              const struct PaddedBytes *r,
+                              const struct AAMatrix *m,
+                              struct Gaps g,
+                              struct SizeRange s,
+                              int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. No traceback. Global alignment. Unconstrained query start position.
+ */
+void block_align_profile_aa_freestart(BlockHandle b,
+                                      const struct PaddedBytes *q,
+                                      const struct AAProfile *r,
+                                      struct SizeRange s,
+                                      int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. No traceback. Global alignment. Unconstrained query start position.
+ */
+struct AlignResult block_res_aa_freestart(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. No traceback. Global alignment. Unconstrained query start position.
+ */
+void block_free_aa_freestart(BlockHandle b);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. Global alignment. Unconstrained query start position.
+ */
+BlockHandle block_new_aa_trace_freestart(uintptr_t query_len,
+                                         uintptr_t reference_len,
+                                         uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. With traceback. Global alignment. Unconstrained query start position.
+ */
+void block_align_aa_trace_freestart(BlockHandle b,
+                                    const struct PaddedBytes *q,
+                                    const struct PaddedBytes *r,
+                                    const struct AAMatrix *m,
+                                    struct Gaps g,
+                                    struct SizeRange s,
+                                    int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. With traceback. Global alignment. Unconstrained query start position.
+ */
+void block_align_profile_aa_trace_freestart(BlockHandle b,
+                                            const struct PaddedBytes *q,
+                                            const struct AAProfile *r,
+                                            struct SizeRange s,
+                                            int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. With traceback. Global alignment. Unconstrained query start position.
+ */
+struct AlignResult block_res_aa_trace_freestart(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. With traceback. Global alignment. Unconstrained query start position.
+ */
+void block_free_aa_trace_freestart(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. Global alignment. Unconstrained query start position.
+ */
+void block_cigar_aa_trace_freestart(BlockHandle b,
+                                    uintptr_t query_idx,
+                                    uintptr_t reference_idx,
+                                    struct Cigar *cigar);
+
+/**
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. Global alignment. Unconstrained query start position.
+ */
+void block_cigar_eq_aa_trace_freestart(BlockHandle b,
+                                       const struct PaddedBytes *q,
+                                       const struct PaddedBytes *r,
+                                       uintptr_t query_idx,
+                                       uintptr_t reference_idx,
+                                       struct Cigar *cigar);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. With X-drop. Global alignment. Unconstrained query start position.
+ */
+BlockHandle block_new_aa_xdrop_freestart(uintptr_t query_len,
+                                         uintptr_t reference_len,
+                                         uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. No traceback. With X-drop. Global alignment. Unconstrained query start position.
+ */
+void block_align_aa_xdrop_freestart(BlockHandle b,
+                                    const struct PaddedBytes *q,
+                                    const struct PaddedBytes *r,
+                                    const struct AAMatrix *m,
+                                    struct Gaps g,
+                                    struct SizeRange s,
+                                    int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. No traceback. With X-drop. Global alignment. Unconstrained query start position.
+ */
+void block_align_profile_aa_xdrop_freestart(BlockHandle b,
+                                            const struct PaddedBytes *q,
+                                            const struct AAProfile *r,
+                                            struct SizeRange s,
+                                            int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. No traceback. With X-drop. Global alignment. Unconstrained query start position.
+ */
+struct AlignResult block_res_aa_xdrop_freestart(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. No traceback. With X-drop. Global alignment. Unconstrained query start position.
+ */
+void block_free_aa_xdrop_freestart(BlockHandle b);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query start position.
+ */
+BlockHandle block_new_aa_trace_xdrop_freestart(uintptr_t query_len,
+                                               uintptr_t reference_len,
+                                               uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query start position.
+ */
+void block_align_aa_trace_xdrop_freestart(BlockHandle b,
+                                          const struct PaddedBytes *q,
+                                          const struct PaddedBytes *r,
+                                          const struct AAMatrix *m,
+                                          struct Gaps g,
+                                          struct SizeRange s,
+                                          int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. With traceback. With X-drop. Global alignment. Unconstrained query start position.
+ */
+void block_align_profile_aa_trace_xdrop_freestart(BlockHandle b,
+                                                  const struct PaddedBytes *q,
+                                                  const struct AAProfile *r,
+                                                  struct SizeRange s,
+                                                  int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query start position.
+ */
+struct AlignResult block_res_aa_trace_xdrop_freestart(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query start position.
+ */
+void block_free_aa_trace_xdrop_freestart(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query start position.
+ */
+void block_cigar_aa_trace_xdrop_freestart(BlockHandle b,
+                                          uintptr_t query_idx,
+                                          uintptr_t reference_idx,
+                                          struct Cigar *cigar);
+
+/**
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query start position.
+ */
+void block_cigar_eq_aa_trace_xdrop_freestart(BlockHandle b,
+                                             const struct PaddedBytes *q,
+                                             const struct PaddedBytes *r,
+                                             uintptr_t query_idx,
+                                             uintptr_t reference_idx,
+                                             struct Cigar *cigar);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. Local alignment. Unconstrained query start position.
+ */
+BlockHandle block_new_aa_local_freestart(uintptr_t query_len,
+                                         uintptr_t reference_len,
+                                         uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. No traceback. Local alignment. Unconstrained query start position.
+ */
+void block_align_aa_local_freestart(BlockHandle b,
+                                    const struct PaddedBytes *q,
+                                    const struct PaddedBytes *r,
+                                    const struct AAMatrix *m,
+                                    struct Gaps g,
+                                    struct SizeRange s,
+                                    int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. No traceback. Local alignment. Unconstrained query start position.
+ */
+void block_align_profile_aa_local_freestart(BlockHandle b,
+                                            const struct PaddedBytes *q,
+                                            const struct AAProfile *r,
+                                            struct SizeRange s,
+                                            int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. No traceback. Local alignment. Unconstrained query start position.
+ */
+struct AlignResult block_res_aa_local_freestart(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. No traceback. Local alignment. Unconstrained query start position.
+ */
+void block_free_aa_local_freestart(BlockHandle b);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. Local alignment. Unconstrained query start position.
+ */
+BlockHandle block_new_aa_trace_local_freestart(uintptr_t query_len,
+                                               uintptr_t reference_len,
+                                               uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. With traceback. Local alignment. Unconstrained query start position.
+ */
+void block_align_aa_trace_local_freestart(BlockHandle b,
+                                          const struct PaddedBytes *q,
+                                          const struct PaddedBytes *r,
+                                          const struct AAMatrix *m,
+                                          struct Gaps g,
+                                          struct SizeRange s,
+                                          int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. With traceback. Local alignment. Unconstrained query start position.
+ */
+void block_align_profile_aa_trace_local_freestart(BlockHandle b,
+                                                  const struct PaddedBytes *q,
+                                                  const struct AAProfile *r,
+                                                  struct SizeRange s,
+                                                  int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. With traceback. Local alignment. Unconstrained query start position.
+ */
+struct AlignResult block_res_aa_trace_local_freestart(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. With traceback. Local alignment. Unconstrained query start position.
+ */
+void block_free_aa_trace_local_freestart(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. Local alignment. Unconstrained query start position.
+ */
+void block_cigar_aa_trace_local_freestart(BlockHandle b,
+                                          uintptr_t query_idx,
+                                          uintptr_t reference_idx,
+                                          struct Cigar *cigar);
+
+/**
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. Local alignment. Unconstrained query start position.
+ */
+void block_cigar_eq_aa_trace_local_freestart(BlockHandle b,
+                                             const struct PaddedBytes *q,
+                                             const struct PaddedBytes *r,
+                                             uintptr_t query_idx,
+                                             uintptr_t reference_idx,
+                                             struct Cigar *cigar);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. With X-drop. Local alignment. Unconstrained query start position.
+ */
+BlockHandle block_new_aa_xdrop_local_freestart(uintptr_t query_len,
+                                               uintptr_t reference_len,
+                                               uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. No traceback. With X-drop. Local alignment. Unconstrained query start position.
+ */
+void block_align_aa_xdrop_local_freestart(BlockHandle b,
+                                          const struct PaddedBytes *q,
+                                          const struct PaddedBytes *r,
+                                          const struct AAMatrix *m,
+                                          struct Gaps g,
+                                          struct SizeRange s,
+                                          int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. No traceback. With X-drop. Local alignment. Unconstrained query start position.
+ */
+void block_align_profile_aa_xdrop_local_freestart(BlockHandle b,
+                                                  const struct PaddedBytes *q,
+                                                  const struct AAProfile *r,
+                                                  struct SizeRange s,
+                                                  int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. No traceback. With X-drop. Local alignment. Unconstrained query start position.
+ */
+struct AlignResult block_res_aa_xdrop_local_freestart(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. No traceback. With X-drop. Local alignment. Unconstrained query start position.
+ */
+void block_free_aa_xdrop_local_freestart(BlockHandle b);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query start position.
+ */
+BlockHandle block_new_aa_trace_xdrop_local_freestart(uintptr_t query_len,
+                                                     uintptr_t reference_len,
+                                                     uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query start position.
+ */
+void block_align_aa_trace_xdrop_local_freestart(BlockHandle b,
+                                                const struct PaddedBytes *q,
+                                                const struct PaddedBytes *r,
+                                                const struct AAMatrix *m,
+                                                struct Gaps g,
+                                                struct SizeRange s,
+                                                int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. With traceback. With X-drop. Local alignment. Unconstrained query start position.
+ */
+void block_align_profile_aa_trace_xdrop_local_freestart(BlockHandle b,
+                                                        const struct PaddedBytes *q,
+                                                        const struct AAProfile *r,
+                                                        struct SizeRange s,
+                                                        int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query start position.
+ */
+struct AlignResult block_res_aa_trace_xdrop_local_freestart(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query start position.
+ */
+void block_free_aa_trace_xdrop_local_freestart(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query start position.
+ */
+void block_cigar_aa_trace_xdrop_local_freestart(BlockHandle b,
+                                                uintptr_t query_idx,
+                                                uintptr_t reference_idx,
+                                                struct Cigar *cigar);
+
+/**
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query start position.
+ */
+void block_cigar_eq_aa_trace_xdrop_local_freestart(BlockHandle b,
+                                                   const struct PaddedBytes *q,
+                                                   const struct PaddedBytes *r,
+                                                   uintptr_t query_idx,
+                                                   uintptr_t reference_idx,
+                                                   struct Cigar *cigar);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. Global alignment. Unconstrained query end position
+ */
+BlockHandle block_new_aa_freeend(uintptr_t query_len,
+                                 uintptr_t reference_len,
+                                 uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. No traceback. Global alignment. Unconstrained query end position
+ */
+void block_align_aa_freeend(BlockHandle b,
+                            const struct PaddedBytes *q,
+                            const struct PaddedBytes *r,
+                            const struct AAMatrix *m,
+                            struct Gaps g,
+                            struct SizeRange s,
+                            int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. No traceback. Global alignment. Unconstrained query end position
+ */
+void block_align_profile_aa_freeend(BlockHandle b,
+                                    const struct PaddedBytes *q,
+                                    const struct AAProfile *r,
+                                    struct SizeRange s,
+                                    int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. No traceback. Global alignment. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. No traceback. Global alignment. Unconstrained query end position
+ */
+void block_free_aa_freeend(BlockHandle b);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. Global alignment. Unconstrained query end position
+ */
+BlockHandle block_new_aa_trace_freeend(uintptr_t query_len,
+                                       uintptr_t reference_len,
+                                       uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. With traceback. Global alignment. Unconstrained query end position
+ */
+void block_align_aa_trace_freeend(BlockHandle b,
+                                  const struct PaddedBytes *q,
+                                  const struct PaddedBytes *r,
+                                  const struct AAMatrix *m,
+                                  struct Gaps g,
+                                  struct SizeRange s,
+                                  int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. With traceback. Global alignment. Unconstrained query end position
+ */
+void block_align_profile_aa_trace_freeend(BlockHandle b,
+                                          const struct PaddedBytes *q,
+                                          const struct AAProfile *r,
+                                          struct SizeRange s,
+                                          int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. With traceback. Global alignment. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_trace_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. With traceback. Global alignment. Unconstrained query end position
+ */
+void block_free_aa_trace_freeend(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. Global alignment. Unconstrained query end position
+ */
+void block_cigar_aa_trace_freeend(BlockHandle b,
+                                  uintptr_t query_idx,
+                                  uintptr_t reference_idx,
+                                  struct Cigar *cigar);
+
+/**
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. Global alignment. Unconstrained query end position
+ */
+void block_cigar_eq_aa_trace_freeend(BlockHandle b,
+                                     const struct PaddedBytes *q,
+                                     const struct PaddedBytes *r,
+                                     uintptr_t query_idx,
+                                     uintptr_t reference_idx,
+                                     struct Cigar *cigar);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. With X-drop. Global alignment. Unconstrained query end position
+ */
+BlockHandle block_new_aa_xdrop_freeend(uintptr_t query_len,
+                                       uintptr_t reference_len,
+                                       uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. No traceback. With X-drop. Global alignment. Unconstrained query end position
+ */
+void block_align_aa_xdrop_freeend(BlockHandle b,
+                                  const struct PaddedBytes *q,
+                                  const struct PaddedBytes *r,
+                                  const struct AAMatrix *m,
+                                  struct Gaps g,
+                                  struct SizeRange s,
+                                  int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. No traceback. With X-drop. Global alignment. Unconstrained query end position
+ */
+void block_align_profile_aa_xdrop_freeend(BlockHandle b,
+                                          const struct PaddedBytes *q,
+                                          const struct AAProfile *r,
+                                          struct SizeRange s,
+                                          int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. No traceback. With X-drop. Global alignment. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_xdrop_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. No traceback. With X-drop. Global alignment. Unconstrained query end position
+ */
+void block_free_aa_xdrop_freeend(BlockHandle b);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query end position
+ */
+BlockHandle block_new_aa_trace_xdrop_freeend(uintptr_t query_len,
+                                             uintptr_t reference_len,
+                                             uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query end position
+ */
+void block_align_aa_trace_xdrop_freeend(BlockHandle b,
+                                        const struct PaddedBytes *q,
+                                        const struct PaddedBytes *r,
+                                        const struct AAMatrix *m,
+                                        struct Gaps g,
+                                        struct SizeRange s,
+                                        int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. With traceback. With X-drop. Global alignment. Unconstrained query end position
+ */
+void block_align_profile_aa_trace_xdrop_freeend(BlockHandle b,
+                                                const struct PaddedBytes *q,
+                                                const struct AAProfile *r,
+                                                struct SizeRange s,
+                                                int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_trace_xdrop_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query end position
+ */
+void block_free_aa_trace_xdrop_freeend(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query end position
+ */
+void block_cigar_aa_trace_xdrop_freeend(BlockHandle b,
+                                        uintptr_t query_idx,
+                                        uintptr_t reference_idx,
+                                        struct Cigar *cigar);
+
+/**
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query end position
+ */
+void block_cigar_eq_aa_trace_xdrop_freeend(BlockHandle b,
+                                           const struct PaddedBytes *q,
+                                           const struct PaddedBytes *r,
+                                           uintptr_t query_idx,
+                                           uintptr_t reference_idx,
+                                           struct Cigar *cigar);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. Local alignment. Unconstrained query end position
+ */
+BlockHandle block_new_aa_local_freeend(uintptr_t query_len,
+                                       uintptr_t reference_len,
+                                       uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. No traceback. Local alignment. Unconstrained query end position
+ */
+void block_align_aa_local_freeend(BlockHandle b,
+                                  const struct PaddedBytes *q,
+                                  const struct PaddedBytes *r,
+                                  const struct AAMatrix *m,
+                                  struct Gaps g,
+                                  struct SizeRange s,
+                                  int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. No traceback. Local alignment. Unconstrained query end position
+ */
+void block_align_profile_aa_local_freeend(BlockHandle b,
+                                          const struct PaddedBytes *q,
+                                          const struct AAProfile *r,
+                                          struct SizeRange s,
+                                          int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. No traceback. Local alignment. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_local_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. No traceback. Local alignment. Unconstrained query end position
+ */
+void block_free_aa_local_freeend(BlockHandle b);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. Local alignment. Unconstrained query end position
+ */
+BlockHandle block_new_aa_trace_local_freeend(uintptr_t query_len,
+                                             uintptr_t reference_len,
+                                             uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. With traceback. Local alignment. Unconstrained query end position
+ */
+void block_align_aa_trace_local_freeend(BlockHandle b,
+                                        const struct PaddedBytes *q,
+                                        const struct PaddedBytes *r,
+                                        const struct AAMatrix *m,
+                                        struct Gaps g,
+                                        struct SizeRange s,
+                                        int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. With traceback. Local alignment. Unconstrained query end position
+ */
+void block_align_profile_aa_trace_local_freeend(BlockHandle b,
+                                                const struct PaddedBytes *q,
+                                                const struct AAProfile *r,
+                                                struct SizeRange s,
+                                                int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. With traceback. Local alignment. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_trace_local_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. With traceback. Local alignment. Unconstrained query end position
+ */
+void block_free_aa_trace_local_freeend(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. Local alignment. Unconstrained query end position
+ */
+void block_cigar_aa_trace_local_freeend(BlockHandle b,
+                                        uintptr_t query_idx,
+                                        uintptr_t reference_idx,
+                                        struct Cigar *cigar);
+
+/**
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. Local alignment. Unconstrained query end position
+ */
+void block_cigar_eq_aa_trace_local_freeend(BlockHandle b,
+                                           const struct PaddedBytes *q,
+                                           const struct PaddedBytes *r,
+                                           uintptr_t query_idx,
+                                           uintptr_t reference_idx,
+                                           struct Cigar *cigar);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. With X-drop. Local alignment. Unconstrained query end position
+ */
+BlockHandle block_new_aa_xdrop_local_freeend(uintptr_t query_len,
+                                             uintptr_t reference_len,
+                                             uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. No traceback. With X-drop. Local alignment. Unconstrained query end position
+ */
+void block_align_aa_xdrop_local_freeend(BlockHandle b,
+                                        const struct PaddedBytes *q,
+                                        const struct PaddedBytes *r,
+                                        const struct AAMatrix *m,
+                                        struct Gaps g,
+                                        struct SizeRange s,
+                                        int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. No traceback. With X-drop. Local alignment. Unconstrained query end position
+ */
+void block_align_profile_aa_xdrop_local_freeend(BlockHandle b,
+                                                const struct PaddedBytes *q,
+                                                const struct AAProfile *r,
+                                                struct SizeRange s,
+                                                int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. No traceback. With X-drop. Local alignment. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_xdrop_local_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. No traceback. With X-drop. Local alignment. Unconstrained query end position
+ */
+void block_free_aa_xdrop_local_freeend(BlockHandle b);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query end position
+ */
+BlockHandle block_new_aa_trace_xdrop_local_freeend(uintptr_t query_len,
+                                                   uintptr_t reference_len,
+                                                   uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query end position
+ */
+void block_align_aa_trace_xdrop_local_freeend(BlockHandle b,
+                                              const struct PaddedBytes *q,
+                                              const struct PaddedBytes *r,
+                                              const struct AAMatrix *m,
+                                              struct Gaps g,
+                                              struct SizeRange s,
+                                              int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. With traceback. With X-drop. Local alignment. Unconstrained query end position
+ */
+void block_align_profile_aa_trace_xdrop_local_freeend(BlockHandle b,
+                                                      const struct PaddedBytes *q,
+                                                      const struct AAProfile *r,
+                                                      struct SizeRange s,
+                                                      int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_trace_xdrop_local_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query end position
+ */
+void block_free_aa_trace_xdrop_local_freeend(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query end position
+ */
+void block_cigar_aa_trace_xdrop_local_freeend(BlockHandle b,
+                                              uintptr_t query_idx,
+                                              uintptr_t reference_idx,
+                                              struct Cigar *cigar);
+
+/**
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query end position
+ */
+void block_cigar_eq_aa_trace_xdrop_local_freeend(BlockHandle b,
+                                                 const struct PaddedBytes *q,
+                                                 const struct PaddedBytes *r,
+                                                 uintptr_t query_idx,
+                                                 uintptr_t reference_idx,
+                                                 struct Cigar *cigar);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+BlockHandle block_new_aa_freestart_freeend(uintptr_t query_len,
+                                           uintptr_t reference_len,
+                                           uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. No traceback. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_aa_freestart_freeend(BlockHandle b,
+                                      const struct PaddedBytes *q,
+                                      const struct PaddedBytes *r,
+                                      const struct AAMatrix *m,
+                                      struct Gaps g,
+                                      struct SizeRange s,
+                                      int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. No traceback. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_profile_aa_freestart_freeend(BlockHandle b,
+                                              const struct PaddedBytes *q,
+                                              const struct AAProfile *r,
+                                              struct SizeRange s,
+                                              int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. No traceback. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_freestart_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. No traceback. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_free_aa_freestart_freeend(BlockHandle b);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+BlockHandle block_new_aa_trace_freestart_freeend(uintptr_t query_len,
+                                                 uintptr_t reference_len,
+                                                 uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. With traceback. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_aa_trace_freestart_freeend(BlockHandle b,
+                                            const struct PaddedBytes *q,
+                                            const struct PaddedBytes *r,
+                                            const struct AAMatrix *m,
+                                            struct Gaps g,
+                                            struct SizeRange s,
+                                            int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. With traceback. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_profile_aa_trace_freestart_freeend(BlockHandle b,
+                                                    const struct PaddedBytes *q,
+                                                    const struct AAProfile *r,
+                                                    struct SizeRange s,
+                                                    int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. With traceback. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_trace_freestart_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. With traceback. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_free_aa_trace_freestart_freeend(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_cigar_aa_trace_freestart_freeend(BlockHandle b,
+                                            uintptr_t query_idx,
+                                            uintptr_t reference_idx,
+                                            struct Cigar *cigar);
+
+/**
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_cigar_eq_aa_trace_freestart_freeend(BlockHandle b,
+                                               const struct PaddedBytes *q,
+                                               const struct PaddedBytes *r,
+                                               uintptr_t query_idx,
+                                               uintptr_t reference_idx,
+                                               struct Cigar *cigar);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. With X-drop. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+BlockHandle block_new_aa_xdrop_freestart_freeend(uintptr_t query_len,
+                                                 uintptr_t reference_len,
+                                                 uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. No traceback. With X-drop. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_aa_xdrop_freestart_freeend(BlockHandle b,
+                                            const struct PaddedBytes *q,
+                                            const struct PaddedBytes *r,
+                                            const struct AAMatrix *m,
+                                            struct Gaps g,
+                                            struct SizeRange s,
+                                            int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. No traceback. With X-drop. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_profile_aa_xdrop_freestart_freeend(BlockHandle b,
+                                                    const struct PaddedBytes *q,
+                                                    const struct AAProfile *r,
+                                                    struct SizeRange s,
+                                                    int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. No traceback. With X-drop. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_xdrop_freestart_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. No traceback. With X-drop. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_free_aa_xdrop_freestart_freeend(BlockHandle b);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+BlockHandle block_new_aa_trace_xdrop_freestart_freeend(uintptr_t query_len,
+                                                       uintptr_t reference_len,
+                                                       uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_aa_trace_xdrop_freestart_freeend(BlockHandle b,
+                                                  const struct PaddedBytes *q,
+                                                  const struct PaddedBytes *r,
+                                                  const struct AAMatrix *m,
+                                                  struct Gaps g,
+                                                  struct SizeRange s,
+                                                  int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. With traceback. With X-drop. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_profile_aa_trace_xdrop_freestart_freeend(BlockHandle b,
+                                                          const struct PaddedBytes *q,
+                                                          const struct AAProfile *r,
+                                                          struct SizeRange s,
+                                                          int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_trace_xdrop_freestart_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_free_aa_trace_xdrop_freestart_freeend(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_cigar_aa_trace_xdrop_freestart_freeend(BlockHandle b,
+                                                  uintptr_t query_idx,
+                                                  uintptr_t reference_idx,
+                                                  struct Cigar *cigar);
+
+/**
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. With X-drop. Global alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_cigar_eq_aa_trace_xdrop_freestart_freeend(BlockHandle b,
+                                                     const struct PaddedBytes *q,
+                                                     const struct PaddedBytes *r,
+                                                     uintptr_t query_idx,
+                                                     uintptr_t reference_idx,
+                                                     struct Cigar *cigar);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+BlockHandle block_new_aa_local_freestart_freeend(uintptr_t query_len,
+                                                 uintptr_t reference_len,
+                                                 uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. No traceback. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_aa_local_freestart_freeend(BlockHandle b,
+                                            const struct PaddedBytes *q,
+                                            const struct PaddedBytes *r,
+                                            const struct AAMatrix *m,
+                                            struct Gaps g,
+                                            struct SizeRange s,
+                                            int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. No traceback. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_profile_aa_local_freestart_freeend(BlockHandle b,
+                                                    const struct PaddedBytes *q,
+                                                    const struct AAProfile *r,
+                                                    struct SizeRange s,
+                                                    int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. No traceback. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_local_freestart_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. No traceback. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_free_aa_local_freestart_freeend(BlockHandle b);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+BlockHandle block_new_aa_trace_local_freestart_freeend(uintptr_t query_len,
+                                                       uintptr_t reference_len,
+                                                       uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. With traceback. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_aa_trace_local_freestart_freeend(BlockHandle b,
+                                                  const struct PaddedBytes *q,
+                                                  const struct PaddedBytes *r,
+                                                  const struct AAMatrix *m,
+                                                  struct Gaps g,
+                                                  struct SizeRange s,
+                                                  int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. With traceback. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_profile_aa_trace_local_freestart_freeend(BlockHandle b,
+                                                          const struct PaddedBytes *q,
+                                                          const struct AAProfile *r,
+                                                          struct SizeRange s,
+                                                          int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. With traceback. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_trace_local_freestart_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. With traceback. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_free_aa_trace_local_freestart_freeend(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_cigar_aa_trace_local_freestart_freeend(BlockHandle b,
+                                                  uintptr_t query_idx,
+                                                  uintptr_t reference_idx,
+                                                  struct Cigar *cigar);
+
+/**
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_cigar_eq_aa_trace_local_freestart_freeend(BlockHandle b,
+                                                     const struct PaddedBytes *q,
+                                                     const struct PaddedBytes *r,
+                                                     uintptr_t query_idx,
+                                                     uintptr_t reference_idx,
+                                                     struct Cigar *cigar);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. No traceback. With X-drop. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+BlockHandle block_new_aa_xdrop_local_freestart_freeend(uintptr_t query_len,
+                                                       uintptr_t reference_len,
+                                                       uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. No traceback. With X-drop. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_aa_xdrop_local_freestart_freeend(BlockHandle b,
+                                                  const struct PaddedBytes *q,
+                                                  const struct PaddedBytes *r,
+                                                  const struct AAMatrix *m,
+                                                  struct Gaps g,
+                                                  struct SizeRange s,
+                                                  int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. No traceback. With X-drop. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_profile_aa_xdrop_local_freestart_freeend(BlockHandle b,
+                                                          const struct PaddedBytes *q,
+                                                          const struct AAProfile *r,
+                                                          struct SizeRange s,
+                                                          int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. No traceback. With X-drop. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_xdrop_local_freestart_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. No traceback. With X-drop. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_free_aa_xdrop_local_freestart_freeend(BlockHandle b);
+
+/**
+ *Create a new block aligner instance for alignment of amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+BlockHandle block_new_aa_trace_xdrop_local_freestart_freeend(uintptr_t query_len,
+                                                             uintptr_t reference_len,
+                                                             uintptr_t max_size);
+
+/**
+ *Alignment of two amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_aa_trace_xdrop_local_freestart_freeend(BlockHandle b,
+                                                        const struct PaddedBytes *q,
+                                                        const struct PaddedBytes *r,
+                                                        const struct AAMatrix *m,
+                                                        struct Gaps g,
+                                                        struct SizeRange s,
+                                                        int32_t x);
+
+/**
+ *Alignment of an amino acid sequence to a profile. With traceback. With X-drop. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_align_profile_aa_trace_xdrop_local_freestart_freeend(BlockHandle b,
+                                                                const struct PaddedBytes *q,
+                                                                const struct AAProfile *r,
+                                                                struct SizeRange s,
+                                                                int32_t x);
+
+/**
+ *Retrieves the result of alignment of two amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+struct AlignResult block_res_aa_trace_xdrop_local_freestart_freeend(BlockHandle b);
+
+/**
+ *Frees the block used for alignment of two amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_free_aa_trace_xdrop_local_freestart_freeend(BlockHandle b);
+
+/**
+ *Retrieves the resulting CIGAR string from alignment of two amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_cigar_aa_trace_xdrop_local_freestart_freeend(BlockHandle b,
+                                                        uintptr_t query_idx,
+                                                        uintptr_t reference_idx,
+                                                        struct Cigar *cigar);
+
+/**
+ *Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings. With traceback. With X-drop. Local alignment. Unconstrained query start position. Unconstrained query end position
+ */
+void block_cigar_eq_aa_trace_xdrop_local_freestart_freeend(BlockHandle b,
+                                                           const struct PaddedBytes *q,
+                                                           const struct PaddedBytes *r,
+                                                           uintptr_t query_idx,
+                                                           uintptr_t reference_idx,
+                                                           struct Cigar *cigar);
 
 #ifdef __cplusplus
 }  // extern "C"

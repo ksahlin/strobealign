@@ -22,6 +22,8 @@ struct AlignmentResult {
 };
 
 AlignmentResult global_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params);
+AlignmentResult xdrop_query_end_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params);
+AlignmentResult xdrop_query_start_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params);
 AlignmentResult free_query_end_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params);
 AlignmentResult free_query_start_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params);
 

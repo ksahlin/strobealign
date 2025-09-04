@@ -256,148 +256,175 @@ pub unsafe extern fn block_free_padded_aa(padded: *mut PaddedBytes) {
     drop(Box::from_raw(padded));
 }
 
-
 // Block
+use paste::paste;
+macro_rules! gen_common_functions {
+    ($suffix_name:expr,
+        $trace:literal,
+        $xdrop:literal,
+        $local:literal,
+        $freestart:literal,
+        $freeend:literal,
+        $doc1:expr, $doc2:expr, $doc3:expr, $doc4:expr, $doc5:expr) => {
+        paste! {
+            #[doc = "Create a new block aligner instance for alignment of amino acid strings." $doc1 $doc2 $doc3 $doc4 $doc5]
+            #[no_mangle]
+            pub unsafe extern "C" fn [<block_new_aa $suffix_name>](
+                query_len: usize,
+                reference_len: usize,
+                max_size: usize,
+            ) -> BlockHandle {
+                let aligner = Box::new(Block::<$trace, $xdrop, $local, $freestart, $freeend>::new(
+                    query_len,
+                    reference_len,
+                    max_size,
+                ));
+                Box::into_raw(aligner) as BlockHandle
+            }
+            #[doc = "Alignment of two amino acid strings."  $doc1 $doc2 $doc3 $doc4 $doc5 ]
+            #[no_mangle]
+            pub unsafe extern "C" fn [<block_align_aa $suffix_name>](
+                b: BlockHandle,
+                q: *const PaddedBytes,
+                r: *const PaddedBytes,
+                m: *const AAMatrix,
+                g: Gaps,
+                s: SizeRange,
+                x: i32,
+            ) {
+                let aligner = &mut *(b as *mut Block<$trace, $xdrop, $local, $freestart, $freeend>);
+                aligner.align(&*q, &*r, &*m, g, s.min..=s.max, x);
+            }
 
-macro_rules! gen_functions {
-    ($new_name:ident, $new_doc:expr,
-     $align_name:ident, $align_doc:expr,
-     $align_profile_name:ident, $align_profile_doc:expr,
-     $res_name:ident, $res_doc:expr,
-     $trace_name:ident, $trace_doc:expr,
-     $trace_eq_name:ident, $trace_eq_doc:expr,
-     $free_name:ident, $free_doc:expr,
-     $matrix:ty, $profile:ty, $trace:literal, $x_drop:literal) => {
-        #[doc = $new_doc]
-        #[no_mangle]
-        pub unsafe extern fn $new_name(query_len: usize,
-                                       reference_len: usize,
-                                       max_size: usize) -> BlockHandle {
-            let aligner = Box::new(Block::<$trace, $x_drop>::new(query_len, reference_len, max_size));
-            Box::into_raw(aligner) as BlockHandle
+            #[doc = "Alignment of an amino acid sequence to a profile."  $doc1 $doc2 $doc3 $doc4 $doc5 ]
+            #[no_mangle]
+            pub unsafe extern "C" fn [<block_align_profile_aa $suffix_name>](
+                b: BlockHandle,
+                q: *const PaddedBytes,
+                r: *const AAProfile,
+                s: SizeRange,
+                x: i32,
+            ) {
+                let aligner = &mut *(b as *mut Block<$trace, $xdrop, $local, $freestart, $freeend>);
+                aligner.align_profile(&*q, &*r, s.min..=s.max, x);
+            }
+
+            #[doc = "Retrieves the result of alignment of two amino acid strings."  $doc1 $doc2 $doc3 $doc4 $doc5 ]
+            #[no_mangle]
+            pub unsafe extern "C" fn [<block_res_aa $suffix_name>](b: BlockHandle) -> AlignResult {
+                let aligner = &*(b as *const Block<$trace, $xdrop, $local, $freestart, $freeend>);
+                aligner.res()
+            }
+
+            #[doc = "Frees the block used for alignment of two amino acid strings."  $doc1 $doc2 $doc3 $doc4 $doc5 ]
+            #[no_mangle]
+            pub unsafe extern "C" fn [<block_free_aa $suffix_name>](b: BlockHandle) {
+                drop(Box::from_raw(b as *mut Block<$trace, $xdrop, $local, $freestart, $freeend>));
+            }
         }
+    }
+}
+macro_rules! gen_trace_functions {
+    ($suffix_name:expr,
+    $xdrop:literal,
+    $local:literal,
+    $freestart:literal,
+    $freeend:literal,
+    $doc2:expr, $doc3:expr, $doc4:expr, $doc5:expr
+    ) => {
+        paste! {
+            gen_common_functions!($suffix_name, false, $xdrop, $local, $freestart, $freeend, " No traceback.", $doc2, $doc3, $doc4, $doc5);
+            gen_common_functions!([<_trace $suffix_name>], true, $xdrop, $local, $freestart, $freeend, " With traceback.", $doc2, $doc3, $doc4, $doc5);
+            #[doc = "Retrieves the resulting CIGAR string from alignment of two amino acid strings." " With traceback." $doc2 $doc3 $doc4 $doc5 ]
+            #[no_mangle]
+            pub unsafe extern "C" fn [<block_cigar_aa _trace $suffix_name>](
+                b: BlockHandle,
+                query_idx: usize,
+                reference_idx: usize,
+                cigar: *mut Cigar,
+            ) {
+                let aligner = &*(b as *const Block<true, $xdrop, $local, $freestart, $freeend>);
+                aligner.trace().cigar(query_idx, reference_idx, &mut *cigar);
+            }
 
-        #[doc = $align_doc]
-        #[no_mangle]
-        pub unsafe extern fn $align_name(b: BlockHandle,
-                                         q: *const PaddedBytes,
-                                         r: *const PaddedBytes,
-                                         m: *const $matrix,
-                                         g: Gaps,
-                                         s: SizeRange,
-                                         x: i32) {
-            let aligner = &mut *(b as *mut Block<$trace, $x_drop>);
-            aligner.align(&*q, &*r, &*m, g, s.min..=s.max, x);
-        }
-
-        #[doc = $align_profile_doc]
-        #[no_mangle]
-        pub unsafe extern fn $align_profile_name(b: BlockHandle,
-                                                 q: *const PaddedBytes,
-                                                 r: *const $profile,
-                                                 s: SizeRange,
-                                                 x: i32) {
-            let aligner = &mut *(b as *mut Block<$trace, $x_drop>);
-            aligner.align_profile(&*q, &*r, s.min..=s.max, x);
-        }
-
-        #[doc = $res_doc]
-        #[no_mangle]
-        pub unsafe extern fn $res_name(b: BlockHandle) -> AlignResult {
-            let aligner = &*(b as *const Block<$trace, $x_drop>);
-            aligner.res()
-        }
-
-        #[doc = $trace_doc]
-        #[no_mangle]
-        pub unsafe extern fn $trace_name(b: BlockHandle, query_idx: usize, reference_idx: usize, cigar: *mut Cigar) {
-            let aligner = &*(b as *const Block<$trace, $x_drop>);
-            aligner.trace().cigar(query_idx, reference_idx, &mut *cigar);
-        }
-
-        #[doc = $trace_eq_doc]
-        #[no_mangle]
-        pub unsafe extern fn $trace_eq_name(b: BlockHandle, q: *const PaddedBytes, r: *const PaddedBytes, query_idx: usize, reference_idx: usize, cigar: *mut Cigar) {
-            let aligner = &*(b as *const Block<$trace, $x_drop>);
-            aligner.trace().cigar_eq(&*q, &*r, query_idx, reference_idx, &mut *cigar);
-        }
-
-        #[doc = $free_doc]
-        #[no_mangle]
-        pub unsafe extern fn $free_name(b: BlockHandle) {
-            drop(Box::from_raw(b as *mut Block<$trace, $x_drop>));
+            #[doc = "Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings." " With traceback." $doc2 $doc3 $doc4 $doc5 ]
+            #[no_mangle]
+            pub unsafe extern "C" fn [<block_cigar_eq_aa _trace $suffix_name>](
+                b: BlockHandle,
+                q: *const PaddedBytes,
+                r: *const PaddedBytes,
+                query_idx: usize,
+                reference_idx: usize,
+                cigar: *mut Cigar,
+            ) {
+                let aligner = &*(b as *const Block<true, $xdrop, $local, $freestart, $freeend>);
+                aligner
+                    .trace()
+                    .cigar_eq(&*q, &*r, query_idx, reference_idx, &mut *cigar);
+            }
         }
     };
 }
-
-gen_functions!(
-    block_new_aa,
-    "Create a new block aligner instance for global alignment of amino acid strings (no traceback).",
-    block_align_aa,
-    "Global alignment of two amino acid strings (no traceback).",
-    block_align_profile_aa,
-    "Global alignment of an amino acid sequence to a profile (no traceback).",
-    block_res_aa,
-    "Retrieves the result of global alignment of two amino acid strings (no traceback).",
-    _block_cigar_aa,
-    "Don't use.",
-    _block_cigar_eq_aa,
-    "Don't use.",
-    block_free_aa,
-    "Frees the block used for global alignment of two amino acid strings (no traceback).",
-    AAMatrix, AAProfile, false, false
-);
-
-gen_functions!(
-    block_new_aa_xdrop,
-    "Create a new block aligner instance for X-drop alignment of amino acid strings (no traceback).",
-    block_align_aa_xdrop,
-    "X-drop alignment of two amino acid strings (no traceback).",
-    block_align_profile_aa_xdrop,
-    "X-drop alignment of an amino acid sequence to a profile (no traceback).",
-    block_res_aa_xdrop,
-    "Retrieves the result of X-drop alignment of two amino acid strings (no traceback).",
-    _block_cigar_aa_xdrop,
-    "Don't use.",
-    _block_cigar_eq_aa_xdrop,
-    "Don't use.",
-    block_free_aa_xdrop,
-    "Frees the block used for X-drop alignment of two amino acid strings (no traceback).",
-    AAMatrix, AAProfile, false, true
-);
-
-gen_functions!(
-    block_new_aa_trace,
-    "Create a new block aligner instance for global alignment of amino acid strings, with traceback.",
-    block_align_aa_trace,
-    "Global alignment of two amino acid strings, with traceback.",
-    block_align_profile_aa_trace,
-    "Global alignment of an amino acid sequence to a profile, with traceback.",
-    block_res_aa_trace,
-    "Retrieves the result of global alignment of two amino acid strings, with traceback.",
-    block_cigar_aa_trace,
-    "Retrieves the resulting CIGAR string from global alignment of two amino acid strings, with traceback.",
-    block_cigar_eq_aa_trace,
-    "Retrieves the resulting CIGAR string from global alignment of two amino acid strings, with traceback containing =/X.",
-    block_free_aa_trace,
-    "Frees the block used for global alignment of two amino acid strings, with traceback.",
-    AAMatrix, AAProfile, true, false
-);
-
-gen_functions!(
-    block_new_aa_trace_xdrop,
-    "Create a new block aligner instance for X-drop alignment of amino acid strings, with traceback.",
-    block_align_aa_trace_xdrop,
-    "X-drop alignment of two amino acid strings, with traceback.",
-    block_align_profile_aa_trace_xdrop,
-    "X-drop alignment of an amino acid sequence to a profile, with traceback.",
-    block_res_aa_trace_xdrop,
-    "Retrieves the result of X-drop alignment of two amino acid strings, with traceback.",
-    block_cigar_aa_trace_xdrop,
-    "Retrieves the resulting CIGAR string from X-drop alignment of two amino acid strings, with traceback.",
-    block_cigar_eq_aa_trace_xdrop,
-    "Retrieves the resulting CIGAR string from X-drop alignment of two amino acid strings, with traceback containing =/X.",
-    block_free_aa_trace_xdrop,
-    "Frees the block used for X-drop alignment of two amino acid strings, with traceback.",
-    AAMatrix, AAProfile, true, true
-);
+macro_rules! gen_xdrop_functions {
+    ($suffix_name:expr,
+    $local:literal,
+    $freestart:literal,
+    $freeend:literal,
+    $doc3:expr, $doc4:expr, $doc5:expr
+    ) => {
+        paste! {
+        gen_trace_functions!($suffix_name, false, $local, $freestart, $freeend,
+            "",
+            $doc3,
+            $doc4,
+            $doc5);
+        gen_trace_functions!([<_xdrop $suffix_name>], true, $local, $freestart, $freeend,
+            " With X-drop.",
+            $doc3,
+            $doc4,
+            $doc5);
+        }
+    };
+}
+macro_rules! gen_local_functions {
+    ($suffix_name:expr,
+    $freestart:literal,
+    $freeend:literal,
+    $doc4:expr, $doc5:expr
+    ) => {
+        paste! {
+            gen_xdrop_functions!($suffix_name, false, $freestart, $freeend,
+                " Global alignment.",
+                $doc4,
+                $doc5);
+            gen_xdrop_functions!([<_local $suffix_name>], true, $freestart, $freeend,
+                " Local alignment.",
+                $doc4,
+                $doc5);
+        }
+    };
+}
+macro_rules! gen_freestart_functions {
+    ($suffix_name:expr,
+    $freeend:literal,
+    $doc5:expr
+    ) => {
+        paste! {
+            gen_local_functions!($suffix_name, false, $freeend,
+                "",
+                $doc5);
+            gen_local_functions!([<_freestart $suffix_name>], true, $freeend,
+                " Unconstrained query start position.",
+                $doc5);
+        }
+    };
+}
+macro_rules! gen_alignment_functions {
+    () => {
+        paste! {
+            gen_freestart_functions!("", false, "");
+            gen_freestart_functions!(_freeend, true, " Unconstrained query end position");
+        }
+    };
+}
+gen_alignment_functions!();
