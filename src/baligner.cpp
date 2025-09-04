@@ -32,8 +32,6 @@ enum class AlignmentMode {
     Global,
     XdropQueryEnd,
     XdropQueryStart,
-    FreeQueryStart,
-    FreeQueryEnd
 };
 
 AlignmentResult run_block_alignment(const std::string& query, const std::string& ref, AlignmentMode mode, const AlignmentScoring& scoring_params) {
@@ -47,9 +45,6 @@ AlignmentResult run_block_alignment(const std::string& query, const std::string&
         return result;
     }
 
-    AlignmentMode effective_mode = mode;
-    bool reversed_mode = false;
-
     std::string processed_query = query;
     std::string processed_ref = ref;
     size_t original_query_len = query.length();
@@ -58,13 +53,6 @@ AlignmentResult run_block_alignment(const std::string& query, const std::string&
     if (mode == AlignmentMode::XdropQueryStart) {
         processed_query = reverse_string(query);
         processed_ref = reverse_string(ref);
-        reversed_mode = true;
-    }
-    if (mode == AlignmentMode::FreeQueryEnd) {
-        processed_query = reverse_string(query);
-        processed_ref = reverse_string(ref);
-        effective_mode = AlignmentMode::FreeQueryStart;
-        reversed_mode = true;
     }
 
     SizeRange range = {.min = 32, .max = 256};
@@ -83,37 +71,16 @@ AlignmentResult run_block_alignment(const std::string& query, const std::string&
 
     const int32_t x_drop_threshold = 800; // make it a param at some point
 
-    if (effective_mode == AlignmentMode::Global) {
+    if (mode == AlignmentMode::Global) {
         block = block_new_aa_trace(original_query_len, original_ref_len, range.max);
-        block_align_aa_trace(block, q_padded, r_padded, dna_matrix, gaps, range, x_drop_threshold);
+        block_align_aa_trace(block, q_padded, r_padded, dna_matrix, gaps, range, x_drop_threshold, scoring_params.end_bonus);
         res = block_res_aa_trace(block);
         cigar_ptr = block_new_cigar(res.query_idx, res.reference_idx);
         block_cigar_eq_aa_trace(block, q_padded, r_padded, res.query_idx, res.reference_idx, cigar_ptr);
         block_free_aa_trace(block);
-    } else if (effective_mode == AlignmentMode::FreeQueryStart) {
-        block = block_new_aa_trace_freestart(original_query_len, original_ref_len, range.max);
-        block_align_aa_trace_freestart(block, q_padded, r_padded, dna_matrix, gaps, range, x_drop_threshold);
-        res = block_res_aa_trace_freestart(block);
-        cigar_ptr = block_new_cigar(res.query_idx, res.reference_idx);
-        block_cigar_eq_aa_trace_freestart(block, q_padded, r_padded, res.query_idx, res.reference_idx, cigar_ptr);
-        block_free_aa_trace_freestart(block);
-    } else if (effective_mode == AlignmentMode::FreeQueryEnd) {
-        block = block_new_aa_trace_freeend(original_query_len, original_ref_len, range.max);
-        block_align_aa_trace_freeend(block, q_padded, r_padded, dna_matrix, gaps, range, x_drop_threshold);
-        res = block_res_aa_trace_freeend(block);
-        cigar_ptr = block_new_cigar(res.query_idx, res.reference_idx);
-        block_cigar_eq_aa_trace_freeend(block, q_padded, r_padded, res.query_idx, res.reference_idx, cigar_ptr);
-        block_free_aa_trace_freeend(block);
-    } else if (effective_mode == AlignmentMode::XdropQueryStart) {
-        block = block_new_aa_trace_xdrop(processed_query.length(), processed_ref.length(), range.max);
-        block_align_aa_trace_xdrop(block, q_padded, r_padded, dna_matrix, gaps, range, x_drop_threshold);
-        res = block_res_aa_trace_xdrop(block);
-        cigar_ptr = block_new_cigar(res.query_idx, res.reference_idx);
-        block_cigar_eq_aa_trace_xdrop(block, q_padded, r_padded, res.query_idx, res.reference_idx, cigar_ptr);
-        block_free_aa_trace_xdrop(block);
     } else {
         block = block_new_aa_trace_xdrop(processed_query.length(), processed_ref.length(), range.max);
-        block_align_aa_trace_xdrop(block, q_padded, r_padded, dna_matrix, gaps, range, x_drop_threshold);
+        block_align_aa_trace_xdrop(block, q_padded, r_padded, dna_matrix, gaps, range, x_drop_threshold, scoring_params.end_bonus);
         res = block_res_aa_trace_xdrop(block);
         cigar_ptr = block_new_cigar(res.query_idx, res.reference_idx);
         block_cigar_eq_aa_trace_xdrop(block, q_padded, r_padded, res.query_idx, res.reference_idx, cigar_ptr);
@@ -123,11 +90,11 @@ AlignmentResult run_block_alignment(const std::string& query, const std::string&
     result.score = res.score;
     size_t cigar_len = block_len_cigar(cigar_ptr);
 
-    if (reversed_mode) {
+    if (mode == AlignmentMode::XdropQueryStart) {
         result.query_start = original_query_len - res.query_idx;
-        result.query_end   = original_query_len;
-        result.ref_start   = original_ref_len - res.reference_idx;
-        result.ref_end     = original_ref_len;
+        result.query_end = original_query_len;
+        result.ref_start = original_ref_len - res.reference_idx;
+        result.ref_end = original_ref_len;
         result.cigar = reverse_cigar_vector(cigar_ptr, cigar_len);
     } else {
         result.query_start = 0;
@@ -155,12 +122,4 @@ AlignmentResult xdrop_query_end_alignment(const std::string& query, const std::s
 
 AlignmentResult xdrop_query_start_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params) {
     return run_block_alignment(query, ref, AlignmentMode::XdropQueryStart, scoring_params);
-}
-
-AlignmentResult free_query_end_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params) {
-    return run_block_alignment(query, ref, AlignmentMode::FreeQueryEnd, scoring_params);
-}
-
-AlignmentResult free_query_start_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params) {
-    return run_block_alignment(query, ref, AlignmentMode::FreeQueryStart, scoring_params);
 }

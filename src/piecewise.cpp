@@ -69,7 +69,6 @@ std::pair<Cigar, int> merge_cigar_elements_with_edit_distance(
     return {cigar, edit_dist};
 }
 
-
 AlignmentInfo piecewise_extension_alignment(
     const std::string& reference,
     const std::string& query,
@@ -86,7 +85,8 @@ AlignmentInfo piecewise_extension_alignment(
         .match = int8_t (scoring_params.match),
         .mismatch = int8_t(-scoring_params.mismatch),
         .gap_open = int8_t(-scoring_params.gap_open),
-        .gap_extend = int8_t(-scoring_params.gap_extend)
+        .gap_extend = int8_t(-scoring_params.gap_extend),
+        .end_bonus = int32_t(scoring_params.end_bonus)
     };
 
     const Anchor& first_anchor = anchors[0];
@@ -95,37 +95,20 @@ AlignmentInfo piecewise_extension_alignment(
         const size_t ref_start = std::max(0, static_cast<int>(first_anchor.ref_start) - (static_cast<int>(query_part.length()) + padding));
         const std::string ref_part = reference.substr(ref_start, first_anchor.ref_start - ref_start);
 
-        AlignmentResult pre_align_xdrop = xdrop_query_start_alignment(query_part, ref_part, params);
-        AlignmentResult chosen_pre_align = pre_align_xdrop;
-        int chosen_score = pre_align_xdrop.score;
-        
-        if (pre_align_xdrop.query_start != 0) {
-            AlignmentResult pre_align_free = free_query_start_alignment(query_part, ref_part, params);
-            const int free_score_with_bonus = pre_align_free.score + scoring_params.end_bonus;
-            
-            if (free_score_with_bonus > chosen_score) {
-                chosen_pre_align = pre_align_free;
-                chosen_score = free_score_with_bonus;
-            }
-        } else {
-            chosen_score += scoring_params.end_bonus;
-        }
+        AlignmentResult pre_align = xdrop_query_start_alignment(query_part, ref_part, params);
 
-        if (chosen_pre_align.score == 0) {
+        if (pre_align.score == 0) {
             result.query_start = first_anchor.query_start;
             result.ref_start = first_anchor.ref_start;
         } else {
-            result.sw_score += chosen_score;
-            result.query_start = chosen_pre_align.query_start;
-            result.ref_start = ref_start + chosen_pre_align.ref_start;
-            temp_cigar_elements.insert(temp_cigar_elements.end(), chosen_pre_align.cigar.begin(), chosen_pre_align.cigar.end());
+            result.sw_score += pre_align.score;
+            result.query_start = pre_align.query_start;
+            result.ref_start = ref_start + pre_align.ref_start;
+            temp_cigar_elements.insert(temp_cigar_elements.end(), pre_align.cigar.begin(), pre_align.cigar.end());
         }
     } else {
         result.query_start = first_anchor.query_start;
         result.ref_start = first_anchor.ref_start;
-        if (first_anchor.query_start == 0) {
-            result.sw_score += scoring_params.end_bonus;
-        }
     }
 
     result.sw_score += k * params.match;
@@ -143,6 +126,7 @@ AlignmentInfo piecewise_extension_alignment(
         const int ref_diff = curr_start_ref - prev_end_ref;
         const int query_diff = curr_start_query - prev_end_query;
 
+
         if (ref_diff > 0 && query_diff > 0){
             const std::string query_part = query.substr(prev_end_query, query_diff);
             const std::string ref_part = reference.substr(prev_end_ref, ref_diff);
@@ -154,7 +138,7 @@ AlignmentInfo piecewise_extension_alignment(
             result.sw_score += k * params.match;
             temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)k});
         } else {
-            if (ref_diff < query_diff) {
+             if (ref_diff < query_diff) {
                 const size_t inserted_part = -ref_diff + query_diff;
                 result.sw_score += params.gap_open + (inserted_part - 1) * params.gap_extend;
                 temp_cigar_elements.push_back({Operation::I, (uintptr_t)inserted_part});
@@ -186,37 +170,20 @@ AlignmentInfo piecewise_extension_alignment(
         const size_t ref_part_end = std::min(reference.length(), last_anchor_end_ref + query_part.length() + padding);
         const std::string ref_part = reference.substr(last_anchor_end_ref, ref_part_end - last_anchor_end_ref);
 
-        AlignmentResult post_align_xdrop = xdrop_query_end_alignment(query_part, ref_part, params);
-        AlignmentResult chosen_post_align = post_align_xdrop;
-        int chosen_score = post_align_xdrop.score;
-        
-        if (last_anchor_end_query + post_align_xdrop.query_end != query.length()) {
-            AlignmentResult post_align_free = free_query_end_alignment(query_part, ref_part, params);
-            const int free_score_with_bonus = post_align_free.score + scoring_params.end_bonus;
-            
-            if (free_score_with_bonus > chosen_score) {
-                chosen_post_align = post_align_free;
-                chosen_score = free_score_with_bonus;
-            }
-        } else {
-            chosen_score += scoring_params.end_bonus;
-        }
+        AlignmentResult post_align = xdrop_query_end_alignment(query_part, ref_part, params);
 
-        if (chosen_post_align.score == 0) {
+        if (post_align.score == 0) {
             result.query_end = last_anchor_end_query;
             result.ref_end = last_anchor_end_ref;
         } else {
-            result.sw_score += chosen_score;
-            result.query_end = last_anchor_end_query + chosen_post_align.query_end;
-            result.ref_end = last_anchor_end_ref + chosen_post_align.ref_end;
-            temp_cigar_elements.insert(temp_cigar_elements.end(), chosen_post_align.cigar.begin(), chosen_post_align.cigar.end());
+            result.sw_score += post_align.score;
+            result.query_end = last_anchor_end_query + post_align.query_end;
+            result.ref_end = last_anchor_end_ref + post_align.ref_end;
+            temp_cigar_elements.insert(temp_cigar_elements.end(), post_align.cigar.begin(), post_align.cigar.end());
         }
     } else {
         result.query_end = last_anchor_end_query;
         result.ref_end = last_anchor_end_ref;
-        if (last_anchor_end_query == query.length()) {
-            result.sw_score += scoring_params.end_bonus;
-        }
     }
 
     const auto cigar_ed = merge_cigar_elements_with_edit_distance(
@@ -228,6 +195,13 @@ AlignmentInfo piecewise_extension_alignment(
 
     result.cigar = cigar_ed.first;
     result.edit_distance = cigar_ed.second;
+    
+    if (result.query_start == 0) {
+        result.sw_score += scoring_params.end_bonus;
+    }
+    if (result.query_end == query.length()) {
+        result.sw_score += scoring_params.end_bonus;
+    }
 
     return result;
 }

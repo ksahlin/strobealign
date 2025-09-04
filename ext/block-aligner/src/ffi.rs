@@ -6,9 +6,9 @@
 
 use std::ffi::c_void;
 
+use crate::cigar::*;
 use crate::scan_block::*;
 use crate::scores::*;
-use crate::cigar::*;
 
 // avoid generics by using void pointer and monomorphism
 /// A handle for a block in block aligner.
@@ -19,9 +19,8 @@ pub type BlockHandle = *mut c_void;
 #[repr(C)]
 pub struct SizeRange {
     pub min: usize,
-    pub max: usize
+    pub max: usize,
 }
-
 
 // AAMatrix
 
@@ -29,24 +28,26 @@ pub struct SizeRange {
 ///
 /// Note that the match score must be positive and the mismatch score must be negative.
 #[no_mangle]
-pub unsafe extern fn block_new_simple_aamatrix(match_score: i8, mismatch_score: i8) -> *mut AAMatrix {
+pub unsafe extern "C" fn block_new_simple_aamatrix(
+    match_score: i8,
+    mismatch_score: i8,
+) -> *mut AAMatrix {
     let matrix = Box::new(AAMatrix::new_simple(match_score, mismatch_score));
     Box::into_raw(matrix)
 }
 
 /// Set an entry in the AAMatrix.
 #[no_mangle]
-pub unsafe extern fn block_set_aamatrix(matrix: *mut AAMatrix, a: u8, b: u8, score: i8) {
+pub unsafe extern "C" fn block_set_aamatrix(matrix: *mut AAMatrix, a: u8, b: u8, score: i8) {
     let matrix = &mut *matrix;
     matrix.set(a, b, score);
 }
 
 /// Frees an AAMatrix.
 #[no_mangle]
-pub unsafe extern fn block_free_aamatrix(matrix: *mut AAMatrix) {
+pub unsafe extern "C" fn block_free_aamatrix(matrix: *mut AAMatrix) {
     drop(Box::from_raw(matrix));
 }
-
 
 // AAProfile
 
@@ -58,14 +59,18 @@ pub unsafe extern fn block_free_aamatrix(matrix: *mut AAMatrix) {
 /// The first column of scores in the profile should be large negative values (padding).
 /// This allows gap open costs to be specified for the first column of the DP matrix.
 #[no_mangle]
-pub unsafe extern fn block_new_aaprofile(str_len: usize, block_size: usize, gap_extend: i8) -> *mut AAProfile {
+pub unsafe extern "C" fn block_new_aaprofile(
+    str_len: usize,
+    block_size: usize,
+    gap_extend: i8,
+) -> *mut AAProfile {
     let profile = Box::new(AAProfile::new(str_len, block_size, gap_extend));
     Box::into_raw(profile)
 }
 
 /// Get the length of the profile.
 #[no_mangle]
-pub unsafe extern fn block_len_aaprofile(profile: *const AAProfile) -> usize {
+pub unsafe extern "C" fn block_len_aaprofile(profile: *const AAProfile) -> usize {
     let profile = &*profile;
     profile.len()
 }
@@ -73,7 +78,11 @@ pub unsafe extern fn block_len_aaprofile(profile: *const AAProfile) -> usize {
 /// Clear the profile so it can be reused for profile lengths less than or equal
 /// to the length this struct was created with.
 #[no_mangle]
-pub unsafe extern fn block_clear_aaprofile(profile: *mut AAProfile, str_len: usize, block_size: usize) {
+pub unsafe extern "C" fn block_clear_aaprofile(
+    profile: *mut AAProfile,
+    str_len: usize,
+    block_size: usize,
+) {
     let profile = &mut *profile;
     profile.clear(str_len, block_size);
 }
@@ -85,7 +94,7 @@ pub unsafe extern fn block_clear_aaprofile(profile: *mut AAProfile, str_len: usi
 /// The first column (`i = 0`) should be padded with large negative values.
 /// Therefore, set values starting from `i = 1`.
 #[no_mangle]
-pub unsafe extern fn block_set_aaprofile(profile: *mut AAProfile, i: usize, b: u8, score: i8) {
+pub unsafe extern "C" fn block_set_aaprofile(profile: *mut AAProfile, i: usize, b: u8, score: i8) {
     let profile = &mut *profile;
     profile.set(i, b, score);
 }
@@ -98,7 +107,15 @@ pub unsafe extern fn block_set_aaprofile(profile: *mut AAProfile, i: usize, b: u
 /// Scores (in `scores`) should be stored in row-major order, where each row is a different position
 /// and each column is a different byte.
 #[no_mangle]
-pub unsafe extern fn block_set_all_aaprofile(profile: *mut AAProfile, order: *const u8, order_len: usize, scores: *const i8, scores_len: usize, left_shift: usize, right_shift: usize) {
+pub unsafe extern "C" fn block_set_all_aaprofile(
+    profile: *mut AAProfile,
+    order: *const u8,
+    order_len: usize,
+    scores: *const i8,
+    scores_len: usize,
+    left_shift: usize,
+    right_shift: usize,
+) {
     let profile = &mut *profile;
     let order = std::slice::from_raw_parts(order, order_len);
     let scores = std::slice::from_raw_parts(scores, scores_len);
@@ -113,7 +130,15 @@ pub unsafe extern fn block_set_all_aaprofile(profile: *mut AAProfile, order: *co
 /// Scores (in `scores`) should be stored in row-major order, where each row is a different position
 /// and each column is a different byte.
 #[no_mangle]
-pub unsafe extern fn block_set_all_rev_aaprofile(profile: *mut AAProfile, order: *const u8, order_len: usize, scores: *const i8, scores_len: usize, left_shift: usize, right_shift: usize) {
+pub unsafe extern "C" fn block_set_all_rev_aaprofile(
+    profile: *mut AAProfile,
+    order: *const u8,
+    order_len: usize,
+    scores: *const i8,
+    scores_len: usize,
+    left_shift: usize,
+    right_shift: usize,
+) {
     let profile = &mut *profile;
     let order = std::slice::from_raw_parts(order, order_len);
     let scores = std::slice::from_raw_parts(scores, scores_len);
@@ -126,7 +151,11 @@ pub unsafe extern fn block_set_all_rev_aaprofile(profile: *mut AAProfile, order:
 /// column transition in the DP matrix with `|q| + 1` rows and `|r| + 1` columns.
 /// This represents starting a gap in `q`.
 #[no_mangle]
-pub unsafe extern fn block_set_gap_open_C_aaprofile(profile: *mut AAProfile, i: usize, gap: i8) {
+pub unsafe extern "C" fn block_set_gap_open_C_aaprofile(
+    profile: *mut AAProfile,
+    i: usize,
+    gap: i8,
+) {
     let profile = &mut *profile;
     profile.set_gap_open_C(i, gap);
 }
@@ -137,7 +166,11 @@ pub unsafe extern fn block_set_gap_open_C_aaprofile(profile: *mut AAProfile, i: 
 /// ending column transitions in the DP matrix with `|q| + 1` rows and `|r| + 1` columns.
 /// This represents ending a gap in `q`.
 #[no_mangle]
-pub unsafe extern fn block_set_gap_close_C_aaprofile(profile: *mut AAProfile, i: usize, gap: i8) {
+pub unsafe extern "C" fn block_set_gap_close_C_aaprofile(
+    profile: *mut AAProfile,
+    i: usize,
+    gap: i8,
+) {
     let profile = &mut *profile;
     profile.set_gap_close_C(i, gap);
 }
@@ -148,95 +181,102 @@ pub unsafe extern fn block_set_gap_close_C_aaprofile(profile: *mut AAProfile, i:
 /// a row transition in the DP matrix with `|q| + 1` rows and `|r| + 1` columns.
 /// This represents starting a gap in `r`.
 #[no_mangle]
-pub unsafe extern fn block_set_gap_open_R_aaprofile(profile: *mut AAProfile, i: usize, gap: i8) {
+pub unsafe extern "C" fn block_set_gap_open_R_aaprofile(
+    profile: *mut AAProfile,
+    i: usize,
+    gap: i8,
+) {
     let profile = &mut *profile;
     profile.set_gap_open_R(i, gap);
 }
 
 /// Set the gap open cost for all column transitions.
 #[no_mangle]
-pub unsafe extern fn block_set_all_gap_open_C_aaprofile(profile: *mut AAProfile, gap: i8) {
+pub unsafe extern "C" fn block_set_all_gap_open_C_aaprofile(profile: *mut AAProfile, gap: i8) {
     let profile = &mut *profile;
     profile.set_all_gap_open_C(gap);
 }
 
 /// Set the gap close cost for all column transitions.
 #[no_mangle]
-pub unsafe extern fn block_set_all_gap_close_C_aaprofile(profile: *mut AAProfile, gap: i8) {
+pub unsafe extern "C" fn block_set_all_gap_close_C_aaprofile(profile: *mut AAProfile, gap: i8) {
     let profile = &mut *profile;
     profile.set_all_gap_close_C(gap);
 }
 
 /// Set the gap open cost for all row transitions.
 #[no_mangle]
-pub unsafe extern fn block_set_all_gap_open_R_aaprofile(profile: *mut AAProfile, gap: i8) {
+pub unsafe extern "C" fn block_set_all_gap_open_R_aaprofile(profile: *mut AAProfile, gap: i8) {
     let profile = &mut *profile;
     profile.set_all_gap_open_R(gap);
 }
 
 /// Get the score for a position and byte.
 #[no_mangle]
-pub unsafe extern fn block_get_aaprofile(profile: *const AAProfile, i: usize, b: u8) -> i8 {
+pub unsafe extern "C" fn block_get_aaprofile(profile: *const AAProfile, i: usize, b: u8) -> i8 {
     let profile = &*profile;
     profile.get(i, b)
 }
 
 /// Get the gap extend cost.
 #[no_mangle]
-pub unsafe extern fn block_get_gap_extend_aaprofile(profile: *const AAProfile) -> i8 {
+pub unsafe extern "C" fn block_get_gap_extend_aaprofile(profile: *const AAProfile) -> i8 {
     let profile = &*profile;
     profile.get_gap_extend()
 }
 
 /// Frees an AAProfile.
 #[no_mangle]
-pub unsafe extern fn block_free_aaprofile(profile: *mut AAProfile) {
+pub unsafe extern "C" fn block_free_aaprofile(profile: *mut AAProfile) {
     drop(Box::from_raw(profile));
 }
-
 
 // CIGAR
 
 /// Create a new empty CIGAR string.
 #[no_mangle]
-pub unsafe extern fn block_new_cigar(query_len: usize, reference_len: usize) -> *mut Cigar {
+pub unsafe extern "C" fn block_new_cigar(query_len: usize, reference_len: usize) -> *mut Cigar {
     let cigar = Box::new(Cigar::new(query_len, reference_len));
     Box::into_raw(cigar)
 }
 
 /// Get the operation at a certain index in a CIGAR string.
 #[no_mangle]
-pub unsafe extern fn block_get_cigar(cigar: *const Cigar, i: usize) -> OpLen {
+pub unsafe extern "C" fn block_get_cigar(cigar: *const Cigar, i: usize) -> OpLen {
     let cigar_str = &*cigar;
     cigar_str.get(i)
 }
 
 /// Get the length of a CIGAR string.
 #[no_mangle]
-pub unsafe extern fn block_len_cigar(cigar: *const Cigar) -> usize {
+pub unsafe extern "C" fn block_len_cigar(cigar: *const Cigar) -> usize {
     let cigar_str = &*cigar;
     cigar_str.len()
 }
 
 /// Frees a CIGAR string.
 #[no_mangle]
-pub unsafe extern fn block_free_cigar(cigar: *mut Cigar) {
+pub unsafe extern "C" fn block_free_cigar(cigar: *mut Cigar) {
     drop(Box::from_raw(cigar));
 }
-
 
 // PaddedBytes
 
 /// Create a new empty padded amino acid string.
 #[no_mangle]
-pub unsafe extern fn block_new_padded_aa(len: usize, max_size: usize) -> *mut PaddedBytes {
+pub unsafe extern "C" fn block_new_padded_aa(len: usize, max_size: usize) -> *mut PaddedBytes {
     let padded_bytes = Box::new(PaddedBytes::new::<AAMatrix>(len, max_size));
     Box::into_raw(padded_bytes)
 }
 
 /// Write to a padded amino acid string.
 #[no_mangle]
-pub unsafe extern fn block_set_bytes_padded_aa(padded: *mut PaddedBytes, s: *const u8, len: usize, max_size: usize) {
+pub unsafe extern "C" fn block_set_bytes_padded_aa(
+    padded: *mut PaddedBytes,
+    s: *const u8,
+    len: usize,
+    max_size: usize,
+) {
     let bytes = std::slice::from_raw_parts(s, len);
     let padded_bytes = &mut *padded;
     padded_bytes.set_bytes::<AAMatrix>(bytes, max_size);
@@ -244,7 +284,12 @@ pub unsafe extern fn block_set_bytes_padded_aa(padded: *mut PaddedBytes, s: *con
 
 /// Write to a padded amino acid string, in reverse.
 #[no_mangle]
-pub unsafe extern fn block_set_bytes_rev_padded_aa(padded: *mut PaddedBytes, s: *const u8, len: usize, max_size: usize) {
+pub unsafe extern "C" fn block_set_bytes_rev_padded_aa(
+    padded: *mut PaddedBytes,
+    s: *const u8,
+    len: usize,
+    max_size: usize,
+) {
     let bytes = std::slice::from_raw_parts(s, len);
     let padded_bytes = &mut *padded;
     padded_bytes.set_bytes_rev::<AAMatrix>(bytes, max_size);
@@ -252,179 +297,177 @@ pub unsafe extern fn block_set_bytes_rev_padded_aa(padded: *mut PaddedBytes, s: 
 
 /// Frees a padded amino acid string.
 #[no_mangle]
-pub unsafe extern fn block_free_padded_aa(padded: *mut PaddedBytes) {
+pub unsafe extern "C" fn block_free_padded_aa(padded: *mut PaddedBytes) {
     drop(Box::from_raw(padded));
 }
 
 // Block
-use paste::paste;
-macro_rules! gen_common_functions {
-    ($suffix_name:expr,
-        $trace:literal,
-        $xdrop:literal,
-        $local:literal,
-        $freestart:literal,
-        $freeend:literal,
-        $doc1:expr, $doc2:expr, $doc3:expr, $doc4:expr, $doc5:expr) => {
-        paste! {
-            #[doc = "Create a new block aligner instance for alignment of amino acid strings." $doc1 $doc2 $doc3 $doc4 $doc5]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<block_new_aa $suffix_name>](
-                query_len: usize,
-                reference_len: usize,
-                max_size: usize,
-            ) -> BlockHandle {
-                let aligner = Box::new(Block::<$trace, $xdrop, $local, $freestart, $freeend>::new(
-                    query_len,
-                    reference_len,
-                    max_size,
-                ));
-                Box::into_raw(aligner) as BlockHandle
-            }
-            #[doc = "Alignment of two amino acid strings."  $doc1 $doc2 $doc3 $doc4 $doc5 ]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<block_align_aa $suffix_name>](
-                b: BlockHandle,
-                q: *const PaddedBytes,
-                r: *const PaddedBytes,
-                m: *const AAMatrix,
-                g: Gaps,
-                s: SizeRange,
-                x: i32,
-            ) {
-                let aligner = &mut *(b as *mut Block<$trace, $xdrop, $local, $freestart, $freeend>);
-                aligner.align(&*q, &*r, &*m, g, s.min..=s.max, x);
-            }
 
-            #[doc = "Alignment of an amino acid sequence to a profile."  $doc1 $doc2 $doc3 $doc4 $doc5 ]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<block_align_profile_aa $suffix_name>](
-                b: BlockHandle,
-                q: *const PaddedBytes,
-                r: *const AAProfile,
-                s: SizeRange,
-                x: i32,
-            ) {
-                let aligner = &mut *(b as *mut Block<$trace, $xdrop, $local, $freestart, $freeend>);
-                aligner.align_profile(&*q, &*r, s.min..=s.max, x);
-            }
+macro_rules! gen_functions {
+    ($new_name:ident, $new_doc:expr,
+     $align_name:ident, $align_doc:expr,
+     $align_profile_name:ident, $align_profile_doc:expr,
+     $res_name:ident, $res_doc:expr,
+     $trace_name:ident, $trace_doc:expr,
+     $trace_eq_name:ident, $trace_eq_doc:expr,
+     $free_name:ident, $free_doc:expr,
+     $matrix:ty, $profile:ty, $trace:literal, $x_drop:literal) => {
+        #[doc = $new_doc]
+        #[no_mangle]
+        pub unsafe extern "C" fn $new_name(
+            query_len: usize,
+            reference_len: usize,
+            max_size: usize,
+        ) -> BlockHandle {
+            let aligner = Box::new(Block::<$trace, $x_drop>::new(
+                query_len,
+                reference_len,
+                max_size,
+            ));
+            Box::into_raw(aligner) as BlockHandle
+        }
 
-            #[doc = "Retrieves the result of alignment of two amino acid strings."  $doc1 $doc2 $doc3 $doc4 $doc5 ]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<block_res_aa $suffix_name>](b: BlockHandle) -> AlignResult {
-                let aligner = &*(b as *const Block<$trace, $xdrop, $local, $freestart, $freeend>);
-                aligner.res()
-            }
+        #[doc = $align_doc]
+        #[no_mangle]
+        pub unsafe extern "C" fn $align_name(
+            b: BlockHandle,
+            q: *const PaddedBytes,
+            r: *const PaddedBytes,
+            m: *const $matrix,
+            g: Gaps,
+            s: SizeRange,
+            x: i32,
+            end_bonus: i32,
+        ) {
+            let aligner = &mut *(b as *mut Block<$trace, $x_drop>);
+            aligner.align(&*q, &*r, &*m, g, s.min..=s.max, x, end_bonus);
+        }
 
-            #[doc = "Frees the block used for alignment of two amino acid strings."  $doc1 $doc2 $doc3 $doc4 $doc5 ]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<block_free_aa $suffix_name>](b: BlockHandle) {
-                drop(Box::from_raw(b as *mut Block<$trace, $xdrop, $local, $freestart, $freeend>));
-            }
+        #[doc = $align_profile_doc]
+        #[no_mangle]
+        pub unsafe extern "C" fn $align_profile_name(
+            b: BlockHandle,
+            q: *const PaddedBytes,
+            r: *const $profile,
+            s: SizeRange,
+            x: i32,
+            end_bonus: i32,
+        ) {
+            let aligner = &mut *(b as *mut Block<$trace, $x_drop>);
+            aligner.align_profile(&*q, &*r, s.min..=s.max, x, end_bonus);
         }
-    }
-}
-macro_rules! gen_trace_functions {
-    ($suffix_name:expr,
-    $xdrop:literal,
-    $local:literal,
-    $freestart:literal,
-    $freeend:literal,
-    $doc2:expr, $doc3:expr, $doc4:expr, $doc5:expr
-    ) => {
-        paste! {
-            gen_common_functions!($suffix_name, false, $xdrop, $local, $freestart, $freeend, " No traceback.", $doc2, $doc3, $doc4, $doc5);
-            gen_common_functions!([<_trace $suffix_name>], true, $xdrop, $local, $freestart, $freeend, " With traceback.", $doc2, $doc3, $doc4, $doc5);
-            #[doc = "Retrieves the resulting CIGAR string from alignment of two amino acid strings." " With traceback." $doc2 $doc3 $doc4 $doc5 ]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<block_cigar_aa _trace $suffix_name>](
-                b: BlockHandle,
-                query_idx: usize,
-                reference_idx: usize,
-                cigar: *mut Cigar,
-            ) {
-                let aligner = &*(b as *const Block<true, $xdrop, $local, $freestart, $freeend>);
-                aligner.trace().cigar(query_idx, reference_idx, &mut *cigar);
-            }
 
-            #[doc = "Retrieves the resulting CIGAR string containing =/X from alignment of two amino acid strings." " With traceback." $doc2 $doc3 $doc4 $doc5 ]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<block_cigar_eq_aa _trace $suffix_name>](
-                b: BlockHandle,
-                q: *const PaddedBytes,
-                r: *const PaddedBytes,
-                query_idx: usize,
-                reference_idx: usize,
-                cigar: *mut Cigar,
-            ) {
-                let aligner = &*(b as *const Block<true, $xdrop, $local, $freestart, $freeend>);
-                aligner
-                    .trace()
-                    .cigar_eq(&*q, &*r, query_idx, reference_idx, &mut *cigar);
-            }
+        #[doc = $res_doc]
+        #[no_mangle]
+        pub unsafe extern "C" fn $res_name(b: BlockHandle) -> AlignResult {
+            let aligner = &*(b as *const Block<$trace, $x_drop>);
+            aligner.res()
+        }
+
+        #[doc = $trace_doc]
+        #[no_mangle]
+        pub unsafe extern "C" fn $trace_name(
+            b: BlockHandle,
+            query_idx: usize,
+            reference_idx: usize,
+            cigar: *mut Cigar,
+        ) {
+            let aligner = &*(b as *const Block<$trace, $x_drop>);
+            aligner.trace().cigar(query_idx, reference_idx, &mut *cigar);
+        }
+
+        #[doc = $trace_eq_doc]
+        #[no_mangle]
+        pub unsafe extern "C" fn $trace_eq_name(
+            b: BlockHandle,
+            q: *const PaddedBytes,
+            r: *const PaddedBytes,
+            query_idx: usize,
+            reference_idx: usize,
+            cigar: *mut Cigar,
+        ) {
+            let aligner = &*(b as *const Block<$trace, $x_drop>);
+            aligner
+                .trace()
+                .cigar_eq(&*q, &*r, query_idx, reference_idx, &mut *cigar);
+        }
+
+        #[doc = $free_doc]
+        #[no_mangle]
+        pub unsafe extern "C" fn $free_name(b: BlockHandle) {
+            drop(Box::from_raw(b as *mut Block<$trace, $x_drop>));
         }
     };
 }
-macro_rules! gen_xdrop_functions {
-    ($suffix_name:expr,
-    $local:literal,
-    $freestart:literal,
-    $freeend:literal,
-    $doc3:expr, $doc4:expr, $doc5:expr
-    ) => {
-        paste! {
-        gen_trace_functions!($suffix_name, false, $local, $freestart, $freeend,
-            "",
-            $doc3,
-            $doc4,
-            $doc5);
-        gen_trace_functions!([<_xdrop $suffix_name>], true, $local, $freestart, $freeend,
-            " With X-drop.",
-            $doc3,
-            $doc4,
-            $doc5);
-        }
-    };
-}
-macro_rules! gen_local_functions {
-    ($suffix_name:expr,
-    $freestart:literal,
-    $freeend:literal,
-    $doc4:expr, $doc5:expr
-    ) => {
-        paste! {
-            gen_xdrop_functions!($suffix_name, false, $freestart, $freeend,
-                " Global alignment.",
-                $doc4,
-                $doc5);
-            gen_xdrop_functions!([<_local $suffix_name>], true, $freestart, $freeend,
-                " Local alignment.",
-                $doc4,
-                $doc5);
-        }
-    };
-}
-macro_rules! gen_freestart_functions {
-    ($suffix_name:expr,
-    $freeend:literal,
-    $doc5:expr
-    ) => {
-        paste! {
-            gen_local_functions!($suffix_name, false, $freeend,
-                "",
-                $doc5);
-            gen_local_functions!([<_freestart $suffix_name>], true, $freeend,
-                " Unconstrained query start position.",
-                $doc5);
-        }
-    };
-}
-macro_rules! gen_alignment_functions {
-    () => {
-        paste! {
-            gen_freestart_functions!("", false, "");
-            gen_freestart_functions!(_freeend, true, " Unconstrained query end position");
-        }
-    };
-}
-gen_alignment_functions!();
+
+gen_functions!(
+    block_new_aa,
+    "Create a new block aligner instance for global alignment of amino acid strings (no traceback).",
+    block_align_aa,
+    "Global alignment of two amino acid strings (no traceback).",
+    block_align_profile_aa,
+    "Global alignment of an amino acid sequence to a profile (no traceback).",
+    block_res_aa,
+    "Retrieves the result of global alignment of two amino acid strings (no traceback).",
+    _block_cigar_aa,
+    "Don't use.",
+    _block_cigar_eq_aa,
+    "Don't use.",
+    block_free_aa,
+    "Frees the block used for global alignment of two amino acid strings (no traceback).",
+    AAMatrix, AAProfile, false, false
+);
+
+gen_functions!(
+    block_new_aa_xdrop,
+    "Create a new block aligner instance for X-drop alignment of amino acid strings (no traceback).",
+    block_align_aa_xdrop,
+    "X-drop alignment of two amino acid strings (no traceback).",
+    block_align_profile_aa_xdrop,
+    "X-drop alignment of an amino acid sequence to a profile (no traceback).",
+    block_res_aa_xdrop,
+    "Retrieves the result of X-drop alignment of two amino acid strings (no traceback).",
+    _block_cigar_aa_xdrop,
+    "Don't use.",
+    _block_cigar_eq_aa_xdrop,
+    "Don't use.",
+    block_free_aa_xdrop,
+    "Frees the block used for X-drop alignment of two amino acid strings (no traceback).",
+    AAMatrix, AAProfile, false, true
+);
+
+gen_functions!(
+    block_new_aa_trace,
+    "Create a new block aligner instance for global alignment of amino acid strings, with traceback.",
+    block_align_aa_trace,
+    "Global alignment of two amino acid strings, with traceback.",
+    block_align_profile_aa_trace,
+    "Global alignment of an amino acid sequence to a profile, with traceback.",
+    block_res_aa_trace,
+    "Retrieves the result of global alignment of two amino acid strings, with traceback.",
+    block_cigar_aa_trace,
+    "Retrieves the resulting CIGAR string from global alignment of two amino acid strings, with traceback.",
+    block_cigar_eq_aa_trace,
+    "Retrieves the resulting CIGAR string from global alignment of two amino acid strings, with traceback containing =/X.",
+    block_free_aa_trace,
+    "Frees the block used for global alignment of two amino acid strings, with traceback.",
+    AAMatrix, AAProfile, true, false
+);
+
+gen_functions!(
+    block_new_aa_trace_xdrop,
+    "Create a new block aligner instance for X-drop alignment of amino acid strings, with traceback.",
+    block_align_aa_trace_xdrop,
+    "X-drop alignment of two amino acid strings, with traceback.",
+    block_align_profile_aa_trace_xdrop,
+    "X-drop alignment of an amino acid sequence to a profile, with traceback.",
+    block_res_aa_trace_xdrop,
+    "Retrieves the result of X-drop alignment of two amino acid strings, with traceback.",
+    block_cigar_aa_trace_xdrop,
+    "Retrieves the resulting CIGAR string from X-drop alignment of two amino acid strings, with traceback.",
+    block_cigar_eq_aa_trace_xdrop,
+    "Retrieves the resulting CIGAR string from X-drop alignment of two amino acid strings, with traceback containing =/X.",
+    block_free_aa_trace_xdrop,
+    "Frees the block used for X-drop alignment of two amino acid strings, with traceback.",
+    AAMatrix, AAProfile, true, true
+);

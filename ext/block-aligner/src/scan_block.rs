@@ -64,7 +64,8 @@ struct State<'a, M: Matrix> {
     max_size: usize,
     matrix: &'a M,
     gaps: Gaps,
-    x_drop: i32
+    x_drop: i32,
+    end_bonus: i32
 }
 
 /// Keeps track of internal state and some parameters for block aligner for
@@ -79,7 +80,8 @@ struct StateProfile<'a, P: Profile> {
     j: usize,
     min_size: usize,
     max_size: usize,
-    x_drop: i32
+    x_drop: i32,
+    end_bonus: i32
 }
 
 /// Data structure storing the settings for Block Aligner.
@@ -446,6 +448,16 @@ macro_rules! align_core_gen {
 
                 if state.i + block_size > state.query.len() && state.j + block_size > state.reference.len() {
                     // reached the end of the strings
+                    // Apply end_bonus if we've reached the end of the query in x-drop mode
+                    if X_DROP && state.end_bonus > 0 {
+                        let end_bonus_score = off_max + state.end_bonus;
+                        if end_bonus_score > best_max {
+                            best_max = end_bonus_score;
+                            // Update the best position to the end of both sequences
+                            best_argmax_i = state.query.len();
+                            best_argmax_j = state.reference.len();
+                        }
+                    }
                     break;
                 }
 
@@ -456,6 +468,16 @@ macro_rules! align_core_gen {
                     continue;
                 }
                 if state.i + block_size > state.query.len() {
+                    // Apply end_bonus if we've reached the end of the query in x-drop mode
+                    if X_DROP && state.end_bonus > 0 {
+                        let end_bonus_score = off_max + state.end_bonus;
+                        if end_bonus_score > best_max {
+                            best_max = end_bonus_score;
+                            // Update the best position to the end of the query and current reference position
+                            best_argmax_i = state.query.len();
+                            best_argmax_j = cmp::min(state.j + block_size, state.reference.len());
+                        }
+                    }
                     state.j += STEP;
                     dir = Direction::Right;
                     continue;
@@ -844,7 +866,7 @@ impl<const TRACE: bool, const X_DROP: bool, const LOCAL_START: bool, const FREE_
     /// with `|q| + 1` rows and `|r| + 1` columns.
     ///
     /// X-drop alignment with `ByteMatrix` is not supported.
-    pub fn align<M: Matrix>(&mut self, query: &PaddedBytes, reference: &PaddedBytes, matrix: &M, gaps: Gaps, size: RangeInclusive<usize>, x_drop: i32) {
+    pub fn align<M: Matrix>(&mut self, query: &PaddedBytes, reference: &PaddedBytes, matrix: &M, gaps: Gaps, size: RangeInclusive<usize>, x_drop: i32, end_bonus: i32) {
         // check invariants so bad stuff doesn't happen later
         assert!(gaps.open < 0 && gaps.extend < 0, "Gap costs must be negative!");
         // there are edge cases with calculating traceback that doesn't work if
@@ -872,7 +894,8 @@ impl<const TRACE: bool, const X_DROP: bool, const LOCAL_START: bool, const FREE_
             max_size,
             matrix,
             gaps,
-            x_drop
+            x_drop,
+            end_bonus
         };
         unsafe { self.align_core(s); }
     }
@@ -881,14 +904,14 @@ impl<const TRACE: bool, const X_DROP: bool, const LOCAL_START: bool, const FREE_
     ///
     /// This calls `align` multiple times, doubling the min block size in each iteration
     /// until either the max block size is reached or the score reaches or exceeds the target score.
-    pub fn align_exp<M: Matrix>(&mut self, query: &PaddedBytes, reference: &PaddedBytes, matrix: &M, gaps: Gaps, size: RangeInclusive<usize>, x_drop: i32, target_score: i32) -> Option<usize> {
+    pub fn align_exp<M: Matrix>(&mut self, query: &PaddedBytes, reference: &PaddedBytes, matrix: &M, gaps: Gaps, size: RangeInclusive<usize>, x_drop: i32, end_bonus: i32, target_score: i32) -> Option<usize> {
         let mut min_size = if *size.start() < L { L } else { *size.start() };
         let max_size = if *size.end() < L { L } else { *size.end() };
         assert!(min_size < (u16::MAX as usize) && max_size < (u16::MAX as usize), "Block sizes must be smaller than 2^16 - 1!");
         assert!(min_size.is_power_of_two() && max_size.is_power_of_two(), "Block sizes must be powers of two!");
 
         while min_size <= max_size {
-            self.align(query, reference, matrix, gaps, min_size..=max_size, x_drop);
+            self.align(query, reference, matrix, gaps, min_size..=max_size, x_drop, end_bonus);
             let curr_score = self.res().score;
 
             if curr_score >= target_score {
@@ -939,7 +962,7 @@ impl<const TRACE: bool, const X_DROP: bool, const LOCAL_START: bool, const FREE_
     ///
     /// When aligning sequence `q` against profile `p`, this algorithm computes cells in the DP matrix
     /// with `|q| + 1` rows and `|p| + 1` columns.
-    pub fn align_profile<P: Profile>(&mut self, query: &PaddedBytes, profile: &P, size: RangeInclusive<usize>, x_drop: i32) {
+    pub fn align_profile<P: Profile>(&mut self, query: &PaddedBytes, profile: &P, size: RangeInclusive<usize>, x_drop: i32, end_bonus: i32) {
         // check invariants so bad stuff doesn't happen later
         assert!(profile.get_gap_extend() < 0, "Gap extend cost must be negative!");
         let min_size = if *size.start() < L { L } else { *size.start() };
@@ -962,7 +985,8 @@ impl<const TRACE: bool, const X_DROP: bool, const LOCAL_START: bool, const FREE_
             j: 0,
             min_size,
             max_size,
-            x_drop
+            x_drop,
+            end_bonus
         };
         unsafe { self.align_profile_core(s); }
     }
@@ -971,14 +995,14 @@ impl<const TRACE: bool, const X_DROP: bool, const LOCAL_START: bool, const FREE_
     ///
     /// This calls `align_profile` multiple times, doubling the min block size in each iteration
     /// until either the max block size is reached or the score reaches or exceeds the target score.
-    pub fn align_profile_exp<P: Profile>(&mut self, query: &PaddedBytes, profile: &P, size: RangeInclusive<usize>, x_drop: i32, target_score: i32) -> Option<usize> {
+    pub fn align_profile_exp<P: Profile>(&mut self, query: &PaddedBytes, profile: &P, size: RangeInclusive<usize>, x_drop: i32, end_bonus: i32, target_score: i32) -> Option<usize> {
         let mut min_size = if *size.start() < L { L } else { *size.start() };
         let max_size = if *size.end() < L { L } else { *size.end() };
         assert!(min_size < (u16::MAX as usize) && max_size < (u16::MAX as usize), "Block sizes must be smaller than 2^16 - 1!");
         assert!(min_size.is_power_of_two() && max_size.is_power_of_two(), "Block sizes must be powers of two!");
 
         while min_size <= max_size {
-            self.align_profile(query, profile, min_size..=max_size, x_drop);
+            self.align_profile(query, profile, min_size..=max_size, x_drop, end_bonus);
             let curr_score = self.res().score;
 
             if curr_score >= target_score {
