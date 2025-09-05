@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <inttypes.h>
+#include <array>
 
 #include "indexparameters.hpp"
 
