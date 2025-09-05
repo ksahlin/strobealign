@@ -1,11 +1,13 @@
 #include "nam.hpp"
+#include "timer.hpp"
+#include "hits.hpp"
 
 bool operator==(const Match& lhs, const Match& rhs) {
     return (lhs.query_start == rhs.query_start) && (lhs.query_end == rhs.query_end) && (lhs.ref_start == rhs.ref_start) && (lhs.ref_end == rhs.ref_end);
 }
 
-
 namespace {
+
 
 inline void add_to_matches_map_full(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
@@ -199,80 +201,6 @@ robin_hood::unordered_map<unsigned int, std::vector<Match>> hits_to_matches(
 }
 
 /*
- * Find a query’s hits, ignoring randstrobes that occur too often in the
- * reference (have a count above filter_cutoff).
- *
- * Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
- */
-std::tuple<int, int, bool, std::vector<Hit>> find_hits(
-    const std::vector<QueryRandstrobe>& query_randstrobes,
-    const StrobemerIndex& index,
-    McsStrategy mcs_strategy
-) {
-    // If we produce matches in sorted order, then merge_matches_into_nams()
-    // does not have to re-sort
-    bool sorting_needed{mcs_strategy == McsStrategy::Always || mcs_strategy == McsStrategy::FirstStrobe};
-    std::vector<Hit> hits;
-    int nonrepetitive_hits = 0;
-    int total_hits = 0;
-    int partial_hits = 0;
-
-    if (mcs_strategy == McsStrategy::FirstStrobe) {
-        for (const auto &q : query_randstrobes) {
-            size_t partial_position = index.find_partial(q.hash);
-            if (partial_position != index.end()) {
-                partial_hits++;
-                if (index.is_partial_filtered(partial_position, q.hash_revcomp)) {
-                    continue;
-                }
-                hits.push_back(Hit{partial_position, q.start, q.start + index.k(), true});
-            }
-        }
-
-        return {total_hits, partial_hits, sorting_needed, hits};
-    }
-
-    for (const auto &q : query_randstrobes) {
-        size_t position = index.find_full(q.hash);
-        if (position != index.end()) {
-            total_hits++;
-            if (index.is_filtered(position, q.hash_revcomp)) {
-                continue;
-            }
-            hits.push_back(Hit{position, q.start, q.end, false});
-        } else if (mcs_strategy == McsStrategy::Always) {
-            size_t partial_pos = index.find_partial(q.hash);
-            if (partial_pos != index.end()) {
-                total_hits++;
-                if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
-                    continue;
-                }
-                partial_hits++;
-                hits.push_back(Hit{partial_pos, q.start, q.start + index.k(), true});
-            }
-        }
-    }
-
-    // Rescue using partial hits
-    if (mcs_strategy == McsStrategy::Rescue && total_hits == 0) {
-        for (const auto &q : query_randstrobes) {
-            size_t partial_pos = index.find_partial(q.hash);
-            if (partial_pos != index.end()) {
-                total_hits++;
-                if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
-                    continue;
-                }
-                partial_hits++;
-                hits.push_back(Hit{partial_pos, q.start, q.start + index.k(), true});
-            }
-        }
-        sorting_needed = true;
-    }
-
-    return {total_hits, partial_hits, sorting_needed, hits};
-}
-
-/*
  * Find a query’s NAMs, using also some of the randstrobes that occur more often
  * than filter_cutoff.
  *
@@ -348,6 +276,66 @@ std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>
     return {n_hits, partial_hits, matches_map};
 }
 
+/*
+ * Obtain NAMs for a sequence record, doing rescue if needed.
+ * Return NAMs sorted by decreasing score.
+ */
+std::vector<Nam> get_nams(
+    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
+    const StrobemerIndex& index,
+    AlignmentStatistics& statistics,
+    Details& details,
+    const MappingParameters &map_param
+) {
+    // Find NAMs
+    Timer hits_timer;
+
+    int total_hits = 0;
+    int partial_hits = 0;
+    bool sorting_needed = false;
+    std::array<std::vector<Hit>, 2> hits;
+    for (int is_revcomp : {0, 1}) {
+        int total_hits1, partial_hits1;
+        bool sorting_needed1;
+        std::tie(total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) = find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy);
+        sorting_needed = sorting_needed || sorting_needed1;
+        total_hits += total_hits1;
+        partial_hits += partial_hits1;
+    }
+    int nonrepetitive_hits = hits[0].size() + hits[1].size();
+    float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
+    statistics.n_hits += nonrepetitive_hits;
+    statistics.n_partial_hits += partial_hits;
+    statistics.time_hit_finding += hits_timer.duration();
+
+    std::vector<Nam> nams;
+
+    // Rescue if requested and needed
+    if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
+        Timer rescue_timer;
+        nams.clear();
+        for (int is_revcomp : {0, 1}) {
+            auto [n_rescue_hits, n_partial_hits, matches_map] = find_matches_rescue(query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy);
+            merge_matches_into_nams(matches_map, index.k(), true, is_revcomp, nams);
+            statistics.n_rescue_hits += n_rescue_hits;
+            statistics.n_partial_hits += n_partial_hits;
+        }
+        details.rescue_nams = nams.size();
+        details.nam_rescue = true;
+        statistics.tot_time_rescue += rescue_timer.duration();
+    } else {
+        Timer chaining_timer;
+        for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
+            auto matches_map = hits_to_matches(hits[is_revcomp], index);
+            merge_matches_into_nams(matches_map, index.k(), sorting_needed, is_revcomp, nams);
+        }
+        details.nams = nams.size();
+        statistics.time_chaining += chaining_timer.duration();
+    }
+
+    return nams;
+}
+
 std::ostream& operator<<(std::ostream& os, const Hit& hit) {
     os << "Hit(query_start=" << hit.query_start << ", query_end=" << hit.query_end << ", position=" << hit.position << ", is_partial=" << hit.is_partial << ")";
     return os;
@@ -357,7 +345,6 @@ std::ostream& operator<<(std::ostream& os, const Match& match) {
     os << "Match(query_start=" << match.query_start << ", query_end=" << match.query_end << ", ref_start=" << match.ref_start << ", ref_end=" << match.ref_end << ")";
     return os;
 }
-
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {
     os << "Nam(ref_id=" << n.ref_id << ", query: " << n.query_start << ".." << n.query_end << ", ref: " << n.ref_start << ".." << n.ref_end << ", rc=" << static_cast<int>(n.is_revcomp) << ", score=" << n.score << ")";

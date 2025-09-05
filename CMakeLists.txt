@@ -60,6 +60,7 @@ add_library(salib STATIC ${SOURCES}
   src/aln.cpp
   src/cigar.cpp
   src/aligner.cpp
+  src/hits.cpp
   src/nam.cpp
   src/randstrobes.cpp
   src/readlen.cpp

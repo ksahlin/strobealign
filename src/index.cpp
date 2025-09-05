@@ -7,9 +7,11 @@
 #include "index.hpp"
 
 #include <math.h>   /* pow */
+#include <cstring>
 #include <fstream>
 #include <cassert>
 #include <algorithm>
+#include <sstream>
 #include "pdqsort/pdqsort.h"
 #include "poolstl/poolstl.hpp"
 #include <iostream>
@@ -18,7 +20,6 @@
 #include "io.hpp"
 #include "timer.hpp"
 #include "logger.hpp"
-#include <sstream>
 
 static Logger& logger = Logger::get();
 static const uint32_t STI_FILE_FORMAT_VERSION = 5;

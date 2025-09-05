@@ -1,7 +1,6 @@
 #ifndef STROBEALIGN_REFS_HPP
 #define STROBEALIGN_REFS_HPP
 
-#include <cstdint>
 #include <string>
 #include <stdexcept>
 #include <numeric>

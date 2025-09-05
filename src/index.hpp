@@ -7,12 +7,8 @@
 #include <stdio.h>
 #include <string>
 #include <vector>
-#include <deque>
-#include <tuple>
 #include <cmath>
-#include <iostream>
 #include <cassert>
-#include "robin_hood.h"
 #include "exceptions.hpp"
 #include "refs.hpp"
 #include "randstrobes.hpp"

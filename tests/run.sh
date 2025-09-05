@@ -124,4 +124,4 @@ strobealign --mcs=always -x tests/phix.fasta tests/phix.1.fastq | tail -n 11 > p
 diff tests/phix.mcs.se.paf phix.mcs.se.paf
 rm phix.mcs.se.paf
 
-echo -e "\e[1;31mSuccess\e[0m"
+echo -e "\e[32mSuccess\e[0m"

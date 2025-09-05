@@ -1,9 +1,7 @@
 #include "aln.hpp"
 
 #include <algorithm>
-#include <iostream>
 #include <math.h>
-#include <sstream>
 #include "chain.hpp"
 #include "revcomp.hpp"
 #include "timer.hpp"
@@ -1024,11 +1022,7 @@ bool has_shared_substring(const std::string& read_seq, const std::string& ref_se
     return false;
 }
 
-/*
- * Obtain NAMs for a sequence record, doing rescue if needed.
- * Return NAMs sorted by decreasing score.
- */
-std::vector<Nam> get_nams(
+std::vector<Nam> get_nams_or_chains(
     const KSeq& record,
     const StrobemerIndex& index,
     AlignmentStatistics& statistics,
@@ -1037,58 +1031,18 @@ std::vector<Nam> get_nams(
     const IndexParameters& index_parameters,
     std::minstd_rand& random_engine
 ) {
+
     // Compute randstrobes
     Timer strobe_timer;
     auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
     statistics.n_randstrobes += query_randstrobes[0].size() + query_randstrobes[1].size();
     statistics.tot_construct_strobemers += strobe_timer.duration();
 
-    // Find NAMs
-    Timer nam_timer;
-
-    int total_hits = 0;
-    int partial_hits = 0;
-    bool sorting_needed = false;
-    std::array<std::vector<Hit>, 2> hits;
-    for (int is_revcomp : {0, 1}) {
-        int total_hits1, partial_hits1;
-        bool sorting_needed1;
-        std::tie(total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) = find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy);
-        sorting_needed = sorting_needed || sorting_needed1;
-        total_hits += total_hits1;
-        partial_hits += partial_hits1;
-    }
-    int nonrepetitive_hits = hits[0].size() + hits[1].size();
-    float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
-    statistics.n_hits += nonrepetitive_hits;
-    statistics.n_partial_hits += partial_hits;
-
     std::vector<Nam> nams;
-
-    // Rescue if requested and needed
-    if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
-        Timer rescue_timer;
-        nams.clear();
-        int n_rescue_hits{0};
-        int n_partial_hits{0};
-        for (int is_revcomp : {0, 1}) {
-            auto [n_rescue_hits_oriented, n_partial_hits_oriented, matches_map] = find_matches_rescue(query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy);
-            merge_matches_into_nams(matches_map, index.k(), true, is_revcomp, nams);
-            n_rescue_hits += n_rescue_hits_oriented;
-            n_partial_hits += n_partial_hits_oriented;
-        }
-        statistics.n_rescue_hits += n_rescue_hits;
-        statistics.n_partial_hits += partial_hits;
-        details.rescue_nams = nams.size();
-        details.nam_rescue = true;
-        statistics.tot_time_rescue += rescue_timer.duration();
+    if (map_param.use_nams) {
+        nams = get_nams(query_randstrobes, index, statistics, details, map_param);
     } else {
-        for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
-            auto matches_map = hits_to_matches(hits[is_revcomp], index);
-            merge_matches_into_nams(matches_map, index.k(), sorting_needed, is_revcomp, nams);
-        }
-        details.nams = nams.size();
-        statistics.tot_find_nams += nam_timer.duration();
+        nams = get_chains(query_randstrobes, index, statistics, details, map_param);
     }
 
     // Sort by score
@@ -1099,7 +1053,7 @@ std::vector<Nam> get_nams(
 
     if (logger.level() <= LOG_TRACE) {
         logger.trace() << "Query: " << record.name << '\n';
-        logger.trace() << "Found " << nams.size() << " NAMs\n";
+        logger.trace() << "Found " << nams.size() << (map_param.use_nams ? " NAMs\n" : " chains\n");
         for (const auto& nam : nams) {
             logger.trace() << "- " << nam << '\n';
         }
@@ -1129,13 +1083,9 @@ void align_or_map_paired(
     for (size_t is_r1 : {0, 1}) {
         const auto& record = is_r1 == 0 ? record1 : record2;
         logger.trace() << "R" << is_r1 + 1 << '\n';
-        if (map_param.use_nams) {
-            nams_pair[is_r1] = get_nams(
-                record, index, statistics, details[is_r1], map_param, index_parameters, random_engine
-            );
-        } else {
-            nams_pair[is_r1] = get_chains(record, index, map_param, index_parameters, random_engine);
-        }
+        nams_pair[is_r1] = get_nams_or_chains(
+            record, index, statistics, details[is_r1], map_param, index_parameters, random_engine
+        );
     }
 
     Timer extend_timer;
@@ -1225,7 +1175,6 @@ void align_or_map_paired(
     statistics += details[1];
 }
 
-
 void align_or_map_single(
     const KSeq &record,
     Sam& sam,
@@ -1242,11 +1191,7 @@ void align_or_map_single(
     Details details;
     std::vector<Nam> nams;
 
-    if (map_param.use_nams) {
-        nams = get_nams(record, index, statistics, details, map_param, index_parameters, random_engine);
-    } else {
-        nams = get_chains(record, index, map_param, index_parameters, random_engine);
-    }
+    nams = get_nams_or_chains(record, index, statistics, details, map_param, index_parameters, random_engine);
 
     Timer extend_timer;
     size_t n_best = 0;

@@ -4,10 +4,10 @@
  * This is for anything that returns an aln_info object, currently
  * Aligner::align and hamming_align.
  */
-#include <sstream>
 #include <tuple>
 #include <algorithm>
 #include <cassert>
+#include <ostream>
 #include "aligner.hpp"
 
 std::optional<AlignmentInfo> Aligner::align(const std::string &query, const std::string &ref) const {

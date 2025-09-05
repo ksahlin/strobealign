@@ -1,5 +1,6 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
+#include "aln.hpp"
 #include "refs.hpp"
 #include "exceptions.hpp"
 #include "readlen.hpp"

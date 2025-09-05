@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <string>
-#include <utility>
 
 #include "mcsstrategy.hpp"
 

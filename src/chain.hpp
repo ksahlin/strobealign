@@ -1,9 +1,11 @@
+#ifndef STROBEALIGN_CHAIN_HPP
+#define STROBEALIGN_CHAIN_HPP
+
 #include <vector>
 
-#include "index.hpp"
-#include "indexparameters.hpp"
 #include "nam.hpp"
-#include "readlen.hpp"
+#include "index.hpp"
+#include "mappingparameters.hpp"
 
 struct Anchor {
     uint query_start;
@@ -20,11 +22,11 @@ struct Anchor {
 };
 
 std::vector<Nam> get_chains(
-    const klibpp::KSeq& record,
+    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
     const StrobemerIndex& index,
-    const MappingParameters& map_param,
-    const IndexParameters& index_parameters,
-    std::minstd_rand& random_engine
+    AlignmentStatistics& statistics,
+    Details& details,
+    const MappingParameters& map_param
 );
 
 /**
@@ -39,3 +41,5 @@ static inline float mg_log2(float x) {
     log_2 += (-0.34484843f * z.f + 2.02466578f) * z.f - 0.67487759f;
     return log_2;
 }
+
+#endif
