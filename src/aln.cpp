@@ -1025,6 +1025,7 @@ bool has_shared_substring(const std::string& read_seq, const std::string& ref_se
 std::vector<Nam> get_nams_or_chains(
     const KSeq& record,
     const StrobemerIndex& index,
+    const Chainer& chainer,
     AlignmentStatistics& statistics,
     Details& details,
     const MappingParameters &map_param,
@@ -1042,7 +1043,7 @@ std::vector<Nam> get_nams_or_chains(
     if (map_param.use_nams) {
         nams = get_nams(query_randstrobes, index, statistics, details, map_param);
     } else {
-        nams = get_chains(query_randstrobes, index, statistics, details, map_param);
+        nams = chainer.get_chains(query_randstrobes, index, statistics, details, map_param);
     }
 
     // Sort by score
@@ -1070,6 +1071,7 @@ void align_or_map_paired(
     AlignmentStatistics &statistics,
     InsertSizeDistribution &isize_est,
     const Aligner &aligner,
+    const Chainer& chainer,
     const MappingParameters &map_param,
     const IndexParameters& index_parameters,
     const References& references,
@@ -1084,7 +1086,7 @@ void align_or_map_paired(
         const auto& record = is_r1 == 0 ? record1 : record2;
         logger.trace() << "R" << is_r1 + 1 << '\n';
         nams_pair[is_r1] = get_nams_or_chains(
-            record, index, statistics, details[is_r1], map_param, index_parameters, random_engine
+            record, index, chainer, statistics, details[is_r1], map_param, index_parameters, random_engine
         );
     }
 
@@ -1181,6 +1183,7 @@ void align_or_map_single(
     std::string &outstring,
     AlignmentStatistics &statistics,
     const Aligner &aligner,
+    const Chainer& chainer,
     const MappingParameters &map_param,
     const IndexParameters& index_parameters,
     const References& references,
@@ -1191,7 +1194,7 @@ void align_or_map_single(
     Details details;
     std::vector<Nam> nams;
 
-    nams = get_nams_or_chains(record, index, statistics, details, map_param, index_parameters, random_engine);
+    nams = get_nams_or_chains(record, index, chainer, statistics, details, map_param, index_parameters, random_engine);
 
     Timer extend_timer;
     size_t n_best = 0;

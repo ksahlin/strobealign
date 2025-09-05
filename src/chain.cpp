@@ -5,8 +5,8 @@
 #include <cstdlib>
 #include <utility>
 
-#include "pdqsort/pdqsort.h"
 #include "chain.hpp"
+#include "pdqsort/pdqsort.h"
 #include "timer.hpp"
 
 void add_to_anchors_full(
@@ -141,7 +141,16 @@ std::tuple<int, int> find_anchors_rescue(
  *
  * @return A float representing the score for chaining the two anchors.
  */
-static float compute_score(const int dq, const int dr, const int k, const ChainingParameters& chaining_params) {
+float Chainer::compute_score(const int dq, const int dr) const {
+    // dq == dr is usually the most common case
+    if (dq == dr && dq < N_PRECOMPUTED) {
+        return precomputed_scores[dq];
+    } else {
+        return compute_score_uncached(dq, dr);
+    }
+}
+
+float Chainer::compute_score_uncached(const int dq, const int dr) const {
     const int dd = std::abs(dr - dq);
     const int dg = std::min(dq, dr);
     float score = std::min(k, dg);
@@ -153,13 +162,11 @@ static float compute_score(const int dq, const int dr, const int k, const Chaini
     return score;
 }
 
-float collinear_chaining(
+float Chainer::collinear_chaining(
     const std::vector<Anchor>& anchors,
-    const int k,
-    const ChainingParameters& chaining_params,
     std::vector<float>& dp,
     std::vector<int>& predecessors
-) {
+) const {
     const size_t n = anchors.size();
     if (n == 0) {
         return 0;
@@ -190,7 +197,7 @@ float collinear_chaining(
                 continue;
             }
 
-            const float score = compute_score(dq, dr, k, chaining_params);
+            const float score = compute_score(dq, dr);
 
             const float new_score = dp[j] + score;
             if (new_score > dp[i]) {
@@ -271,14 +278,15 @@ void extract_chains_from_dp(
     }
 }
 
-std::vector<Nam> get_chains(
+std::vector<Nam> Chainer::get_chains(
     const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
     const StrobemerIndex& index,
     AlignmentStatistics& statistics,
     Details& details,
     const MappingParameters& map_param
-) {
+) const {
     Timer hits_timer;
+
     int total_hits = 0;
     int partial_hits = 0;
     std::array<std::vector<Hit>, 2> hits;
@@ -292,6 +300,7 @@ std::vector<Nam> get_chains(
     }
     int nonrepetitive_hits = hits[0].size() + hits[1].size();
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
+
     statistics.n_hits += nonrepetitive_hits;
     statistics.n_partial_hits += partial_hits;
     statistics.time_hit_finding += hits_timer.duration();
@@ -325,10 +334,7 @@ std::vector<Nam> get_chains(
         anchors.erase(
             std::unique(anchors.begin(), anchors.end()), anchors.end()
         );
-        float score = collinear_chaining(
-            anchors, index.k(), map_param.chaining_params, dp,
-            predecessors
-        );
+        float score = collinear_chaining(anchors, dp, predecessors);
         best_score = score;
 
         extract_chains_from_dp(

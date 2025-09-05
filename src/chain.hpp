@@ -7,6 +7,8 @@
 #include "index.hpp"
 #include "mappingparameters.hpp"
 
+static constexpr int N_PRECOMPUTED = 1024;
+
 struct Anchor {
     uint query_start;
     uint ref_start;
@@ -20,14 +22,39 @@ struct Anchor {
         return (ref_id == other.ref_id) && ref_start == other.ref_start && query_start == other.query_start;
     }
 };
+ 
+struct Chainer {
+    Chainer(ChainingParameters chaining_params, int k)
+        : k(k)
+        , chaining_params(chaining_params)
+    {
+        precomputed_scores[0] = 0;
+        for (size_t i = 1; i < N_PRECOMPUTED; i++) {
+            precomputed_scores[i] = compute_score_uncached(i, i);
+        }
+    }
 
-std::vector<Nam> get_chains(
-    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
-    const StrobemerIndex& index,
-    AlignmentStatistics& statistics,
-    Details& details,
-    const MappingParameters& map_param
-);
+    std::vector<Nam> get_chains(
+        const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
+        const StrobemerIndex& index,
+        AlignmentStatistics& statistics,
+        Details& details,
+        const MappingParameters& map_param
+    ) const;
+
+  private:
+    const int k;
+    const ChainingParameters chaining_params;
+    float precomputed_scores[N_PRECOMPUTED];
+    float collinear_chaining(
+        const std::vector<Anchor>& anchors,
+        std::vector<float>& dp,
+        std::vector<int>& predecessors
+    ) const;
+
+    float compute_score(const int dq, const int dr) const;
+    float compute_score_uncached(const int dq, const int dr) const;
+};
 
 /**
  * Fast log2 function for x >= 1.
