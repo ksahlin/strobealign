@@ -208,7 +208,8 @@ int run_strobealign(int argc, char **argv) {
         << "  Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_min << ", " << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_max << "]\n";
     logger.debug() << aln_params << '\n';
     logger.debug() << "Rescue level (R): " << map_param.rescue_level << '\n';
-    logger.debug() << "Threads: " << opt.n_threads << std::endl;
+    logger.debug() << "Indexing threads: " << opt.indexing_threads << std::endl;
+    logger.debug() << "Mapping threads: " << opt.n_threads << std::endl;
 
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
 
@@ -246,7 +247,7 @@ int run_strobealign(int argc, char **argv) {
         logger.debug() << "Bits used to index buckets: " << index.get_bits() << "\n";
         logger.info() << "Indexing ...\n";
         Timer index_timer;
-        index.populate(opt.f, opt.n_threads);
+        index.populate(opt.f, opt.indexing_threads);
         
         logger.info() << "  Time counting seeds: " << index.stats.elapsed_counting_hashes.count() << " s" <<  std::endl;
         logger.info() << "  Time generating seeds: " << index.stats.elapsed_generating_seeds.count() << " s" <<  std::endl;

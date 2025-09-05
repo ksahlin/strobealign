@@ -9,6 +9,7 @@
 
 struct CommandLineOptions {
     int n_threads { 1 };
+    int indexing_threads{1};
     int chunk_size{10000};
 
     // Input/output
