@@ -203,6 +203,12 @@ float Chainer::collinear_chaining(
             if (new_score > dp[i]) {
                 dp[i] = new_score;
                 predecessors[i] = j;
+
+                // Runtime heuristic: If the predecessor is on the same diagonal,
+                // assume that it is the best one and skip the remaining ones.
+                if (dq == dr) {
+                    break;
+                }
             }
         }
         if (dp[i] > best_score) {
