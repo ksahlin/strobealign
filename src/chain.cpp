@@ -203,6 +203,9 @@ float Chainer::collinear_chaining(
             if (new_score > dp[i]) {
                 dp[i] = new_score;
                 predecessors[i] = j;
+                if (dq == dr) {
+                    break;
+                }
             }
         }
         if (dp[i] > best_score) {
