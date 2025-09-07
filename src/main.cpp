@@ -172,6 +172,9 @@ int run_strobealign(int argc, char **argv) {
     aln_params.gap_open = opt.O;
     aln_params.gap_extend = opt.E;
     aln_params.end_bonus = opt.end_bonus;
+    aln_params.x_drop_threshold = opt.x_drop_threshold;
+    aln_params.min_block = opt.min_block;
+    aln_params.max_block = opt.max_block;
 
     MappingParameters map_param;
     map_param.r = opt.r;

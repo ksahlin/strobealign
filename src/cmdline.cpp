@@ -1,5 +1,6 @@
 #include "cmdline.hpp"
 
+#include <algorithm>
 #include <args.hxx>
 #include "arguments.hpp"
 #include "version.hpp"
@@ -60,6 +61,11 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlag<float> gap_length_penalty(parser, "FLOAT", "Collinear chaining gap length cost [0.05]", {"gl"});
     args::ValueFlag<float> valid_score_threshold(parser, "FLOAT", "Collinear chaining best chain score threshold [0.7]", {"vp"});
     args::ValueFlag<int> max_ref_gap(parser, "INT", "Collinear chaining skip distance, how far on the reference do we allow anchors to chain [10000]", {"sg"});
+
+    args::Group piecewise(parser, "Piecewise:");
+    args::ValueFlag<int> x_drop_threshold(parser, "INT", "X-drop threshold [800]", {"x-drop"});
+    args::ValueFlag<uint> min_block(parser, "UINT", "Minimum block size for alignments [32]", {"min-block"});
+    args::ValueFlag<uint> max_block(parser, "UINT", "Maximum block size for alignments [256]", {"max-block"});
 
     args::Group search(parser, "Search parameters:");
     args::Flag mcs(parser, "mcs", "Use extended multi-context seed mode for finding hits. Slightly more accurate, but slower", {"mcs"});
@@ -145,6 +151,11 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (gap_length_penalty) { opt.gap_length_penalty = args::get(gap_length_penalty); }
     if (valid_score_threshold) { opt.valid_score_threshold = args::get(valid_score_threshold); }
     if (max_ref_gap) { opt.max_ref_gap = args::get(max_ref_gap); }
+
+    // Piecewise
+    if (x_drop_threshold) { opt.x_drop_threshold = args::get(x_drop_threshold); } 
+    if (min_block) { opt.min_block = args::get(min_block); } 
+    if (max_block) { opt.min_block = args::get(max_block); } 
 
     // Search parameters
     if (mcs) { opt.mcs = args::get(mcs); }

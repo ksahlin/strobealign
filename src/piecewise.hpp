@@ -1,5 +1,6 @@
 #include <string>
 #include <vector>
+#include "aligner.hpp"
 #include "baligner.hpp"
 #include "chain.hpp"
 #include "sam.hpp"
@@ -10,7 +11,7 @@ AlignmentResult piecewise_extension_alignment(
     const Chain& chain,
     const int k,
     const int padding,
-    const AlignmentScoring& scoring_params
+    const AlignmentParameters& scoring_params
 ); 
 
 using namespace klibpp;

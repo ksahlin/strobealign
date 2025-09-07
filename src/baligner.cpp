@@ -1,6 +1,8 @@
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <algorithm>
+#include "block-aligner/c/block_aligner.h"
 #include "baligner.hpp"
 
 std::vector<OpLen> build_cigar_vector(const Cigar* cigar, size_t cigar_len) {
@@ -21,6 +23,36 @@ std::vector<OpLen> reverse_cigar_vector(const Cigar* cigar, size_t cigar_len) {
     return reversed_cigar_vec;
 }
 
+std::vector<OpLen> reverse_cigar_vector_swap_DI(const Cigar* cigar, size_t cigar_len) {
+    std::vector<OpLen> reversed_cigar_vec;
+    reversed_cigar_vec.reserve(cigar_len);
+    for (int i = cigar_len - 1; i >= 0; i--) {
+        OpLen op = block_get_cigar(cigar, i);
+        if (op.op == Operation::D) {
+            op.op = Operation::I;
+        } else if (op.op == Operation::I) {
+            op.op = Operation::D;
+        }
+        reversed_cigar_vec.push_back(op);
+    }
+    return reversed_cigar_vec;
+}
+
+std::vector<OpLen> build_cigar_vector_swap_DI(const Cigar* cigar, size_t cigar_len) {
+    std::vector<OpLen> cigar_vec;
+    cigar_vec.reserve(cigar_len);
+    for (size_t i = 0; i < cigar_len; i++) {
+        OpLen op = block_get_cigar(cigar, i);
+        if (op.op == Operation::D) {
+            op.op = Operation::I;
+        } else if (op.op == Operation::I) {
+            op.op = Operation::D;
+        }
+        cigar_vec.push_back(op);
+    }
+    return cigar_vec;
+}
+
 std::string reverse_string(const std::string& s) {
     std::string temp = s;
     std::reverse(temp.begin(), temp.end());
@@ -33,7 +65,7 @@ enum class AlignmentMode {
     XdropQueryStart
 };
 
-AlignmentResult run_block_alignment(const std::string& query, const std::string& ref, AlignmentMode mode, const AlignmentScoring& scoring_params) {
+AlignmentResult run_block_alignment(const std::string& query, const std::string& ref, AlignmentMode mode, const AlignmentParameters& params) {
     AlignmentResult result;
 
     if (query.length() == 0 || ref.length() == 0) {
@@ -50,10 +82,9 @@ AlignmentResult run_block_alignment(const std::string& query, const std::string&
         processed_ref = reverse_string(ref);
     }
 
-    SizeRange range = {.min = 32, .max = 256};
-    Gaps gaps = {.open = scoring_params.gap_open, .extend = scoring_params.gap_extend};
-
-    const int32_t x_drop_threshold = 800; // make this a param
+    SizeRange range = {.min = uintptr_t(params.min_block), .max = uintptr_t(params.max_block)};
+    Gaps gaps = {.open = int8_t(-params.gap_open), .extend = int8_t(-params.gap_extend)};
+    const int32_t x_drop_threshold = int32_t(params.x_drop_threshold);
 
     PaddedBytes* q_padded = block_new_padded_aa(processed_query.length(), range.max);
     PaddedBytes* r_padded = block_new_padded_aa(processed_ref.length(), range.max);
@@ -65,7 +96,7 @@ AlignmentResult run_block_alignment(const std::string& query, const std::string&
     Cigar* cigar_ptr = nullptr;
 
     if (mode == AlignmentMode::Global) {
-        AAMatrix* dna_matrix = block_new_simple_aamatrix(scoring_params.match, scoring_params.mismatch);
+        AAMatrix* dna_matrix = block_new_simple_aamatrix(int8_t(params.match), int8_t(-params.mismatch));
         block = block_new_aa_trace(original_query_len, original_ref_len, range.max);
         block_align_aa_trace(block, q_padded, r_padded, dna_matrix, gaps, range, x_drop_threshold);
         res = block_res_aa_trace(block);
@@ -83,26 +114,26 @@ AlignmentResult run_block_alignment(const std::string& query, const std::string&
         result.ref_end = res.reference_idx;
         result.cigar = build_cigar_vector(cigar_ptr, cigar_len);
     } else {
-        AAProfile* query_profile = block_new_aaprofile(processed_query.length(), range.max, scoring_params.gap_extend);
+        AAProfile* query_profile = block_new_aaprofile(processed_query.length(), range.max, int8_t(-params.gap_extend));
         
         for (size_t i = 1; i <= processed_query.length(); i++) {
             for (int c = 'A'; c <= 'Z'; c++) {
                 if (c == processed_query[i - 1]) {
-                    block_set_aaprofile(query_profile, i, c, scoring_params.match);
+                    block_set_aaprofile(query_profile, i, c, int8_t(params.match));
                 } else {
-                    block_set_aaprofile(query_profile, i, c, scoring_params.mismatch);
+                    block_set_aaprofile(query_profile, i, c, int8_t(-params.mismatch));
                 }
             }
         }
 
-        block_set_all_gap_open_C_aaprofile(query_profile, scoring_params.gap_open - scoring_params.gap_extend);
+        block_set_all_gap_open_C_aaprofile(query_profile, int8_t(-params.gap_open) - int8_t(-params.gap_extend));
         block_set_all_gap_close_C_aaprofile(query_profile, 0);
-        block_set_all_gap_open_R_aaprofile(query_profile, scoring_params.gap_open - scoring_params.gap_extend);
+        block_set_all_gap_open_R_aaprofile(query_profile, int8_t(-params.gap_open) - int8_t(-params.gap_extend));
 
         size_t bonus_pos = processed_query.length();
         for (int c = 'A'; c <= 'Z'; c++) {
             int8_t current_score = block_get_aaprofile(query_profile, bonus_pos, c);
-            block_set_aaprofile(query_profile, bonus_pos, c, current_score + scoring_params.end_bonus);
+            block_set_aaprofile(query_profile, bonus_pos, c, current_score + params.end_bonus);
         }
 
         block = block_new_aa_trace_xdrop(processed_ref.length(), processed_query.length(), range.max);
@@ -125,13 +156,13 @@ AlignmentResult run_block_alignment(const std::string& query, const std::string&
             result.query_end = original_query_len;
             result.ref_start = original_ref_len - aligned_ref_end;
             result.ref_end = original_ref_len;
-            result.cigar = reverse_cigar_vector(cigar_ptr, cigar_len);
+            result.cigar = reverse_cigar_vector_swap_DI(cigar_ptr, cigar_len);
         } else {
             result.query_start = 0;
             result.query_end = aligned_query_end;
             result.ref_start = 0;
             result.ref_end = aligned_ref_end;
-            result.cigar = build_cigar_vector(cigar_ptr, cigar_len);
+            result.cigar = build_cigar_vector_swap_DI(cigar_ptr, cigar_len);
         }
     }
 
@@ -142,14 +173,14 @@ AlignmentResult run_block_alignment(const std::string& query, const std::string&
     return result;
 }
 
-AlignmentResult global_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params) {
+AlignmentResult global_alignment(const std::string& query, const std::string& ref, const AlignmentParameters& scoring_params) {
     return run_block_alignment(query, ref, AlignmentMode::Global, scoring_params);
 }
 
-AlignmentResult xdrop_query_end_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params) {
+AlignmentResult xdrop_query_end_alignment(const std::string& query, const std::string& ref, const AlignmentParameters& scoring_params) {
     return run_block_alignment(query, ref, AlignmentMode::XdropQueryEnd, scoring_params);
 }
 
-AlignmentResult xdrop_query_start_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params) {
+AlignmentResult xdrop_query_start_alignment(const std::string& query, const std::string& ref, const AlignmentParameters& scoring_params) {
     return run_block_alignment(query, ref, AlignmentMode::XdropQueryStart, scoring_params);
 }

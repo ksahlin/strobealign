@@ -4,14 +4,7 @@
 #include <vector>
 #include <cstddef>
 #include "block-aligner/c/block_aligner.h"
-
-struct AlignmentScoring {
-    int8_t match;
-    int8_t mismatch;
-    int8_t gap_open;
-    int8_t gap_extend;
-    int32_t end_bonus;
-};
+#include "aligner.hpp"
 
 struct AlignmentResult {
     int score;
@@ -22,9 +15,8 @@ struct AlignmentResult {
     std::vector<OpLen> cigar;
 };
 
-AlignmentResult global_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params);
-AlignmentResult xdrop_query_end_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params);
-AlignmentResult xdrop_query_start_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params);
-
+AlignmentResult global_alignment(const std::string& query, const std::string& ref, const AlignmentParameters& scoring_params);
+AlignmentResult xdrop_query_end_alignment(const std::string& query, const std::string& ref, const AlignmentParameters& scoring_params);
+AlignmentResult xdrop_query_start_alignment(const std::string& query, const std::string& ref, const AlignmentParameters& scoring_params);
 
 #endif

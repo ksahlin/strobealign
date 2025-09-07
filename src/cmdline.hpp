@@ -69,6 +69,11 @@ struct CommandLineOptions {
     float valid_score_threshold{ 0.7 };
     int max_ref_gap{ 10000 };
 
+    // Piecewise
+    int x_drop_threshold { 800 };
+    uint min_block { 32 };
+    uint max_block { 256 };
+
     // Search parameters
     bool mcs { false };
     float f { 0.0002 };

@@ -15,6 +15,10 @@ struct AlignmentParameters {
     int gap_open;
     int gap_extend;
     int end_bonus;
+
+    int x_drop_threshold;
+    uint min_block;
+    uint max_block;
 };
 
 std::ostream& operator<<(std::ostream& os, const AlignmentParameters& params);
