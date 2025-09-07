@@ -10,6 +10,7 @@ struct AlignmentScoring {
     int8_t mismatch;
     int8_t gap_open;
     int8_t gap_extend;
+    int32_t end_bonus;
 };
 
 struct AlignmentResult {
@@ -22,8 +23,8 @@ struct AlignmentResult {
 };
 
 AlignmentResult global_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params);
-AlignmentResult free_query_end_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params);
-AlignmentResult free_query_start_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params);
+AlignmentResult xdrop_query_end_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params);
+AlignmentResult xdrop_query_start_alignment(const std::string& query, const std::string& ref, const AlignmentScoring& scoring_params);
 
 
 #endif
