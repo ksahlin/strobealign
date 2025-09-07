@@ -314,6 +314,8 @@ fn main() -> Result<(), CliError> {
         max_secondary: args.max_secondary,
         max_tries: args.max_tries,
         dropoff_threshold: args.dropoff_threshold,
+        rescue_level: args.rescue_level,
+        output_unmapped: !args.only_mapped,
         .. MappingParameters::default()
     };
 
