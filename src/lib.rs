@@ -11,6 +11,7 @@ pub mod cigar;
 pub mod sam;
 pub mod paf;
 pub mod read;
+pub mod hit;
 pub mod aligner;
 pub mod ssw;
 pub mod mcsstrategy;

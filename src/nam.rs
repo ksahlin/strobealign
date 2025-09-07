@@ -8,8 +8,9 @@ use log::Level::Trace;
 use log::trace;
 use crate::details::NamDetails;
 use crate::fasta::RefSequence;
+use crate::hit::Hit;
 use crate::index::StrobemerIndex;
-use crate::mapper;
+use crate::{hit, mapper};
 use crate::mapper::QueryRandstrobe;
 use crate::mcsstrategy::McsStrategy;
 use crate::read::Read;
@@ -63,77 +64,6 @@ struct Match {
 
 // The regular HashMap uses a randomly seeded hash function, but we want reproducible results
 type DefaultHashMap<K, V> = HashMap<K, V, BuildHasherDefault<DefaultHasher>>;
-
-/// Find a query’s hits, ignoring randstrobes that occur too often in the
-/// reference (have a count above filter_cutoff).
-///
-/// Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
-///
-fn find_hits(
-    query_randstrobes: &[QueryRandstrobe], index: &StrobemerIndex, filter_cutoff: usize, mcs_strategy: McsStrategy
-) -> (usize, usize, bool, Vec<Hit>) {
-
-    let mut hits = vec![];
-    let mut sorting_needed = mcs_strategy == McsStrategy::Always || mcs_strategy == McsStrategy::FirstStrobe;
-    let mut total_hits = 0;
-    let mut partial_hits = 0;
-
-    if mcs_strategy == McsStrategy::FirstStrobe {
-        for randstrobe in query_randstrobes {
-            if let Some(position) = index.get_partial(randstrobe.hash) {
-                partial_hits += 1;
-                if index.is_too_frequent_partial(position, filter_cutoff, randstrobe.hash_revcomp) {
-                    continue;
-                }
-
-                let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.start + index.k(), is_partial: true };
-                hits.push(hit);
-            }
-        }
-
-        return (total_hits, partial_hits, sorting_needed, hits);
-    }
-
-    for randstrobe in query_randstrobes {
-        if let Some(position) = index.get_full(randstrobe.hash) {
-            total_hits += 1;
-            if index.is_too_frequent(position, filter_cutoff, randstrobe.hash_revcomp) {
-                continue;
-            }
-
-            let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.end, is_partial: false };
-            hits.push(hit);
-        } else if mcs_strategy == McsStrategy::Always {
-            if let Some(position) = index.get_partial(randstrobe.hash) {
-                total_hits += 1;
-                if index.is_too_frequent_partial(position, filter_cutoff, randstrobe.hash_revcomp) {
-                    continue;
-                }
-                partial_hits += 1;
-                let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.start + index.k(), is_partial: true };
-                hits.push(hit);
-            }
-        }
-    }
-
-    // Rescue using partial hits even in non-MCS mode
-    if total_hits == 0 && mcs_strategy == McsStrategy::Rescue {
-        for randstrobe in query_randstrobes {
-            if let Some(position) = index.get_partial(randstrobe.hash) {
-                total_hits += 1;
-                if index.is_too_frequent_partial(position, filter_cutoff, randstrobe.hash_revcomp) {
-                    continue;
-                }
-                partial_hits += 1;
-                let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.start + index.k(), is_partial: true };
-                hits.push(hit);
-            }
-        }
-        sorting_needed = true;
-    }
-
-    (total_hits, partial_hits, sorting_needed, hits)
-}
 
 /// Find a query’s NAMs, using also some of the randstrobes that occur more often
 /// than the normal (non-rescue) filter cutoff.
@@ -385,14 +315,6 @@ pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, references: &[RefSequen
     }
 }
 
-#[derive(Debug)]
-struct Hit {
-    query_start: usize,
-    query_end: usize,
-    position: usize,
-    is_partial: bool,
-}
-
 fn hits_to_matches(hits: &[Hit], index: &StrobemerIndex) -> DefaultHashMap<usize, Vec<Match>> {
     let mut matches_map = DefaultHashMap::default();
     matches_map.reserve(100);
@@ -430,7 +352,7 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, mc
         let partial_hits1;
         let sorting_needed1;
 
-        (total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) = find_hits(&query_randstrobes[is_revcomp], index, index.filter_cutoff, mcs_strategy);
+        (total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) = hit::find_hits(&query_randstrobes[is_revcomp], index, index.filter_cutoff, mcs_strategy);
         sorting_needed = sorting_needed || sorting_needed1;
         total_hits += total_hits1;
         partial_hits += partial_hits1;
