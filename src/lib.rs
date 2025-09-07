@@ -13,6 +13,7 @@ pub mod paf;
 pub mod read;
 pub mod aligner;
 pub mod ssw;
+pub mod mcsstrategy;
 pub mod details;
 pub mod hash;
 pub mod insertsize;

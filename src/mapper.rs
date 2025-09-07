@@ -20,6 +20,7 @@ use crate::details::Details;
 use crate::fastq::SequenceRecord;
 use crate::insertsize::InsertSizeDistribution;
 use crate::math::normal_pdf;
+use crate::mcsstrategy::McsStrategy;
 use crate::nam;
 
 #[derive(Debug)]
@@ -29,7 +30,7 @@ pub struct MappingParameters {
     pub dropoff_threshold: f32,
     pub rescue_level: usize,
     pub max_tries: usize,
-    pub use_mcs: bool,
+    pub mcs_strategy: McsStrategy,
     pub output_unmapped: bool,
 }
 
@@ -41,7 +42,7 @@ impl Default for MappingParameters {
             dropoff_threshold: 0.5,
             rescue_level: 2,
             max_tries: 20,
-            use_mcs: false,
+            mcs_strategy: McsStrategy::default(),
             output_unmapped: true,
         }
     }
@@ -306,7 +307,7 @@ pub fn align_single_end_read(
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let (nam_details, mut nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, mapping_parameters.use_mcs, rng);
+    let (nam_details, mut nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, mapping_parameters.mcs_strategy, rng);
     let mut details: Details = nam_details.into();
 
     let timer = Instant::now();
@@ -488,7 +489,7 @@ pub fn align_paired_end_read(
 
     for is_r1 in [0, 1] {
         let record = if is_r1 == 0 { r1 } else { r2 };
-        let (nam_details, nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, mapping_parameters.use_mcs, rng);
+        let (nam_details, nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, mapping_parameters.mcs_strategy, rng);
         details[is_r1].nam = nam_details;
         nams_pair[is_r1] = nams;
     }

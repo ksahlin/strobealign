@@ -25,6 +25,7 @@ use rstrobes::maponly::{abundances_paired_end_read, abundances_single_end_read, 
 use rstrobes::mapper::{align_paired_end_read, align_single_end_read, MappingParameters, SamOutput};
 use rstrobes::sam::{ReadGroup, SamHeader};
 use rstrobes::io::xopen;
+use rstrobes::mcsstrategy::McsStrategy;
 
 mod logger;
 
@@ -180,9 +181,9 @@ struct Args {
     #[arg(short = 'L', default_value_t = Scores::default().end_bonus, value_name = "N", help_heading = "Alignment")]
     end_bonus: u32,
 
-    /// Use multi-context seeds for finding hits
-    #[arg(long = "mcs", default_value_t = MappingParameters::default().use_mcs, help_heading = "Search parameters")]
-    use_mcs: bool,
+    /// Multi-context seed strategy for finding hits
+    #[arg(long = "mcs", value_enum, default_value_t = McsStrategy::default(), help_heading = "Search parameters")]
+    mcs_strategy: McsStrategy,
 
     /// Top fraction of repetitive strobemers to filter out from sampling
     #[arg(short, default_value_t = 0.0002, help_heading = "Search parameters")]
@@ -285,7 +286,7 @@ fn main() -> Result<(), CliError> {
     let timer = Instant::now();
     debug!("{:?}", parameters.syncmer);
     debug!("{:?}", parameters.randstrobe);
-    info!("Using multi-context seeds: {}", if args.use_mcs { "yes" } else { "no" });
+    info!("Multi-context seed strategy: {}", args.mcs_strategy);
 
     let mut index = StrobemerIndex::new(&references, parameters.clone(), args.bits);
     debug!("Auxiliary hash length: {}", args.aux_len);
@@ -591,10 +592,10 @@ impl Mapper<'_> {
                     let (paf_records, details) =
                         if let Some(r2) = r2 {
                             map_paired_end_read(
-                                &r1, &r2, self.index, self.references, self.mapping_parameters.rescue_level, &mut isizedist, self.mapping_parameters.use_mcs, &mut rng
+                                &r1, &r2, self.index, self.references, self.mapping_parameters.rescue_level, &mut isizedist, self.mapping_parameters.mcs_strategy, &mut rng
                             )
                         } else {
-                            map_single_end_read(&r1, self.index, self.references, self.mapping_parameters.rescue_level, self.mapping_parameters.use_mcs, &mut rng)
+                            map_single_end_read(&r1, self.index, self.references, self.mapping_parameters.rescue_level, self.mapping_parameters.mcs_strategy, &mut rng)
                         };
                     for paf_record in paf_records {
                         writeln!(out, "{}", paf_record)?;
@@ -603,9 +604,9 @@ impl Mapper<'_> {
                 }
                 Mode::Abundances => {
                     if let Some(r2) = r2 {
-                        abundances_paired_end_read(&r1, &r2, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, &mut isizedist, self.mapping_parameters.use_mcs, &mut rng);
+                        abundances_paired_end_read(&r1, &r2, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, &mut isizedist, self.mapping_parameters.mcs_strategy, &mut rng);
                     } else {
-                        abundances_single_end_read(&r1, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, self.mapping_parameters.use_mcs, &mut rng);
+                        abundances_single_end_read(&r1, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, self.mapping_parameters.mcs_strategy, &mut rng);
                     }
                 }
             }

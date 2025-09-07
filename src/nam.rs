@@ -11,6 +11,7 @@ use crate::fasta::RefSequence;
 use crate::index::StrobemerIndex;
 use crate::mapper;
 use crate::mapper::QueryRandstrobe;
+use crate::mcsstrategy::McsStrategy;
 use crate::read::Read;
 
 /// Non-overlapping approximate match
@@ -69,13 +70,30 @@ type DefaultHashMap<K, V> = HashMap<K, V, BuildHasherDefault<DefaultHasher>>;
 /// Return the fraction of nonrepetitive hits (those not above the filter_cutoff threshold)
 ///
 fn find_hits(
-    query_randstrobes: &[QueryRandstrobe], index: &StrobemerIndex, filter_cutoff: usize, use_mcs: bool
+    query_randstrobes: &[QueryRandstrobe], index: &StrobemerIndex, filter_cutoff: usize, mcs_strategy: McsStrategy
 ) -> (usize, usize, bool, Vec<Hit>) {
 
     let mut hits = vec![];
-    let mut sorting_needed = use_mcs;
+    let mut sorting_needed = mcs_strategy == McsStrategy::Always || mcs_strategy == McsStrategy::FirstStrobe;
     let mut total_hits = 0;
     let mut partial_hits = 0;
+
+    if mcs_strategy == McsStrategy::FirstStrobe {
+        for randstrobe in query_randstrobes {
+            if let Some(position) = index.get_partial(randstrobe.hash) {
+                partial_hits += 1;
+                if index.is_too_frequent_partial(position, filter_cutoff, randstrobe.hash_revcomp) {
+                    continue;
+                }
+
+                let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.start + index.k(), is_partial: true };
+                hits.push(hit);
+            }
+        }
+
+        return (total_hits, partial_hits, sorting_needed, hits);
+    }
+
     for randstrobe in query_randstrobes {
         if let Some(position) = index.get_full(randstrobe.hash) {
             total_hits += 1;
@@ -85,7 +103,7 @@ fn find_hits(
 
             let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.end, is_partial: false };
             hits.push(hit);
-        } else if use_mcs {
+        } else if mcs_strategy == McsStrategy::Always {
             if let Some(position) = index.get_partial(randstrobe.hash) {
                 total_hits += 1;
                 if index.is_too_frequent_partial(position, filter_cutoff, randstrobe.hash_revcomp) {
@@ -99,7 +117,7 @@ fn find_hits(
     }
 
     // Rescue using partial hits even in non-MCS mode
-    if total_hits == 0 && !use_mcs {
+    if total_hits == 0 && mcs_strategy == McsStrategy::Rescue {
         for randstrobe in query_randstrobes {
             if let Some(position) = index.get_partial(randstrobe.hash) {
                 total_hits += 1;
@@ -125,11 +143,11 @@ fn find_matches_rescue(
     query_randstrobes: &[QueryRandstrobe],
     index: &StrobemerIndex,
     rescue_cutoff: usize,
-    _use_mcs: bool,
+    _mcs_strategy: McsStrategy,
 ) -> (usize, DefaultHashMap<usize, Vec<Match>>) {
 
-    // TODO we ignore use_mcs
-    // if we implement use_mcs, we also need to return the no. of partial_hits
+    // TODO we ignore mcs_strategy
+    // if we implement mcs_strategy, we also need to return the no. of partial_hits
 
     struct RescueHit {
         count: usize,
@@ -393,7 +411,7 @@ fn hits_to_matches(hits: &[Hit], index: &StrobemerIndex) -> DefaultHashMap<usize
 /// Obtain NAMs for a sequence record, doing rescue if needed.
 ///
 /// NAMs are returned sorted by decreasing score
-pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, use_mcs: bool, rng: &mut Rng) -> (NamDetails, Vec<Nam>) {
+pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, mcs_strategy: McsStrategy, rng: &mut Rng) -> (NamDetails, Vec<Nam>) {
     let timer = Instant::now();
     let query_randstrobes = mapper::randstrobes_query(sequence, &index.parameters);
     let n_randstrobes = query_randstrobes[0].len() + query_randstrobes[1].len();
@@ -412,7 +430,7 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, us
         let partial_hits1;
         let sorting_needed1;
 
-        (total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) = find_hits(&query_randstrobes[is_revcomp], index, index.filter_cutoff, use_mcs);
+        (total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) = find_hits(&query_randstrobes[is_revcomp], index, index.filter_cutoff, mcs_strategy);
         sorting_needed = sorting_needed || sorting_needed1;
         total_hits += total_hits1;
         partial_hits += partial_hits1;
@@ -432,7 +450,7 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, us
         nam_rescue = true;
         nams = vec![];
         for is_revcomp in [false, true] {
-            let (n_rescue_hits_oriented, mut matches_map) = find_matches_rescue(&query_randstrobes[is_revcomp as usize], index, index.rescue_cutoff, use_mcs);
+            let (n_rescue_hits_oriented, mut matches_map) = find_matches_rescue(&query_randstrobes[is_revcomp as usize], index, index.rescue_cutoff, mcs_strategy);
             // TODO is sort: true correct?
             merge_matches_into_nams(&mut matches_map, index.k(), true, is_revcomp, &mut nams);
             n_rescue_hits += n_rescue_hits_oriented;
