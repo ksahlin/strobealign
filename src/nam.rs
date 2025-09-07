@@ -8,9 +8,9 @@ use log::Level::Trace;
 use log::trace;
 use crate::details::NamDetails;
 use crate::fasta::RefSequence;
-use crate::hit::Hit;
+use crate::hit::{find_hits, Hit};
 use crate::index::StrobemerIndex;
-use crate::{hit, mapper};
+use crate::mapper;
 use crate::mapper::QueryRandstrobe;
 use crate::mcsstrategy::McsStrategy;
 use crate::read::Read;
@@ -23,11 +23,11 @@ pub struct Nam {
     pub ref_end: usize,
     pub query_start: usize,
     pub query_end: usize,
-    query_prev_match_startpos: usize,
-    ref_prev_match_startpos: usize,
+    pub query_prev_match_startpos: usize,
+    pub ref_prev_match_startpos: usize,
     pub n_matches: usize,
     pub ref_id: usize,
-    pub score: u32,
+    pub score: f32,
     pub is_revcomp: bool,
 }
 
@@ -134,7 +134,7 @@ fn add_to_matches_map_full(
             break;
         }
         let ref_start = randstrobe.position();
-        let ref_end = ref_start + randstrobe.strobe2_offset() + index.parameters.syncmer.k;
+        let ref_end = ref_start + randstrobe.strobe2_offset() + index.k();
         let ref_length = ref_end - ref_start;
         let length_diff = (query_length as isize - ref_length as isize).unsigned_abs();
         if length_diff <= min_length_diff {
@@ -223,7 +223,7 @@ fn merge_matches_into_nams(
                     ref_prev_match_startpos: m.ref_start,
                     n_matches: 1,
                     is_revcomp,
-                    score: 0,
+                    score: 0.0,
                 });
             }
 
@@ -244,7 +244,7 @@ fn merge_matches_into_nams(
                             } as u32;
 //                        n_score = n.n_matches * n.query_span();
                         let mut nam = n.clone();
-                        nam.score = n_score;
+                        nam.score = n_score as f32;
                         nams.push(nam);
                     }
                 }
@@ -264,10 +264,10 @@ fn merge_matches_into_nams(
             let n_min_span = min(n.query_span(), n.ref_span());
             n.score =
                 if 2 * n_min_span > n_max_span {
-                    n.n_matches * (2 * n_min_span - n_max_span)
+                    (n.n_matches * (2 * n_min_span - n_max_span)) as f32
                 } else {
-                    1
-                } as u32;
+                    1.0
+                };
             nams.push(n);
         }
     }
@@ -352,21 +352,22 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, mc
         let partial_hits1;
         let sorting_needed1;
 
-        (total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) = hit::find_hits(&query_randstrobes[is_revcomp], index, index.filter_cutoff, mcs_strategy);
+        (total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) = 
+            find_hits(&query_randstrobes[is_revcomp], index, index.filter_cutoff, mcs_strategy);
         sorting_needed = sorting_needed || sorting_needed1;
         total_hits += total_hits1;
         partial_hits += partial_hits1;
     }
     let nonrepetitive_hits = hits[0].len() + hits[1].len();
     let nonrepetitive_fraction = if total_hits > 0 { (nonrepetitive_hits as f32) / (total_hits as f32) } else { 1.0 };
+    let time_find_hits = timer.elapsed().as_secs_f64();
 
     let mut nams;
-    let time_find_nams = timer.elapsed().as_secs_f64();
-
     let mut n_rescue_hits = 0;
     let mut n_rescue_nams = 0;
     let mut nam_rescue = false;
     let time_rescue;
+    let mut time_chaining = 0.0;
     if rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7) {
         let timer = Instant::now();
         nam_rescue = true;
@@ -383,9 +384,11 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, mc
         nams = vec![];
         for is_revcomp in [false, true] {
             let mut matches_map = hits_to_matches(&hits[is_revcomp as usize], index);
+            let timer = Instant::now();
             merge_matches_into_nams(&mut matches_map, index.k(), sorting_needed, is_revcomp, &mut nams);
+            time_chaining += timer.elapsed().as_secs_f64();
         }
-        time_rescue = 0f64;
+        time_rescue = 0.0;
     }
 
     let timer = Instant::now();
@@ -410,7 +413,8 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, mc
         n_partial_hits: partial_hits,
         n_rescue_hits,
         time_randstrobes,
-        time_find_nams,
+        time_find_hits,
+        time_chaining,
         time_rescue,
         time_sort_nams,
     };

@@ -28,7 +28,8 @@ pub struct NamDetails {
     pub n_rescue_hits: usize,
 
     pub time_randstrobes: f64,
-    pub time_find_nams: f64,
+    pub time_find_hits: f64,
+    pub time_chaining: f64,
     pub time_rescue: f64,
     pub time_sort_nams: f64,
 }
@@ -44,7 +45,8 @@ impl ops::AddAssign<NamDetails> for NamDetails {
         self.n_partial_hits += rhs.n_partial_hits;
         self.n_rescue_hits += rhs.n_rescue_hits;
         self.time_randstrobes += rhs.time_randstrobes;
-        self.time_find_nams += rhs.time_find_nams;
+        self.time_find_hits += rhs.time_find_hits;
+        self.time_chaining += rhs.time_chaining;
         self.time_rescue += rhs.time_rescue;
         self.time_sort_nams += rhs.time_sort_nams;
     }

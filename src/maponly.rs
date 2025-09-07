@@ -139,8 +139,8 @@ pub fn abundances_paired_end_read(
             let joint_score = nam1.score + nam2.score;
             let n_best = nam_pairs.iter()
                 .take_while(|nam_pair| 
-                    nam_pair.nam1.as_ref().map_or(0, |nam| nam.score) + 
-                    nam_pair.nam2.as_ref().map_or(0, |nam| nam.score) == joint_score)
+                    nam_pair.nam1.as_ref().map_or(0.0, |nam| nam.score) +
+                    nam_pair.nam2.as_ref().map_or(0.0, |nam| nam.score) == joint_score)
                 .count();
             let weight_r1 = r1.sequence.len() as f64 / n_best as f64;
             let weight_r2 = r2.sequence.len() as f64 / n_best as f64;
@@ -192,9 +192,9 @@ fn get_best_paired_map_location(
         .find(|&nam_pair| nam_pair.nam1.is_some() && nam_pair.nam2.is_some());
 
     let joint_score = if let Some(nam_pair) = best_joint_pair {
-        nam_pair.nam1.as_ref().map_or(0, |nam| nam.score) +
-        nam_pair.nam2.as_ref().map_or(0, |nam| nam.score)
-    } else { 0 };
+        nam_pair.nam1.as_ref().map_or(0.0, |nam| nam.score) +
+        nam_pair.nam2.as_ref().map_or(0.0, |nam| nam.score)
+    } else { 0.0 };
 
     // Get individual best scores.
     // nams1 and nams2 are also sorted descending by score.
@@ -202,11 +202,11 @@ fn get_best_paired_map_location(
     let best_individual_nam2 = nams2.first();
 
     let individual_score =
-        best_individual_nam1.map_or(0, |nam| nam.score) +
-        best_individual_nam2.map_or(0, |nam| nam.score);
+        best_individual_nam1.map_or(0.0, |nam| nam.score) +
+        best_individual_nam2.map_or(0.0, |nam| nam.score);
 
     // Divisor 2 is penalty for being mapped individually
-    if joint_score > individual_score / 2 {
+    if joint_score > individual_score / 2.0 {
         let best_joint_pair= best_joint_pair.unwrap();
         let best = (best_joint_pair.nam1.clone(), best_joint_pair.nam2.clone());
         if insert_size_distribution.sample_size < 400 {

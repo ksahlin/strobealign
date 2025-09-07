@@ -686,11 +686,11 @@ fn extend_paired_seeds(
     // Turn pairs of high-scoring NAMs into pairs of alignments
     let nam_pairs = get_best_scoring_nam_pairs(&nams[0], &nams[1], mu, sigma);
     let mut alignment_pairs = vec![];
-    let max_score = nam_pairs[0].score as f32;
+    let max_score = nam_pairs[0].score;
     for nam_pair in nam_pairs {
         let score_ = nam_pair.score;
         let namsp = [nam_pair.nam1, nam_pair.nam2];
-        let score_dropoff = score_ as f32 / max_score;
+        let score_dropoff = score_ / max_score;
 
         if alignment_pairs.len() >= max_tries || score_dropoff < dropoff {
             break;
@@ -1001,7 +1001,7 @@ pub fn get_best_scoring_nam_pairs(
             nam_pairs.push(NamPair{score: nam2.score, nam1: None, nam2: Some(nam2.clone())});
         }
     }
-    nam_pairs.sort_by_key(|np| Reverse(np.score));
+    nam_pairs.sort_by(|a, b| b.score.total_cmp(&a.score));
 
     nam_pairs
 }
@@ -1014,14 +1014,14 @@ fn proper_pair_mapq(nams: &[Nam]) -> u8 {
     let s2 = nams[1].score;
     // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
     let min_matches = min(nams[0].n_matches, 10) as f32 / 10.0;
-    let uncapped_mapq = 40.0 * (1 - s2 / s1) as f32 * min_matches * (s1 as f32).ln();
+    let uncapped_mapq = 40.0 * (1.0 - s2 / s1) * min_matches * s1.ln();
 
     uncapped_mapq.min(60.0) as u8
 }
 
 #[derive(Debug)]
 pub struct NamPair {
-    pub score: u32,
+    pub score: f32,
     pub nam1: Option<Nam>,
     pub nam2: Option<Nam>,
 }
