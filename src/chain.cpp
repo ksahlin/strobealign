@@ -337,6 +337,16 @@ std::vector<Chain> Chainer::get_chains(
         anchors.erase(
             std::unique(anchors.begin(), anchors.end()), anchors.end()
         );
+
+        if (!is_revcomp){
+            logger.trace() << "Anchors for forward strand [";
+        } else {
+            logger.trace() << "]\nAnchors for reverse strand [";
+        }
+        for (const auto& anchor : anchors) {
+            logger.trace() << anchor;
+        }
+
         float score = collinear_chaining(anchors, dp, predecessors);
         best_score = score;
 
@@ -345,17 +355,6 @@ std::vector<Chain> Chainer::get_chains(
             index.k(), is_revcomp, chains, map_param.chaining_params
         );
         statistics.time_chaining += chaining_timer.duration();
-
-        if (logger.level() <= LOG_TRACE) {
-            if (is_revcomp){
-                logger.trace() << "Anchors for forward strand [";
-            } else {
-                logger.trace() << "]\nAnchors for reverse strand [";
-            }
-            for (const auto& anchor : anchors) {
-                logger.trace() << anchor;
-            }
-        }
     }
     details.nams += chains.size();
     return chains;

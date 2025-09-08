@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <memory>
-#include <ostream>
 #include <random>
 #include <string>
 #include <vector>
@@ -248,7 +247,6 @@ inline Alignment extend_seed_piecewise(
 using namespace klibpp;
 
 
-#ifdef TRACE
 bool reverse_nam_if_needed(Nam& nam, const Read& read, const References& references, int k) {
     auto read_len = read.size();
     std::string ref_start_kmer = references.sequences[nam.ref_id].substr(nam.ref_start, k);
@@ -351,8 +349,6 @@ inline Alignment extend_seed(
 
     return alignment;
 }
-#endif
-
 
 void align_single_piecewse(
     const Aligner &aligner, //just to compare with SSW
@@ -387,17 +383,14 @@ void align_single_piecewse(
     Alignment best_alignment;
     best_alignment.is_unaligned = true;
 
-#ifdef TRACE
     int considered = 0; 
-#endif
     for (auto &chain : chains) {
         float score_dropoff = (float) chain.score / n_max.score;
         if (tries >= max_tries || (tries > 1 && best_edit_distance == 0) || score_dropoff < dropoff_threshold) {
             break;
         }
-#ifdef TRACE
-    considered++; 
-#endif
+        considered++;
+
         // bool consistent_nam = reverse_nam_if_needed(nam, read, references, k);
         // details.inconsistent_nams += !consistent_nam;
         auto alignment = extend_seed_piecewise(scoring_params, chain, k, references, read);
@@ -450,34 +443,36 @@ void align_single_piecewse(
     uint8_t mapq = (60.0 * (best_score - second_best_score) + best_score - 1) / best_score;
     bool is_primary = true;
     sam.add(best_alignment, record, read.rc, mapq, is_primary, details);
-#ifdef TRACE
-    std::cerr << "Cigars:[";
-    int curr = 0;
-    for (const auto& chain : chains) {
-        auto alignment = extend_seed_piecewise(scoring_params, chain, k, references, read);
-        
-        Nam nam = Nam {
-            .nam_id = -1,
-            .query_start = (int)chain.query_start,
-            .query_end = (int)chain.query_end,
-            .query_prev_match_startpos = -1,
-            .ref_start = (int)chain.ref_start,
-            .ref_end = (int)chain.ref_end,
-            .ref_prev_match_startpos = -1,
-            .n_matches = (int)chain.anchors.size(),
-            .ref_id = (int)chain.ref_id,
-            .score = chain.score,
-            .is_revcomp = chain.is_revcomp
-        };
-        bool consistent_nam = reverse_nam_if_needed(nam, read, references, k);
-        auto alignment_ssw = extend_seed(aligner, nam, references, read, consistent_nam);
+
+    if (logger.level() <= LOG_TRACE){
+        logger.trace() << "Cigars:[";
+        int curr = 0;
+        for (const auto& chain : chains) {
+            auto alignment = extend_seed_piecewise(scoring_params, chain, k, references, read);
+            
+            Nam nam = Nam {
+                .nam_id = -1,
+                .query_start = (int)chain.query_start,
+                .query_end = (int)chain.query_end,
+                .query_prev_match_startpos = -1,
+                .ref_start = (int)chain.ref_start,
+                .ref_end = (int)chain.ref_end,
+                .ref_prev_match_startpos = -1,
+                .n_matches = (int)chain.anchors.size(),
+                .ref_id = (int)chain.ref_id,
+                .score = chain.score,
+                .is_revcomp = chain.is_revcomp
+            };
+            bool consistent_nam = reverse_nam_if_needed(nam, read, references, k);
+            auto alignment_ssw = extend_seed(aligner, nam, references, read, consistent_nam);
 
 
-        std::cerr << "(" <<alignment.cigar << ",was_considered:"<< (curr < considered) <<  ",rstart=" << alignment.ref_start << ",SSW:" << alignment_ssw.cigar << ",SSW_rstart=" << alignment_ssw.ref_start << ")";
-        curr++;
+            logger.trace() << "(" <<alignment.cigar << ",was_considered:"<< (curr < considered) <<  ",rstart=" << alignment.ref_start << ",SSW:" << alignment_ssw.cigar << ",SSW_rstart=" << alignment_ssw.ref_start << ")";
+            curr++;
+        }
+        logger.trace() << "]\n";
     }
-    std::cerr << "]\n";
-#endif
+    
     if (max_secondary == 0) {
         return;
     }

@@ -1074,14 +1074,14 @@ std::vector<Chain> get_nams_or_chains(
     shuffle_top_chains(chains, random_engine);
     statistics.tot_sort_nams += nam_sort_timer.duration();
 
-    if (logger.level() <= LOG_TRACE && map_param.use_nams) {
+    if (map_param.use_nams) {
         logger.trace() << "Found " << nams.size() << " NAMs\n";
         for (const auto& nam : nams) {
             logger.trace() << "- " << nam << '\n';
         }
     }
 
-    if (logger.level() <= LOG_TRACE && map_param.use_nams) {
+    if (!map_param.use_nams) {
         logger.trace() << "]\nChains[";
         for (const auto& chain : chains) {
             logger.trace()  << chain;
