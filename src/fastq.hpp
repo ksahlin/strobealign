@@ -4,7 +4,6 @@
 #include <zlib.h>
 #include <string>
 
-#include "exceptions.hpp"
 #include "kseq++/kseq++.hpp"
 
 #include "iowrap.hpp"

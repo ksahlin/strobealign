@@ -2,17 +2,13 @@
 #define STROBEALIGN_NAM_HPP
 
 #include <vector>
+#include <iostream>
+#include "robin_hood.h"
+
 #include "index.hpp"
 #include "randstrobes.hpp"
-
-struct Hit {
-    size_t position;
-    size_t query_start;
-    size_t query_end;
-    bool is_partial;
-};
-
-std::ostream& operator<<(std::ostream& os, const Hit& hit);
+#include "mappingparameters.hpp"
+#include "hits.hpp"
 
 struct Match {
     int query_start;
@@ -23,7 +19,6 @@ struct Match {
 
 bool operator==(const Match& lhs, const Match& rhs);
 std::ostream& operator<<(std::ostream& os, const Match& match);
-
 
 // Non-overlapping approximate match
 struct Nam {
@@ -56,19 +51,6 @@ struct Nam {
 
 std::ostream& operator<<(std::ostream& os, const Nam& nam);
 
-std::tuple<int, int, bool, std::vector<Hit>> find_hits(
-    const std::vector<QueryRandstrobe>& query_randstrobes,
-    const StrobemerIndex& index,
-    bool use_mcs
-);
-
-std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>> find_matches_rescue(
-    const std::vector<QueryRandstrobe>& query_randstrobes,
-    const StrobemerIndex& index,
-    unsigned int rescue_cutoff,
-    bool use_mcs
-);
-
 void merge_matches_into_nams(
     robin_hood::unordered_map<unsigned int, std::vector<Match>>& matches_map,
     int k,
@@ -80,6 +62,18 @@ void merge_matches_into_nams(
 robin_hood::unordered_map<unsigned int, std::vector<Match>> hits_to_matches(
     const std::vector<Hit>& hits,
     const StrobemerIndex& index
+);
+
+/*
+ * Obtain NAMs for a sequence record, doing rescue if needed.
+ * Return NAMs sorted by decreasing score.
+ */
+std::vector<Nam> get_nams(
+    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
+    const StrobemerIndex& index,
+    AlignmentStatistics& statistics,
+    Details& details,
+    const MappingParameters &map_param
 );
 
 #endif

@@ -3,23 +3,16 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdlib>
-#include <iostream>
-#include <ostream>
-#include <set>
-#include <sstream>
-#include <string>
-#include <unordered_set>
 #include <utility>
-#include "nam.hpp"
-
-#include "pdqsort/pdqsort.h"
-
-#include "aln.hpp"
 #include "chain.hpp"
-#include "randstrobes.hpp"
-#include "robin_hood.h"
+#include "hits.hpp"
+#include "pdqsort/pdqsort.h"
+#include "timer.hpp"
+#include "logger.hpp"
 
-void add_to_anchors_vector_full(
+static Logger& logger = Logger::get();
+
+void add_to_anchors_full(
     std::vector<Anchor>& anchors,
     int query_start,
     int query_end,
@@ -40,7 +33,7 @@ void add_to_anchors_vector_full(
     }
 }
 
-void add_to_anchors_vector_partial(
+void add_to_anchors_partial(
     std::vector<Anchor>& anchors,
     int query_start,
     const StrobemerIndex& index,
@@ -53,16 +46,16 @@ void add_to_anchors_vector_partial(
     }
 }
 
-void add_hits_to_anchors_vector(
+void add_hits_to_anchors(
     const std::vector<Hit>& hits,
     const StrobemerIndex& index,
     std::vector<Anchor>& anchors
 ) {
     for (const Hit& hit : hits) {
         if (hit.is_partial) {
-            add_to_anchors_vector_partial(anchors, hit.query_start, index, hit.position);
+            add_to_anchors_partial(anchors, hit.query_start, index, hit.position);
         } else {
-            add_to_anchors_vector_full(anchors, hit.query_start, hit.query_end, index, hit.position);
+            add_to_anchors_full(anchors, hit.query_start, hit.query_end, index, hit.position);
         }
     }
 }
@@ -71,7 +64,7 @@ std::tuple<int, int> find_anchors_rescue(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     unsigned int rescue_cutoff,
-    bool use_mcs,
+    McsStrategy mcs_strategy,
     std::vector<Anchor>& anchors
 ) {
     struct RescueHit {
@@ -99,7 +92,7 @@ std::tuple<int, int> find_anchors_rescue(
                 count += index.get_count_full(position_revcomp);
             }
             rescue_hits.push_back({position, count, qr.start, qr.end, false});
-        } else if (use_mcs) {
+        } else if (mcs_strategy == McsStrategy::Always) {
             size_t partial_pos = index.find_partial(qr.hash);
             if (partial_pos != index.end()) {
                 unsigned int partial_count = index.get_count_partial(partial_pos);
@@ -122,9 +115,9 @@ std::tuple<int, int> find_anchors_rescue(
         }
         if (rh.is_partial) {
             partial_hits++;
-            add_to_anchors_vector_partial(anchors, rh.query_start, index, rh.position);
+            add_to_anchors_partial(anchors, rh.query_start, index, rh.position);
         } else {
-            add_to_anchors_vector_full(anchors, rh.query_start, rh.query_end, index, rh.position);
+            add_to_anchors_full(anchors, rh.query_start, rh.query_end, index, rh.position);
         }
         cnt++;
         n_hits++;
@@ -151,7 +144,16 @@ std::tuple<int, int> find_anchors_rescue(
  *
  * @return A float representing the score for chaining the two anchors.
  */
-static float compute_score(const int dq, const int dr, const int k, const ChainingParameters& chaining_params) {
+float Chainer::compute_score(const int dq, const int dr) const {
+    // dq == dr is usually the most common case
+    if (dq == dr && dq < N_PRECOMPUTED) {
+        return precomputed_scores[dq];
+    } else {
+        return compute_score_uncached(dq, dr);
+    }
+}
+
+float Chainer::compute_score_uncached(const int dq, const int dr) const {
     const int dd = std::abs(dr - dq);
     const int dg = std::min(dq, dr);
     float score = std::min(k, dg);
@@ -163,13 +165,11 @@ static float compute_score(const int dq, const int dr, const int k, const Chaini
     return score;
 }
 
-float collinear_chaining(
+float Chainer::collinear_chaining(
     const std::vector<Anchor>& anchors,
-    const int k,
-    const ChainingParameters& chaining_params,
     std::vector<float>& dp,
     std::vector<int>& predecessors
-) {
+) const {
     const size_t n = anchors.size();
     if (n == 0) {
         return 0;
@@ -179,8 +179,8 @@ float collinear_chaining(
     predecessors.assign(n, -1);
     float best_score = 0;
 
-    for (int i = 0; i < n; ++i) {
-        const int lookup_end = std::max(0, i - chaining_params.max_lookback);
+    for (size_t i = 0; i < n; ++i) {
+        const int lookup_end = std::max(0, static_cast<int>(i) - chaining_params.max_lookback);
 
         for (int j = i - 1; j >= lookup_end; --j) {
             const Anchor& ai = anchors[i];
@@ -200,7 +200,7 @@ float collinear_chaining(
                 continue;
             }
 
-            const float score = compute_score(dq, dr, k, chaining_params);
+            const float score = compute_score(dq, dr);
 
             const float new_score = dp[j] + score;
             if (new_score > dp[i]) {
@@ -230,7 +230,7 @@ void extract_chains_from_dp(
     std::vector<bool> used(n, false);
 
     std::vector<std::pair<int, float>> candidates;
-    for (int i = 0; i < n; ++i) {
+    for (size_t i = 0; i < n; ++i) {
         if (dp[i] >= valid_score) {
             candidates.push_back(std::make_pair(i, dp[i]));
         }
@@ -269,132 +269,95 @@ void extract_chains_from_dp(
 
         chains.push_back(
             Chain{
-            anchors[i].ref_id,
-            score + c * 0.01f,
-            chain,
-            first.query_start,
-            last.query_start + k,
-            first.ref_start,
-            last.ref_start + k,
-            is_revcomp
+            .ref_id = anchors[i].ref_id,
+            .score = score + c * 0.01f,
+            .anchors = chain,
+            .query_start = first.query_start,
+            .query_end = last.query_start + k,
+            .ref_start = first.ref_start,
+            .ref_end = last.ref_start + k,
+            .is_revcomp = is_revcomp
             }
         );
     }
 }
 
-template <typename T>
-bool by_score(const T& a, const T& b) {
-    return a.score > b.score;
-}
-
-void shuffle_top_chains(std::vector<Chain>& chains, std::minstd_rand& random_engine) {
-    if (chains.empty()) {
-        return;
-    }
-    auto best_score = chains[0].score;
-    auto it = std::find_if(chains.begin(), chains.end(), [&](const Chain& chain) {
-        return chain.score != best_score;
-    });
-    if (it > chains.begin() + 1) {
-        std::shuffle(chains.begin(), it, random_engine);
-    }
-}
-
-std::vector<Chain> get_chains(
-    const klibpp::KSeq& record,
+std::vector<Chain> Chainer::get_chains(
+    const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
     const StrobemerIndex& index,
-    const MappingParameters& map_param,
-    const IndexParameters& index_parameters,
-    std::minstd_rand& random_engine
-) {
-    auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
+    AlignmentStatistics& statistics,
+    Details& details,
+    const MappingParameters& map_param
+) const {
+    Timer hits_timer;
 
     int total_hits = 0;
+    int partial_hits = 0;
     std::array<std::vector<Hit>, 2> hits;
     for (int is_revcomp : {0, 1}) {
         int total_hits1, partial_hits1;
         bool sorting_needed1;
         std::tie(total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) =
-            find_hits(query_randstrobes[is_revcomp], index, map_param.use_mcs);
+            find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy);
         total_hits += total_hits1;
+        partial_hits += partial_hits1;
     }
     int nonrepetitive_hits = hits[0].size() + hits[1].size();
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
-
-    std::array<std::vector<Anchor>, 2> anchors_vector;
-    anchors_vector[0].reserve(100);
-    anchors_vector[1].reserve(100);
-    std::array<std::vector<float>, 2> dp;
-    std::array<std::vector<int>, 2> predecessors;
-    std::array<float, 2> best_score;
-    best_score[0] = 0.0f;
-    best_score[1] = 0.0f;
-
-    // Rescue if requested and needed
-    if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
-        for (int is_revcomp : {0, 1}) {
-            auto [n_rescue_hits_oriented, n_partial_hits_oriented] = find_anchors_rescue(
-                query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.use_mcs,
-                anchors_vector[is_revcomp]
-            );
-            pdqsort(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end());
-            anchors_vector[is_revcomp].erase(
-                std::unique(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end()),
-                anchors_vector[is_revcomp].end()
-            );
-            float score = collinear_chaining(
-                anchors_vector[is_revcomp], index.k(), map_param.chaining_params, dp[is_revcomp],
-                predecessors[is_revcomp]
-            );
-            best_score[is_revcomp] = score;
-        }
-
-    } else {
-        for (int is_revcomp : {0, 1}) {
-            add_hits_to_anchors_vector(hits[is_revcomp], index, anchors_vector[is_revcomp]);
-            pdqsort(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end());
-            anchors_vector[is_revcomp].erase(
-                std::unique(anchors_vector[is_revcomp].begin(), anchors_vector[is_revcomp].end()),
-                anchors_vector[is_revcomp].end()
-            );
-            float score = collinear_chaining(
-                anchors_vector[is_revcomp], index.k(), map_param.chaining_params, dp[is_revcomp],
-                predecessors[is_revcomp]
-            );
-            best_score[is_revcomp] = score;
-        }
-    }
+    statistics.n_hits += nonrepetitive_hits;
+    statistics.n_partial_hits += partial_hits;
+    statistics.time_hit_finding += hits_timer.duration();
 
     std::vector<Chain> chains;
+
     for (int is_revcomp : {0, 1}) {
+        float best_score = 0.0f;
+        std::vector<Anchor> anchors;
+        std::vector<float> dp;
+        std::vector<int> predecessors;
+
+        // Rescue if requested and needed
+        if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
+            Timer rescue_timer;
+            auto [n_rescue_hits, n_partial_hits] = find_anchors_rescue(
+                query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy, anchors
+            );
+            statistics.n_rescue_hits += n_rescue_hits;
+            statistics.n_partial_hits += n_partial_hits;
+            details.rescue_nams += chains.size();
+            details.nam_rescue = true;
+            statistics.tot_time_rescue += rescue_timer.duration();
+        } else {
+            Timer hits_timer;
+            add_hits_to_anchors(hits[is_revcomp], index, anchors);
+            statistics.time_hit_finding += hits_timer.duration();
+        }
+        Timer chaining_timer;
+        pdqsort(anchors.begin(), anchors.end());
+        anchors.erase(
+            std::unique(anchors.begin(), anchors.end()), anchors.end()
+        );
+        float score = collinear_chaining(anchors, dp, predecessors);
+        best_score = score;
+
         extract_chains_from_dp(
-            anchors_vector[is_revcomp], dp[is_revcomp], predecessors[is_revcomp], best_score[is_revcomp],
+            anchors, dp, predecessors, best_score,
             index.k(), is_revcomp, chains, map_param.chaining_params
         );
-    }
-    // Sort by score
-    std::sort(chains.begin(), chains.end(), by_score<Chain>);
-    shuffle_top_chains(chains, random_engine);
+        statistics.time_chaining += chaining_timer.duration();
 
-#ifdef TRACE
-    std::cerr << "Query: " << record.name << '\n';
-    std::cerr << "l=" << record.seq.length() << ",k=" << index.k() << '\n';
-    std::cerr << "Anchors for forward strand [";
-    for (const auto& anchor : anchors_vector[0]) {
-        std::cerr << anchor;
+        if (logger.level() <= LOG_TRACE) {
+            if (is_revcomp){
+                logger.trace() << "Anchors for forward strand [";
+            } else {
+                logger.trace() << "]\nAnchors for reverse strand [";
+            }
+            for (const auto& anchor : anchors) {
+                logger.trace() << anchor;
+            }
+        }
     }
-
-    std::cerr << "]\nAnchors for reverse strand [";
-    for (const auto& anchor : anchors_vector[1]) {
-        std::cerr << anchor;
-    }
-    std::cerr << "]\nChains[";
-    for (const auto& chain : chains) {
-        std::cerr << chain;
-    }
-    std::cerr << "]\n";
-#endif
-
+    details.nams += chains.size();
     return chains;
 }
 

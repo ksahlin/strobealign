@@ -1,17 +1,19 @@
 #include "aln.hpp"
-
 #include <algorithm>
-#include <iostream>
+#include <utility>
 #include <math.h>
-#include <sstream>
+#include "chain.hpp"
 #include "revcomp.hpp"
 #include "timer.hpp"
 #include "nam.hpp"
 #include "paf.hpp"
 #include "aligner.hpp"
 #include "piecewise.hpp"
+#include "logger.hpp"
 
 using namespace klibpp;
+
+static Logger& logger = Logger::get();
 
 namespace {
 
@@ -34,12 +36,6 @@ inline Alignment extend_seed(
     const Read& read,
     bool consistent_nam
 );
-
-template <typename T>
-bool by_score(const T& a, const T& b)
-{
-    return a.score > b.score;
-}
 
 /*
  * Determine whether the NAM represents a match to the forward or
@@ -986,6 +982,14 @@ inline void get_best_map_location(
     }
 }
 
+} // end of anonymous namespace
+
+template <typename T>
+bool by_score(const T& a, const T& b)
+{
+    return a.score > b.score;
+}
+
 /* Shuffle the top-scoring NAMs. Input must be sorted by score.
  *
  * This helps to ensure we pick a random location in case there are multiple
@@ -1002,7 +1006,21 @@ void shuffle_top_nams(std::vector<Nam>& nams, std::minstd_rand& random_engine) {
     }
 }
 
-} // end of anonymous namespace
+/* Shuffle the top-scoring Chains. Input must be sorted by score.
+ *
+ * This helps to ensure we pick a random location in case there are multiple
+ * equally good ones.
+ */
+void shuffle_top_chains(std::vector<Chain>& chains, std::minstd_rand& random_engine) {
+    if (chains.empty()) {
+        return;
+    }
+    auto best_score = chains[0].score;
+    auto it = std::find_if(chains.begin(), chains.end(), [&](const Chain& chain) { return chain.score != best_score; });
+    if (it > chains.begin() + 1) {
+        std::shuffle(chains.begin(), it, random_engine);
+    }
+}
 
 /*
  * Determine (roughly) whether the read sequence has some l-mer (with l = k*2/3)
@@ -1021,88 +1039,57 @@ bool has_shared_substring(const std::string& read_seq, const std::string& ref_se
     return false;
 }
 
-/*
- * Obtain NAMs for a sequence record, doing rescue if needed.
- * Return NAMs sorted by decreasing score.
- */
-std::vector<Nam> get_nams(
+std::vector<Chain> get_nams_or_chains(
     const KSeq& record,
     const StrobemerIndex& index,
+    const Chainer& chainer,
     AlignmentStatistics& statistics,
     Details& details,
     const MappingParameters &map_param,
     const IndexParameters& index_parameters,
     std::minstd_rand& random_engine
 ) {
+    logger.trace() << "Query: " << record.name << '\n';
+    logger.trace() << "l=" << record.seq.length() << ",k=" << index.k() << '\n';
+
     // Compute randstrobes
     Timer strobe_timer;
     auto query_randstrobes = randstrobes_query(record.seq, index_parameters);
     statistics.n_randstrobes += query_randstrobes[0].size() + query_randstrobes[1].size();
     statistics.tot_construct_strobemers += strobe_timer.duration();
 
-    // Find NAMs
-    Timer nam_timer;
-
-    int total_hits = 0;
-    int partial_hits = 0;
-    bool sorting_needed = false;
-    std::array<std::vector<Hit>, 2> hits;
-    for (int is_revcomp : {0, 1}) {
-        int total_hits1, partial_hits1;
-        bool sorting_needed1;
-        std::tie(total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) = find_hits(query_randstrobes[is_revcomp], index, map_param.use_mcs);
-        sorting_needed = sorting_needed || sorting_needed1;
-        total_hits += total_hits1;
-        partial_hits += partial_hits1;
-    }
-    int nonrepetitive_hits = hits[0].size() + hits[1].size();
-    float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
-    statistics.n_hits += nonrepetitive_hits;
-    statistics.n_partial_hits += partial_hits;
-
     std::vector<Nam> nams;
-
-    // Rescue if requested and needed
-    if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
-        Timer rescue_timer;
-        nams.clear();
-        int n_rescue_hits{0};
-        int n_partial_hits{0};
-        for (int is_revcomp : {0, 1}) {
-            auto [n_rescue_hits_oriented, n_partial_hits_oriented, matches_map] = find_matches_rescue(query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.use_mcs);
-            merge_matches_into_nams(matches_map, index.k(), true, is_revcomp, nams);
-            n_rescue_hits += n_rescue_hits_oriented;
-            n_partial_hits += n_partial_hits_oriented;
-        }
-        statistics.n_rescue_hits += n_rescue_hits;
-        statistics.n_partial_hits += partial_hits;
-        details.rescue_nams = nams.size();
-        details.nam_rescue = true;
-        statistics.tot_time_rescue += rescue_timer.duration();
+    std::vector<Chain> chains;
+    if (map_param.use_nams) {
+        nams = get_nams(query_randstrobes, index, statistics, details, map_param);
     } else {
-        for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
-            auto matches_map = hits_to_matches(hits[is_revcomp], index);
-            merge_matches_into_nams(matches_map, index.k(), sorting_needed, is_revcomp, nams);
-        }
-        details.nams = nams.size();
-        statistics.tot_find_nams += nam_timer.duration();
+        chains = chainer.get_chains(query_randstrobes, index, statistics, details, map_param);
     }
 
     // Sort by score
     Timer nam_sort_timer;
     std::sort(nams.begin(), nams.end(), by_score<Nam>);
     shuffle_top_nams(nams, random_engine);
+    std::sort(chains.begin(), chains.end(), by_score<Chain>);
+    shuffle_top_chains(chains, random_engine);
     statistics.tot_sort_nams += nam_sort_timer.duration();
 
-#ifdef TRACE
-    std::cerr << "Query: " << record.name << '\n';
-    std::cerr << "Found " << nams.size() << " NAMs\n";
-    for (const auto& nam : nams) {
-        std::cerr << "- " << nam << '\n';
+    if (logger.level() <= LOG_TRACE && map_param.use_nams) {
+        logger.trace() << "Found " << nams.size() << " NAMs\n";
+        for (const auto& nam : nams) {
+            logger.trace() << "- " << nam << '\n';
+        }
     }
-#endif
 
-    return nams;
+    if (logger.level() <= LOG_TRACE && map_param.use_nams) {
+        logger.trace() << "]\nChains[";
+        for (const auto& chain : chains) {
+            logger.trace()  << chain;
+        }
+        logger.trace() << "]\n";
+    }
+
+    return chains;
 }
 
 void align_or_map_paired(
@@ -1113,6 +1100,7 @@ void align_or_map_paired(
     AlignmentStatistics &statistics,
     InsertSizeDistribution &isize_est,
     const Aligner &aligner,
+    const Chainer& chainer,
     const MappingParameters &map_param,
     const IndexParameters& index_parameters,
     const References& references,
@@ -1126,16 +1114,10 @@ void align_or_map_paired(
 
     for (size_t is_r1 : {0, 1}) {
         const auto& record = is_r1 == 0 ? record1 : record2;
-#ifdef TRACE
-        std::cerr << "R" << is_r1 + 1 << '\n';
-#endif
-        if (map_param.use_nams) {
-            nams_pair[is_r1] = get_nams(
-                record, index, statistics, details[is_r1], map_param, index_parameters, random_engine
-            );
-        } else {
-            chains_pair[is_r1] = get_chains(record, index, map_param, index_parameters, random_engine);
-        }
+        logger.trace() << "R" << is_r1 + 1 << '\n';
+        chains_pair[is_r1] = get_nams_or_chains(
+            record, index, chainer, statistics, details[is_r1], map_param, index_parameters, random_engine
+        );
     }
 
     Timer extend_timer;
@@ -1231,6 +1213,7 @@ void align_or_map_single(
     std::string &outstring,
     AlignmentStatistics &statistics,
     const Aligner &aligner,
+    const Chainer& chainer,
     const MappingParameters &map_param,
     const IndexParameters& index_parameters,
     const References& references,
@@ -1241,12 +1224,7 @@ void align_or_map_single(
     Details details;
     std::vector<Nam> nams;
     std::vector<Chain> chains;
-
-    if (map_param.use_nams) {
-        nams = get_nams(record, index, statistics, details, map_param, index_parameters, random_engine);
-    } else {
-        chains = get_chains(record, index, map_param, index_parameters, random_engine);
-    }
+    chains = get_nams_or_chains(record, index, chainer, statistics, details, map_param, index_parameters, random_engine);
 
     Timer extend_timer;
     size_t n_best = 0;

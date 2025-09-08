@@ -6,7 +6,6 @@ include(ExternalProject)
 
 option(ENABLE_AVX "Enable AVX2 support" OFF)
 option(PYTHON_BINDINGS "Build Python bindings" OFF)
-option(TRACE "Highly verbose debugging output" OFF)
 
 find_package(ZLIB)
 find_package(Threads)
@@ -76,6 +75,7 @@ add_library(salib STATIC ${SOURCES}
     src/refs.cpp
     src/fastq.cpp
     src/cmdline.cpp
+    src/mcsstrategy.cpp
     src/index.cpp
     src/indexparameters.cpp
     src/sam.cpp
@@ -84,6 +84,7 @@ add_library(salib STATIC ${SOURCES}
     src/aln.cpp
     src/cigar.cpp
     src/aligner.cpp
+    src/hits.cpp
     src/nam.cpp
     src/randstrobes.cpp
     src/readlen.cpp

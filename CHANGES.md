@@ -1,20 +1,11 @@
 # Strobealign Changelog
 
-## developpment version
+## development version
 
 * #504: Introduce collinear chaining as the new default mapping and alignment
-  method, replacing NAMs. The algorithm is a reproduction of the one used
-  in Minimap2 using strobemer seeds instead of minimizers. Strobemer hits are
-  split into two anchors, partial hits only one, and the chaining is done using
-  those anchors as well as a scoring function. Chains are created in O(N*h) with
-  'N' the number of anchors and 'h' being a constant set at 50 by default. NAMs
-  remain available via the --nams flag. Overall better mapping and alignments
-  found using chaining. Specific chaining options created to tune behavior:
-    -H [INT] (chaining look‐back heuristic, default 50)
-    --gd=[FLOAT] (diagonal gap cost, default 0.1)
-    --gl=[FLOAT] (gap length cost, default 0.05)
-    --vp=[FLOAT] (best‐chain score threshold, default 0.7)
-    --sg=[INT] (skip distance allowed on the reference)
+  method, replacing NAMs. This reproduces the Minimap2 chaining algorithm
+  providing better mapping accuracy. NAMs remain available via the `--nams`
+  flag.
 
 ## v0.16.1 (2025-05-16)
 

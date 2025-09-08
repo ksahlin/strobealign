@@ -4,52 +4,17 @@
 #include <string>
 #include <vector>
 #include <random>
+
 #include "kseq++/kseq++.hpp"
 #include "index.hpp"
 #include "refs.hpp"
 #include "sam.hpp"
 #include "aligner.hpp"
+#include "chain.hpp"
 #include "insertsizedistribution.hpp"
 #include "statistics.hpp"
-
-
-enum class OutputFormat {
-    SAM,
-    PAF,
-    Abundance
-};
-
-struct ChainingParameters {
-    int max_lookback;
-    float diag_diff_penalty;
-    float gap_length_penalty;
-    float valid_score_threshold;
-    int max_ref_gap;
-};
-
-struct MappingParameters {
-    int r { 150 };
-    int max_secondary { 0 };
-    float dropoff_threshold { 0.5 };
-    int rescue_level { 2 };
-    int max_tries { 20 };
-    int rescue_cutoff;
-    bool use_mcs{false};  // multi-context seeds
-    OutputFormat output_format {OutputFormat::SAM};
-    CigarOps cigar_ops{CigarOps::M};
-    bool output_unmapped { true };
-    bool details{false};
-    bool fastq_comments{false};
-
-    bool use_nams{false};
-    ChainingParameters chaining_params;
-
-    void verify() const {
-        if (max_tries < 1) {
-            throw BadParameter("max_tries must be greater than zero");
-        }
-    }
-};
+#include "nam.hpp"
+#include "mappingparameters.hpp"
 
 void align_or_map_paired(
     const klibpp::KSeq& record1,
@@ -59,6 +24,7 @@ void align_or_map_paired(
     AlignmentStatistics& statistics,
     InsertSizeDistribution& isize_est,
     const Aligner& aligner,
+    const Chainer& chainer,
     const MappingParameters& map_param,
     const IndexParameters& index_parameters,
     const References& references,
@@ -73,6 +39,7 @@ void align_or_map_single(
     std::string& outstring,
     AlignmentStatistics& statistics,
     const Aligner& aligner,
+    const Chainer& chainer,
     const MappingParameters& map_param,
     const IndexParameters& index_parameters,
     const References& references,
@@ -83,6 +50,11 @@ void align_or_map_single(
 
 // Private declarations, only needed for tests
 
+template <typename T>
+bool by_score(const T& a, const T& b);
+
 bool has_shared_substring(const std::string& read_seq, const std::string& ref_seq, int k);
+
+void shuffle_top_nams(std::vector<Nam>& nams, std::minstd_rand& random_engine);
 
 #endif

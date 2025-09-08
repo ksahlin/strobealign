@@ -3,22 +3,19 @@
 
 #include <vector>
 #include <string>
-#include <utility>
+
+#include "mcsstrategy.hpp"
 
 struct CommandLineOptions {
     int n_threads { 1 };
-    int chunk_size {
-#ifdef TRACE
-        1
-#else
-        10000
-#endif
-    };
+    int indexing_threads{1};
+    int chunk_size{10000};
 
     // Input/output
     std::string output_file_name;
     bool write_to_stdout { true };
     bool verbose { false };
+    bool trace { false };
     bool show_progress { true };
     std::string logfile_name { "" };
     bool only_gen_index { false };
@@ -68,6 +65,7 @@ struct CommandLineOptions {
     float gap_length_penalty{ 0.05 };
     float valid_score_threshold{ 0.7 };
     int max_ref_gap{ 10000 };
+    float matches_weight { 0.01 };
 
     // Piecewise
     int x_drop_threshold { 800 };
@@ -75,7 +73,7 @@ struct CommandLineOptions {
     uint max_block { 256 };
 
     // Search parameters
-    bool mcs { false };
+    McsStrategy mcs_strategy { McsStrategy::Rescue };
     float f { 0.0002 };
     float dropoff_threshold { 0.5 };
     int max_tries { 20 };

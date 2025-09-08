@@ -6,7 +6,6 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
-#include <numeric>
 #include <thread>
 #include <cassert>
 #include <iomanip>
@@ -22,7 +21,6 @@
 #include "cmdline.hpp"
 #include "index.hpp"
 #include "pc.hpp"
-#include "aln.hpp"
 #include "logger.hpp"
 #include "timer.hpp"
 #include "readlen.hpp"
@@ -135,7 +133,13 @@ void show_progress_until_done(std::vector<int>& worker_done, std::vector<Alignme
 int run_strobealign(int argc, char **argv) {
     auto opt = parse_command_line_arguments(argc, argv);
 
-    logger.set_level(opt.verbose ? LOG_DEBUG : LOG_INFO);
+    if (opt.trace) {
+        logger.set_level(LOG_TRACE);
+    } else if (opt.verbose) {
+        logger.set_level(LOG_DEBUG);
+    } else {
+        logger.set_level(LOG_INFO);
+    }
     logger.info() << std::setprecision(2) << std::fixed;
     logger.info() << "This is strobealign " << version_string() << '\n';
     logger.debug() << "Build type: " << CMAKE_BUILD_TYPE << '\n';
@@ -182,7 +186,7 @@ int run_strobealign(int argc, char **argv) {
     map_param.dropoff_threshold = opt.dropoff_threshold;
     map_param.rescue_level = opt.rescue_level;
     map_param.max_tries = opt.max_tries;
-    map_param.use_mcs = opt.mcs;
+    map_param.mcs_strategy = opt.mcs_strategy;
     map_param.output_format = (
             opt.is_abundance_out ? OutputFormat::Abundance :
             opt.is_sam_out ? OutputFormat::SAM :
@@ -197,6 +201,7 @@ int run_strobealign(int argc, char **argv) {
     map_param.chaining_params.gap_length_penalty = opt.gap_length_penalty;
     map_param.chaining_params.valid_score_threshold = opt.valid_score_threshold;
     map_param.chaining_params.max_ref_gap = opt.max_ref_gap;
+    map_param.chaining_params.matches_weight = opt.matches_weight;
     map_param.verify();
 
     logger.debug() << index_parameters << '\n';
@@ -206,7 +211,8 @@ int run_strobealign(int argc, char **argv) {
         << "  Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_min << ", " << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_max << "]\n";
     logger.debug() << aln_params << '\n';
     logger.debug() << "Rescue level (R): " << map_param.rescue_level << '\n';
-    logger.debug() << "Threads: " << opt.n_threads << std::endl;
+    logger.debug() << "Indexing threads: " << opt.indexing_threads << std::endl;
+    logger.debug() << "Mapping threads: " << opt.n_threads << std::endl;
 
 //    assert(k <= (w/2)*w_min && "k should be smaller than (w/2)*w_min to avoid creating short strobemers");
 
@@ -229,7 +235,7 @@ int run_strobealign(int argc, char **argv) {
     }
 
     logger.debug() << "Auxiliary hash length: " << opt.aux_len << "\n";
-    logger.info() << "Using multi-context seeds: " << (map_param.use_mcs ? "yes" : "no") << '\n';
+    logger.info() << "Multi-context seed strategy: " << map_param.mcs_strategy << '\n';
     StrobemerIndex index(references, index_parameters, opt.bits);
     if (opt.use_index) {
         // Read the index from a file
@@ -244,7 +250,7 @@ int run_strobealign(int argc, char **argv) {
         logger.debug() << "Bits used to index buckets: " << index.get_bits() << "\n";
         logger.info() << "Indexing ...\n";
         Timer index_timer;
-        index.populate(opt.f, opt.n_threads);
+        index.populate(opt.f, opt.indexing_threads);
         
         logger.info() << "  Time counting seeds: " << index.stats.elapsed_counting_hashes.count() << " s" <<  std::endl;
         logger.info() << "  Time generating seeds: " << index.stats.elapsed_generating_seeds.count() << " s" <<  std::endl;
@@ -289,14 +295,7 @@ int run_strobealign(int argc, char **argv) {
     // Map/align reads
         
     Timer map_align_timer;
-    if (map_param.rescue_level == 1000000) {
-        logger.info() << "recuse mode off :p\n";
-        map_param.rescue_cutoff = std::numeric_limits<int>::max();
-        index.filter_cutoff = std::numeric_limits<int64_t>::max();
-    }
-    else {
-        map_param.rescue_cutoff = map_param.rescue_level < 100 ? map_param.rescue_level * index.filter_cutoff : 1000;
-    }
+    map_param.rescue_cutoff = map_param.rescue_level < 100 ? map_param.rescue_level * index.filter_cutoff : 1000;
     logger.debug() << "Using rescue cutoff: " << map_param.rescue_cutoff << std::endl;
 
     std::streambuf* buf;
@@ -369,18 +368,18 @@ int run_strobealign(int argc, char **argv) {
     }
 
     logger.debug()
-        << "Number of reads:               " << std::setw(12) << statistics.n_reads << std::endl
-        << "Number of randstrobes:         " << std::setw(12) << statistics.n_randstrobes
+        << "Number of reads:                 " << std::setw(12) << statistics.n_reads << std::endl
+        << "Number of randstrobes:           " << std::setw(12) << statistics.n_randstrobes
         << "  Per read: " << std::setw(7) << static_cast<float>(statistics.n_randstrobes) / statistics.n_reads << std::endl
-        << "Number of partial hits:        " << std::setw(12) << statistics.n_partial_hits << '\n'
-        << "Number of non-rescue hits:     " << std::setw(12) << statistics.n_hits
+        << "Number of partial hits:          " << std::setw(12) << statistics.n_partial_hits << '\n'
+        << "Number of non-rescue hits:       " << std::setw(12) << statistics.n_hits
         << "  Per read: " << std::setw(7) << static_cast<float>(statistics.n_hits) / statistics.n_reads << std::endl
-        << "Number of non-rescue NAMs:     " << std::setw(12) << statistics.n_nams
+        << "Number of non-rescue chains:     " << std::setw(12) << statistics.n_nams
         << "  Per read: " << std::setw(7) << static_cast<float>(statistics.n_nams) / statistics.n_reads << std::endl
-        << "Number of NAM rescue attempts: " << std::setw(12) << statistics.nam_rescue << std::endl
-        << "Number of rescue hits:         " << std::setw(12) << statistics.n_rescue_hits
+        << "Number of chain rescue attempts: " << std::setw(12) << statistics.nam_rescue << std::endl
+        << "Number of rescue hits:           " << std::setw(12) << statistics.n_rescue_hits
         << "  Per rescue attempt: " << std::setw(7) << static_cast<float>(statistics.n_rescue_hits) / statistics.nam_rescue << std::endl
-        << "Number of rescue NAMs:         " << std::setw(12) << statistics.n_rescue_nams
+        << "Number of rescue chains:         " << std::setw(12) << statistics.n_rescue_nams
         << "  Per rescue attempt: " << std::setw(7) << static_cast<float>(statistics.n_rescue_nams) / statistics.nam_rescue << std::endl;
     logger.info()
         << "Total mapping sites tried: " << statistics.tried_alignment << std::endl
@@ -390,9 +389,10 @@ int run_strobealign(int argc, char **argv) {
         << "Total time mapping: " << map_align_timer.elapsed() << " s." << std::endl
         << "Total time reading read-file(s): " << statistics.tot_read_file.count() / opt.n_threads << " s." << std::endl
         << "Total time creating strobemers: " << statistics.tot_construct_strobemers.count() / opt.n_threads << " s." << std::endl
-        << "Total time finding NAMs (non-rescue mode): " << statistics.tot_find_nams.count() / opt.n_threads << " s." << std::endl
-        << "Total time finding NAMs (rescue mode): " << statistics.tot_time_rescue.count() / opt.n_threads << " s." << std::endl
-        << "Total time sorting NAMs (candidate sites): " << statistics.tot_sort_nams.count() / opt.n_threads << " s." << std::endl
+        << "Total time finding hits (non-rescue mode): " << statistics.time_hit_finding.count() / opt.n_threads << " s." << std::endl
+        << "Total time finding hits (rescue mode): " << statistics.tot_time_rescue.count() / opt.n_threads << " s." << std::endl
+        << "Total time chaining (non-rescue mode): " << statistics.time_chaining.count() / opt.n_threads << " s." << std::endl
+        << "Total time sorting NAMs/chains by score: " << statistics.tot_sort_nams.count() / opt.n_threads << " s." << std::endl
         << "Total time extending and pairing seeds: " << statistics.tot_extend.count() / opt.n_threads << " s." << std::endl;
     return EXIT_SUCCESS;
 }

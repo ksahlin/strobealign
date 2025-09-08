@@ -2,7 +2,6 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
-#include <regex>
 #include <string_view>
 #include "refs.hpp"
 #include "zstr.hpp"

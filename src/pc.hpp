@@ -1,22 +1,19 @@
 #ifndef STROBEALIGN_PC_HPP
 #define STROBEALIGN_PC_HPP
 
-#include <thread>
-#include <condition_variable>
 #include <mutex>
 #include <iostream>
 #include <cstdlib>
-#include <chrono>
-#include <queue>
 #include <vector>
-#include <sstream>
 #include <unordered_map>
 #include <optional>
 
 #include "index.hpp"
-#include "aln.hpp"
+#include "statistics.hpp"
 #include "refs.hpp"
 #include "fastq.hpp"
+#include "mappingparameters.hpp"
+#include "aligner.hpp"
 
 class InputBuffer {
 

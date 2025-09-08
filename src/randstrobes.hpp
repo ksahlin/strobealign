@@ -3,13 +3,12 @@
 
 #include <vector>
 #include <string>
-#include <tuple>
 #include <deque>
-#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 #include <string_view>
 #include <inttypes.h>
+#include <array>
 
 #include "indexparameters.hpp"
 

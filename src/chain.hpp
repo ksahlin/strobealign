@@ -1,8 +1,10 @@
+#ifndef STROBEALIGN_CHAIN_HPP
+#define STROBEALIGN_CHAIN_HPP
 #include <vector>
-
 #include "index.hpp"
-#include "indexparameters.hpp"
-#include "readlen.hpp"
+#include "mappingparameters.hpp"
+
+static constexpr int N_PRECOMPUTED = 1024;
 
 struct Anchor {
     uint query_start;
@@ -29,14 +31,43 @@ struct Chain {
     bool is_revcomp;
 };
 
-std::vector<Chain> get_chains(
-    const klibpp::KSeq& record,
-    const StrobemerIndex& index,
-    const MappingParameters& map_param,
-    const IndexParameters& index_parameters,
-    std::minstd_rand& random_engine
-);
+struct Chainer {
+    Chainer(ChainingParameters chaining_params, int k)
+        : k(k)
+        , chaining_params(chaining_params)
+    {
+        precomputed_scores[0] = 0;
+        for (size_t i = 1; i < N_PRECOMPUTED; i++) {
+            precomputed_scores[i] = compute_score_uncached(i, i);
+        }
+    }
 
+    std::vector<Chain> get_chains(
+        const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
+        const StrobemerIndex& index,
+        AlignmentStatistics& statistics,
+        Details& details,
+        const MappingParameters& map_param
+    ) const;
+
+  private:
+    const int k;
+    const ChainingParameters chaining_params;
+    float precomputed_scores[N_PRECOMPUTED];
+    float collinear_chaining(
+        const std::vector<Anchor>& anchors,
+        std::vector<float>& dp,
+        std::vector<int>& predecessors
+    ) const;
+
+    float compute_score(const int dq, const int dr) const;
+    float compute_score_uncached(const int dq, const int dr) const;
+};
+
+/**
+ * Fast log2 function for x >= 1.
+ * Copied from https://github.com/lh3/minimap2/blob/master/mmpriv.h
+ */
 static inline float mg_log2(float x) {
     union { float f; uint32_t i; } z = { x };
     float log_2 = ((z.i >> 23) & 255) - 128;
@@ -48,3 +79,5 @@ static inline float mg_log2(float x) {
 
 std::ostream& operator<<(std::ostream& os, const Chain& chain);
 std::ostream& operator<<(std::ostream& os, const Anchor& anchor);
+
+#endif

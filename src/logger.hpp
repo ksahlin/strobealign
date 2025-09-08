@@ -6,24 +6,24 @@
 
 
 /*
-
 Very simple logging.
 
 Usage:
 
-logger = Logger::get();  // returns the logging singleton
-logger.set_level(LOG_INFO);
-logger.info() << "info message" << std::endl; // printed
-logger.debug() << "debug message" << std::endl; // not printed
+    logger = Logger::get();  // returns the logging singleton
+    logger.set_level(LOG_INFO);
+    logger.info() << "info message" << std::endl; // printed
+    logger.debug() << "debug message" << std::endl; // not printed
 
 */
 
 
 enum LOG_LEVELS {
-    LOG_DEBUG = 1,
-    LOG_INFO = 2,
-    LOG_WARNING = 3,
-    LOG_ERROR = 4,
+    LOG_TRACE = 1,
+    LOG_DEBUG = 2,
+    LOG_INFO = 3,
+    LOG_WARNING = 4,
+    LOG_ERROR = 5,
 };
 
 class Logger;
@@ -49,7 +49,9 @@ public:
     Logger(Logger const&) = delete;
     void operator=(Logger const&) = delete;
 
-    void set_level(int level) { this->level = level; }
+    void set_level(int level) { this->_level = level; }
+    int level() const { return this->_level; }
+    LogStream& trace() { return _trace; }
     LogStream& debug() { return _debug; }
     LogStream& info() { return _info; }
     LogStream& warning() { return _warning; }
@@ -57,15 +59,17 @@ public:
 
 private:
     Logger()
-        : level(LOG_WARNING)
+        : _level(LOG_WARNING)
         , _os(std::cerr)
+        , _trace(LogStream(LOG_TRACE, *this))
         , _debug(LogStream(LOG_DEBUG, *this))
         , _info(LogStream(LOG_INFO, *this))
         , _warning(LogStream(LOG_WARNING, *this))
         , _error(LogStream(LOG_ERROR, *this))
     { }
-    int level;
+    int _level;
     std::ostream& _os;
+    LogStream _trace;
     LogStream _debug;
     LogStream _info;
     LogStream _warning;
@@ -77,7 +81,7 @@ private:
 
 template <typename T>
 LogStream& LogStream::operator<<(const T& val) {
-    if (level >= logger.level) {
+    if (level >= logger._level) {
         logger._os << val;
     }
     return *this;
@@ -85,7 +89,7 @@ LogStream& LogStream::operator<<(const T& val) {
 
 // This overload is required for supporting std::endl
 inline LogStream& LogStream::operator<<(std::ostream& (*f)(std::ostream&)) {
-    if (level >= logger.level) {
+    if (level >= logger._level) {
         f(logger._os);
     }
     return *this;

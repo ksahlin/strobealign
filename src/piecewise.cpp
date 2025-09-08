@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <memory>
 #include <ostream>
+#include <random>
 #include <string>
 #include <vector>
 #include "baligner.hpp"
@@ -10,12 +11,15 @@
 #include "revcomp.hpp"
 #include "aligner.hpp"
 #include "sam.hpp"
+#include "logger.hpp"
+
+static Logger& logger = Logger::get();
 
 std::pair<Cigar, int> merge_cigar_elements_with_edit_distance(
     const std::vector<OpLen>& elements,
     uint query_start,
     uint query_end,
-    int query_length
+    uint query_length
 ) {
     Cigar cigar;
     int edit_dist = 0;
