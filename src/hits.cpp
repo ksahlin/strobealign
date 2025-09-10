@@ -30,7 +30,7 @@ std::tuple<int, int, bool, std::vector<Hit>> find_hits(
             }
         }
 
-        return {total_hits, partial_hits, sorting_needed, hits};
+        return {partial_hits, partial_hits, sorting_needed, hits};
     }
 
     for (const auto &q : query_randstrobes) {
