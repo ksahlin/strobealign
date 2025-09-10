@@ -19,9 +19,30 @@ struct Hit {
     bool is_partial;
 };
 
+struct HitsDetails {
+    uint full_not_found{0};
+    uint full_filtered{0};  // found but filtered
+    uint full_found{0};  // found and not filtered (becomes a hit)
+
+    uint partial_not_found{0};
+    uint partial_filtered{0};
+    uint partial_found{0};
+
+    HitsDetails& operator+=(const HitsDetails& other) {
+        full_not_found += other.full_not_found;
+        full_filtered += other.full_filtered;
+        full_found += other.full_found;
+        partial_not_found += other.partial_not_found;
+        partial_filtered += other.partial_filtered;
+        partial_found += other.partial_found;
+
+        return *this;
+    }
+};
+
 std::ostream& operator<<(std::ostream& os, const Hit& hit);
 
-std::tuple<int, int, bool, std::vector<Hit>> find_hits(
+std::tuple<HitsDetails, int, bool, std::vector<Hit>> find_hits(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     McsStrategy mcs_strategy

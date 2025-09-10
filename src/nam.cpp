@@ -291,21 +291,19 @@ std::vector<Nam> get_nams(
     Timer hits_timer;
 
     int total_hits = 0;
-    int partial_hits = 0;
     bool sorting_needed = false;
     std::array<std::vector<Hit>, 2> hits;
     for (int is_revcomp : {0, 1}) {
-        int total_hits1, partial_hits1;
+        int total_hits1;
         bool sorting_needed1;
-        std::tie(total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) = find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy);
+        HitsDetails hits_details1;
+        std::tie(hits_details1, total_hits1, sorting_needed1, hits[is_revcomp]) = find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy);
         sorting_needed = sorting_needed || sorting_needed1;
         total_hits += total_hits1;
-        partial_hits += partial_hits1;
+        details.hits += hits_details1;
     }
     int nonrepetitive_hits = hits[0].size() + hits[1].size();
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
-    statistics.n_hits += nonrepetitive_hits;
-    statistics.n_partial_hits += partial_hits;
     statistics.time_hit_finding += hits_timer.duration();
 
     std::vector<Nam> nams;
@@ -315,10 +313,10 @@ std::vector<Nam> get_nams(
         Timer rescue_timer;
         nams.clear();
         for (int is_revcomp : {0, 1}) {
-            auto [n_rescue_hits, n_partial_hits, matches_map] = find_matches_rescue(query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy);
+            auto [n_hits, n_partial_hits, matches_map] = find_matches_rescue(query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy);
             merge_matches_into_nams(matches_map, index.k(), true, is_revcomp, nams);
-            statistics.n_rescue_hits += n_rescue_hits;
-            statistics.n_partial_hits += n_partial_hits;
+            statistics.n_rescue_hits += n_hits;
+            statistics.n_rescue_partial_hits += n_partial_hits;
         }
         details.rescue_nams = nams.size();
         details.nam_rescue = true;
