@@ -6,11 +6,11 @@
 #include "nam.hpp"
 
 void output_hits_paf_PE(
-    std::string &paf_output, const Nam &n, const std::string &query_name, const References& references, int read_len
+    std::string &paf_output, const Nam &n, const std::string &query_name, const References& references, int read_len, uint8_t mapq
 );
 
 void output_hits_paf(
-    std::string &paf_output, const std::vector<Nam> &all_nams, const std::string& query_name, const References& references, int read_len
+    std::string &paf_output, const std::vector<Nam> &all_nams, const std::string& query_name, const References& references, int read_len, uint8_t mapq
 );
 
 #endif
