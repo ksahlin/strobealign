@@ -1102,12 +1102,14 @@ void align_or_map_paired(
                 abundances,
                 map_param.output_format == OutputFormat::Abundance);
         if (map_param.output_format == OutputFormat::PAF) {
+            uint8_t mapq1 = proper_pair_mapq(nams_pair[0]);
+            uint8_t mapq2 = proper_pair_mapq(nams_pair[1]);
             output_hits_paf_PE(outstring, nam_read1, record1.name,
                             references,
-                            record1.seq.length());
+                            record1.seq.length(), mapq1);
             output_hits_paf_PE(outstring, nam_read2, record2.name,
                             references,
-                            record2.seq.length());
+                            record2.seq.length(), mapq2);
         }
     } else {
         Read read1(record1.seq);
@@ -1221,10 +1223,11 @@ void align_or_map_single(
             }
         }
         break;
-        case OutputFormat::PAF:
-            output_hits_paf(outstring, nams, record.name, references,
-                            record.seq.length());
+        case OutputFormat::PAF: {
+            int mapq = proper_pair_mapq(nams);
+            output_hits_paf(outstring, nams, record.name, references, record.seq.length(), mapq);
             break;
+        }
         case OutputFormat::SAM:
             align_single(
                 aligner, sam, nams, record, index_parameters.syncmer.k,
