@@ -4,6 +4,8 @@
 #include <chrono>
 #include <cstdint>
 
+#include "hits.hpp"
+
 /* Details about aligning a single or paired-end read */
 struct Details {
     bool nam_rescue{false}; // find_nams_rescue() was needed
@@ -15,6 +17,8 @@ struct Details {
     uint32_t gapped{0};  // No. of gapped alignments computed (in get_alignment)
     uint32_t best_alignments{0}; // No. of best alignments with same score
 
+    HitsDetails hits;
+
     Details& operator+=(const Details& other) {
         nam_rescue = nam_rescue || other.nam_rescue;
         nams += other.nams;
@@ -24,6 +28,7 @@ struct Details {
         tried_alignment += other.tried_alignment;
         gapped += other.gapped;
         best_alignments += other.best_alignments;
+        hits += other.hits;
         return *this;
     }
 };
@@ -39,9 +44,8 @@ struct AlignmentStatistics {
 
     uint64_t n_reads{0};
     uint64_t n_randstrobes{0};
-    uint64_t n_hits{0}; // non-rescue hits
-    uint64_t n_partial_hits{0}; // partial hits are counted twice (also reported as part of n_hits or n_rescue_hits)
     uint64_t n_rescue_hits{0};
+    uint64_t n_rescue_partial_hits{0};
     uint64_t n_nams{0};
     uint64_t n_rescue_nams{0};
     uint64_t tot_aligner_calls{0};
@@ -49,6 +53,8 @@ struct AlignmentStatistics {
     uint64_t tried_alignment{0};
     uint64_t inconsistent_nams{0};
     uint64_t nam_rescue{0};
+
+    HitsDetails hits;
 
     AlignmentStatistics operator+=(const AlignmentStatistics& other) {
         this->tot_read_file += other.tot_read_file;
@@ -60,9 +66,8 @@ struct AlignmentStatistics {
         this->tot_extend += other.tot_extend;
         this->n_reads += other.n_reads;
         this->n_randstrobes += other.n_randstrobes;
-        this->n_hits += other.n_hits;
-        this->n_partial_hits += other.n_partial_hits;
         this->n_rescue_hits += other.n_rescue_hits;
+        this->n_rescue_partial_hits += other.n_rescue_partial_hits;
         this->n_nams += other.n_nams;
         this->n_rescue_nams += other.n_rescue_nams;
         this->tot_aligner_calls += other.tot_aligner_calls;
@@ -70,6 +75,7 @@ struct AlignmentStatistics {
         this->tried_alignment += other.tried_alignment;
         this->inconsistent_nams += other.inconsistent_nams;
         this->nam_rescue += other.nam_rescue;
+        this->hits += other.hits;
         return *this;
     }
 
@@ -80,6 +86,7 @@ struct AlignmentStatistics {
         this->tot_rescued += details.mate_rescue;
         this->tried_alignment += details.tried_alignment;
         this->inconsistent_nams += details.inconsistent_nams;
+        this->hits += details.hits;
 
         return *this;
     }

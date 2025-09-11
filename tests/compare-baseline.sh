@@ -68,7 +68,7 @@ if ! test -f ${baseline_bam}; then
     mv ${srcdir}/build/strobealign ${baseline_binary}
     rm -rf "${srcdir}"
   fi
-  ${baseline_binary} ${strobealign_options} ${ref} ${reads[@]} | samtools view -o ${baseline_bam}
+  ${baseline_binary} -v ${strobealign_options} ${ref} ${reads[@]} | samtools view -o ${baseline_bam}
 fi
 
 # Run strobealign. This recompiles from scratch to ensure we use consistent
@@ -77,7 +77,7 @@ builddir=$(mktemp -p . -d build.XXXXXXX)
 cmake . -B ${builddir} ${cmake_options}
 make -s -j 4 -C ${builddir} strobealign
 set -x
-${builddir}/strobealign ${strobealign_options} ${ref} ${reads[@]} | samtools view -o head.bam
+${builddir}/strobealign -v ${strobealign_options} ${ref} ${reads[@]} | samtools view -o head.bam
 rm -rf ${builddir}
 
 # Do the actual comparison
