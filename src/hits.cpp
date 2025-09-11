@@ -4,7 +4,7 @@
  * Find a query’s hits, ignoring randstrobes that occur too often in the
  * reference (have a count above filter_cutoff).
  */
-std::tuple<HitsDetails, int, bool, std::vector<Hit>> find_hits(
+std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     McsStrategy mcs_strategy
@@ -29,9 +29,8 @@ std::tuple<HitsDetails, int, bool, std::vector<Hit>> find_hits(
                 details.partial_not_found++;
             }
         }
-        uint partial_hits = details.partial_filtered + details.partial_found;
 
-        return {details, partial_hits, sorting_needed, hits};
+        return {details, sorting_needed, hits};
     }
 
     for (const auto &q : query_randstrobes) {
@@ -82,7 +81,7 @@ std::tuple<HitsDetails, int, bool, std::vector<Hit>> find_hits(
         sorting_needed = true;
     }
 
-    uint total_hits = details.partial_filtered + details.partial_found + details.full_filtered + details.full_found;
+    assert(details.full_found + details.partial_found == hits.size());
 
-    return {details, total_hits, sorting_needed, hits};
+    return {details, sorting_needed, hits};
 }

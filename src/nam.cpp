@@ -287,21 +287,19 @@ std::vector<Nam> get_nams(
     Details& details,
     const MappingParameters &map_param
 ) {
-    // Find NAMs
+    // Find hits
     Timer hits_timer;
 
-    int total_hits = 0;
     bool sorting_needed = false;
     std::array<std::vector<Hit>, 2> hits;
     for (int is_revcomp : {0, 1}) {
-        int total_hits1;
         bool sorting_needed1;
         HitsDetails hits_details1;
-        std::tie(hits_details1, total_hits1, sorting_needed1, hits[is_revcomp]) = find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy);
+        std::tie(hits_details1, sorting_needed1, hits[is_revcomp]) = find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy);
         sorting_needed = sorting_needed || sorting_needed1;
-        total_hits += total_hits1;
         details.hits += hits_details1;
     }
+    uint total_hits = details.hits.total_hits();
     int nonrepetitive_hits = hits[0].size() + hits[1].size();
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
     statistics.time_hit_finding += hits_timer.duration();
