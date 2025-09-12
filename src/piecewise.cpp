@@ -1,9 +1,9 @@
 #include <algorithm>
-#include <memory>
 #include <random>
 #include <string>
 #include <vector>
 #include "baligner.hpp"
+#include "block-aligner/c/block_aligner.h"
 #include "nam.hpp"
 #include "revcomp.hpp"
 #include "piecewise.hpp"
@@ -14,62 +14,30 @@
 
 static Logger& logger = Logger::get();
 
-std::pair<Cigar, int> merge_cigar_elements_with_edit_distance(
-    const std::vector<OpLen>& elements,
-    uint query_start,
-    uint query_end,
-    uint query_length
-) {
-    Cigar cigar;
-    int edit_dist = 0;
-
-    if (query_start > 0) {
-        cigar.push(CIGAR_SOFTCLIP, query_start);
-    }
-
-    if (!elements.empty()) {
-        auto operation_to_cigar = [](uint8_t op) -> uint8_t {
-            switch (op) {
-                case Operation::M:  return CIGAR_MATCH;
-                case Operation::Eq: return CIGAR_EQ;
-                case Operation::X:  return CIGAR_X;
-                case Operation::I:  return CIGAR_INS;
-                case Operation::D:  return CIGAR_DEL;
-                default:
-                    assert(false && "Unknown operation");
-                    return CIGAR_MATCH;
-            }
-        };
-
-        uint8_t last_op = elements[0].op;
-        uintptr_t last_len = elements[0].len;
-
-        for (size_t i = 1; i < elements.size(); ++i) {
-            if (elements[i].op == last_op) {
-                last_len += elements[i].len;
+void add_oplen_to_cigar(Cigar& cigar, const std::vector<OpLen>& oplens) {
+    for (const auto& oplen : oplens) {
+        uint8_t op_code;
+        switch (oplen.op) {
+            case Operation::M:
+                op_code = CIGAR_MATCH;
+                break;
+            case Operation::Eq:
+                op_code = CIGAR_EQ;
+                break;
+            case Operation::X:
+                op_code = CIGAR_X;
+                break;
+            case Operation::I:
+                op_code = CIGAR_INS;
+                break;
+            case Operation::D:
+                op_code = CIGAR_DEL;
+                break;
+            default:
                 continue;
-            } 
-            cigar.push(operation_to_cigar(last_op), static_cast<int>(last_len));
-
-            if (last_op == Operation::X || last_op == Operation::D || last_op == Operation::I) {
-                edit_dist += last_len;
-            }
-
-            last_op = elements[i].op;
-            last_len = elements[i].len;
         }
-
-        cigar.push(operation_to_cigar(last_op), static_cast<int>(last_len));
-        if (last_op == Operation::X || last_op == Operation::D || last_op == Operation::I) {
-            edit_dist += last_len;
-        }
+        cigar.push(op_code, oplen.len);
     }
-
-    if (query_end < query_length) {
-        cigar.push(CIGAR_SOFTCLIP, query_length - query_end);
-    }
-
-    return {cigar, edit_dist};
 }
 
 AlignmentInfo piecewise_extension_alignment(
@@ -81,34 +49,40 @@ AlignmentInfo piecewise_extension_alignment(
     const AlignmentParameters& params
 ) {
     AlignmentInfo result;
-    result.sw_score = 0;
-    std::vector<OpLen> temp_cigar_elements;
+
     const Anchor& first_anchor = anchors[0];
     if (first_anchor.query_start > 0 && first_anchor.ref_start > 0) {
         const std::string query_part = query.substr(0, first_anchor.query_start);
         const size_t ref_start = std::max(0, static_cast<int>(first_anchor.ref_start) - (static_cast<int>(query_part.length()) + padding));
         const std::string ref_part = reference.substr(ref_start, first_anchor.ref_start - ref_start);
+
         AlignmentResult pre_align = xdrop_query_start_alignment(query_part, ref_part, params);
 
         if (pre_align.score == 0) {
             result.query_start = first_anchor.query_start;
             result.ref_start = first_anchor.ref_start;
+            result.cigar.push(CIGAR_SOFTCLIP, result.query_start);
         } else {
             result.sw_score += pre_align.score;
             result.query_start = pre_align.query_start;
             result.ref_start = ref_start + pre_align.ref_start;
-            temp_cigar_elements.insert(temp_cigar_elements.end(), pre_align.cigar.begin(), pre_align.cigar.end());
+            if (result.query_start > 0) {
+                result.cigar.push(CIGAR_SOFTCLIP, result.query_start);
+            }
+            add_oplen_to_cigar(result.cigar, pre_align.cigar);
         }
     } else {
         result.query_start = first_anchor.query_start;
         result.ref_start = first_anchor.ref_start;
         if (result.query_start == 0) {
             result.sw_score += params.end_bonus;
+        } else {
+            result.cigar.push(CIGAR_SOFTCLIP, result.query_start);
         }
     }
 
     result.sw_score += k * params.match;
-    temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)k});
+    result.cigar.push(CIGAR_EQ, k);
 
     for (size_t i = 1; i < anchors.size(); ++i) {
         const Anchor& anchor = anchors[i];
@@ -122,42 +96,81 @@ AlignmentInfo piecewise_extension_alignment(
         const int ref_diff = curr_start_ref - prev_end_ref;
         const int query_diff = curr_start_query - prev_end_query;
 
-
         if (ref_diff > 0 && query_diff > 0){
+            // if (ref_diff == query_diff) {
+            //     size_t end_index = i;
+            //     
+            //     for (size_t j = i + 1; j < anchors.size(); ++j) {
+            //         const Anchor& next_anchor = anchors[j];
+            //         const Anchor& end_anchor = anchors[end_index];
+            //         const int next_ref_diff = next_anchor.ref_start - end_anchor.ref_start;
+            //         const int next_query_diff = next_anchor.query_start - end_anchor.query_start;
+            //         
+            //         if (next_ref_diff == next_query_diff) {
+            //             end_index = j;
+            //         } else {
+            //             break;
+            //         }
+            //     }
+            //     
+            //     const Anchor& end_anchor = anchors[end_index];
+            //     
+            //     const int hamming_query_start = prev_anchor.query_start + k;
+            //     const int hamming_query_end = end_anchor.query_start;
+            //     const int hamming_ref_start = prev_anchor.ref_start + k;
+            //     const int hamming_ref_end = end_anchor.ref_start;
+            //     
+            //     const std::string query_region = query.substr(hamming_query_start, hamming_query_end - hamming_query_start);
+            //     const std::string ref_region = reference.substr(hamming_ref_start, hamming_ref_end - hamming_ref_start);
+            //     
+            //     auto hamming_dist = hamming_distance(query_region, ref_region);
+            //     
+            //     if (hamming_dist >= 0 && (((float) hamming_dist / query_region.size()) < 0.04)) {
+            //         const AlignmentInfo hamming_info = hamming_align_global(query_region, ref_region, params.match, params.mismatch);                    
+            //         result.sw_score += hamming_info.sw_score;
+            //         result.cigar += hamming_info.cigar;
+            //
+            //         result.sw_score += k * params.match;
+            //         result.cigar.push(CIGAR_EQ, k);
+            //
+            //         i = end_index;
+            //         continue;
+            //     }
+            // }
             const std::string query_part = query.substr(prev_end_query, query_diff);
             const std::string ref_part = reference.substr(prev_end_ref, ref_diff);
 
             AlignmentResult aligned = global_alignment(query_part, ref_part, params);
+
             result.sw_score += aligned.score;
-            temp_cigar_elements.insert(temp_cigar_elements.end(), aligned.cigar.begin(), aligned.cigar.end());
+            add_oplen_to_cigar(result.cigar, aligned.cigar);
 
             result.sw_score += k * params.match;
-            temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)k});
+            result.cigar.push(CIGAR_EQ, k);
         } else {
              if (ref_diff < query_diff) {
                 const size_t inserted_part = -ref_diff + query_diff;
                 result.sw_score += -params.gap_open + (inserted_part - 1) * -params.gap_extend;
-                temp_cigar_elements.push_back({Operation::I, (uintptr_t)inserted_part});
+                result.cigar.push(CIGAR_INS, inserted_part);
 
                 const size_t matching_part = k + ref_diff;
                 result.sw_score += matching_part * params.match;
-                temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)matching_part});
+                result.cigar.push(CIGAR_EQ, matching_part);
             } else if (ref_diff > query_diff) {
                 const size_t deleted_part = -query_diff + ref_diff;
                 result.sw_score += -params.gap_open + (deleted_part - 1) * -params.gap_extend;
-                temp_cigar_elements.push_back({Operation::D, (uintptr_t)deleted_part});
+                result.cigar.push(CIGAR_DEL, deleted_part);
 
                 const size_t matching_part = k + query_diff;
                 result.sw_score += matching_part * params.match;
-                temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)matching_part});
+                result.cigar.push(CIGAR_EQ, matching_part);
             } else {
                 const size_t matching_part = k + ref_diff;
                 result.sw_score += matching_part * params.match;
-                temp_cigar_elements.push_back({Operation::Eq, (uintptr_t)matching_part});
+                result.cigar.push(CIGAR_EQ, matching_part);
             }
         }
     }
-
     const Anchor& last_anchor = anchors.back();
     const size_t last_anchor_end_query = last_anchor.query_start + k;
     const size_t last_anchor_end_ref = last_anchor.ref_start + k;
@@ -175,7 +188,7 @@ AlignmentInfo piecewise_extension_alignment(
             result.sw_score += post_align.score;
             result.query_end = last_anchor_end_query + post_align.query_end;
             result.ref_end = last_anchor_end_ref + post_align.ref_end;
-            temp_cigar_elements.insert(temp_cigar_elements.end(), post_align.cigar.begin(), post_align.cigar.end());
+            add_oplen_to_cigar(result.cigar, post_align.cigar);
         }
     } else {
         result.query_end = last_anchor_end_query;
@@ -185,15 +198,11 @@ AlignmentInfo piecewise_extension_alignment(
         }
     }
 
-    const auto cigar_ed = merge_cigar_elements_with_edit_distance(
-        temp_cigar_elements,
-        result.query_start,
-        result.query_end,
-        static_cast<int>(query.length())
-    );
+    if (result.query_end < query.length()) {
+        result.cigar.push(CIGAR_SOFTCLIP, static_cast<int>(query.length()) - result.query_end);
+    }
 
-    result.cigar = cigar_ed.first;
-    result.edit_distance = cigar_ed.second;
+    result.edit_distance = result.cigar.edit_distance();
 
     return result;
 }
