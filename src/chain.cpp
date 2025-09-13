@@ -17,16 +17,29 @@ void add_to_anchors_full(
     size_t position
 ) {
     int min_diff = std::numeric_limits<int>::max();
+    std::vector<size_t> best_positions;
+    
     for (const auto hash = index.get_hash(position); index.get_hash(position) == hash; ++position) {
         int ref_start = index.get_strobe1_position(position);
         int ref_end = ref_start + index.strobe2_offset(position) + index.k();
         int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
-        if (diff <= min_diff) {
-            int ref_idx = index.reference_index(position);
-            anchors.push_back({uint(query_start), uint(ref_start), uint(ref_idx)});
-            anchors.push_back({uint(query_end - index.k()), uint(ref_end - index.k()), uint(ref_idx)});
+        
+        if (diff < min_diff) {
             min_diff = diff;
+            best_positions.clear();
+            best_positions.push_back(position);
+        } else if (diff == min_diff) {
+            best_positions.push_back(position);
         }
+    }
+    
+    for (size_t pos : best_positions) {
+        int ref_start = index.get_strobe1_position(pos);
+        int ref_end = ref_start + index.strobe2_offset(pos) + index.k();
+        int ref_idx = index.reference_index(pos);
+        
+        anchors.push_back({uint(query_start), uint(ref_start), uint(ref_idx)});
+        anchors.push_back({uint(query_end - index.k()), uint(ref_end - index.k()), uint(ref_idx)});
     }
 }
 
