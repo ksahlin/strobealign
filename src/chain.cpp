@@ -287,22 +287,17 @@ std::vector<Nam> Chainer::get_chains(
 ) const {
     Timer hits_timer;
 
-    int total_hits = 0;
-    int partial_hits = 0;
     std::array<std::vector<Hit>, 2> hits;
     for (int is_revcomp : {0, 1}) {
-        int total_hits1, partial_hits1;
         bool sorting_needed1;
-        std::tie(total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) =
+        HitsDetails hits_details1;
+        std::tie(hits_details1, sorting_needed1, hits[is_revcomp]) =
             find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy);
-        total_hits += total_hits1;
-        partial_hits += partial_hits1;
+        details.hits += hits_details1;
     }
+    uint total_hits = details.hits.total_hits();
     int nonrepetitive_hits = hits[0].size() + hits[1].size();
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
-
-    statistics.n_hits += nonrepetitive_hits;
-    statistics.n_partial_hits += partial_hits;
     statistics.time_hit_finding += hits_timer.duration();
 
     std::vector<Nam> chains;
@@ -316,11 +311,11 @@ std::vector<Nam> Chainer::get_chains(
         // Rescue if requested and needed
         if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
             Timer rescue_timer;
-            auto [n_rescue_hits, n_partial_hits] = find_anchors_rescue(
+            auto [n_hits, n_partial_hits] = find_anchors_rescue(
                 query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy, anchors
             );
-            statistics.n_rescue_hits += n_rescue_hits;
-            statistics.n_partial_hits += n_partial_hits;
+            statistics.n_rescue_hits += n_hits;
+            statistics.n_rescue_partial_hits += n_partial_hits;
             details.rescue_nams += chains.size();
             details.nam_rescue = true;
             statistics.tot_time_rescue += rescue_timer.duration();

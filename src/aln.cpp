@@ -638,7 +638,6 @@ void output_aligned_pairs(
     auto [mapq1, mapq2] = joint_mapq_from_high_scores(high_scores);
     auto best_aln_pair = high_scores[0];
 
-
     // append both alignments to string here
     if (max_secondary == 0) {
         Alignment alignment1 = best_aln_pair.alignment1;
