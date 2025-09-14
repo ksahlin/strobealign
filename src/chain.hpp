@@ -22,7 +22,9 @@ struct Anchor {
         return (ref_id == other.ref_id) && ref_start == other.ref_start && query_start == other.query_start;
     }
 };
- 
+
+std::ostream& operator<<(std::ostream& os, const Anchor& anchor);
+
 struct Chainer {
     Chainer(ChainingParameters chaining_params, int k)
         : k(k)

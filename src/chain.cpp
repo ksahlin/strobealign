@@ -203,6 +203,12 @@ float Chainer::collinear_chaining(
             if (new_score > dp[i]) {
                 dp[i] = new_score;
                 predecessors[i] = j;
+
+                // Runtime heuristic: If the predecessor is on the same diagonal,
+                // assume that it is the best one and skip the remaining ones.
+                if (dq == dr) {
+                    break;
+                }
             }
         }
         if (dp[i] > best_score) {
@@ -261,17 +267,17 @@ void extract_chains_from_dp(
         const Anchor& first = anchors[j];
         const Anchor& last = anchors[i];
 
-        chains.push_back(
-            Nam{int(chains.size()),
-            int(first.query_start),
-            int(last.query_start + k),
-            -1,
-            int(first.ref_start),
-            int(last.ref_start + k),
-            -1,
-            c,
-            int(last.ref_id),
-            score + c * chaining_params.matches_weight,
+        chains.push_back(Nam{
+            int(chains.size()),        // nam_id
+            int(first.query_start),    // query_start
+            int(last.query_start + k), // query_end
+            -1,                        // query_prev_match_startpos
+            int(first.ref_start),      // ref_start
+            int(last.ref_start + k),   // ref_end
+            -1,                        // ref_prev_match_startpos
+            c,                         // n_matches
+            int(last.ref_id),          // ref_id
+            score + c * chaining_params.matches_weight, // score
             is_revcomp
             }
         );
@@ -341,4 +347,9 @@ std::vector<Nam> Chainer::get_chains(
     details.nams += chains.size();
 
     return chains;
+}
+
+std::ostream& operator<<(std::ostream& os, const Anchor& anchor) {
+    os << "Anchor(ref_id=" << anchor.ref_id << ", ref_start=" << anchor.ref_start << ", query_start=" << anchor.query_start << ")";
+    return os;
 }
