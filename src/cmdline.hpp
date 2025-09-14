@@ -68,7 +68,7 @@ struct CommandLineOptions {
     float matches_weight { 0.01 };
 
     // Search parameters
-    McsStrategy mcs_strategy { McsStrategy::Rescue };
+    McsStrategy mcs_strategy { McsStrategy::Always };
     float f { 0.0002 };
     float dropoff_threshold { 0.5 };
     int max_tries { 20 };
