@@ -14,6 +14,86 @@
 
 static Logger& logger = Logger::get();
 
+void align_before_first_anchor(
+    const std::string& reference,
+    const std::string& query,
+    const Anchor& first_anchor,
+    const int padding,
+    const AlignmentParameters& params,
+    AlignmentInfo* result
+) {
+    if (first_anchor.query_start > 0 && first_anchor.ref_start > 0) {
+        const std::string_view query_part(query.data(), first_anchor.query_start);
+        const size_t ref_start = std::max(0, static_cast<int>(first_anchor.ref_start) - (static_cast<int>(query_part.length()) + padding));
+        const std::string_view ref_part(reference.data() + ref_start, first_anchor.ref_start - ref_start);
+
+        const AlignmentResult pre_align = xdrop_alignment(query_part, ref_part, params, true);
+
+        if (pre_align.score == 0) {
+            result->query_start = first_anchor.query_start;
+            result->ref_start = first_anchor.ref_start;
+            result->cigar.push(CIGAR_SOFTCLIP, result->query_start);
+        } else {
+            result->sw_score += pre_align.score;
+            result->query_start = pre_align.query_start;
+            result->ref_start = ref_start + pre_align.ref_start;
+            if (result->query_start > 0) {
+                result->cigar.push(CIGAR_SOFTCLIP, result->query_start);
+            }
+            result->cigar += pre_align.cigar;
+        }
+    } else {
+        result->query_start = first_anchor.query_start;
+        result->ref_start = first_anchor.ref_start;
+        if (result->query_start == 0) {
+            result->sw_score += params.end_bonus;
+        } else {
+            result->cigar.push(CIGAR_SOFTCLIP, result->query_start);
+        }
+    }
+}
+
+void align_after_last_anchor(
+    const std::string& reference,
+    const std::string& query,
+    const Anchor& last_anchor,
+    const int k,
+    const int padding,
+    const AlignmentParameters& params,
+    AlignmentInfo* result
+) {
+    const size_t last_anchor_end_query = last_anchor.query_start + k;
+    const size_t last_anchor_end_ref = last_anchor.ref_start + k;
+    
+    if (last_anchor_end_query < query.length() && last_anchor_end_ref < reference.length()) {
+        const std::string_view query_part(query.data() + last_anchor_end_query, query.length() - last_anchor_end_query);
+        const size_t ref_part_end = std::min(reference.length(), last_anchor_end_ref + query_part.length() + padding);
+        const std::string_view ref_part(reference.data() + last_anchor_end_ref, ref_part_end - last_anchor_end_ref);
+
+        const AlignmentResult post_align = xdrop_alignment(query_part, ref_part, params, false);
+
+        if (post_align.score == 0) {
+            result->query_end = last_anchor_end_query;
+            result->ref_end = last_anchor_end_ref;
+        } else {
+            result->sw_score += post_align.score;
+            result->query_end = last_anchor_end_query + post_align.query_end;
+            result->ref_end = last_anchor_end_ref + post_align.ref_end;
+            result->cigar += post_align.cigar;
+        }
+    } else {
+        result->query_end = last_anchor_end_query;
+        result->ref_end = last_anchor_end_ref;
+        if (result->query_end == uint(query.length())) {
+            result->sw_score += params.end_bonus;
+        }
+    }
+
+    if (result->query_end < query.length()) {
+        result->cigar.push(CIGAR_SOFTCLIP, static_cast<int>(query.length()) - result->query_end);
+    }
+}
+
 AlignmentInfo piecewise_extension_alignment(
     const std::string& reference,
     const std::string& query,
@@ -24,36 +104,7 @@ AlignmentInfo piecewise_extension_alignment(
 ) {
     AlignmentInfo result;
 
-    const Anchor& first_anchor = anchors[0];
-    if (first_anchor.query_start > 0 && first_anchor.ref_start > 0) {
-        const std::string_view query_part(query.data(), first_anchor.query_start);
-        const size_t ref_start = std::max(0, static_cast<int>(first_anchor.ref_start) - (static_cast<int>(query_part.length()) + padding));
-        const std::string_view ref_part(reference.data() + ref_start, first_anchor.ref_start - ref_start);
-
-        const AlignmentResult pre_align = xdrop_alignment(query_part, ref_part, params, true);
-
-        if (pre_align.score == 0) {
-            result.query_start = first_anchor.query_start;
-            result.ref_start = first_anchor.ref_start;
-            result.cigar.push(CIGAR_SOFTCLIP, result.query_start);
-        } else {
-            result.sw_score += pre_align.score;
-            result.query_start = pre_align.query_start;
-            result.ref_start = ref_start + pre_align.ref_start;
-            if (result.query_start > 0) {
-                result.cigar.push(CIGAR_SOFTCLIP, result.query_start);
-            }
-            result.cigar += pre_align.cigar;
-        }
-    } else {
-        result.query_start = first_anchor.query_start;
-        result.ref_start = first_anchor.ref_start;
-        if (result.query_start == 0) {
-            result.sw_score += params.end_bonus;
-        } else {
-            result.cigar.push(CIGAR_SOFTCLIP, result.query_start);
-        }
-    }
+    align_before_first_anchor(reference, query, anchors[0], padding, params, &result);
 
     result.sw_score += k * params.match;
     result.cigar.push(CIGAR_EQ, k);
@@ -73,39 +124,8 @@ AlignmentInfo piecewise_extension_alignment(
         // magic heuristic to prune off annoying anchors on the query end
         const int query_remaining = int(query.length()) - prev_end_query;
         if (query_remaining <= 200 && ref_diff - query_diff >= query_remaining/2) {
-            const Anchor& last_anchor = prev_anchor;
-            const size_t last_anchor_end_query = last_anchor.query_start + k;
-            const size_t last_anchor_end_ref = last_anchor.ref_start + k;
-            if (last_anchor_end_query < query.length() && last_anchor_end_ref < reference.length()) {
-                const std::string_view query_part(query.data() + last_anchor_end_query, query.length() - last_anchor_end_query);
-                const size_t ref_part_end = std::min(reference.length(), last_anchor_end_ref + query_part.length() + padding);
-                const std::string_view ref_part(reference.data() + last_anchor_end_ref, ref_part_end - last_anchor_end_ref);
-
-                const AlignmentResult post_align = xdrop_alignment(query_part, ref_part, params, false);
-
-                if (post_align.score == 0) {
-                    result.query_end = last_anchor_end_query;
-                    result.ref_end = last_anchor_end_ref;
-                } else {
-                    result.sw_score += post_align.score;
-                    result.query_end = last_anchor_end_query + post_align.query_end;
-                    result.ref_end = last_anchor_end_ref + post_align.ref_end;
-                    result.cigar += post_align.cigar;
-                }
-            } else {
-                result.query_end = last_anchor_end_query;
-                result.ref_end = last_anchor_end_ref;
-                if (result.query_end == uint(query.length())) {
-                    result.sw_score += params.end_bonus;
-                }
-            }
-
-            if (result.query_end < query.length()) {
-                result.cigar.push(CIGAR_SOFTCLIP, static_cast<int>(query.length()) - result.query_end);
-            }
-
+            align_after_last_anchor(reference, query, prev_anchor, k, padding + ref_diff - query_diff, params, &result);
             result.edit_distance = result.cigar.edit_distance();
-
             return result;
         }
 
@@ -145,39 +165,9 @@ AlignmentInfo piecewise_extension_alignment(
         }
     }
 
-    const Anchor& last_anchor = anchors.back();
-    const size_t last_anchor_end_query = last_anchor.query_start + k;
-    const size_t last_anchor_end_ref = last_anchor.ref_start + k;
-    if (last_anchor_end_query < query.length() && last_anchor_end_ref < reference.length()) {
-        const std::string_view query_part(query.data() + last_anchor_end_query, query.length() - last_anchor_end_query);
-        const size_t ref_part_end = std::min(reference.length(), last_anchor_end_ref + query_part.length() + padding);
-        const std::string_view ref_part(reference.data() + last_anchor_end_ref, ref_part_end - last_anchor_end_ref);
-
-        const AlignmentResult post_align = xdrop_alignment(query_part, ref_part, params, false);
-
-        if (post_align.score == 0) {
-            result.query_end = last_anchor_end_query;
-            result.ref_end = last_anchor_end_ref;
-        } else {
-            result.sw_score += post_align.score;
-            result.query_end = last_anchor_end_query + post_align.query_end;
-            result.ref_end = last_anchor_end_ref + post_align.ref_end;
-            result.cigar += post_align.cigar;
-        }
-    } else {
-        result.query_end = last_anchor_end_query;
-        result.ref_end = last_anchor_end_ref;
-        if (result.query_end == uint(query.length())) {
-            result.sw_score += params.end_bonus;
-        }
-    }
-
-    if (result.query_end < query.length()) {
-        result.cigar.push(CIGAR_SOFTCLIP, static_cast<int>(query.length()) - result.query_end);
-    }
-
+    align_after_last_anchor(reference, query, anchors.back(), k, padding, params, &result);
+    
     result.edit_distance = result.cigar.edit_distance();
-
     return result;
 }
 
