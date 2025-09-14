@@ -122,8 +122,7 @@ AlignmentInfo piecewise_extension_alignment(
         const int query_diff = curr_start_query - prev_end_query;
 
         // magic heuristic to prune off annoying anchors on the query end
-        const int query_remaining = int(query.length()) - prev_end_query;
-        if (query_remaining <= 200 && ref_diff - query_diff >= query_remaining/2) {
+        if (int(query.length()) - curr_start_query <= 200 && ref_diff - query_diff >= (int(query.length()) - prev_end_query)/2) {
             align_after_last_anchor(reference, query, prev_anchor, k, padding + ref_diff - query_diff, params, &result);
             result.edit_distance = result.cigar.edit_distance();
             return result;
