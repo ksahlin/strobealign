@@ -14,10 +14,7 @@
  * 11 alignment block length
  * 12 mapping quality (0-255; 255 for missing)
  */
-void output_hits_paf_PE(std::string &paf_output, const Nam &n, const std::string &query_name, const References& references, int read_len) {
-    if (n.ref_start < 0 ) {
-        return;
-    }
+void output_hits_paf_PE(std::string &paf_output, const Chain &n, const std::string &query_name, const References& references, int read_len, uint8_t mapq) {
     paf_output.append(query_name);
     paf_output.append("\t");
     paf_output.append(std::to_string(read_len));
@@ -36,19 +33,21 @@ void output_hits_paf_PE(std::string &paf_output, const Nam &n, const std::string
     paf_output.append("\t");
     paf_output.append(std::to_string(n.ref_end));
     paf_output.append("\t");
-    paf_output.append(std::to_string(n.n_matches));
+    paf_output.append(std::to_string(n.anchors.size()));
     paf_output.append("\t");
     paf_output.append(std::to_string(n.ref_end - n.ref_start));
-    paf_output.append("\t255\n");
+    paf_output.append("\t");
+    paf_output.append(std::to_string(mapq));
+    paf_output.append("\n");
 }
 
 
-void output_hits_paf(std::string &paf_output, const std::vector<Nam> &all_nams, const std::string& query_name, const References& references, int read_len) {
+void output_hits_paf(std::string &paf_output, const std::vector<Chain> &chains, const std::string& query_name, const References& references, int read_len, uint8_t mapq) {
     // Output results
-    if (all_nams.empty()) {
+    if (chains.empty()) {
         return;
     }
     // Only output single best hit based on: number of randstrobe-matches times span of the merged match.
-    Nam n = all_nams[0];
-    output_hits_paf_PE(paf_output, n, query_name, references, read_len);
+    Chain n = chains[0];
+    output_hits_paf_PE(paf_output, n, query_name, references, read_len, mapq);
 }

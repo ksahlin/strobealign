@@ -1,5 +1,6 @@
 #ifndef STROBEALIGN_CHAIN_HPP
 #define STROBEALIGN_CHAIN_HPP
+#include <algorithm>
 #include <vector>
 #include "index.hpp"
 #include "mappingparameters.hpp"
@@ -21,6 +22,7 @@ struct Anchor {
 };
 
 struct Chain {
+    uint id;
     uint ref_id;
     float score;
     std::vector<Anchor> anchors;
@@ -29,6 +31,18 @@ struct Chain {
     uint ref_start;
     uint ref_end;
     bool is_revcomp;
+
+    int ref_span() const {
+        return ref_end - ref_start;
+    }
+
+    int query_span() const {
+        return query_end - query_start;
+    }
+
+    int projected_ref_start() const {
+        return std::max(0u, ref_start - query_start);
+    }
 };
 
 struct Chainer {

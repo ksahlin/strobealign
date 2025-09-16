@@ -198,7 +198,7 @@ NB_MODULE(strobealign_extension, m_) {
         .export_values();
 
     m.def("find_hits", [](const std::vector<QueryRandstrobe>& query_randstrobes, const StrobemerIndex& index, McsStrategy mcs_strategy) -> std::vector<Hit> {
-        auto [total_hits, partial_hits, sorting_needed, hits] = find_hits(query_randstrobes, index, mcs_strategy);
+        auto [hits_details, sorting_needed, hits] = find_hits(query_randstrobes, index, mcs_strategy);
         return hits;
     }, nb::arg("query_randstrobes"), nb::arg("index"), nb::arg("mcs_strategy"));
 

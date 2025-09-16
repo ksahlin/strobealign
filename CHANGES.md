@@ -6,6 +6,10 @@
   method, replacing NAMs. This reproduces the Minimap2 chaining algorithm
   providing better mapping accuracy. NAMs remain available via the `--nams`
   flag.
+* #515: PAF output now includes a sensible value for the mapping quality
+  (last column), computed using the formula that
+  [minimap2 uses](https://academic.oup.com/bioinformatics/article/34/18/3094/4994778?login=false#393786986).
+  It was previously set to 255, which means “missing”.
 
 ## v0.16.1 (2025-05-16)
 

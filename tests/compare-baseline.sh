@@ -15,8 +15,13 @@ python3 -c 'import pysam'
 ends="pe"
 threads=4
 mcs=0
-while getopts "st:m" opt; do
+baseline_commit=$(git --no-pager log -n1 --pretty=format:%H --grep='^Is-new-baseline: yes')
+
+while getopts "b:st:m" opt; do
   case "${opt}" in
+    b)
+      baseline_commit=$(git rev-parse "${OPTARG}")
+      ;;
     t)
       threads=$OPTARG
       ;;
@@ -26,6 +31,7 @@ while getopts "st:m" opt; do
     m)
       mcs=1
       ;;
+
     \?)
       exit 1
       ;;
@@ -41,8 +47,6 @@ fi
 # Ensure test data is available
 tests/download.sh
 
-
-baseline_commit=$(git --no-pager log -n1 --pretty=format:%H --grep='^Is-new-baseline: yes')
 
 baseline_binary=baseline/strobealign-${baseline_commit}
 cmake_options=-DCMAKE_BUILD_TYPE=RelWithDebInfo
@@ -68,7 +72,7 @@ if ! test -f ${baseline_bam}; then
     mv ${srcdir}/build/strobealign ${baseline_binary}
     rm -rf "${srcdir}"
   fi
-  ${baseline_binary} ${strobealign_options} ${ref} ${reads[@]} | samtools view -o ${baseline_bam}
+  ${baseline_binary} -v ${strobealign_options} ${ref} ${reads[@]} | samtools view -o ${baseline_bam}
 fi
 
 # Run strobealign. This recompiles from scratch to ensure we use consistent
@@ -77,7 +81,7 @@ builddir=$(mktemp -p . -d build.XXXXXXX)
 cmake . -B ${builddir} ${cmake_options}
 make -s -j 4 -C ${builddir} strobealign
 set -x
-${builddir}/strobealign ${strobealign_options} ${ref} ${reads[@]} | samtools view -o head.bam
+${builddir}/strobealign -v ${strobealign_options} ${ref} ${reads[@]} | samtools view -o head.bam
 rm -rf ${builddir}
 
 # Do the actual comparison
