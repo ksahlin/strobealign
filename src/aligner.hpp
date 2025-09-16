@@ -79,4 +79,8 @@ AlignmentInfo hamming_align(
     const std::string &query, const std::string &ref, int match, int mismatch, int end_bonus
 );
 
+AlignmentInfo hamming_align_global(
+    const std::string_view& query, const std::string_view& ref, uint match, uint mismatch
+);
+
 #endif

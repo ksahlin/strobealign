@@ -4,6 +4,7 @@
  * This is for anything that returns an aln_info object, currently
  * Aligner::align and hamming_align.
  */
+#include <cstddef>
 #include <tuple>
 #include <algorithm>
 #include <cassert>
@@ -192,6 +193,36 @@ AlignmentInfo hamming_align(
     aln.query_start = segment_start;
     aln.query_end = segment_end;
     return aln;
+}
+
+AlignmentInfo hamming_align_global(
+    const std::string_view& query, const std::string_view& ref, uint match, uint mismatch
+) {
+    AlignmentInfo result;
+    
+    if (query.size() != ref.size()) {
+        return result;
+    }
+    
+    const size_t len = query.size();
+    result.edit_distance = 0;
+    result.query_start = 0;
+    result.query_end = len;
+    result.ref_start = 0;
+    result.ref_end = len;
+    
+    for (size_t i = 0; i < len; ++i) {
+        if (query[i] == ref[i]) {
+            result.sw_score += match;
+            result.cigar.push(CIGAR_EQ, 1);
+        } else {
+            result.sw_score -= mismatch;
+            result.edit_distance += 1;
+            result.cigar.push(CIGAR_X, 1);
+        }
+    }
+    
+    return result;
 }
 
 std::ostream& operator<<(std::ostream& os, const AlignmentParameters& params) {

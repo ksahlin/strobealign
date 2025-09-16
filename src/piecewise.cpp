@@ -132,6 +132,19 @@ AlignmentInfo piecewise_extension_alignment(
             const std::string_view query_part(query.data() + prev_end_query, query_diff);
             const std::string_view ref_part(reference.data() + prev_end_ref, ref_diff);
 
+            if (ref_diff == query_diff) {
+                const AlignmentInfo hamming_aligned = hamming_align_global(query_part, ref_part, params.match, params.mismatch);
+
+                if (hamming_aligned.sw_score >= params.match * static_cast<float>(query_part.size()) * 0.85f) {
+                    result.sw_score += hamming_aligned.sw_score;
+                    result.cigar += hamming_aligned.cigar;
+
+                    result.sw_score += k * params.match;
+                    result.cigar.push(CIGAR_EQ, k);
+                    continue;
+                }
+            }
+
             const AlignmentResult aligned = global_alignment(query_part, ref_part, params);
 
             result.sw_score += aligned.score;
