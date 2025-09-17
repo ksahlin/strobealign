@@ -5,8 +5,7 @@
 #include <cstddef>
 #include <vector>
 #include "block-aligner/c/block_aligner.h"
-#include "aligner.hpp"
-#include "cigar.hpp"
+#include "alignment.hpp"
 #include "chain.hpp"
 
 namespace Piecewise {
@@ -56,12 +55,6 @@ public:
     explicit Aligner(const AlignmentParameters& params, int k);
     
     ~Aligner();
-    
-    Aligner(const Aligner&) = delete;
-    Aligner& operator=(const Aligner&) = delete;
-    
-    Aligner(Aligner&& other) noexcept;
-    Aligner& operator=(Aligner&& other) noexcept;
     
     AlignmentInfo piecewise_extension_alignment(
         const std::string& reference,

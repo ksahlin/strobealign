@@ -1,14 +1,15 @@
 #include "aln.hpp"
 #include <algorithm>
+#include <memory>
 #include <utility>
 #include <math.h>
+#include "mappingparameters.hpp"
 #include "nam.hpp"
 #include "revcomp.hpp"
 #include "timer.hpp"
 #include "chain.hpp"
 #include "paf.hpp"
 #include "aligner.hpp"
-#include "piecewise.hpp"
 #include "logger.hpp"
 
 using namespace klibpp;
@@ -34,7 +35,8 @@ inline Alignment extend_seed(
     const Chain &chain,
     const References& references,
     const Read& read,
-    bool consistent_chain
+    bool consistent_chain,
+    bool piecewise
 );
 
 /*
@@ -93,7 +95,8 @@ inline void align_single(
     float dropoff_threshold,
     int max_tries,
     unsigned max_secondary,
-    std::minstd_rand& random_engine
+    std::minstd_rand& random_engine,
+    bool piecewise
 ) {
     if (chains.empty()) {
         sam.add_unmapped(record);
@@ -114,6 +117,7 @@ inline void align_single(
     Alignment best_alignment;
     best_alignment.is_unaligned = true;
 
+    int considered = 0; 
     for (auto &chain : chains) {
         float score_dropoff = (float) chain.score / n_max.score;
         if (tries >= max_tries || (tries > 1 && best_edit_distance == 0) || score_dropoff < dropoff_threshold) {
@@ -121,7 +125,7 @@ inline void align_single(
         }
         bool consistent_chain = reverse_chain_if_needed(chain, read, references, k);
         details.inconsistent_nams += !consistent_chain;
-        auto alignment = extend_seed(aligner, chain, references, read, consistent_chain);
+        auto alignment = extend_seed(aligner, chain, references, read, consistent_chain, piecewise);
         details.tried_alignment++;
         if (alignment.is_unaligned) {
             tries++;
@@ -172,6 +176,19 @@ inline void align_single(
     bool is_primary = true;
     sam.add(best_alignment, record, read.rc, mapq, is_primary, details);
 
+    if (logger.level() <= LOG_TRACE){
+        logger.trace() << "Cigars:[";
+        int curr = 0;
+        for (const auto& chain : chains) {
+            auto alignment = extend_seed(aligner, chain, references, read, true, true);
+            auto alignment_ssw = extend_seed(aligner, chain, references, read, true, false);
+
+            logger.trace() << "(" <<alignment.cigar << ",was_considered:"<< (curr < considered) <<  ",rstart=" << alignment.ref_start << ",SSW:" << alignment_ssw.cigar << ",SSW_rstart=" << alignment_ssw.ref_start << ")";
+            curr++;
+        }
+        logger.trace() << "]\n";
+    }
+
     if (max_secondary == 0) {
         return;
     }
@@ -215,12 +232,13 @@ inline Alignment extend_seed(
     const Chain &chain,
     const References& references,
     const Read& read,
-    bool consistent_chain
+    bool consistent_chain,
+    bool piecewise
 ) {
     const std::string query = chain.is_revcomp ? read.rc : read.seq;
     const std::string& ref = references.sequences[chain.ref_id];
 
-    const auto projected_ref_start = chain.projected_ref_start();
+    const auto projected_ref_start = std::max(0, int(chain.ref_start) - int(chain.query_start));
     const auto projected_ref_end = std::min(chain.ref_end + query.size() - chain.query_end, ref.size());
 
     AlignmentInfo info;
@@ -238,25 +256,30 @@ inline Alignment extend_seed(
     }
     if (gapped) {
         const int padding = read.size()/10; 
-        const int diff = std::abs(chain.ref_span() - chain.query_span());
-        const int ext_left = std::min(padding, projected_ref_start);
-        const int ref_start = projected_ref_start - ext_left;
-        const int ext_right = std::min(std::size_t(padding), ref.size() - chain.ref_end);
-        const auto ref_segm_size = read.size() + diff + ext_left + ext_right;
-        const auto ref_segm = ref.substr(ref_start, ref_segm_size);
-        auto opt_info = aligner.align(query, ref_segm);
-        if (opt_info) {
-            info = opt_info.value();
-            result_ref_start = ref_start + info.ref_start;
+        if (piecewise) {
+            info = aligner.align_piecewise(query, ref, chain.anchors, padding);
+            result_ref_start = info.ref_start;
         } else {
-            // TODO This function should instead return an std::optional<Alignment>
-            Alignment alignment;
-            alignment.is_unaligned = true;
-            alignment.edit_distance = 100000;
-            alignment.ref_start = 0;
-            alignment.score = -100000;
+            const int diff = std::abs(chain.ref_span() - chain.query_span());
+            const int ext_left = std::min(padding, projected_ref_start);
+            const int ref_start = projected_ref_start - ext_left;
+            const int ext_right = std::min(std::size_t(padding), ref.size() - chain.ref_end);
+            const auto ref_segm_size = read.size() + diff + ext_left + ext_right;
+            const auto ref_segm = ref.substr(ref_start, ref_segm_size);
+            auto opt_info = aligner.align(query, ref_segm);
+            if (opt_info) {
+                info = opt_info.value();
+                result_ref_start = ref_start + info.ref_start;
+            } else {
+                // TODO This function should instead return an std::optional<Alignment>
+                Alignment alignment;
+                alignment.is_unaligned = true;
+                alignment.edit_distance = 100000;
+                alignment.ref_start = 0;
+                alignment.score = -100000;
 
-            return alignment;
+                return alignment;
+            }
         }
     }
     int softclipped = info.query_start + (query.size() - info.query_end);
@@ -595,7 +618,7 @@ std::vector<ScoredAlignmentPair> rescue_read(
 
         const bool consistent_chain = reverse_chain_if_needed(chain, read1, references, k);
         details[0].inconsistent_nams += !consistent_chain;
-        auto alignment = extend_seed(aligner, chain, references, read1, consistent_chain);
+        auto alignment = extend_seed(aligner, chain, references, read1, consistent_chain, false);
         details[0].gapped += alignment.gapped;
         alignments1.emplace_back(alignment);
         details[0].tried_alignment++;
@@ -756,10 +779,10 @@ std::vector<ScoredAlignmentPair> align_paired(
         bool consistent_chain2 = reverse_chain_if_needed(n_max2, read2, references, k);
         details[1].inconsistent_nams += !consistent_chain2;
 
-        auto alignment1 = extend_seed(aligner, n_max1, references, read1, consistent_chain1);
+        auto alignment1 = extend_seed(aligner, n_max1, references, read1, consistent_chain1, false);
         details[0].tried_alignment++;
         details[0].gapped += alignment1.gapped;
-        auto alignment2 = extend_seed(aligner, n_max2, references, read2, consistent_chain2);
+        auto alignment2 = extend_seed(aligner, n_max2, references, read2, consistent_chain2, false);
         details[1].tried_alignment++;
         details[1].gapped += alignment2.gapped;
 
@@ -782,7 +805,7 @@ std::vector<ScoredAlignmentPair> align_paired(
         auto n1_max = chains1[0];
         bool consistent_chain1 = reverse_chain_if_needed(n1_max, read1, references, k);
         details[0].inconsistent_nams += !consistent_chain1;
-        a1_indv_max = extend_seed(aligner, n1_max, references, read1, consistent_chain1);
+        a1_indv_max = extend_seed(aligner, n1_max, references, read1, consistent_chain1, false);
         is_aligned1[n1_max.id] = a1_indv_max;
         details[0].tried_alignment++;
         details[0].gapped += a1_indv_max.gapped;
@@ -790,7 +813,7 @@ std::vector<ScoredAlignmentPair> align_paired(
         auto n2_max = chains2[0];
         bool consistent_chain2 = reverse_chain_if_needed(n2_max, read2, references, k);
         details[1].inconsistent_nams += !consistent_chain2;
-        a2_indv_max = extend_seed(aligner, n2_max, references, read2, consistent_chain2);
+        a2_indv_max = extend_seed(aligner, n2_max, references, read2, consistent_chain2, false);
         is_aligned2[n2_max.id] = a2_indv_max;
         details[1].tried_alignment++;
         details[1].gapped += a2_indv_max.gapped;
@@ -817,7 +840,7 @@ std::vector<ScoredAlignmentPair> align_paired(
             } else {
                 bool consistent_chain = reverse_chain_if_needed(n1, read1, references, k);
                 details[0].inconsistent_nams += !consistent_chain;
-                a1 = extend_seed(aligner, n1, references, read1, consistent_chain);
+                a1 = extend_seed(aligner, n1, references, read1, consistent_chain, false);
                 is_aligned1[n1.id] = a1;
                 details[0].tried_alignment++;
                 details[0].gapped += a1.gapped;
@@ -840,7 +863,7 @@ std::vector<ScoredAlignmentPair> align_paired(
             } else {
                 bool consistent_chain = reverse_chain_if_needed(n2, read2, references, k);
                 details[1].inconsistent_nams += !consistent_chain;
-                a2 = extend_seed(aligner, n2, references, read2, consistent_chain);
+                a2 = extend_seed(aligner, n2, references, read2, consistent_chain, false);
                 is_aligned2[n2.id] = a2;
                 details[1].tried_alignment++;
                 details[1].gapped += a2.gapped;
@@ -1237,17 +1260,11 @@ void align_or_map_single(
             break;
         }
         case OutputFormat::SAM:
-            if (map_param.use_nams) {
-                align_single(
-                    aligner, sam, chains, record, index_parameters.syncmer.k,
-                    references, details, map_param.dropoff_threshold, map_param.max_tries,
-                    map_param.max_secondary, random_engine
-                );
-            } else {
-                align_single_piecewse(aligner, aligner.parameters, sam, chains, record,
-                    index_parameters.syncmer.k, references, details, map_param.dropoff_threshold,
-                    map_param.max_tries, map_param.max_secondary, random_engine);
-            }
+            align_single(
+                aligner, sam, chains, record, index_parameters.syncmer.k,
+                references, details, map_param.dropoff_threshold, map_param.max_tries,
+                map_param.max_secondary, random_engine, map_param.piecewise
+            );
             break;
     }
     statistics.tot_extend += extend_timer.duration();

@@ -37,6 +37,9 @@ struct MappingParameters {
     bool use_nams{false};
     ChainingParameters chaining_params;
 
+    // piecewise option here for now
+    bool piecewise{false};
+
     void verify() const {
         if (max_tries < 1) {
             throw BadParameter("max_tries must be greater than zero");

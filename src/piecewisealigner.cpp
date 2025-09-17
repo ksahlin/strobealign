@@ -20,33 +20,6 @@ Aligner::~Aligner() {
     }
 }
 
-Aligner::Aligner(Aligner&& other) noexcept
-    : params(other.params),
-      range(other.range),
-      gaps(other.gaps),
-      matrix(other.matrix),
-      x_drop_threshold(other.x_drop_threshold)
-{
-    other.matrix = nullptr;
-}
-
-Aligner& Aligner::operator=(Aligner&& other) noexcept {
-    if (this != &other) {
-        if (matrix) {
-            block_free_aamatrix(matrix);
-        }
-        
-        params = other.params;
-        range = other.range;
-        gaps = other.gaps;
-        matrix = other.matrix;
-        x_drop_threshold = other.x_drop_threshold;
-        
-        other.matrix = nullptr;
-    }
-    return *this;
-}
-
 Cigar Aligner::build_cigar(const Cigar* cigar, size_t cigar_len) const {
     Cigar result;
     for (size_t i = 0; i < cigar_len; i++) {

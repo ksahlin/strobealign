@@ -83,6 +83,7 @@ add_library(salib STATIC ${SOURCES}
     src/pc.cpp
     src/aln.cpp
     src/cigar.cpp
+    src/alignment.cpp
     src/aligner.cpp
     src/hits.cpp
     src/nam.cpp
@@ -94,7 +95,6 @@ add_library(salib STATIC ${SOURCES}
     src/iowrap.cpp
     src/chain.cpp
     src/piecewisealigner.cpp
-    src/piecewise.cpp
     ext/xxhash.c
     ext/ssw/ssw_cpp.cpp
     ext/ssw/ssw.c

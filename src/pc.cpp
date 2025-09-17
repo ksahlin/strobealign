@@ -144,7 +144,7 @@ void perform_task(
     std::vector<double> &abundances
 ) {
     bool eof = false;
-    Aligner aligner{aln_params};
+    Aligner aligner{aln_params, index_parameters.syncmer.k};
     Chainer chainer{map_param.chaining_params, index.k()};
     std::minstd_rand random_engine;
     while (!eof) {

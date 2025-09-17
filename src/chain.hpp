@@ -41,7 +41,7 @@ struct Chain {
     }
 
     int projected_ref_start() const {
-        return std::max(0u, ref_start - query_start);
+        return std::max(0, int(ref_start) - int(query_start));
     }
 };
 
