@@ -93,7 +93,7 @@ add_library(salib STATIC ${SOURCES}
     src/insertsizedistribution.cpp
     src/iowrap.cpp
     src/chain.cpp
-    src/baligner.cpp
+    src/piecewisealigner.cpp
     src/piecewise.cpp
     ext/xxhash.c
     ext/ssw/ssw_cpp.cpp

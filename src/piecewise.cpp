@@ -2,9 +2,8 @@
 #include <random>
 #include <string>
 #include <vector>
-#include "baligner.hpp"
-#include "block-aligner/c/block_aligner.h"
 #include "nam.hpp"
+#include "piecewisealigner.hpp"
 #include "revcomp.hpp"
 #include "piecewise.hpp"
 #include "revcomp.hpp"
@@ -19,6 +18,7 @@ void align_before_first_anchor(
     const std::string& query,
     const Anchor& first_anchor,
     const int padding,
+    const Piecewise::Aligner& aligner,
     const AlignmentParameters& params,
     AlignmentInfo* result
 ) {
@@ -27,7 +27,7 @@ void align_before_first_anchor(
         const size_t ref_start = std::max(0, static_cast<int>(first_anchor.ref_start) - (static_cast<int>(query_part.length()) + padding));
         const std::string_view ref_part(reference.data() + ref_start, first_anchor.ref_start - ref_start);
 
-        const AlignmentResult pre_align = xdrop_alignment(query_part, ref_part, params, true);
+        const Piecewise::AlignmentResult pre_align = aligner.xdrop_alignment(query_part, ref_part, true);
 
         if (pre_align.score == 0) {
             result->query_start = first_anchor.query_start;
@@ -59,6 +59,7 @@ void align_after_last_anchor(
     const Anchor& last_anchor,
     const int k,
     const int padding,
+    const Piecewise::Aligner& aligner,
     const AlignmentParameters& params,
     AlignmentInfo* result
 ) {
@@ -70,7 +71,7 @@ void align_after_last_anchor(
         const size_t ref_part_end = std::min(reference.length(), last_anchor_end_ref + query_part.length() + padding);
         const std::string_view ref_part(reference.data() + last_anchor_end_ref, ref_part_end - last_anchor_end_ref);
 
-        const AlignmentResult post_align = xdrop_alignment(query_part, ref_part, params, false);
+        const Piecewise::AlignmentResult post_align = aligner.xdrop_alignment(query_part, ref_part, false);
 
         if (post_align.score == 0) {
             result->query_end = last_anchor_end_query;
@@ -102,9 +103,11 @@ AlignmentInfo piecewise_extension_alignment(
     const int padding,
     const AlignmentParameters& params
 ) {
+    Piecewise::Aligner aligner(params);
+    
     AlignmentInfo result;
 
-    align_before_first_anchor(reference, query, anchors[0], padding, params, &result);
+    align_before_first_anchor(reference, query, anchors[0], padding, aligner, params, &result);
 
     result.sw_score += k * params.match;
     result.cigar.push(CIGAR_EQ, k);
@@ -123,7 +126,7 @@ AlignmentInfo piecewise_extension_alignment(
 
         // magic heuristic to prune off annoying anchors on the query end
         if (int(query.length()) - curr_start_query <= 200 && ref_diff - query_diff >= (int(query.length()) - prev_end_query)/2) {
-            align_after_last_anchor(reference, query, prev_anchor, k, padding + ref_diff - query_diff, params, &result);
+            align_after_last_anchor(reference, query, prev_anchor, k, padding + ref_diff - query_diff, aligner, params, &result);
             result.edit_distance = result.cigar.edit_distance();
             return result;
         }
@@ -145,7 +148,7 @@ AlignmentInfo piecewise_extension_alignment(
                 }
             }
 
-            const AlignmentResult aligned = global_alignment(query_part, ref_part, params);
+            const Piecewise::AlignmentResult aligned = aligner.global_alignment(query_part, ref_part);
 
             result.sw_score += aligned.score;
             result.cigar += aligned.cigar;
@@ -177,7 +180,7 @@ AlignmentInfo piecewise_extension_alignment(
         }
     }
 
-    align_after_last_anchor(reference, query, anchors.back(), k, padding, params, &result);
+    align_after_last_anchor(reference, query, anchors.back(), k, padding, aligner, params, &result);
     
     result.edit_distance = result.cigar.edit_distance();
     return result;

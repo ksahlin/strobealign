@@ -1,18 +1,9 @@
 #include <string>
 #include <vector>
 #include "aligner.hpp"
-#include "baligner.hpp"
+#include "piecewisealigner.hpp"
 #include "chain.hpp"
 #include "sam.hpp"
-
-AlignmentResult piecewise_extension_alignment(
-    const std::string& query,
-    const std::string& reference,
-    const Chain& chain,
-    const int k,
-    const int padding,
-    const AlignmentParameters& scoring_params
-); 
 
 using namespace klibpp;
 
