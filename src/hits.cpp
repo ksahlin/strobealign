@@ -25,7 +25,7 @@ uint rescue_least_frequent(
     size_t num_to_rescue = distance / L;
     std::vector<Candidate> candidates;
 
-    for (size_t i = start+1; i < end-1; ++i) { // seeds between that first and last unfiltered seeds
+    for (size_t i = start; i < end - 1; ++i) { // seeds between that first and last unfiltered seeds
         const auto &q = query_randstrobes[i];
         size_t position = index.find_full(q.hash);
         if (position != index.end()) {
@@ -44,7 +44,7 @@ uint rescue_least_frequent(
     std::sort(candidates.begin(), candidates.end(), [](auto &a, auto &b) { return a.count < b.count; });
 
     // Take up to num_to_rescue lowest count
-    for (size_t i = 0; i < num_to_rescue && i < candidates.size(); ++i) {
+    for (size_t i = 0; i < std::min(num_to_rescue, candidates.size()); ++i) {
         auto [cnt, q, pos, is_partial] = candidates[i];
         if (is_partial)
             hits.push_back(Hit{pos, q->start, q->start + index.k(), is_partial});
@@ -76,7 +76,7 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     // are initially filtered out, we go back and add the least frequent of them
     const int L = 100; // threshold for rescue
     int last_unfiltered_start = 0;
-    int filter_start = 0;
+    size_t first_filtered = 0;
 
     if (mcs_strategy == McsStrategy::FirstStrobe) {
         for (const auto &q : query_randstrobes) {
@@ -106,10 +106,10 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
             }
             details.full_found++;
             if (q.start - last_unfiltered_start > L) {
-                details.rescued += rescue_least_frequent(query_randstrobes, index, filter_start, i, hits, q.start - last_unfiltered_start, L);
+                details.rescued += rescue_least_frequent(query_randstrobes, index, first_filtered, i, hits, q.start - last_unfiltered_start, L);
             }
             last_unfiltered_start = q.start;
-            filter_start = i;
+            first_filtered = i + 1;
             hits.push_back(Hit{position, q.start, q.end, false});
         } else {
             details.full_not_found++;
@@ -122,10 +122,10 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
                     }
                     details.partial_found++;
                     if (q.start - last_unfiltered_start > L) {
-                        details.rescued += rescue_least_frequent(query_randstrobes, index, filter_start, i, hits, q.start - last_unfiltered_start, L);
+                        details.rescued += rescue_least_frequent(query_randstrobes, index, first_filtered, i, hits, q.start - last_unfiltered_start, L);
                     }
                     last_unfiltered_start = q.start;
-                    filter_start = i;
+                    first_filtered = i + 1;
                     hits.push_back(Hit{partial_pos, q.start, q.start + index.k(), true});                 
                 } else {
                     details.partial_not_found++;
@@ -135,7 +135,7 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     }
 
     if (!query_randstrobes.empty() && query_randstrobes.back().start - last_unfiltered_start > L) { // End case we have not sampled the end
-        details.rescued += rescue_least_frequent(query_randstrobes, index, filter_start, query_randstrobes.size(), hits, query_randstrobes.back().start - last_unfiltered_start, L);
+        details.rescued += rescue_least_frequent(query_randstrobes, index, first_filtered, query_randstrobes.size(), hits, query_randstrobes.back().start - last_unfiltered_start, L);
     }
 
     if (mcs_strategy == McsStrategy::Always) {
