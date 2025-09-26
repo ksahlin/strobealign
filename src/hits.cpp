@@ -1,6 +1,7 @@
 #include "hits.hpp"
 
-void add_seeds(
+// Return the number of hits that were rescued
+uint add_seeds(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     size_t start,
@@ -9,6 +10,7 @@ void add_seeds(
     int distance,
     int L
 ) {
+    uint rescued{0};
     int num_to_rescue = distance / L;
     std::vector<std::tuple<int, const QueryRandstrobe*, size_t, bool>> candidates;
 
@@ -24,7 +26,7 @@ void add_seeds(
                 int cnt = index.get_count_partial(partial_position);
                 candidates.emplace_back(cnt, &q, partial_position, true);
             }
-    }
+        }
     }
 
 
@@ -40,8 +42,10 @@ void add_seeds(
         else{
             hits.push_back(Hit{pos, q->start, q->end, is_partial});
         }
+        rescued++;
     }
 
+    return rescued;
 }
 
 /*
@@ -91,7 +95,7 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
             }
             details.full_found++;
             if ((q.start - last_unfiltered_start) > L) { // Rescue
-                add_seeds(query_randstrobes, index, filter_start, i, hits, q.start - last_unfiltered_start, L);
+                details.rescued += add_seeds(query_randstrobes, index, filter_start, i, hits, q.start - last_unfiltered_start, L);
             }
             last_unfiltered_start = q.start;
             filter_start = i;
@@ -107,7 +111,7 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
                     }
                     details.partial_found++;
                     if ((q.start - last_unfiltered_start) > L) { // Rescue
-                        add_seeds(query_randstrobes, index, filter_start, i, hits, q.start - last_unfiltered_start, L);
+                        details.rescued += add_seeds(query_randstrobes, index, filter_start, i, hits, q.start - last_unfiltered_start, L);
                     }
                     last_unfiltered_start = q.start;
                     filter_start = i;
@@ -120,7 +124,7 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     }
 
     if (!query_randstrobes.empty() && query_randstrobes.back().start - last_unfiltered_start > L) { // End case we have not sampled the end
-        add_seeds(query_randstrobes, index, filter_start, query_randstrobes.size(), hits, query_randstrobes.back().start - last_unfiltered_start, L);
+        details.rescued += add_seeds(query_randstrobes, index, filter_start, query_randstrobes.size(), hits, query_randstrobes.back().start - last_unfiltered_start, L);
     }
 
     if (mcs_strategy == McsStrategy::Always) {
