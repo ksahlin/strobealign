@@ -1,6 +1,6 @@
 #include "hits.hpp"
 
-inline void add_seeds(
+void add_seeds(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     size_t start,
@@ -60,7 +60,6 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     HitsDetails details;
 
     const int L = 100; // threshold for rescue
-    int filtered_in_a_row = 0;
     int last_unfiltered_start = 0;
     int filter_start = 0;
 
@@ -88,7 +87,6 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
         if (position != index.end()) {
             if (index.is_filtered(position, q.hash_revcomp)) {
                 details.full_filtered++;
-                filtered_in_a_row++;
                 continue;
             }
             details.full_found++;
@@ -97,7 +95,6 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
             }
             last_unfiltered_start = q.start;
             filter_start = i;
-            filtered_in_a_row = 0;
             hits.push_back(Hit{position, q.start, q.end, false});
         } else {
             details.full_not_found++;
@@ -106,7 +103,6 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
                 if (partial_pos != index.end()) {
                     if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
                         details.partial_filtered++;
-                        filtered_in_a_row++;
                         continue;
                     }
                     details.partial_found++;
@@ -115,11 +111,9 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
                     }
                     last_unfiltered_start = q.start;
                     filter_start = i;
-                    filtered_in_a_row = 0;
                     hits.push_back(Hit{partial_pos, q.start, q.start + index.k(), true});                 
                 } else {
                     details.partial_not_found++;
-                    filtered_in_a_row++; // Not filtered, but also not found, which means no anchors
                 }
             }
         }
