@@ -1,7 +1,12 @@
 #include "hits.hpp"
 
-// Return the number of hits that were rescued
-uint add_seeds(
+/*
+ * Go back over randstrobes that were previously filtered and add the least
+ * frequent ones to the hits vector.
+ *
+ * Return the number of hits that were rescued
+ */
+uint rescue_least_frequent(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     size_t start,
@@ -10,32 +15,36 @@ uint add_seeds(
     int distance,
     int L
 ) {
+    struct Candidate {
+        int count;
+        const QueryRandstrobe* query_randstrobe;
+        size_t position;
+        bool is_partial;
+    };
     uint rescued{0};
-    int num_to_rescue = distance / L;
-    std::vector<std::tuple<int, const QueryRandstrobe*, size_t, bool>> candidates;
+    size_t num_to_rescue = distance / L;
+    std::vector<Candidate> candidates;
 
     for (size_t i = start+1; i < end-1; ++i) { // seeds between that first and last unfiltered seeds
         const auto &q = query_randstrobes[i];
         size_t position = index.find_full(q.hash);
         if (position != index.end()) {
             int cnt = index.get_count_full(position);
-            candidates.emplace_back(cnt, &q, position, false);
+            candidates.emplace_back(Candidate{cnt, &q, position, false});
         } else {
             size_t partial_position = index.find_partial(q.hash);
             if (partial_position != index.end()) {
                 int cnt = index.get_count_partial(partial_position);
-                candidates.emplace_back(cnt, &q, partial_position, true);
+                candidates.emplace_back(Candidate{cnt, &q, partial_position, true});
             }
         }
     }
 
-
     // Sort by count ascending
-    std::sort(candidates.begin(), candidates.end(),
-                [](auto &a, auto &b) { return std::get<0>(a) < std::get<0>(b); });
+    std::sort(candidates.begin(), candidates.end(), [](auto &a, auto &b) { return a.count < b.count; });
 
     // Take up to num_to_rescue lowest count
-    for (int i = 0; i < num_to_rescue && i < (int)candidates.size(); ++i) {
+    for (size_t i = 0; i < num_to_rescue && i < candidates.size(); ++i) {
         auto [cnt, q, pos, is_partial] = candidates[i];
         if (is_partial)
             hits.push_back(Hit{pos, q->start, q->start + index.k(), is_partial});
@@ -63,6 +72,8 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     std::vector<Hit> hits;
     HitsDetails details;
 
+    // Rescue threshold: If all hits over a region of this length (in nucleotides)
+    // are initially filtered out, we go back and add the least frequent of them
     const int L = 100; // threshold for rescue
     int last_unfiltered_start = 0;
     int filter_start = 0;
@@ -94,8 +105,8 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
                 continue;
             }
             details.full_found++;
-            if ((q.start - last_unfiltered_start) > L) { // Rescue
-                details.rescued += add_seeds(query_randstrobes, index, filter_start, i, hits, q.start - last_unfiltered_start, L);
+            if (q.start - last_unfiltered_start > L) {
+                details.rescued += rescue_least_frequent(query_randstrobes, index, filter_start, i, hits, q.start - last_unfiltered_start, L);
             }
             last_unfiltered_start = q.start;
             filter_start = i;
@@ -110,8 +121,8 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
                         continue;
                     }
                     details.partial_found++;
-                    if ((q.start - last_unfiltered_start) > L) { // Rescue
-                        details.rescued += add_seeds(query_randstrobes, index, filter_start, i, hits, q.start - last_unfiltered_start, L);
+                    if (q.start - last_unfiltered_start > L) {
+                        details.rescued += rescue_least_frequent(query_randstrobes, index, filter_start, i, hits, q.start - last_unfiltered_start, L);
                     }
                     last_unfiltered_start = q.start;
                     filter_start = i;
@@ -124,7 +135,7 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     }
 
     if (!query_randstrobes.empty() && query_randstrobes.back().start - last_unfiltered_start > L) { // End case we have not sampled the end
-        details.rescued += add_seeds(query_randstrobes, index, filter_start, query_randstrobes.size(), hits, query_randstrobes.back().start - last_unfiltered_start, L);
+        details.rescued += rescue_least_frequent(query_randstrobes, index, filter_start, query_randstrobes.size(), hits, query_randstrobes.back().start - last_unfiltered_start, L);
     }
 
     if (mcs_strategy == McsStrategy::Always) {
