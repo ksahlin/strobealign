@@ -392,7 +392,7 @@ int run_strobealign(int argc, char **argv) {
         << "    Partial randstrobe not found         " << std::setw(12) << statistics.hits.partial_not_found
             << std::setw(9) << static_cast<float>(statistics.hits.partial_not_found) / statistics.n_randstrobes * 100 << " %\n"
         << '\n'
-        << "    Filtered but rescued randstrobes     " << std::setw(12) << statistics.hits.rescued
+        << "Filtered but rescued randstrobes         " << std::setw(12) << statistics.hits.rescued
         << "\n"
         << "## Chaining\n"
         << "\nFound anchors:                           " << std::setw(12) << statistics.n_anchors
