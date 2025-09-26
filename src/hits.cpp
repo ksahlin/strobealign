@@ -25,7 +25,7 @@ uint rescue_least_frequent(
     size_t num_to_rescue = distance / L;
     std::vector<Candidate> candidates;
 
-    for (size_t i = start; i < end - 1; ++i) { // seeds between that first and last unfiltered seeds
+    for (size_t i = start; i < end; ++i) { // seeds between that first and last unfiltered seeds
         const auto &q = query_randstrobes[i];
         size_t position = index.find_full(q.hash);
         if (position != index.end()) {
