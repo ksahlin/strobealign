@@ -125,7 +125,7 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
         }
     }
 
-    if ((query_randstrobes.back().start - last_unfiltered_start) > L) { // End case we have not sampled the end
+    if (!query_randstrobes.empty() && query_randstrobes.back().start - last_unfiltered_start > L) { // End case we have not sampled the end
         add_seeds(query_randstrobes, index, filter_start, query_randstrobes.size(), hits, query_randstrobes.back().start - last_unfiltered_start, L);
     }
 
