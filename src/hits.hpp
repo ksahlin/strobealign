@@ -26,6 +26,8 @@ struct HitsDetails {
     uint partial_filtered{0};
     uint partial_found{0};
 
+    uint rescued{0};  // first filtered but then rescued
+
     uint total_hits() const {
         return partial_filtered + partial_found + full_filtered + full_found;
     }
@@ -37,6 +39,7 @@ struct HitsDetails {
         partial_not_found += other.partial_not_found;
         partial_filtered += other.partial_filtered;
         partial_found += other.partial_found;
+        rescued += other.rescued;
 
         return *this;
     }
