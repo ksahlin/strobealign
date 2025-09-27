@@ -181,7 +181,7 @@ int run_strobealign(int argc, char **argv) {
     map_param.r = opt.r;
     map_param.max_secondary = opt.max_secondary;
     map_param.dropoff_threshold = opt.dropoff_threshold;
-    map_param.rescue_level = opt.rescue_level;
+    map_param.rescue_level = opt.legacy_rescue;
     map_param.max_tries = opt.max_tries;
     map_param.mcs_strategy = opt.mcs_strategy;
     map_param.output_format = (
