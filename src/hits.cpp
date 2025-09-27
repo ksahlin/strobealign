@@ -72,13 +72,9 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     std::vector<Hit> hits;
     HitsDetails details;
 
-    int read_length_estimate{200};
-    if (!query_randstrobes.empty()) {
-        read_length_estimate = query_randstrobes.back().end + index.k();
-    }
     // Rescue threshold: If all hits over a region of this length (in nucleotides)
     // are initially filtered out, we go back and add the least frequent of them
-    const uint L = std::min(100, read_length_estimate / 2);
+    const int L = 100; // threshold for rescue
     int last_unfiltered_start = 0;
     size_t first_filtered = 0;
 
