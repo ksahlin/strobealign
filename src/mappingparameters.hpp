@@ -25,6 +25,7 @@ struct MappingParameters {
     int max_secondary { 0 };
     float dropoff_threshold { 0.5 };
     int rescue_level { 2 };
+    int rescue_threshold{100};
     int max_tries { 20 };
     int rescue_cutoff;
     McsStrategy mcs_strategy{McsStrategy::Rescue};
