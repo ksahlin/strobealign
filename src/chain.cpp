@@ -293,22 +293,19 @@ std::vector<Nam> Chainer::get_chains(
 ) const {
     Timer hits_timer;
 
-    std::array<std::vector<Hit>, 2> hits;
+    std::vector<Nam> chains;
     for (int is_revcomp : {0, 1}) {
+        std::vector<Hit> hits;
         bool sorting_needed1;
         HitsDetails hits_details1;
-        std::tie(hits_details1, sorting_needed1, hits[is_revcomp]) =
+        std::tie(hits_details1, sorting_needed1, hits) =
             find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy);
         details.hits += hits_details1;
-    }
-    uint total_hits = details.hits.total_hits();
-    int nonrepetitive_hits = hits[0].size() + hits[1].size();
-    float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
-    statistics.time_hit_finding += hits_timer.duration();
+        uint total_hits = details.hits.total_hits();
+        int nonrepetitive_hits = hits.size();
+        float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
+        statistics.time_hit_finding += hits_timer.duration();
 
-    std::vector<Nam> chains;
-
-    for (int is_revcomp : {0, 1}) {
         float best_score = 0.0f;
         std::vector<Anchor> anchors;
         std::vector<float> dp;
@@ -327,7 +324,7 @@ std::vector<Nam> Chainer::get_chains(
             statistics.tot_time_rescue += rescue_timer.duration();
         } else {
             Timer hits_timer;
-            add_hits_to_anchors(hits[is_revcomp], index, anchors);
+            add_hits_to_anchors(hits, index, anchors);
             statistics.time_hit_finding += hits_timer.duration();
         }
         Timer chaining_timer;
