@@ -50,7 +50,8 @@ std::ostream& operator<<(std::ostream& os, const Hit& hit);
 std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
-    McsStrategy mcs_strategy
+    McsStrategy mcs_strategy,
+    int rescue_threshold
 );
 
 #endif

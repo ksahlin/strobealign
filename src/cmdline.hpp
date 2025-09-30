@@ -73,6 +73,7 @@ struct CommandLineOptions {
     float dropoff_threshold { 0.5 };
     int max_tries { 20 };
     int legacy_rescue { 0 };
+    int rescue_threshold{100};
 
     // Reference and read files
     std::string ref_filename; // This is either a fasta file or an index file - if fasta, indexing will be run
