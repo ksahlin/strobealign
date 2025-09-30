@@ -64,7 +64,8 @@ uint rescue_least_frequent(
 std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
-    McsStrategy mcs_strategy
+    McsStrategy mcs_strategy,
+    int rescue_threshold
 ) {
     // If we produce matches in sorted order, then merge_matches_into_nams()
     // does not have to re-sort
@@ -74,7 +75,7 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
 
     // Rescue threshold: If all hits over a region of this length (in nucleotides)
     // are initially filtered out, we go back and add the least frequent of them
-    const int L = 100; // threshold for rescue
+    const int L = rescue_threshold; // threshold for rescue
     int n_filtered = 0; // For checking that there are eligible seeds in window L
     int last_unfiltered_start = 0;
     size_t first_filtered = 0;

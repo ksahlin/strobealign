@@ -298,7 +298,7 @@ std::vector<Nam> Chainer::get_chains(
         bool sorting_needed1;
         HitsDetails hits_details1;
         std::tie(hits_details1, sorting_needed1, hits[is_revcomp]) =
-            find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy);
+            find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy, map_param.rescue_threshold);
         details.hits += hits_details1;
     }
     uint total_hits = details.hits.total_hits();
