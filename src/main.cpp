@@ -182,6 +182,7 @@ int run_strobealign(int argc, char **argv) {
     map_param.max_secondary = opt.max_secondary;
     map_param.dropoff_threshold = opt.dropoff_threshold;
     map_param.rescue_level = opt.legacy_rescue;
+    map_param.rescue_threshold = opt.rescue_threshold;
     map_param.max_tries = opt.max_tries;
     map_param.mcs_strategy = opt.mcs_strategy;
     map_param.output_format = (
@@ -215,6 +216,7 @@ int run_strobealign(int argc, char **argv) {
     }
     logger.debug() << aln_params << '\n';
     logger.debug() << "Rescue level (R): " << map_param.rescue_level << '\n';
+    logger.debug() << "Rescue threshold (L): " << map_param.rescue_threshold << " nt\n";
     logger.debug() << "Indexing threads: " << opt.indexing_threads << std::endl;
     logger.debug() << "Mapping threads: " << opt.n_threads << std::endl;
 
