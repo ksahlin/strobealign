@@ -197,10 +197,10 @@ NB_MODULE(strobealign_extension, m_) {
         .value("FirstStrobe", McsStrategy::FirstStrobe)
         .export_values();
 
-    m.def("find_hits", [](const std::vector<QueryRandstrobe>& query_randstrobes, const StrobemerIndex& index, McsStrategy mcs_strategy) -> std::vector<Hit> {
-        auto [hits_details, sorting_needed, hits] = find_hits(query_randstrobes, index, mcs_strategy);
+    m.def("find_hits", [](const std::vector<QueryRandstrobe>& query_randstrobes, const StrobemerIndex& index, McsStrategy mcs_strategy, int rescue_threshold) -> std::vector<Hit> {
+        auto [hits_details, sorting_needed, hits] = find_hits(query_randstrobes, index, mcs_strategy, rescue_threshold);
         return hits;
-    }, nb::arg("query_randstrobes"), nb::arg("index"), nb::arg("mcs_strategy"));
+    }, nb::arg("query_randstrobes"), nb::arg("index"), nb::arg("mcs_strategy"), nb::arg("rescue_threshold"));
 
     m.def("hits_to_matches", [](const std::vector<Hit>& hits, const StrobemerIndex& index) -> std::unordered_map<unsigned int, std::vector<Match>> {
         auto rhmap = hits_to_matches(hits, index);
