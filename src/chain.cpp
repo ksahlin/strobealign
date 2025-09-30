@@ -315,7 +315,7 @@ std::vector<Nam> Chainer::get_chains(
         std::vector<int> predecessors;
 
         // Rescue if requested and needed
-        if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
+        if (map_param.rescue_level > 1 && nonrepetitive_fraction < 0.3) {
             Timer rescue_timer;
             auto [n_hits, n_partial_hits] = find_anchors_rescue(
                 query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy, anchors
