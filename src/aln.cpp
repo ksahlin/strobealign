@@ -166,6 +166,7 @@ inline void align_single(
             second_best_score = alignment.score;
         }
         tries++;
+        considered++;
     }
     if (best_alignment.is_unaligned) {
         sam.add_unmapped(record);
