@@ -25,23 +25,26 @@ public:
     chunk_size(chunk_size),
     is_interleaved(is_interleaved) { }
 
-    std::mutex mtx;
-
-    input_stream_t ks1;
-    input_stream_t ks2;
-    std::optional<klibpp::KSeq> lookahead1;
-    bool finished_reading{false};
-    int chunk_size;
-    size_t chunk_index{0};
-    bool is_interleaved{false};
-
-    void rewind_reset();
     size_t read_records(
         std::vector<klibpp::KSeq> &records1,
         std::vector<klibpp::KSeq> &records2,
         std::vector<klibpp::KSeq> &records3,
         int read_count=-1
     );
+    void rewind_reset();
+
+    bool finished_reading{false};
+
+private:
+    std::mutex mtx;
+
+    input_stream_t ks1;
+    input_stream_t ks2;
+    std::optional<klibpp::KSeq> lookahead1;
+    int chunk_size;
+    size_t chunk_index{0};
+    bool is_interleaved{false};
+
 };
 
 
