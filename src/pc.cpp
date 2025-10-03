@@ -78,7 +78,7 @@ size_t InputBuffer::read_records(
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
     if (to_read == -1) {
-        to_read = chunk_size;
+        to_read = m_chunk_size;
     }
     if (this->is_interleaved) {
         auto records = ks1->stream().read(to_read*2);

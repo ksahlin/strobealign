@@ -74,14 +74,14 @@ bool avx2_enabled() {
 
 InputBuffer get_input_buffer(const CommandLineOptions& opt) {
     if (opt.is_SE) {
-        return InputBuffer(opt.reads_filename1, "", opt.chunk_size, false);
+        return InputBuffer(opt.reads_filename1, "", 1000, false);
     } else if (opt.is_interleaved) {
         if (opt.reads_filename2 != "") {
             throw BadParameter("Cannot specify both --interleaved and specify two read files");
         }
-        return InputBuffer(opt.reads_filename1, "", opt.chunk_size, true);
+        return InputBuffer(opt.reads_filename1, "", 1000, true);
     } else {
-        return InputBuffer(opt.reads_filename1, opt.reads_filename2, opt.chunk_size, false);
+        return InputBuffer(opt.reads_filename1, opt.reads_filename2, 1000, false);
     }
 }
 
@@ -157,6 +157,8 @@ int run_strobealign(int argc, char **argv) {
         opt.r = estimate_read_length(input_buffer);
         logger.info() << "Estimated read length: " << opt.r << " bp\n";
         input_buffer.rewind_reset();
+        input_buffer.set_chunk_size(std::clamp(opt.chunk_size / opt.r, 10, 10000));
+        logger.debug() << "Number of reads per chunk: " << input_buffer.chunk_size() << '\n';
     }
     IndexParameters index_parameters = IndexParameters::from_read_length(
         opt.r,
