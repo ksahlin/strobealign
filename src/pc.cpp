@@ -143,11 +143,10 @@ void perform_task(
     const std::string& read_group_id,
     std::vector<double> &abundances
 ) {
-    bool eof = false;
     Aligner aligner{aln_params};
     Chainer chainer{map_param.chaining_params, index.k()};
     std::minstd_rand random_engine;
-    while (!eof) {
+    while (true) {
         std::vector<klibpp::KSeq> records1;
         std::vector<klibpp::KSeq> records2;
         std::vector<klibpp::KSeq> records3;
