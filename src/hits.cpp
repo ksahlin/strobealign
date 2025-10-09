@@ -80,76 +80,62 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     int last_unfiltered_start = 0;
     size_t first_filtered = 0;
 
-    if (mcs_strategy == McsStrategy::FirstStrobe) {
-        for (const auto &q : query_randstrobes) {
-            size_t partial_position = index.find_partial(q.hash);
-            if (partial_position != index.end()) {
-                if (index.is_partial_filtered(partial_position, q.hash_revcomp)) {
-                    details.partial_filtered++;
+    if (mcs_strategy != McsStrategy::FirstStrobe) {
+        for (size_t i = 0; i < query_randstrobes.size(); ++i) {
+            const auto &q = query_randstrobes[i];
+            size_t position = index.find_full(q.hash);
+            if (position != index.end()) {
+                if (index.is_filtered(position, q.hash_revcomp)) {
+                    details.full_filtered++;
+                    n_filtered++;
                     continue;
                 }
-                details.partial_found++;
-                hits.push_back(Hit{partial_position, q.start, q.start + index.k(), true});
+                details.full_found++;
+                if ((q.start - last_unfiltered_start > L) && n_filtered > 0) {
+                    details.rescued += rescue_least_frequent(query_randstrobes, index, first_filtered, i, hits, q.start - last_unfiltered_start, L);
+                }
+                last_unfiltered_start = q.start;
+                first_filtered = i + 1;
+                n_filtered = 0;
+                hits.push_back(Hit{position, q.start, q.end, false});
             } else {
-                details.partial_not_found++;
-            }
-        }
-
-        return {details, sorting_needed, hits};
-    }
-
-    for (size_t i = 0; i < query_randstrobes.size(); ++i) {
-        const auto &q = query_randstrobes[i];
-        size_t position = index.find_full(q.hash);
-        if (position != index.end()) {
-            if (index.is_filtered(position, q.hash_revcomp)) {
-                details.full_filtered++;
-                n_filtered++;
-                continue;
-            }
-            details.full_found++;
-            if ((q.start - last_unfiltered_start > L) && n_filtered > 0) {
-                details.rescued += rescue_least_frequent(query_randstrobes, index, first_filtered, i, hits, q.start - last_unfiltered_start, L);
-            }
-            last_unfiltered_start = q.start;
-            first_filtered = i + 1;
-            n_filtered = 0;
-            hits.push_back(Hit{position, q.start, q.end, false});
-        } else {
-            details.full_not_found++;
-            if (mcs_strategy == McsStrategy::Always) {
-                size_t partial_pos = index.find_partial(q.hash);
-                if (partial_pos != index.end()) {
-                    if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
-                        details.partial_filtered++;
-                        n_filtered++;
-                        continue;
+                details.full_not_found++;
+                if (mcs_strategy == McsStrategy::Always) {
+                    size_t partial_pos = index.find_partial(q.hash);
+                    if (partial_pos != index.end()) {
+                        if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
+                            details.partial_filtered++;
+                            n_filtered++;
+                            continue;
+                        }
+                        details.partial_found++;
+                        if ((q.start - last_unfiltered_start > L) && n_filtered > 0) {
+                            details.rescued += rescue_least_frequent(query_randstrobes, index, first_filtered, i, hits, q.start - last_unfiltered_start, L);
+                        }
+                        last_unfiltered_start = q.start;
+                        first_filtered = i + 1;
+                        n_filtered = 0;
+                        hits.push_back(Hit{partial_pos, q.start, q.start + index.k(), true});
+                    } else {
+                        details.partial_not_found++;
                     }
-                    details.partial_found++;
-                    if ((q.start - last_unfiltered_start > L) && n_filtered > 0) {
-                        details.rescued += rescue_least_frequent(query_randstrobes, index, first_filtered, i, hits, q.start - last_unfiltered_start, L);
-                    }
-                    last_unfiltered_start = q.start;
-                    first_filtered = i + 1;
-                    n_filtered = 0;
-                    hits.push_back(Hit{partial_pos, q.start, q.start + index.k(), true});                 
-                } else {
-                    details.partial_not_found++;
                 }
             }
         }
-    }
-
-    if (!query_randstrobes.empty() && query_randstrobes.back().start - last_unfiltered_start > L && n_filtered > 0) { // End case we have not sampled the end
-        details.rescued += rescue_least_frequent(query_randstrobes, index, first_filtered, query_randstrobes.size(), hits, query_randstrobes.back().start - last_unfiltered_start, L);
+        if (!query_randstrobes.empty() && query_randstrobes.back().start - last_unfiltered_start > L && n_filtered > 0) { // End case we have not sampled the end
+            details.rescued += rescue_least_frequent(query_randstrobes, index, first_filtered, query_randstrobes.size(), hits, query_randstrobes.back().start - last_unfiltered_start, L);
+        }
     }
 
     if (mcs_strategy == McsStrategy::Always) {
         assert(details.full_not_found == details.partial_not_found + details.partial_filtered + details.partial_found);
     }
 
-    // Rescue using partial hits
-    if (mcs_strategy == McsStrategy::Rescue && details.full_filtered + details.full_found == 0) {
+    // Only partial lookups
+    if (
+        mcs_strategy == McsStrategy::FirstStrobe
+        || (mcs_strategy == McsStrategy::Rescue && details.full_filtered + details.full_found == 0)
+    ) {
         for (const auto &q : query_randstrobes) {
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
