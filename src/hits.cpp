@@ -127,23 +127,30 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
         }
     }
 
-    if (mcs_strategy == McsStrategy::Always) {
-        assert(details.full_not_found == details.partial_not_found + details.partial_filtered + details.partial_found);
-    }
-
     // Only partial lookups
     if (
         mcs_strategy == McsStrategy::FirstStrobe
         || (mcs_strategy == McsStrategy::Rescue && details.full_filtered + details.full_found == 0)
     ) {
-        for (const auto &q : query_randstrobes) {
+        n_filtered = 0;
+        last_unfiltered_start = 0;
+        first_filtered = 0;
+        for (size_t i = 0; i < query_randstrobes.size(); ++i) {
+            const auto &q = query_randstrobes[i];
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
                 if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
                     details.partial_filtered++;
+                    n_filtered++;
                     continue;
                 }
                 details.partial_found++;
+                if ((q.start - last_unfiltered_start > L) && n_filtered > 0) {
+                    details.rescued += rescue_least_frequent(query_randstrobes, index, first_filtered, i, hits, q.start - last_unfiltered_start, L);
+                }
+                last_unfiltered_start = q.start;
+                first_filtered = i + 1;
+                n_filtered = 0;
                 hits.push_back(Hit{partial_pos, q.start, q.start + index.k(), true});
             } else {
                 details.partial_not_found++;
@@ -151,6 +158,11 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
         }
         sorting_needed = true;
     }
+
+    if (mcs_strategy == McsStrategy::Always) {
+        assert(details.full_not_found == details.partial_not_found + details.partial_filtered + details.partial_found);
+    }
+
 
     return {details, sorting_needed, hits};
 }
