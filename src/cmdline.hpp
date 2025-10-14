@@ -45,9 +45,9 @@ struct CommandLineOptions {
     bool c_set { false };
     int max_seed_len;
     int k { 20 };
-    int l { 0 };
-    int u { 7 };
     int s { 16 };
+    int l { 5 };
+    int u { 11 };
     int c { 8 };
     int aux_len{17};
 

@@ -8,8 +8,8 @@ TEST_CASE("test IndexParameters constructor") {
     int k = 22;
     int s = 18;
 
-    int l = 2;
-    int u = 12;
+    int l = 6;
+    int u = 16;
     unsigned w_min = 6;
     unsigned w_max = 16;
     int max_dist = 180;
