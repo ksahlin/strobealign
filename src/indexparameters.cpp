@@ -27,27 +27,27 @@ struct Profile {
     int r_threshold;
     int k;
     int s_offset;
-    int l;
-    int u;
+    int w_min;
+    int w_max;
 };
 
 static auto max{std::numeric_limits<int>::max()};
 
 static std::vector<Profile> profiles = {
-        Profile{ 50,  70, 18, -4, -2,  1},
-        Profile{ 75,  90, 20, -4, -3,  2},
-        Profile{100, 110, 20, -4, -2,  2},
-        Profile{125, 135, 20, -4, -1,  4},
-        Profile{150, 175, 20, -4,  1,  7},
-        Profile{250, 375, 22, -4,  2, 12},
-        Profile{400, max, 23, -6,  2, 12},
+        Profile{ 50,  70, 18, -4,  1,  4},
+        Profile{ 75,  90, 20, -4,  1,  6},
+        Profile{100, 110, 20, -4,  2,  6},
+        Profile{125, 135, 20, -4,  3,  8},
+        Profile{150, 175, 20, -4,  5, 11},
+        Profile{250, 375, 22, -4,  6, 16},
+        Profile{400, max, 23, -6,  5, 15},
     };
 
 /* Create an IndexParameters instance based on a given read length.
  * k, s, l, u, c and max_seed_len can be used to override determined parameters
  * by setting them to a value other than IndexParameters::DEFAULT.
  */
-IndexParameters IndexParameters::from_read_length(int read_length, int k, int s, int l, int u, int c, int max_seed_len, int aux_len) {
+IndexParameters IndexParameters::from_read_length(int read_length, int k, int s, int w_min, int w_max, int c, int max_seed_len, int aux_len) {
     const int default_c = 8;
     size_t canonical_read_length = 50;
     for (const auto& p : profiles) {
@@ -58,11 +58,11 @@ IndexParameters IndexParameters::from_read_length(int read_length, int k, int s,
             if (s == DEFAULT) {
                 s = k + p.s_offset;
             }
-            if (l == DEFAULT) {
-                l = p.l;
+            if (w_min == DEFAULT) {
+                w_min = p.w_min;
             }
-            if (u == DEFAULT) {
-                u = p.u;
+            if (w_max == DEFAULT) {
+                w_max = p.w_max;
             }
             canonical_read_length = p.canonical_read_length;
             break;
@@ -71,8 +71,7 @@ IndexParameters IndexParameters::from_read_length(int read_length, int k, int s,
 
     int max_dist;
     if (max_seed_len == DEFAULT) {
-        max_dist = std::max(static_cast<int>(canonical_read_length) - 70, k);
-        max_dist = std::min(255, max_dist);
+        max_dist = std::clamp(static_cast<int>(canonical_read_length) - 70, k, 255);
     } else {
         max_dist = max_seed_len - k; // convert to distance in start positions
     }
@@ -81,7 +80,7 @@ IndexParameters IndexParameters::from_read_length(int read_length, int k, int s,
         aux_len = 17;
     }
 
-    return IndexParameters(canonical_read_length, k, s, l, u, q, max_dist, aux_len);
+    return IndexParameters(canonical_read_length, k, s, w_min, w_max, q, max_dist, aux_len);
 }
 
 void IndexParameters::write(std::ostream& os) const {

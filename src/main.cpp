@@ -200,12 +200,19 @@ int run_strobealign(int argc, char **argv) {
     map_param.chaining_params.max_ref_gap = opt.max_ref_gap;
     map_param.chaining_params.matches_weight = opt.matches_weight;
     map_param.verify();
-
-    logger.debug() << index_parameters << '\n';
-    logger.debug()
-        << "  Maximum seed length: " << index_parameters.randstrobe.max_dist + index_parameters.syncmer.k << '\n'
-        << "  Expected [w_min, w_max] in #syncmers: [" << index_parameters.randstrobe.w_min << ", " << index_parameters.randstrobe.w_max << "]\n"
-        << "  Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_min << ", " << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_max << "]\n";
+    {
+        int k = index_parameters.syncmer.k;
+        int s = index_parameters.syncmer.s;
+        int l = index_parameters.randstrobe.w_min;
+        int u = index_parameters.randstrobe.w_max;
+        int d = k - s + 1;
+        logger.debug() << index_parameters << '\n';
+        logger.debug()
+            << "  Maximum seed length: " << index_parameters.randstrobe.max_dist + index_parameters.syncmer.k << '\n'
+            << "  Syncmers are on average sampled every k - s + 1 = " << d << " nucleotides\n"
+            << "  Sampling window for second syncmer (in syncmers): [" << l << ", " << u << "]\n"
+            << "  Sampling window for second syncmer (in nucleotides): [" << d * l << ", " << d * u << "]\n";
+    }
     logger.debug() << aln_params << '\n';
     logger.debug() << "Rescue level (R): " << map_param.rescue_level << '\n';
     logger.debug() << "Indexing threads: " << opt.indexing_threads << std::endl;
