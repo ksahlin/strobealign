@@ -10,6 +10,9 @@
   (last column), computed using the formula that
   [minimap2 uses](https://academic.oup.com/bioinformatics/article/34/18/3094/4994778?login=false#393786986).
   It was previously set to 255, which means “missing”.
+* #525: The `-l` und `-u` command-line options have changed meaning: They are
+  now used to set how many syncmers downstream the second syncmer may be.
+  Negative values are no longer allowed.
 
 ## v0.16.1 (2025-05-16)
 
