@@ -134,7 +134,6 @@ uint rescue_all_least_frequent(
     // Rescue threshold: If all hits over a region of this length (in nucleotides)
     // are initially filtered out, we go back and add the least frequent of them
     const uint L = rescue_threshold; // threshold for rescue
-    int n_filtered = 0; // For checking that there are eligible seeds in window L
     int last_unfiltered_start = 0;
     size_t first_filtered = 0;
     uint rescued = 0;
@@ -143,17 +142,15 @@ uint rescue_all_least_frequent(
         const auto &hit = candidates[i];
 
         if (hit.is_filtered) {
-            n_filtered++;
             continue;
         }
-        if ((hit.query_start > last_unfiltered_start + L) && n_filtered > 0) {
+        if (hit.query_start > last_unfiltered_start + L) {
             rescued += rescue_least_frequent(index, candidates, first_filtered, i, hit.query_start - last_unfiltered_start, L);
         }
         last_unfiltered_start = hit.query_start;
         first_filtered = i + 1;
-        n_filtered = 0;
     }
-    if (!candidates.empty() && candidates.back().query_start - last_unfiltered_start > L && n_filtered > 0) { // End case we have not sampled the end
+    if (!candidates.empty() && candidates.back().query_start - last_unfiltered_start > L) { // End case we have not sampled the end
         rescued += rescue_least_frequent(index, candidates, first_filtered, candidates.size(), candidates.back().query_start - last_unfiltered_start, L);
     }
 
