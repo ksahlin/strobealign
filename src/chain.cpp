@@ -8,6 +8,9 @@
 #include "chain.hpp"
 #include "pdqsort/pdqsort.h"
 #include "timer.hpp"
+#include "logger.hpp"
+
+static Logger& logger = Logger::get();
 
 void add_to_anchors_full(
     std::vector<Anchor>& anchors,
@@ -341,6 +344,7 @@ std::vector<Nam> Chainer::get_chains(
         }
         statistics.n_anchors += anchors.size();
         Timer chaining_timer;
+        logger.trace() << "Chaining " << anchors.size() << " anchors\n";
         pdqsort(anchors.begin(), anchors.end());
         anchors.erase(
             std::unique(anchors.begin(), anchors.end()), anchors.end()
