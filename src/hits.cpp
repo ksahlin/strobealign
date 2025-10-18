@@ -1,4 +1,9 @@
 #include "hits.hpp"
+#include "logger.hpp"
+
+#include <iomanip>
+
+static Logger& logger = Logger::get();
 
 struct CandidateHit {
     size_t position;
@@ -8,6 +13,7 @@ struct CandidateHit {
     bool is_partial;
     bool is_filtered;
 };
+
 
 /*
  * Find least frequent hits in a portion of the hits vector and set their
@@ -171,6 +177,24 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     auto [candidates, details, sorting_needed] = find_candidate_hits(query_randstrobes, index, mcs_strategy);
     details.rescued += rescue_all_least_frequent(index, candidates, rescue_threshold);
 
+    if (logger.level() <= LOG_TRACE) {
+        logger.trace() << "Found " << candidates.size() << " hits (" << details.rescued << " of those rescued):\n";
+        logger.trace() << "querypos count (p=partial, F=filtered)\n";
+        for (const auto& candidate : candidates) {
+            int cnt;
+            if (candidate.is_partial) {
+                cnt = index.get_count_partial(candidate.position);
+            } else {
+                cnt = index.get_count_full(candidate.position, candidate.hash_revcomp);
+            }
+            logger.trace()
+                << std::setw(6) << candidate.query_start
+                << (candidate.is_partial ? " p" : "  ")
+                << std::setw(6) << cnt
+                << (candidate.is_filtered ? " F" : "  ")
+                << "\n";
+        }
+    }
     std::vector<Hit> hits;
     for (const auto& candidate : candidates) {
         if (!candidate.is_filtered) {
