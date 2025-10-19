@@ -44,6 +44,10 @@ uint rescue_least_frequent(
     // Take up to num_to_rescue lowest count
     for (size_t i = 0; i < std::min(num_to_rescue, hit_counts.size()); ++i) {
         auto hit_index = hit_counts[i].first;
+        auto hit_count = hit_counts[i].second;
+        if (hit_count > 1000) {
+            break;
+        }
         rescued += hits[hit_index].is_filtered;
         hits[hit_index].is_filtered = false;
     }
