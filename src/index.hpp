@@ -177,6 +177,16 @@ struct StrobemerIndex {
         return randstrobes.size();
     }
 
+    /* Count number of hits for the randstrobe *and* its "reverse complement" */
+    unsigned int get_count_full(bucket_index_t position, randstrobe_hash_t hash_revcomp) const {
+        size_t reverse_count{0};
+        bucket_index_t position_revcomp = find_full(hash_revcomp);
+        if (position_revcomp != end()) {
+            reverse_count = get_count_full_forward(position_revcomp);
+        }
+        return reverse_count + get_count_full_forward(position);
+    }
+
     unsigned int get_count_full_forward(bucket_index_t position) const {
         return get_count(position, RANDSTROBE_HASH_MASK);
     }
