@@ -2,6 +2,7 @@
 
 struct CandidateHit {
     size_t position;
+    randstrobe_hash_t hash_revcomp;
     size_t query_start;
     size_t query_end;
     bool is_partial;
@@ -32,7 +33,7 @@ uint rescue_least_frequent(
         if (hits[i].is_partial) {
             cnt = index.get_count_partial(hits[i].position);
         } else {
-            cnt = index.get_count_full_forward(hits[i].position);
+            cnt = index.get_count_full(hits[i].position, hits[i].hash_revcomp);
         }
         hit_counts.push_back({i, cnt});
     }
@@ -74,7 +75,7 @@ std::tuple<std::vector<CandidateHit>, HitsDetails, bool> find_candidate_hits(
                 } else {
                     details.full_found++;
                 }
-                hits.push_back(CandidateHit{position, q.start, q.end, false, is_filtered});
+                hits.push_back(CandidateHit{position, q.hash_revcomp, q.start, q.end, false, is_filtered});
             } else {
                 details.full_not_found++;
                 if (mcs_strategy == McsStrategy::Always) {
@@ -86,7 +87,7 @@ std::tuple<std::vector<CandidateHit>, HitsDetails, bool> find_candidate_hits(
                         } else {
                             details.partial_found++;
                         }
-                        hits.push_back(CandidateHit{partial_pos, q.start, q.start + index.k(), true, is_filtered});
+                        hits.push_back(CandidateHit{partial_pos, q.hash_revcomp, q.start, q.start + index.k(), true, is_filtered});
                     } else {
                         details.partial_not_found++;
                     }
@@ -110,7 +111,7 @@ std::tuple<std::vector<CandidateHit>, HitsDetails, bool> find_candidate_hits(
                 } else {
                     details.partial_found++;
                 }
-                hits.push_back(CandidateHit{partial_pos, q.start, q.start + index.k(), true, is_filtered});
+                hits.push_back(CandidateHit{partial_pos, q.hash_revcomp, q.start, q.start + index.k(), true, is_filtered});
             } else {
                 details.partial_not_found++;
             }
