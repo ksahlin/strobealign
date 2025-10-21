@@ -233,12 +233,7 @@ std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>
     for (auto &qr : query_randstrobes) {
         size_t position = index.find_full(qr.hash);
         if (position != index.end()) {
-            unsigned int count = index.get_count_full_forward(position);
-
-            size_t position_revcomp = index.find_full(qr.hash_revcomp);
-            if (position_revcomp != index.end()) {
-                count += index.get_count_full_forward(position_revcomp);
-            }
+            unsigned int count = index.get_count_full(position, qr.hash_revcomp);
             RescueHit rh{position, count, qr.start, qr.end, false};
             rescue_hits.push_back(rh);
         }
