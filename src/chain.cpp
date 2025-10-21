@@ -83,11 +83,7 @@ std::tuple<int, int> find_anchors_rescue(
     for (auto& qr : query_randstrobes) {
         size_t position = index.find_full(qr.hash);
         if (position != index.end()) {
-            unsigned int count = index.get_count_full(position);
-            size_t position_revcomp = index.find_full(qr.hash_revcomp);
-            if (position_revcomp != index.end()) {
-                count += index.get_count_full(position_revcomp);
-            }
+            unsigned int count = index.get_count_full(position, qr.hash_revcomp);
             rescue_hits.push_back({position, count, qr.start, qr.end, false});
         } else if (mcs_strategy == McsStrategy::Always) {
             size_t partial_pos = index.find_partial(qr.hash);
@@ -298,7 +294,7 @@ std::vector<Nam> Chainer::get_chains(
         bool sorting_needed1;
         HitsDetails hits_details1;
         std::tie(hits_details1, sorting_needed1, hits[is_revcomp]) =
-            find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy);
+            find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy, map_param.rescue_threshold);
         details.hits += hits_details1;
     }
     uint total_hits = details.hits.total_hits();
