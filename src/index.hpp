@@ -136,7 +136,7 @@ struct StrobemerIndex {
         if (is_filtered_forward(position_revcomp)) {
             return true;
         }
-        size_t count = get_count_full(position) + get_count_full(position_revcomp);
+        size_t count = get_count_full_forward(position) + get_count_full_forward(position_revcomp);
 
         return count > filter_cutoff;
     }
@@ -177,7 +177,7 @@ struct StrobemerIndex {
         return randstrobes.size();
     }
 
-    unsigned int get_count_full(bucket_index_t position) const {
+    unsigned int get_count_full_forward(bucket_index_t position) const {
         return get_count(position, RANDSTROBE_HASH_MASK);
     }
 
