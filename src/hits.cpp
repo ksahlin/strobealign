@@ -32,7 +32,7 @@ uint rescue_least_frequent(
         if (hits[i].is_partial) {
             cnt = index.get_count_partial(hits[i].position);
         } else {
-            cnt = index.get_count_full(hits[i].position);
+            cnt = index.get_count_full_forward(hits[i].position);
         }
         hit_counts.push_back({i, cnt});
     }
