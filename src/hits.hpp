@@ -32,6 +32,12 @@ struct HitsDetails {
         return partial_filtered + partial_found + full_filtered + full_found;
     }
 
+    float nonrepetitive_fraction() const {
+        uint tot_hits = total_hits();
+        int nonrepetitive_hits = full_found + partial_found;
+        return tot_hits > 0 ? ((float) nonrepetitive_hits) / ((float) tot_hits) : 1.0;
+    }
+
     HitsDetails& operator+=(const HitsDetails& other) {
         full_not_found += other.full_not_found;
         full_filtered += other.full_filtered;
