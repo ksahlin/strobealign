@@ -171,7 +171,7 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     auto [candidates, details, sorting_needed] = find_candidate_hits(query_randstrobes, index, mcs_strategy);
 
 
-    if (details.nonrepetitive_fraction() < 0.7) {
+    if (details.nonrepetitive_fraction() < 0.8) {
         details.rescued += rescue_all_least_frequent(index, candidates, rescue_threshold);
     }
 
