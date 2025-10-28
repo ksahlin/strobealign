@@ -169,8 +169,9 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     int rescue_threshold
 ) {
     auto [candidates, details, sorting_needed] = find_candidate_hits(query_randstrobes, index, mcs_strategy);
-    details.rescued += rescue_all_least_frequent(index, candidates, rescue_threshold);
-
+    if (rescue_threshold != -1) {
+        details.rescued += rescue_all_least_frequent(index, candidates, rescue_threshold);
+    }
     std::vector<Hit> hits;
     for (const auto& candidate : candidates) {
         if (!candidate.is_filtered) {
