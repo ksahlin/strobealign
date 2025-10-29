@@ -330,6 +330,7 @@ std::vector<Nam> Chainer::get_chains(
             add_hits_to_anchors(hits[is_revcomp], index, anchors);
             statistics.time_hit_finding += hits_timer.duration();
         }
+        statistics.n_anchors += anchors.size();
         Timer chaining_timer;
         pdqsort(anchors.begin(), anchors.end());
         anchors.erase(
