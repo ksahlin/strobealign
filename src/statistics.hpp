@@ -46,6 +46,7 @@ struct AlignmentStatistics {
     uint64_t n_randstrobes{0};
     uint64_t n_rescue_hits{0};
     uint64_t n_rescue_partial_hits{0};
+    uint64_t n_anchors{0};
     uint64_t n_nams{0};
     uint64_t n_rescue_nams{0};
     uint64_t tot_aligner_calls{0};
@@ -68,6 +69,7 @@ struct AlignmentStatistics {
         this->n_randstrobes += other.n_randstrobes;
         this->n_rescue_hits += other.n_rescue_hits;
         this->n_rescue_partial_hits += other.n_rescue_partial_hits;
+        this->n_anchors += other.n_anchors;
         this->n_nams += other.n_nams;
         this->n_rescue_nams += other.n_rescue_nams;
         this->tot_aligner_calls += other.tot_aligner_calls;

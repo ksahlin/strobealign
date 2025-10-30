@@ -1052,10 +1052,16 @@ std::vector<Nam> get_nams_or_chains(
     statistics.tot_sort_nams += nam_sort_timer.duration();
 
     if (logger.level() <= LOG_TRACE) {
-        logger.trace() << "Query: " << record.name << '\n';
         logger.trace() << "Found " << nams.size() << (map_param.use_nams ? " NAMs\n" : " chains\n");
+        uint printed = 0;
         for (const auto& nam : nams) {
-            logger.trace() << "- " << nam << '\n';
+            if (nam.n_matches > 1 || printed < 10) {
+                logger.trace() << "- " << nam << '\n';
+                printed++;
+            }
+        }
+        if (printed != nams.size()) {
+            logger.trace() << "+" << nams.size() - printed << " single-anchor chains)\n";
         }
     }
 
@@ -1083,7 +1089,7 @@ void align_or_map_paired(
 
     for (size_t is_r1 : {0, 1}) {
         const auto& record = is_r1 == 0 ? record1 : record2;
-        logger.trace() << "R" << is_r1 + 1 << '\n';
+        logger.trace() << "\nQuery: " << record.name << " (R" << is_r1 + 1 << ")\n";
         nams_pair[is_r1] = get_nams_or_chains(
             record, index, chainer, statistics, details[is_r1], map_param, index_parameters, random_engine
         );
@@ -1195,6 +1201,7 @@ void align_or_map_single(
     Details details;
     std::vector<Nam> nams;
 
+    logger.trace() << "\nQuery: " << record.name << '\n';
     nams = get_nams_or_chains(record, index, chainer, statistics, details, map_param, index_parameters, random_engine);
 
     Timer extend_timer;
