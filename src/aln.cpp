@@ -1053,8 +1053,15 @@ std::vector<Nam> get_nams_or_chains(
 
     if (logger.level() <= LOG_TRACE) {
         logger.trace() << "Found " << nams.size() << (map_param.use_nams ? " NAMs\n" : " chains\n");
+        uint printed = 0;
         for (const auto& nam : nams) {
-            logger.trace() << "- " << nam << '\n';
+            if (nam.n_matches > 1 || printed < 10) {
+                logger.trace() << "- " << nam << '\n';
+                printed++;
+            }
+        }
+        if (printed != nams.size()) {
+            logger.trace() << "+" << nams.size() - printed << " single-anchor chains)\n";
         }
     }
 
