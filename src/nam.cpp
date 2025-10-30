@@ -343,6 +343,6 @@ std::ostream& operator<<(std::ostream& os, const Match& match) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {
-    os << "Nam(ref_id=" << n.ref_id << ", query: " << n.query_start << ".." << n.query_end << ", ref: " << n.ref_start << ".." << n.ref_end << ", rc=" << static_cast<int>(n.is_revcomp) << ", score=" << n.score << ")";
+    os << "Nam(ref_id=" << n.ref_id << ", query: " << n.query_start << ".." << n.query_end << ", ref: " << n.ref_start << ".." << n.ref_end << ", rc=" << static_cast<int>(n.is_revcomp) << ", n_matches=" << n.n_matches << ", score=" << n.score << ")";
     return os;
 }
