@@ -180,3 +180,18 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
 
     return {details, sorting_needed, hits};
 }
+
+
+std::ostream& operator<<(std::ostream& os, const HitsDetails& details) {
+    os  << "HitsDetails("
+        << "full_not_found=" << details.full_not_found
+        << ", full_filtered=" << details.full_filtered
+        << ", full_found=" << details.full_found
+        << ", partial_not_found=" << details.partial_not_found
+        << ", partial_filtered=" << details.partial_filtered
+        << ", partial_found=" << details.partial_found
+        << ", rescued=" << details.rescued
+        << ", filtered_nucleotides=" << details.filtered_nucleotides
+        << ")";
+    return os;
+}

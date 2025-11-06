@@ -54,4 +54,6 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     int rescue_threshold
 );
 
+std::ostream& operator<<(std::ostream& os, const HitsDetails& details);
+
 #endif
