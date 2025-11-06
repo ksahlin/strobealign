@@ -290,12 +290,12 @@ std::vector<Nam> Chainer::get_chains(
     Timer hits_timer;
 
     std::array<std::vector<Hit>, 2> hits;
+    std::array<HitsDetails, 2> hits_details;
     for (int is_revcomp : {0, 1}) {
         bool sorting_needed1;
-        HitsDetails hits_details1;
-        std::tie(hits_details1, sorting_needed1, hits[is_revcomp]) =
+        std::tie(hits_details[is_revcomp], sorting_needed1, hits[is_revcomp]) =
             find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy, map_param.rescue_threshold);
-        details.hits += hits_details1;
+        details.hits += hits_details[is_revcomp];
     }
     uint total_hits = details.hits.total_hits();
     int nonrepetitive_hits = hits[0].size() + hits[1].size();
@@ -304,7 +304,20 @@ std::vector<Nam> Chainer::get_chains(
 
     std::vector<Nam> chains;
 
-    for (int is_revcomp : {0, 1}) {
+    // Runtime heuristic: If one orientation appears to have many more hits
+    // than the other, we assume it is the correct one and do not check the
+    // other.
+    std::vector<int> orientations;
+    if (hits_details[0].is_better_than(hits_details[1])) {
+        orientations.push_back(0);
+    } else if (hits_details[1].is_better_than(hits_details[0])) {
+        orientations.push_back(1);
+    } else {
+        orientations.push_back(0);
+        orientations.push_back(1);
+    }
+
+    for (int is_revcomp : orientations) {
         float best_score = 0.0f;
         std::vector<Anchor> anchors;
         std::vector<float> dp;
@@ -339,6 +352,7 @@ std::vector<Nam> Chainer::get_chains(
             anchors, dp, predecessors, best_score,
             index.k(), is_revcomp, chains, map_param.chaining_params
         );
+
         statistics.time_chaining += chaining_timer.duration();
     }
     details.nams += chains.size();

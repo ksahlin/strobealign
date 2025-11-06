@@ -36,6 +36,17 @@ struct HitsDetails {
         return partial_filtered + partial_found + full_filtered + full_found;
     }
 
+    // Used as a heuristic to compare the two orientations of a query
+    bool is_better_than(HitsDetails& other) const {
+        uint total = full_found + full_filtered;
+        uint other_total = other.full_found + other.full_filtered;
+        return total >= other_total * 2 && total > other_total + 5;
+    }
+
+    uint total_found() const {
+        return full_filtered + full_found + partial_filtered + partial_found;
+    }
+
     HitsDetails& operator+=(const HitsDetails& other) {
         full_not_found += other.full_not_found;
         full_filtered += other.full_filtered;
