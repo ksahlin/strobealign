@@ -17,6 +17,8 @@ struct Hit {
     bool is_partial;
 };
 
+// Aggregate statistics resulting from looking up all strobemers of a single
+// query.
 struct HitsDetails {
     uint full_not_found{0};
     uint full_filtered{0};  // found but filtered
@@ -27,6 +29,8 @@ struct HitsDetails {
     uint partial_found{0};
 
     uint rescued{0};  // first filtered but then rescued
+
+    uint filtered_nucleotides{0};
 
     uint total_hits() const {
         return partial_filtered + partial_found + full_filtered + full_found;
@@ -53,5 +57,7 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     McsStrategy mcs_strategy,
     int rescue_threshold
 );
+
+std::ostream& operator<<(std::ostream& os, const HitsDetails& details);
 
 #endif
