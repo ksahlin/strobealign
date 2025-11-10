@@ -6,6 +6,10 @@
   method, replacing NAMs. This reproduces the Minimap2 chaining algorithm
   providing better mapping accuracy. NAMs remain available via the `--nams`
   flag.
+* #527: Improve accuracy by changing the default multi-context seed strategy from
+  "rescue" to "always". This means that a partial seed lookup is done every time
+  a full seed cannot be found (whereas previously, it was done only if no
+  full seed was found for the entire query).
 * #515: PAF output now includes a sensible value for the mapping quality
   (last column), computed using the formula that
   [minimap2 uses](https://academic.oup.com/bioinformatics/article/34/18/3094/4994778?login=false#393786986).
