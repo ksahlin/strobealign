@@ -198,7 +198,6 @@ std::ostream& operator<<(std::ostream& os, const HitsDetails& details) {
         << ", partial_filtered=" << details.partial_filtered
         << ", partial_found=" << details.partial_found
         << ", rescued=" << details.rescued
-        << ", filtered_nucleotides=" << details.filtered_nucleotides
         << ")";
     return os;
 }

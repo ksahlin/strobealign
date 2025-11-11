@@ -32,8 +32,6 @@ struct HitsDetails {
 
     uint rescued{0};  // first filtered but then rescued
 
-    uint filtered_nucleotides{0};
-
     uint total_hits() const {
         return partial_filtered + partial_found + full_filtered + full_found;
     }
