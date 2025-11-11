@@ -60,68 +60,6 @@ void add_hits_to_anchors(
     }
 }
 
-std::tuple<int, int> find_anchors_rescue(
-    const std::vector<QueryRandstrobe>& query_randstrobes,
-    const StrobemerIndex& index,
-    unsigned int rescue_cutoff,
-    McsStrategy mcs_strategy,
-    std::vector<Anchor>& anchors
-) {
-    struct RescueHit {
-        size_t position;
-        unsigned int count;
-        unsigned int query_start;
-        unsigned int query_end;
-        bool is_partial;
-
-        bool operator<(const RescueHit& rhs) const {
-            return std::tie(count, query_start, query_end) <
-                   std::tie(rhs.count, rhs.query_start, rhs.query_end);
-        }
-    };
-
-    int n_hits = 0;
-    int partial_hits = 0;
-    std::vector<RescueHit> rescue_hits;
-    for (auto& qr : query_randstrobes) {
-        size_t position = index.find_full(qr.hash);
-        if (position != index.end()) {
-            unsigned int count = index.get_count_full(position, qr.hash_revcomp);
-            rescue_hits.push_back({position, count, qr.start, qr.end, false});
-        } else if (mcs_strategy == McsStrategy::Always) {
-            size_t partial_pos = index.find_partial(qr.hash);
-            if (partial_pos != index.end()) {
-                unsigned int partial_count = index.get_count_partial(partial_pos);
-                size_t position_revcomp = index.find_partial(qr.hash_revcomp);
-                if (position_revcomp != index.end()) {
-                    partial_count += index.get_count_partial(position_revcomp);
-                }
-                rescue_hits.push_back({partial_pos, partial_count, qr.start, qr.start + index.k(), true});
-                partial_hits++;
-            }
-        }
-    }
-
-    std::sort(rescue_hits.begin(), rescue_hits.end());
-
-    int cnt = 0;
-    for (auto& rh : rescue_hits) {
-        if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
-            break;
-        }
-        if (rh.is_partial) {
-            partial_hits++;
-            add_to_anchors_partial(anchors, rh.query_start, index, rh.position);
-        } else {
-            add_to_anchors_full(anchors, rh.query_start, rh.query_end, index, rh.position);
-        }
-        cnt++;
-        n_hits++;
-    }
-
-    return {n_hits, partial_hits};
-}
-
 /**
  * @brief Compute the chaining score between two anchors based on their distance.
  *
@@ -300,9 +238,6 @@ std::vector<Nam> Chainer::get_chains(
             find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy, map_param.rescue_threshold);
         details.hits += hits_details[is_revcomp];
     }
-    uint total_hits = details.hits.total_hits();
-    int nonrepetitive_hits = hits[0].size() + hits[1].size();
-    float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
     statistics.time_hit_finding += hits_timer.duration();
 
     std::vector<Nam> chains;
@@ -326,22 +261,9 @@ std::vector<Nam> Chainer::get_chains(
         std::vector<float> dp;
         std::vector<int> predecessors;
 
-        // Rescue if requested and needed
-        if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
-            Timer rescue_timer;
-            auto [n_hits, n_partial_hits] = find_anchors_rescue(
-                query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy, anchors
-            );
-            statistics.n_rescue_hits += n_hits;
-            statistics.n_rescue_partial_hits += n_partial_hits;
-            details.rescue_nams += chains.size();
-            details.nam_rescue = true;
-            statistics.tot_time_rescue += rescue_timer.duration();
-        } else {
-            Timer hits_timer;
-            add_hits_to_anchors(hits[is_revcomp], index, anchors);
-            statistics.time_hit_finding += hits_timer.duration();
-        }
+        Timer hits_timer;
+        add_hits_to_anchors(hits[is_revcomp], index, anchors);
+        statistics.time_hit_finding += hits_timer.duration();
         statistics.n_anchors += anchors.size();
         Timer chaining_timer;
         logger.trace() << "Chaining " << anchors.size() << " anchors\n";

@@ -181,7 +181,6 @@ int run_strobealign(int argc, char **argv) {
     map_param.r = opt.r;
     map_param.max_secondary = opt.max_secondary;
     map_param.dropoff_threshold = opt.dropoff_threshold;
-    map_param.rescue_level = opt.legacy_rescue;
     map_param.rescue_threshold = opt.rescue_threshold;
     map_param.max_tries = opt.max_tries;
     map_param.mcs_strategy = opt.mcs_strategy;
@@ -215,8 +214,7 @@ int run_strobealign(int argc, char **argv) {
             << "  Sampling window for second syncmer (in nucleotides): [" << d * l << ", " << d * u << "]\n";
     }
     logger.debug() << aln_params << '\n';
-    logger.debug() << "Rescue level (R): " << map_param.rescue_level << '\n';
-    logger.debug() << "Rescue threshold (L): " << map_param.rescue_threshold << " nt\n";
+    logger.debug() << "Rescue threshold (R): " << map_param.rescue_threshold << " nt\n";
     logger.debug() << "Indexing threads: " << opt.indexing_threads << std::endl;
     logger.debug() << "Mapping threads: " << opt.n_threads << std::endl;
 
@@ -301,9 +299,6 @@ int run_strobealign(int argc, char **argv) {
     // Map/align reads
         
     Timer map_align_timer;
-    map_param.rescue_cutoff = map_param.rescue_level < 100 ? map_param.rescue_level * index.filter_cutoff : 1000;
-    logger.debug() << "Using rescue cutoff: " << map_param.rescue_cutoff << std::endl;
-
     std::streambuf* buf;
     std::ofstream of;
 
