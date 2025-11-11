@@ -52,6 +52,9 @@ void add_hits_to_anchors(
     std::vector<Anchor>& anchors
 ) {
     for (const Hit& hit : hits) {
+        if (hit.is_filtered) {
+            continue;
+        }
         if (hit.is_partial) {
             add_to_anchors_partial(anchors, hit.query_start, index, hit.position);
         } else {

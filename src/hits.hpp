@@ -12,9 +12,11 @@
 // A Hit is the result of successfully looking up a strobemer in the index
 struct Hit {
     size_t position;
+    randstrobe_hash_t hash_revcomp;
     size_t query_start;
     size_t query_end;
     bool is_partial;
+    bool is_filtered;
 };
 
 // Aggregate statistics resulting from looking up all strobemers of a single

@@ -5,16 +5,6 @@
 
 static Logger& logger = Logger::get();
 
-struct CandidateHit {
-    size_t position;
-    randstrobe_hash_t hash_revcomp;
-    size_t query_start;
-    size_t query_end;
-    bool is_partial;
-    bool is_filtered;
-};
-
-
 /*
  * Find least frequent hits in a portion of the hits vector and set their
  * 'is_filtered' attribute to false (thus "rescuing" them).
@@ -23,7 +13,7 @@ struct CandidateHit {
  */
 uint rescue_least_frequent(
     const StrobemerIndex& index,
-    std::vector<CandidateHit>& hits,
+    std::vector<Hit>& hits,
     size_t start,
     size_t end,
     int distance,
@@ -58,9 +48,9 @@ uint rescue_least_frequent(
 }
 
 /*
- * Find all hits using the requested MCS strategy. Keep repetitive hits.
+ * Find all hits, including repetitive ones, using the requested MCS strategy.
  */
-std::tuple<std::vector<CandidateHit>, HitsDetails, bool> find_candidate_hits(
+std::tuple<std::vector<Hit>, HitsDetails, bool> find_all_hits(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     McsStrategy mcs_strategy
@@ -69,7 +59,7 @@ std::tuple<std::vector<CandidateHit>, HitsDetails, bool> find_candidate_hits(
     // does not have to re-sort
     bool sorting_needed{mcs_strategy == McsStrategy::Always || mcs_strategy == McsStrategy::FirstStrobe};
     HitsDetails details;
-    std::vector<CandidateHit> hits;
+    std::vector<Hit> hits;
     if (mcs_strategy != McsStrategy::FirstStrobe) {
         for (size_t i = 0; i < query_randstrobes.size(); ++i) {
             const auto &q = query_randstrobes[i];
@@ -81,7 +71,7 @@ std::tuple<std::vector<CandidateHit>, HitsDetails, bool> find_candidate_hits(
                 } else {
                     details.full_found++;
                 }
-                hits.push_back(CandidateHit{position, q.hash_revcomp, q.start, q.end, false, is_filtered});
+                hits.push_back(Hit{position, q.hash_revcomp, q.start, q.end, false, is_filtered});
             } else {
                 details.full_not_found++;
                 if (mcs_strategy == McsStrategy::Always) {
@@ -93,7 +83,7 @@ std::tuple<std::vector<CandidateHit>, HitsDetails, bool> find_candidate_hits(
                         } else {
                             details.partial_found++;
                         }
-                        hits.push_back(CandidateHit{partial_pos, q.hash_revcomp, q.start, q.start + index.k(), true, is_filtered});
+                        hits.push_back(Hit{partial_pos, q.hash_revcomp, q.start, q.start + index.k(), true, is_filtered});
                     } else {
                         details.partial_not_found++;
                     }
@@ -117,7 +107,7 @@ std::tuple<std::vector<CandidateHit>, HitsDetails, bool> find_candidate_hits(
                 } else {
                     details.partial_found++;
                 }
-                hits.push_back(CandidateHit{partial_pos, q.hash_revcomp, q.start, q.start + index.k(), true, is_filtered});
+                hits.push_back(Hit{partial_pos, q.hash_revcomp, q.start, q.start + index.k(), true, is_filtered});
             } else {
                 details.partial_not_found++;
             }
@@ -135,7 +125,7 @@ std::tuple<std::vector<CandidateHit>, HitsDetails, bool> find_candidate_hits(
 
 uint rescue_all_least_frequent(
     const StrobemerIndex& index,
-    std::vector<CandidateHit>& candidates,
+    std::vector<Hit>& hits,
     uint rescue_threshold
 ) {
     // Rescue threshold: If all hits over a region of this length (in nucleotides)
@@ -145,28 +135,27 @@ uint rescue_all_least_frequent(
     size_t first_filtered = 0;
     uint rescued = 0;
 
-    for (size_t i = 0; i < candidates.size(); ++i) {
-        const auto &hit = candidates[i];
+    for (size_t i = 0; i < hits.size(); ++i) {
+        const auto &hit = hits[i];
 
         if (hit.is_filtered) {
             continue;
         }
         if (hit.query_start > last_unfiltered_start + L) {
-            rescued += rescue_least_frequent(index, candidates, first_filtered, i, hit.query_start - last_unfiltered_start, L);
+            rescued += rescue_least_frequent(index, hits, first_filtered, i, hit.query_start - last_unfiltered_start, L);
         }
         last_unfiltered_start = hit.query_start;
         first_filtered = i + 1;
     }
-    if (!candidates.empty() && candidates.back().query_start - last_unfiltered_start > L) { // End case we have not sampled the end
-        rescued += rescue_least_frequent(index, candidates, first_filtered, candidates.size(), candidates.back().query_start - last_unfiltered_start, L);
+    if (!hits.empty() && hits.back().query_start - last_unfiltered_start > L) { // End case we have not sampled the end
+        rescued += rescue_least_frequent(index, hits, first_filtered, hits.size(), hits.back().query_start - last_unfiltered_start, L);
     }
 
     return rescued;
 }
 
 /*
- * Find a query’s hits, ignoring randstrobes that occur too often in the
- * reference (have a count above filter_cutoff).
+ * Find a query’s hits
  */
 std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     const std::vector<QueryRandstrobe>& query_randstrobes,
@@ -174,31 +163,25 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     McsStrategy mcs_strategy,
     int rescue_threshold
 ) {
-    auto [candidates, details, sorting_needed] = find_candidate_hits(query_randstrobes, index, mcs_strategy);
-    details.rescued += rescue_all_least_frequent(index, candidates, rescue_threshold);
+    auto [hits, details, sorting_needed] = find_all_hits(query_randstrobes, index, mcs_strategy);
+    details.rescued += rescue_all_least_frequent(index, hits, rescue_threshold);
 
     if (logger.level() <= LOG_TRACE) {
-        logger.trace() << "Found " << candidates.size() << " hits (" << details.rescued << " of those rescued):\n";
+        logger.trace() << "Found " << hits.size() << " hits (" << details.rescued << " of those rescued):\n";
         logger.trace() << "querypos count (p=partial, F=filtered)\n";
-        for (const auto& candidate : candidates) {
+        for (const auto& hit : hits) {
             int cnt;
-            if (candidate.is_partial) {
-                cnt = index.get_count_partial(candidate.position);
+            if (hit.is_partial) {
+                cnt = index.get_count_partial(hit.position);
             } else {
-                cnt = index.get_count_full(candidate.position, candidate.hash_revcomp);
+                cnt = index.get_count_full(hit.position, hit.hash_revcomp);
             }
             logger.trace()
-                << std::setw(6) << candidate.query_start
-                << (candidate.is_partial ? " p" : "  ")
+                << std::setw(6) << hit.query_start
+                << (hit.is_partial ? " p" : "  ")
                 << std::setw(6) << cnt
-                << (candidate.is_filtered ? " F" : "  ")
+                << (hit.is_filtered ? " F" : "  ")
                 << "\n";
-        }
-    }
-    std::vector<Hit> hits;
-    for (const auto& candidate : candidates) {
-        if (!candidate.is_filtered) {
-            hits.push_back(Hit{candidate.position, candidate.query_start, candidate.query_end, candidate.is_partial});
         }
     }
 

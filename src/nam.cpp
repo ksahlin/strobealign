@@ -190,6 +190,9 @@ robin_hood::unordered_map<unsigned int, std::vector<Match>> hits_to_matches(
     matches_map.reserve(100);
 
     for (const auto& hit : hits) {
+        if (hit.is_filtered) {
+            continue;
+        }
         if (hit.is_partial) {
             add_to_matches_map_partial(matches_map, hit.query_start, hit.query_end, index, hit.position);
         } else {
