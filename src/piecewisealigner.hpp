@@ -23,7 +23,6 @@ class Aligner {
 private:
     AlignmentParameters params;
     int k;
-    SizeRange range;
     Gaps gaps;
     AAMatrix* matrix;
     int32_t x_drop_threshold;

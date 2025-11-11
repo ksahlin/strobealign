@@ -5,7 +5,6 @@ namespace Piecewise {
 Aligner::Aligner(const AlignmentParameters& params, int k) 
     : params(params),
       k(k),
-      range{.min = static_cast<uintptr_t>(params.min_block), .max = static_cast<uintptr_t>(params.max_block)},
       gaps{.open = static_cast<int8_t>(-params.gap_open), .extend = static_cast<int8_t>(-params.gap_extend)},
       matrix(nullptr),
       x_drop_threshold(static_cast<int32_t>(params.x_drop_threshold))
@@ -107,33 +106,47 @@ Cigar Aligner::build_cigar_reverse_swap_ID(const Cigar* cigar, size_t cigar_len)
     return result;
 }
 
+constexpr size_t next_power_of_2(size_t n) {
+    if (n == 0) return 1;
+    n--;
+    n |= n >> 1;
+    n |= n >> 2;
+    n |= n >> 4;
+    n |= n >> 8;
+    n |= n >> 16;
+    if constexpr (sizeof(size_t) == 8)
+        n |= n >> 32;
+    return n + 1;
+}
+
 AlignmentResult Aligner::global_alignment(const std::string_view& query, const std::string_view& ref) const {
     AlignmentResult result;
+    if (query.empty() || ref.empty()) return result;
 
-    if (query.empty() || ref.empty()) {
-        return result;
-    }
+    SizeRange adaptive_range;
+    adaptive_range.min = next_power_of_2(std::max<uintptr_t>(32, std::max(query.length(), ref.length())));
+    adaptive_range.max = next_power_of_2(std::max<uintptr_t>(128, std::max(query.length(), ref.length())));
 
-    PaddedBytes* q_padded = block_new_padded_aa(query.length(), range.max);
-    PaddedBytes* r_padded = block_new_padded_aa(ref.length(), range.max);
-    block_set_bytes_padded_aa(q_padded, reinterpret_cast<const uint8_t*>(query.data()), query.length(), range.max);
-    block_set_bytes_padded_aa(r_padded, reinterpret_cast<const uint8_t*>(ref.data()), ref.length(), range.max);
+    PaddedBytes* q_padded = block_new_padded_aa(query.length(), adaptive_range.max);
+    PaddedBytes* r_padded = block_new_padded_aa(ref.length(), adaptive_range.max);
+    block_set_bytes_padded_aa(q_padded, reinterpret_cast<const uint8_t*>(query.data()), query.length(), adaptive_range.max);
+    block_set_bytes_padded_aa(r_padded, reinterpret_cast<const uint8_t*>(ref.data()), ref.length(), adaptive_range.max);
 
-    BlockHandle block = block_new_aa_trace(query.length(), ref.length(), range.max);
-    block_align_aa_trace(block, q_padded, r_padded, matrix, gaps, range, 0);
+    BlockHandle block = block_new_aa_trace(query.length(), ref.length(), adaptive_range.max);
+    block_align_aa_trace(block, q_padded, r_padded, matrix, gaps, adaptive_range, 0);
     AlignResult res = block_res_aa_trace(block);
-    
+
     Cigar* cigar_ptr = block_new_cigar(res.query_idx, res.reference_idx);
     block_cigar_eq_aa_trace(block, q_padded, r_padded, res.query_idx, res.reference_idx, cigar_ptr);
     size_t cigar_len = block_len_cigar(cigar_ptr);
-    
+
     result.score = res.score;
     result.query_start = 0;
     result.query_end = res.query_idx;
     result.ref_start = 0;
     result.ref_end = res.reference_idx;
     result.cigar = build_cigar(cigar_ptr, cigar_len);
-    
+
     block_free_cigar(cigar_ptr);
     block_free_aa_trace(block);
     block_free_padded_aa(q_padded);
@@ -144,10 +157,11 @@ AlignmentResult Aligner::global_alignment(const std::string_view& query, const s
 
 AlignmentResult Aligner::xdrop_alignment(const std::string_view& query, const std::string_view& ref, bool reverse) const {
     AlignmentResult result;
+    if (query.empty() || ref.empty()) return result;
 
-    if (query.empty() || ref.empty()) {
-        return result;
-    }
+    SizeRange adaptive_range;
+    adaptive_range.min = next_power_of_2(std::max<uintptr_t>(32, std::max(query.length(), ref.length()) / 5 ));
+    adaptive_range.max = next_power_of_2(std::max<uintptr_t>(128, std::max(query.length(), ref.length()) / 2 ));;
 
     std::string_view query_used = query;
     std::string_view ref_used = ref;
@@ -160,18 +174,18 @@ AlignmentResult Aligner::xdrop_alignment(const std::string_view& query, const st
         ref_used = ref_rev;
     }
 
-    PaddedBytes* q_padded = block_new_padded_aa(query_used.length(), range.max);
-    PaddedBytes* r_padded = block_new_padded_aa(ref_used.length(), range.max);
-    block_set_bytes_padded_aa(q_padded, reinterpret_cast<const uint8_t*>(query_used.data()), query_used.length(), range.max);
-    block_set_bytes_padded_aa(r_padded, reinterpret_cast<const uint8_t*>(ref_used.data()), ref_used.length(), range.max);
+    PaddedBytes* q_padded = block_new_padded_aa(query_used.length(), adaptive_range.max);
+    PaddedBytes* r_padded = block_new_padded_aa(ref_used.length(), adaptive_range.max);
+    block_set_bytes_padded_aa(q_padded, reinterpret_cast<const uint8_t*>(query_used.data()), query_used.length(), adaptive_range.max);
+    block_set_bytes_padded_aa(r_padded, reinterpret_cast<const uint8_t*>(ref_used.data()), ref_used.length(), adaptive_range.max);
 
-    AAProfile* query_profile = block_new_aaprofile(query_used.length(), range.max, static_cast<int8_t>(-params.gap_extend));
+    AAProfile* query_profile = block_new_aaprofile(query_used.length(), adaptive_range.max, static_cast<int8_t>(-params.gap_extend));
     if (!query_profile) {
         block_free_padded_aa(q_padded);
         block_free_padded_aa(r_padded);
         return result;
     }
-    
+
     for (size_t i = 1; i <= query_used.length(); i++) {
         for (int c = 'A'; c <= 'Z'; c++) {
             if (c == query_used[i - 1]) {
@@ -192,7 +206,7 @@ AlignmentResult Aligner::xdrop_alignment(const std::string_view& query, const st
         block_set_aaprofile(query_profile, bonus_pos, c, current_score + params.end_bonus);
     }
 
-    BlockHandle block = block_new_aa_trace_xdrop(ref_used.length(), query_used.length(), range.max);
+    BlockHandle block = block_new_aa_trace_xdrop(ref_used.length(), query_used.length(), adaptive_range.max);
     if (!block) {
         block_free_aaprofile(query_profile);
         block_free_padded_aa(q_padded);
@@ -200,13 +214,13 @@ AlignmentResult Aligner::xdrop_alignment(const std::string_view& query, const st
         return result;
     }
 
-    block_align_profile_aa_trace_xdrop(block, r_padded, query_profile, range, x_drop_threshold);
+    block_align_profile_aa_trace_xdrop(block, r_padded, query_profile, adaptive_range, x_drop_threshold);
     AlignResult res = block_res_aa_trace_xdrop(block);
-    
+
     Cigar* cigar_ptr = block_new_cigar(res.query_idx, res.reference_idx);
     block_cigar_eq_aa_trace_xdrop(block, r_padded, q_padded, res.query_idx, res.reference_idx, cigar_ptr);
     size_t cigar_len = block_len_cigar(cigar_ptr);
-    
+
     result.score = res.score;
 
     if (reverse) {
@@ -222,7 +236,7 @@ AlignmentResult Aligner::xdrop_alignment(const std::string_view& query, const st
         result.ref_start = 0;
         result.ref_end = res.query_idx;
     }
-    
+
     block_free_cigar(cigar_ptr);
     block_free_aaprofile(query_profile);
     block_free_aa_trace_xdrop(block);
@@ -231,7 +245,6 @@ AlignmentResult Aligner::xdrop_alignment(const std::string_view& query, const st
 
     return result;
 }
-
 
 void Aligner::align_before_first_anchor(
     const std::string& reference,

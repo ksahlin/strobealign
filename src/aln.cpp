@@ -168,15 +168,6 @@ inline void align_single(
         tries++;
         considered++;
     }
-    if (best_alignment.is_unaligned) {
-        sam.add_unmapped(record);
-        return;
-    }
-    details.best_alignments = alignments_with_best_score;
-    uint8_t mapq = (60.0 * (best_score - second_best_score) + best_score - 1) / best_score;
-    bool is_primary = true;
-    sam.add(best_alignment, record, read.rc, mapq, is_primary, details);
-
     if (logger.level() <= LOG_TRACE){
         logger.trace() << "Cigars:[";
         int curr = 0;
@@ -189,6 +180,16 @@ inline void align_single(
         }
         logger.trace() << "]\n";
     }
+
+    if (best_alignment.is_unaligned) {
+        sam.add_unmapped(record);
+        return;
+    }
+
+    details.best_alignments = alignments_with_best_score;
+    uint8_t mapq = (60.0 * (best_score - second_best_score) + best_score - 1) / best_score;
+    bool is_primary = true;
+    sam.add(best_alignment, record, read.rc, mapq, is_primary, details);
 
     if (max_secondary == 0) {
         return;
