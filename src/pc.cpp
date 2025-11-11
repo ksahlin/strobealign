@@ -78,7 +78,7 @@ size_t InputBuffer::read_records(
     // Acquire a unique lock on the mutex
     std::unique_lock<std::mutex> unique_lock(mtx);
     if (to_read == -1) {
-        to_read = chunk_size;
+        to_read = m_chunk_size;
     }
     if (this->is_interleaved) {
         auto records = ks1->stream().read(to_read*2);
@@ -143,11 +143,10 @@ void perform_task(
     const std::string& read_group_id,
     std::vector<double> &abundances
 ) {
-    bool eof = false;
     Aligner aligner{aln_params, index_parameters.syncmer.k};
     Chainer chainer{map_param.chaining_params, index.k()};
     std::minstd_rand random_engine;
-    while (!eof) {
+    while (true) {
         std::vector<klibpp::KSeq> records1;
         std::vector<klibpp::KSeq> records2;
         std::vector<klibpp::KSeq> records3;

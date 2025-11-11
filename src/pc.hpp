@@ -22,26 +22,31 @@ public:
     InputBuffer(std::string fname1, std::string fname2, int chunk_size, bool is_interleaved)
     : ks1(fname1 == "" ? nullptr : open_fastq(fname1)),
     ks2(fname2 == "" ? nullptr : open_fastq(fname2)),
-    chunk_size(chunk_size),
+    m_chunk_size(chunk_size),
     is_interleaved(is_interleaved) { }
 
-    std::mutex mtx;
-
-    input_stream_t ks1;
-    input_stream_t ks2;
-    std::optional<klibpp::KSeq> lookahead1;
-    bool finished_reading{false};
-    int chunk_size;
-    size_t chunk_index{0};
-    bool is_interleaved{false};
-
-    void rewind_reset();
     size_t read_records(
         std::vector<klibpp::KSeq> &records1,
         std::vector<klibpp::KSeq> &records2,
         std::vector<klibpp::KSeq> &records3,
         int read_count=-1
     );
+    void rewind_reset();
+    void set_chunk_size(int chunk_size) { this->m_chunk_size = chunk_size; }
+    int chunk_size() const { return m_chunk_size; }
+
+    bool finished_reading{false};
+
+private:
+    std::mutex mtx;
+
+    input_stream_t ks1;
+    input_stream_t ks2;
+    std::optional<klibpp::KSeq> lookahead1;
+    int m_chunk_size;
+    size_t chunk_index{0};
+    bool is_interleaved{false};
+
 };
 
 
