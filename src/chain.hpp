@@ -14,6 +14,9 @@ struct Anchor {
     uint ref_start;
     uint ref_id;
 
+    uint prev_query_start;
+    int skipped_filtered_bonus;
+
     bool operator<(const Anchor& other) const {
         return (ref_id < other.ref_id) || (ref_id == other.ref_id && ref_start < other.ref_start) || (ref_id == other.ref_id && ref_start == other.ref_start && query_start < other.query_start);
     }

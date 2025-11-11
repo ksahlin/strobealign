@@ -17,7 +17,9 @@ void add_to_anchors_full(
     int query_start,
     int query_end,
     const StrobemerIndex& index,
-    size_t position
+    size_t position,
+    uint prev_query_start,
+    int bonus
 ) {
     int min_diff = std::numeric_limits<int>::max();
     for (const auto hash = index.get_hash(position); index.get_hash(position) == hash; ++position) {
@@ -26,8 +28,8 @@ void add_to_anchors_full(
         int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
         if (diff <= min_diff) {
             int ref_idx = index.reference_index(position);
-            anchors.push_back({uint(query_start), uint(ref_start), uint(ref_idx)});
-            anchors.push_back({uint(query_end - index.k()), uint(ref_end - index.k()), uint(ref_idx)});
+            anchors.push_back({uint(query_start), uint(ref_start), uint(ref_idx), prev_query_start, bonus});
+            anchors.push_back({uint(query_end - index.k()), uint(ref_end - index.k()), uint(ref_idx), uint(query_start), 0});
             min_diff = diff;
         }
     }
@@ -37,12 +39,14 @@ void add_to_anchors_partial(
     std::vector<Anchor>& anchors,
     int query_start,
     const StrobemerIndex& index,
-    size_t position
+    size_t position,
+    uint prev_query_start,
+    int bonus
 ) {
     for (const auto hash = index.get_main_hash(position); index.get_main_hash(position) == hash; ++position) {
         auto [ref_start, ref_end] = index.strobe_extent_partial(position);
         int ref_idx = index.reference_index(position);
-        anchors.push_back({uint(query_start), uint(ref_start), uint(ref_idx)});
+        anchors.push_back({uint(query_start), uint(ref_start), uint(ref_idx), prev_query_start, bonus});
     }
 }
 
@@ -51,15 +55,30 @@ void add_hits_to_anchors(
     const StrobemerIndex& index,
     std::vector<Anchor>& anchors
 ) {
+    if (hits.empty()) {
+        return;
+    }
+    const Hit* prev_hit = &hits[0];
+    const Hit* prev_unfiltered = &hits[0];
+    uint filtered_length = 0;
     for (const Hit& hit : hits) {
         if (hit.is_filtered) {
-            continue;
-        }
-        if (hit.is_partial) {
-            add_to_anchors_partial(anchors, hit.query_start, index, hit.position);
+            // TODO this counts the nucleotides of the first strobe, but during
+            // chaining, we use the second strobe
+            filtered_length += hit.query_start + index.k() - std::max(hit.query_start, prev_hit->query_start);
         } else {
-            add_to_anchors_full(anchors, hit.query_start, hit.query_end, index, hit.position);
+            if (filtered_length != 0) {
+                // std::cerr << "filtered_length = " << filtered_length << '\n';
+            }
+            if (hit.is_partial) {
+                add_to_anchors_partial(anchors, hit.query_start, index, hit.position, prev_unfiltered->query_start, filtered_length);
+            } else {
+                add_to_anchors_full(anchors, hit.query_start, hit.query_end, index, hit.position, prev_unfiltered->query_start, filtered_length);
+            }
+            filtered_length = 0;
+            prev_unfiltered = &hit;
         }
+        prev_hit = &hit;
     }
 }
 
@@ -139,7 +158,16 @@ float Chainer::collinear_chaining(
 
             const float score = compute_score(dq, dr);
 
-            const float new_score = dp[j] + score;
+            float new_score = dp[j] + score;
+
+            // If we are chaining to a direct predecessor on the query and are
+            // are on the same diagonal, add a bonus to the score that tries to
+            // compensate for skipped repetitive hits between the two anchors
+            if (dq == dr && ai.prev_query_start == aj.query_start) {
+                //logger.trace() << "Adding bonus " << ai.skipped_filtered_bonus << "\n";
+                new_score += ai.skipped_filtered_bonus;
+            }
+
             if (new_score > dp[i]) {
                 dp[i] = new_score;
                 predecessors[i] = j;
