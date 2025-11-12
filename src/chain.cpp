@@ -74,9 +74,11 @@ void add_hits_to_anchors(
                 filtered_length += first_strobe_end - std::max(first_strobe_start, prev_hit->query_end);
 
                 // second strobe
+                /*
                 size_t second_strobe_start = hit.query_end - index.k();
                 size_t second_strobe_end = hit.query_end;
                 filtered_length += second_strobe_end - std::max(second_strobe_start, first_strobe_end);
+                */
             }
         } else {
             if (hit.is_partial) {
