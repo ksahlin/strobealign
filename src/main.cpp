@@ -61,6 +61,10 @@ std::string pg_header(const std::string& cmd_line) {
 void warn_if_no_optimizations() {
     if (std::string(CMAKE_BUILD_TYPE) == "Debug") {
         logger.info() << "\n    ***** Binary was compiled without optimizations - this will be very slow *****\n\n";
+    } else {
+#ifndef NDEBUG
+        logger.info() << "\n    ***** Binary was compiled with enabled assertions - this will be slow *****\n\n";
+#endif
     }
 }
 
