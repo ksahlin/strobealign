@@ -46,11 +46,12 @@ void add_to_anchors_partial(
     }
 }
 
-void add_hits_to_anchors(
+std::vector<Anchor> hits_to_anchors(
     const std::vector<Hit>& hits,
-    const StrobemerIndex& index,
-    std::vector<Anchor>& anchors
+    const StrobemerIndex& index
 ) {
+    std::vector<Anchor> anchors;
+
     for (const Hit& hit : hits) {
         if (hit.is_filtered) {
             continue;
@@ -61,6 +62,8 @@ void add_hits_to_anchors(
             add_to_anchors_full(anchors, hit.query_start, hit.query_end, index, hit.position);
         }
     }
+
+    return anchors;
 }
 
 /**
@@ -260,12 +263,11 @@ std::vector<Nam> Chainer::get_chains(
 
     for (int is_revcomp : orientations) {
         float best_score = 0.0f;
-        std::vector<Anchor> anchors;
         std::vector<float> dp;
         std::vector<int> predecessors;
 
         Timer hits_timer;
-        add_hits_to_anchors(hits[is_revcomp], index, anchors);
+        std::vector<Anchor> anchors = hits_to_anchors(hits[is_revcomp], index);
         statistics.time_hit_finding += hits_timer.duration();
         statistics.n_anchors += anchors.size();
         Timer chaining_timer;
