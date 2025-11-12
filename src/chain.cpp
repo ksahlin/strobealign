@@ -63,23 +63,7 @@ void add_hits_to_anchors(
     uint filtered_length = 0;
     for (const Hit& hit : hits) {
         if (hit.is_filtered) {
-            if (hit.is_partial) {
-                size_t strobe_start = hit.query_start;
-                size_t strobe_end = hit.query_end;
-                filtered_length += strobe_end - std::max(strobe_start, prev_hit->query_end);
-            } else {
-                // first strobe
-                size_t first_strobe_start = hit.query_start;
-                size_t first_strobe_end = hit.query_start + index.k();
-                filtered_length += first_strobe_end - std::max(first_strobe_start, prev_hit->query_end);
-
-                // second strobe
-                /*
-                size_t second_strobe_start = hit.query_end - index.k();
-                size_t second_strobe_end = hit.query_end;
-                filtered_length += second_strobe_end - std::max(second_strobe_start, first_strobe_end);
-                */
-            }
+            filtered_length += hit.query_start + index.k() - std::max(hit.query_start, prev_hit->query_start+ index.k() );
         } else {
             if (hit.is_partial) {
                 add_to_anchors_partial(anchors, hit.query_start, index, hit.position, prev_unfiltered->query_start, filtered_length);
