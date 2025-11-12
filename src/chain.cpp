@@ -63,17 +63,33 @@ void add_hits_to_anchors(
     uint filtered_length = 0;
     for (const Hit& hit : hits) {
         if (hit.is_filtered) {
-            // TODO this counts the nucleotides of the first strobe, but during
-            // chaining, we use the second strobe
-            filtered_length += hit.query_start + index.k() - std::max(hit.query_start, prev_hit->query_start);
-        } else {
-            if (filtered_length != 0) {
-                // std::cerr << "filtered_length = " << filtered_length << '\n';
+            if (hit.is_partial) {
+                size_t strobe_start = hit.query_start;
+                size_t strobe_end = hit.query_end;
+                filtered_length += strobe_end - std::max(strobe_start, prev_hit->query_end);
+            } else {
+                // first strobe
+                size_t first_strobe_start = hit.query_start;
+                size_t first_strobe_end = hit.query_start + index.k();
+                filtered_length += first_strobe_end - std::max(first_strobe_start, prev_hit->query_end);
+
+                // second strobe
+                size_t second_strobe_start = hit.query_end - index.k();
+                size_t second_strobe_end = hit.query_end;
+                filtered_length += second_strobe_end - std::max(second_strobe_start, first_strobe_end);
             }
+        } else {
             if (hit.is_partial) {
                 add_to_anchors_partial(anchors, hit.query_start, index, hit.position, prev_unfiltered->query_start, filtered_length);
             } else {
-                add_to_anchors_full(anchors, hit.query_start, hit.query_end, index, hit.position, prev_unfiltered->query_start, filtered_length);
+
+                size_t prev_unfiltered_start;
+                if (prev_unfiltered->is_partial) {
+                    prev_unfiltered_start = prev_unfiltered->query_start;
+                } else {
+                    prev_unfiltered_start = prev_unfiltered->query_end - index.k();
+                }
+                add_to_anchors_full(anchors, hit.query_start, hit.query_end, index, hit.position, prev_unfiltered_start, filtered_length);
             }
             filtered_length = 0;
             prev_unfiltered = &hit;
