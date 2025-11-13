@@ -145,7 +145,13 @@ void add_hits_to_anchors(
             filtered_length += strobe.query_start + index.k() - std::max(strobe.query_start, strobes[i-1].query_start + index.k());
         } else {
             prev_query_starts[i] = strobes[last_unfiltered].query_start;
-            bonuses[i] = filtered_length;
+            int ovl = strobes[i-1].query_start + index.k() - strobe.query_start;
+            if (ovl > filtered_length) {
+                filtered_length = 0;
+            } else{
+                filtered_length -= ovl;
+            }
+            bonuses[i] = filtered_length; // strobe.query_start - (strobes[i-1].query_start + index.k())
             filtered_length = 0;
             last_unfiltered = i;
             prev_unfiltered_strobe_start_pos = strobe.query_start;
