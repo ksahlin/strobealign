@@ -82,6 +82,23 @@ void add_hits_to_anchors(
     }
     std::sort(strobes.begin(), strobes.end());
 
+    for (auto strobe : strobes) {
+        std::cerr << " - Strobe ";
+        if (hits[strobe.hit_index].is_partial) {
+            std::cerr << "p";
+        } else {
+            if (hits[strobe.hit_index].query_start == strobe.query_start) {
+                std::cerr << "1";
+            } else {
+                std::cerr << "2";
+
+            }
+        }
+        std::cerr << " at query_start=" << strobe.query_start << " from hit " << strobe.hit_index;
+        std::cerr << '\n';
+    }
+
+
     // Map hit indices back to strobe indices
     std::vector<size_t> hits_to_strobes1;
     std::vector<size_t> hits_to_strobes2;
@@ -138,6 +155,8 @@ void add_hits_to_anchors(
             for (const auto hash = index.get_main_hash(position); index.get_main_hash(position) == hash; ++position) {
                 auto [ref_start, ref_end] = index.strobe_extent_partial(position);
                 int ref_idx = index.reference_index(position);
+                logger.trace() << "Adding p at query_start=" << query_start << " bonus=" << bonus << " prev_query_start=" << prev_query_start << '\n';
+
                 anchors.push_back({uint(query_start), uint(ref_start), uint(ref_idx), prev_query_start, bonus});
             }
         } else {
@@ -146,6 +165,15 @@ void add_hits_to_anchors(
             int query_end = hit.query_end;
             size_t position = hit.position;
 
+            uint prev_query_start1 = prev_query_starts[hits_to_strobes1[hit_index]];
+            uint prev_query_start2 = prev_query_starts[hits_to_strobes2[hit_index]];
+            int bonus1 = bonuses[hits_to_strobes1[hit_index]];
+            int bonus2 = bonuses[hits_to_strobes2[hit_index]];
+            logger.trace() << "Adding 1 at query_start=" << query_start << " bonus=" << bonus1 << " prev_query_start=" << prev_query_start1 << '\n';
+            logger.trace() << "Adding 2 at query_start=" << query_end - index.k() << " bonus=" << bonus2 << " prev_query_start=" << prev_query_start2 << '\n';
+            assert(prev_query_start1 < query_start);
+            assert(prev_query_start2 < query_end - index.k());
+
             int min_diff = std::numeric_limits<int>::max();
             for (const auto hash = index.get_hash(position); index.get_hash(position) == hash; ++position) {
                 int ref_start = index.get_strobe1_position(position);
@@ -153,12 +181,8 @@ void add_hits_to_anchors(
                 int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
                 if (diff <= min_diff) {
                     int ref_idx = index.reference_index(position);
-                    uint prev_query_start = prev_query_starts[hits_to_strobes1[hit_index]];
-                    int bonus = bonuses[hits_to_strobes1[hit_index]];;
-                    anchors.push_back({uint(query_start), uint(ref_start), uint(ref_idx), prev_query_start, bonus});
-                    prev_query_start = prev_query_starts[hits_to_strobes2[hit_index]];
-                    bonus = bonuses[hits_to_strobes1[hit_index]];
-                    anchors.push_back({uint(query_end - index.k()), uint(ref_end - index.k()), uint(ref_idx), prev_query_start, bonus});
+                    anchors.push_back({uint(query_start), uint(ref_start), uint(ref_idx), prev_query_start1, bonus1});
+                    anchors.push_back({uint(query_end - index.k()), uint(ref_end - index.k()), uint(ref_idx), prev_query_start2, bonus2});
                     min_diff = diff;
                 }
             }
