@@ -58,27 +58,111 @@ void add_hits_to_anchors(
     if (hits.empty()) {
         return;
     }
-    const Hit* prev_hit = &hits[0];
-    const Hit* prev_unfiltered = &hits[0];
-    uint filtered_length = 0;
-    for (const Hit& hit : hits) {
-        if (hit.is_filtered) {
-            // TODO this counts the nucleotides of the first strobe, but during
-            // chaining, we use the second strobe
-            filtered_length += hit.query_start + index.k() - std::max(hit.query_start, prev_hit->query_start);
-        } else {
-            if (filtered_length != 0) {
-                // std::cerr << "filtered_length = " << filtered_length << '\n';
-            }
-            if (hit.is_partial) {
-                add_to_anchors_partial(anchors, hit.query_start, index, hit.position, prev_unfiltered->query_start, filtered_length);
-            } else {
-                add_to_anchors_full(anchors, hit.query_start, hit.query_end, index, hit.position, prev_unfiltered->query_start, filtered_length);
-            }
-            filtered_length = 0;
-            prev_unfiltered = &hit;
+
+    // Split hits up into their constituent strobes
+    struct Strobe {
+        size_t query_start;
+        size_t hit_index; // the original hit this was split from
+
+        bool operator<(const Strobe& other) const {
+            return query_start < other.query_start;
         }
-        prev_hit = &hit;
+    };
+
+    std::vector<Strobe> strobes;
+    for (size_t i = 0; i < hits.size(); ++i) {
+        const Hit& hit = hits[i];
+        if (hit.is_partial) {
+            strobes.push_back(Strobe{hit.query_start, i});
+        } else {
+            // Full hits result in two constituent hits
+            strobes.push_back(Strobe{hit.query_start, i});
+            strobes.push_back(Strobe{hit.query_end - index.k(), i});
+        }
+    }
+    std::sort(strobes.begin(), strobes.end());
+
+    // Map hit indices back to strobe indices
+    std::vector<size_t> hits_to_strobes1;
+    std::vector<size_t> hits_to_strobes2;
+    hits_to_strobes1.assign(hits.size(), 0);
+    hits_to_strobes2.assign(hits.size(), 0);
+
+    for (size_t i = 0; i < strobes.size(); ++i) {
+        size_t hit_index = strobes[i].hit_index;
+        if (hits[hit_index].is_partial) {
+            hits_to_strobes1[hit_index] = i;
+            // TODO remove this if if below assertion holds
+            assert(hits[hit_index].query_start == strobes[i].query_start);
+        } else {
+            // full hit
+            if (hits[hit_index].query_start == strobes[i].query_start) {
+                hits_to_strobes1[hit_index] = i;
+            } else {
+                hits_to_strobes2[hit_index] = i;
+            }
+        }
+    }
+
+    std::vector<uint> prev_query_starts;
+    std::vector<uint> bonuses;
+
+    prev_query_starts.assign(strobes.size(), 0);
+    bonuses.assign(strobes.size(), 0);
+    uint filtered_length = 0;
+    size_t last_unfiltered = 0;
+    for (size_t i = 1; i < strobes.size(); i++) {
+        Strobe& strobe = strobes[i];
+        if (hits[strobe.hit_index].is_filtered) {
+            filtered_length += strobe.query_start + index.k() - std::max(strobe.query_start, strobes[i-1].query_start);
+        } else {
+            prev_query_starts[i] = strobes[last_unfiltered].query_start;
+            bonuses[i] = filtered_length;
+            filtered_length = 0;
+            last_unfiltered = i;
+        }
+    }
+
+    for (size_t hit_index = 0; hit_index < hits.size(); hit_index++) {
+        const Hit& hit = hits[hit_index];
+        if (hit.is_filtered) {
+            continue;
+        }
+        if (hit.is_partial) {
+            // add_to_anchors_partial(anchors, hit.query_start, index, hit.position, prev_unfiltered->query_start, filtered_length);
+            int query_start = hit.query_start;
+            size_t position = hit.position;
+            uint prev_query_start = prev_query_starts[hits_to_strobes1[hit_index]];
+            int bonus = bonuses[hits_to_strobes1[hit_index]];
+
+            for (const auto hash = index.get_main_hash(position); index.get_main_hash(position) == hash; ++position) {
+                auto [ref_start, ref_end] = index.strobe_extent_partial(position);
+                int ref_idx = index.reference_index(position);
+                anchors.push_back({uint(query_start), uint(ref_start), uint(ref_idx), prev_query_start, bonus});
+            }
+        } else {
+            // add_to_anchors_full(anchors, hit.query_start, hit.query_end, index, hit.position, prev_unfiltered->query_start, filtered_length);
+            int query_start = hit.query_start;
+            int query_end = hit.query_end;
+            size_t position = hit.position;
+
+            int min_diff = std::numeric_limits<int>::max();
+            for (const auto hash = index.get_hash(position); index.get_hash(position) == hash; ++position) {
+                int ref_start = index.get_strobe1_position(position);
+                int ref_end = ref_start + index.strobe2_offset(position) + index.k();
+                int diff = std::abs((query_end - query_start) - (ref_end - ref_start));
+                if (diff <= min_diff) {
+                    int ref_idx = index.reference_index(position);
+                    uint prev_query_start = prev_query_starts[hits_to_strobes1[hit_index]];
+                    int bonus = bonuses[hits_to_strobes1[hit_index]];;
+                    anchors.push_back({uint(query_start), uint(ref_start), uint(ref_idx), prev_query_start, bonus});
+                    prev_query_start = prev_query_starts[hits_to_strobes2[hit_index]];
+                    bonus = bonuses[hits_to_strobes1[hit_index]];
+                    anchors.push_back({uint(query_end - index.k()), uint(ref_end - index.k()), uint(ref_idx), prev_query_start, bonus});
+                    min_diff = diff;
+                }
+            }
+        }
     }
 }
 
