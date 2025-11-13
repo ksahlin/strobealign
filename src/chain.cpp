@@ -75,7 +75,7 @@ void add_hits_to_anchors(
         if (hit.is_partial) {
             strobes.push_back(Strobe{hit.query_start, i});
         } else {
-            // Full hits result in two constituent hits
+            // Full hits have two constituent hits
             strobes.push_back(Strobe{hit.query_start, i});
             strobes.push_back(Strobe{hit.query_end - index.k(), i});
         }
@@ -151,6 +151,7 @@ void add_hits_to_anchors(
             size_t position = hit.position;
             uint prev_query_start = prev_query_starts[hits_to_strobes1[hit_index]];
             int bonus = bonuses[hits_to_strobes1[hit_index]];
+            assert((bonus == 0 && prev_query_start <= query_start) || prev_query_start < query_start);
 
             for (const auto hash = index.get_main_hash(position); index.get_main_hash(position) == hash; ++position) {
                 auto [ref_start, ref_end] = index.strobe_extent_partial(position);
@@ -171,8 +172,8 @@ void add_hits_to_anchors(
             int bonus2 = bonuses[hits_to_strobes2[hit_index]];
             logger.trace() << "Adding 1 at query_start=" << query_start << " bonus=" << bonus1 << " prev_query_start=" << prev_query_start1 << '\n';
             logger.trace() << "Adding 2 at query_start=" << query_end - index.k() << " bonus=" << bonus2 << " prev_query_start=" << prev_query_start2 << '\n';
-            assert(prev_query_start1 < query_start);
-            assert(prev_query_start2 < query_end - index.k());
+            assert((bonus1 == 0 && prev_query_start1 <= query_start) || prev_query_start1 < query_start);
+            assert((bonus2 == 0 && prev_query_start2 <= query_end - index.k()) || prev_query_start2 < query_end - index.k());
 
             int min_diff = std::numeric_limits<int>::max();
             for (const auto hash = index.get_hash(position); index.get_hash(position) == hash; ++position) {
