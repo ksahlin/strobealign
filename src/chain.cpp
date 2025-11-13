@@ -81,7 +81,7 @@ void add_hits_to_anchors(
         }
     }
     std::sort(strobes.begin(), strobes.end());
-
+/*
     for (auto strobe : strobes) {
         std::cerr << " - Strobe ";
         if (hits[strobe.hit_index].is_partial) {
@@ -97,7 +97,7 @@ void add_hits_to_anchors(
         std::cerr << " at query_start=" << strobe.query_start << " from hit " << strobe.hit_index;
         std::cerr << '\n';
     }
-
+*/
 
     // Map hit indices back to strobe indices
     std::vector<size_t> hits_to_strobes1;
@@ -131,7 +131,7 @@ void add_hits_to_anchors(
     for (size_t i = 1; i < strobes.size(); i++) {
         Strobe& strobe = strobes[i];
         if (hits[strobe.hit_index].is_filtered) {
-            filtered_length += strobe.query_start + index.k() - std::max(strobe.query_start, strobes[i-1].query_start);
+            filtered_length += strobe.query_start + index.k() - std::max(strobe.query_start, strobes[i-1].query_start + index.k());
         } else {
             prev_query_starts[i] = strobes[last_unfiltered].query_start;
             bonuses[i] = filtered_length;
