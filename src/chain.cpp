@@ -128,8 +128,19 @@ void add_hits_to_anchors(
     bonuses.assign(strobes.size(), 0);
     uint filtered_length = 0;
     size_t last_unfiltered = 0;
+    uint prev_unfiltered_strobe_start_pos = -1;
+
     for (size_t i = 1; i < strobes.size(); i++) {
         Strobe& strobe = strobes[i];
+        if (strobe.query_start == prev_unfiltered_strobe_start_pos) {
+            // multiple strobes at the same position,
+            // treat as duplicates; add same bonus to all of them
+            bonuses[i] = bonuses[i-1];
+            prev_query_starts[i] = prev_query_starts[i-1];
+            last_unfiltered = i;
+            assert(not hits[strobe.hit_index].is_filtered);
+            continue;
+        }
         if (hits[strobe.hit_index].is_filtered) {
             filtered_length += strobe.query_start + index.k() - std::max(strobe.query_start, strobes[i-1].query_start + index.k());
         } else {
@@ -137,6 +148,7 @@ void add_hits_to_anchors(
             bonuses[i] = filtered_length;
             filtered_length = 0;
             last_unfiltered = i;
+            prev_unfiltered_strobe_start_pos = strobe.query_start;
         }
     }
 
@@ -152,11 +164,11 @@ void add_hits_to_anchors(
             uint prev_query_start = prev_query_starts[hits_to_strobes1[hit_index]];
             int bonus = bonuses[hits_to_strobes1[hit_index]];
             assert((bonus == 0 && prev_query_start <= query_start) || prev_query_start < query_start);
+            logger.trace() << "Adding p at query_start=" << query_start << " bonus=" << bonus << " prev_query_start=" << prev_query_start << '\n';
 
             for (const auto hash = index.get_main_hash(position); index.get_main_hash(position) == hash; ++position) {
                 auto [ref_start, ref_end] = index.strobe_extent_partial(position);
                 int ref_idx = index.reference_index(position);
-                logger.trace() << "Adding p at query_start=" << query_start << " bonus=" << bonus << " prev_query_start=" << prev_query_start << '\n';
 
                 anchors.push_back({uint(query_start), uint(ref_start), uint(ref_idx), prev_query_start, bonus});
             }
