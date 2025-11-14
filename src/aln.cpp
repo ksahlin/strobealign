@@ -1,11 +1,13 @@
 #include "aln.hpp"
 #include <algorithm>
+#include <cstdlib>
 #include <memory>
 #include <utility>
 #include <math.h>
 #include "mappingparameters.hpp"
 #include "nam.hpp"
 #include "revcomp.hpp"
+#include "sam.hpp"
 #include "timer.hpp"
 #include "chain.hpp"
 #include "paf.hpp"
@@ -95,6 +97,7 @@ inline void align_single(
     float dropoff_threshold,
     int max_tries,
     unsigned max_secondary,
+    unsigned max_supp_overlap,
     std::minstd_rand& random_engine,
     bool piecewise
 ) {
@@ -116,6 +119,7 @@ inline void align_single(
 
     Alignment best_alignment;
     best_alignment.is_unaligned = true;
+    Chain best_chain = chains[0];
 
     int considered = 0; 
     for (auto &chain : chains) {
@@ -158,6 +162,7 @@ inline void align_single(
                 best_score = alignment.score;
                 best_alignment = std::move(alignment);
                 best_index = tries;
+                best_chain = chain;
                 if (max_secondary == 0) {
                     best_edit_distance = best_alignment.global_ed;
                 }
@@ -188,8 +193,54 @@ inline void align_single(
 
     details.best_alignments = alignments_with_best_score;
     uint8_t mapq = (60.0 * (best_score - second_best_score) + best_score - 1) / best_score;
-    bool is_primary = true;
-    sam.add(best_alignment, record, read.rc, mapq, is_primary, details);
+    sam.add(best_alignment, record, read.rc, mapq, PRIMARY, details);
+
+    // Supplementary alignments
+    
+    std::vector<Alignment> supplementary;
+    for (auto &chain : chains) {
+        if (chain.id == best_chain.id) continue;
+
+        unsigned overlap = 0;
+        if (chain.query_start < best_chain.query_end && chain.query_end > best_chain.query_start) {
+            int overlap_start = std::max(chain.query_start, best_chain.query_start);
+            int overlap_end   = std::min(chain.query_end, best_chain.query_end);
+            overlap = overlap_end - overlap_start;
+        }
+
+        if (overlap <= max_supp_overlap) {
+            bool consistent_chain = reverse_chain_if_needed(chain, read, references, k);
+            auto alignment = extend_seed(aligner, chain, references, read, consistent_chain, piecewise);
+            if (!alignment.is_unaligned) {
+                supplementary.push_back(alignment);
+            }
+        }
+    }
+
+    std::sort(supplementary.begin(), supplementary.end(),
+        [](const Alignment& a, const Alignment& b) {
+            return a.score > b.score;
+        }
+    );
+
+    unsigned covered_start = best_chain.query_start;
+    unsigned covered_end = best_chain.query_end;
+
+    for (const auto& alignment : supplementary) {
+        unsigned overlap = 0;
+        if (alignment.query_start < covered_end && alignment.query_end > covered_start) {
+            int overlap_start = std::max(alignment.query_start, covered_start);
+            int overlap_end   = std::min(alignment.query_end, covered_end);
+            overlap = overlap_end - overlap_start;
+        }
+
+        if (overlap <= max_supp_overlap) {
+            // TODO: mapq
+            sam.add(alignment, record, read.rc, 0, SUPP, details);
+            covered_start = std::min(covered_start, alignment.query_start);
+            covered_end   = std::max(covered_end, alignment.query_end);
+        }
+    }
 
     if (max_secondary == 0) {
         return;
@@ -219,8 +270,7 @@ inline void align_single(
         ) {
             break;
         }
-        bool is_primary = false;
-        sam.add(alignment, record, read.rc, mapq, is_primary, details);
+        sam.add(alignment, record, read.rc, mapq, SECOND, details);
         n++;
     }
 }
@@ -296,6 +346,8 @@ inline Alignment extend_seed(
     alignment.is_unaligned = false;
     alignment.ref_id = chain.ref_id;
     alignment.gapped = gapped;
+    alignment.query_start = info.query_start;
+    alignment.query_end = info.query_end;
 
     return alignment;
 }
@@ -668,10 +720,10 @@ void output_aligned_pairs(
         Alignment alignment1 = best_aln_pair.alignment1;
         Alignment alignment2 = best_aln_pair.alignment2;
 
-        sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper_pair(alignment1, alignment2, mu, sigma), true, details);
+        sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper_pair(alignment1, alignment2, mu, sigma), PRIMARY, details);
     } else {
         auto max_out = std::min(high_scores.size(), max_secondary);
-        bool is_primary = true;
+        AlignmentType aln_type = PRIMARY;
         float s_max = best_aln_pair.score;
         for (size_t i = 0; i < max_out; ++i) {
             auto aln_pair = high_scores[i];
@@ -679,13 +731,13 @@ void output_aligned_pairs(
             Alignment alignment2 = aln_pair.alignment2;
             float s_score = aln_pair.score;
             if (i > 0) {
-                is_primary = false;
+                aln_type = SECOND;
                 mapq1 = 0;
                 mapq2 = 0;
             }
             if (s_max - s_score < secondary_dropoff) {
                 bool is_proper = is_proper_pair(alignment1, alignment2, mu, sigma);
-                sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary, details);
+                sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, aln_type, details);
             } else {
                 break;
             }
@@ -1175,8 +1227,7 @@ void align_or_map_paired(
 
             details[0].best_alignments = 1;
             details[1].best_alignments = 1;
-            bool is_primary = true;
-            sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, is_primary, details);
+            sam.add_pair(alignment1, alignment2, record1, record2, read1.rc, read2.rc, mapq1, mapq2, is_proper, PRIMARY, details);
         } else {
             std::sort(alignment_pairs.begin(), alignment_pairs.end(), by_score<ScoredAlignmentPair>);
             deduplicate_scored_pairs(alignment_pairs);
@@ -1265,7 +1316,7 @@ void align_or_map_single(
             align_single(
                 aligner, sam, chains, record, index_parameters.syncmer.k,
                 references, details, map_param.dropoff_threshold, map_param.max_tries,
-                map_param.max_secondary, random_engine, map_param.piecewise
+                map_param.max_secondary, map_param.max_supp_overlap, random_engine, map_param.piecewise
             );
             break;
     }

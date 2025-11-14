@@ -132,7 +132,7 @@ void Sam::add(
     const KSeq& record,
     const std::string& sequence_rc,
     uint8_t mapq,
-    bool is_primary,
+    AlignmentType alignment_type,
     const Details& details
 ) {
     assert(!alignment.is_unaligned);
@@ -141,9 +141,12 @@ void Sam::add(
     if (!alignment.is_unaligned && alignment.is_revcomp) {
         flags |= REVERSE;
     }
-    if (!is_primary) {
+    if (alignment_type == SECOND) {
         flags |= SECONDARY;
         mapq = 0;
+    }
+    if (alignment_type == SUPP) {
+        flags |= SUPPLEMENTARY;
     }
     add_record(record.name, record.comment, flags, references.names[alignment.ref_id], alignment.ref_start, mapq, alignment.cigar, "*", -1, 0, record.seq, sequence_rc, record.qual, alignment.edit_distance, alignment.score, details);
 }
@@ -187,7 +190,7 @@ void Sam::add_record(
     sam_string.append(std::to_string(template_len));
     sam_string.append("\t");
 
-    if (flags & SECONDARY) {
+    if (flags & (SECONDARY | SUPPLEMENTARY)) {
         append_seq("");
     } else if (flags & REVERSE) {
         append_seq(query_sequence_rc);
@@ -196,7 +199,7 @@ void Sam::add_record(
     }
 
     if (!(flags & UNMAP)) {
-        if (flags & SECONDARY) {
+        if (flags & (SECONDARY | SUPPLEMENTARY)) {
             append_qual("");
         } else if (flags & REVERSE) {
             auto qual_rev = qual;
@@ -239,12 +242,12 @@ void Sam::add_pair(
     uint8_t mapq1,
     uint8_t mapq2,
     bool is_proper,
-    bool is_primary,
+    AlignmentType alignment_type,
     const std::array<Details, 2>& details
 ) {
     int f1 = PAIRED | READ1;
     int f2 = PAIRED | READ2;
-    if (!is_primary) {
+    if (alignment_type == SECOND) {
         f1 |= SECONDARY;
         f2 |= SECONDARY;
     }

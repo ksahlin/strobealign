@@ -46,6 +46,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::Flag details(parser, "details", "Add debugging details to SAM records", {"details"});
     args::Flag fastq_comments(parser, "fastq_comments", "Append FASTQ comment to SAM record", {'C'});
     args::ValueFlag<int> N(parser, "INT", "Retain at most INT secondary alignments (is upper bounded by -M and depends on -S) [0]", {'N'});
+    args::ValueFlag<int> V(parser, "INT", "Allowed overlapp for supplementary alignments [50]", {'V'});
 
     args::Group seeding_group(parser, "Seeding:");
     auto seeding = SeedingArguments{parser};
@@ -138,6 +139,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (details) { opt.details = true; }
     if (fastq_comments) { opt.fastq_comments = true; }
     if (N) { opt.max_secondary = args::get(N); }
+    if (V) { opt.max_supp_overlap = args::get(V); }
 
     // Seeding
     if (seeding.r) { opt.r = args::get(seeding.r); opt.r_set = true; }

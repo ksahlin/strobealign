@@ -22,6 +22,8 @@ struct Alignment {
     // Whether a gapped alignment function was used to obtain this alignment
     // (even if true, the alignment can still be without gaps)
     bool gapped{false};
+    uint query_start;
+    uint query_end;
 };
 
 std::ostream& operator<<(std::ostream& os, const Alignment& alignment);
@@ -44,6 +46,12 @@ enum SamFlags {
 enum struct CigarOps {
     EQX = 0,  // use = and X CIGAR operations
     M = 1,    // use M CIGAR operations
+};
+
+enum AlignmentType {
+    PRIMARY,
+    SECOND,
+    SUPP
 };
 
 class Sam {
@@ -73,8 +81,8 @@ public:
         }
 
     /* Add an alignment */
-    void add(const Alignment& alignment, const klibpp::KSeq& record, const std::string& sequence_rc, uint8_t mapq, bool is_primary, const Details& details);
-    void add_pair(const Alignment& alignment1, const Alignment& alignment2, const klibpp::KSeq& record1, const klibpp::KSeq& record2, const std::string& read1_rc, const std::string& read2_rc, uint8_t mapq1, uint8_t mapq2, bool is_proper, bool is_primary, const std::array<Details, 2>& details);
+    void add(const Alignment& alignment, const klibpp::KSeq& record, const std::string& sequence_rc, uint8_t mapq, AlignmentType alignment_type, const Details& details);
+    void add_pair(const Alignment& alignment1, const Alignment& alignment2, const klibpp::KSeq& record1, const klibpp::KSeq& record2, const std::string& read1_rc, const std::string& read2_rc, uint8_t mapq1, uint8_t mapq2, bool is_proper, AlignmentType alignment_type, const std::array<Details, 2>& details);
     void add_unmapped(const klibpp::KSeq& record, uint16_t flags = UNMAP);
     void add_unmapped_pair(const klibpp::KSeq& r1, const klibpp::KSeq& r2);
     void add_unmapped_mate(const klibpp::KSeq& record, uint16_t flags, const std::string& mate_reference_name, uint32_t mate_pos);

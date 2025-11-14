@@ -23,6 +23,7 @@ struct ChainingParameters {
 struct MappingParameters {
     int r { 150 };
     int max_secondary { 0 };
+    int max_supp_overlap { 50 };
     float dropoff_threshold { 0.5 };
     int rescue_level { 2 };
     int max_tries { 20 };
