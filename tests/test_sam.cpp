@@ -67,12 +67,11 @@ TEST_CASE("Sam::add") {
     aln.cigar = Cigar("2S2=1X3=3S");
 
     std::string read_rc = reverse_complement(record.seq);
-    bool is_primary = true;
     Details details;
     SUBCASE("Cigar =/X") {
         std::string sam_string;
         Sam sam(sam_string, references);
-        sam.add(aln, record, read_rc, 55, is_primary, details);
+        sam.add(aln, record, read_rc, 55, PRIMARY, details);
         CHECK(sam_string ==
             "readname\t16\tcontig1\t3\t55\t2S2=1X3=3S\t*\t0\t0\tACGTT\tBB#>\tNM:i:3\tAS:i:9\n"
         );
@@ -80,7 +79,7 @@ TEST_CASE("Sam::add") {
     SUBCASE("Cigar M") {
         std::string sam_string;
         Sam sam(sam_string, references, CigarOps::M);
-        sam.add(aln, record, read_rc, 55, is_primary, details);
+        sam.add(aln, record, read_rc, 55, PRIMARY, details);
         CHECK(sam_string ==
             "readname\t16\tcontig1\t3\t55\t2S6M3S\t*\t0\t0\tACGTT\tBB#>\tNM:i:3\tAS:i:9\n"
         );
@@ -119,7 +118,6 @@ TEST_CASE("Pair with one unmapped SAM record") {
     int mapq1 = 55;
     int mapq2 = 57;
     bool is_proper = false;
-    bool is_primary = true;
     std::array<Details, 2> details;
 
     sam.add_pair(
@@ -132,7 +130,7 @@ TEST_CASE("Pair with one unmapped SAM record") {
         mapq1,
         mapq2,
         is_proper,
-        is_primary,
+        PRIMARY,
         details
     );
     // 89: PAIRED,MUNMAP,REVERSE,READ1
@@ -181,7 +179,6 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
     int mapq1 = 55;
     int mapq2 = 57;
     bool is_proper = false;
-    bool is_primary = true;
     std::array<Details, 2> details;
 
     Sam sam(sam_string, references);
@@ -196,7 +193,7 @@ TEST_CASE("TLEN zero when reads map to different contigs") {
         mapq1,
         mapq2,
         is_proper,
-        is_primary,
+        PRIMARY,
         details
     );
     // 65: PAIRED,READ1
