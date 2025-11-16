@@ -398,8 +398,15 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, mc
 
     if log::log_enabled!(Trace) {
         trace!("Found {} NAMs (rescue done: {})", nams.len(), nam_rescue);
+        let mut printed = 0;
         for nam in &nams {
-            trace!("- {}", nam);
+            if (nam.n_matches > 1 || printed < 10) {
+                trace!("- {}", nam);
+                printed += 1;
+            }
+        }
+        if printed < nams.len() {
+            trace!("+ {} single-anchor chains", nams.len() - printed);
         }
     }
 
