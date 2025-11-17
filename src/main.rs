@@ -48,8 +48,8 @@ struct Args {
     #[arg(long = "ithreads", hide = true)]
     indexing_threads: Option<usize>,
 
-    /// Number of reads processed by a worker thread at once
-    #[arg(long, default_value_t = 10000, hide = true)]
+    /// Number of nucleotides processed by a worker thread at once
+    #[arg(long, default_value_t = 1_000_000, hide = true)]
     chunk_size: usize,
 
     /// Write output to PATH instead of stdout
@@ -408,7 +408,15 @@ fn main() -> Result<(), CliError> {
     };
 
     let chunks_iter = std::iter::from_fn(move || {
-        let chunk = record_iter.by_ref().take(args.chunk_size).collect::<Vec<_>>();
+        let mut nucleotides = 0;
+        let mut chunk = vec![];
+        for record in record_iter.by_ref() {
+            nucleotides += record.as_ref().map_or(0, |r| r.0.len() + r.1.as_ref().map_or(0, |r2| r2.len()));
+            chunk.push(record);
+            if nucleotides > args.chunk_size {
+                break;
+            }
+        }
         if chunk.is_empty() { None } else { Some(chunk) }
     });
 
