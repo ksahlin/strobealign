@@ -2,7 +2,7 @@ use crate::fasta::RefSequence;
 use crate::strobes::{RandstrobeIterator, RandstrobeParameters, DEFAULT_AUX_LEN};
 use crate::syncmers::{SyncmerIterator, SyncmerParameters};
 use log::debug;
-use std::cmp::{max, min, Reverse};
+use std::cmp::{min, Reverse};
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::{Error, Write};
@@ -18,8 +18,8 @@ struct Profile {
     r_threshold: usize,
     k: usize,
     s_offset: isize,
-    l: isize,
-    u: isize,
+    w_min: usize,
+    w_max: usize,
 }
 
 static PROFILES: [Profile; 7] = [
@@ -28,56 +28,56 @@ static PROFILES: [Profile; 7] = [
         r_threshold: 70,
         k: 18,
         s_offset: -4,
-        l: -2,
-        u: 1,
+        w_min: 1,
+        w_max: 4,
     },
     Profile {
         canonical_read_length: 75,
         r_threshold: 90,
         k: 20,
         s_offset: -4,
-        l: -3,
-        u: 2,
+        w_min: 1,
+        w_max: 6,
     },
     Profile {
         canonical_read_length: 100,
         r_threshold: 110,
         k: 20,
         s_offset: -4,
-        l: -2,
-        u: 2,
+        w_min: 2,
+        w_max: 6,
     },
     Profile {
         canonical_read_length: 125,
         r_threshold: 135,
         k: 20,
         s_offset: -4,
-        l: -1,
-        u: 4,
+        w_min: 3,
+        w_max: 8,
     },
     Profile {
         canonical_read_length: 150,
         r_threshold: 175,
         k: 20,
         s_offset: -4,
-        l: 1,
-        u: 7,
+        w_min: 5,
+        w_max: 11,
     },
     Profile {
         canonical_read_length: 250,
         r_threshold: 375,
         k: 22,
         s_offset: -4,
-        l: 2,
-        u: 12,
+        w_min: 6,
+        w_max: 16,
     },
     Profile {
         canonical_read_length: 400,
         r_threshold: usize::MAX,
         k: 23,
         s_offset: -6,
-        l: 2,
-        u: 12,
+        w_min: 5,
+        w_max: 15,
     },
 ];
 
@@ -108,14 +108,12 @@ impl IndexParameters {
         canonical_read_length: usize,
         k: usize,
         s: usize,
-        l: isize,
-        u: isize,
+        w_min: usize,
+        w_max: usize,
         q: u64,
         max_dist: u8,
         aux_len: u8,
     ) -> Self {
-        let w_min = max(0, (k / (k - s + 1)) as isize + l) as usize;
-        let w_max = ((k / (k - s + 1)) as isize + u) as usize;
         let main_hash_mask = !0u64 << (9 + aux_len);
         IndexParameters {
             canonical_read_length,
@@ -135,8 +133,8 @@ impl IndexParameters {
         read_length: usize,
         mut k: Option<usize>,
         mut s: Option<usize>,
-        mut l: Option<isize>,
-        mut u: Option<isize>,
+        mut w_min: Option<usize>,
+        mut w_max: Option<usize>,
         c: Option<u32>,
         max_seed_len: Option<usize>,
         aux_len: u8,
@@ -151,11 +149,11 @@ impl IndexParameters {
                 if s.is_none() {
                     s = Some((k.unwrap() as isize + profile.s_offset) as usize);
                 }
-                if l.is_none() {
-                    l = Some(profile.l);
+                if w_min.is_none() {
+                    w_min = Some(profile.w_min);
                 }
-                if u.is_none() {
-                    u = Some(profile.u);
+                if w_max.is_none() {
+                    w_max = Some(profile.w_max);
                 }
                 canonical_read_length = profile.canonical_read_length;
                 break;
@@ -164,8 +162,8 @@ impl IndexParameters {
 
         let k = k.unwrap();
         let s = s.unwrap();
-        let l = l.unwrap();
-        let u = u.unwrap();
+        let w_min = w_min.unwrap();
+        let w_max = w_max.unwrap();
 
         let max_dist = match max_seed_len {
             Some(max_seed_len) => (max_seed_len - k) as u8,
@@ -173,7 +171,7 @@ impl IndexParameters {
         };
         let q = 2u64.pow(c.unwrap_or(default_c)) - 1;
 
-        IndexParameters::new(canonical_read_length, k, s, l, u, q, max_dist, aux_len)
+        IndexParameters::new(canonical_read_length, k, s, w_min, w_max, q, max_dist, aux_len)
     }
 
     pub fn default_from_read_length(read_length: usize) -> IndexParameters {
@@ -772,8 +770,6 @@ mod tests {
         let canonical_read_length = 250;
         let k = 22;
         let s = 18;
-        let l = 2;
-        let u = 12;
         let w_min = 6;
         let w_max = 16;
         let max_dist = 180;
@@ -786,8 +782,8 @@ mod tests {
             canonical_read_length,
             k,
             s,
-            l,
-            u,
+            w_min,
+            w_max,
             q,
             max_dist,
             aux_len,

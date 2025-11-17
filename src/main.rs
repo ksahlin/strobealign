@@ -136,7 +136,7 @@ struct Args {
     #[arg(short, help_heading = "Seeding")]
     max_seed_length: Option<usize>,
 
-    /// Strobe length (must be less than 32). Default: chosen based on read length
+    /// Syncmer (strobe) length (must be less than 32). Default: chosen based on read length
     #[arg(short, help_heading = "Seeding")]
     k: Option<usize>,
 
@@ -144,15 +144,15 @@ struct Args {
     #[arg(short, help_heading = "Seeding")]
     s: Option<usize>,
 
-    /// Lower syncmer offset from k/(k-s+1). Start sample second syncmer k/(k-s+1) + l syncmers downstream [0]
+    /// Start of sampling window for second syncmer (i.e., second syncmer must be at least l syncmers downstream). Default: 5
     #[arg(short, help_heading = "Seeding")]
-    l: Option<isize>,
+    l: Option<usize>,
 
-    /// Upper syncmer offset from k/(k-s+1). End sample second syncmer k/(k-s+1) + u syncmers downstream [7]
+    /// End of sampling window for second syncmer (i.e., second syncmer must be at most u syncmers downstream). Default: 11
     #[arg(short, help_heading = "Seeding")]
-    u: Option<isize>,
+    u: Option<usize>,
 
-    /// Bitcount length between 2 and 63. [8]
+    /// Bitcount length between 2 and 63. Default: 8
     #[arg(short, help_heading = "Seeding")]
     c: Option<u32>,
 
