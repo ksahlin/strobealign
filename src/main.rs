@@ -545,14 +545,14 @@ fn main() -> Result<(), CliError> {
         output_abundances(&abundances, &references, &mut out)?;
     }
 
-    debug!("Number of reads:               {:12}", details.nam.n_reads);
-    debug!("Number of randstrobes:         {:12}  Per read: {:7.1}", details.nam.n_randstrobes, details.nam.n_randstrobes as f64 / details.nam.n_reads as f64);
-    debug!("Number of partial hits:        {:12}", details.nam.n_partial_hits);
-    debug!("Number of non-rescue hits:     {:12}  Per read: {:7.1}", details.nam.n_hits, details.nam.n_hits as f64 / details.nam.n_reads as f64);
-    debug!("Number of non-rescue NAMs:     {:12}  Per read: {:7.1}", details.nam.n_nams, details.nam.n_nams as f64 / details.nam.n_reads as f64);
-    debug!("Number of NAM rescue attempts: {:12}", details.nam.nam_rescue);
-    debug!("Number of rescue hits:         {:12}  Per rescue attempt: {:7.1}", details.nam.n_rescue_hits, details.nam.n_rescue_hits as f64 / details.nam.nam_rescue as f64);
-    debug!("Number of rescue NAMs:         {:12}  Per rescue attempt: {:7.1}", details.nam.n_rescue_nams, details.nam.n_rescue_nams as f64 / details.nam.nam_rescue as f64);
+    debug!("Number of reads:                 {:12}", details.nam.n_reads);
+    debug!("Number of randstrobes:           {:12}  Per read: {:7.1}", details.nam.n_randstrobes, details.nam.n_randstrobes as f64 / details.nam.n_reads as f64);
+    debug!("Number of partial hits:          {:12}", details.nam.n_partial_hits);
+    debug!("Number of non-rescue hits:       {:12}  Per read: {:7.1}", details.nam.n_hits, details.nam.n_hits as f64 / details.nam.n_reads as f64);
+    debug!("Number of non-rescue chains:     {:12}  Per read: {:7.1}", details.nam.n_nams, details.nam.n_nams as f64 / details.nam.n_reads as f64);
+    debug!("Number of chain rescue attempts: {:12}", details.nam.nam_rescue);
+    debug!("Number of rescue hits:           {:12}  Per rescue attempt: {:7.1}", details.nam.n_rescue_hits, details.nam.n_rescue_hits as f64 / details.nam.nam_rescue as f64);
+    debug!("Number of rescue chains:         {:12}  Per rescue attempt: {:7.1}", details.nam.n_rescue_nams, details.nam.n_rescue_nams as f64 / details.nam.nam_rescue as f64);
 
     debug!("Total mapping sites tried: {}", details.tried_alignment);
     debug!("Inconsistent NAM ends: {}", details.inconsistent_nams);
