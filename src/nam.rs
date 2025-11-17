@@ -9,7 +9,7 @@ use log::trace;
 use crate::chainer::Chainer;
 use crate::details::NamDetails;
 use crate::fasta::RefSequence;
-use crate::hit::{find_hits, Hit};
+use crate::hit::Hit;
 use crate::index::StrobemerIndex;
 use crate::mapper;
 use crate::mapper::QueryRandstrobe;
