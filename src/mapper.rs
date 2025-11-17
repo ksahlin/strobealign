@@ -6,10 +6,11 @@ use std::time::Instant;
 use fastrand::Rng;
 use memchr::memmem;
 use crate::aligner::{hamming_align, hamming_distance, AlignmentInfo};
+use crate::chainer::Chainer;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::fasta::RefSequence;
 use crate::index::{IndexParameters, StrobemerIndex};
-use crate::nam::{reverse_nam_if_needed, Nam};
+use crate::nam::{get_nams_by_chaining, reverse_nam_if_needed, Nam};
 use crate::revcomp::reverse_complement;
 use crate::strobes::RandstrobeIterator;
 use crate::syncmers::SyncmerIterator;
@@ -21,7 +22,7 @@ use crate::fastq::SequenceRecord;
 use crate::insertsize::InsertSizeDistribution;
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
-use crate::nam;
+
 
 #[derive(Debug)]
 pub struct MappingParameters {
@@ -304,10 +305,11 @@ pub fn align_single_end_read(
     references: &[RefSequence],
     mapping_parameters: &MappingParameters,
     sam_output: &SamOutput,
+    chainer: &Chainer,
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let (nam_details, mut nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, mapping_parameters.mcs_strategy, rng);
+    let (nam_details, mut nams) = get_nams_by_chaining(&record.sequence, index, chainer, mapping_parameters.rescue_level, mapping_parameters.mcs_strategy, rng);
     let mut details: Details = nam_details.into();
 
     let timer = Instant::now();
@@ -481,6 +483,7 @@ pub fn align_paired_end_read(
     sam_output: &SamOutput,
     index_parameters: &IndexParameters,
     insert_size_distribution: &mut InsertSizeDistribution,
+    chainer: &Chainer,
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
@@ -489,7 +492,7 @@ pub fn align_paired_end_read(
 
     for is_r1 in [0, 1] {
         let record = if is_r1 == 0 { r1 } else { r2 };
-        let (nam_details, nams) = nam::get_nams(&record.sequence, index, mapping_parameters.rescue_level, mapping_parameters.mcs_strategy, rng);
+        let (nam_details, nams) = get_nams_by_chaining(&record.sequence, index, chainer, mapping_parameters.rescue_level, mapping_parameters.mcs_strategy, rng);
         details[is_r1].nam = nam_details;
         nams_pair[is_r1] = nams;
     }

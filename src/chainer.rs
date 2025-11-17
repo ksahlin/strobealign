@@ -16,13 +16,13 @@ struct Anchor {
 }
 
 #[derive(Debug)]
-struct ChainingParameters {
-    max_lookback: usize,
-    diag_diff_penalty: f32,
-    gap_length_penalty: f32,
-    valid_score_threshold: f32,
-    max_ref_gap: usize,
-    matches_weight: f32,
+pub struct ChainingParameters {
+    pub max_lookback: usize,
+    pub diag_diff_penalty: f32,
+    pub gap_length_penalty: f32,
+    pub valid_score_threshold: f32,
+    pub max_ref_gap: usize,
+    pub matches_weight: f32,
 }
 
 #[derive(Debug)]
@@ -75,13 +75,18 @@ impl Chainer {
                     break;
                 }
 
+                if ai.query_start < aj.query_start {
+                    // Not collinear
+                    continue;
+                }
                 let dq = ai.query_start - aj.query_start;
                 let dr = ai.ref_start - aj.ref_start;
 
                 if dr >= self.parameters.max_ref_gap {
                     break;
                 }
-                if dq <= 0 || dr <= 0 {
+                if /*dq <= 0 ||*/ dr <= 0 {
+                    // Not collinear
                     continue;
                 }
 
@@ -110,7 +115,8 @@ impl Chainer {
         &self,
         query_randstrobes: &[Vec<QueryRandstrobe>; 2],
         index: &StrobemerIndex,
-        map_param: &MappingParameters,
+        rescue_level: usize,
+        mcs_strategy: McsStrategy,
     ) -> (NamDetails, Vec<Nam>) {
         let hits_timer = Instant::now();
 
@@ -123,7 +129,7 @@ impl Chainer {
             let sorting_needed1;
 
             (total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) =
-                find_hits(&query_randstrobes[is_revcomp], index, index.filter_cutoff, map_param.mcs_strategy);
+                find_hits(&query_randstrobes[is_revcomp], index, index.filter_cutoff, mcs_strategy);
             total_hits += total_hits1;
             partial_hits += partial_hits1;
         }
@@ -143,11 +149,11 @@ impl Chainer {
             let mut anchors = vec![];
 
             // Rescue if requested and needed
-            if map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7) {
+            if rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7) {
                 let rescue_timer = Instant::now();
                 rescue_done = true;
                 let (n_rescue_hits1, n_partial_hits1) = find_anchors_rescue(
-                    &query_randstrobes[is_revcomp], index, index.rescue_cutoff, map_param.mcs_strategy, &mut anchors
+                    &query_randstrobes[is_revcomp], index, index.rescue_cutoff, mcs_strategy, &mut anchors
                 );
                 n_rescue_hits += n_rescue_hits1;
                 n_partial_hits += n_partial_hits1;
@@ -172,7 +178,7 @@ impl Chainer {
         }
         let details = NamDetails {
             n_reads: 1,
-            n_randstrobes: 0,  // TODO
+            n_randstrobes: query_randstrobes[0].len() + query_randstrobes[1].len(),
             n_nams: chains.len(),
             n_rescue_nams,
             nam_rescue: rescue_done as usize,
@@ -365,7 +371,7 @@ fn extract_chains_from_dp(
         let mut c = 1;
         let mut overlaps = false;
 
-        while predecessors[j] >= 0 {
+        while predecessors[j] != usize::MAX {
             j = predecessors[j];
             if used[j] {
                 overlaps = true;

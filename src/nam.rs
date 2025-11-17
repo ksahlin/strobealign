@@ -6,6 +6,7 @@ use std::time::Instant;
 use fastrand::Rng;
 use log::Level::Trace;
 use log::trace;
+use crate::chainer::Chainer;
 use crate::details::NamDetails;
 use crate::fasta::RefSequence;
 use crate::hit::{find_hits, Hit};
@@ -333,74 +334,32 @@ fn hits_to_matches(hits: &[Hit], index: &StrobemerIndex) -> DefaultHashMap<usize
 /// Obtain NAMs for a sequence record, doing rescue if needed.
 ///
 /// NAMs are returned sorted by decreasing score
-pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, mcs_strategy: McsStrategy, rng: &mut Rng) -> (NamDetails, Vec<Nam>) {
+pub fn get_nams_by_chaining(
+    sequence: &[u8],
+    index: &StrobemerIndex,
+    chainer: &Chainer,
+    rescue_level: usize,
+    mcs_strategy: McsStrategy,
+    rng: &mut Rng,
+) -> (NamDetails, Vec<Nam>) {
     let timer = Instant::now();
     let query_randstrobes = mapper::randstrobes_query(sequence, &index.parameters);
     let n_randstrobes = query_randstrobes[0].len() + query_randstrobes[1].len();
     let time_randstrobes = timer.elapsed().as_secs_f64();
 
-    let timer = Instant::now();
-
-    let mut total_hits = 0;
-    let mut partial_hits = 0;
-    let mut sorting_needed = false;
-
-    let mut hits = [vec![], vec![]];
-
-    for is_revcomp in 0..2 {
-        let total_hits1;
-        let partial_hits1;
-        let sorting_needed1;
-
-        (total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) = 
-            find_hits(&query_randstrobes[is_revcomp], index, index.filter_cutoff, mcs_strategy);
-        sorting_needed = sorting_needed || sorting_needed1;
-        total_hits += total_hits1;
-        partial_hits += partial_hits1;
-    }
-    let nonrepetitive_hits = hits[0].len() + hits[1].len();
-    let nonrepetitive_fraction = if total_hits > 0 { (nonrepetitive_hits as f32) / (total_hits as f32) } else { 1.0 };
-    let time_find_hits = timer.elapsed().as_secs_f64();
-
-    let mut nams;
-    let mut n_rescue_hits = 0;
-    let mut n_rescue_nams = 0;
-    let mut nam_rescue = false;
-    let time_rescue;
-    let mut time_chaining = 0.0;
-    if rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7) {
-        let timer = Instant::now();
-        nam_rescue = true;
-        nams = vec![];
-        for is_revcomp in [false, true] {
-            let (n_rescue_hits_oriented, mut matches_map) = find_matches_rescue(&query_randstrobes[is_revcomp as usize], index, index.rescue_cutoff, mcs_strategy);
-            // TODO is sort: true correct?
-            merge_matches_into_nams(&mut matches_map, index.k(), true, is_revcomp, &mut nams);
-            n_rescue_hits += n_rescue_hits_oriented;
-            n_rescue_nams += nams.len();
-        }
-        time_rescue = timer.elapsed().as_secs_f64();
-    } else {
-        nams = vec![];
-        for is_revcomp in [false, true] {
-            let mut matches_map = hits_to_matches(&hits[is_revcomp as usize], index);
-            let timer = Instant::now();
-            merge_matches_into_nams(&mut matches_map, index.k(), sorting_needed, is_revcomp, &mut nams);
-            time_chaining += timer.elapsed().as_secs_f64();
-        }
-        time_rescue = 0.0;
-    }
+    let (mut nam_details, mut nams) = chainer.get_chains(&query_randstrobes, index, rescue_level, mcs_strategy);
 
     let timer = Instant::now();
     nams.sort_by_key(|k| -(k.score as i32));
     shuffle_top_nams(&mut nams, rng);
-    let time_sort_nams = timer.elapsed().as_secs_f64();
+    nam_details.time_sort_nams = timer.elapsed().as_secs_f64();
+    nam_details.time_randstrobes = time_randstrobes;
 
     if log::log_enabled!(Trace) {
-        trace!("Found {} NAMs (rescue done: {})", nams.len(), nam_rescue);
+        trace!("Found {} NAMs (rescue done: {})", nams.len(), nam_details.nam_rescue);
         let mut printed = 0;
         for nam in &nams {
-            if (nam.n_matches > 1 || printed < 10) {
+            if nam.n_matches > 1 || printed < 10 {
                 trace!("- {}", nam);
                 printed += 1;
             }
@@ -409,22 +368,6 @@ pub fn get_nams(sequence: &[u8], index: &StrobemerIndex, rescue_level: usize, mc
             trace!("+ {} single-anchor chains", nams.len() - printed);
         }
     }
-
-    let nam_details = NamDetails {
-        n_reads: 1,
-        n_randstrobes,
-        n_nams: nams.len(),
-        n_rescue_nams,
-        nam_rescue: nam_rescue as usize,
-        n_hits: nonrepetitive_hits,
-        n_partial_hits: partial_hits,
-        n_rescue_hits,
-        time_randstrobes,
-        time_find_hits,
-        time_chaining,
-        time_rescue,
-        time_sort_nams,
-    };
 
     (nam_details, nams)
 }

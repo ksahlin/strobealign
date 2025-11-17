@@ -15,6 +15,7 @@ use clap::Parser;
 use fastrand::Rng;
 use thiserror::Error;
 use rstrobes::aligner::{Aligner, Scores};
+use rstrobes::chainer::{Chainer, ChainingParameters};
 use rstrobes::details::Details;
 use rstrobes::fastq::{interleaved_record_iterator, record_iterator, PeekableSequenceReader, SequenceRecord};
 use rstrobes::fasta;
@@ -181,6 +182,32 @@ struct Args {
     #[arg(short = 'L', default_value_t = Scores::default().end_bonus, value_name = "N", help_heading = "Alignment")]
     end_bonus: u32,
 
+    //args::Flag nams(parser, "nams", "Use NAMs instead of collinear chaining for alignments", {"nams"});
+
+    /// Collinear chaining look back heuristic
+    #[arg(short = 'H', default_value_t = 50, value_name = "N", help_heading = "Collinear chaining")]
+    max_lookback: usize,
+
+    /// Collinear chaining diagonal gap cost
+    #[arg(long = "gd", default_value_t = 0.1, help_heading = "Collinear chaining")]
+    diag_diff_penalty: f32,
+
+    /// Collinear chaining gap length cost
+    #[arg(long = "gl", default_value_t = 0.05, help_heading = "Collinear chaining")]
+    gap_length_penalty: f32,
+
+    /// Collinear chaining best chain score threshold
+    #[arg(long = "vp", default_value_t = 0.7, help_heading = "Collinear chaining")]
+    valid_score_threshold: f32,
+
+    /// Collinear chaining skip distance, how far on the reference do we allow anchors to chain
+    #[arg(long = "sg", default_value_t = 10000, help_heading = "Collinear chaining")]
+    max_ref_gap: usize,
+
+    /// Weight given to the number of anchors for the final score of chains
+    #[arg(long = "mw", default_value_t = 0.01, help_heading = "Collinear chaining")]
+    matches_weight: f32,
+
     /// Multi-context seed strategy for finding hits
     #[arg(long = "mcs", value_enum, default_value_t = McsStrategy::default(), help_heading = "Search parameters")]
     mcs_strategy: McsStrategy,
@@ -320,6 +347,14 @@ fn main() -> Result<(), CliError> {
         .. MappingParameters::default()
     };
 
+    let chaining_parameters = ChainingParameters {
+        max_lookback: args.max_lookback,
+        diag_diff_penalty: args.diag_diff_penalty,
+        gap_length_penalty: args.gap_length_penalty,
+        valid_score_threshold: args.valid_score_threshold,
+        max_ref_gap: args.max_ref_gap,
+        matches_weight: args.matches_weight,
+    };
     let scores = Scores {
         match_: args.match_score,
         mismatch: args.mismatch_score,
@@ -328,8 +363,10 @@ fn main() -> Result<(), CliError> {
         end_bonus: args.end_bonus,
     };
     debug!("{:?}", &mapping_parameters);
+    debug!("{:?}", &chaining_parameters);
     debug!("{:?}", &scores);
 
+    let chainer = Chainer::new(index.k(), chaining_parameters);
     let aligner = Aligner::new(scores);
 
     let cmd_line = env::args().skip(1).collect::<Vec<_>>().join(" ");
@@ -375,6 +412,7 @@ fn main() -> Result<(), CliError> {
         references: &references,
         mapping_parameters: &mapping_parameters,
         index_parameters: &parameters,
+        chainer: &chainer,
         sam_output: &sam_output,
         aligner,
         include_unmapped: !args.only_mapped,
@@ -543,6 +581,7 @@ struct Mapper<'a> {
     index_parameters: &'a IndexParameters,
     sam_output: &'a SamOutput,
     aligner: Aligner,
+    chainer: &'a Chainer,
     include_unmapped: bool,
     mode: Mode,
     abundances: Vec<f64>,
@@ -565,7 +604,7 @@ impl Mapper<'_> {
                     let (sam_records, details) =
                         if let Some(r2) = r2 {
                             let (mut records, details) = align_paired_end_read(
-                                &r1, &r2, self.index, self.references, self.mapping_parameters, self.sam_output, self.index_parameters, &mut isizedist, &self.aligner, &mut rng
+                                &r1, &r2, self.index, self.references, self.mapping_parameters, self.sam_output, self.index_parameters, &mut isizedist, &self.chainer, &self.aligner, &mut rng
                             );
                             if !self.include_unmapped && !records[0].is_mapped() && !records[1].is_mapped() {
                                 records = vec![];
@@ -574,7 +613,7 @@ impl Mapper<'_> {
                             (records, details)
                         } else {
                             let (mut records, details) =
-                                align_single_end_read(&r1, self.index, self.references, self.mapping_parameters, self.sam_output, &self.aligner, &mut rng);
+                                align_single_end_read(&r1, self.index, self.references, self.mapping_parameters, self.sam_output, &self.chainer, &self.aligner, &mut rng);
                             if !self.include_unmapped && !records[0].is_mapped() {
                                 records = vec![];
                             }
@@ -591,10 +630,10 @@ impl Mapper<'_> {
                     let (paf_records, details) =
                         if let Some(r2) = r2 {
                             map_paired_end_read(
-                                &r1, &r2, self.index, self.references, self.mapping_parameters.rescue_level, &mut isizedist, self.mapping_parameters.mcs_strategy, &mut rng
+                                &r1, &r2, self.index, self.references, self.mapping_parameters.rescue_level, &mut isizedist, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng
                             )
                         } else {
-                            map_single_end_read(&r1, self.index, self.references, self.mapping_parameters.rescue_level, self.mapping_parameters.mcs_strategy, &mut rng)
+                            map_single_end_read(&r1, self.index, self.references, self.mapping_parameters.rescue_level, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng)
                         };
                     for paf_record in paf_records {
                         writeln!(out, "{}", paf_record)?;
@@ -603,9 +642,9 @@ impl Mapper<'_> {
                 }
                 Mode::Abundances => {
                     if let Some(r2) = r2 {
-                        abundances_paired_end_read(&r1, &r2, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, &mut isizedist, self.mapping_parameters.mcs_strategy, &mut rng);
+                        abundances_paired_end_read(&r1, &r2, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, &mut isizedist, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng);
                     } else {
-                        abundances_single_end_read(&r1, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, self.mapping_parameters.mcs_strategy, &mut rng);
+                        abundances_single_end_read(&r1, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng);
                     }
                 }
             }

@@ -1,13 +1,15 @@
 use crate::mcsstrategy::McsStrategy;
 use fastrand::Rng;
+use crate::chainer::Chainer;
 use crate::details::Details;
 use crate::fasta::RefSequence;
 use crate::fastq::SequenceRecord;
 use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
 use crate::mapper::{get_best_scoring_nam_pairs, NamPair};
-use crate::nam::{get_nams, Nam};
+use crate::nam::{get_nams_by_chaining, Nam};
 use crate::paf::PafRecord;
+
 
 /// Map a single-end read to the reference and return PAF records
 ///
@@ -18,9 +20,10 @@ pub fn map_single_end_read(
     references: &[RefSequence],
     rescue_level: usize,
     mcs_strategy: McsStrategy,
+    chainer: &Chainer,
     rng: &mut Rng,
 ) -> (Vec<PafRecord>, Details) {
-    let (nam_details, nams) = get_nams(&record.sequence, index, rescue_level, mcs_strategy, rng);
+    let (nam_details, nams) = get_nams_by_chaining(&record.sequence, index, chainer, rescue_level, mcs_strategy, rng);
 
     if nams.is_empty() {
         (vec![], nam_details.into())
@@ -38,9 +41,10 @@ pub fn abundances_single_end_read(
     abundances: &mut [f64],
     rescue_level: usize,
     mcs_strategy: McsStrategy,
+    chainer: &Chainer,
     rng: &mut Rng,
 ) {
-    let (_, nams) = get_nams(&record.sequence, index, rescue_level, mcs_strategy, rng);
+    let (_, nams) = get_nams_by_chaining(&record.sequence, index, chainer, rescue_level, mcs_strategy, rng);
     let n_best = nams.iter().take_while(|nam| nam.score == nams[0].score).count();
     let weight = record.sequence.len() as f64 / n_best as f64;
     for nam in &nams[0..n_best] {
@@ -77,10 +81,11 @@ pub fn map_paired_end_read(
     rescue_level: usize,
     insert_size_distribution: &mut InsertSizeDistribution,
     mcs_strategy: McsStrategy,
+    chainer: &Chainer,
     rng: &mut Rng,
 ) -> (Vec<PafRecord>, Details) {
-    let (mut nam_details1, nams1) = get_nams(&r1.sequence, index, rescue_level, mcs_strategy, rng);
-    let (nam_details2, nams2) = get_nams(&r2.sequence, index, rescue_level, mcs_strategy, rng);
+    let (mut nam_details1, nams1) = get_nams_by_chaining(&r1.sequence, index, chainer, rescue_level, mcs_strategy, rng);
+    let (nam_details2, nams2) = get_nams_by_chaining(&r2.sequence, index, chainer, rescue_level, mcs_strategy, rng);
 
     let nam_pairs = get_best_scoring_nam_pairs(&nams1, &nams2, insert_size_distribution.mu, insert_size_distribution.sigma);
     let mapped_nam = get_best_paired_map_location(
@@ -121,10 +126,11 @@ pub fn abundances_paired_end_read(
     rescue_level: usize,
     insert_size_distribution: &mut InsertSizeDistribution,
     mcs_strategy: McsStrategy,
+    chainer: &Chainer,
     rng: &mut Rng,
 ) {
-    let nams1 = get_nams(&r1.sequence, index, rescue_level, mcs_strategy, rng).1;
-    let nams2 = get_nams(&r2.sequence, index, rescue_level, mcs_strategy, rng).1;
+    let nams1 = get_nams_by_chaining(&r1.sequence, index, chainer, rescue_level, mcs_strategy, rng).1;
+    let nams2 = get_nams_by_chaining(&r2.sequence, index, chainer, rescue_level, mcs_strategy, rng).1;
 
     let nam_pairs = get_best_scoring_nam_pairs(&nams1, &nams2, insert_size_distribution.mu, insert_size_distribution.sigma);
     let mapped_nam = get_best_paired_map_location(
