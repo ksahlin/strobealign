@@ -44,6 +44,10 @@ struct Args {
     #[arg(short, default_value_t = 1, value_name = "N")]
     threads: usize,
 
+    /// Number of threads for indexing (default: same as -t)
+    #[arg(long = "ithreads", hide = true)]
+    indexing_threads: Option<usize>,
+
     /// Number of reads processed by a worker thread at once
     #[arg(long, default_value_t = 10000, hide = true)]
     chunk_size: usize,
@@ -318,8 +322,9 @@ fn main() -> Result<(), CliError> {
     let mut index = StrobemerIndex::new(&references, parameters.clone(), args.bits);
     debug!("Auxiliary hash length: {}", args.aux_len);
     info!("Bits used to index buckets: {}", index.bits);
-    info!("Indexing ...");
-    index.populate(args.filter_fraction, args.threads);
+    let indexing_threads = args.indexing_threads.unwrap_or(args.threads);
+    info!("Indexing the reference using {} thread{} ...", indexing_threads, if indexing_threads == 1 { "" } else { "s" });
+    index.populate(args.filter_fraction, indexing_threads);
     let index = index;
     info!("Total time indexing: {:.2} s", timer.elapsed().as_secs_f64());
     debug!("{}", &index.stats);
