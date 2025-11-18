@@ -2,8 +2,13 @@
 
 use std::ops;
 
+use crate::hit::HitsDetails;
+
 #[derive(Default, Debug, Clone)]
 pub struct NamDetails {
+    // TODO should be moved out of here and into Details
+    pub hits: HitsDetails,
+
     pub n_reads: usize,
 
     pub n_randstrobes: usize,
@@ -17,12 +22,8 @@ pub struct NamDetails {
     /// Number of times find_nams_rescue() was needed
     pub nam_rescue: usize,
 
-    /// Number of non-rescue hits
-    pub n_hits: usize,
-
-    /// Number of partial hits. These are counted twice:
-    /// They are also reported as part of n_hits or n_rescue_hits.
-    pub n_partial_hits: usize,
+    /// Number of partial hits found during rescue
+    pub n_rescue_partial_hits: usize,
 
     /// Number of rescue hits
     pub n_rescue_hits: usize,
@@ -36,13 +37,13 @@ pub struct NamDetails {
 
 impl ops::AddAssign<NamDetails> for NamDetails {
     fn add_assign(&mut self, rhs: NamDetails) {
+        self.hits += rhs.hits;
         self.n_reads += rhs.n_reads;
         self.n_randstrobes += rhs.n_randstrobes;
         self.n_nams += rhs.n_nams;
         self.n_rescue_nams += rhs.n_rescue_nams;
         self.nam_rescue += rhs.nam_rescue;
-        self.n_hits += rhs.n_hits;
-        self.n_partial_hits += rhs.n_partial_hits;
+        self.n_rescue_partial_hits += rhs.n_rescue_partial_hits;
         self.n_rescue_hits += rhs.n_rescue_hits;
         self.time_randstrobes += rhs.time_randstrobes;
         self.time_find_hits += rhs.time_find_hits;

@@ -1,6 +1,6 @@
 use std::time::Instant;
 use crate::details::NamDetails;
-use crate::hit::{Hit, find_hits};
+use crate::hit::{find_hits, Hit, HitsDetails};
 use crate::index::StrobemerIndex;
 use crate::mapper::QueryRandstrobe;
 use crate::mcsstrategy::McsStrategy;
@@ -121,17 +121,19 @@ impl Chainer {
         let hits_timer = Instant::now();
 
         let mut total_hits = 0;
-        let mut partial_hits = 0;
+        let mut n_rescue_hits = 0;
+        let mut n_rescue_partial_hits = 0;
         let mut hits = [vec![], vec![]];
+        let mut hits_details = HitsDetails::default();
         for is_revcomp in 0..2 {
             let total_hits1;
-            let partial_hits1;
             let sorting_needed1;
+            let hits_details1;
 
-            (total_hits1, partial_hits1, sorting_needed1, hits[is_revcomp]) =
+            (hits_details1, total_hits1, sorting_needed1, hits[is_revcomp]) =
                 find_hits(&query_randstrobes[is_revcomp], index, index.filter_cutoff, mcs_strategy);
             total_hits += total_hits1;
-            partial_hits += partial_hits1;
+            hits_details += hits_details1;
         }
         let nonrepetitive_hits = hits[0].len() + hits[1].len();
         let nonrepetitive_fraction = if total_hits > 0 { (nonrepetitive_hits as f32) / (total_hits as f32) } else { 1.0 };
@@ -139,8 +141,6 @@ impl Chainer {
 
         let mut n_rescue_hits = 0;
         let mut n_rescue_nams = 0;
-        let mut n_hits = nonrepetitive_hits;
-        let mut n_partial_hits = partial_hits;
         let mut rescue_done = false;
         let mut time_rescue = 0.0;
         let mut time_chaining = 0.0;
@@ -152,11 +152,11 @@ impl Chainer {
             if rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7) {
                 let rescue_timer = Instant::now();
                 rescue_done = true;
-                let (n_rescue_hits1, n_partial_hits1) = find_anchors_rescue(
+                let (n_rescue_hits1, n_rescue_partial_hits1) = find_anchors_rescue(
                     &query_randstrobes[is_revcomp], index, index.rescue_cutoff, mcs_strategy, &mut anchors
                 );
                 n_rescue_hits += n_rescue_hits1;
-                n_partial_hits += n_partial_hits1;
+                n_rescue_partial_hits += n_rescue_partial_hits1;
                 n_rescue_nams += chains.len();
                 time_rescue += rescue_timer.elapsed().as_secs_f64();
             } else {
@@ -177,14 +177,14 @@ impl Chainer {
             time_chaining += chaining_timer.elapsed().as_secs_f64();
         }
         let details = NamDetails {
+            hits: hits_details,
             n_reads: 1,
             n_randstrobes: query_randstrobes[0].len() + query_randstrobes[1].len(),
             n_nams: chains.len(),
             n_rescue_nams,
             nam_rescue: rescue_done as usize,
-            n_hits: nonrepetitive_hits,
-            n_partial_hits: partial_hits,
             n_rescue_hits,
+            n_rescue_partial_hits,
             time_randstrobes: 0f64,
             time_find_hits,
             time_chaining,

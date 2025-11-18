@@ -545,15 +545,31 @@ fn main() -> Result<(), CliError> {
         output_abundances(&abundances, &references, &mut out)?;
     }
 
-    debug!("Number of reads:                 {:12}", details.nam.n_reads);
-    debug!("Number of randstrobes:           {:12}  Per read: {:7.1}", details.nam.n_randstrobes, details.nam.n_randstrobes as f64 / details.nam.n_reads as f64);
-    debug!("Number of partial hits:          {:12}", details.nam.n_partial_hits);
-    debug!("Number of non-rescue hits:       {:12}  Per read: {:7.1}", details.nam.n_hits, details.nam.n_hits as f64 / details.nam.n_reads as f64);
-    debug!("Number of non-rescue chains:     {:12}  Per read: {:7.1}", details.nam.n_nams, details.nam.n_nams as f64 / details.nam.n_reads as f64);
-    debug!("Number of chain rescue attempts: {:12}", details.nam.nam_rescue);
-    debug!("Number of rescue hits:           {:12}  Per rescue attempt: {:7.1}", details.nam.n_rescue_hits, details.nam.n_rescue_hits as f64 / details.nam.nam_rescue as f64);
-    debug!("Number of rescue chains:         {:12}  Per rescue attempt: {:7.1}", details.nam.n_rescue_nams, details.nam.n_rescue_nams as f64 / details.nam.nam_rescue as f64);
-
+    debug!("");
+    debug!("# Statistics");
+    debug!("");
+    debug!("Reads:                                    {:12}", details.nam.n_reads);
+    debug!("");
+    debug!("## Randstrobe lookup (without rescue)");
+    debug!("");
+    debug!("Randstrobes                               {:12}     100.0 %   Per read: {:7.1}", details.nam.n_randstrobes, details.nam.n_randstrobes as f64 / details.nam.n_reads as f64);
+    debug!("  Full randstrobe found                   {:12} {:9.1} %", details.nam.hits.full_found, details.nam.hits.full_found as f64 / details.nam.n_randstrobes as f64);
+    debug!("  Full randstrobe found but filtered      {:12} {:9.1} %", details.nam.hits.full_filtered, details.nam.hits.full_filtered as f64 / details.nam.n_randstrobes as f64);
+    debug!("  Full randstrobe not found               {:12} {:9.1} %", details.nam.hits.full_not_found, details.nam.hits.full_not_found as f64 / details.nam.n_randstrobes as f64);
+    debug!("    Partial randstrobe found              {:12} {:9.1} %", details.nam.hits.partial_found, details.nam.hits.partial_found as f64 / details.nam.n_randstrobes as f64);
+    debug!("    Partial randstrobe found but filtered {:12} {:9.1} %", details.nam.hits.partial_filtered, details.nam.hits.partial_filtered as f64 / details.nam.n_randstrobes as f64);
+    debug!("    Partial randstrobe not found          {:12} {:9.1} %", details.nam.hits.partial_not_found, details.nam.hits.partial_not_found as f64 / details.nam.n_randstrobes as f64);
+    debug!("");
+    debug!("Found chains:                             {:12}               Per read: {:7.1}", details.nam.n_nams, details.nam.n_nams as f64 / details.nam.n_reads as f64);
+    debug!("");
+    debug!("## Rescue (-R)");
+    debug!("");
+    debug!("Rescue attempts: {:12}", details.nam.nam_rescue);
+    debug!("Rescue hits:     {:12}", details.nam.n_rescue_hits);
+    debug!("Rescued chains:  {:12}", details.nam.n_rescue_nams);
+    debug!("");
+    debug!("## Other");
+    debug!("");
     debug!("Total mapping sites tried: {}", details.tried_alignment);
     debug!("Inconsistent NAM ends: {}", details.inconsistent_nams);
     debug!("Mates rescued by alignment: {}", details.mate_rescue);
