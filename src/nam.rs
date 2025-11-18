@@ -347,6 +347,7 @@ pub fn get_nams_by_chaining(
     let n_randstrobes = query_randstrobes[0].len() + query_randstrobes[1].len();
     let time_randstrobes = timer.elapsed().as_secs_f64();
 
+    trace!("we have {} + {} randstrobes", query_randstrobes[0].len(), query_randstrobes[1].len());
     let (mut nam_details, mut nams) = chainer.get_chains(&query_randstrobes, index, rescue_level, mcs_strategy);
 
     let timer = Instant::now();

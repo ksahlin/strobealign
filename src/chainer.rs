@@ -1,4 +1,6 @@
 use std::time::Instant;
+use log::trace;
+
 use crate::details::NamDetails;
 use crate::hit::{find_hits, Hit, HitsDetails};
 use crate::index::StrobemerIndex;
@@ -131,6 +133,10 @@ impl Chainer {
 
             (hits_details1, sorting_needed1, hits[is_revcomp]) =
                 find_hits(&query_randstrobes[is_revcomp], index, index.filter_cutoff, mcs_strategy);
+            trace!("Found {} hits", hits_details1.total_hits());
+            for hit in &hits[is_revcomp] {
+                trace!("Hit: {:?}", hit);
+            }
             hits_details += hits_details1;
         }
         let total_hits = hits_details.total_hits();
@@ -163,10 +169,16 @@ impl Chainer {
                 add_hits_to_anchors(&hits[is_revcomp], index, &mut anchors);
                 time_find_hits += hits_timer.elapsed().as_secs_f64();
             }
+            trace!("Found {} anchors", anchors.len());
+            for anchor in anchors.iter().take(100) {
+                trace!("{:?}", anchor);
+            }
             let chaining_timer = Instant::now();
             // TODO this used to be pdqsort
             anchors.sort_by_key(|a| (a.ref_id, a.ref_start, a.query_start));
             anchors.dedup();
+            trace!("Chaining {} anchors", anchors.len());
+
             let (best_score, dp, predecessors) = self.collinear_chaining(&anchors);
 
             extract_chains_from_dp(
