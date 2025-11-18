@@ -573,9 +573,10 @@ fn main() -> Result<(), CliError> {
     info!("Total time mapping: {:.2} s", timer.elapsed().as_secs_f64());
     //info!("Total time reading read-file(s): {:.2} s", );
     info!("Total time creating strobemers: {:.2} s", details.nam.time_randstrobes);
-    info!("Total time finding NAMs (non-rescue mode): {:.2} s", details.nam.time_find_hits);
-    info!("Total time finding NAMs (rescue mode): {:.2} s", details.nam.time_rescue);
-    info!("Total time sorting NAMs (candidate sites): {:.2} s", details.nam.time_sort_nams);
+    info!("Total time finding hits (non-rescue mode): {:.2} s", details.nam.time_find_hits);
+    info!("Total time finding hits (rescue mode): {:.2} s", details.nam.time_rescue);
+    info!("Total time chaining (non-rescue mode): {:.2} s", details.nam.time_chaining);
+    info!("Total time sorting NAMs/chains by score: {:.2} s", details.nam.time_sort_nams);
     info!("Total time extending and pairing seeds: {:.2} s", details.time_extend);
 
     Ok(())
