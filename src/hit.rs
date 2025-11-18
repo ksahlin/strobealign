@@ -51,11 +51,17 @@ impl ops::AddAssign<HitsDetails> for HitsDetails {
     }
 }
 
+impl HitsDetails {
+    pub fn total_hits(&self) -> usize {
+        self.partial_filtered + self.partial_found + self.full_filtered + self.full_found
+    }
+}
+
 /// Find a query’s hits, ignoring randstrobes that occur too often in the
 /// reference (have a count above filter_cutoff).
 pub fn find_hits(
     query_randstrobes: &[QueryRandstrobe], index: &StrobemerIndex, filter_cutoff: usize, mcs_strategy: McsStrategy
-) -> (HitsDetails, usize, bool, Vec<Hit>) {
+) -> (HitsDetails, bool, Vec<Hit>) {
 
     let mut hits = vec![];
     let mut sorting_needed = mcs_strategy == McsStrategy::Always || mcs_strategy == McsStrategy::FirstStrobe;
@@ -76,9 +82,7 @@ pub fn find_hits(
                 hits_details.partial_not_found += 1;
             }
         }
-        let partial_hits = hits_details.partial_filtered + hits_details.partial_found;
-
-        return (hits_details, partial_hits, sorting_needed, hits);
+        return (hits_details, sorting_needed, hits);
     }
 
     for randstrobe in query_randstrobes {
@@ -129,7 +133,8 @@ pub fn find_hits(
         }
         sorting_needed = true;
     }
-    let total_hits = hits_details.partial_filtered + hits_details.partial_found + hits_details.full_filtered + hits_details.full_found;
 
-    (hits_details, total_hits, sorting_needed, hits)
+    debug_assert!(hits_details.full_found + hits_details.partial_found == hits.len());
+
+    (hits_details, sorting_needed, hits)
 }

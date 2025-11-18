@@ -126,15 +126,14 @@ impl Chainer {
         let mut hits = [vec![], vec![]];
         let mut hits_details = HitsDetails::default();
         for is_revcomp in 0..2 {
-            let total_hits1;
             let sorting_needed1;
             let hits_details1;
 
-            (hits_details1, total_hits1, sorting_needed1, hits[is_revcomp]) =
+            (hits_details1, sorting_needed1, hits[is_revcomp]) =
                 find_hits(&query_randstrobes[is_revcomp], index, index.filter_cutoff, mcs_strategy);
-            total_hits += total_hits1;
             hits_details += hits_details1;
         }
+        let total_hits = hits_details.total_hits();
         let nonrepetitive_hits = hits[0].len() + hits[1].len();
         let nonrepetitive_fraction = if total_hits > 0 { (nonrepetitive_hits as f32) / (total_hits as f32) } else { 1.0 };
         let mut time_find_hits = hits_timer.elapsed().as_secs_f64();
