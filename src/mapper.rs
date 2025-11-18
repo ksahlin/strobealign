@@ -521,8 +521,8 @@ pub fn align_paired_end_read(
                 insert_size_distribution.update(alignment1.ref_start.abs_diff(alignment2.ref_start));
             }
 
-            let mapq1 = proper_pair_mapq(&nams_pair[0]);
-            let mapq2 = proper_pair_mapq(&nams_pair[1]);
+            let mapq1 = mapping_quality(&nams_pair[0]);
+            let mapq2 = mapping_quality(&nams_pair[1]);
 
             details[0].best_alignments = 1;
             details[1].best_alignments = 1;
@@ -1009,7 +1009,8 @@ pub fn get_best_scoring_nam_pairs(
     nam_pairs
 }
 
-fn proper_pair_mapq(nams: &[Nam]) -> u8 {
+/// Return mapping quality for the top NAM
+pub fn mapping_quality(nams: &[Nam]) -> u8 {
     if nams.len() <= 1 {
         return 60;
     }
