@@ -37,7 +37,7 @@ pub fn find_hits(
             }
         }
 
-        return (total_hits, partial_hits, sorting_needed, hits);
+        return (partial_hits, partial_hits, sorting_needed, hits);
     }
 
     for randstrobe in query_randstrobes {
