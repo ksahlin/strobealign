@@ -6,7 +6,7 @@ use crate::fasta::RefSequence;
 use crate::fastq::SequenceRecord;
 use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
-use crate::mapper::{get_best_scoring_nam_pairs, NamPair};
+use crate::mapper::{get_best_scoring_nam_pairs, NamPair, mapping_quality};
 use crate::nam::{get_nams_by_chaining, Nam};
 use crate::paf::PafRecord;
 
@@ -28,7 +28,8 @@ pub fn map_single_end_read(
     if nams.is_empty() {
         (vec![], nam_details.into())
     } else {
-        (vec![paf_record_from_nam(&nams[0], &record.name, references, record.sequence.len())], nam_details.into())
+        let mapq = mapping_quality(&nams);
+        (vec![paf_record_from_nam(&nams[0], &record.name, references, record.sequence.len(), Some(mapq))], nam_details.into())
     }
 }
 
@@ -53,7 +54,7 @@ pub fn abundances_single_end_read(
 }
 
 /// Convert Nam into PAF record
-fn paf_record_from_nam(nam: &Nam, name: &str, references: &[RefSequence], query_length: usize) -> PafRecord {
+fn paf_record_from_nam(nam: &Nam, name: &str, references: &[RefSequence], query_length: usize, mapq: Option<u8>) -> PafRecord {
     PafRecord {
         query_name: name.into(),
         query_length: query_length as u64,
@@ -66,7 +67,7 @@ fn paf_record_from_nam(nam: &Nam, name: &str, references: &[RefSequence], query_
         target_end: nam.ref_end as u64,
         n_matches: nam.n_matches as u64,
         alignment_length: (nam.ref_end - nam.ref_start) as u64,
-        mapping_quality: None,
+        mapping_quality: mapq,
     }
 }
 
@@ -99,15 +100,15 @@ pub fn map_paired_end_read(
     match mapped_nam {
         MappedNams::Individual(nam1, nam2) => {
             if let Some(nam) = nam1 {
-                records.push(paf_record_from_nam(&nam, &r1.name, references, r1.sequence.len()))
+                records.push(paf_record_from_nam(&nam, &r1.name, references, r1.sequence.len(), None))
             }
             if let Some(nam) = nam2 {
-                records.push(paf_record_from_nam(&nam, &r2.name, references, r2.sequence.len()))
+                records.push(paf_record_from_nam(&nam, &r2.name, references, r2.sequence.len(), None))
             }
         }
         MappedNams::Pair(nam1, nam2) => {
-            records.push(paf_record_from_nam(&nam1, &r1.name, references, r1.sequence.len()));
-            records.push(paf_record_from_nam(&nam2, &r2.name, references, r2.sequence.len()));
+            records.push(paf_record_from_nam(&nam1, &r1.name, references, r1.sequence.len(), None));
+            records.push(paf_record_from_nam(&nam2, &r2.name, references, r2.sequence.len(), None));
         }
         MappedNams::Unmapped => {},
     }

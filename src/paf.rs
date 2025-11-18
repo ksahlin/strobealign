@@ -28,7 +28,7 @@ pub struct PafRecord {
     pub target_end: u64,
     pub n_matches: u64,
     pub alignment_length: u64,
-    pub mapping_quality: Option<u64>,
+    pub mapping_quality: Option<u8>,
 }
 
 impl Display for PafRecord {
