@@ -23,6 +23,12 @@ struct NamPair {
     Nam nam2;
 };
 
+std::ostream& operator<<(std::ostream& os, const NamPair& nam_pair) {
+    os << "NamPair(score=" << nam_pair.score << ", nam1=" << nam_pair.nam1 << ", nam2=" << nam_pair.nam2 << ")";
+
+    return os;
+}
+
 struct ScoredAlignmentPair {
     double score;
     Alignment alignment1;
