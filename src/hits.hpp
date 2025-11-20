@@ -43,10 +43,6 @@ struct HitsDetails {
         return total >= other_total * 2 && total > other_total + 5;
     }
 
-    uint total_found() const {
-        return full_filtered + full_found + partial_filtered + partial_found;
-    }
-
     HitsDetails& operator+=(const HitsDetails& other) {
         full_not_found += other.full_not_found;
         full_filtered += other.full_filtered;
