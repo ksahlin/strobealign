@@ -16,11 +16,9 @@ uint rescue_least_frequent(
     std::vector<Hit>& hits,
     size_t start,
     size_t end,
-    int distance,
-    int L
+    size_t to_rescue
 ) {
     uint rescued{0};
-    size_t num_to_rescue = distance / L;
 
     // Index and hit count
     std::vector<std::pair<size_t, uint>> hit_counts;
@@ -38,7 +36,7 @@ uint rescue_least_frequent(
     std::sort(hit_counts.begin(), hit_counts.end(), [](auto &a, auto &b) { return a.second < b.second; });
 
     // Take up to num_to_rescue lowest count
-    for (size_t i = 0; i < std::min(num_to_rescue, hit_counts.size()); ++i) {
+    for (size_t i = 0; i < std::min(to_rescue, hit_counts.size()); ++i) {
         auto hit_index = hit_counts[i].first;
         rescued += hits[hit_index].is_filtered;
         hits[hit_index].is_filtered = false;
@@ -142,13 +140,15 @@ uint rescue_all_least_frequent(
             continue;
         }
         if (hit.query_start > last_unfiltered_start + L) {
-            rescued += rescue_least_frequent(index, hits, first_filtered, i, hit.query_start - last_unfiltered_start, L);
+            uint to_rescue = (hit.query_start - last_unfiltered_start) / L;
+            rescued += rescue_least_frequent(index, hits, first_filtered, i, to_rescue);
         }
         last_unfiltered_start = hit.query_start;
         first_filtered = i + 1;
     }
     if (!hits.empty() && hits.back().query_start - last_unfiltered_start > L) { // End case we have not sampled the end
-        rescued += rescue_least_frequent(index, hits, first_filtered, hits.size(), hits.back().query_start - last_unfiltered_start, L);
+        uint to_rescue = (hits.back().query_start - last_unfiltered_start) / L;
+        rescued += rescue_least_frequent(index, hits, first_filtered, hits.size(), to_rescue);
     }
 
     return rescued;
