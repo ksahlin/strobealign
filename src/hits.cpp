@@ -16,7 +16,8 @@ uint rescue_least_frequent(
     std::vector<Hit>& hits,
     size_t start,
     size_t end,
-    size_t to_rescue
+    size_t to_rescue,
+    int threshold = -1
 ) {
     uint rescued{0};
 
@@ -29,7 +30,9 @@ uint rescue_least_frequent(
         } else {
             cnt = index.get_count_full(hits[i].position, hits[i].hash_revcomp);
         }
-        hit_counts.push_back({i, cnt});
+        if (threshold == -1 || cnt <= threshold) {
+            hit_counts.push_back({i, cnt});
+        }
     }
 
     // Sort by count ascending
@@ -128,7 +131,7 @@ uint rescue_all_least_frequent(
 ) {
     // Rescue threshold: If all hits over a region of this length (in nucleotides)
     // are initially filtered out, we go back and add the least frequent of them
-    const uint L = rescue_threshold; // threshold for rescue
+    const uint L = rescue_threshold;
     int last_unfiltered_start = 0;
     size_t first_filtered = 0;
     uint rescued = 0;
@@ -164,6 +167,18 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     int rescue_threshold
 ) {
     auto [hits, details, sorting_needed] = find_all_hits(query_randstrobes, index, mcs_strategy);
+
+
+
+
+    uint total_hits = details.total_hits();
+    int nonrepetitive_hits = details.total_found();
+    float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
+
+    if (nonrepetitive_fraction < 0.7) {
+        details.rescued += rescue_least_frequent(index, hits, 0, hits.size(), 5, 1000);
+    }
+
     details.rescued += rescue_all_least_frequent(index, hits, rescue_threshold);
 
     if (logger.level() <= LOG_TRACE) {

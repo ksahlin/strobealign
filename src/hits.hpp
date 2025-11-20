@@ -36,6 +36,14 @@ struct HitsDetails {
         return partial_filtered + partial_found + full_filtered + full_found;
     }
 
+    uint total_filtered() const {
+        return partial_filtered + full_filtered;
+    }
+
+    uint total_found() const {
+        return full_found + partial_found;
+    }
+
     // Used as a heuristic to compare the two orientations of a query
     bool is_better_than(HitsDetails& other) const {
         uint total = full_found + full_filtered;
