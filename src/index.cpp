@@ -233,6 +233,7 @@ void StrobemerIndex::populate(float f, unsigned n_threads) {
     stats.index_cutoff = index_cutoff;
     if (!strobemer_counts.empty()){
         filter_cutoff = index_cutoff < strobemer_counts.size() ?  strobemer_counts[index_cutoff] : strobemer_counts.back();
+        logger.trace() << "Filter cutoff before clamping to [30, 100]: " << filter_cutoff << '\n';
         filter_cutoff = std::max(30U, filter_cutoff); // cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
         filter_cutoff = std::min(100U, filter_cutoff); // limit upper cutoff for normal NAM finding - use rescue mode instead
     } else {
