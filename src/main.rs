@@ -291,12 +291,25 @@ fn main() -> Result<(), CliError> {
         fastq_reader1 = None;
     }
 
+    let parameters = IndexParameters::from_read_length(read_length, args.k, args.s, args.l, args.u, args.c, args.max_seed_length, args.aux_len);
+
+    info!("Canonical read length: {} bp", parameters.canonical_read_length);
+    debug!("  {:?}", parameters.syncmer);
+    debug!("  {:?}", parameters.randstrobe);
+    debug!("  Maximum seed length: {}", parameters.randstrobe.max_dist as usize + parameters.syncmer.k);
+    {
+        let d = parameters.syncmer.k - parameters.syncmer.s + 1;
+        debug!("  Syncmers are on average sampled every k - s + 1 = {} nucleotides", d);
+        debug!("  Sampling window for second syncmer (in syncmers): [{}, {}]", parameters.randstrobe.w_min, parameters.randstrobe.w_max);
+        debug!("  Sampling window for second syncmer (in nucleotides): [{}, {}]", parameters.randstrobe.w_min * d, parameters.randstrobe.w_max * d);
+    }
+
     // Read reference FASTA
     let timer = Instant::now();
     let mut reader = BufReader::new(xopen(&args.ref_path)?);
     let references = fasta::read_fasta(&mut reader)?;
     drop(reader);
-    info!("Time reading references: {:.2} s", timer.elapsed().as_secs_f64());
+    info!("Time reading reference: {:.2} s", timer.elapsed().as_secs_f64());
     let total_ref_size = references.iter().map(|r| r.sequence.len()).sum::<usize>();
     let max_contig_size = references.iter().map(|r| r.sequence.len()).max().expect("No reference found");
     info!("Reference size: {:.2} Mbp ({} contig{}; largest: {:.2} Mbp)",
@@ -310,17 +323,11 @@ fn main() -> Result<(), CliError> {
         exit(1);
     }
 
-    let parameters = IndexParameters::from_read_length(read_length, args.k, args.s, args.l, args.u, args.c, args.max_seed_length, args.aux_len);
-    info!("Canonical read length: {} bp", parameters.canonical_read_length);
-
     // Create the index
     let timer = Instant::now();
-    debug!("{:?}", parameters.syncmer);
-    debug!("{:?}", parameters.randstrobe);
-    info!("Multi-context seed strategy: {}", args.mcs_strategy);
-
     let mut index = StrobemerIndex::new(&references, parameters.clone(), args.bits);
     debug!("Auxiliary hash length: {}", args.aux_len);
+    info!("Multi-context seed strategy: {}", args.mcs_strategy);
     info!("Bits used to index buckets: {}", index.bits);
     let indexing_threads = args.indexing_threads.unwrap_or(args.threads);
     info!("Indexing the reference using {} thread{} ...", indexing_threads, if indexing_threads == 1 { "" } else { "s" });
