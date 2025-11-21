@@ -19,7 +19,7 @@ pub enum McsStrategy {
 
 impl Default for McsStrategy {
     fn default() -> Self {
-        Self::Rescue
+        Self::Always
     }
 }
 
