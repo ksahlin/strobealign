@@ -168,9 +168,6 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
 ) {
     auto [hits, details, sorting_needed] = find_all_hits(query_randstrobes, index, mcs_strategy);
 
-
-
-
     uint total_hits = details.total_hits();
     int nonrepetitive_hits = details.total_found();
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;

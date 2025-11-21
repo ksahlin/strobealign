@@ -388,8 +388,12 @@ inline std::vector<NamPair> get_best_scoring_nam_pairs(
     robin_hood::unordered_set<int> added_n1;
     robin_hood::unordered_set<int> added_n2;
     int best_joint_hits = 0;
-    for (auto &nam1 : nams1) {
-        for (auto &nam2 : nams2) {
+
+    constexpr size_t MAX_NAMS = 1000;
+    for (size_t i1 = 0; i1 < std::min(nams1.size(), MAX_NAMS); ++i1) {
+        const Nam& nam1 = nams1[i1];
+        for (size_t i2 = 0; i2 < std::min(nams2.size(), MAX_NAMS); ++i2) {
+            const Nam& nam2 = nams2[i2];
             int joint_hits = nam1.n_matches + nam2.n_matches;
             if (joint_hits < best_joint_hits / 2) {
                 break;
