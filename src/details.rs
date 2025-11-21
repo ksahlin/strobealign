@@ -13,7 +13,9 @@ pub struct NamDetails {
 
     pub n_randstrobes: usize,
 
-    // Number of NAMs found
+    pub n_anchors: usize,
+
+    /// Number of NAMs found
     pub n_nams: usize,
 
     /// Number of rescue NAMs found
@@ -40,6 +42,7 @@ impl ops::AddAssign<NamDetails> for NamDetails {
         self.hits += rhs.hits;
         self.n_reads += rhs.n_reads;
         self.n_randstrobes += rhs.n_randstrobes;
+        self.n_anchors += rhs.n_anchors;
         self.n_nams += rhs.n_nams;
         self.n_rescue_nams += rhs.n_rescue_nams;
         self.nam_rescue += rhs.nam_rescue;

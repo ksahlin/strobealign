@@ -144,6 +144,7 @@ impl Chainer {
         let nonrepetitive_fraction = if total_hits > 0 { (nonrepetitive_hits as f32) / (total_hits as f32) } else { 1.0 };
         let mut time_find_hits = hits_timer.elapsed().as_secs_f64();
 
+        let mut n_anchors = 0;
         let mut n_rescue_hits = 0;
         let mut n_rescue_nams = 0;
         let mut rescue_done = false;
@@ -178,7 +179,7 @@ impl Chainer {
             anchors.sort_by_key(|a| (a.ref_id, a.ref_start, a.query_start));
             anchors.dedup();
             trace!("Chaining {} anchors", anchors.len());
-
+            n_anchors += anchors.len();
             let (best_score, dp, predecessors) = self.collinear_chaining(&anchors);
 
             extract_chains_from_dp(
@@ -191,6 +192,7 @@ impl Chainer {
             hits: hits_details,
             n_reads: 1,
             n_randstrobes: query_randstrobes[0].len() + query_randstrobes[1].len(),
+            n_anchors,
             n_nams: chains.len(),
             n_rescue_nams,
             nam_rescue: rescue_done as usize,
