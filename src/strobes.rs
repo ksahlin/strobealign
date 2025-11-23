@@ -83,7 +83,7 @@ impl Iterator for RandstrobeIterator<'_> {
                 break;
             }
         }
-        if self.syncmers.len() <= self.parameters.w_min {
+        if self.syncmers.is_empty() {
             return None;
         }
         let strobe1 = self.syncmers[0];
@@ -139,7 +139,8 @@ mod test {
         }
     }
 
-    // This tests an assumption that we need to hold for count_randstrobes()
+    // Ensure SyncmerIterator and RandstrobeIterator return the same number of
+    // items. We need this to hold for `count_randstrobes()`.
     #[test]
     fn test_syncmer_and_randstrobe_iterator_same_count() {
         let refseq = read_phix().sequence;
@@ -151,6 +152,6 @@ mod test {
         let randstrobe_iter = RandstrobeIterator::new(&mut syncmer_iter, &parameters.randstrobe);
         let randstrobe_count = randstrobe_iter.count();
 
-        assert_eq!(randstrobe_count + parameters.randstrobe.w_min, syncmer_count);
+        assert_eq!(randstrobe_count, syncmer_count);
     }
 }

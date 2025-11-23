@@ -262,6 +262,7 @@ impl RefRandstrobe {
     }
 }
 
+/// Count randstrobes by counting syncmers
 fn count_randstrobes(seq: &[u8], parameters: &IndexParameters) -> usize {
     let syncmer_iterator = SyncmerIterator::new(
         seq,
@@ -269,10 +270,8 @@ fn count_randstrobes(seq: &[u8], parameters: &IndexParameters) -> usize {
         parameters.syncmer.s,
         parameters.syncmer.t,
     );
-    let n_syncmers = syncmer_iterator.count();
 
-    // The last w_min syncmers do not result in a randstrobe
-    n_syncmers.saturating_sub(parameters.randstrobe.w_min)
+    syncmer_iterator.count()
 }
 
 fn count_all_randstrobes(
