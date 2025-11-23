@@ -230,10 +230,15 @@ inline Alignment extend_seed(
         std::string ref_segm_ham = ref.substr(projected_ref_start, query.size());
         auto hamming_dist = hamming_distance(query, ref_segm_ham);
 
-        if (hamming_dist >= 0 && (((float) hamming_dist / query.size()) < 0.05) ) { //Hamming distance worked fine, no need to ksw align
-            info = hamming_align(query, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
-            result_ref_start = projected_ref_start + info.ref_start;
-            gapped = false;
+        if (hamming_dist >= 0) {
+            const int score = (query.size() - hamming_dist) * aligner.parameters.match - hamming_dist * aligner.parameters.mismatch;
+            const float score_ratio = static_cast<float>(score) / (query.size() * aligner.parameters.match);
+            
+            if (score_ratio >= 0.8f) {
+                info = hamming_align(query, ref_segm_ham, aligner.parameters.match, aligner.parameters.mismatch, aligner.parameters.end_bonus);
+                result_ref_start = projected_ref_start + info.ref_start;
+                gapped = false;
+            }
         }
     }
     if (gapped) {
