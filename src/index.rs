@@ -11,6 +11,9 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
 
+use rayon;
+use rayon::slice::ParallelSliceMut;
+
 /// Pre-defined index parameters that work well for a certain
 /// "canonical" read length (and similar read lengths)
 struct Profile {
@@ -397,7 +400,11 @@ impl<'a> StrobemerIndex<'a> {
         // equivalent one using std::tie.
         // __uint128_t lhs = (static_cast<__uint128_t>(m_hash_offset_flag) << 64) | ((static_cast<uint64_t>(m_position) << 32) | m_ref_index);
         // __uint128_t rhs = (static_cast<__uint128_t>(other.m_hash_offset_flag) << 64) | ((static_cast<uint64_t>(other.m_position) << 32) | m_ref_index);
-        self.randstrobes.sort_unstable_by_key(|r| (r.hash_offset, r.position, r.ref_index));
+        let pool = rayon::ThreadPoolBuilder::new().num_threads(n_threads).build().unwrap();
+        pool.install(|| {
+            self.randstrobes.par_sort_unstable_by_key(|r| (r.hash_offset, r.position, r.ref_index));
+        });
+
         debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
         // stats.elapsed_sorting_seeds = sorting_timer.duration();
 
