@@ -680,19 +680,7 @@ impl<'a> StrobemerIndex<'a> {
     }
 
     pub fn is_too_frequent_partial(&self, position: usize, cutoff: usize, hash_revcomp: u64) -> bool {
-        if self.is_too_frequent_forward_partial(position, cutoff) {
-            return true;
-        }
-        if let Some(position_revcomp) = self.get_partial(hash_revcomp) {
-            if self.is_too_frequent_forward_partial(position_revcomp, cutoff) {
-                return true;
-            }
-            let count = self.get_count_partial(position) + self.get_count_partial(position_revcomp);
-
-            return count > cutoff;
-        }
-
-        false
+        self.is_too_frequent_forward_partial(position, cutoff)
     }
 }
 
