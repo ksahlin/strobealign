@@ -171,9 +171,9 @@ impl Chainer {
                 time_find_hits += hits_timer.elapsed().as_secs_f64();
             }
             trace!("Found {} anchors", anchors.len());
-            for anchor in anchors.iter().take(100) {
+            /*for anchor in anchors.iter().take(100) {
                 trace!("{:?}", anchor);
-            }
+            }*/
             let chaining_timer = Instant::now();
             // TODO this used to be pdqsort
             anchors.sort_by_key(|a| (a.ref_id, a.ref_start, a.query_start));
