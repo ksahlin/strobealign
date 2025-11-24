@@ -351,7 +351,8 @@ pub fn get_nams_by_chaining(
     let (mut nam_details, mut nams) = chainer.get_chains(&query_randstrobes, index, rescue_level, mcs_strategy);
 
     let timer = Instant::now();
-    nams.sort_by_key(|k| -(k.score as i32));
+
+    nams.sort_by(|a, b| b.score.total_cmp(&a.score));
     shuffle_top_nams(&mut nams, rng);
     nam_details.time_sort_nams = timer.elapsed().as_secs_f64();
     nam_details.time_randstrobes = time_randstrobes;
