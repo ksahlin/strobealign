@@ -399,7 +399,7 @@ fn extract_chains_from_dp(
         }
 
         let first = &anchors[j];
-        let last = &anchors[j];
+        let last = &anchors[i];
         chains.push(
             Nam {
                 nam_id: chains.len(),
