@@ -364,9 +364,8 @@ fn extract_chains_from_dp(
 ) {
     let n = anchors.len();
     let valid_score = best_score * chaining_parameters.valid_score_threshold;
-    let mut used = vec![false; n];
 
-    let mut candidates = vec![];//std::vector<std::pair<int, float>> candidates;
+    let mut candidates = vec![];
     for i in 0..n {
         if dp[i] >= valid_score {
             candidates.push((i, dp[i]));
@@ -375,6 +374,7 @@ fn extract_chains_from_dp(
 
     candidates.sort_by(|a, b| b.1.total_cmp(&a.1));
 
+    let mut used = vec![false; n];
     for (i, score) in candidates {
         if used[i] {
             continue;
