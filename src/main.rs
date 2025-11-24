@@ -559,7 +559,7 @@ fn main() -> Result<(), CliError> {
     debug!("");
     debug!("## Randstrobe lookup (without rescue)");
     debug!("");
-    debug!("Randstrobes                               {:12}     100.0 %   Per read: {:7.1}", details.nam.n_randstrobes, 100f64 * details.nam.n_randstrobes as f64 / details.nam.n_reads as f64);
+    debug!("Randstrobes                               {:12}     100.0 %   Per read: {:7.1}", details.nam.n_randstrobes, details.nam.n_randstrobes as f64 / details.nam.n_reads as f64);
     debug!("  Full randstrobe found                   {:12} {:9.1} %", details.nam.hits.full_found, 100f64 * details.nam.hits.full_found as f64 / details.nam.n_randstrobes as f64);
     debug!("  Full randstrobe found but filtered      {:12} {:9.1} %", details.nam.hits.full_filtered, 100f64 * details.nam.hits.full_filtered as f64 / details.nam.n_randstrobes as f64);
     debug!("  Full randstrobe not found               {:12} {:9.1} %", details.nam.hits.full_not_found, 100f64 * details.nam.hits.full_not_found as f64 / details.nam.n_randstrobes as f64);
