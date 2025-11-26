@@ -17,7 +17,7 @@ uint rescue_least_frequent(
     size_t start,
     size_t end,
     size_t to_rescue,
-    int threshold = -1
+    uint threshold = 0
 ) {
     uint rescued{0};
 
@@ -30,7 +30,7 @@ uint rescue_least_frequent(
         } else {
             cnt = index.get_count_full(hits[i].position, hits[i].hash_revcomp);
         }
-        if (threshold == -1 || cnt <= threshold) {
+        if (threshold == 0 || cnt <= threshold) {
             hit_counts.push_back({i, cnt});
         }
     }
@@ -172,11 +172,15 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     int nonrepetitive_hits = details.total_found();
     float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
 
-    if (nonrepetitive_fraction < 0.7) {
-        details.rescued += rescue_least_frequent(index, hits, 0, hits.size(), 5, 1000);
+    // rescue threshold 0 disables both global and local rescue
+    if (rescue_threshold > 0) {
+        if (nonrepetitive_fraction < 0.7) {
+            // "global" rescue
+            details.rescued += rescue_least_frequent(index, hits, 0, hits.size(), 5, 1000);
+        }
+        // "local" rescue
+        details.rescued += rescue_all_least_frequent(index, hits, rescue_threshold);
     }
-
-    details.rescued += rescue_all_least_frequent(index, hits, rescue_threshold);
 
     if (logger.level() <= LOG_TRACE) {
         logger.trace() << "Found " << hits.size() << " hits (" << details.rescued << " of those rescued):\n";
