@@ -9,6 +9,9 @@ static Logger& logger = Logger::get();
  * Find least frequent hits in a portion of the hits vector and set their
  * 'is_filtered' attribute to false (thus "rescuing" them).
  *
+ * If `threshold` is set to a nonzero value, hits with a larger count are
+ * ignored.
+ *
  * Return the number of hits that were rescued.
  */
 uint rescue_least_frequent(
@@ -124,6 +127,11 @@ std::tuple<std::vector<Hit>, HitsDetails, bool> find_all_hits(
 }
 
 
+// Rescue seeds from filtered regions that have a given minimum length (in
+// nucleotides)
+//
+// All stretches of consecutive filtered hits are considered. For any stretch
+// that is longer than rescue_thresheld, rescue_least_frequent is called.
 uint rescue_all_least_frequent(
     const StrobemerIndex& index,
     std::vector<Hit>& hits,
@@ -149,7 +157,8 @@ uint rescue_all_least_frequent(
         last_unfiltered_start = hit.query_start;
         first_filtered = i + 1;
     }
-    if (!hits.empty() && hits.back().query_start - last_unfiltered_start > L) { // End case we have not sampled the end
+    // Ensure we consider the end as well
+    if (!hits.empty() && hits.back().query_start - last_unfiltered_start > L) {
         uint to_rescue = (hits.back().query_start - last_unfiltered_start) / L;
         rescued += rescue_least_frequent(index, hits, first_filtered, hits.size(), to_rescue);
     }
@@ -203,7 +212,6 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
 
     return {details, sorting_needed, hits};
 }
-
 
 std::ostream& operator<<(std::ostream& os, const HitsDetails& details) {
     os  << "HitsDetails("
