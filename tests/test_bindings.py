@@ -43,7 +43,7 @@ def test_indexing_and_match_finding():
     randstrobes = strobealign.randstrobes_query(query, index_parameters)
     # For this test, we ignore the randstrobes for the reverse-complemented query
     randstrobes = randstrobes[0]
-    hits = strobealign.find_hits(randstrobes, index, mcs_strategy=strobealign.McsStrategy.Off)
+    hits = strobealign.find_hits(randstrobes, index, mcs_strategy=strobealign.McsStrategy.Off, rescue_threshold=100)
     for hit in hits:
         reference_index = index.reference_index(hit.position)
         ref = refs[reference_index].sequence

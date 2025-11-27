@@ -12,11 +12,15 @@
 // A Hit is the result of successfully looking up a strobemer in the index
 struct Hit {
     size_t position;
+    randstrobe_hash_t hash_revcomp;
     size_t query_start;
     size_t query_end;
     bool is_partial;
+    bool is_filtered;
 };
 
+// Aggregate statistics resulting from looking up all strobemers of a single
+// query.
 struct HitsDetails {
     uint full_not_found{0};
     uint full_filtered{0};  // found but filtered
@@ -26,8 +30,25 @@ struct HitsDetails {
     uint partial_filtered{0};
     uint partial_found{0};
 
+    uint rescued{0};  // first filtered but then rescued
+
     uint total_hits() const {
         return partial_filtered + partial_found + full_filtered + full_found;
+    }
+
+    uint total_filtered() const {
+        return partial_filtered + full_filtered;
+    }
+
+    uint total_found() const {
+        return full_found + partial_found;
+    }
+
+    // Used as a heuristic to compare the two orientations of a query
+    bool is_better_than(HitsDetails& other) const {
+        uint total = full_found + full_filtered;
+        uint other_total = other.full_found + other.full_filtered;
+        return total >= other_total * 2 && total > other_total + 5;
     }
 
     HitsDetails& operator+=(const HitsDetails& other) {
@@ -37,6 +58,7 @@ struct HitsDetails {
         partial_not_found += other.partial_not_found;
         partial_filtered += other.partial_filtered;
         partial_found += other.partial_found;
+        rescued += other.rescued;
 
         return *this;
     }
@@ -47,7 +69,10 @@ std::ostream& operator<<(std::ostream& os, const Hit& hit);
 std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
-    McsStrategy mcs_strategy
+    McsStrategy mcs_strategy,
+    int rescue_threshold
 );
+
+std::ostream& operator<<(std::ostream& os, const HitsDetails& details);
 
 #endif
