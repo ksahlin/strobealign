@@ -24,6 +24,8 @@ use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
 
 
+const MAX_PAIR_NAMS: usize = 1000;
+
 #[derive(Debug)]
 pub struct MappingParameters {
     pub r: usize,
@@ -962,8 +964,8 @@ pub fn get_best_scoring_nam_pairs(
     let mut added_n1 = HashSet::new();
     let mut added_n2 = HashSet::new();
     let mut best_joint_matches = 0;
-    for nam1 in nams1 {
-        for nam2 in nams2 {
+    for nam1 in nams1.iter().take(MAX_PAIR_NAMS) {
+        for nam2 in nams2.iter().take(MAX_PAIR_NAMS) {
             let joint_matches = nam1.n_matches + nam2.n_matches;
             if joint_matches < best_joint_matches / 2 {
                 break;
