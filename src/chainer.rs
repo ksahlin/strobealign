@@ -152,22 +152,23 @@ impl Chainer {
         let mut time_chaining = 0.0;
         let mut chains = vec![];
         for is_revcomp in 0..2 {
-            let mut anchors = vec![];
+            let mut anchors;
 
             // Rescue if requested and needed
             if rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7) {
                 let rescue_timer = Instant::now();
                 rescue_done = true;
-                let (n_rescue_hits1, n_rescue_partial_hits1) = find_anchors_rescue(
-                    &query_randstrobes[is_revcomp], index, index.rescue_cutoff, mcs_strategy, &mut anchors
+                let (anchors1, n_rescue_hits1, n_rescue_partial_hits1) = find_anchors_rescue(
+                    &query_randstrobes[is_revcomp], index, index.rescue_cutoff, mcs_strategy
                 );
+                anchors = anchors1;
                 n_rescue_hits += n_rescue_hits1;
                 n_rescue_partial_hits += n_rescue_partial_hits1;
                 n_rescue_nams += chains.len();
                 time_rescue += rescue_timer.elapsed().as_secs_f64();
             } else {
                 let hits_timer = Instant::now();
-                add_hits_to_anchors(&hits[is_revcomp], index, &mut anchors);
+                anchors = hits_to_anchors(&hits[is_revcomp], index);
                 time_find_hits += hits_timer.elapsed().as_secs_f64();
             }
             trace!("Found {} anchors", anchors.len());
@@ -282,18 +283,20 @@ fn add_to_anchors_partial(
     }
 }
 
-fn add_hits_to_anchors(
+fn hits_to_anchors(
     hits: &Vec<Hit>,
     index: &StrobemerIndex,
-    anchors: &mut Vec<Anchor>,
-) {
+) -> Vec<Anchor> {
+    let mut anchors = vec![];
     for hit in hits {
         if hit.is_partial {
-            add_to_anchors_partial(anchors, hit.query_start, index, hit.position);
+            add_to_anchors_partial(&mut anchors, hit.query_start, index, hit.position);
         } else {
-            add_to_anchors_full(anchors, hit.query_start, hit.query_end, index, hit.position);
+            add_to_anchors_full(&mut anchors, hit.query_start, hit.query_end, index, hit.position);
         }
     }
+
+    anchors
 }
 
 fn find_anchors_rescue(
@@ -301,8 +304,8 @@ fn find_anchors_rescue(
     index: &StrobemerIndex,
     rescue_cutoff: usize,
     mcs_strategy: McsStrategy,
-    anchors: &mut Vec<Anchor>,
-) -> (usize, usize) {
+) -> (Vec<Anchor>, usize, usize) {
+    let mut anchors = vec![];
     struct RescueHit {
         count: usize,
         query_start: usize,
@@ -342,14 +345,14 @@ fn find_anchors_rescue(
         }
         if rh.is_partial {
             partial_hits += 1;
-            add_to_anchors_partial(anchors, rh.query_start, index, rh.position);
+            add_to_anchors_partial(&mut anchors, rh.query_start, index, rh.position);
         } else {
-            add_to_anchors_full(anchors, rh.query_start, rh.query_end, index, rh.position);
+            add_to_anchors_full(&mut anchors, rh.query_start, rh.query_end, index, rh.position);
         }
         n_hits += 1;
     }
 
-    (n_hits, partial_hits)
+    (anchors, n_hits, partial_hits)
 }
 
 fn extract_chains_from_dp(
