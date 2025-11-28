@@ -45,9 +45,9 @@ struct CommandLineOptions {
     bool c_set { false };
     int max_seed_len;
     int k { 20 };
-    int l { 0 };
-    int u { 7 };
     int s { 16 };
+    int l { 5 };
+    int u { 11 };
     int c { 8 };
     int aux_len{17};
 
@@ -74,11 +74,12 @@ struct CommandLineOptions {
     uint max_block { 256 };
 
     // Search parameters
-    McsStrategy mcs_strategy { McsStrategy::Rescue };
+    McsStrategy mcs_strategy { McsStrategy::Always };
     float f { 0.0002 };
     float dropoff_threshold { 0.5 };
     int max_tries { 20 };
-    int rescue_level { 2 };
+    int legacy_rescue { 0 };
+    int rescue_threshold{100};
 
     // Reference and read files
     std::string ref_filename; // This is either a fasta file or an index file - if fasta, indexing will be run

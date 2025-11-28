@@ -190,6 +190,9 @@ robin_hood::unordered_map<unsigned int, std::vector<Match>> hits_to_matches(
     matches_map.reserve(100);
 
     for (const auto& hit : hits) {
+        if (hit.is_filtered) {
+            continue;
+        }
         if (hit.is_partial) {
             add_to_matches_map_partial(matches_map, hit.query_start, hit.query_end, index, hit.position);
         } else {
@@ -198,82 +201,6 @@ robin_hood::unordered_map<unsigned int, std::vector<Match>> hits_to_matches(
     }
 
     return matches_map;
-}
-
-/*
- * Find a query’s NAMs, using also some of the randstrobes that occur more often
- * than filter_cutoff.
- *
- * Return the number of hits and the vector of NAMs.
- */
-std::tuple<int, int, robin_hood::unordered_map<unsigned int, std::vector<Match>>> find_matches_rescue(
-    const std::vector<QueryRandstrobe>& query_randstrobes,
-    const StrobemerIndex& index,
-    unsigned int rescue_cutoff,
-    McsStrategy mcs_strategy
-) {
-    struct RescueHit {
-        size_t position;
-        unsigned int count;
-        unsigned int query_start;
-        unsigned int query_end;
-        bool is_partial;
-
-        bool operator< (const RescueHit& rhs) const {
-            return std::tie(count, query_start, query_end)
-                < std::tie(rhs.count, rhs.query_start, rhs.query_end);
-        }
-    };
-    robin_hood::unordered_map<unsigned int, std::vector<Match>> matches_map;
-    matches_map.reserve(100);
-    int n_hits = 0;
-    int partial_hits = 0;
-    std::vector<RescueHit> rescue_hits;
-    rescue_hits.reserve(5000);
-    for (auto &qr : query_randstrobes) {
-        size_t position = index.find_full(qr.hash);
-        if (position != index.end()) {
-            unsigned int count = index.get_count_full(position);
-
-            size_t position_revcomp = index.find_full(qr.hash_revcomp);
-            if (position_revcomp != index.end()) {
-                count += index.get_count_full(position_revcomp);
-            }
-            RescueHit rh{position, count, qr.start, qr.end, false};
-            rescue_hits.push_back(rh);
-        }
-        else if (mcs_strategy == McsStrategy::Always) {
-            size_t partial_pos = index.find_partial(qr.hash);
-            if (partial_pos != index.end()) {
-                unsigned int partial_count = index.get_count_partial(partial_pos);
-                size_t position_revcomp = index.find_partial(qr.hash_revcomp);
-                if (position_revcomp != index.end()) {
-                    partial_count += index.get_count_partial(position_revcomp);
-                }
-                RescueHit rh{partial_pos, partial_count, qr.start, qr.start + index.k(), true};
-                rescue_hits.push_back(rh);
-                partial_hits++;
-            }
-        }
-    }
-    std::sort(rescue_hits.begin(), rescue_hits.end());
-
-    int cnt = 0;
-    for (auto &rh : rescue_hits) {
-        if ((rh.count > rescue_cutoff && cnt >= 5) || rh.count > 1000) {
-            break;
-        }
-        if (rh.is_partial){
-            partial_hits++;
-            add_to_matches_map_partial(matches_map, rh.query_start, rh.query_end, index, rh.position);
-        } else{
-            add_to_matches_map_full(matches_map, rh.query_start, rh.query_end, index, rh.position);
-        }
-        cnt++;
-        n_hits++;
-    }
-
-    return {n_hits, partial_hits, matches_map};
 }
 
 /*
@@ -295,39 +222,22 @@ std::vector<Nam> get_nams(
     for (int is_revcomp : {0, 1}) {
         bool sorting_needed1;
         HitsDetails hits_details1;
-        std::tie(hits_details1, sorting_needed1, hits[is_revcomp]) = find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy);
+        std::tie(hits_details1, sorting_needed1, hits[is_revcomp]) = find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy, map_param.rescue_threshold);
         sorting_needed = sorting_needed || sorting_needed1;
         details.hits += hits_details1;
     }
-    uint total_hits = details.hits.total_hits();
-    int nonrepetitive_hits = hits[0].size() + hits[1].size();
-    float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
     statistics.time_hit_finding += hits_timer.duration();
 
     std::vector<Nam> nams;
 
     // Rescue if requested and needed
-    if (map_param.rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7)) {
-        Timer rescue_timer;
-        nams.clear();
-        for (int is_revcomp : {0, 1}) {
-            auto [n_hits, n_partial_hits, matches_map] = find_matches_rescue(query_randstrobes[is_revcomp], index, map_param.rescue_cutoff, map_param.mcs_strategy);
-            merge_matches_into_nams(matches_map, index.k(), true, is_revcomp, nams);
-            statistics.n_rescue_hits += n_hits;
-            statistics.n_rescue_partial_hits += n_partial_hits;
-        }
-        details.rescue_nams = nams.size();
-        details.nam_rescue = true;
-        statistics.tot_time_rescue += rescue_timer.duration();
-    } else {
-        Timer chaining_timer;
-        for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
-            auto matches_map = hits_to_matches(hits[is_revcomp], index);
-            merge_matches_into_nams(matches_map, index.k(), sorting_needed, is_revcomp, nams);
-        }
-        details.nams = nams.size();
-        statistics.time_chaining += chaining_timer.duration();
+    Timer chaining_timer;
+    for (size_t is_revcomp = 0; is_revcomp < 2; ++is_revcomp) {
+        auto matches_map = hits_to_matches(hits[is_revcomp], index);
+        merge_matches_into_nams(matches_map, index.k(), sorting_needed, is_revcomp, nams);
     }
+    details.nams = nams.size();
+    statistics.time_chaining += chaining_timer.duration();
 
     return nams;
 }
@@ -343,6 +253,6 @@ std::ostream& operator<<(std::ostream& os, const Match& match) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Nam& n) {
-    os << "Nam(ref_id=" << n.ref_id << ", query: " << n.query_start << ".." << n.query_end << ", ref: " << n.ref_start << ".." << n.ref_end << ", rc=" << static_cast<int>(n.is_revcomp) << ", score=" << n.score << ")";
+    os << "Nam(ref_id=" << n.ref_id << ", query: " << n.query_start << ".." << n.query_end << ", ref: " << n.ref_start << ".." << n.ref_end << ", rc=" << static_cast<int>(n.is_revcomp) << ", n_matches=" << n.n_matches << ", score=" << n.score << ")";
     return os;
 }

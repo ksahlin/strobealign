@@ -6,10 +6,26 @@
   method, replacing NAMs. This reproduces the Minimap2 chaining algorithm
   providing better mapping accuracy. NAMs remain available via the `--nams`
   flag.
+* #527: Improve accuracy by changing the default multi-context seed strategy from
+  "rescue" to "always". This means that a partial seed lookup is done every time
+  a full seed cannot be found (whereas previously, it was done only if no
+  full seed was found for the entire query).
+* #521: Implement a "local" rescue of highly repetitive hits (similar to
+  minimap2): Highly repetitive hits are usually filtered out because they
+  increase runtime significantly. If there are too many filtered hits, we
+  previously added back the least frequent ones of them (global rescue).
+  Now, we implemented a minimap2-like "local" rescue that finds regions
+  consisting of consecutive filtered hits and adds some of them back if the
+  region is longer than a provided threshold. The `-R` command-line option is
+  used to provide that threshold.
+  (Use `-R 0` to disable both global and local rescue.)
 * #515: PAF output now includes a sensible value for the mapping quality
   (last column), computed using the formula that
   [minimap2 uses](https://academic.oup.com/bioinformatics/article/34/18/3094/4994778?login=false#393786986).
   It was previously set to 255, which means “missing”.
+* #525: The `-l` und `-u` command-line options have changed meaning: They are
+  now used to set how many syncmers downstream the second syncmer may be.
+  Negative values are no longer allowed.
 
 ## v0.16.1 (2025-05-16)
 

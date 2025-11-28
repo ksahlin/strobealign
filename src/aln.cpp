@@ -24,6 +24,12 @@ struct ChainPair {
     Chain chain2;
 };
 
+// std::ostream& operator<<(std::ostream& os, const NamPair& nam_pair) {
+//     os << "NamPair(score=" << nam_pair.score << ", nam1=" << nam_pair.nam1 << ", nam2=" << nam_pair.nam2 << ")";
+//
+//     return os;
+// }
+
 struct ScoredAlignmentPair {
     double score;
     Alignment alignment1;
@@ -393,74 +399,79 @@ bool is_proper_chain_pair(const Chain chain1, const Chain chain2, float mu, floa
  * high-scoring NAMs that could not be paired up are returned (these get a
  * "dummy" NAM as partner in the returned vector).
  */
-// inline std::vector<ChainPair> get_best_scoring_chain_pairs(
-//     const std::vector<Chain> &chains1,
-//     const std::vector<Chain> &chains2,
+// inline std::vector<NamPair> get_best_scoring_nam_pairs(
+//     const std::vector<Nam> &nams1,
+//     const std::vector<Nam> &nams2,
 //     float mu,
 //     float sigma
 // ) {
-//     std::vector<ChainPair> chain_pairs;
-//     if (chains1.empty() && chains2.empty()) {
-//         return chain_pairs;
+//     std::vector<NamPair> nam_pairs;
+//     if (nams1.empty() && nams2.empty()) {
+//         return nam_pairs;
 //     }
 //
 //     // Find NAM pairs that appear to be proper pairs
 //     robin_hood::unordered_set<int> added_n1;
 //     robin_hood::unordered_set<int> added_n2;
 //     int best_joint_hits = 0;
-//     for (auto &chain1 : chains1) {
-//         for (auto &chain2 : chains2) {
-//             int joint_hits = chain1.anchors.size() + chain2.anchors.size();
+//
+//     constexpr size_t MAX_NAMS = 1000;
+//     for (size_t i1 = 0; i1 < std::min(nams1.size(), MAX_NAMS); ++i1) {
+//         const Nam& nam1 = nams1[i1];
+//         for (size_t i2 = 0; i2 < std::min(nams2.size(), MAX_NAMS); ++i2) {
+//             const Nam& nam2 = nams2[i2];
+//             int joint_hits = nam1.n_matches + nam2.n_matches;
 //             if (joint_hits < best_joint_hits / 2) {
 //                 break;
 //             }
-//             if (is_proper_chain_pair(chain1, chain2, mu, sigma)) {
-//                 chain_pairs.push_back(ChainPair{chain1.score + chain2.score, chain1, chain2});
-//                 added_n1.insert(chain1.id);
-//                 added_n2.insert(chain2.id);
+//             if (is_proper_nam_pair(nam1, nam2, mu, sigma)) {
+//                 nam_pairs.push_back(NamPair{nam1.score + nam2.score, nam1, nam2});
+//                 added_n1.insert(nam1.nam_id);
+//                 added_n2.insert(nam2.nam_id);
 //                 best_joint_hits = std::max(joint_hits, best_joint_hits);
 //             }
 //         }
 //     }
 //
 //     // Find high-scoring R1 NAMs that are not part of a proper pair
-//     Chain dummy_chain;
-//     if (!chains1.empty()) {
-//         int best_joint_hits1 = best_joint_hits > 0 ? best_joint_hits : chains1[0].anchors.size();
-//         for (auto &chain1 : chains1) {
-//             if (static_cast<int>(chain1.anchors.size()) < best_joint_hits1 / 2) {
+//     Nam dummy_nam;
+//     dummy_nam.ref_start = -1;
+//     if (!nams1.empty()) {
+//         int best_joint_hits1 = best_joint_hits > 0 ? best_joint_hits : nams1[0].n_matches;
+//         for (auto &nam1 : nams1) {
+//             if (nam1.n_matches < best_joint_hits1 / 2) {
 //                 break;
 //             }
-//             if (added_n1.find(chain1.id) != added_n1.end()) {
+//             if (added_n1.find(nam1.nam_id) != added_n1.end()) {
 //                 continue;
 //             }
-// //            int n1_penalty = std::abs(chain1.query_span() - chain1.ref_span());
-//             chain_pairs.push_back(ChainPair{chain1.score, chain1, dummy_chain});
+// //            int n1_penalty = std::abs(nam1.query_span() - nam1.ref_span());
+//             nam_pairs.push_back(NamPair{nam1.score, nam1, dummy_nam});
 //         }
 //     }
 //
 //     // Find high-scoring R2 NAMs that are not part of a proper pair
-//     if (!chains2.empty()) {
-//         int best_joint_hits2 = best_joint_hits > 0 ? best_joint_hits : chains2[0].anchors.size();
-//         for (auto &chain2 : chains2) {
-//             if (static_cast<int>(chain2.anchors.size()) < best_joint_hits2 / 2) {
+//     if (!nams2.empty()) {
+//         int best_joint_hits2 = best_joint_hits > 0 ? best_joint_hits : nams2[0].n_matches;
+//         for (auto &nam2 : nams2) {
+//             if (nam2.n_matches < best_joint_hits2 / 2) {
 //                 break;
 //             }
-//             if (added_n2.find(chain2.id) != added_n2.end()){
+//             if (added_n2.find(nam2.nam_id) != added_n2.end()){
 //                 continue;
 //             }
-// //            int n2_penalty = std::abs(chain2.query_span() - chain2.ref_span());
-//             chain_pairs.push_back(ChainPair{chain2.score, dummy_chain, chain2});
+// //            int n2_penalty = std::abs(nam2.query_span() - nam2.ref_span());
+//             nam_pairs.push_back(NamPair{nam2.score, dummy_nam, nam2});
 //         }
 //     }
 //
 //     std::sort(
-//         chain_pairs.begin(),
-//         chain_pairs.end(),
-//         [](const ChainPair& a, const ChainPair& b) -> bool { return a.score > b.score; }
+//         nam_pairs.begin(),
+//         nam_pairs.end(),
+//         [](const NamPair& a, const NamPair& b) -> bool { return a.score > b.score; }
 //     ); // Sort by highest score first
 //
-//     return chain_pairs;
+//     return nam_pairs;
 // }
 
 /*
@@ -1081,14 +1092,23 @@ std::vector<Chain> get_chains(
     statistics.tot_sort_nams += chain_sort_timer.duration();
 
     if (map_param.use_nams) {
-        logger.trace() << "Found " << chains.size() << " NAMs\n";
-        for (const auto& nam : chains) {
-            logger.trace() << "- " << nam << '\n';
+        if (logger.level() <= LOG_TRACE) {
+            logger.trace() << "Found " << chains.size() << (map_param.use_nams ? " NAMs\n" : " chains\n");
+            uint printed = 0;
+            for (const auto& nam : chains) {
+                if (nam.anchors.size() > 1 || printed < 10) {
+                    logger.trace() << "- " << nam << '\n';
+                    printed++;
+                }
+            }
+            if (printed != chains.size()) {
+                logger.trace() << "+" << chains.size() - printed << " single-anchor chains)\n";
+            }
         }
     }
 
     if (!map_param.use_nams) {
-        logger.trace() << "]\nChains[";
+        logger.trace() << "Chains[";
         for (const auto& chain : chains) {
             logger.trace()  << chain;
         }
@@ -1119,7 +1139,6 @@ void align_or_map_paired(
 
     for (size_t is_r1 : {0, 1}) {
         const auto& record = is_r1 == 0 ? record1 : record2;
-        logger.trace() << "R" << is_r1 + 1 << '\n';
         chains_pair[is_r1] = get_chains(
             record, index, chainer, statistics, details[is_r1], map_param, index_parameters, random_engine
         );

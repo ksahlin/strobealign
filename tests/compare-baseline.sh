@@ -72,7 +72,8 @@ if ! test -f ${baseline_bam}; then
     mv ${srcdir}/build/strobealign ${baseline_binary}
     rm -rf "${srcdir}"
   fi
-  ${baseline_binary} -v ${strobealign_options} ${ref} ${reads[@]} | samtools view -o ${baseline_bam}
+  ${baseline_binary} -v ${strobealign_options} ${ref} ${reads[@]} | samtools view -o ${baseline_bam}.tmp.bam
+  mv ${baseline_bam}.tmp.bam ${baseline_bam}
 fi
 
 # Run strobealign. This recompiles from scratch to ensure we use consistent

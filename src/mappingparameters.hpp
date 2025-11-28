@@ -24,10 +24,9 @@ struct MappingParameters {
     int r { 150 };
     int max_secondary { 0 };
     float dropoff_threshold { 0.5 };
-    int rescue_level { 2 };
+    int rescue_threshold{100};
     int max_tries { 20 };
-    int rescue_cutoff;
-    McsStrategy mcs_strategy{McsStrategy::Rescue};
+    McsStrategy mcs_strategy{McsStrategy::Always};
     OutputFormat output_format {OutputFormat::SAM};
     CigarOps cigar_ops{CigarOps::M};
     bool output_unmapped { true };

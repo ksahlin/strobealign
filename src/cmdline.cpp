@@ -80,11 +80,11 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::ValueFlag<uint> max_block(parser, "UINT", "Maximum block size for alignments [256]", {"max-block"});
 
     args::Group search(parser, "Search parameters:");
-    args::MapFlag mcs(parser, "mcs", "How multi-context seeds are used. Allowed: 'rescue' (default), 'always', 'off', 'first-strobe'", {"mcs"}, mcs_map);
+    args::MapFlag mcs(parser, "mcs", "How multi-context seeds are used. Allowed: 'always' (default), 'rescue', 'off', 'first-strobe'", {"mcs"}, mcs_map);
     args::ValueFlag<float> f(parser, "FLOAT", "Top fraction of repetitive strobemers to filter out from sampling [0.0002]", {'f'});
     args::ValueFlag<float> S(parser, "FLOAT", "Try candidate sites with mapping score at least S of maximum mapping score [0.5]", {'S'});
     args::ValueFlag<int> M(parser, "INT", "Maximum number of mapping sites to try [20]", {'M'});
-    args::ValueFlag<int> R(parser, "INT", "Rescue level. Perform additional search for reads with many repetitive seeds filtered out. This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than default makes strobealign significantly slower but more accurate. R <= 1 deactivates rescue and is the fastest.", {'R'});
+    args::ValueFlag<int> R(parser, "INT", "Maximum distance (in nucleotides) that filtered seeds may span. The lower the value, the more seeds are rescued. Use 0 to disable rescue. [100]", {'R'});
 
     args::Positional<std::string> ref_filename(parser, "reference", "Reference in FASTA format", args::Options::Required);
     args::Positional<std::string> reads1_filename(parser, "reads1", "Reads 1 in FASTA or FASTQ format, optionally gzip compressed");
@@ -178,7 +178,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (f) { opt.f = args::get(f); }
     if (S) { opt.dropoff_threshold = args::get(S); }
     if (M) { opt.max_tries = args::get(M); }
-    if (R) { opt.rescue_level = args::get(R); }
+    if (R) { opt.rescue_threshold = args::get(R); }
 
     // Reference and read files
     opt.ref_filename = args::get(ref_filename);

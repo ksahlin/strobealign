@@ -60,7 +60,7 @@ private:
             throw BadParameter("maximum seed length (-m <max_dist>) is larger than 255");
         }
         if (w_min > w_max) {
-            throw BadParameter("w_min is greater than w_max (choose different -l/-u parameters)");
+            throw BadParameter("l is greater than u");
         }
         if (aux_len > 63) {
             throw BadParameter("aux_len is larger than 63");
@@ -77,11 +77,14 @@ public:
 
     static const int DEFAULT = std::numeric_limits<int>::min();
 
-    IndexParameters(size_t canonical_read_length, int k, int s, int l, int u, uint64_t q, int max_dist, int aux_len)
+    IndexParameters(size_t canonical_read_length, int k, int s, int w_min, int w_max, uint64_t q, int max_dist, int aux_len)
         : canonical_read_length(canonical_read_length)
         , syncmer(k, s)
-        , randstrobe(q, max_dist, std::max(0, k / (k - s + 1) + l), k / (k - s + 1) + u, ~0ul << (9 + aux_len))
+        , randstrobe(q, max_dist, w_min, w_max, ~0ul << (9 + aux_len))
     {
+        if (w_min < 0 || w_max < 0) {
+            throw BadParameter("Neither l nor u can be negative");
+        }
         verify(aux_len);
     }
 
@@ -99,7 +102,7 @@ public:
     }
 
     static IndexParameters from_read_length(
-        int read_length, int k = DEFAULT, int s = DEFAULT, int l = DEFAULT, int u = DEFAULT, int c = DEFAULT, int max_seed_len = DEFAULT, int aux_len = DEFAULT);
+        int read_length, int k = DEFAULT, int s = DEFAULT, int w_min = DEFAULT, int w_max = DEFAULT, int c = DEFAULT, int max_seed_len = DEFAULT, int aux_len = DEFAULT);
     static IndexParameters read(std::istream& os);
     std::string filename_extension() const;
     void write(std::ostream& os) const;

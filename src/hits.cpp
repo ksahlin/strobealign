@@ -1,10 +1,60 @@
 #include "hits.hpp"
+#include "logger.hpp"
+
+#include <iomanip>
+
+static Logger& logger = Logger::get();
 
 /*
- * Find a query’s hits, ignoring randstrobes that occur too often in the
- * reference (have a count above filter_cutoff).
+ * Find least frequent hits in a portion of the hits vector and set their
+ * 'is_filtered' attribute to false (thus "rescuing" them).
+ *
+ * If `threshold` is set to a nonzero value, hits with a larger count are
+ * ignored.
+ *
+ * Return the number of hits that were rescued.
  */
-std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
+uint rescue_least_frequent(
+    const StrobemerIndex& index,
+    std::vector<Hit>& hits,
+    size_t start,
+    size_t end,
+    size_t to_rescue,
+    uint threshold = 0
+) {
+    uint rescued{0};
+
+    // Index and hit count
+    std::vector<std::pair<size_t, uint>> hit_counts;
+    for (size_t i = start; i < end; ++i) {
+        uint cnt;
+        if (hits[i].is_partial) {
+            cnt = index.get_count_partial(hits[i].position);
+        } else {
+            cnt = index.get_count_full(hits[i].position, hits[i].hash_revcomp);
+        }
+        if (threshold == 0 || cnt <= threshold) {
+            hit_counts.push_back({i, cnt});
+        }
+    }
+
+    // Sort by count ascending
+    std::sort(hit_counts.begin(), hit_counts.end(), [](auto &a, auto &b) { return a.second < b.second; });
+
+    // Take up to num_to_rescue lowest count
+    for (size_t i = 0; i < std::min(to_rescue, hit_counts.size()); ++i) {
+        auto hit_index = hit_counts[i].first;
+        rescued += hits[hit_index].is_filtered;
+        hits[hit_index].is_filtered = false;
+    }
+
+    return rescued;
+}
+
+/*
+ * Find all hits, including repetitive ones, using the requested MCS strategy.
+ */
+std::tuple<std::vector<Hit>, HitsDetails, bool> find_all_hits(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     McsStrategy mcs_strategy
@@ -12,68 +62,56 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     // If we produce matches in sorted order, then merge_matches_into_nams()
     // does not have to re-sort
     bool sorting_needed{mcs_strategy == McsStrategy::Always || mcs_strategy == McsStrategy::FirstStrobe};
-    std::vector<Hit> hits;
     HitsDetails details;
-
-    if (mcs_strategy == McsStrategy::FirstStrobe) {
-        for (const auto &q : query_randstrobes) {
-            size_t partial_position = index.find_partial(q.hash);
-            if (partial_position != index.end()) {
-                if (index.is_partial_filtered(partial_position, q.hash_revcomp)) {
-                    details.partial_filtered++;
-                    continue;
-                }
-                details.partial_found++;
-                hits.push_back(Hit{partial_position, q.start, q.start + index.k(), true});
-            } else {
-                details.partial_not_found++;
-            }
-        }
-
-        return {details, sorting_needed, hits};
-    }
-
-    for (const auto &q : query_randstrobes) {
-        size_t position = index.find_full(q.hash);
-        if (position != index.end()) {
-            if (index.is_filtered(position, q.hash_revcomp)) {
-                details.full_filtered++;
-                continue;
-            }
-            details.full_found++;
-            hits.push_back(Hit{position, q.start, q.end, false});
-        } else {
-            details.full_not_found++;
-            if (mcs_strategy == McsStrategy::Always) {
-                size_t partial_pos = index.find_partial(q.hash);
-                if (partial_pos != index.end()) {
-                    if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
-                        details.partial_filtered++;
-                        continue;
-                    }
-                    details.partial_found++;
-                    hits.push_back(Hit{partial_pos, q.start, q.start + index.k(), true});
+    std::vector<Hit> hits;
+    if (mcs_strategy != McsStrategy::FirstStrobe) {
+        for (size_t i = 0; i < query_randstrobes.size(); ++i) {
+            const auto &q = query_randstrobes[i];
+            size_t position = index.find_full(q.hash);
+            if (position != index.end()) {
+                bool is_filtered = index.is_filtered(position, q.hash_revcomp);
+                if (is_filtered) {
+                    details.full_filtered++;
                 } else {
-                    details.partial_not_found++;
+                    details.full_found++;
+                }
+                hits.push_back(Hit{position, q.hash_revcomp, q.start, q.end, false, is_filtered});
+            } else {
+                details.full_not_found++;
+                if (mcs_strategy == McsStrategy::Always) {
+                    size_t partial_pos = index.find_partial(q.hash);
+                    if (partial_pos != index.end()) {
+                        bool is_filtered = index.is_partial_filtered(partial_pos, q.hash_revcomp);
+                        if (is_filtered) {
+                            details.partial_filtered++;
+                        } else {
+                            details.partial_found++;
+                        }
+                        hits.push_back(Hit{partial_pos, q.hash_revcomp, q.start, q.start + index.k(), true, is_filtered});
+                    } else {
+                        details.partial_not_found++;
+                    }
                 }
             }
         }
     }
-    if (mcs_strategy == McsStrategy::Always) {
-        assert(details.full_not_found == details.partial_not_found + details.partial_filtered + details.partial_found);
-    }
 
-    // Rescue using partial hits
-    if (mcs_strategy == McsStrategy::Rescue && details.full_filtered + details.full_found == 0) {
-        for (const auto &q : query_randstrobes) {
+    if (
+        mcs_strategy == McsStrategy::FirstStrobe
+        || (mcs_strategy == McsStrategy::Rescue && hits.size() == 0)
+    ) {
+        // Only partial lookups
+        for (size_t i = 0; i < query_randstrobes.size(); ++i) {
+            const auto &q = query_randstrobes[i];
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
-                if (index.is_partial_filtered(partial_pos, q.hash_revcomp)) {
+                bool is_filtered = index.is_partial_filtered(partial_pos, q.hash_revcomp);
+                if (is_filtered) {
                     details.partial_filtered++;
-                    continue;
+                } else {
+                    details.partial_found++;
                 }
-                details.partial_found++;
-                hits.push_back(Hit{partial_pos, q.start, q.start + index.k(), true});
+                hits.push_back(Hit{partial_pos, q.hash_revcomp, q.start, q.start + index.k(), true, is_filtered});
             } else {
                 details.partial_not_found++;
             }
@@ -81,7 +119,109 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
         sorting_needed = true;
     }
 
-    assert(details.full_found + details.partial_found == hits.size());
+    if (mcs_strategy == McsStrategy::Always) {
+        assert(details.full_not_found == details.partial_not_found + details.partial_filtered + details.partial_found);
+    }
+
+    return {hits, details, sorting_needed};
+}
+
+
+// Rescue seeds from filtered regions that have a given minimum length (in
+// nucleotides)
+//
+// All stretches of consecutive filtered hits are considered. For any stretch
+// that is longer than rescue_thresheld, rescue_least_frequent is called.
+uint rescue_all_least_frequent(
+    const StrobemerIndex& index,
+    std::vector<Hit>& hits,
+    uint rescue_threshold
+) {
+    // Rescue threshold: If all hits over a region of this length (in nucleotides)
+    // are initially filtered out, we go back and add the least frequent of them
+    const uint L = rescue_threshold;
+    int last_unfiltered_start = 0;
+    size_t first_filtered = 0;
+    uint rescued = 0;
+
+    for (size_t i = 0; i < hits.size(); ++i) {
+        const auto &hit = hits[i];
+
+        if (hit.is_filtered) {
+            continue;
+        }
+        if (hit.query_start > last_unfiltered_start + L) {
+            uint to_rescue = (hit.query_start - last_unfiltered_start) / L;
+            rescued += rescue_least_frequent(index, hits, first_filtered, i, to_rescue);
+        }
+        last_unfiltered_start = hit.query_start;
+        first_filtered = i + 1;
+    }
+    // Ensure we consider the end as well
+    if (!hits.empty() && hits.back().query_start - last_unfiltered_start > L) {
+        uint to_rescue = (hits.back().query_start - last_unfiltered_start) / L;
+        rescued += rescue_least_frequent(index, hits, first_filtered, hits.size(), to_rescue);
+    }
+
+    return rescued;
+}
+
+/*
+ * Find a query’s hits
+ */
+std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
+    const std::vector<QueryRandstrobe>& query_randstrobes,
+    const StrobemerIndex& index,
+    McsStrategy mcs_strategy,
+    int rescue_threshold
+) {
+    auto [hits, details, sorting_needed] = find_all_hits(query_randstrobes, index, mcs_strategy);
+
+    uint total_hits = details.total_hits();
+    int nonrepetitive_hits = details.total_found();
+    float nonrepetitive_fraction = total_hits > 0 ? ((float) nonrepetitive_hits) / ((float) total_hits) : 1.0;
+
+    // rescue threshold 0 disables both global and local rescue
+    if (rescue_threshold > 0) {
+        if (nonrepetitive_fraction < 0.7) {
+            // "global" rescue
+            details.rescued += rescue_least_frequent(index, hits, 0, hits.size(), 5, 1000);
+        }
+        // "local" rescue
+        details.rescued += rescue_all_least_frequent(index, hits, rescue_threshold);
+    }
+
+    if (logger.level() <= LOG_TRACE) {
+        logger.trace() << "Found " << hits.size() << " hits (" << details.rescued << " of those rescued):\n";
+        logger.trace() << "querypos count (p=partial, F=filtered)\n";
+        for (const auto& hit : hits) {
+            int cnt;
+            if (hit.is_partial) {
+                cnt = index.get_count_partial(hit.position);
+            } else {
+                cnt = index.get_count_full(hit.position, hit.hash_revcomp);
+            }
+            logger.trace()
+                << std::setw(6) << hit.query_start
+                << (hit.is_partial ? " p" : "  ")
+                << std::setw(6) << cnt
+                << (hit.is_filtered ? " F" : "  ")
+                << "\n";
+        }
+    }
 
     return {details, sorting_needed, hits};
+}
+
+std::ostream& operator<<(std::ostream& os, const HitsDetails& details) {
+    os  << "HitsDetails("
+        << "full_not_found=" << details.full_not_found
+        << ", full_filtered=" << details.full_filtered
+        << ", full_found=" << details.full_found
+        << ", partial_not_found=" << details.partial_not_found
+        << ", partial_filtered=" << details.partial_filtered
+        << ", partial_found=" << details.partial_found
+        << ", rescued=" << details.rescued
+        << ")";
+    return os;
 }

@@ -186,7 +186,7 @@ int run_strobealign(int argc, char **argv) {
     map_param.r = opt.r;
     map_param.max_secondary = opt.max_secondary;
     map_param.dropoff_threshold = opt.dropoff_threshold;
-    map_param.rescue_level = opt.rescue_level;
+    map_param.rescue_threshold = opt.rescue_threshold;
     map_param.max_tries = opt.max_tries;
     map_param.mcs_strategy = opt.mcs_strategy;
     map_param.output_format = (
@@ -206,14 +206,21 @@ int run_strobealign(int argc, char **argv) {
     map_param.chaining_params.matches_weight = opt.matches_weight;
     map_param.piecewise = opt.piecewise;
     map_param.verify();
-
-    logger.debug() << index_parameters << '\n';
-    logger.debug()
-        << "  Maximum seed length: " << index_parameters.randstrobe.max_dist + index_parameters.syncmer.k << '\n'
-        << "  Expected [w_min, w_max] in #syncmers: [" << index_parameters.randstrobe.w_min << ", " << index_parameters.randstrobe.w_max << "]\n"
-        << "  Expected [w_min, w_max] in #nucleotides: [" << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_min << ", " << (index_parameters.syncmer.k - index_parameters.syncmer.s + 1) * index_parameters.randstrobe.w_max << "]\n";
+    {
+        int k = index_parameters.syncmer.k;
+        int s = index_parameters.syncmer.s;
+        int l = index_parameters.randstrobe.w_min;
+        int u = index_parameters.randstrobe.w_max;
+        int d = k - s + 1;
+        logger.debug() << index_parameters << '\n';
+        logger.debug()
+            << "  Maximum seed length: " << index_parameters.randstrobe.max_dist + index_parameters.syncmer.k << '\n'
+            << "  Syncmers are on average sampled every k - s + 1 = " << d << " nucleotides\n"
+            << "  Sampling window for second syncmer (in syncmers): [" << l << ", " << u << "]\n"
+            << "  Sampling window for second syncmer (in nucleotides): [" << d * l << ", " << d * u << "]\n";
+    }
     logger.debug() << aln_params << '\n';
-    logger.debug() << "Rescue level (R): " << map_param.rescue_level << '\n';
+    logger.debug() << "Rescue threshold (R): " << map_param.rescue_threshold << " nt\n";
     logger.debug() << "Indexing threads: " << opt.indexing_threads << std::endl;
     logger.debug() << "Mapping threads: " << opt.n_threads << std::endl;
 
@@ -298,9 +305,6 @@ int run_strobealign(int argc, char **argv) {
     // Map/align reads
         
     Timer map_align_timer;
-    map_param.rescue_cutoff = map_param.rescue_level < 100 ? map_param.rescue_level * index.filter_cutoff : 1000;
-    logger.debug() << "Using rescue cutoff: " << map_param.rescue_cutoff << std::endl;
-
     std::streambuf* buf;
     std::ofstream of;
 
@@ -390,6 +394,12 @@ int run_strobealign(int argc, char **argv) {
             << std::setw(9) << static_cast<float>(statistics.hits.partial_filtered) / statistics.n_randstrobes * 100 << " %\n"
         << "    Partial randstrobe not found         " << std::setw(12) << statistics.hits.partial_not_found
             << std::setw(9) << static_cast<float>(statistics.hits.partial_not_found) / statistics.n_randstrobes * 100 << " %\n"
+        << '\n'
+        << "Filtered but rescued randstrobes         " << std::setw(12) << statistics.hits.rescued
+        << "\n"
+        << "## Chaining\n"
+        << "\nFound anchors:                           " << std::setw(12) << statistics.n_anchors
+        << "              Per read: " << std::setw(7) << static_cast<float>(statistics.n_anchors) / statistics.n_reads
         << "\nFound chains:                            " << std::setw(12) << statistics.n_nams
         << "              Per read: " << std::setw(7) << static_cast<float>(statistics.n_nams) / statistics.n_reads << std::endl
         << "\n## Rescue (-R)\n\n"

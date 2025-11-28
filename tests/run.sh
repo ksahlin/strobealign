@@ -64,6 +64,11 @@ strobealign -x tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq | tail -n 
 diff tests/phix.pe.paf phix.pe.paf
 rm phix.pe.paf
 
+# Single-end PAF with multi-context seeds in rescue mode
+strobealign -x tests/phix.fasta --mcs=rescue tests/phix.1.fastq | tail -n 11 > phix.mcsrescue.se.paf
+diff tests/phix.mcsrescue.se.paf phix.mcsrescue.se.paf
+rm phix.mcsrescue.se.paf
+
 # Single-end abundance estimation 
 strobealign --aemb tests/phix.fasta tests/phix.1.fastq > phix.abun.se.txt
 diff tests/phix.abun.se.txt phix.abun.se.txt
@@ -118,10 +123,5 @@ rm with-tags.sam
 strobealign --no-PG --eqx --rg-id 1 --rg SM:sample --rg LB:library tests/phix.fasta multiblock.fastq.gz > multiblock.sam
 diff tests/phix.se.sam multiblock.sam
 rm multiblock.fastq.gz multiblock.sam
-
-# Single-end PAF with multi-context seeds
-strobealign --mcs=always -x tests/phix.fasta tests/phix.1.fastq | tail -n 11 > phix.mcs.se.paf
-diff tests/phix.mcs.se.paf phix.mcs.se.paf
-rm phix.mcs.se.paf
 
 echo -e "\e[32mSuccess\e[0m"
