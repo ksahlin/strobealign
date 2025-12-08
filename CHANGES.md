@@ -10,6 +10,10 @@
   "rescue" to "always". This means that a partial seed lookup is done every time
   a full seed cannot be found (whereas previously, it was done only if no
   full seed was found for the entire query).
+* Indexing parameters were adjusted to take into account the new multi-context
+  seed strategy default of "always", which allows to set the k a bit higher.
+* Removed canonical read length 125 because it became too similar to the
+  adjacent 100 and 150.
 * #521: Implement a "local" rescue of highly repetitive hits (similar to
   minimap2): Highly repetitive hits are usually filtered out because they
   increase runtime significantly. If there are too many filtered hits, we

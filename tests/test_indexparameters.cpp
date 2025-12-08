@@ -5,13 +5,13 @@
 TEST_CASE("test IndexParameters constructor") {
     size_t canonical_read_length = 250;
 
-    int k = 22;
-    int s = 18;
+    int k = 23;
+    int s = 19;
 
     int l = 6;
-    int u = 16;
+    int u = 9;
     unsigned w_min = 6;
-    unsigned w_max = 16;
+    unsigned w_max = 9;
     int max_dist = 180;
     uint64_t q = 255;
     uint64_t main_hash_mask = 0xfffffffffc000000;
