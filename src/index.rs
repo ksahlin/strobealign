@@ -1,7 +1,3 @@
-use crate::fasta::RefSequence;
-use crate::strobes::{RandstrobeIterator, RandstrobeParameters, DEFAULT_AUX_LEN};
-use crate::syncmers::{SyncmerIterator, SyncmerParameters};
-use log::debug;
 use std::cmp::{min, Reverse};
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -11,8 +7,13 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
 
+use log::{debug, trace};
 use rayon;
 use rayon::slice::ParallelSliceMut;
+
+use crate::fasta::RefSequence;
+use crate::strobes::{RandstrobeIterator, RandstrobeParameters, DEFAULT_AUX_LEN};
+use crate::syncmers::{SyncmerIterator, SyncmerParameters};
 
 /// Pre-defined index parameters that work well for a certain
 /// "canonical" read length (and similar read lengths)
@@ -479,12 +480,14 @@ impl<'a> StrobemerIndex<'a> {
 
         let index_cutoff = (unique_mers as f64 * filter_fraction) as usize;
         self.stats.index_cutoff = index_cutoff;
-        self.filter_cutoff = usize::clamp(
-            if index_cutoff < strobemer_counts.len() {
+        let filter_cutoff = if index_cutoff < strobemer_counts.len() {
                 strobemer_counts[index_cutoff]
             } else {
                 *strobemer_counts.last().unwrap_or(&30)
-            },
+            };
+        trace!("Filter cutoff before clamping to [30, 100]: {}", filter_cutoff);
+        self.filter_cutoff = usize::clamp(
+            filter_cutoff,
             30, // cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
             100, // limit upper cutoff for normal NAM finding - use rescue mode instead
         );
