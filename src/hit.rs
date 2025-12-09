@@ -67,47 +67,31 @@ pub fn find_hits(
     let mut sorting_needed = mcs_strategy == McsStrategy::Always || mcs_strategy == McsStrategy::FirstStrobe;
     let mut hits_details = HitsDetails::default();
 
-    if mcs_strategy == McsStrategy::FirstStrobe {
+    if mcs_strategy != McsStrategy::FirstStrobe {
         for randstrobe in query_randstrobes {
-            if let Some(position) = index.get_partial(randstrobe.hash) {
-                if index.is_too_frequent_partial(position, filter_cutoff, randstrobe.hash_revcomp) {
-                    hits_details.partial_filtered += 1;
+            if let Some(position) = index.get_full(randstrobe.hash) {
+                if index.is_too_frequent(position, filter_cutoff, randstrobe.hash_revcomp) {
+                    hits_details.full_filtered += 1;
                     continue;
                 }
-                hits_details.partial_found += 1;
+                hits_details.full_found += 1;
 
-                let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.start + index.k(), is_partial: true };
+                let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.end, is_partial: false };
                 hits.push(hit);
             } else {
-                hits_details.partial_not_found += 1;
-            }
-        }
-        return (hits_details, sorting_needed, hits);
-    }
-
-    for randstrobe in query_randstrobes {
-        if let Some(position) = index.get_full(randstrobe.hash) {
-            if index.is_too_frequent(position, filter_cutoff, randstrobe.hash_revcomp) {
-                hits_details.full_filtered += 1;
-                continue;
-            }
-            hits_details.full_found += 1;
-
-            let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.end, is_partial: false };
-            hits.push(hit);
-        } else {
-            hits_details.full_not_found += 1;
-            if mcs_strategy == McsStrategy::Always {
-                if let Some(position) = index.get_partial(randstrobe.hash) {
-                    if index.is_too_frequent_partial(position, filter_cutoff, randstrobe.hash_revcomp) {
-                        hits_details.partial_filtered += 1;
-                        continue;
+                hits_details.full_not_found += 1;
+                if mcs_strategy == McsStrategy::Always {
+                    if let Some(position) = index.get_partial(randstrobe.hash) {
+                        if index.is_too_frequent_partial(position, filter_cutoff, randstrobe.hash_revcomp) {
+                            hits_details.partial_filtered += 1;
+                            continue;
+                        }
+                        hits_details.partial_found += 1;
+                        let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.start + index.k(), is_partial: true };
+                        hits.push(hit);
+                    } else {
+                        hits_details.partial_not_found += 1;
                     }
-                    hits_details.partial_found += 1;
-                    let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.start + index.k(), is_partial: true };
-                    hits.push(hit);
-                } else {
-                    hits_details.partial_not_found += 1;
                 }
             }
         }
@@ -117,7 +101,7 @@ pub fn find_hits(
     }
 
     // Rescue using partial hits even in non-MCS mode
-    if mcs_strategy == McsStrategy::Rescue && hits_details.full_filtered + hits_details.full_found == 0 {
+    if mcs_strategy == McsStrategy::FirstStrobe || (mcs_strategy == McsStrategy::Rescue && hits_details.full_filtered + hits_details.full_found == 0) {
         for randstrobe in query_randstrobes {
             if let Some(position) = index.get_partial(randstrobe.hash) {
                 if index.is_too_frequent_partial(position, filter_cutoff, randstrobe.hash_revcomp) {
