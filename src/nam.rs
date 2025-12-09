@@ -95,7 +95,7 @@ fn find_matches_rescue(
 
     for randstrobe in query_randstrobes {
         if let Some(position) = index.get_full(randstrobe.hash) {
-            let count = index.get_count_full_forward(position);
+            let count = index.get_count_full(position, randstrobe.hash_revcomp);
             let rh = RescueHit {
                 count,
                 position,

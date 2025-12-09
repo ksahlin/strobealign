@@ -112,7 +112,7 @@ fn rescue_least_frequent(
             if hits[i].is_partial {
                 index.get_count_partial(hits[i].position)
             } else {
-                index.get_count_full_forward(hits[i].position)  // TODO , hits[i].hash_revcomp)
+                index.get_count_full(hits[i].position, hits[i].hash_revcomp)
             };
         if rescue_threshold.is_none() || cnt <= rescue_threshold.unwrap() {
             hit_counts.push((i, cnt));
