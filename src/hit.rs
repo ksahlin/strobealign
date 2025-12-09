@@ -77,6 +77,15 @@ impl HitsDetails {
     pub fn total_found(&self) -> usize {
         self.full_found + self.partial_found
     }
+
+    /// Used as a heuristic to compare the two orientations of a query
+    pub fn is_better_than(&self, other: &HitsDetails) -> bool {
+        let total = self.full_found + self.full_filtered;
+        let other_total = other.full_found + other.full_filtered;
+
+        total >= other_total * 2 && total > other_total + 5
+    }
+
 }
 
 /// Finds least frequent hits in a portion of the hits vector and set their

@@ -148,8 +148,23 @@ impl Chainer {
         let mut rescue_done = false;
         let mut time_rescue = 0.0;
         let mut time_chaining = 0.0;
+
+
+        // Runtime heuristic: If one orientation appears to have many more hits
+        // than the other, we assume it is the correct one and do not check the
+        // other.
+        let mut orientations = vec![];
+        if hits_details[0].is_better_than(&hits_details[1]) {
+            orientations.push(0);
+        } else if hits_details[1].is_better_than(&hits_details[0]) {
+            orientations.push(1);
+        } else {
+            orientations.push(0);
+            orientations.push(1);
+        }
+
         let mut chains = vec![];
-        for is_revcomp in 0..2 {
+        for is_revcomp in orientations {
             let hits_timer = Instant::now();
             let mut anchors = hits_to_anchors(&hits[is_revcomp], index);
             time_find_hits += hits_timer.elapsed().as_secs_f64();
