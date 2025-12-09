@@ -1,5 +1,5 @@
 use std::time::Instant;
-use log::trace;
+use log::{log_enabled, Level, trace};
 
 use crate::details::NamDetails;
 use crate::hit::{find_hits, Hit, HitsDetails};
@@ -117,7 +117,7 @@ impl Chainer {
         &self,
         query_randstrobes: &[Vec<QueryRandstrobe>; 2],
         index: &StrobemerIndex,
-        rescue_level: usize,
+        rescue_distance: usize,
         mcs_strategy: McsStrategy,
     ) -> (NamDetails, Vec<Nam>) {
         let hits_timer = Instant::now();
@@ -126,22 +126,20 @@ impl Chainer {
         let mut n_rescue_hits = 0;
         let mut n_rescue_partial_hits = 0;
         let mut hits = [vec![], vec![]];
-        let mut hits_details = HitsDetails::default();
+        let mut hits_details = [HitsDetails::default(), HitsDetails::default()];
         for is_revcomp in 0..2 {
             let sorting_needed1;
-            let hits_details1;
 
-            (hits_details1, sorting_needed1, hits[is_revcomp]) =
-                find_hits(&query_randstrobes[is_revcomp], index, index.filter_cutoff, mcs_strategy);
-            trace!("Found {} hits", hits_details1.total_hits());
-            for hit in &hits[is_revcomp] {
-                trace!("Hit: {:?}", hit);
+            (hits_details[is_revcomp], sorting_needed1, hits[is_revcomp]) =
+                find_hits(&query_randstrobes[is_revcomp], index, mcs_strategy, index.filter_cutoff, rescue_distance);
+
+            if log_enabled!(Level::Trace) {
+                trace!("Found {} hits", hits_details[is_revcomp].total_hits());
+                for hit in &hits[is_revcomp] {
+                    trace!("Hit: {:?}", hit);
+                }
             }
-            hits_details += hits_details1;
         }
-        let total_hits = hits_details.total_hits();
-        let nonrepetitive_hits = hits[0].len() + hits[1].len();
-        let nonrepetitive_fraction = if total_hits > 0 { (nonrepetitive_hits as f32) / (total_hits as f32) } else { 1.0 };
         let mut time_find_hits = hits_timer.elapsed().as_secs_f64();
 
         let mut n_anchors = 0;
@@ -152,25 +150,9 @@ impl Chainer {
         let mut time_chaining = 0.0;
         let mut chains = vec![];
         for is_revcomp in 0..2 {
-            let mut anchors;
-
-            // Rescue if requested and needed
-            if rescue_level > 1 && (nonrepetitive_hits == 0 || nonrepetitive_fraction < 0.7) {
-                let rescue_timer = Instant::now();
-                rescue_done = true;
-                let (anchors1, n_rescue_hits1, n_rescue_partial_hits1) = find_anchors_rescue(
-                    &query_randstrobes[is_revcomp], index, index.rescue_cutoff, mcs_strategy
-                );
-                anchors = anchors1;
-                n_rescue_hits += n_rescue_hits1;
-                n_rescue_partial_hits += n_rescue_partial_hits1;
-                n_rescue_nams += chains.len();
-                time_rescue += rescue_timer.elapsed().as_secs_f64();
-            } else {
-                let hits_timer = Instant::now();
-                anchors = hits_to_anchors(&hits[is_revcomp], index);
-                time_find_hits += hits_timer.elapsed().as_secs_f64();
-            }
+            let hits_timer = Instant::now();
+            let mut anchors = hits_to_anchors(&hits[is_revcomp], index);
+            time_find_hits += hits_timer.elapsed().as_secs_f64();
             trace!("Found {} anchors", anchors.len());
             /*for anchor in anchors.iter().take(100) {
                 trace!("{:?}", anchor);
@@ -189,8 +171,10 @@ impl Chainer {
             );
             time_chaining += chaining_timer.elapsed().as_secs_f64();
         }
+        let mut hits_details12 = hits_details[0].clone();
+        hits_details12 += hits_details[1].clone();
         let details = NamDetails {
-            hits: hits_details,
+            hits: hits_details12,
             n_reads: 1,
             n_randstrobes: query_randstrobes[0].len() + query_randstrobes[1].len(),
             n_anchors,
@@ -289,6 +273,9 @@ fn hits_to_anchors(
 ) -> Vec<Anchor> {
     let mut anchors = vec![];
     for hit in hits {
+        if hit.is_filtered {
+            continue;
+        }
         if hit.is_partial {
             add_to_anchors_partial(&mut anchors, hit.query_start, index, hit.position);
         } else {
@@ -297,62 +284,6 @@ fn hits_to_anchors(
     }
 
     anchors
-}
-
-fn find_anchors_rescue(
-    query_randstrobes: &Vec<QueryRandstrobe>,
-    index: &StrobemerIndex,
-    rescue_cutoff: usize,
-    mcs_strategy: McsStrategy,
-) -> (Vec<Anchor>, usize, usize) {
-    let mut anchors = vec![];
-    struct RescueHit {
-        count: usize,
-        query_start: usize,
-        query_end: usize,
-        position: usize,
-        is_partial: bool,
-    }
-
-    let mut n_hits = 0;
-    let mut partial_hits = 0;
-    let mut rescue_hits = vec![];
-    for qr in query_randstrobes {
-        if let Some(position) = index.get_full(qr.hash) {
-            let mut count = index.get_count_full(position);
-            if let Some(position_revcomp) = index.get_full(qr.hash_revcomp) {
-                count += index.get_count_full(position_revcomp);
-            }
-            rescue_hits.push(RescueHit {position, count, query_start: qr.start, query_end: qr.end, is_partial: false});
-        } else if mcs_strategy == McsStrategy::Always {
-            if let Some(partial_pos) = index.get_partial(qr.hash) {
-                let mut partial_count = index.get_count_partial(partial_pos);
-                if let Some(position_revcomp) = index.get_partial(qr.hash_revcomp) {
-                    partial_count += index.get_count_partial(position_revcomp);
-                }
-                rescue_hits.push(RescueHit {position: partial_pos, count: partial_count, query_start: qr.start, query_end: qr.start + index.k(), is_partial: true});
-                partial_hits += 1;
-            }
-        }
-    }
-
-    let cmp = |a: &RescueHit, b: &RescueHit| (a.count, a.query_start, a.query_end).cmp(&(b.count, b.query_start, b.query_end));
-    rescue_hits.sort_by(cmp);
-
-    for (i, rh) in rescue_hits.iter().enumerate() {
-        if (rh.count > rescue_cutoff && i >= 5) || rh.count > 1000 {
-            break;
-        }
-        if rh.is_partial {
-            partial_hits += 1;
-            add_to_anchors_partial(&mut anchors, rh.query_start, index, rh.position);
-        } else {
-            add_to_anchors_full(&mut anchors, rh.query_start, rh.query_end, index, rh.position);
-        }
-        n_hits += 1;
-    }
-
-    (anchors, n_hits, partial_hits)
 }
 
 fn extract_chains_from_dp(

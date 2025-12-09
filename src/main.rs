@@ -228,12 +228,11 @@ struct Args {
     #[arg(short = 'M', default_value_t = MappingParameters::default().max_tries, help_heading = "Search parameters")]
     max_tries: usize,
 
-    /// Rescue level. Perform additional search for reads with many repetitive seeds filtered out.
-    /// This search includes seeds of R*repetitive_seed_size_filter (default: R=2). Higher R than
-    /// default makes strobealign significantly slower but more accurate.
-    /// R <= 1 deactivates rescue and is the fastest
-    #[arg(short = 'R', default_value_t = 2, help_heading = "Search parameters")]
-    rescue_level: usize,
+    /// Maximum distance (in nucleotides) that filtered seeds may span.
+    /// The lower the value, the more seeds are rescued.
+    /// Use 0 to disable rescue.
+    #[arg(short = 'R', default_value_t = MappingParameters::default().rescue_distance, help_heading = "Search parameters")]
+    rescue_distance: usize,
 
     /// Path to input reference (in FASTA format)
     ref_path: String,
@@ -354,7 +353,7 @@ fn main() -> Result<(), CliError> {
         max_secondary: args.max_secondary,
         max_tries: args.max_tries,
         dropoff_threshold: args.dropoff_threshold,
-        rescue_level: args.rescue_level,
+        rescue_distance: args.rescue_distance,
         output_unmapped: !args.only_mapped,
         .. MappingParameters::default()
     };
@@ -670,10 +669,10 @@ impl Mapper<'_> {
                     let (paf_records, details) =
                         if let Some(r2) = r2 {
                             map_paired_end_read(
-                                &r1, &r2, self.index, self.references, self.mapping_parameters.rescue_level, &mut isizedist, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng
+                                &r1, &r2, self.index, self.references, self.mapping_parameters.rescue_distance, &mut isizedist, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng
                             )
                         } else {
-                            map_single_end_read(&r1, self.index, self.references, self.mapping_parameters.rescue_level, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng)
+                            map_single_end_read(&r1, self.index, self.references, self.mapping_parameters.rescue_distance, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng)
                         };
                     for paf_record in paf_records {
                         writeln!(out, "{}", paf_record)?;
@@ -682,9 +681,9 @@ impl Mapper<'_> {
                 }
                 Mode::Abundances => {
                     if let Some(r2) = r2 {
-                        abundances_paired_end_read(&r1, &r2, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, &mut isizedist, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng);
+                        abundances_paired_end_read(&r1, &r2, self.index, &mut self.abundances, self.mapping_parameters.rescue_distance, &mut isizedist, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng);
                     } else {
-                        abundances_single_end_read(&r1, self.index, &mut self.abundances, self.mapping_parameters.rescue_level, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng);
+                        abundances_single_end_read(&r1, self.index, &mut self.abundances, self.mapping_parameters.rescue_distance, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng);
                     }
                 }
             }
