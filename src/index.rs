@@ -624,7 +624,7 @@ impl<'a> StrobemerIndex<'a> {
         (p as usize, p as usize + self.k())
     }
 
-    pub fn get_count_full(&self, position: usize) -> usize {
+    pub fn get_count_full_forward(&self, position: usize) -> usize {
         self.get_count(position, REF_RANDSTROBE_HASH_MASK)
     }
 
@@ -672,7 +672,7 @@ impl<'a> StrobemerIndex<'a> {
             if self.is_too_frequent_forward(position_revcomp, cutoff) {
                 return true;
             }
-            let count = self.get_count_full(position) + self.get_count_full(position_revcomp);
+            let count = self.get_count_full_forward(position) + self.get_count_full_forward(position_revcomp);
 
             return count > cutoff;
         }

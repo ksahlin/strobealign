@@ -149,7 +149,6 @@ impl Chainer {
         let mut time_rescue = 0.0;
         let mut time_chaining = 0.0;
 
-
         // Runtime heuristic: If one orientation appears to have many more hits
         // than the other, we assume it is the correct one and do not check the
         // other.
