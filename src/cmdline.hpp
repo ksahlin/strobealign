@@ -72,7 +72,6 @@ struct CommandLineOptions {
     float f { 0.0002 };
     float dropoff_threshold { 0.5 };
     int max_tries { 20 };
-    int legacy_rescue { 0 };
     int rescue_threshold{100};
 
     // Reference and read files
