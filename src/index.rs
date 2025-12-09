@@ -624,6 +624,17 @@ impl<'a> StrobemerIndex<'a> {
         (p as usize, p as usize + self.k())
     }
 
+    /// Count number of hits for the randstrobe *and* its "reverse complement"
+    pub fn get_count_full(&self, position: usize, hash_revcomp: u64) -> usize {
+        let reverse_count;
+        if let Some(position_revcomp) = self.get_full(hash_revcomp) {
+            reverse_count = self.get_count_full_forward(position_revcomp);
+        } else {
+            reverse_count = 0;
+        }
+        reverse_count + self.get_count_full_forward(position)
+    }
+
     pub fn get_count_full_forward(&self, position: usize) -> usize {
         self.get_count(position, REF_RANDSTROBE_HASH_MASK)
     }
