@@ -404,7 +404,7 @@ int run_strobealign(int argc, char **argv) {
         << '\n'
         << "Filtered but rescued randstrobes         " << std::setw(12) << statistics.hits.rescued
         << "\n"
-        << "## Chaining\n"
+        << "\n## Chaining\n"
         << "\nFound anchors:                           " << std::setw(12) << statistics.n_anchors
         << "              Per read: " << std::setw(7) << static_cast<float>(statistics.n_anchors) / statistics.n_reads
         << "\nFound chains:                            " << std::setw(12) << statistics.n_nams
