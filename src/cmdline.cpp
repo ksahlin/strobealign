@@ -71,8 +71,14 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
         {"off", McsStrategy::Off},
         {"first-strobe", McsStrategy::FirstStrobe},
     };
+    std::unordered_map<std::string, SearchStrategy> search_map{
+        {"rescue", SearchStrategy::Rescue},
+        {"first", SearchStrategy::First},
+        {"second", SearchStrategy::Second},
+    };
     args::Group search(parser, "Search parameters:");
     args::MapFlag mcs(parser, "mcs", "How multi-context seeds are used. Allowed: 'always' (default), 'rescue', 'off', 'first-strobe'", {"mcs"}, mcs_map);
+    args::MapFlag search_level(parser, "search", "Search level for three strobe mcs. Allowed: 'first' (default), 'rescue', 'second'", {"search"}, search_map);
     args::ValueFlag<float> f(parser, "FLOAT", "Top fraction of repetitive strobemers to filter out from sampling [0.0002]", {'f'});
     args::ValueFlag<float> S(parser, "FLOAT", "Try candidate sites with mapping score at least S of maximum mapping score [0.5]", {'S'});
     args::ValueFlag<int> M(parser, "INT", "Maximum number of mapping sites to try [20]", {'M'});
@@ -161,6 +167,7 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
 
     // Search parameters
     if (mcs) { opt.mcs_strategy = args::get(mcs); }
+    if (search) { opt.search_strategy = args::get(search_level); }
     if (f) { opt.f = args::get(f); }
     if (S) { opt.dropoff_threshold = args::get(S); }
     if (M) { opt.max_tries = args::get(M); }

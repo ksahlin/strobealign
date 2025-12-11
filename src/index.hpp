@@ -153,7 +153,7 @@ struct StrobemerIndex {
 
     bool is_partial_filtered(bucket_index_t position, randstrobe_hash_t hash_revcomp, uint level) const {
         assert(position < randstrobes.size());
-        return is_partial_filtered_forward(position);
+        return is_partial_filtered_forward(position, level);
     }
 
     unsigned int get_strobe1_position(bucket_index_t position) const {

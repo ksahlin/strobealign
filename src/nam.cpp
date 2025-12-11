@@ -222,7 +222,7 @@ std::vector<Nam> get_nams(
     for (int is_revcomp : {0, 1}) {
         bool sorting_needed1;
         HitsDetails hits_details1;
-        std::tie(hits_details1, sorting_needed1, hits[is_revcomp]) = find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy, map_param.rescue_threshold);
+        std::tie(hits_details1, sorting_needed1, hits[is_revcomp]) = find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy, map_param.search_strategy, map_param.rescue_threshold);
         sorting_needed = sorting_needed || sorting_needed1;
         details.hits += hits_details1;
     }

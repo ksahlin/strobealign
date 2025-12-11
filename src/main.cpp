@@ -188,6 +188,7 @@ int run_strobealign(int argc, char **argv) {
     map_param.rescue_threshold = opt.rescue_threshold;
     map_param.max_tries = opt.max_tries;
     map_param.mcs_strategy = opt.mcs_strategy;
+    map_param.search_strategy = opt.search_strategy;
     map_param.output_format = (
             opt.is_abundance_out ? OutputFormat::Abundance :
             opt.is_sam_out ? OutputFormat::SAM :

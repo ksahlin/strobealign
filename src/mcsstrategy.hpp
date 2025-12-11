@@ -20,6 +20,13 @@ enum class McsStrategy {
     FirstStrobe,
 };
 
+enum class SearchStrategy {
+    First,
+    Rescue,
+    Second
+};
+
 std::ostream& operator<<(std::ostream& os, const McsStrategy& mcs_strategy);
+std::ostream& operator<<(std::ostream& os, const SearchStrategy& search_strategy);
 
 #endif

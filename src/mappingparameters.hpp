@@ -27,6 +27,7 @@ struct MappingParameters {
     int rescue_threshold{100};
     int max_tries { 20 };
     McsStrategy mcs_strategy{McsStrategy::Always};
+    SearchStrategy search_strategy{SearchStrategy::First};
     OutputFormat output_format {OutputFormat::SAM};
     CigarOps cigar_ops{CigarOps::M};
     bool output_unmapped { true };

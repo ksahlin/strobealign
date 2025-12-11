@@ -284,7 +284,7 @@ std::array<std::vector<QueryRandstrobe>, 2> randstrobes_query(const std::string_
         auto randstrobe = randstrobe_fwd_iter.next();
         randstrobes[0].push_back(
             QueryRandstrobe {
-                randstrobe.hash, randstrobe.hash_revcomp, randstrobe.strobe1_pos, randstrobe.strobe3_pos + parameters.syncmer.k
+                randstrobe.hash, randstrobe.hash_revcomp, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k, randstrobe.strobe3_pos + parameters.syncmer.k
             }
         );
     }
@@ -307,7 +307,7 @@ std::array<std::vector<QueryRandstrobe>, 2> randstrobes_query(const std::string_
         auto randstrobe = randstrobe_rc_iter.next();
         randstrobes[1].push_back(
             QueryRandstrobe {
-                randstrobe.hash, randstrobe.hash_revcomp, randstrobe.strobe1_pos, randstrobe.strobe3_pos + parameters.syncmer.k
+                randstrobe.hash, randstrobe.hash_revcomp, randstrobe.strobe1_pos, randstrobe.strobe2_pos + parameters.syncmer.k, randstrobe.strobe3_pos + parameters.syncmer.k
             }
         );
     }

@@ -29,7 +29,7 @@ uint rescue_least_frequent(
     for (size_t i = start; i < end; ++i) {
         uint cnt;
         if (hits[i].is_partial) {
-            cnt = index.get_count_partial(hits[i].position);
+            cnt = index.get_count_partial(hits[i].position, 1);
         } else {
             cnt = index.get_count_full(hits[i].position, hits[i].hash_revcomp);
         }
@@ -57,7 +57,8 @@ uint rescue_least_frequent(
 std::tuple<std::vector<Hit>, HitsDetails, bool> find_all_hits(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
-    McsStrategy mcs_strategy
+    McsStrategy mcs_strategy,
+    SearchStrategy search_strategy
 ) {
     // If we produce matches in sorted order, then merge_matches_into_nams()
     // does not have to re-sort
@@ -79,23 +80,33 @@ std::tuple<std::vector<Hit>, HitsDetails, bool> find_all_hits(
             } else {
                 details.full_not_found++;
                 if (mcs_strategy == McsStrategy::Always) {
-                    size_t partial_pos = index.find_partial(q.hash);
+                    uint search_level = search_strategy == SearchStrategy::First || search_strategy == SearchStrategy::Rescue ? 1 : 2;
+                    size_t partial_pos = index.find_partial(q.hash, search_level);
                     if (partial_pos != index.end()) {
-                        bool is_filtered = index.is_partial_filtered(partial_pos, q.hash_revcomp);
+                        bool is_filtered = index.is_partial_filtered(partial_pos, q.hash_revcomp, search_level);
                         if (is_filtered) {
                             details.partial_filtered++;
                         } else {
                             details.partial_found++;
                         }
-                        hits.push_back(Hit{partial_pos, q.hash_revcomp, q.start, q.start + index.k(), true, is_filtered});
+                        size_t end = search_strategy == SearchStrategy::First || search_strategy == SearchStrategy::Rescue ? q.middle : q.start + index.k();
+                        hits.push_back(Hit{partial_pos, q.hash_revcomp, q.start, end, true, is_filtered});
                     } else {
                         details.partial_not_found++;
+                        if (search_strategy == SearchStrategy::Rescue) {
+                            partial_pos = index.find_partial(q.hash, 2);
+                            if (partial_pos != index.end()) {
+                                bool is_filtered = index.is_partial_filtered(partial_pos, q.hash_revcomp, 2);
+                                hits.push_back(Hit{partial_pos, q.hash_revcomp, q.start, q.start + index.k(), true, is_filtered});
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
+    //3-strobes not supported for --first and --rescue
     if (
         mcs_strategy == McsStrategy::FirstStrobe
         || (mcs_strategy == McsStrategy::Rescue && hits.size() == 0)
@@ -103,9 +114,9 @@ std::tuple<std::vector<Hit>, HitsDetails, bool> find_all_hits(
         // Only partial lookups
         for (size_t i = 0; i < query_randstrobes.size(); ++i) {
             const auto &q = query_randstrobes[i];
-            size_t partial_pos = index.find_partial(q.hash);
+            size_t partial_pos = index.find_partial(q.hash, 1);
             if (partial_pos != index.end()) {
-                bool is_filtered = index.is_partial_filtered(partial_pos, q.hash_revcomp);
+                bool is_filtered = index.is_partial_filtered(partial_pos, q.hash_revcomp, 1);
                 if (is_filtered) {
                     details.partial_filtered++;
                 } else {
@@ -173,9 +184,10 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
     const std::vector<QueryRandstrobe>& query_randstrobes,
     const StrobemerIndex& index,
     McsStrategy mcs_strategy,
+    SearchStrategy search_strategy,
     int rescue_threshold
 ) {
-    auto [hits, details, sorting_needed] = find_all_hits(query_randstrobes, index, mcs_strategy);
+    auto [hits, details, sorting_needed] = find_all_hits(query_randstrobes, index, mcs_strategy, search_strategy);
 
     uint total_hits = details.total_hits();
     int nonrepetitive_hits = details.total_found();
@@ -197,7 +209,7 @@ std::tuple<HitsDetails, bool, std::vector<Hit>> find_hits(
         for (const auto& hit : hits) {
             int cnt;
             if (hit.is_partial) {
-                cnt = index.get_count_partial(hit.position);
+                cnt = index.get_count_partial(hit.position, 1);
             } else {
                 cnt = index.get_count_full(hit.position, hit.hash_revcomp);
             }

@@ -241,7 +241,7 @@ std::vector<Nam> Chainer::get_chains(
     for (int is_revcomp : {0, 1}) {
         bool sorting_needed1;
         std::tie(hits_details[is_revcomp], sorting_needed1, hits[is_revcomp]) =
-            find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy, map_param.rescue_threshold);
+            find_hits(query_randstrobes[is_revcomp], index, map_param.mcs_strategy, map_param.search_strategy, map_param.rescue_threshold);
         details.hits += hits_details[is_revcomp];
     }
     statistics.time_hit_finding += hits_timer.duration();

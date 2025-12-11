@@ -71,6 +71,7 @@ struct QueryRandstrobe {
     randstrobe_hash_t hash;
     randstrobe_hash_t hash_revcomp;
     unsigned int start;
+    unsigned int middle;
     unsigned int end;
 };
 

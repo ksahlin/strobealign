@@ -89,7 +89,7 @@ public:
     IndexParameters(size_t canonical_read_length, int k, int s, int w_min, int w_max, uint64_t q, int max_dist, int aux_len)
         : canonical_read_length(canonical_read_length)
         , syncmer(k, s)
-        , randstrobe(q, max_dist, w_min, w_max, ~0ul << (16 + 2 * aux_len))
+        , randstrobe(q, max_dist, w_min, w_max, ~0ul << (16 + 2 * aux_len), (~0ul << (16 + aux_len)) ^ (~0ul << (16 + 2 * aux_len)))
     {
         if (w_min < 0 || w_max < 0) {
             throw BadParameter("Neither l nor u can be negative");

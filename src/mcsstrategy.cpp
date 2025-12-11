@@ -8,3 +8,11 @@ std::ostream& operator<<(std::ostream& os, const McsStrategy& mcs_strategy) {
 
     return os;
 }
+
+std::ostream& operator<<(std::ostream& os, const SearchStrategy& search_strategy) {
+    if (search_strategy == SearchStrategy::First) { os <<  "first only"; }
+    else if (search_strategy == SearchStrategy::Second) { os << "second only"; }
+    else if (search_strategy == SearchStrategy::Rescue) { os << "second as rescue"; }
+
+    return os;
+}
