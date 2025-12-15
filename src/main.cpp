@@ -356,6 +356,7 @@ int run_strobealign(int argc, char **argv) {
         worker.join();
     }
     logger.info() << "Done!\n";
+    logger.debug() << "Maximum number of chunks kept in the output buffer simultaneously: " << output_buffer.get_max_entries() << '\n';
 
     AlignmentStatistics statistics;
     for (auto& it : worker_statistics) {
