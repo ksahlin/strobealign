@@ -26,6 +26,8 @@
 * #525: The `-l` und `-u` command-line options have changed meaning: They are
   now used to set how many syncmers downstream the second syncmer may be.
   Negative values are no longer allowed.
+* #530: Fix a memory leak when option `-r` is used to explicitly set read
+  length.
 
 ## v0.16.1 (2025-05-16)
 
