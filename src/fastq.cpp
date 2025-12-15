@@ -35,8 +35,8 @@ namespace {
 RewindableFile::RewindableFile(const std::string& filename)
     : reader(nullptr),
     rewindable(true),
-    stream_(klibpp::make_ikstream(this, rewind_read, 16384)) {
-
+    stream_(klibpp::make_ikstream(this, rewind_read, 16384))
+{
     reader = make_reader(filename);
 
     stream_ = klibpp::make_ikstream(this, rewind_read, 16384);

@@ -157,10 +157,18 @@ int run_strobealign(int argc, char **argv) {
     }
 
     InputBuffer input_buffer = get_input_buffer(opt);
-    if (!opt.r_set && !opt.reads_filename1.empty()) {
-        opt.r = estimate_read_length(input_buffer);
-        logger.info() << "Estimated read length: " << opt.r << " bp\n";
+    if (!opt.reads_filename1.empty()) {
+        uint64_t estimated_read_length = estimate_read_length(input_buffer);
+        // This *must* be called, otherwise the buffer will grow
+        // continuously while reads are read from the input file.
         input_buffer.rewind_reset();
+        logger.info() << "Estimated read length: " << opt.r << " nt";
+        if (!opt.r_set) {
+            opt.r = estimated_read_length;
+        } else {
+            logger.info() << " (" << opt.r << " nt as provided using -r takes precedence)";
+        }
+        logger.info() << '\n';
         input_buffer.set_chunk_size(std::clamp(opt.chunk_size / opt.r, 10, 10000));
         logger.debug() << "Number of reads per chunk: " << input_buffer.chunk_size() << '\n';
     }
@@ -356,6 +364,7 @@ int run_strobealign(int argc, char **argv) {
         worker.join();
     }
     logger.info() << "Done!\n";
+    logger.debug() << "Maximum number of chunks kept in the output buffer simultaneously: " << output_buffer.get_max_entries() << '\n';
 
     AlignmentStatistics statistics;
     for (auto& it : worker_statistics) {
