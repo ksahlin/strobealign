@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+export MALLOC_CHECK_=4
+
 if [[ $OSTYPE = linux-gnu ]]; then
     color="--color=always"
 else

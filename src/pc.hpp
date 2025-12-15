@@ -61,6 +61,11 @@ public:
     size_t next_chunk_index{0};
 
     void output_records(std::string chunk, size_t chunk_index);
+
+    size_t get_max_entries() const { return max_entries; }
+
+private:
+    size_t max_entries{0};
 };
 
 
