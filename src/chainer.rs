@@ -108,7 +108,7 @@ impl Chainer {
 
                 let score = self.compute_score_cached(dq, dr);
                 let new_score = dp[j] + score;
-                if new_score > dp[i] {
+                if new_score >= dp[i] {
                     dp[i] = new_score;
                     predecessors[i] = j;
                     // Runtime heuristic: If the predecessor is on the same diagonal,

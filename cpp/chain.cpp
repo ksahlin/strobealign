@@ -144,7 +144,7 @@ float Chainer::collinear_chaining(
             const float score = compute_score(dq, dr);
 
             const float new_score = dp[j] + score;
-            if (new_score > dp[i]) {
+            if (new_score >= dp[i]) {
                 dp[i] = new_score;
                 predecessors[i] = j;
 
