@@ -70,12 +70,7 @@ impl Chainer {
         }
     }
 
-    fn collinear_chaining(
-        &self,
-        anchors: &[Anchor],
-        // dp: &[f32],
-        // predecessors: &[usize],
-    ) -> (f32, Vec<f32>, Vec<usize>) {
+    fn collinear_chaining(&self, anchors: &[Anchor]) -> (f32, Vec<f32>, Vec<usize>) {
         let n = anchors.len();
         if n == 0 {
             return (0.0, vec![], vec![]);
@@ -84,11 +79,12 @@ impl Chainer {
         let mut dp = vec![self.k as f32; n];
         let mut predecessors = vec![usize::MAX; n];
         let mut best_score = 0.0;
+        let mut best_index = usize::MAX;
 
         for i in 0..n {
             let lookup_end = i.saturating_sub(self.parameters.max_lookback);
+            let ai = &anchors[i];
             for j in (lookup_end..i).rev() {
-                let ai = &anchors[i];
                 let aj = &anchors[j];
 
                 if ai.ref_id != aj.ref_id {
@@ -105,15 +101,12 @@ impl Chainer {
                 if dr >= self.parameters.max_ref_gap {
                     break;
                 }
-                if
-                /*dq <= 0 ||*/
-                dr <= 0 {
+                if dr <= 0 {
                     // Not collinear
                     continue;
                 }
 
                 let score = self.compute_score_cached(dq, dr);
-
                 let new_score = dp[j] + score;
                 if new_score > dp[i] {
                     dp[i] = new_score;
@@ -125,8 +118,30 @@ impl Chainer {
                     }
                 }
             }
+
+            // The above runtime heuristic sometimes skips the anchor that
+            // represents the so-far optimal chain and can then give suboptimal
+            // results. To mitigate the issue, we explicitly check that anchor.
+            if best_index != usize::MAX && ai.ref_id == anchors[best_index].ref_id {
+                let aj = &anchors[best_index];
+                if ai.query_start > aj.query_start {
+                    let dq = ai.query_start - aj.query_start;
+                    let dr = ai.ref_start - aj.ref_start;
+
+                    if dr > 0 {
+                        let score = self.compute_score_cached(dq, dr);
+                        let new_score = dp[best_index] + score;
+                        if new_score > dp[i] {
+                            dp[i] = new_score;
+                            predecessors[i] = best_index;
+                        }
+                    }
+                }
+            }
+
             if dp[i] > best_score {
                 best_score = dp[i];
+                best_index = i;
             }
         }
 
