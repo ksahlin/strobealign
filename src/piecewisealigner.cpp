@@ -1,4 +1,5 @@
 #include "piecewisealigner.hpp"
+#include <vector>
 
 namespace Piecewise {
 
@@ -326,10 +327,12 @@ void Aligner::align_after_last_anchor(
 AlignmentInfo Aligner::piecewise_extension_alignment(
     const std::string& reference,
     const std::string& query,
-    const std::vector<Anchor>& anchors,
+    std::vector<Anchor>& anchors,
     const int padding
 ) const {
     AlignmentInfo result;
+
+    remove_spurious_anchors(anchors);
 
     align_before_first_anchor(reference, query, anchors[0], padding, &result);
 
@@ -349,7 +352,7 @@ AlignmentInfo Aligner::piecewise_extension_alignment(
         const int query_diff = curr_start_query - prev_end_query;
 
         // magic heuristic to prune off annoying anchors on the query end
-        if (int(query.length()) - curr_start_query <= 200 && ref_diff - query_diff >= (int(query.length()) - prev_end_query)/2) {
+        if (int(query.length()) - curr_start_query <= 200 && ref_diff - query_diff >= (int(query.length()) - prev_end_query)/2 - k) {
             align_after_last_anchor(reference, query, prev_anchor, padding + ref_diff - query_diff, &result);
             result.edit_distance = result.cigar.edit_distance();
             return result;
@@ -410,4 +413,76 @@ AlignmentInfo Aligner::piecewise_extension_alignment(
     return result;
 }
 
+void Aligner::remove_spurious_anchors(
+    std::vector<Anchor>& anchors
+) const {
+    if (anchors.size() < 2) {
+        return;
+    }
+    
+    const int diagonal_tolerance = 5;
+    
+    int tracked_indel = 0;
+    size_t deviation_start = -1;
+    
+    for (size_t i = 1; i < anchors.size(); ++i) {
+        const int query_diff = static_cast<int>(anchors[i].query_start) - static_cast<int>(anchors[i-1].query_start);
+        const int ref_diff = static_cast<int>(anchors[i].ref_start) - static_cast<int>(anchors[i-1].ref_start);
+
+        const int indel = query_diff - ref_diff;
+        
+        if (std::abs(indel) > diagonal_tolerance) {
+            if (deviation_start == -1) {
+                deviation_start = i;
+                tracked_indel = indel;
+            } else {
+                if (std::abs(tracked_indel + indel) <= diagonal_tolerance) {
+                    anchors.erase(anchors.begin() + deviation_start, anchors.begin() + i);
+                    i -= i - deviation_start;
+                    deviation_start = -1;
+                    tracked_indel = 0;
+                } else {
+                    deviation_start = i;
+                    tracked_indel = indel;
+                }
+            }
+        }
+    } 
+
+    const double edge_prune_ratio = 0.10; 
+    const int min_indel_size = 0;
+
+    const size_t max_prune_count = static_cast<size_t>(std::ceil(anchors.size() * edge_prune_ratio));
+
+    const Anchor first_anchor = anchors[0];
+    for (size_t i = 1; i < anchors.size() && i <= max_prune_count; ++i) {
+        const int query_diff = static_cast<int>(anchors[i].query_start) - static_cast<int>(anchors[i - 1].query_start);
+        const int ref_diff = static_cast<int>(anchors[i].ref_start) - static_cast<int>(anchors[i - 1].ref_start);
+       
+        const int indel = query_diff - ref_diff;
+
+        if (std::abs(indel) > min_indel_size) {
+            anchors.erase(anchors.begin(), anchors.begin() + i);
+            break;
+        }
+    }
+
+
+    const size_t max_prune_count_end = static_cast<size_t>(std::ceil(anchors.size() * edge_prune_ratio));
+
+    const size_t last_idx = anchors.size() - 1;
+    size_t check_count = 0;
+
+    for (size_t i = last_idx; i > 0 && check_count < max_prune_count_end; --i, ++check_count) {
+        const int query_diff = static_cast<int>(anchors[i].query_start) - static_cast<int>(anchors[i - 1].query_start);
+        const int ref_diff = static_cast<int>(anchors[i].ref_start) - static_cast<int>(anchors[i - 1].ref_start);
+        
+        const int indel = query_diff - ref_diff;
+
+        if (std::abs(indel) > min_indel_size) {
+            anchors.erase(anchors.begin() + i, anchors.end());
+            break;
+        }
+    }
+}
 }

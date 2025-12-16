@@ -38,7 +38,7 @@ struct ScoredAlignmentPair {
 
 inline Alignment extend_seed(
     const Aligner& aligner,
-    const Chain &chain,
+    Chain &chain,
     const References& references,
     const Read& read,
     bool consistent_chain,
@@ -177,11 +177,11 @@ inline void align_single(
     if (logger.level() <= LOG_TRACE){
         logger.trace() << "Cigars:[";
         int curr = 0;
-        for (const auto& chain : chains) {
+        for (auto& chain : chains) {
             auto alignment = extend_seed(aligner, chain, references, read, true, true);
             auto alignment_ssw = extend_seed(aligner, chain, references, read, true, false);
 
-            logger.trace() << "(" <<alignment.cigar << ",was_considered:"<< (curr < considered) <<  ",rstart=" << alignment.ref_start << ",SSW:" << alignment_ssw.cigar << ",SSW_rstart=" << alignment_ssw.ref_start << ")";
+            logger.trace() << "(" <<alignment.cigar << " score:" << alignment.score << ",was_considered:"<< (curr < considered) <<  ",rstart=" << alignment.ref_start << ",SSW:" << alignment_ssw.cigar << " score:" << alignment_ssw.score << ",SSW_rstart=" << alignment_ssw.ref_start << ")";
             curr++;
         }
         logger.trace() << "]\n";
@@ -237,7 +237,7 @@ inline void align_single(
 */
 inline Alignment extend_seed(
     const Aligner& aligner,
-    const Chain &chain,
+    Chain &chain,
     const References& references,
     const Read& read,
     bool consistent_chain,

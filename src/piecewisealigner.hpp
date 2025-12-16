@@ -30,6 +30,8 @@ private:
     Cigar build_cigar(const Cigar* cigar, size_t cigar_len) const;
     Cigar build_cigar_swap_ID(const Cigar* cigar, size_t cigar_len) const;
     Cigar build_cigar_reverse_swap_ID(const Cigar* cigar, size_t cigar_len) const;
+
+    void remove_spurious_anchors(std::vector<Anchor>& anchors) const;
     
     AlignmentResult global_alignment(const std::string_view& query, const std::string_view& ref) const;
     AlignmentResult xdrop_alignment(const std::string_view& query, const std::string_view& ref, bool reverse = false) const;
@@ -58,7 +60,7 @@ public:
     AlignmentInfo piecewise_extension_alignment(
         const std::string& reference,
         const std::string& query,
-        const std::vector<Anchor>& anchors,
+        std::vector<Anchor>& anchors,
         const int padding
     ) const;
 

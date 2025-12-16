@@ -21,7 +21,7 @@ public:
     AlignmentInfo align_piecewise(
         const std::string &query,
         const std::string &ref,
-        const std::vector<Anchor>& anchors,
+        std::vector<Anchor>& anchors,
         int padding
     ) const;
 
