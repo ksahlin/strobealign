@@ -103,7 +103,6 @@ AlignmentInfo Aligner::align_piecewise(
     int padding
 ) const {
     m_align_calls++;
-    AlignmentInfo info = piecewise_aligner.piecewise_extension_alignment(ref, query, anchors, padding);
-    return info;
+    return piecewise_aligner.piecewise_extension_alignment(ref, query, anchors, padding);
 }
 
