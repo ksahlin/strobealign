@@ -76,8 +76,6 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     args::Group piecewise(parser, "Piecewise:");
     args::Flag pw(parser, "pw", "Enable piecewise alignment (single end reads only)", {"pw"});
     args::ValueFlag<int> x_drop_threshold(parser, "INT", "X-drop threshold [800]", {"x-drop"});
-    args::ValueFlag<uint> min_block(parser, "UINT", "Minimum block size for alignments [32]", {"min-block"});
-    args::ValueFlag<uint> max_block(parser, "UINT", "Maximum block size for alignments [256]", {"max-block"});
 
     args::Group search(parser, "Search parameters:");
     args::MapFlag mcs(parser, "mcs", "How multi-context seeds are used. Allowed: 'always' (default), 'rescue', 'off', 'first-strobe'", {"mcs"}, mcs_map);
@@ -170,8 +168,6 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     // Piecewise
     if (pw) { opt.piecewise = true; }
     if (x_drop_threshold) { opt.x_drop_threshold = args::get(x_drop_threshold); } 
-    if (min_block) { opt.min_block = args::get(min_block); } 
-    if (max_block) { opt.min_block = args::get(max_block); } 
 
     // Search parameters
     if (mcs) { opt.mcs_strategy = args::get(mcs); }

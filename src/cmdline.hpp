@@ -70,8 +70,6 @@ struct CommandLineOptions {
     // Piecewise
     bool piecewise { false };
     int x_drop_threshold { 800 };
-    uint min_block { 32 };
-    uint max_block { 256 };
 
     // Search parameters
     McsStrategy mcs_strategy { McsStrategy::Always };

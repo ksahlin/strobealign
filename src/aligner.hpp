@@ -18,6 +18,7 @@ public:
     { }
 
     std::optional<AlignmentInfo> align(const std::string &query, const std::string &ref) const;
+
     AlignmentInfo align_piecewise(
         const std::string &query,
         const std::string &ref,

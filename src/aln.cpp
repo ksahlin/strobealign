@@ -174,6 +174,7 @@ inline void align_single(
         tries++;
         considered++;
     }
+
     if (logger.level() <= LOG_TRACE){
         logger.trace() << "Cigars:[";
         int curr = 0;
