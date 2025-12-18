@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(strobealign VERSION 0.16.1)
+project(strobealign VERSION 0.17.0)
 include(FetchContent)
 include(ExternalProject)
 
