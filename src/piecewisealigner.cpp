@@ -325,9 +325,7 @@ void Aligner::remove_spurious_anchors(
     // the idea is that spurious anchors are much more difficult to detect on the ends of the chain,
     // so we look at a small ratio of anchors and remove any anchors creating deviations.
 
-    const double edge_prune_ratio = 0.11; 
-    const int min_indel_size = 0;
-
+    const double edge_prune_ratio = 0.10; 
     const size_t max_prune_count = static_cast<size_t>(std::ceil(anchors.size() * edge_prune_ratio));
 
     // anchors at the beginning of the chain
@@ -337,7 +335,7 @@ void Aligner::remove_spurious_anchors(
        
         const int indel = query_diff - ref_diff;
 
-        if (std::abs(indel) > min_indel_size) {
+        if (std::abs(indel) != 0) {
             anchors.erase(anchors.begin(), anchors.begin() + i);
             break;
         }
@@ -353,7 +351,7 @@ void Aligner::remove_spurious_anchors(
         
         const int indel = query_diff - ref_diff;
 
-        if (std::abs(indel) > min_indel_size) {
+        if (std::abs(indel) != 0) {
             anchors.erase(anchors.begin() + i, anchors.end());
             break;
         }
