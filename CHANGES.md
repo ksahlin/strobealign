@@ -5,7 +5,7 @@
 * #504: Introduce collinear chaining as the new default mapping and alignment
   method, replacing NAMs. This reproduces the Minimap2 chaining algorithm
   providing better mapping accuracy. NAMs remain available via the `--nams`
-  flag.
+  flag. Contributed by @NicolasBuchin.
 * #527: Improve accuracy by changing the default multi-context seed strategy from
   "rescue" to "always". This means that a partial seed lookup is done every time
   a full seed cannot be found (whereas previously, it was done only if no
