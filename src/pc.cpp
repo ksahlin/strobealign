@@ -114,6 +114,7 @@ void InputBuffer::rewind_reset() {
 void OutputBuffer::output_records(std::string chunk, size_t chunk_index) {
     std::unique_lock<std::mutex> unique_lock(mtx);
 
+    max_entries = std::max(chunks.size(), max_entries);
     // Ensure we print the chunks in the order in which they were read
     assert(chunks.count(chunk_index) == 0);
     chunks.emplace(std::make_pair(chunk_index, chunk));

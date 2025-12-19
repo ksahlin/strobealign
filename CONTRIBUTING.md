@@ -12,13 +12,20 @@ Instead of one large PR, consider submitting multiple small, logically
 self-contained PRs if it makes sense. This facilitates review and allows for a
 more focused discussion.
 
-## Debugging
+## Building strobealign
 
-When compiling strobealign, you can add `-DCMAKE_BUILD_TYPE=RelWithDebInfo` to
-the `cmake` options to get debug symbols.
+When configuring the strobealign build with CMake (`cmake -B build`),
+you can specify a build type to set some useful compiler options:
+- Use `-DCMAKE_BUILD_TYPE=Release` when building a release (`-O3 -DNDEBUG`) (this is the default)
+- Use `-DCMAKE_BUILD_TYPE=Debug` for development (`-O2 -g`)
+- Use `-DCMAKE_BUILD_TYPE=RelWithDebInfo` for profiling (`-O3 -g -DNDEBUG`)
 
-If needed, run `make` with `VERBOSE=1` to get more logging output at build
-time.
+`-g` gives you debug symbols and `-DNDEBUG` disables assertions.
+
+## Other options
+
+If needed, run `cmake --build build` with `VERBOSE=1` to get more logging
+output at build time.
 
 To get more logging output when running strobealign, add the `-v` option to
 the command line.
@@ -26,9 +33,6 @@ the command line.
 Add `--details` to get more detailed SAM output with some
 strobealign-specific tags added to each alignment record.
 (See below.)
-
-To get even more verbose output, add `-DTRACE=ON` to your CMake options and
-re-compile strobealign. This outputs a list of the found NAMs for each read.
 
 ## Testing
 

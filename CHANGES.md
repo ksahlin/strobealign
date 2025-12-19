@@ -1,6 +1,6 @@
 # Strobealign Changelog
 
-## development version
+## v0.17.0 (2025-12-18)
 
 * #504: Introduce collinear chaining as the new default mapping and alignment
   method, replacing NAMs. This reproduces the Minimap2 chaining algorithm
@@ -26,6 +26,8 @@
 * #525: The `-l` und `-u` command-line options have changed meaning: They are
   now used to set how many syncmers downstream the second syncmer may be.
   Negative values are no longer allowed.
+* #530: Fix a memory leak when option `-r` is used to explicitly set read
+  length.
 
 ## v0.16.1 (2025-05-16)
 
