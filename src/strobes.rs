@@ -57,14 +57,14 @@ impl Randstrobe {
     }
 }
 
-pub struct RandstrobeIterator<'a> {
-    parameters: &'a RandstrobeParameters,
+pub struct RandstrobeIterator<I: Iterator<Item = Syncmer>> {
+    parameters: RandstrobeParameters,
     syncmers: VecDeque<Syncmer>,
-    syncmer_iterator: &'a mut SyncmerIterator<'a>,
+    syncmer_iterator: I,
 }
 
-impl<'a> RandstrobeIterator<'a> {
-    pub fn new(syncmer_iterator: &'a mut SyncmerIterator<'a>, parameters: &'a RandstrobeParameters) -> RandstrobeIterator<'a> {
+impl<I: Iterator<Item = Syncmer>> RandstrobeIterator<I> {
+    pub fn new(syncmer_iterator: I, parameters: RandstrobeParameters) -> RandstrobeIterator<I> {
         RandstrobeIterator {
             parameters,
             syncmers: VecDeque::<Syncmer>::new(),
@@ -73,7 +73,7 @@ impl<'a> RandstrobeIterator<'a> {
     }
 }
 
-impl Iterator for RandstrobeIterator<'_> {
+impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
     type Item = Randstrobe;
     fn next(&mut self) -> Option<Self::Item> {
         while self.syncmers.len() <= self.parameters.w_max {
@@ -128,8 +128,8 @@ mod test {
     fn test_randstrobe_iterator() {
         let refseq = read_phix().sequence;
         let parameters = IndexParameters::default_from_read_length(300);
-        let mut syncmer_iter = SyncmerIterator::new(&refseq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t);
-        let randstrobe_iter = RandstrobeIterator::new(&mut syncmer_iter, &parameters.randstrobe);
+        let syncmer_iter = SyncmerIterator::new(&refseq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t);
+        let randstrobe_iter = RandstrobeIterator::new(syncmer_iter, parameters.randstrobe.clone());
 
         for randstrobe in randstrobe_iter {
             assert!(randstrobe.hash > 0);
@@ -148,8 +148,8 @@ mod test {
         let syncmer_iter = SyncmerIterator::new(&refseq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t);
         let syncmer_count = syncmer_iter.count();
 
-        let mut syncmer_iter = SyncmerIterator::new(&refseq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t);
-        let randstrobe_iter = RandstrobeIterator::new(&mut syncmer_iter, &parameters.randstrobe);
+        let syncmer_iter = SyncmerIterator::new(&refseq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t);
+        let randstrobe_iter = RandstrobeIterator::new(syncmer_iter, parameters.randstrobe.clone());
         let randstrobe_count = randstrobe_iter.count();
 
         assert_eq!(randstrobe_count, syncmer_count);

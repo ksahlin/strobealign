@@ -545,16 +545,17 @@ impl<'a> StrobemerIndex<'a> {
         if seq.len() < self.parameters.randstrobe.w_max {
             return;
         }
-        let mut syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = SyncmerIterator::new(
             seq,
             self.parameters.syncmer.k,
             self.parameters.syncmer.s,
             self.parameters.syncmer.t,
         );
-        let randstrobe_iter =
-            RandstrobeIterator::new(&mut syncmer_iter, &self.parameters.randstrobe);
 
-        let mut n= 0;
+        let randstrobe_iter =
+            RandstrobeIterator::new(syncmer_iter, self.parameters.randstrobe.clone());
+
+        let mut n = 0;
         for (i, randstrobe) in randstrobe_iter.enumerate() {
             n += 1;
             let offset = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
