@@ -1,5 +1,6 @@
 #include "cmdline.hpp"
 
+#include <algorithm>
 #include <args.hxx>
 #include "arguments.hpp"
 #include "version.hpp"
@@ -71,6 +72,11 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
         {"off", McsStrategy::Off},
         {"first-strobe", McsStrategy::FirstStrobe},
     };
+
+    args::Group piecewise(parser, "Piecewise:");
+    args::Flag pw(parser, "pw", "Enable piecewise alignment (single end reads only)", {"pw"});
+    args::ValueFlag<int> x_drop_threshold(parser, "INT", "X-drop threshold [800]", {"x-drop"});
+
     args::Group search(parser, "Search parameters:");
     args::MapFlag mcs(parser, "mcs", "How multi-context seeds are used. Allowed: 'always' (default), 'rescue', 'off', 'first-strobe'", {"mcs"}, mcs_map);
     args::ValueFlag<float> f(parser, "FLOAT", "Top fraction of repetitive strobemers to filter out from sampling [0.0002]", {'f'});
@@ -158,6 +164,10 @@ CommandLineOptions parse_command_line_arguments(int argc, char **argv) {
     if (valid_score_threshold) { opt.valid_score_threshold = args::get(valid_score_threshold); }
     if (max_ref_gap) { opt.max_ref_gap = args::get(max_ref_gap); }
     if (matches_weight) { opt.matches_weight = args::get(matches_weight); }
+
+    // Piecewise
+    if (pw) { opt.piecewise = true; }
+    if (x_drop_threshold) { opt.x_drop_threshold = args::get(x_drop_threshold); } 
 
     // Search parameters
     if (mcs) { opt.mcs_strategy = args::get(mcs); }

@@ -1,9 +1,7 @@
 #ifndef STROBEALIGN_CHAIN_HPP
 #define STROBEALIGN_CHAIN_HPP
-
+#include <algorithm>
 #include <vector>
-
-#include "nam.hpp"
 #include "index.hpp"
 #include "mappingparameters.hpp"
 
@@ -23,7 +21,29 @@ struct Anchor {
     }
 };
 
-std::ostream& operator<<(std::ostream& os, const Anchor& anchor);
+struct Chain {
+    uint id;
+    uint ref_id;
+    float score;
+    std::vector<Anchor> anchors;
+    uint query_start;
+    uint query_end;
+    uint ref_start;
+    uint ref_end;
+    bool is_revcomp;
+
+    int ref_span() const {
+        return ref_end - ref_start;
+    }
+
+    int query_span() const {
+        return query_end - query_start;
+    }
+
+    int projected_ref_start() const {
+        return std::max(0, int(ref_start) - int(query_start));
+    }
+};
 
 struct Chainer {
     Chainer(ChainingParameters chaining_params, int k)
@@ -36,7 +56,7 @@ struct Chainer {
         }
     }
 
-    std::vector<Nam> get_chains(
+    std::vector<Chain> get_chains(
         const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
         const StrobemerIndex& index,
         AlignmentStatistics& statistics,
@@ -70,5 +90,8 @@ static inline float mg_log2(float x) {
     log_2 += (-0.34484843f * z.f + 2.02466578f) * z.f - 0.67487759f;
     return log_2;
 }
+
+std::ostream& operator<<(std::ostream& os, const Chain& chain);
+std::ostream& operator<<(std::ostream& os, const Anchor& anchor);
 
 #endif

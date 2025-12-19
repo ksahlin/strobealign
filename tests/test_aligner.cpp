@@ -1,5 +1,6 @@
 #include "doctest.h"
 #include "aligner.hpp"
+#include "alignment.hpp"
 
 TEST_CASE("hamming_align") {
     // empty sequences
@@ -159,7 +160,7 @@ TEST_CASE("highest_scoring_segment with soft clipping") {
 
 TEST_CASE("ssw align no result") {
     AlignmentParameters parameters{2, 8, 12, 1, 10};
-    Aligner aligner{parameters};
+    Aligner aligner{parameters, 0};
     std::string query = "TCTCTCCCTCTCTCTCTCTCCCTCCCTCTCTCTCCCTCTCTCTCTCTCTCTCCCTCCCTT";
     std::string ref = "GAGGGAGAGAGAGAGAGGGAGAGAGAGAGAGAG";
     auto info = aligner.align(query, ref);

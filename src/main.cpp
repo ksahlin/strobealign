@@ -1,3 +1,5 @@
+#include <climits>
+#include <cstdint>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -188,6 +190,7 @@ int run_strobealign(int argc, char **argv) {
     aln_params.gap_open = opt.O;
     aln_params.gap_extend = opt.E;
     aln_params.end_bonus = opt.end_bonus;
+    aln_params.x_drop_threshold = opt.x_drop_threshold;
 
     MappingParameters map_param;
     map_param.r = opt.r;
@@ -211,6 +214,7 @@ int run_strobealign(int argc, char **argv) {
     map_param.chaining_params.valid_score_threshold = opt.valid_score_threshold;
     map_param.chaining_params.max_ref_gap = opt.max_ref_gap;
     map_param.chaining_params.matches_weight = opt.matches_weight;
+    map_param.piecewise = opt.piecewise;
     map_param.verify();
     {
         int k = index_parameters.syncmer.k;

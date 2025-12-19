@@ -4,8 +4,8 @@
 #include <cmath>
 #include <cstdlib>
 #include <utility>
-
 #include "chain.hpp"
+#include "hits.hpp"
 #include "pdqsort/pdqsort.h"
 #include "timer.hpp"
 #include "logger.hpp"
@@ -168,7 +168,7 @@ void extract_chains_from_dp(
     float best_score,
     const int k,
     bool is_revcomp,
-    std::vector<Nam>& chains,
+    std::vector<Chain>& chains,
     const ChainingParameters& chaining_params
 ) {
     const size_t n = anchors.size();
@@ -192,6 +192,8 @@ void extract_chains_from_dp(
         int j = i;
         int c = 1;
         bool overlaps = false;
+        std::vector<Anchor> chain;
+        chain.insert(chain.begin(), anchors[j]);
 
         while (predecessors[j] >= 0) {
             j = predecessors[j];
@@ -199,6 +201,7 @@ void extract_chains_from_dp(
                 overlaps = true;
                 break;
             }
+            chain.insert(chain.begin(), anchors[j]);
             used[j] = true;
             c++;
         }
@@ -210,24 +213,23 @@ void extract_chains_from_dp(
         const Anchor& first = anchors[j];
         const Anchor& last = anchors[i];
 
-        chains.push_back(Nam{
-            int(chains.size()),        // nam_id
-            int(first.query_start),    // query_start
-            int(last.query_start + k), // query_end
-            -1,                        // query_prev_match_startpos
-            int(first.ref_start),      // ref_start
-            int(last.ref_start + k),   // ref_end
-            -1,                        // ref_prev_match_startpos
-            c,                         // n_matches
-            int(last.ref_id),          // ref_id
-            score + c * chaining_params.matches_weight, // score
-            is_revcomp
+        chains.push_back(
+            Chain{
+            .id = static_cast<uint>(chains.size()),
+            .ref_id = anchors[i].ref_id,
+            .score = score + c * chaining_params.matches_weight,
+            .anchors = chain,
+            .query_start = first.query_start,
+            .query_end = last.query_start + k,
+            .ref_start = first.ref_start,
+            .ref_end = last.ref_start + k,
+            .is_revcomp = is_revcomp
             }
         );
     }
 }
 
-std::vector<Nam> Chainer::get_chains(
+std::vector<Chain> Chainer::get_chains(
     const std::array<std::vector<QueryRandstrobe>, 2>& query_randstrobes,
     const StrobemerIndex& index,
     AlignmentStatistics& statistics,
@@ -246,7 +248,7 @@ std::vector<Nam> Chainer::get_chains(
     }
     statistics.time_hit_finding += hits_timer.duration();
 
-    std::vector<Nam> chains;
+    std::vector<Chain> chains;
 
     // Runtime heuristic: If one orientation appears to have many more hits
     // than the other, we assume it is the correct one and do not check the
@@ -276,6 +278,21 @@ std::vector<Nam> Chainer::get_chains(
         anchors.erase(
             std::unique(anchors.begin(), anchors.end()), anchors.end()
         );
+
+        if (!is_revcomp){
+            logger.trace() << "Anchors for forward strand [";
+            for (const auto& anchor : anchors) {
+                logger.trace() << anchor;
+            }
+            logger.trace() << "]\n";
+        } else {
+            logger.trace() << "Anchors for reverse strand [";
+            for (const auto& anchor : anchors) {
+                logger.trace() << anchor;
+            }
+            logger.trace() << "]\n";
+        }
+
         float score = collinear_chaining(anchors, dp, predecessors);
         best_score = score;
 
@@ -287,11 +304,29 @@ std::vector<Nam> Chainer::get_chains(
         statistics.time_chaining += chaining_timer.duration();
     }
     details.nams += chains.size();
-
     return chains;
 }
 
 std::ostream& operator<<(std::ostream& os, const Anchor& anchor) {
-    os << "Anchor(ref_id=" << anchor.ref_id << ", ref_start=" << anchor.ref_start << ", query_start=" << anchor.query_start << ")";
+    os << "{" << anchor.ref_start << "," << anchor.query_start << "}";
     return os;
 }
+
+std::ostream& operator<<(std::ostream& os, const Chain& chain) {
+    os << "(ref_id:" << chain.ref_id
+       << ",score:" << chain.score
+       << ",query_start:" << chain.query_start
+       << ",query_end:" << chain.query_end
+       << ",ref_start:" << chain.ref_start
+       << ",ref_end:" << chain.ref_end
+       << ",is_revcomp:" << (chain.is_revcomp ? "true" : "false")
+       << ",anchors:[";
+
+    for (size_t i = 0; i < chain.anchors.size(); ++i) {
+        os << chain.anchors[i];
+    }
+
+    os << "])";
+    return os;
+}
+

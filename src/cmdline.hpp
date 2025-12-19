@@ -67,6 +67,10 @@ struct CommandLineOptions {
     int max_ref_gap{ 10000 };
     float matches_weight { 0.01 };
 
+    // Piecewise
+    bool piecewise { false };
+    int x_drop_threshold { 800 };
+
     // Search parameters
     McsStrategy mcs_strategy { McsStrategy::Always };
     float f { 0.0002 };
