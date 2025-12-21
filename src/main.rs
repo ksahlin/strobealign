@@ -567,6 +567,7 @@ fn main() -> Result<(), CliError> {
     debug!("    Partial randstrobe not found          {:12} {:9.1} %", details.nam.hits.partial_not_found, 100f64 * details.nam.hits.partial_not_found as f64 / details.nam.n_randstrobes as f64);
     debug!("");
     debug!("Filtered but rescued randstrobes          {:12}", details.nam.hits.rescued);
+    debug!("");
     debug!("## Chaining");
     debug!("");
     debug!("Found anchors:                            {:12}               Per read: {:7.1}", details.nam.n_anchors, details.nam.n_anchors as f64 / details.nam.n_reads as f64);
