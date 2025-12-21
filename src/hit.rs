@@ -272,9 +272,9 @@ pub fn find_hits(
                 if hit.is_partial {
                     index.get_count_partial(hit.position)
                 } else {
-                    index.get_count_full_forward(hit.position) // TODO, hit.hash_revcomp)
+                    index.get_count_full(hit.position, hit.hash_revcomp)
                 };
-            trace!("{:6} {} {:6} {}", hit.query_start, if hit.is_partial { "p" } else { "" }, cnt, if hit.is_filtered { "F" } else { " " });
+            trace!("{:6} {}{:6} {}", hit.query_start, if hit.is_partial { "p" } else { " " }, cnt, if hit.is_filtered { "F" } else { " " });
         }
     }
 
