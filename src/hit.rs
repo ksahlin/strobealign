@@ -137,7 +137,7 @@ fn find_all_hits(
     query_randstrobes: &[QueryRandstrobe], index: &StrobemerIndex, filter_cutoff: usize, mcs_strategy: McsStrategy,
 ) -> (HitsDetails, bool, Vec<Hit>) {
 
-    let mut hits = vec![];
+    let mut hits = Vec::with_capacity(query_randstrobes.len());
     let mut sorting_needed = mcs_strategy == McsStrategy::Always || mcs_strategy == McsStrategy::FirstStrobe;
     let mut hits_details = HitsDetails::default();
 
