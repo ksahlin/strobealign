@@ -120,7 +120,7 @@ fn rescue_least_frequent(
     }
 
     // Sort by count ascending
-    hit_counts.sort_by_key(|hc| Reverse(hc.1));
+    hit_counts.sort_by_key(|hc| hc.1);
 
     // Take up to num_to_rescue lowest count
     for &(hit_index, _cnt) in hit_counts.iter().take(to_rescue) {
