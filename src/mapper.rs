@@ -84,7 +84,10 @@ pub struct QueryRandstrobe {
 /// Generate randstrobes for a query sequence and its reverse complement.
 /// TODO move to strobes.rs?
 pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> [Vec<QueryRandstrobe>; 2] {
-    let mut randstrobes = [vec![], vec![]];
+    let mut randstrobes = {
+        let expected = seq.len() / (parameters.syncmer.k - parameters.syncmer.s + 1);
+        [Vec::with_capacity(expected), Vec::with_capacity(expected)]
+    };
     if seq.len() < parameters.randstrobe.w_max {
         return randstrobes;
     }
