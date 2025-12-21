@@ -167,16 +167,15 @@ impl Chainer {
             let hits_timer = Instant::now();
             let mut anchors = hits_to_anchors(&hits[is_revcomp], index);
             time_find_hits += hits_timer.elapsed().as_secs_f64();
-            trace!("Found {} anchors", anchors.len());
             /*for anchor in anchors.iter().take(100) {
                 trace!("{:?}", anchor);
             }*/
+            n_anchors += anchors.len();
             let chaining_timer = Instant::now();
+            trace!("Chaining {} anchors", anchors.len());
             // TODO this used to be pdqsort
             anchors.sort_by_key(|a| (a.ref_id, a.ref_start, a.query_start));
             anchors.dedup();
-            trace!("Chaining {} anchors", anchors.len());
-            n_anchors += anchors.len();
             let (best_score, dp, predecessors) = self.collinear_chaining(&anchors);
 
             extract_chains_from_dp(
