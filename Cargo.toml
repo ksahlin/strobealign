@@ -22,6 +22,7 @@ xxhash-rust = { version = "0.8.5", features = ["xxh64"] }
 flate2 = { version = "1.0", features = ["zlib-rs"]}
 thiserror = "2.0.11"
 rayon = "1.11.0"
+mimalloc = "0.1.48"
 
 [dev-dependencies]
 assert_cmd = "2.0.16"

@@ -27,8 +27,13 @@ use rstrobes::mapper::{align_paired_end_read, align_single_end_read, MappingPara
 use rstrobes::sam::{ReadGroup, SamHeader};
 use rstrobes::io::xopen;
 use rstrobes::mcsstrategy::McsStrategy;
+use mimalloc::MiMalloc;
 
 mod logger;
+
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const NAME: &str = env!("CARGO_PKG_NAME");
