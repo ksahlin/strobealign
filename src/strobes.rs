@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use crate::index::REF_RANDSTROBE_HASH_MASK;
-use crate::syncmers::{Syncmer, SyncmerIterator};
+use crate::syncmers::Syncmer;
 
 pub const DEFAULT_AUX_LEN: u8 = 17;
 
@@ -115,6 +115,7 @@ mod test {
     use std::io::BufReader;
     use crate::fasta::{read_fasta, RefSequence};
     use crate::index::IndexParameters;
+    use crate::syncmers::SyncmerIterator;
     use super::*;
 
     fn read_phix() -> RefSequence {

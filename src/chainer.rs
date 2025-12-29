@@ -122,9 +122,6 @@ impl Chainer {
     ) -> (NamDetails, Vec<Nam>) {
         let hits_timer = Instant::now();
 
-        let mut total_hits = 0;
-        let mut n_rescue_hits = 0;
-        let mut n_rescue_partial_hits = 0;
         let mut hits = [vec![], vec![]];
         let mut hits_details = [HitsDetails::default(), HitsDetails::default()];
         for is_revcomp in 0..2 {
@@ -143,9 +140,7 @@ impl Chainer {
         let mut time_find_hits = hits_timer.elapsed().as_secs_f64();
 
         let mut n_anchors = 0;
-        let mut n_rescue_hits = 0;
         let mut n_rescue_nams = 0;
-        let mut rescue_done = false;
         let mut time_rescue = 0.0;
         let mut time_chaining = 0.0;
 
@@ -193,9 +188,9 @@ impl Chainer {
             n_anchors,
             n_nams: chains.len(),
             n_rescue_nams,
-            nam_rescue: rescue_done as usize,
-            n_rescue_hits,
-            n_rescue_partial_hits,
+            nam_rescue: 0,
+            n_rescue_hits: 0,
+            n_rescue_partial_hits: 0,
             time_randstrobes: 0f64,
             time_find_hits,
             time_chaining,
@@ -241,7 +236,7 @@ fn add_to_anchors_full(
     query_start: usize,
     query_end: usize,
     index: &StrobemerIndex,
-    mut position: usize,
+    position: usize,
 ) {
     let mut min_length_diff = usize::MAX;
     let hash = index.randstrobes[position].hash();
@@ -274,7 +269,7 @@ fn add_to_anchors_partial(
         }
         let randstrobe = &index.randstrobes[pos];
         let ref_id = randstrobe.reference_index();
-        let (ref_start, ref_end) = index.strobe_extent_partial(pos);
+        let ref_start = index.strobe_extent_partial(pos).1;
 
         anchors.push(Anchor { ref_id, ref_start, query_start });
     }
