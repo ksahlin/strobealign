@@ -732,7 +732,7 @@ impl<'a> StrobemerIndex<'a> {
             count
         } else {
             let bucket = &self.randstrobes[position..position_end];
-            bucket.partition_point(|h| h.hash() & hash_mask <= masked_key)
+            my_partition_point(bucket, |h| h.hash() & hash_mask <= masked_key)
         }
     }
 
