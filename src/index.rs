@@ -227,7 +227,7 @@ impl Display for IndexCreationStatistics {
 }
 
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Default, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Default, Clone)]
 #[repr(C)]
 pub struct RefRandstrobe {
     /// packed representation of the hash and the strobe offset

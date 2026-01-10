@@ -269,7 +269,7 @@ fn add_to_anchors_partial(
         }
         let randstrobe = &index.randstrobes[pos];
         let ref_id = randstrobe.reference_index();
-        let ref_start = index.strobe_extent_partial(pos).1;
+        let ref_start = index.strobe_extent_partial(pos).0;
 
         anchors.push(Anchor { ref_id, ref_start, query_start });
     }
