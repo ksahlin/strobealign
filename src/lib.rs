@@ -15,6 +15,7 @@ pub mod math;
 pub mod mcsstrategy;
 pub mod nam;
 pub mod paf;
+pub mod partition;
 pub mod read;
 pub mod revcomp;
 pub mod sam;

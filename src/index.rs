@@ -14,6 +14,7 @@ use rayon::slice::ParallelSliceMut;
 use crate::fasta::RefSequence;
 use crate::strobes::{RandstrobeIterator, RandstrobeParameters, DEFAULT_AUX_LEN};
 use crate::syncmers::{SyncmerIterator, SyncmerParameters};
+use crate::partition::custom_partition_point;
 
 /// Pre-defined index parameters that work well for a certain
 /// "canonical" read length (and similar read lengths)
@@ -332,76 +333,6 @@ pub struct StrobemerIndex<'a> {
     randstrobe_start_indices: Vec<BucketIndex>,
 }
 
-// TODO
-// Copies of binary_search_by and partition_point from
-// the standard library.
-
-use std::cmp::Ordering::{Less, Greater, Equal};
-
-#[inline]
-fn my_binary_search_by<T, F>(s: &[T], mut f: F) -> Result<usize, usize>
-where
-    F: FnMut(&T) -> std::cmp::Ordering,
-{
-    let mut size = s.len();
-    if size == 0 {
-        return Err(0);
-    }
-    let mut base = 0usize;
-
-    // This loop intentionally doesn't have an early exit if the comparison
-    // returns Equal. We want the number of loop iterations to depend *only*
-    // on the size of the input slice so that the CPU can reliably predict
-    // the loop count.
-    while size > 1 {
-        let half = size / 2;
-        let mid = base + half;
-
-        // SAFETY: the call is made safe by the following invariants:
-        // - `mid >= 0`: by definition
-        // - `mid < size`: `mid = size / 2 + size / 4 + size / 8 ...`
-        let cmp = f(unsafe { s.get_unchecked(mid) });
-
-        // Changed compared version in standard library:
-        // Use a reguler if instead of
-        //   std::hint::select_unpredictable(cmp == Greater, base, mid);
-        // which was used to force a branchless comparison.
-        base = if cmp == Greater { base } else { mid };
-
-        // This is imprecise in the case where `size` is odd and the
-        // comparison returns Greater: the mid element still gets included
-        // by `size` even though it's known to be larger than the element
-        // being searched for.
-        //
-        // This is fine though: we gain more performance by keeping the
-        // loop iteration count invariant (and thus predictable) than we
-        // lose from considering one additional element.
-        size -= half;
-    }
-
-    // SAFETY: base is always in [0, size) because base <= mid.
-    let cmp = f(unsafe { s.get_unchecked(base) });
-    if cmp == Equal {
-        // SAFETY: same as the `get_unchecked` above.
-        unsafe { std::hint::assert_unchecked(base < s.len()) };
-        Ok(base)
-    } else {
-        let result = base + (cmp == Less) as usize;
-        // SAFETY: same as the `get_unchecked` above.
-        // Note that this is `<=`, unlike the assume in the `Ok` path.
-        unsafe { std::hint::assert_unchecked(result <= s.len()) };
-        Err(result)
-    }
-}
-
-#[inline]
-fn my_partition_point<T, P>(s: &[T], mut pred: P) -> usize
-where
-    P: FnMut(&T) -> bool,
-{
-    my_binary_search_by(s, |x| if pred(x) { Less } else { Greater }).unwrap_or_else(|i| i)
-}
-
 impl<'a> StrobemerIndex<'a> {
     pub fn new(
         references: &'a [RefSequence],
@@ -673,7 +604,7 @@ impl<'a> StrobemerIndex<'a> {
             return None;
         }
 
-        let pos = my_partition_point(bucket, |h| h.hash() & hash_mask < masked_hash);
+        let pos = custom_partition_point(bucket, |h| h.hash() & hash_mask < masked_hash);
         if pos < bucket.len() && bucket[pos].hash() & hash_mask == masked_hash {
             Some(position_start as usize + pos)
         } else {
@@ -733,7 +664,7 @@ impl<'a> StrobemerIndex<'a> {
             count
         } else {
             let bucket = &self.randstrobes[position..position_end];
-            my_partition_point(bucket, |h| h.hash() & hash_mask <= masked_key)
+            custom_partition_point(bucket, |h| h.hash() & hash_mask <= masked_key)
         }
     }
 
