@@ -362,10 +362,11 @@ where
         // - `mid < size`: `mid = size / 2 + size / 4 + size / 8 ...`
         let cmp = f(unsafe { s.get_unchecked(mid) });
 
-        // Binary search interacts poorly with branch prediction, so force
-        // the compiler to use conditional moves if supported by the target
-        // architecture.
-        base = std::hint::select_unpredictable(cmp == Greater, base, mid);
+        // Changed compared version in standard library:
+        // Use a reguler if instead of
+        //   std::hint::select_unpredictable(cmp == Greater, base, mid);
+        // which was used to force a branchless comparison.
+        base = if cmp == Greater { base } else { mid };
 
         // This is imprecise in the case where `size` is odd and the
         // comparison returns Greater: the mid element still gets included
