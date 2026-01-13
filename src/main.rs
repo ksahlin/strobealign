@@ -3,7 +3,7 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, IsTerminal, Write};
-use std::process::exit;
+use std::process::{exit, ExitCode};
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, sync_channel, Receiver, Sender};
 use std::time::Instant;
@@ -260,7 +260,18 @@ enum CliError {
     FastaError(#[from] FastaError),
 }
 
-fn main() -> Result<(), CliError> {
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprint!("error: {}", e);
+
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn run() -> Result<(), CliError> {
     sigpipe::reset();
     let args = Args::parse();
     let level = if args.trace { log::Level::Trace } else if args.verbose { log::Level::Debug } else { log::Level::Info };
