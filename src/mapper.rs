@@ -1186,7 +1186,7 @@ fn top_dropoff(nams: &[Nam]) -> f32 {
 #[cfg(test)]
 mod tests {
     use crate::cigar::Cigar;
-    use crate::mapper::{count_best_alignment_pairs, deduplicate_scored_pairs, Alignment, ScoredAlignmentPair};
+    use crate::mapper::{count_best_alignment_pairs, deduplicate_scored_pairs, Alignment, ScoredAlignmentPair, has_shared_substring};
 
     fn dummy_alignment() -> Alignment {
         Alignment {
@@ -1254,5 +1254,10 @@ mod tests {
         ];
         deduplicate_scored_pairs(&mut alignment_pairs);
         assert_eq!(alignment_pairs.len(), 1);
+    }
+
+    #[test]
+    fn test_has_shared_substring() {
+        assert!(!has_shared_substring("GGGGGGGGGGGGGGGGG".as_bytes(), "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT".as_bytes(), 20));
     }
 }

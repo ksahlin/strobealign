@@ -312,9 +312,7 @@ fn main() -> Result<(), CliError> {
 
     // Read reference FASTA
     let timer = Instant::now();
-    let mut reader = BufReader::new(xopen(&args.ref_path)?);
-    let references = fasta::read_fasta(&mut reader)?;
-    drop(reader);
+    let references = fasta::read_fasta(&mut BufReader::new(xopen(&args.ref_path)?))?;
     info!("Time reading reference: {:.2} s", timer.elapsed().as_secs_f64());
     let total_ref_size = references.iter().map(|r| r.sequence.len()).sum::<usize>();
     let max_contig_size = references.iter().map(|r| r.sequence.len()).max().expect("No reference found");
@@ -720,8 +718,23 @@ fn estimate_read_length(records: &[SequenceRecord]) -> usize {
     if n == 0 { 0 } else { s / n }
 }
 
-#[test]
-fn verify_cli() {
-    use clap::CommandFactory;
-    Args::command().debug_assert()
+#[cfg(test)]
+mod test {
+    use strobealign::fastq::PeekableSequenceReader;
+    use super::estimate_read_length;
+    use super::Args;
+    use super::xopen;
+
+    #[test]
+    fn verify_cli() {
+        use clap::CommandFactory;
+        Args::command().debug_assert()
+    }
+
+    #[test]
+    fn test_estimate_read_length_phix_r1() {
+        let f = xopen("tests/phix.1.fastq").unwrap();
+        let mut fastq_reader = PeekableSequenceReader::new(f);
+        assert_eq!(estimate_read_length(&fastq_reader.peek(500).unwrap()), 289);
+    }
 }
