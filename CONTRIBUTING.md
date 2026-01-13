@@ -12,7 +12,27 @@ Instead of one large PR, consider submitting multiple small, logically
 self-contained PRs if it makes sense. This facilitates review and allows for a
 more focused discussion.
 
-## Building strobealign
+## Building the Rust version of strobealign
+
+Use `cargo build --release`. The compiled binary is at
+`target/release/strobealign`.
+
+Without `--release`, the compiler uses the default `debug` profile *without
+optimizations*. This makes compilation much faster, but results in a slow
+binary.
+
+You can also build and run the program in one step using `cargo run`, which may
+look like this:
+
+```
+cargo run -r -- -t 8 tests/phix.fasta tests/phix.1.fastq
+```
+Option `-r` is short for `--release`. Options after `--` are passed to
+strobealign.
+
+Run the tests with `cargo test`.
+
+## Building the C++ version of strobealign
 
 When configuring the strobealign build with CMake (`cmake -B build`),
 you can specify a build type to set some useful compiler options:
@@ -22,7 +42,7 @@ you can specify a build type to set some useful compiler options:
 
 `-g` gives you debug symbols and `-DNDEBUG` disables assertions.
 
-## Other options
+### Other options
 
 If needed, run `cmake --build build` with `VERBOSE=1` to get more logging
 output at build time.
@@ -34,7 +54,7 @@ Add `--details` to get more detailed SAM output with some
 strobealign-specific tags added to each alignment record.
 (See below.)
 
-## Testing
+### Testing
 
 When your `build/` directory already exists
 (i.e., after you have run `cmake -B build`),
