@@ -9,8 +9,8 @@ fi
 
 function strobealign() {
     echo "Testing '${@}'" >&2
-    target/debug/rstrobes "${@}"
-#     if ! target/debug/rstrobes "${@}" 2> testlog.txt; then
+    target/debug/strobealign "${@}"
+#     if ! target/debug/strobealign "${@}" 2> testlog.txt; then
 #         cat testlog.txt
 #         echo "Failure"
 #         exit 1

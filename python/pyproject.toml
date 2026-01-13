@@ -3,7 +3,7 @@ requires = ["setuptools", "setuptools-rust"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "rstrobes"
+name = "strobealign"
 version = "0.2.0"
 
 #[tool.setuptools.packages]
@@ -11,5 +11,5 @@ version = "0.2.0"
 
 [[tool.setuptools-rust.ext-modules]]
 # Private Rust extension module to be nested into the Python package
-target = "rstrobes"  # The last part of the name (e.g. "_lib") has to match lib.name in Cargo.toml,
+target = "strobealign"  # The last part of the name (e.g. "_lib") has to match lib.name in Cargo.toml,
                              # but you can add a prefix to nest it inside of a Python package.

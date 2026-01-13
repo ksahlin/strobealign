@@ -1,12 +1,12 @@
 [package]
-name = "py-rstrobes"
+name = "py-strobealign"
 version = "0.0.0"
 edition = "2021"
 
 [lib]
-name = "rstrobes"
+name = "strobealign"
 crate-type = ["cdylib"]
 
 [dependencies]
-rstrobes = { path = ".." }
+strobealign = { path = ".." }
 pyo3 = { version = "0.21.0-beta.0", features = ["extension-module"] }

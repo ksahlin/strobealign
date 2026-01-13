@@ -2,7 +2,7 @@
 members = ["python"]
 
 [package]
-name = "rstrobes"
+name = "strobealign"
 version = "0.1.0"
 edition = "2021"
 

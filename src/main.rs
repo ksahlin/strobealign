@@ -1,4 +1,3 @@
-use rstrobes::strobes::DEFAULT_AUX_LEN;
 use std::{env, io, thread, time};
 use std::cmp::min;
 use std::collections::HashMap;
@@ -8,26 +7,29 @@ use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, sync_channel, Receiver, Sender};
 use std::time::Instant;
+
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use log::{debug, error, info, trace};
 use clap::Parser;
 use fastrand::Rng;
 use thiserror::Error;
-use rstrobes::aligner::{Aligner, Scores};
-use rstrobes::chainer::{Chainer, ChainingParameters};
-use rstrobes::details::Details;
-use rstrobes::fastq::{interleaved_record_iterator, record_iterator, PeekableSequenceReader, SequenceRecord};
-use rstrobes::fasta;
-use rstrobes::fasta::{FastaError, RefSequence};
-use rstrobes::index::{IndexParameters, StrobemerIndex, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES};
-use rstrobes::insertsize::InsertSizeDistribution;
-use rstrobes::maponly::{abundances_paired_end_read, abundances_single_end_read, map_paired_end_read, map_single_end_read};
-use rstrobes::mapper::{align_paired_end_read, align_single_end_read, MappingParameters, SamOutput};
-use rstrobes::sam::{ReadGroup, SamHeader};
-use rstrobes::io::xopen;
-use rstrobes::mcsstrategy::McsStrategy;
 use mimalloc::MiMalloc;
+
+use strobealign::strobes::DEFAULT_AUX_LEN;
+use strobealign::aligner::{Aligner, Scores};
+use strobealign::chainer::{Chainer, ChainingParameters};
+use strobealign::details::Details;
+use strobealign::fastq::{interleaved_record_iterator, record_iterator, PeekableSequenceReader, SequenceRecord};
+use strobealign::fasta;
+use strobealign::fasta::{FastaError, RefSequence};
+use strobealign::index::{IndexParameters, StrobemerIndex, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES};
+use strobealign::insertsize::InsertSizeDistribution;
+use strobealign::maponly::{abundances_paired_end_read, abundances_single_end_read, map_paired_end_read, map_single_end_read};
+use strobealign::mapper::{align_paired_end_read, align_single_end_read, MappingParameters, SamOutput};
+use strobealign::sam::{ReadGroup, SamHeader};
+use strobealign::io::xopen;
+use strobealign::mcsstrategy::McsStrategy;
 
 mod logger;
 

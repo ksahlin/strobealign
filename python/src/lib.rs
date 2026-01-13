@@ -3,8 +3,8 @@ use std::io::{BufRead, BufReader, Error};
 use std::time::Instant;
 use pyo3::prelude::*;
 use pyo3::types::PyString;
-use ::rstrobes::fasta;
-use ::rstrobes::fasta::RefSequence;
+use ::strobealign::fasta;
+use ::strobealign::fasta::RefSequence;
 
 #[pyclass(name = "RefSequence")]
 struct PyRefSequence {
@@ -70,7 +70,7 @@ fn hello() -> PyResult<String> {
 }
 */
 #[pymodule]
-fn rstrobes(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn strobealign(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyReferences>()?;
     //m.add_function(wrap_pyfunction!(hello, m)?)?;
     Ok(())
