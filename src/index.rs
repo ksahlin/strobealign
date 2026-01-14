@@ -1,7 +1,7 @@
 use std::cmp::{min, Reverse};
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use std::io::{Error, Write};
+use std::io::{Read, BufRead, BufReader, Error, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -10,6 +10,7 @@ use std::time::Instant;
 use log::{debug, trace};
 use rayon;
 use rayon::slice::ParallelSliceMut;
+use thiserror::Error;
 
 use crate::fasta::RefSequence;
 use crate::strobes::{RandstrobeIterator, RandstrobeParameters, DEFAULT_AUX_LEN};
@@ -708,6 +709,24 @@ impl<'a> StrobemerIndex<'a> {
 
 const STI_FILE_FORMAT_VERSION: u32 = 6;
 
+#[derive(Error, Debug)]
+pub enum IndexReadingError {
+    #[error("When reading the .sti (index) file: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("Signature at the beginning of the .sti file is incorrect.")]
+    WrongMagic,
+
+    #[error("The .sti file format version is {0}, but this version of strobealign can only read files that have version {ver}", ver = STI_FILE_FORMAT_VERSION)]
+    WrongFileFormatVersion(u32),
+
+    #[error("Index parameters in .sti file and those specified on command line differ")]
+    ParameterMismatch,
+
+    #[error("The randstrobe starts vector has an unexpected size in the .sti file. Did you use the correct -b option?")]
+    RandstrobeStartIndicesWrongSize,
+}
+
 impl<'a> StrobemerIndex<'a> {
     pub fn write(&self, path: String) -> Result<(), Error> {
         let mut file = File::create(path)?;
@@ -738,6 +757,97 @@ impl<'a> StrobemerIndex<'a> {
 
         Ok(())
     }
+
+    #[must_use]
+    pub fn read(&mut self, path: &String) -> Result<(), IndexReadingError> {
+        let file = File::open(path)?;
+        let mut reader = BufReader::new(file);
+
+        let mut magic = [0; 4];
+        reader.read_exact(&mut magic)?;
+        if &magic != b"STI\x01" { // Magic number
+            return Err(IndexReadingError::WrongMagic);
+        }
+
+        let file_format_version = read_u32(&mut reader)?;
+        if file_format_version != STI_FILE_FORMAT_VERSION {
+            return Err(IndexReadingError::WrongFileFormatVersion(file_format_version));
+        }
+
+        // Skip over variable-length chunk reserved for future use
+        let mut buf = [0; 8];
+        reader.read_exact(&mut buf)?;
+        let reserved_chunk_size = u64::from_ne_bytes(buf);
+        let mut buf = vec![0; reserved_chunk_size as usize];
+        reader.read_exact(&mut buf)?;
+
+        self.filter_cutoff = read_u32(&mut reader)? as usize;
+        self.rescue_cutoff = self.filter_cutoff;
+        let bits = read_u32(&mut reader)?;
+
+        let canonical_read_length = read_u32(&mut reader)? as usize;
+        let k = read_u32(&mut reader)? as usize;
+        let s = read_u32(&mut reader)? as usize;
+
+        let w_min = read_u32(&mut reader)? as usize;
+        let w_max = read_u32(&mut reader)? as usize;
+        let q = read_u32(&mut reader)? as u64;
+        let max_dist = read_u32(&mut reader)? as u8;
+        let main_hash_mask = read_u64(&mut reader)?;
+
+        let syncmer_parameters = SyncmerParameters::new(k, s);
+        let randstrobe_parameters = RandstrobeParameters { w_min, w_max, q, max_dist, main_hash_mask };
+        let sti_parameters = IndexParameters {
+            canonical_read_length,
+            syncmer: syncmer_parameters,
+            randstrobe: randstrobe_parameters,
+        };
+
+        if self.parameters != sti_parameters {
+            return Err(IndexReadingError::ParameterMismatch);
+        }
+
+        self.randstrobes = read_vec(&mut reader)?;
+        self.randstrobe_start_indices = read_vec(&mut reader)?;
+
+        if self.randstrobe_start_indices.len() != (1 << bits) + 1 {
+            return Err(IndexReadingError::RandstrobeStartIndicesWrongSize);
+        }
+
+        Ok(())
+    }
+}
+
+fn read_u32<T: BufRead>(file: &mut T) -> Result<u32, Error> {
+    let mut buf = [0; 4];
+    file.read_exact(&mut buf)?;
+
+    Ok(u32::from_ne_bytes(buf))
+}
+
+fn read_u64<T: BufRead>(file: &mut T) -> Result<u64, Error> {
+    let mut buf = [0; 8];
+    file.read_exact(&mut buf)?;
+
+    Ok(u64::from_ne_bytes(buf))
+}
+
+fn read_vec<T, R: Read>(file: &mut BufReader<R>) -> Result<Vec<T>, Error> {
+    let length = read_u64(file)? as usize;
+    let bytes = vec![0; length * size_of::<T>()];
+    let mut bytes = std::mem::ManuallyDrop::new(bytes);
+    file.read_exact(&mut bytes)?;
+
+    let data = unsafe {
+        let (pointer, length, capacity) = (bytes.as_mut_ptr(), bytes.len(), bytes.capacity());
+        let pointer = pointer.cast::<T>();
+        let length = length / size_of::<T>();
+        let capacity = capacity / size_of::<T>();
+
+        Vec::from_raw_parts(pointer, length, capacity)
+    };
+
+    Ok(data)
 }
 
 fn write_vec<T>(file: &mut File, data: &[T]) -> Result<(), Error> {

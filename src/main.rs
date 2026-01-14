@@ -23,7 +23,7 @@ use strobealign::details::Details;
 use strobealign::fastq::{interleaved_record_iterator, record_iterator, PeekableSequenceReader, SequenceRecord};
 use strobealign::fasta;
 use strobealign::fasta::{FastaError, RefSequence};
-use strobealign::index::{IndexParameters, StrobemerIndex, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES};
+use strobealign::index::{IndexParameters, IndexReadingError, StrobemerIndex, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES};
 use strobealign::insertsize::InsertSizeDistribution;
 use strobealign::maponly::{abundances_paired_end_read, abundances_single_end_read, map_paired_end_read, map_single_end_read};
 use strobealign::mapper::{align_paired_end_read, align_single_end_read, MappingParameters, SamOutput};
@@ -91,10 +91,12 @@ struct Args {
 
     /// Do not map reads; only generate the strobemer index and write it to disk.
     /// If read files are provided, they are used to estimate read length
-    #[arg(short = 'i',  long = "create-index", help_heading = "Input/output")]
+    #[arg(short = 'i', long = "create-index", help_heading = "Input/output")]
     create_index: bool,
 
-    // args::Flag use_index(parser, "use_index", "Use a pre-generated index previously written with --create-index.", { "use-index" });
+    /// Use a pre-generated index previously written with --create-index.
+    #[arg(long = "use-index", help_heading = "Input/output", conflicts_with = "create_index")]
+    use_index: bool,
 
     // SAM output
 
@@ -258,6 +260,9 @@ enum CliError {
 
     #[error("{0}")]
     FastaError(#[from] FastaError),
+
+    #[error(transparent)]
+    IndexReadingError(#[from] IndexReadingError),
 }
 
 fn main() -> ExitCode {
@@ -339,16 +344,28 @@ fn run() -> Result<(), CliError> {
     }
 
     // Create the index
-    let timer = Instant::now();
     let mut index = StrobemerIndex::new(&references, parameters.clone(), args.bits);
     debug!("Auxiliary hash length: {}", args.aux_len);
     info!("Multi-context seed strategy: {}", args.mcs_strategy);
     info!("Bits used to index buckets: {}", index.bits);
-    let indexing_threads = args.indexing_threads.unwrap_or(args.threads);
-    info!("Indexing the reference using {} thread{} ...", indexing_threads, if indexing_threads == 1 { "" } else { "s" });
-    index.populate(args.filter_fraction, indexing_threads);
+
+    if args.use_index {
+        // Read the index from a file
+        assert!(!args.create_index);
+        let read_index_timer = Instant::now();
+        let mut sti_path = args.ref_path.clone();
+        sti_path.push_str(&parameters.filename_extension());
+        info!("Reading index from {}", sti_path);
+        index.read(&sti_path)?;
+        info!("Total time reading index: {:.2} s", read_index_timer.elapsed().as_secs_f64());
+    } else {
+        let timer = Instant::now();
+        let indexing_threads = args.indexing_threads.unwrap_or(args.threads);
+        info!("Indexing the reference using {} thread{} ...", indexing_threads, if indexing_threads == 1 { "" } else { "s" });
+        index.populate(args.filter_fraction, indexing_threads);
+        info!("Total time indexing: {:.2} s", timer.elapsed().as_secs_f64());
+    }
     let index = index;
-    info!("Total time indexing: {:.2} s", timer.elapsed().as_secs_f64());
     debug!("{}", &index.stats);
     debug!("Filtered cutoff count: {}", index.filter_cutoff);
     debug!("Using rescue cutoff: {}", index.rescue_cutoff);
