@@ -719,18 +719,19 @@ impl<'a> StrobemerIndex<'a> {
         file.write_all(&8u64.to_ne_bytes())?; // length in bytes
         file.write_all(&0u64.to_ne_bytes())?; // contents
 
-        file.write_all(&(self.filter_cutoff as u64).to_ne_bytes())?;
-        file.write_all(&(self.bits as u64).to_ne_bytes())?;
+        file.write_all(&(self.filter_cutoff as u32).to_ne_bytes())?;
+        file.write_all(&(self.bits as u32).to_ne_bytes())?;
 
-        file.write_all(&(self.parameters.canonical_read_length as u64).to_ne_bytes())?;
+        file.write_all(&(self.parameters.canonical_read_length as u32).to_ne_bytes())?;
         let sp = &self.parameters.syncmer;
-        for val in [sp.k, sp.s, sp.t].iter() {
+        for val in [sp.k, sp.s].iter() {
             file.write_all(&(*val as u32).to_ne_bytes())?
         }
         let rp = &self.parameters.randstrobe;
-        for val in [rp.w_min as u64, rp.w_max as u64, rp.q, rp.max_dist as u64, rp.main_hash_mask].iter() {
+        for val in [rp.w_min as u32, rp.w_max as u32, rp.q as u32, rp.max_dist as u32].iter() {
             file.write_all(&val.to_ne_bytes())?;
         }
+        file.write_all(&(rp.main_hash_mask as u64).to_ne_bytes())?;
 
         write_vec(&mut file, &self.randstrobes)?;
         write_vec(&mut file, &self.randstrobe_start_indices)?;
