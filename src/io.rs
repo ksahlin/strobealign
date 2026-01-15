@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io;
 use std::io::{Error, Read};
 use std::path::Path;
+
 use flate2::read::MultiGzDecoder;
 
 /// Open an uncompressed or a gzip-compressed file depending on the file name extension

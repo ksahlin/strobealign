@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+
 use crate::aligner::AlignmentInfo;
 use crate::cigar::Cigar;
 

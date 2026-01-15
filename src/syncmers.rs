@@ -1,5 +1,6 @@
 use std::cmp::min;
 use std::collections::VecDeque;
+
 use crate::hash::xxh64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

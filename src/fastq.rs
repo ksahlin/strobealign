@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::fmt;
 use std::io::{BufRead, BufReader, Read, Result};
 use std::str;
+
 use crate::fasta::split_header;
 use crate::io::xopen;
 

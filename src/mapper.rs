@@ -3,8 +3,10 @@ use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
 use std::mem;
 use std::time::Instant;
+
 use fastrand::Rng;
 use memchr::memmem;
+
 use crate::aligner::{hamming_align, hamming_distance, AlignmentInfo};
 use crate::chainer::Chainer;
 use crate::cigar::{Cigar, CigarOperation};

@@ -1,5 +1,7 @@
 use crate::mcsstrategy::McsStrategy;
+
 use fastrand::Rng;
+
 use crate::chainer::Chainer;
 use crate::details::Details;
 use crate::fasta::RefSequence;

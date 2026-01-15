@@ -1,8 +1,10 @@
 use std::fmt::{Display, Formatter};
 use std::time::Instant;
+
 use fastrand::Rng;
 use log::Level::Trace;
 use log::trace;
+
 use crate::chainer::Chainer;
 use crate::details::NamDetails;
 use crate::fasta::RefSequence;

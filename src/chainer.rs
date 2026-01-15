@@ -1,4 +1,5 @@
 use std::time::Instant;
+
 use log::{log_enabled, Level, trace};
 
 use crate::details::NamDetails;

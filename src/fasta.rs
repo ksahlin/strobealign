@@ -1,7 +1,9 @@
 use std::io::{BufRead, BufReader, Read};
 use std::io;
 use std::string::FromUtf8Error;
+
 use thiserror::Error;
+
 use crate::fastq::SequenceRecord;
 
 #[derive(Debug, Clone)]

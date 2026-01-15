@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+
 use crate::index::REF_RANDSTROBE_HASH_MASK;
 use crate::syncmers::Syncmer;
 
