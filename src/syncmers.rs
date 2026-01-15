@@ -78,6 +78,7 @@ impl<'a> SyncmerIterator<'a> {
 // c, C -> 1
 // g, G -> 2
 // t, T, u, U -> 3
+#[rustfmt::skip]
 static NUCLEOTIDES: [u8; 256] = [
         0, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,

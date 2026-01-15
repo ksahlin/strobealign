@@ -6,6 +6,7 @@ mod raw;
 
 
 fn translate(query: &[u8]) -> Vec<i8> {
+    #[rustfmt::skip]
     static TABLE: [i8; 128] = [
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,

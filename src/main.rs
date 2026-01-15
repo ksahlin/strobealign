@@ -46,6 +46,7 @@ const STYLES: Styles = Styles::plain()
 
 #[derive(Parser, Debug)]
 #[command(version, long_about = None, styles = STYLES)]
+#[rustfmt::skip]
 struct Args {
     /// Number of threads
     #[arg(short, default_value_t = 1, value_name = "N")]
