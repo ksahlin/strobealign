@@ -64,7 +64,7 @@ struct Args {
     output: Option<String>,
 
     /// Verbose output
-    #[arg(short = 'v', help_heading = "Input/output", conflicts_with = "trace")]
+    #[arg(short = 'v', help_heading = "Input/output")]
     verbose: bool,
 
     /// Highly verbose output
