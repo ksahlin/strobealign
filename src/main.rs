@@ -477,11 +477,14 @@ fn run() -> Result<(), CliError> {
         Mode::Paf => " in mapping-only mode",
         Mode::Abundances => " in abundance estimation mode"
     };
-    info!("Processing reads{} using {} thread{}", mode_message, args.threads, if args.threads != 1 { "s" } else {""});
+
+    // When tracing, use just one thread to avoid interleaved output
+    let n_threads = if args.trace { 1 } else { args.threads };
+    info!("Processing reads{} using {} thread{}", mode_message, n_threads, if n_threads != 1 { "s" } else {""});
 
     let show_progress = !args.no_progress && io::stderr().is_terminal();
     // TODO channel size?
-    let (chunks_tx, chunks_rx) = sync_channel(args.threads);
+    let (chunks_tx, chunks_rx) = sync_channel(n_threads);
     let reader_thread = thread::spawn(move || {
         for chunk in chunks_iter.enumerate() {
             chunks_tx.send(chunk).unwrap();
@@ -543,7 +546,7 @@ fn run() -> Result<(), CliError> {
 
     // worker threads
     thread::scope(|s| {
-        for _ in 0..args.threads {
+        for _ in 0..n_threads {
             let mut mapper = mapper.clone();
             let out_tx = out_tx.clone();
             let chunks_rx = chunks_rx.clone();
@@ -575,7 +578,7 @@ fn run() -> Result<(), CliError> {
 
     if mode == Mode::Abundances {
         let mut abundances = vec![0f64; references.len()];
-        for _ in 0..args.threads {
+        for _ in 0..n_threads {
             let worker_abundances = abundances_rx.recv().unwrap();
             for i in 0..abundances.len() {
                 abundances[i] += worker_abundances[i];
