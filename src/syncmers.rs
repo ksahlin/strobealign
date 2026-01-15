@@ -18,21 +18,25 @@ pub struct SyncmerParameters {
 
 impl SyncmerParameters {
     pub fn new(k: usize, s: usize) -> Self {
-        SyncmerParameters { k, s, t: (k - s) / 2 + 1 }
+        SyncmerParameters {
+            k,
+            s,
+            t: (k - s) / 2 + 1,
+        }
     }
 
-// TODO
-// void verify() const {
-//     if (k <= 7 || k > 32) {
-//         throw BadParameter("k not in [8,32]");
-//     }
-//     if (s > k) {
-//         throw BadParameter("s is larger than k");
-//     }
-//     if ((k - s) % 2 != 0) {
-//         throw BadParameter("(k - s) must be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
-//     }
-// }
+    // TODO
+    // void verify() const {
+    //     if (k <= 7 || k > 32) {
+    //         throw BadParameter("k not in [8,32]");
+    //     }
+    //     if (s > k) {
+    //         throw BadParameter("s is larger than k");
+    //     }
+    //     if ((k - s) % 2 != 0) {
+    //         throw BadParameter("(k - s) must be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
+    //     }
+    // }
 }
 
 pub struct SyncmerIterator<'a> {
@@ -60,8 +64,8 @@ impl<'a> SyncmerIterator<'a> {
             k,
             s,
             t,
-            kmask: (1 << (2*k)) - 1,
-            smask: (1 << (2*s)) - 1,
+            kmask: (1 << (2 * k)) - 1,
+            smask: (1 << (2 * s)) - 1,
             kshift: (k - 1) * 2,
             sshift: (s - 1) * 2,
             qs: VecDeque::new(),
@@ -117,11 +121,12 @@ impl Iterator for SyncmerIterator<'_> {
         for i in self.i..self.seq.len() {
             let ch = self.seq[i];
             let c = NUCLEOTIDES[ch as usize];
-            if c < 4 { // not an "N" base
-                self.xk[0] = ((self.xk[0] << 2) | (c as u64)) & self.kmask;        // forward strand
-                self.xk[1] = (self.xk[1] >> 2) | (((3 - c) as u64) << self.kshift);  // reverse strand
-                self.xs[0] = ((self.xs[0] << 2) | (c as u64)) & self.smask;        // forward strand
-                self.xs[1] = (self.xs[1] >> 2) | (((3 - c) as u64) << self.sshift);  // reverse strand
+            if c < 4 {
+                // not an "N" base
+                self.xk[0] = ((self.xk[0] << 2) | (c as u64)) & self.kmask; // forward strand
+                self.xk[1] = (self.xk[1] >> 2) | (((3 - c) as u64) << self.kshift); // reverse strand
+                self.xs[0] = ((self.xs[0] << 2) | (c as u64)) & self.smask; // forward strand
+                self.xs[1] = (self.xs[1] >> 2) | (((3 - c) as u64) << self.sshift); // reverse strand
                 self.l += 1;
                 if self.l < self.s {
                     continue;
@@ -134,7 +139,8 @@ impl Iterator for SyncmerIterator<'_> {
                 if self.qs.len() < self.k - self.s + 1 {
                     continue;
                 }
-                if self.qs.len() == (self.k - self.s + 1) { // We are at the last s-mer within the first k-mer, need to decide if we add it
+                if self.qs.len() == (self.k - self.s + 1) {
+                    // We are at the last s-mer within the first k-mer, need to decide if we add it
                     // TODO use min
                     for j in 0..self.qs.len() {
                         if self.qs[j] <= self.qs_min_val {
@@ -152,13 +158,18 @@ impl Iterator for SyncmerIterator<'_> {
                                 self.qs_min_val = self.qs[j];
                             }
                         }
-                    } else if hash_s < self.qs_min_val { // the new value added to queue is the new minimum
+                    } else if hash_s < self.qs_min_val {
+                        // the new value added to queue is the new minimum
                         self.qs_min_val = hash_s;
                     }
                 }
-                if self.qs[self.t - 1] == self.qs_min_val { // occurs at t:th position in k-mer
+                if self.qs[self.t - 1] == self.qs_min_val {
+                    // occurs at t:th position in k-mer
                     let yk = min(self.xk[0], self.xk[1]);
-                    let syncmer = Syncmer { hash: syncmer_kmer_hash(yk), position: i + 1 - self.k };
+                    let syncmer = Syncmer {
+                        hash: syncmer_kmer_hash(yk),
+                        position: i + 1 - self.k,
+                    };
                     self.i = i + 1;
                     return Some(syncmer);
                 }
@@ -189,7 +200,8 @@ mod test {
         let parameters = SyncmerParameters::new(8, 4);
         assert_eq!(parameters.t, 3);
 
-        let mut iterator = SyncmerIterator::new(seq.as_bytes(), parameters.k, parameters.s, parameters.t);
+        let mut iterator =
+            SyncmerIterator::new(seq.as_bytes(), parameters.k, parameters.s, parameters.t);
         let syncmer = iterator.next().unwrap();
         assert_eq!(syncmer.position, 0);
     }

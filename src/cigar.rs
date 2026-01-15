@@ -1,12 +1,12 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::str::FromStr;
 
-#[derive(Debug,PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum CigarOperation {
     Match = 0,
     Insertion = 1,
     Deletion = 2,
-    Skip = 3,  // N
+    Skip = 3, // N
     Softclip = 4,
     Hardclip = 5,
     Pad = 6,
@@ -54,7 +54,7 @@ impl CigarOperation {
             'P' => CigarOperation::Pad,
             '=' => CigarOperation::Eq,
             'X' => CigarOperation::X,
-            _ => { return Err(()) },
+            _ => return Err(()),
         })
     }
 }
@@ -89,7 +89,9 @@ impl Cigar {
     }
 
     pub fn push(&mut self, op: CigarOperation, len: usize) {
-        if len == 0 { return; }
+        if len == 0 {
+            return;
+        }
         if self.ops.is_empty() || self.ops.last().unwrap().op != op {
             self.ops.push(OpLen { op, len });
         } else {
@@ -109,14 +111,16 @@ impl Cigar {
                 match oplen.op {
                     CigarOperation::Eq | CigarOperation::X => CigarOperation::Match,
                     op => op,
-                }, oplen.len);
+                },
+                oplen.len,
+            );
         }
         cigar
     }
 
     pub fn reversed(&self) -> Self {
         Cigar {
-            ops: self.ops.iter().copied().rev().collect()
+            ops: self.ops.iter().copied().rev().collect(),
         }
     }
 
@@ -132,8 +136,10 @@ impl Cigar {
         let mut dist = 0;
         for op_len in &self.ops {
             match op_len.op {
-                CigarOperation::X|CigarOperation::Insertion|CigarOperation::Deletion => { dist += op_len.len; },
-                _ => {},
+                CigarOperation::X | CigarOperation::Insertion | CigarOperation::Deletion => {
+                    dist += op_len.len;
+                }
+                _ => {}
             }
         }
         dist
@@ -157,23 +163,23 @@ impl Cigar {
                         q_i += 1;
                         r_i += 1;
                     }
-                },
-                CigarOperation::Insertion|CigarOperation::Softclip => {
+                }
+                CigarOperation::Insertion | CigarOperation::Softclip => {
                     cigar.push(op, len);
                     q_i += len;
-                },
-                CigarOperation::Deletion|CigarOperation::Skip => {
+                }
+                CigarOperation::Deletion | CigarOperation::Skip => {
                     cigar.push(op, len);
                     r_i += len;
-                },
-                CigarOperation::Hardclip|CigarOperation::Pad => {
+                }
+                CigarOperation::Hardclip | CigarOperation::Pad => {
                     cigar.push(op, len);
-                },
-                CigarOperation::Eq|CigarOperation::X => {
+                }
+                CigarOperation::Eq | CigarOperation::X => {
                     cigar.push(op, len);
                     r_i += len;
                     q_i += len;
-                },
+                }
             }
         }
 
@@ -205,7 +211,7 @@ impl FromStr for Cigar {
         let mut number = None;
         for ch in s.chars() {
             match ch {
-                ' ' => {},
+                ' ' => {}
                 ch if ch.is_ascii_digit() => {
                     let val = ch as usize - '0' as usize;
                     if let Some(n) = number {
@@ -221,7 +227,7 @@ impl FromStr for Cigar {
                     } else {
                         return Err(());
                     }
-                },
+                }
             }
         }
         Ok(cigar)
@@ -238,8 +244,8 @@ impl TryFrom<&[u32]> for Cigar {
 
 #[cfg(test)]
 mod test {
-    use std::str::FromStr;
     use super::{Cigar, CigarOperation};
+    use std::str::FromStr;
 
     #[test]
     fn is_empty() {
@@ -287,7 +293,10 @@ mod test {
         assert_eq!("1M".parse::<Cigar>().unwrap().to_string(), "1M");
         assert_eq!("2M".parse::<Cigar>().unwrap().to_string(), "2M");
         assert_eq!("11M".parse::<Cigar>().unwrap().to_string(), "11M");
-        assert_eq!("10M2I1D99=1X4P5S".parse::<Cigar>().unwrap().to_string(), "10M2I1D99=1X4P5S");
+        assert_eq!(
+            "10M2I1D99=1X4P5S".parse::<Cigar>().unwrap().to_string(),
+            "10M2I1D99=1X4P5S"
+        );
         // Not standard, only for convenience
         assert_eq!("M".parse::<Cigar>().unwrap().to_string(), "1M");
         assert_eq!("M M".parse::<Cigar>().unwrap().to_string(), "2M");
@@ -316,25 +325,26 @@ mod test {
     fn convert_eqx_to_m() {
         assert!(Cigar::from_str("").unwrap().with_m().is_empty());
         assert_eq!(Cigar::from_str("5=").unwrap().with_m().to_string(), "5M");
-        assert_eq!(Cigar::from_str("5S3=1X2=4S").unwrap().with_m().to_string(), "5S6M4S");
+        assert_eq!(
+            Cigar::from_str("5S3=1X2=4S").unwrap().with_m().to_string(),
+            "5S6M4S"
+        );
     }
-    
+
     #[test]
     fn test_reverse() {
         let c = Cigar::from_str("3=1X4D5I7=").unwrap();
         assert_eq!(c.reversed(), Cigar::from_str("7=5I4D1X3=").unwrap());
-        
     }
-/*
-TEST_CASE("concatenate Cigar") {
-    Cigar c{"3M"};
-    c += Cigar{"2M1X"};
-    CHECK(c.to_string() == "5M1X");
-}
+    /*
+    TEST_CASE("concatenate Cigar") {
+        Cigar c{"3M"};
+        c += Cigar{"2M1X"};
+        CHECK(c.to_string() == "5M1X");
+    }
 
-TEST_CASE("edit distance") {
-    CHECK(Cigar("3=1X4D5I7=").edit_distance() == 10);
-}
-*/
-
+    TEST_CASE("edit distance") {
+        CHECK(Cigar("3=1X4D5I7=").edit_distance() == 10);
+    }
+    */
 }

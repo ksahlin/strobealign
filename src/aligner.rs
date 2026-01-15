@@ -53,7 +53,12 @@ pub struct Aligner {
 
 impl Aligner {
     pub fn new(scores: Scores) -> Self {
-        let ssw_aligner = SswAligner::new(scores.match_, scores.mismatch, scores.gap_open, scores.gap_extend);
+        let ssw_aligner = SswAligner::new(
+            scores.match_,
+            scores.mismatch,
+            scores.gap_open,
+            scores.gap_extend,
+        );
         Aligner {
             scores,
             ssw_aligner,
@@ -146,10 +151,7 @@ pub fn hamming_distance(s: &[u8], t: &[u8]) -> Option<u32> {
         return None;
     }
 
-    let mismatches =
-        s.iter().zip(t).map(
-            |(x, y)| u32::from(x != y)
-        ).sum();
+    let mismatches = s.iter().zip(t).map(|(x, y)| u32::from(x != y)).sum();
 
     Some(mismatches)
 }
@@ -159,7 +161,13 @@ pub fn hamming_distance(s: &[u8], t: &[u8]) -> Option<u32> {
 ///
 /// The end_bonus is added to the score if the segment extends until the end
 /// of the query, once for each end.
-fn highest_scoring_segment(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8, end_bonus: u32) -> (usize, usize, u32) {
+fn highest_scoring_segment(
+    query: &[u8],
+    refseq: &[u8],
+    match_: u8,
+    mismatch: u8,
+    end_bonus: u32,
+) -> (usize, usize, u32) {
     let n = query.len();
 
     let mut start = 0; // start of the current segment
@@ -195,11 +203,18 @@ fn highest_scoring_segment(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8
 
 /// The returned CIGAR string does not include soft clipped bases
 /// Use query_start and query_end to compute the number of clipped bases
-pub fn hamming_align(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8, end_bonus: u32) -> Option<AlignmentInfo> {
+pub fn hamming_align(
+    query: &[u8],
+    refseq: &[u8],
+    match_: u8,
+    mismatch: u8,
+    end_bonus: u32,
+) -> Option<AlignmentInfo> {
     if query.len() != refseq.len() {
         return None;
     }
-    let (segment_start, segment_end, score) = highest_scoring_segment(query, refseq, match_, mismatch, end_bonus);
+    let (segment_start, segment_end, score) =
+        highest_scoring_segment(query, refseq, match_, mismatch, end_bonus);
 
     // Create CIGAR string and count mismatches
     let mut cigar = Cigar::new();
@@ -228,7 +243,7 @@ pub fn hamming_align(query: &[u8], refseq: &[u8], match_: u8, mismatch: u8, end_
 
 #[cfg(test)]
 mod test {
-    use crate::aligner::{hamming_align, highest_scoring_segment, Aligner, Scores};
+    use crate::aligner::{Aligner, Scores, hamming_align, highest_scoring_segment};
 
     #[test]
     fn test_ssw_align_no_result() {
@@ -257,30 +272,57 @@ mod test {
         let (start, end, score) = highest_scoring_segment(b"", b"", 5, 7, 0);
         assert_eq!(start, 0);
         assert_eq!(end, 0);
-        
+
         let (start, end, score) = highest_scoring_segment(b"AAAAAAAAAA", b"AAAAAATTTT", 5, 7, 0);
         assert_eq!(start, 0);
         assert_eq!(end, 6);
         let (start, end, score) = highest_scoring_segment(b"AAAAAAAAAA", b"TTTTAAAAAA", 5, 7, 0);
         assert_eq!(start, 4);
         assert_eq!(end, 10);
-        
-        assert_eq!(highest_scoring_segment(b"AAAAAAAAAA", b"AAAAAATTTT", 5, 7, 0), (0, 6, 30));
-        assert_eq!(highest_scoring_segment(b"AAAAAAAAAA", b"TTTTAAAAAA", 5, 7, 0), (4, 10, 30));
-        assert_eq!(highest_scoring_segment(b"AAAAAAAAAA", b"TTAAAAAATT", 5, 7, 0), (2, 8, 30));
-        assert_eq!(highest_scoring_segment(b"AAAAAAAAAAAAAAA", b"TAAAAAATTTAAAAT", 5, 7, 0), (1, 7, 30));
+
+        assert_eq!(
+            highest_scoring_segment(b"AAAAAAAAAA", b"AAAAAATTTT", 5, 7, 0),
+            (0, 6, 30)
+        );
+        assert_eq!(
+            highest_scoring_segment(b"AAAAAAAAAA", b"TTTTAAAAAA", 5, 7, 0),
+            (4, 10, 30)
+        );
+        assert_eq!(
+            highest_scoring_segment(b"AAAAAAAAAA", b"TTAAAAAATT", 5, 7, 0),
+            (2, 8, 30)
+        );
+        assert_eq!(
+            highest_scoring_segment(b"AAAAAAAAAAAAAAA", b"TAAAAAATTTAAAAT", 5, 7, 0),
+            (1, 7, 30)
+        );
     }
 
     #[test]
     fn test_highest_scoring_segment_with_soft_clipping() {
         assert_eq!(highest_scoring_segment(b"", b"", 2, 4, 5), (0, 0, 10));
-        assert_eq!(highest_scoring_segment(b"TAAT", b"TAAA", 2, 4, 5), (0, 4, 3 * 2 - 4 + 10));
-        assert_eq!(highest_scoring_segment(b"AAA", b"AAA", 2, 4, 5), (0, 3, 3 * 2 + 10));
-        assert_eq!(highest_scoring_segment(b"TAAT", b"AAAA", 2, 4, 5), (0, 4, 10 + 2 * 2 - 2 * 4));
-        assert_eq!(highest_scoring_segment(b"ATAATA", b"AAAAAA", 2, 4, 5), (0, 6, 4 * 2 - 2 * 4 + 10));
-        assert_eq!(highest_scoring_segment(b"TTAATA", b"AAAAAA", 2, 4, 5), (2, 6, 3 * 2 - 1 * 4 + 5));
+        assert_eq!(
+            highest_scoring_segment(b"TAAT", b"TAAA", 2, 4, 5),
+            (0, 4, 3 * 2 - 4 + 10)
+        );
+        assert_eq!(
+            highest_scoring_segment(b"AAA", b"AAA", 2, 4, 5),
+            (0, 3, 3 * 2 + 10)
+        );
+        assert_eq!(
+            highest_scoring_segment(b"TAAT", b"AAAA", 2, 4, 5),
+            (0, 4, 10 + 2 * 2 - 2 * 4)
+        );
+        assert_eq!(
+            highest_scoring_segment(b"ATAATA", b"AAAAAA", 2, 4, 5),
+            (0, 6, 4 * 2 - 2 * 4 + 10)
+        );
+        assert_eq!(
+            highest_scoring_segment(b"TTAATA", b"AAAAAA", 2, 4, 5),
+            (2, 6, 3 * 2 - 1 * 4 + 5)
+        );
     }
-    
+
     #[test]
     fn test_hamming_align_empty_sequences() {
         let info = hamming_align(b"", b"", 7, 5, 0).unwrap();
@@ -295,11 +337,7 @@ mod test {
 
     #[test]
     fn test_hamming_align_one_mismatch() {
-        let info = hamming_align(
-            b"AAXGGG",
-            b"AAYGGG",
-            1, 1, 0
-        ).unwrap();
+        let info = hamming_align(b"AAXGGG", b"AAYGGG", 1, 1, 0).unwrap();
         assert_eq!(info.cigar.to_string(), "2=1X3=");
         assert_eq!(info.edit_distance, 1);
         assert_eq!(info.score, 4);
@@ -311,11 +349,7 @@ mod test {
 
     #[test]
     fn test_hamming_align_soft_clipped() {
-        let info = hamming_align(
-            b"AXGGG",
-            b"AYGGG",
-            1, 4, 0
-        ).unwrap();
+        let info = hamming_align(b"AXGGG", b"AYGGG", 1, 4, 0).unwrap();
         assert_eq!(info.cigar.to_string(), "3=");
         assert_eq!(info.edit_distance, 0);
         assert_eq!(info.score, 3);
@@ -327,11 +361,7 @@ mod test {
 
     #[test]
     fn test_hamming_align_wildcard() {
-        let info = hamming_align(
-            b"NAACCG",
-            b"TAACCG",
-            3, 7, 0
-        ).unwrap();
+        let info = hamming_align(b"NAACCG", b"TAACCG", 3, 7, 0).unwrap();
         assert_eq!(info.cigar.to_string(), "5=");
         assert_eq!(info.edit_distance, 0);
         assert_eq!(info.score, 5 * 3);
@@ -343,11 +373,7 @@ mod test {
 
     #[test]
     fn test_hamming_align_wildcard_at_end() {
-        let info = hamming_align(
-            b"AACCGN",
-            b"AACCGT",
-            3, 7, 0
-        ).unwrap();
+        let info = hamming_align(b"AACCGN", b"AACCGT", 3, 7, 0).unwrap();
         assert_eq!(info.cigar.to_string(), "5=");
         assert_eq!(info.edit_distance, 0);
         assert_eq!(info.score, 5 * 3);
@@ -360,11 +386,7 @@ mod test {
     #[test]
     fn test_hamming_align_both_ends_soft_clipped() {
         // negative total score, soft clipping on both ends
-        let info = hamming_align(
-            b"NAAAAAAAAAAAAAA",
-            b"TAAAATTTTTTTTTT",
-            3, 7, 0
-        ).unwrap();
+        let info = hamming_align(b"NAAAAAAAAAAAAAA", b"TAAAATTTTTTTTTT", 3, 7, 0).unwrap();
         assert_eq!(info.cigar.to_string(), "4=");
         assert_eq!(info.edit_distance, 0);
         assert_eq!(info.score, 4 * 3);
@@ -376,11 +398,7 @@ mod test {
 
     #[test]
     fn test_hamming_align_long_soft_clipping() {
-        let info = hamming_align(
-            b"NAAAAAAAAAAAAAA",
-            b"TAAAATTTAAAAAAT",
-            3, 7, 0
-        ).unwrap();
+        let info = hamming_align(b"NAAAAAAAAAAAAAA", b"TAAAATTTAAAAAAT", 3, 7, 0).unwrap();
         assert_eq!(info.cigar.to_string(), "6=");
         assert_eq!(info.edit_distance, 0);
         assert_eq!(info.score, 6 * 3);
@@ -392,11 +410,7 @@ mod test {
 
     #[test]
     fn test_hamming_align_short_soft_clipping() {
-        let info = hamming_align(
-            b"AAAAAAAAAAAAAAA",
-            b"TAAAAAATTTAAAAT",
-            3, 7, 0
-        ).unwrap();
+        let info = hamming_align(b"AAAAAAAAAAAAAAA", b"TAAAAAATTTAAAAT", 3, 7, 0).unwrap();
         assert_eq!(info.cigar.to_string(), "6=");
         assert_eq!(info.edit_distance, 0);
         assert_eq!(info.score, 6 * 3);

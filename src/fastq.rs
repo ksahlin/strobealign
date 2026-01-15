@@ -15,8 +15,18 @@ pub struct SequenceRecord {
 }
 
 impl SequenceRecord {
-    pub fn new(name: String, comment: Option<String>, sequence: Vec<u8>, qualities: Option<Vec<u8>>) -> Self {
-        SequenceRecord { name, comment, sequence, qualities }
+    pub fn new(
+        name: String,
+        comment: Option<String>,
+        sequence: Vec<u8>,
+        qualities: Option<Vec<u8>>,
+    ) -> Self {
+        SequenceRecord {
+            name,
+            comment,
+            sequence,
+            qualities,
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -84,7 +94,6 @@ impl<R: Read + Send> Iterator for PeekableSequenceReader<R> {
         }
     }
 }
-
 
 #[derive(Debug)]
 pub struct FastqReader<R: Read> {
@@ -157,34 +166,22 @@ type RecordPair = (SequenceRecord, Option<SequenceRecord>);
 
 /// Iterate over paired-end *or* single-end reads
 pub fn record_iterator<'a, R: Read + Send + 'a>(
-    fastq_reader1: PeekableSequenceReader<R>, path_r2: Option<&str>
-) -> Result<Box<dyn Iterator<Item=Result<RecordPair>> + Send + 'a>> 
-{
+    fastq_reader1: PeekableSequenceReader<R>,
+    path_r2: Option<&str>,
+) -> Result<Box<dyn Iterator<Item = Result<RecordPair>> + Send + 'a>> {
     if let Some(r2_path) = path_r2 {
         let fastq_reader2 = FastqReader::new(xopen(r2_path)?);
-        Ok(
-            Box::new(
-                fastq_reader1.zip(fastq_reader2).map(
-                    |p|
-                        match p {
-                            (Ok(r1), Ok(r2)) => { Ok((r1, Some(r2))) }
-                            (Err(e), _) => Err(e),
-                            (_, Err(e)) => Err(e),
-                        }
-                )
-            )
-        )
+        Ok(Box::new(fastq_reader1.zip(fastq_reader2).map(
+            |p| match p {
+                (Ok(r1), Ok(r2)) => Ok((r1, Some(r2))),
+                (Err(e), _) => Err(e),
+                (_, Err(e)) => Err(e),
+            },
+        )))
     } else {
-        Ok(
-            Box::new(
-                fastq_reader1.map(
-                    |r| r.map(|sr| (sr, None))
-                )
-            )
-        )
+        Ok(Box::new(fastq_reader1.map(|r| r.map(|sr| (sr, None)))))
     }
 }
-
 
 struct InterleavedIterator<R: Read + Send> {
     fastq_reader: PeekableSequenceReader<R>,
@@ -193,32 +190,36 @@ struct InterleavedIterator<R: Read + Send> {
 
 impl<R: Read + Send> InterleavedIterator<R> {
     pub fn new(fastq_reader: PeekableSequenceReader<R>) -> Self {
-        InterleavedIterator { fastq_reader, next_record: None }
+        InterleavedIterator {
+            fastq_reader,
+            next_record: None,
+        }
     }
 }
 
-impl<R: Read + Send> Iterator for InterleavedIterator<R> { 
+impl<R: Read + Send> Iterator for InterleavedIterator<R> {
     type Item = Result<RecordPair>;
-    
+
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        let record1 =    
-            if let Some(record) = self.next_record.take() {
-                record
-            } else if let Some(record) = self.fastq_reader.next() {
-                match record {
-                    Ok(record) => { record }
-                    Err(e) => { return Some(Err(e)); }
-                }           
-            } else {
-                return None;
-            };
-        
+        let record1 = if let Some(record) = self.next_record.take() {
+            record
+        } else if let Some(record) = self.fastq_reader.next() {
+            match record {
+                Ok(record) => record,
+                Err(e) => {
+                    return Some(Err(e));
+                }
+            }
+        } else {
+            return None;
+        };
+
         match self.fastq_reader.next() {
-            Some(Err(e)) => { Some(Err(e)) }
+            Some(Err(e)) => Some(Err(e)),
             Some(Ok(record2)) => {
                 if record1.name != record2.name {
                     self.next_record = Some(record2);
-                    
+
                     Some(Ok((record1, None)))
                 } else {
                     Some(Ok((record1, Some(record2))))
@@ -231,16 +232,15 @@ impl<R: Read + Send> Iterator for InterleavedIterator<R> {
 
 pub fn interleaved_record_iterator<'a, R: Read + Send + 'a>(
     fastq_reader: PeekableSequenceReader<R>,
-) -> Box<dyn Iterator<Item=Result<RecordPair>> + Send + 'a>
-{
+) -> Box<dyn Iterator<Item = Result<RecordPair>> + Send + 'a> {
     Box::new(InterleavedIterator::new(fastq_reader))
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::fastq::{PeekableSequenceReader, RecordPair, interleaved_record_iterator};
     use std::fs::File;
     use std::io::Result;
-    use crate::fastq::{interleaved_record_iterator, PeekableSequenceReader, RecordPair};
 
     #[test]
     fn test_peekable_sequence_reader() {
@@ -249,7 +249,12 @@ mod tests {
 
         assert_eq!(reader.next().unwrap().unwrap().name, "SRR1377138.1");
         assert_eq!(
-            reader.peek(2).unwrap().iter().map(|record| record.name.clone()).collect::<Vec<String>>(),
+            reader
+                .peek(2)
+                .unwrap()
+                .iter()
+                .map(|record| record.name.clone())
+                .collect::<Vec<String>>(),
             vec![String::from("SRR1377138.2"), String::from("SRR1377138.3/1")]
         );
         assert_eq!(reader.next().unwrap().unwrap().name, "SRR1377138.2");
@@ -260,18 +265,25 @@ mod tests {
         let f = File::open("tests/interleaved.fq").unwrap();
         let reader = PeekableSequenceReader::new(f);
         let it = interleaved_record_iterator(reader);
-        
+
         let record_pairs: Vec<RecordPair> = it.collect::<Result<Vec<RecordPair>>>().unwrap();
-        
+
         assert_eq!(record_pairs.len(), 6);
         assert_eq!(record_pairs[0].0.name, "SRR4052021.2");
         assert_eq!(record_pairs[0].1.as_ref().unwrap().name, "SRR4052021.2");
         assert!(record_pairs[0].0.sequence.starts_with(b"GTCGCCCA"));
-        assert!(record_pairs[0].1.as_ref().unwrap().sequence.starts_with(b"ATGTATTA"));
-        
+        assert!(
+            record_pairs[0]
+                .1
+                .as_ref()
+                .unwrap()
+                .sequence
+                .starts_with(b"ATGTATTA")
+        );
+
         assert_eq!(record_pairs[1].0.name, "SRR4052021.3");
         assert_eq!(record_pairs[1].1.as_ref().unwrap().name, "SRR4052021.3");
-        
+
         assert_eq!(record_pairs[2].0.name, "SRR4052021.13852607");
         assert!(record_pairs[2].1.is_none());
     }

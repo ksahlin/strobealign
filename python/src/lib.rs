@@ -1,10 +1,10 @@
+use ::strobealign::fasta;
+use ::strobealign::fasta::RefSequence;
+use pyo3::prelude::*;
+use pyo3::types::PyString;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error};
 use std::time::Instant;
-use pyo3::prelude::*;
-use pyo3::types::PyString;
-use ::strobealign::fasta;
-use ::strobealign::fasta::RefSequence;
 
 #[pyclass(name = "RefSequence")]
 struct PyRefSequence {
@@ -26,7 +26,7 @@ impl PyReferences {
 
         Ok(Self { references })
     }
-    
+
     fn __len__(&self) -> usize {
         self.references.len()
     }
@@ -44,7 +44,7 @@ impl PyRefSequence {
     fn new(refseq: RefSequence) -> PyRefSequence {
         Self { refseq }
     }
-    
+
     /*.def(nb::init())
     .def("add", &References::add)
     .def_static("from_fasta", &References::from_fasta)
@@ -53,7 +53,7 @@ impl PyRefSequence {
     })
     .def("__len__", [](const References& refs) { return refs.sequences.size(); })
     */
-    
+
 }
 
 #[pyfunction]

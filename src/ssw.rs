@@ -5,7 +5,6 @@ use crate::cigar::Cigar;
 
 mod raw;
 
-
 fn translate(query: &[u8]) -> Vec<i8> {
     #[rustfmt::skip]
     static TABLE: [i8; 128] = [
@@ -41,14 +40,17 @@ impl SswAlignment<'_> {
 
 impl Drop for SswAlignment<'_> {
     fn drop(&mut self) {
-        unsafe { raw::align_destroy(self.raw); }
+        unsafe {
+            raw::align_destroy(self.raw);
+        }
     }
 }
 
 impl From<SswAlignment<'_>> for AlignmentInfo {
     fn from(alignment: SswAlignment) -> AlignmentInfo {
         let raw = unsafe { alignment.raw.as_ref().unwrap() };
-        let cigar_slice = unsafe { std::slice::from_raw_parts(raw.cigar, raw.cigar_length as usize) };
+        let cigar_slice =
+            unsafe { std::slice::from_raw_parts(raw.cigar, raw.cigar_length as usize) };
         let cigar = Cigar::try_from(cigar_slice).expect("Invalid CIGAR");
 
         AlignmentInfo {
@@ -70,27 +72,57 @@ impl Profile {
         let score_size = 2;
         let profile = unsafe {
             // TODO hardcoded 5
-            raw::ssw_init(translated_query.as_ptr(), translated_query.len() as i32, score_matrix.as_ptr(), 5i32, score_size)
+            raw::ssw_init(
+                translated_query.as_ptr(),
+                translated_query.len() as i32,
+                score_matrix.as_ptr(),
+                5i32,
+                score_size,
+            )
         };
         Profile { profile }
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn align(&self, translated_refseq: &[i8], gap_open_penalty: u8, gap_extend_penalty: u8, flag: u8, score_filter: u16, distance_filter: i32, mask_len: i32) -> Option<SswAlignment<'_>> {
+    fn align(
+        &self,
+        translated_refseq: &[i8],
+        gap_open_penalty: u8,
+        gap_extend_penalty: u8,
+        flag: u8,
+        score_filter: u16,
+        distance_filter: i32,
+        mask_len: i32,
+    ) -> Option<SswAlignment<'_>> {
         let alignment;
         unsafe {
-            alignment = raw::ssw_align(self.profile, translated_refseq.as_ptr(), translated_refseq.len() as i32, gap_open_penalty, gap_extend_penalty, flag, score_filter, distance_filter, mask_len);
+            alignment = raw::ssw_align(
+                self.profile,
+                translated_refseq.as_ptr(),
+                translated_refseq.len() as i32,
+                gap_open_penalty,
+                gap_extend_penalty,
+                flag,
+                score_filter,
+                distance_filter,
+                mask_len,
+            );
             if (*alignment).ref_begin1 == -1 || (*alignment).read_begin1 == -1 {
                 return None;
             }
         };
-        Some(SswAlignment { raw: alignment, _align: PhantomData })
+        Some(SswAlignment {
+            raw: alignment,
+            _align: PhantomData,
+        })
     }
 }
 
 impl Drop for Profile {
     fn drop(&mut self) {
-        unsafe { raw::init_destroy(self.profile); }
+        unsafe {
+            raw::init_destroy(self.profile);
+        }
     }
 }
 
@@ -102,17 +134,23 @@ pub struct SswAligner {
 }
 
 impl SswAligner {
-    pub fn new(match_score: u8, mismatch_penalty: u8, gap_open_penalty: u8, gap_extend_penalty: u8) -> Self {
+    pub fn new(
+        match_score: u8,
+        mismatch_penalty: u8,
+        gap_open_penalty: u8,
+        gap_extend_penalty: u8,
+    ) -> Self {
         let mat = match_score as i8;
         let mis = -(mismatch_penalty as i8);
         let score_matrix = vec![
-            mat, mis, mis, mis, mis,
-            mis, mat, mis, mis, mis,
-            mis, mis, mat, mis, mis,
-            mis, mis, mis, mat, mis,
-            mis, mis, mis, mis, mis,
+            mat, mis, mis, mis, mis, mis, mat, mis, mis, mis, mis, mis, mat, mis, mis, mis, mis,
+            mis, mat, mis, mis, mis, mis, mis, mis,
         ];
-        SswAligner { score_matrix, gap_open_penalty, gap_extend_penalty }
+        SswAligner {
+            score_matrix,
+            gap_open_penalty,
+            gap_extend_penalty,
+        }
     }
 
     pub fn align(&self, query: &[u8], refseq: &[u8]) -> Option<AlignmentInfo> {
@@ -128,17 +166,27 @@ impl SswAligner {
         let distance_filter = i32::MAX;
         let mask_len = std::cmp::max(translated_query.len() / 2, 15);
 
-        let alignment = profile.align(&translated_refseq, self.gap_open_penalty, self.gap_extend_penalty, flag, score_filter, distance_filter, mask_len as i32)?;
+        let alignment = profile.align(
+            &translated_refseq,
+            self.gap_open_penalty,
+            self.gap_extend_penalty,
+            flag,
+            score_filter,
+            distance_filter,
+            mask_len as i32,
+        )?;
         if !alignment.is_valid() {
             return None;
         }
         let mut alignment = AlignmentInfo::from(alignment);
-        alignment.cigar = alignment.cigar.with_eqx(&query[alignment.query_start..alignment.query_end], &refseq[alignment.ref_start..alignment.ref_end]);
+        alignment.cigar = alignment.cigar.with_eqx(
+            &query[alignment.query_start..alignment.query_end],
+            &refseq[alignment.ref_start..alignment.ref_end],
+        );
         alignment.edit_distance = alignment.cigar.edit_distance();
         Some(alignment)
     }
 }
-
 
 #[cfg(test)]
 mod tests {

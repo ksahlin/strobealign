@@ -1,8 +1,8 @@
 use std::ops;
 
 use log;
-use log::trace;
 use log::Level;
+use log::trace;
 
 use crate::index::StrobemerIndex;
 use crate::mapper::QueryRandstrobe;
@@ -84,7 +84,6 @@ impl HitsDetails {
 
         total >= other_total * 2 && total > other_total + 5
     }
-
 }
 
 /// Finds least frequent hits in a portion of the hits vector and set their
@@ -107,12 +106,11 @@ fn rescue_least_frequent(
     // Index and hit count
     let mut hit_counts = vec![];
     for i in start..end {
-        let cnt =
-            if hits[i].is_partial {
-                index.get_count_partial(hits[i].position)
-            } else {
-                index.get_count_full(hits[i].position, hits[i].hash_revcomp)
-            };
+        let cnt = if hits[i].is_partial {
+            index.get_count_partial(hits[i].position)
+        } else {
+            index.get_count_full(hits[i].position, hits[i].hash_revcomp)
+        };
         if rescue_threshold.is_none() || cnt <= rescue_threshold.unwrap() {
             hit_counts.push((i, cnt));
         }
@@ -133,36 +131,58 @@ fn rescue_least_frequent(
 /// Find all hits for a query, using the requested MCS strategy.
 /// Repetitive hits are included. `is_filtered` is set to false for all hits.
 fn find_all_hits(
-    query_randstrobes: &[QueryRandstrobe], index: &StrobemerIndex, filter_cutoff: usize, mcs_strategy: McsStrategy,
+    query_randstrobes: &[QueryRandstrobe],
+    index: &StrobemerIndex,
+    filter_cutoff: usize,
+    mcs_strategy: McsStrategy,
 ) -> (HitsDetails, bool, Vec<Hit>) {
-
     let mut hits = Vec::with_capacity(query_randstrobes.len());
-    let mut sorting_needed = mcs_strategy == McsStrategy::Always || mcs_strategy == McsStrategy::FirstStrobe;
+    let mut sorting_needed =
+        mcs_strategy == McsStrategy::Always || mcs_strategy == McsStrategy::FirstStrobe;
     let mut hits_details = HitsDetails::default();
 
     if mcs_strategy != McsStrategy::FirstStrobe {
         for randstrobe in query_randstrobes {
             if let Some(position) = index.get_full(randstrobe.hash) {
-                let is_filtered = index.is_too_frequent(position, filter_cutoff, randstrobe.hash_revcomp);
+                let is_filtered =
+                    index.is_too_frequent(position, filter_cutoff, randstrobe.hash_revcomp);
                 if is_filtered {
                     hits_details.full_filtered += 1;
                 } else {
                     hits_details.full_found += 1;
                 }
 
-                let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.end, is_partial: false, is_filtered, hash_revcomp: randstrobe.hash_revcomp };
+                let hit = Hit {
+                    position,
+                    query_start: randstrobe.start,
+                    query_end: randstrobe.end,
+                    is_partial: false,
+                    is_filtered,
+                    hash_revcomp: randstrobe.hash_revcomp,
+                };
                 hits.push(hit);
             } else {
                 hits_details.full_not_found += 1;
                 if mcs_strategy == McsStrategy::Always {
                     if let Some(position) = index.get_partial(randstrobe.hash) {
-                        let is_filtered = index.is_too_frequent_partial(position, filter_cutoff, randstrobe.hash_revcomp);
+                        let is_filtered = index.is_too_frequent_partial(
+                            position,
+                            filter_cutoff,
+                            randstrobe.hash_revcomp,
+                        );
                         if is_filtered {
                             hits_details.partial_filtered += 1;
                         } else {
                             hits_details.partial_found += 1;
                         }
-                        let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.start + index.k(), is_partial: true, is_filtered, hash_revcomp: randstrobe.hash_revcomp };
+                        let hit = Hit {
+                            position,
+                            query_start: randstrobe.start,
+                            query_end: randstrobe.start + index.k(),
+                            is_partial: true,
+                            is_filtered,
+                            hash_revcomp: randstrobe.hash_revcomp,
+                        };
                         hits.push(hit);
                     } else {
                         hits_details.partial_not_found += 1;
@@ -172,20 +192,36 @@ fn find_all_hits(
         }
     }
     if mcs_strategy == McsStrategy::Always {
-        debug_assert!(hits_details.full_not_found == hits_details.partial_not_found + hits_details.partial_filtered + hits_details.partial_found);
+        debug_assert!(
+            hits_details.full_not_found
+                == hits_details.partial_not_found
+                    + hits_details.partial_filtered
+                    + hits_details.partial_found
+        );
     }
 
     // Rescue using partial hits even in non-MCS mode
-    if mcs_strategy == McsStrategy::FirstStrobe || (mcs_strategy == McsStrategy::Rescue && hits_details.full_filtered + hits_details.full_found == 0) {
+    if mcs_strategy == McsStrategy::FirstStrobe
+        || (mcs_strategy == McsStrategy::Rescue
+            && hits_details.full_filtered + hits_details.full_found == 0)
+    {
         for randstrobe in query_randstrobes {
             if let Some(position) = index.get_partial(randstrobe.hash) {
-                let is_filtered = index.is_too_frequent_partial(position, filter_cutoff, randstrobe.hash_revcomp);
+                let is_filtered =
+                    index.is_too_frequent_partial(position, filter_cutoff, randstrobe.hash_revcomp);
                 if is_filtered {
                     hits_details.partial_filtered += 1;
                 } else {
                     hits_details.partial_found += 1;
                 }
-                let hit = Hit { position, query_start: randstrobe.start, query_end: randstrobe.start + index.k(), is_partial: true, is_filtered, hash_revcomp: randstrobe.hash_revcomp };
+                let hit = Hit {
+                    position,
+                    query_start: randstrobe.start,
+                    query_end: randstrobe.start + index.k(),
+                    is_partial: true,
+                    is_filtered,
+                    hash_revcomp: randstrobe.hash_revcomp,
+                };
                 hits.push(hit);
             } else {
                 hits_details.partial_not_found += 1;
@@ -246,11 +282,16 @@ pub fn find_hits(
     filter_cutoff: usize,
     rescue_distance: usize,
 ) -> (HitsDetails, bool, Vec<Hit>) {
-    let (mut details, sorting_needed, mut hits) = find_all_hits(query_randstrobes, index, filter_cutoff, mcs_strategy);
+    let (mut details, sorting_needed, mut hits) =
+        find_all_hits(query_randstrobes, index, filter_cutoff, mcs_strategy);
 
     let total_hits = details.total_hits();
     let nonrepetitive_hits = details.total_found();
-    let nonrepetitive_fraction = if total_hits > 0 { nonrepetitive_hits as f32 / total_hits as f32 } else { 1.0 };
+    let nonrepetitive_fraction = if total_hits > 0 {
+        nonrepetitive_hits as f32 / total_hits as f32
+    } else {
+        1.0
+    };
 
     // rescue distance 0 disables both global and local rescue
     if rescue_distance > 0 {
@@ -264,16 +305,25 @@ pub fn find_hits(
     }
 
     if log::log_enabled!(Level::Trace) {
-        trace!("Found {} hits ({} of those rescued):", hits.len(), details.rescued);
+        trace!(
+            "Found {} hits ({} of those rescued):",
+            hits.len(),
+            details.rescued
+        );
         trace!("querypos count (p=partial, F=filtered)");
         for hit in &hits {
-            let cnt =
-                if hit.is_partial {
-                    index.get_count_partial(hit.position)
-                } else {
-                    index.get_count_full(hit.position, hit.hash_revcomp)
-                };
-            trace!("{:6} {}{:6} {}", hit.query_start, if hit.is_partial { "p" } else { " " }, cnt, if hit.is_filtered { "F" } else { " " });
+            let cnt = if hit.is_partial {
+                index.get_count_partial(hit.position)
+            } else {
+                index.get_count_full(hit.position, hit.hash_revcomp)
+            };
+            trace!(
+                "{:6} {}{:6} {}",
+                hit.query_start,
+                if hit.is_partial { "p" } else { " " },
+                cnt,
+                if hit.is_filtered { "F" } else { " " }
+            );
         }
     }
 

@@ -45,8 +45,16 @@ impl Nam {
 
 impl Display for Nam {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Nam(ref_id={}, query: {}..{}, ref: {}..{}, rc={}, score={})",
-               self.ref_id, self.query_start, self.query_end, self.ref_start, self.ref_end, self.is_revcomp as u8, self.score
+        write!(
+            f,
+            "Nam(ref_id={}, query: {}..{}, ref: {}..{}, rc={}, score={})",
+            self.ref_id,
+            self.query_start,
+            self.query_end,
+            self.ref_start,
+            self.ref_end,
+            self.is_revcomp as u8,
+            self.score
         )?;
         Ok(())
     }
@@ -60,7 +68,12 @@ impl Display for Nam {
 /// - If first and last strobe match in reverse orientation, update the NAM
 ///   in place and return true.
 /// - If first and last strobe do not match consistently, return false.
-pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, references: &[RefSequence], k: usize) -> bool {
+pub fn reverse_nam_if_needed(
+    nam: &mut Nam,
+    read: &Read,
+    references: &[RefSequence],
+    k: usize,
+) -> bool {
     let ref_start_kmer = &references[nam.ref_id].sequence[nam.ref_start..nam.ref_start + k];
     let ref_end_kmer = &references[nam.ref_id].sequence[nam.ref_end - k..nam.ref_end];
 
@@ -70,7 +83,7 @@ pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, references: &[RefSequen
         (read.seq(), read.rc())
     };
     let read_start_kmer = &seq[nam.query_start..nam.query_start + k];
-    let read_end_kmer = &seq[nam.query_end - k.. nam.query_end];
+    let read_end_kmer = &seq[nam.query_end - k..nam.query_end];
     if ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer {
         return true;
     }
@@ -109,8 +122,13 @@ pub fn get_nams_by_chaining(
     let query_randstrobes = mapper::randstrobes_query(sequence, &index.parameters);
     let time_randstrobes = timer.elapsed().as_secs_f64();
 
-    trace!("we have {} + {} randstrobes", query_randstrobes[0].len(), query_randstrobes[1].len());
-    let (mut nam_details, mut nams) = chainer.get_chains(&query_randstrobes, index, rescue_distance, mcs_strategy);
+    trace!(
+        "we have {} + {} randstrobes",
+        query_randstrobes[0].len(),
+        query_randstrobes[1].len()
+    );
+    let (mut nam_details, mut nams) =
+        chainer.get_chains(&query_randstrobes, index, rescue_distance, mcs_strategy);
 
     let timer = Instant::now();
 
@@ -120,7 +138,11 @@ pub fn get_nams_by_chaining(
     nam_details.time_randstrobes = time_randstrobes;
 
     if log::log_enabled!(Trace) {
-        trace!("Found {} NAMs (rescue done: {})", nams.len(), nam_details.nam_rescue);
+        trace!(
+            "Found {} NAMs (rescue done: {})",
+            nams.len(),
+            nam_details.nam_rescue
+        );
         let mut printed = 0;
         for nam in &nams {
             if nam.n_matches > 1 || printed < 10 {

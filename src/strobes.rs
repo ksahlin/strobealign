@@ -11,20 +11,19 @@ pub struct RandstrobeParameters {
     pub w_max: usize,
     pub q: u64,
     pub max_dist: u8,
-    
+
     /// Mask for bits of the hash that represent the main hash
     pub main_hash_mask: u64,
-
     // TODO ensure aux_len <= 63
-// TODO
-// void verify() const {
-//     if (max_dist > 255) {
-//         throw BadParameter("maximum seed length (-m <max_dist>) is larger than 255");
-//     }
-//     if (w_min > w_max) {
-//         throw BadParameter("w_min is greater than w_max (choose different -l/-u parameters)");
-//     }
-// }
+    // TODO
+    // void verify() const {
+    //     if (max_dist > 255) {
+    //         throw BadParameter("maximum seed length (-m <max_dist>) is larger than 255");
+    //     }
+    //     if (w_min > w_max) {
+    //         throw BadParameter("w_min is greater than w_max (choose different -l/-u parameters)");
+    //     }
+    // }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -92,7 +91,7 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
         let mut min_val = u64::MAX;
         let mut strobe2 = self.syncmers[0]; // Defaults if no nearby syncmer
 
-        for i in self.parameters.w_min .. self.syncmers.len() {
+        for i in self.parameters.w_min..self.syncmers.len() {
             debug_assert!(i <= self.parameters.w_max);
             if self.syncmers[i].position > max_position {
                 break;
@@ -106,18 +105,22 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
         }
         self.syncmers.pop_front();
 
-        Some(Randstrobe::from_strobes(strobe1, strobe2, self.parameters.main_hash_mask))
+        Some(Randstrobe::from_strobes(
+            strobe1,
+            strobe2,
+            self.parameters.main_hash_mask,
+        ))
     }
 }
 
 #[cfg(test)]
 mod test {
-    use std::fs::File;
-    use std::io::BufReader;
-    use crate::fasta::{read_fasta, RefSequence};
+    use super::*;
+    use crate::fasta::{RefSequence, read_fasta};
     use crate::index::IndexParameters;
     use crate::syncmers::SyncmerIterator;
-    use super::*;
+    use std::fs::File;
+    use std::io::BufReader;
 
     fn read_phix() -> RefSequence {
         let f = File::open("tests/phix.fasta").unwrap();
@@ -130,7 +133,12 @@ mod test {
     fn test_randstrobe_iterator() {
         let refseq = read_phix().sequence;
         let parameters = IndexParameters::default_from_read_length(300);
-        let syncmer_iter = SyncmerIterator::new(&refseq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t);
+        let syncmer_iter = SyncmerIterator::new(
+            &refseq,
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+        );
         let randstrobe_iter = RandstrobeIterator::new(syncmer_iter, parameters.randstrobe.clone());
 
         for randstrobe in randstrobe_iter {
@@ -147,10 +155,20 @@ mod test {
     fn test_syncmer_and_randstrobe_iterator_same_count() {
         let refseq = read_phix().sequence;
         let parameters = IndexParameters::default_from_read_length(100);
-        let syncmer_iter = SyncmerIterator::new(&refseq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t);
+        let syncmer_iter = SyncmerIterator::new(
+            &refseq,
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+        );
         let syncmer_count = syncmer_iter.count();
 
-        let syncmer_iter = SyncmerIterator::new(&refseq, parameters.syncmer.k, parameters.syncmer.s, parameters.syncmer.t);
+        let syncmer_iter = SyncmerIterator::new(
+            &refseq,
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+        );
         let randstrobe_iter = RandstrobeIterator::new(syncmer_iter, parameters.randstrobe.clone());
         let randstrobe_count = randstrobe_iter.count();
 

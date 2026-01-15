@@ -80,11 +80,15 @@ impl Display for SamRecord {
             None => 0,
         };
         let query_sequence = match &self.query_sequence {
-            Some(seq) if !self.is_secondary() && !seq.is_empty() => std::str::from_utf8(seq).unwrap(),
+            Some(seq) if !self.is_secondary() && !seq.is_empty() => {
+                std::str::from_utf8(seq).unwrap()
+            }
             _ => "*",
         };
         let query_qualities = match &self.query_qualities {
-            Some(query_qualities) if !self.is_secondary() && !query_qualities.is_empty() => std::str::from_utf8(query_qualities).unwrap(),
+            Some(query_qualities) if !self.is_secondary() && !query_qualities.is_empty() => {
+                std::str::from_utf8(query_qualities).unwrap()
+            }
             _ => "*",
         };
         let pos = match self.pos {
@@ -95,14 +99,18 @@ impl Display for SamRecord {
             Some(cigar) => cigar.to_string(),
             None => "*".to_string(),
         };
-        write!(f, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+        write!(
+            f,
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             self.query_name,
             self.flags,
             self.reference_name.as_ref().unwrap_or(&"*".to_string()),
             pos,
             self.mapq,
             cigar,
-            self.mate_reference_name.as_ref().unwrap_or(&"*".to_string()),
+            self.mate_reference_name
+                .as_ref()
+                .unwrap_or(&"*".to_string()),
             mate_pos,
             self.template_len.unwrap_or(0),
             query_sequence,
@@ -120,7 +128,9 @@ impl Display for SamRecord {
             } else {
                 -1
             };
-            write!(f, "\tna:i:{}\tnr:i:{}\tal:i:{}\tga:i:{}\tX0:i:{}",
+            write!(
+                f,
+                "\tna:i:{}\tnr:i:{}\tal:i:{}\tga:i:{}\tX0:i:{}",
                 details.nam.n_nams,
                 nr,
                 details.tried_alignment,
@@ -193,7 +203,11 @@ impl Display for SamHeader<'_> {
             f.write_str("\n")?;
         }
         if let Some(cmd_line) = self.cmd_line {
-            writeln!(f, "@PG\tID:strobealign\tPN:strobealign\tVN:{}\tCL:{}", &self.version, &cmd_line)?;
+            writeln!(
+                f,
+                "@PG\tID:strobealign\tPN:strobealign\tVN:{}\tCL:{}",
+                &self.version, &cmd_line
+            )?;
         };
 
         Ok(())

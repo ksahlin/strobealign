@@ -1,38 +1,46 @@
-use std::{env, io, thread, time};
 use std::cmp::min;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, IsTerminal, Write};
-use std::process::{exit, ExitCode};
+use std::process::{ExitCode, exit};
+use std::sync::mpsc::{Receiver, Sender, channel, sync_channel};
 use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{channel, sync_channel, Receiver, Sender};
 use std::time::Instant;
+use std::{env, io, thread, time};
 
+use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
-use log::{debug, error, info, trace};
-use clap::Parser;
 use fastrand::Rng;
-use thiserror::Error;
+use log::{debug, error, info, trace};
 use mimalloc::MiMalloc;
+use thiserror::Error;
 
-use strobealign::strobes::DEFAULT_AUX_LEN;
 use strobealign::aligner::{Aligner, Scores};
 use strobealign::chainer::{Chainer, ChainingParameters};
 use strobealign::details::Details;
-use strobealign::fastq::{interleaved_record_iterator, record_iterator, PeekableSequenceReader, SequenceRecord};
 use strobealign::fasta;
 use strobealign::fasta::{FastaError, RefSequence};
-use strobealign::index::{IndexParameters, IndexReadingError, StrobemerIndex, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES};
+use strobealign::fastq::{
+    PeekableSequenceReader, SequenceRecord, interleaved_record_iterator, record_iterator,
+};
+use strobealign::index::{
+    IndexParameters, IndexReadingError, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex,
+};
 use strobealign::insertsize::InsertSizeDistribution;
-use strobealign::maponly::{abundances_paired_end_read, abundances_single_end_read, map_paired_end_read, map_single_end_read};
-use strobealign::mapper::{align_paired_end_read, align_single_end_read, MappingParameters, SamOutput};
-use strobealign::sam::{ReadGroup, SamHeader};
 use strobealign::io::xopen;
+use strobealign::maponly::{
+    abundances_paired_end_read, abundances_single_end_read, map_paired_end_read,
+    map_single_end_read,
+};
+use strobealign::mapper::{
+    MappingParameters, SamOutput, align_paired_end_read, align_single_end_read,
+};
 use strobealign::mcsstrategy::McsStrategy;
+use strobealign::sam::{ReadGroup, SamHeader};
+use strobealign::strobes::DEFAULT_AUX_LEN;
 
 mod logger;
-
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -280,7 +288,13 @@ fn main() -> ExitCode {
 fn run() -> Result<(), CliError> {
     sigpipe::reset();
     let args = Args::parse();
-    let level = if args.trace { log::Level::Trace } else if args.verbose { log::Level::Debug } else { log::Level::Info };
+    let level = if args.trace {
+        log::Level::Trace
+    } else if args.verbose {
+        log::Level::Debug
+    } else {
+        log::Level::Info
+    };
     logger::init(level).unwrap();
     info!("This is {} {}", NAME, VERSION);
 
@@ -297,7 +311,7 @@ fn run() -> Result<(), CliError> {
                 let r = estimate_read_length(&fastq_reader.peek(500)?);
                 info!("Estimated read length: {} bp", r);
                 r
-            },
+            }
         };
         fastq_reader1 = Some(fastq_reader);
     } else {
@@ -308,39 +322,77 @@ fn run() -> Result<(), CliError> {
         if let Some(rl) = args.read_length {
             read_length = rl;
         } else {
-            error!("With --create-index, either provide a FASTQ path or specify the read length with -r");
+            error!(
+                "With --create-index, either provide a FASTQ path or specify the read length with -r"
+            );
             exit(1);
         }
         fastq_reader1 = None;
     }
 
-    let parameters = IndexParameters::from_read_length(read_length, args.k, args.s, args.l, args.u, args.c, args.max_seed_length, args.aux_len);
+    let parameters = IndexParameters::from_read_length(
+        read_length,
+        args.k,
+        args.s,
+        args.l,
+        args.u,
+        args.c,
+        args.max_seed_length,
+        args.aux_len,
+    );
 
-    info!("Canonical read length: {} bp", parameters.canonical_read_length);
+    info!(
+        "Canonical read length: {} bp",
+        parameters.canonical_read_length
+    );
     debug!("  {:?}", parameters.syncmer);
     debug!("  {:?}", parameters.randstrobe);
-    debug!("  Maximum seed length: {}", parameters.randstrobe.max_dist as usize + parameters.syncmer.k);
+    debug!(
+        "  Maximum seed length: {}",
+        parameters.randstrobe.max_dist as usize + parameters.syncmer.k
+    );
     {
         let d = parameters.syncmer.k - parameters.syncmer.s + 1;
-        debug!("  Syncmers are on average sampled every k - s + 1 = {} nucleotides", d);
-        debug!("  Sampling window for second syncmer (in syncmers): [{}, {}]", parameters.randstrobe.w_min, parameters.randstrobe.w_max);
-        debug!("  Sampling window for second syncmer (in nucleotides): [{}, {}]", parameters.randstrobe.w_min * d, parameters.randstrobe.w_max * d);
+        debug!(
+            "  Syncmers are on average sampled every k - s + 1 = {} nucleotides",
+            d
+        );
+        debug!(
+            "  Sampling window for second syncmer (in syncmers): [{}, {}]",
+            parameters.randstrobe.w_min, parameters.randstrobe.w_max
+        );
+        debug!(
+            "  Sampling window for second syncmer (in nucleotides): [{}, {}]",
+            parameters.randstrobe.w_min * d,
+            parameters.randstrobe.w_max * d
+        );
     }
 
     // Read reference FASTA
     let timer = Instant::now();
     let references = fasta::read_fasta(&mut BufReader::new(xopen(&args.ref_path)?))?;
-    info!("Time reading reference: {:.2} s", timer.elapsed().as_secs_f64());
+    info!(
+        "Time reading reference: {:.2} s",
+        timer.elapsed().as_secs_f64()
+    );
     let total_ref_size = references.iter().map(|r| r.sequence.len()).sum::<usize>();
-    let max_contig_size = references.iter().map(|r| r.sequence.len()).max().expect("No reference found");
-    info!("Reference size: {:.2} Mbp ({} contig{}; largest: {:.2} Mbp)",
+    let max_contig_size = references
+        .iter()
+        .map(|r| r.sequence.len())
+        .max()
+        .expect("No reference found");
+    info!(
+        "Reference size: {:.2} Mbp ({} contig{}; largest: {:.2} Mbp)",
         total_ref_size as f64 / 1E6,
         references.len(),
         if references.len() != 1 { "s" } else { "" },
         max_contig_size as f64 / 1E6
     );
     if references.len() > REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES {
-        error!("Too many reference sequences. Current maximum is {}.", REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES);
+        error!(
+            "Too many reference sequences. Current maximum is {}.",
+            REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES
+        );
         exit(1);
     }
 
@@ -358,13 +410,23 @@ fn run() -> Result<(), CliError> {
         sti_path.push_str(&parameters.filename_extension());
         info!("Reading index from {}", sti_path);
         index.read(&sti_path)?;
-        info!("Total time reading index: {:.2} s", read_index_timer.elapsed().as_secs_f64());
+        info!(
+            "Total time reading index: {:.2} s",
+            read_index_timer.elapsed().as_secs_f64()
+        );
     } else {
         let timer = Instant::now();
         let indexing_threads = args.indexing_threads.unwrap_or(args.threads);
-        info!("Indexing the reference using {} thread{} ...", indexing_threads, if indexing_threads == 1 { "" } else { "s" });
+        info!(
+            "Indexing the reference using {} thread{} ...",
+            indexing_threads,
+            if indexing_threads == 1 { "" } else { "s" }
+        );
         index.populate(args.filter_fraction, indexing_threads);
-        info!("Total time indexing: {:.2} s", timer.elapsed().as_secs_f64());
+        info!(
+            "Total time indexing: {:.2} s",
+            timer.elapsed().as_secs_f64()
+        );
     }
     let index = index;
     debug!("{}", &index.stats);
@@ -376,7 +438,10 @@ fn run() -> Result<(), CliError> {
         let sti_path = args.ref_path + &parameters.filename_extension();
         info!("Writing index to {}", sti_path);
         index.write(sti_path)?;
-        info!("Total time writing index: {:.2} s", timer.elapsed().as_secs_f32());
+        info!(
+            "Total time writing index: {:.2} s",
+            timer.elapsed().as_secs_f32()
+        );
 
         exit(0);
     }
@@ -389,7 +454,7 @@ fn run() -> Result<(), CliError> {
         dropoff_threshold: args.dropoff_threshold,
         rescue_distance: args.rescue_distance,
         output_unmapped: !args.only_mapped,
-        .. MappingParameters::default()
+        ..MappingParameters::default()
     };
 
     let chaining_parameters = ChainingParameters {
@@ -436,7 +501,13 @@ fn run() -> Result<(), CliError> {
     };
     let mut out = BufWriter::new(out);
 
-    let mode = if args.map_only { Mode::Paf } else if args.aemb { Mode::Abundances } else { Mode::Sam };
+    let mode = if args.map_only {
+        Mode::Paf
+    } else if args.aemb {
+        Mode::Abundances
+    } else {
+        Mode::Sam
+    };
     if mode == Mode::Sam {
         write!(out, "{}", header)?;
     }
@@ -451,7 +522,9 @@ fn run() -> Result<(), CliError> {
         let mut nucleotides = 0;
         let mut chunk = vec![];
         for record in record_iter.by_ref() {
-            nucleotides += record.as_ref().map_or(0, |r| r.0.len() + r.1.as_ref().map_or(0, |r2| r2.len()));
+            nucleotides += record
+                .as_ref()
+                .map_or(0, |r| r.0.len() + r.1.as_ref().map_or(0, |r2| r2.len()));
             chunk.push(record);
             if nucleotides > args.chunk_size {
                 break;
@@ -476,12 +549,17 @@ fn run() -> Result<(), CliError> {
     let mode_message = match mode {
         Mode::Sam => "",
         Mode::Paf => " in mapping-only mode",
-        Mode::Abundances => " in abundance estimation mode"
+        Mode::Abundances => " in abundance estimation mode",
     };
 
     // When tracing, use just one thread to avoid interleaved output
     let n_threads = if args.trace { 1 } else { args.threads };
-    info!("Processing reads{} using {} thread{}", mode_message, n_threads, if n_threads != 1 { "s" } else {""});
+    info!(
+        "Processing reads{} using {} thread{}",
+        mode_message,
+        n_threads,
+        if n_threads != 1 { "s" } else { "" }
+    );
 
     let show_progress = !args.no_progress && io::stderr().is_terminal();
     // TODO channel size?
@@ -494,7 +572,10 @@ fn run() -> Result<(), CliError> {
     });
     let chunks_rx = Arc::new(Mutex::new(chunks_rx));
 
-    let (out_tx, out_rx): (Sender<(usize, (Vec<u8>, Details))>, Receiver<(usize, (Vec<u8>, Details))>) = channel();
+    let (out_tx, out_rx): (
+        Sender<(usize, (Vec<u8>, Details))>,
+        Receiver<(usize, (Vec<u8>, Details))>,
+    ) = channel();
     let (progress_tx, progress_rx): (Sender<usize>, Receiver<_>) = channel();
     let (details_tx, details_rx): (Sender<Details>, Receiver<Details>) = channel();
     let out_arc = Arc::new(Mutex::new(out));
@@ -536,11 +617,19 @@ fn run() -> Result<(), CliError> {
                 time_to_wait = min(time_to_wait * 2, time::Duration::from_millis(1000));
                 let elapsed = timer.elapsed();
                 if Instant::now() >= reported_time + time_to_wait {
-                    eprint!(" Mapped {:12.3} M reads @ {:8.2} us/read                   \r", n_reads as f64 / 1E6, elapsed.as_secs_f64() * 1E6 / n_reads as f64);
+                    eprint!(
+                        " Mapped {:12.3} M reads @ {:8.2} us/read                   \r",
+                        n_reads as f64 / 1E6,
+                        elapsed.as_secs_f64() * 1E6 / n_reads as f64
+                    );
                     reported_time = Instant::now();
                 }
             }
-            eprintln!(" Mapped {:12.3} M reads @ {:8.2} us/read                   \r", total_reads as f64 / 1E6, timer.elapsed().as_secs_f64() * 1E6 / total_reads as f64);
+            eprintln!(
+                " Mapped {:12.3} M reads @ {:8.2} us/read                   \r",
+                total_reads as f64 / 1E6,
+                timer.elapsed().as_secs_f64() * 1E6 / total_reads as f64
+            );
             eprintln!("Done!");
         });
     }
@@ -591,24 +680,66 @@ fn run() -> Result<(), CliError> {
     debug!("");
     debug!("# Statistics");
     debug!("");
-    debug!("Reads:                                    {:12}", details.nam.n_reads);
+    debug!(
+        "Reads:                                    {:12}",
+        details.nam.n_reads
+    );
     debug!("");
     debug!("## Randstrobe lookup (without rescue)");
     debug!("");
-    debug!("Randstrobes                               {:12}     100.0 %   Per read: {:7.1}", details.nam.n_randstrobes, details.nam.n_randstrobes as f64 / details.nam.n_reads as f64);
-    debug!("  Full randstrobe found                   {:12} {:9.1} %", details.nam.hits.full_found, 100f64 * details.nam.hits.full_found as f64 / details.nam.n_randstrobes as f64);
-    debug!("  Full randstrobe found but filtered      {:12} {:9.1} %", details.nam.hits.full_filtered, 100f64 * details.nam.hits.full_filtered as f64 / details.nam.n_randstrobes as f64);
-    debug!("  Full randstrobe not found               {:12} {:9.1} %", details.nam.hits.full_not_found, 100f64 * details.nam.hits.full_not_found as f64 / details.nam.n_randstrobes as f64);
-    debug!("    Partial randstrobe found              {:12} {:9.1} %", details.nam.hits.partial_found, 100f64 * details.nam.hits.partial_found as f64 / details.nam.n_randstrobes as f64);
-    debug!("    Partial randstrobe found but filtered {:12} {:9.1} %", details.nam.hits.partial_filtered, 100f64 * details.nam.hits.partial_filtered as f64 / details.nam.n_randstrobes as f64);
-    debug!("    Partial randstrobe not found          {:12} {:9.1} %", details.nam.hits.partial_not_found, 100f64 * details.nam.hits.partial_not_found as f64 / details.nam.n_randstrobes as f64);
+    debug!(
+        "Randstrobes                               {:12}     100.0 %   Per read: {:7.1}",
+        details.nam.n_randstrobes,
+        details.nam.n_randstrobes as f64 / details.nam.n_reads as f64
+    );
+    debug!(
+        "  Full randstrobe found                   {:12} {:9.1} %",
+        details.nam.hits.full_found,
+        100f64 * details.nam.hits.full_found as f64 / details.nam.n_randstrobes as f64
+    );
+    debug!(
+        "  Full randstrobe found but filtered      {:12} {:9.1} %",
+        details.nam.hits.full_filtered,
+        100f64 * details.nam.hits.full_filtered as f64 / details.nam.n_randstrobes as f64
+    );
+    debug!(
+        "  Full randstrobe not found               {:12} {:9.1} %",
+        details.nam.hits.full_not_found,
+        100f64 * details.nam.hits.full_not_found as f64 / details.nam.n_randstrobes as f64
+    );
+    debug!(
+        "    Partial randstrobe found              {:12} {:9.1} %",
+        details.nam.hits.partial_found,
+        100f64 * details.nam.hits.partial_found as f64 / details.nam.n_randstrobes as f64
+    );
+    debug!(
+        "    Partial randstrobe found but filtered {:12} {:9.1} %",
+        details.nam.hits.partial_filtered,
+        100f64 * details.nam.hits.partial_filtered as f64 / details.nam.n_randstrobes as f64
+    );
+    debug!(
+        "    Partial randstrobe not found          {:12} {:9.1} %",
+        details.nam.hits.partial_not_found,
+        100f64 * details.nam.hits.partial_not_found as f64 / details.nam.n_randstrobes as f64
+    );
     debug!("");
-    debug!("Filtered but rescued randstrobes          {:12}", details.nam.hits.rescued);
+    debug!(
+        "Filtered but rescued randstrobes          {:12}",
+        details.nam.hits.rescued
+    );
     debug!("");
     debug!("## Chaining");
     debug!("");
-    debug!("Found anchors:                            {:12}               Per read: {:7.1}", details.nam.n_anchors, details.nam.n_anchors as f64 / details.nam.n_reads as f64);
-    debug!("Found chains:                             {:12}               Per read: {:7.1}", details.nam.n_nams, details.nam.n_nams as f64 / details.nam.n_reads as f64);
+    debug!(
+        "Found anchors:                            {:12}               Per read: {:7.1}",
+        details.nam.n_anchors,
+        details.nam.n_anchors as f64 / details.nam.n_reads as f64
+    );
+    debug!(
+        "Found chains:                             {:12}               Per read: {:7.1}",
+        details.nam.n_nams,
+        details.nam.n_nams as f64 / details.nam.n_reads as f64
+    );
     debug!("");
     debug!("## Rescue (-R)");
     debug!("");
@@ -636,19 +767,39 @@ fn run() -> Result<(), CliError> {
 
     info!("Total time mapping: {:.2} s", timer.elapsed().as_secs_f64());
     //info!("Total time reading read-file(s): {:.2} s", );
-    info!("Total time creating strobemers: {:.2} s", details.nam.time_randstrobes);
-    info!("Total time finding hits (non-rescue mode): {:.2} s", details.nam.time_find_hits);
-    info!("Total time finding hits (rescue mode): {:.2} s", details.nam.time_rescue);
-    info!("Total time chaining (non-rescue mode): {:.2} s", details.nam.time_chaining);
-    info!("Total time sorting NAMs/chains by score: {:.2} s", details.nam.time_sort_nams);
-    info!("Total time extending and pairing seeds: {:.2} s", details.time_extend);
+    info!(
+        "Total time creating strobemers: {:.2} s",
+        details.nam.time_randstrobes
+    );
+    info!(
+        "Total time finding hits (non-rescue mode): {:.2} s",
+        details.nam.time_find_hits
+    );
+    info!(
+        "Total time finding hits (rescue mode): {:.2} s",
+        details.nam.time_rescue
+    );
+    info!(
+        "Total time chaining (non-rescue mode): {:.2} s",
+        details.nam.time_chaining
+    );
+    info!(
+        "Total time sorting NAMs/chains by score: {:.2} s",
+        details.nam.time_sort_nams
+    );
+    info!(
+        "Total time extending and pairing seeds: {:.2} s",
+        details.time_extend
+    );
 
     Ok(())
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 enum Mode {
-    Sam, Paf, Abundances
+    Sam,
+    Paf,
+    Abundances,
 }
 
 #[derive(Clone)]
@@ -679,25 +830,45 @@ impl Mapper<'_> {
             trace!("\nQuery: {}", r1.name);
             match self.mode {
                 Mode::Sam => {
-                    let (sam_records, details) =
-                        if let Some(r2) = r2 {
-                            let (mut records, details) = align_paired_end_read(
-                                &r1, &r2, self.index, self.references, self.mapping_parameters, self.sam_output, self.index_parameters, &mut isizedist, &self.chainer, &self.aligner, &mut rng
-                            );
-                            if !self.include_unmapped && !records[0].is_mapped() && !records[1].is_mapped() {
-                                records = vec![];
-                            }
+                    let (sam_records, details) = if let Some(r2) = r2 {
+                        let (mut records, details) = align_paired_end_read(
+                            &r1,
+                            &r2,
+                            self.index,
+                            self.references,
+                            self.mapping_parameters,
+                            self.sam_output,
+                            self.index_parameters,
+                            &mut isizedist,
+                            &self.chainer,
+                            &self.aligner,
+                            &mut rng,
+                        );
+                        if !self.include_unmapped
+                            && !records[0].is_mapped()
+                            && !records[1].is_mapped()
+                        {
+                            records = vec![];
+                        }
 
-                            (records, details)
-                        } else {
-                            let (mut records, details) =
-                                align_single_end_read(&r1, self.index, self.references, self.mapping_parameters, self.sam_output, &self.chainer, &self.aligner, &mut rng);
-                            if !self.include_unmapped && !records[0].is_mapped() {
-                                records = vec![];
-                            }
+                        (records, details)
+                    } else {
+                        let (mut records, details) = align_single_end_read(
+                            &r1,
+                            self.index,
+                            self.references,
+                            self.mapping_parameters,
+                            self.sam_output,
+                            &self.chainer,
+                            &self.aligner,
+                            &mut rng,
+                        );
+                        if !self.include_unmapped && !records[0].is_mapped() {
+                            records = vec![];
+                        }
 
-                            (records, details)
-                        };
+                        (records, details)
+                    };
 
                     for sam_record in sam_records {
                         writeln!(out, "{}", sam_record)?;
@@ -705,14 +876,29 @@ impl Mapper<'_> {
                     cumulative_details += details;
                 }
                 Mode::Paf => {
-                    let (paf_records, details) =
-                        if let Some(r2) = r2 {
-                            map_paired_end_read(
-                                &r1, &r2, self.index, self.references, self.mapping_parameters.rescue_distance, &mut isizedist, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng
-                            )
-                        } else {
-                            map_single_end_read(&r1, self.index, self.references, self.mapping_parameters.rescue_distance, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng)
-                        };
+                    let (paf_records, details) = if let Some(r2) = r2 {
+                        map_paired_end_read(
+                            &r1,
+                            &r2,
+                            self.index,
+                            self.references,
+                            self.mapping_parameters.rescue_distance,
+                            &mut isizedist,
+                            self.mapping_parameters.mcs_strategy,
+                            &self.chainer,
+                            &mut rng,
+                        )
+                    } else {
+                        map_single_end_read(
+                            &r1,
+                            self.index,
+                            self.references,
+                            self.mapping_parameters.rescue_distance,
+                            self.mapping_parameters.mcs_strategy,
+                            &self.chainer,
+                            &mut rng,
+                        )
+                    };
                     for paf_record in paf_records {
                         writeln!(out, "{}", paf_record)?;
                     }
@@ -720,9 +906,27 @@ impl Mapper<'_> {
                 }
                 Mode::Abundances => {
                     if let Some(r2) = r2 {
-                        abundances_paired_end_read(&r1, &r2, self.index, &mut self.abundances, self.mapping_parameters.rescue_distance, &mut isizedist, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng);
+                        abundances_paired_end_read(
+                            &r1,
+                            &r2,
+                            self.index,
+                            &mut self.abundances,
+                            self.mapping_parameters.rescue_distance,
+                            &mut isizedist,
+                            self.mapping_parameters.mcs_strategy,
+                            &self.chainer,
+                            &mut rng,
+                        );
                     } else {
-                        abundances_single_end_read(&r1, self.index, &mut self.abundances, self.mapping_parameters.rescue_distance, self.mapping_parameters.mcs_strategy, &self.chainer, &mut rng);
+                        abundances_single_end_read(
+                            &r1,
+                            self.index,
+                            &mut self.abundances,
+                            self.mapping_parameters.rescue_distance,
+                            self.mapping_parameters.mcs_strategy,
+                            &self.chainer,
+                            &mut rng,
+                        );
                     }
                 }
             }
@@ -731,7 +935,11 @@ impl Mapper<'_> {
     }
 }
 
-pub fn output_abundances<T: Write>(abundances: &[f64], references: &[RefSequence], out: &mut T) -> io::Result<()> {
+pub fn output_abundances<T: Write>(
+    abundances: &[f64],
+    references: &[RefSequence],
+    out: &mut T,
+) -> io::Result<()> {
     for i in 0..references.len() {
         let normalized = abundances[i] / references[i].sequence.len() as f64;
         writeln!(out, "{}\t{:.6}", references[i].name, normalized)?;
@@ -752,10 +960,10 @@ fn estimate_read_length(records: &[SequenceRecord]) -> usize {
 
 #[cfg(test)]
 mod test {
-    use strobealign::fastq::PeekableSequenceReader;
-    use super::estimate_read_length;
     use super::Args;
+    use super::estimate_read_length;
     use super::xopen;
+    use strobealign::fastq::PeekableSequenceReader;
 
     #[test]
     fn verify_cli() {

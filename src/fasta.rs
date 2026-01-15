@@ -1,5 +1,5 @@
-use std::io::{BufRead, BufReader, Read};
 use std::io;
+use std::io::{BufRead, BufReader, Read};
 use std::string::FromUtf8Error;
 
 use thiserror::Error;
@@ -36,7 +36,7 @@ pub enum FastaError {
 /// However, because even samtools itself does not complain when it encounters
 /// one of them, contig names with these characters *are* used in practice, so
 /// we only do some basic checks.
-fn is_valid_name(name: &[u8]) -> bool{
+fn is_valid_name(name: &[u8]) -> bool {
     if name.is_empty() {
         return false;
     }
@@ -102,7 +102,7 @@ impl<R: Read> Iterator for FastaReader<R> {
                                 qualities: None,
                             };
 
-                            return Some(Ok(record))
+                            return Some(Ok(record));
                         }
                         if n == 0 {
                             return None;
@@ -110,9 +110,15 @@ impl<R: Read> Iterator for FastaReader<R> {
                         self.header = Some(line)
                     } else {
                         if self.header.is_none() {
-                            return Some(Err(FastaError::Parse("FASTA file must start with '>'".to_string())));
+                            return Some(Err(FastaError::Parse(
+                                "FASTA file must start with '>'".to_string(),
+                            )));
                         }
-                        self.sequence.extend(line.trim_ascii_end().bytes().map(|c| c.to_ascii_uppercase()));
+                        self.sequence.extend(
+                            line.trim_ascii_end()
+                                .bytes()
+                                .map(|c| c.to_ascii_uppercase()),
+                        );
                     }
                 }
                 Err(e) => {
@@ -145,7 +151,7 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, FastaE
         }
         if line[0] == b'>' {
             if has_record {
-                records.push(RefSequence {name, sequence});
+                records.push(RefSequence { name, sequence });
             }
             let mut name_bytes = &line[1..];
             if let Some(i) = name_bytes.iter().position(|c| c.is_ascii_whitespace()) {
@@ -159,13 +165,15 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, FastaE
             has_record = true;
         } else {
             if !has_record {
-                return Err(FastaError::Parse("FASTA file must start with '>'".to_string()));
+                return Err(FastaError::Parse(
+                    "FASTA file must start with '>'".to_string(),
+                ));
             }
             sequence.extend(line.iter().map(|&c| c.to_ascii_uppercase()));
         }
     }
     if has_record {
-        records.push(RefSequence {name, sequence});
+        records.push(RefSequence { name, sequence });
     }
 
     check_duplicate_names(&records)?;
@@ -175,9 +183,9 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, FastaE
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::fs::File;
     use std::io::BufReader;
-    use super::*;
 
     #[test]
     fn test_read_fasta() {
@@ -216,7 +224,9 @@ mod tests {
     #[test]
     fn test_fasta_reader_only_name() {
         let mut buf = BufReader::new(b">name\n".as_slice());
-        let records = FastaReader::new(&mut buf).collect::<Result<Vec<_>, _>>().unwrap();
+        let records = FastaReader::new(&mut buf)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
 
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].name, "name");
@@ -226,12 +236,14 @@ mod tests {
     #[test]
     fn test_fasta_reader_uppercase() {
         let mut buf = BufReader::new(b">name\r\nacgt\n>name2\nTgCa".as_slice());
-        let records = FastaReader::new(&mut buf).collect::<Result<Vec<_>, _>>().unwrap();
+        let records = FastaReader::new(&mut buf)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
 
         assert_eq!(records.len(), 2);
         assert_eq!(records[0].name, "name");
         assert_eq!(records[0].sequence, b"ACGT");
-        
+
         assert_eq!(records[1].name, "name2");
         assert_eq!(records[1].sequence, b"TGCA");
     }
@@ -242,10 +254,12 @@ mod tests {
         let result = FastaReader::new(&mut buf).next().unwrap();
         assert!(result.is_err());
     }
-    
+
     #[test]
     fn test_parse() {
-        let tmp = temp_file::with_contents(b">ref1 a comment\nacgt\n\n>ref2\naacc\ngg\n\ntt\n>empty\n>empty_at_end_of_file");
+        let tmp = temp_file::with_contents(
+            b">ref1 a comment\nacgt\n\n>ref2\naacc\ngg\n\ntt\n>empty\n>empty_at_end_of_file",
+        );
         let mut reader = BufReader::new(File::open(tmp.path()).unwrap());
         let records = read_fasta(&mut reader).unwrap();
         assert_eq!(records.len(), 4);

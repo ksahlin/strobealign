@@ -1,7 +1,7 @@
 //! A modified version of the `std::slice::partition_point` method that is
 //! faster for our use case.
 
-use std::cmp::Ordering::{Less, Greater, Equal};
+use std::cmp::Ordering::{Equal, Greater, Less};
 
 /// This is a modified version of `std::slice::binary_search_by` that has
 /// been modified to not be branchless, that is, the call to

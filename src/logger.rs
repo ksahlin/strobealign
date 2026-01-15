@@ -1,6 +1,6 @@
 // Based on example in the log crate documentation
 
-use log::{Record, Level, Metadata, SetLoggerError};
+use log::{Level, Metadata, Record, SetLoggerError};
 
 struct SimpleLogger {
     level: Level,
@@ -32,6 +32,5 @@ impl log::Log for SimpleLogger {
 
 pub fn init(level: Level) -> Result<(), SetLoggerError> {
     let logger = SimpleLogger::new(level);
-    log::set_boxed_logger(Box::new(logger))
-        .map(|()| log::set_max_level(level.to_level_filter()))
+    log::set_boxed_logger(Box::new(logger)).map(|()| log::set_max_level(level.to_level_filter()))
 }

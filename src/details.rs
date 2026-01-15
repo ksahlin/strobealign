@@ -74,7 +74,7 @@ pub struct Details {
 
     /// No. of best alignments with same score
     pub best_alignments: usize,
-    
+
     pub time_extend: f64,
 }
 
@@ -100,7 +100,7 @@ impl From<NamDetails> for Details {
     fn from(nam_details: NamDetails) -> Self {
         Details {
             nam: nam_details,
-            .. Details::default()
+            ..Details::default()
         }
     }
 }

@@ -1,9 +1,9 @@
 use std::time::Instant;
 
-use log::{log_enabled, Level, trace};
+use log::{Level, log_enabled, trace};
 
 use crate::details::NamDetails;
-use crate::hit::{find_hits, Hit, HitsDetails};
+use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::StrobemerIndex;
 use crate::mapper::QueryRandstrobe;
 use crate::mcsstrategy::McsStrategy;
@@ -41,7 +41,11 @@ impl Chainer {
         for i in 0..N_PRECOMPUTED {
             precomputed_scores[i] = compute_score(i, i, k, &parameters);
         }
-        Chainer { k, parameters, precomputed_scores }
+        Chainer {
+            k,
+            parameters,
+            precomputed_scores,
+        }
     }
 
     fn compute_score_cached(&self, dq: usize, dr: usize) -> f32 {
@@ -88,7 +92,9 @@ impl Chainer {
                 if dr >= self.parameters.max_ref_gap {
                     break;
                 }
-                if /*dq <= 0 ||*/ dr <= 0 {
+                if
+                /*dq <= 0 ||*/
+                dr <= 0 {
                     // Not collinear
                     continue;
                 }
@@ -128,8 +134,13 @@ impl Chainer {
         for is_revcomp in 0..2 {
             let sorting_needed1;
 
-            (hits_details[is_revcomp], sorting_needed1, hits[is_revcomp]) =
-                find_hits(&query_randstrobes[is_revcomp], index, mcs_strategy, index.filter_cutoff, rescue_distance);
+            (hits_details[is_revcomp], sorting_needed1, hits[is_revcomp]) = find_hits(
+                &query_randstrobes[is_revcomp],
+                index,
+                mcs_strategy,
+                index.filter_cutoff,
+                rescue_distance,
+            );
 
             if log_enabled!(Level::Trace) {
                 trace!("Found {} hits", hits_details[is_revcomp].total_hits());
@@ -175,8 +186,14 @@ impl Chainer {
             let (best_score, dp, predecessors) = self.collinear_chaining(&anchors);
 
             extract_chains_from_dp(
-                &anchors, &dp, &predecessors, best_score,
-                index.k(), is_revcomp == 1, &mut chains, &self.parameters
+                &anchors,
+                &dp,
+                &predecessors,
+                best_score,
+                index.k(),
+                is_revcomp == 1,
+                &mut chains,
+                &self.parameters,
             );
             time_chaining += chaining_timer.elapsed().as_secs_f64();
         }
@@ -203,7 +220,6 @@ impl Chainer {
     }
 }
 
-
 /// Returns the chaining score between two anchors based on their distance.
 ///
 /// This function calculates the score contribution when chaining two anchors,
@@ -225,8 +241,13 @@ fn compute_score(dq: usize, dr: usize, k: usize, parameters: &ChainingParameters
     let dg = dq.min(dr);
     let mut score = k.min(dg) as f32;
 
-    let lin_penalty = parameters.diag_diff_penalty * dd as f32 + parameters.gap_length_penalty * dg as f32;
-    let log_penalty = if dd >= 1 { (dd as f32 + 1f32).log2() } else { 0.0 };
+    let lin_penalty =
+        parameters.diag_diff_penalty * dd as f32 + parameters.gap_length_penalty * dg as f32;
+    let log_penalty = if dd >= 1 {
+        (dd as f32 + 1f32).log2()
+    } else {
+        0.0
+    };
     score -= lin_penalty + 0.5 * log_penalty;
 
     score
@@ -250,8 +271,16 @@ fn add_to_anchors_full(
         let length_diff = (query_end - query_start).abs_diff(ref_end - ref_start);
         if length_diff <= min_length_diff {
             let ref_id = randstrobe.reference_index();
-            anchors.push(Anchor {ref_id, ref_start, query_start});
-            anchors.push(Anchor {ref_id, ref_start: ref_end - index.k(), query_start: query_end - index.k()});
+            anchors.push(Anchor {
+                ref_id,
+                ref_start,
+                query_start,
+            });
+            anchors.push(Anchor {
+                ref_id,
+                ref_start: ref_end - index.k(),
+                query_start: query_end - index.k(),
+            });
             min_length_diff = length_diff;
         }
     }
@@ -272,14 +301,15 @@ fn add_to_anchors_partial(
         let ref_id = randstrobe.reference_index();
         let ref_start = index.strobe_extent_partial(pos).0;
 
-        anchors.push(Anchor { ref_id, ref_start, query_start });
+        anchors.push(Anchor {
+            ref_id,
+            ref_start,
+            query_start,
+        });
     }
 }
 
-fn hits_to_anchors(
-    hits: &Vec<Hit>,
-    index: &StrobemerIndex,
-) -> Vec<Anchor> {
+fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
     let mut anchors = vec![];
     for hit in hits {
         if hit.is_filtered {
@@ -288,7 +318,13 @@ fn hits_to_anchors(
         if hit.is_partial {
             add_to_anchors_partial(&mut anchors, hit.query_start, index, hit.position);
         } else {
-            add_to_anchors_full(&mut anchors, hit.query_start, hit.query_end, index, hit.position);
+            add_to_anchors_full(
+                &mut anchors,
+                hit.query_start,
+                hit.query_end,
+                index,
+                hit.position,
+            );
         }
     }
 
@@ -343,20 +379,18 @@ fn extract_chains_from_dp(
 
         let first = &anchors[j];
         let last = &anchors[i];
-        chains.push(
-            Nam {
-                nam_id: chains.len(),
-                query_start: first.query_start,
-                query_end: last.query_start + k,
-                query_prev_match_startpos: usize::MAX,
-                ref_start: first.ref_start,
-                ref_end: last.ref_start + k,
-                ref_prev_match_startpos: usize::MAX,
-                n_matches: c,
-                ref_id: last.ref_id,
-                score: score + c as f32 * chaining_parameters.matches_weight,
-                is_revcomp,
-            }
-        );
+        chains.push(Nam {
+            nam_id: chains.len(),
+            query_start: first.query_start,
+            query_end: last.query_start + k,
+            query_prev_match_startpos: usize::MAX,
+            ref_start: first.ref_start,
+            ref_end: last.ref_start + k,
+            ref_prev_match_startpos: usize::MAX,
+            n_matches: c,
+            ref_id: last.ref_id,
+            score: score + c as f32 * chaining_parameters.matches_weight,
+            is_revcomp,
+        });
     }
 }
