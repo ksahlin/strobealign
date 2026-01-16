@@ -32,12 +32,6 @@ cargo test
 # Ensure the binary is available
 samtools --version > /dev/null
 
-# Single-end SAM, M CIGAR operators
-strobealign --no-PG tests/phix.fasta tests/phix.1.fastq > phix.se.m.sam
-if samtools view phix.se.m.sam | cut -f6 | grep -q '[X=]'; then false; fi
-
-rm phix.se.m.sam
-
 # Single-end PAF
 strobealign -x tests/phix.fasta tests/phix.1.fastq | tail -n 11 > phix.se.paf
 diff tests/phix.se.paf phix.se.paf

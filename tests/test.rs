@@ -31,13 +31,31 @@ fn success_when_printing_help() {
     cmd.arg("-h").assert().success();
 }
 
+/// Without --eqx, there must be no = and X CIGAR operators
+#[test]
+fn single_end_sam_m_cigar() {
+    let mut cmd = cmd();
+    let p = cmd.args(&["tests/phix.fasta", "tests/phix.1.fastq"]);
+    let a = p.assert().success();
+    let stdout = &a.get_output().stdout;
+    for line in str::from_utf8(stdout).unwrap().lines() {
+        if line.as_bytes()[0] == b'@' {
+            continue;
+        }
+        let fields: Vec<&str> = line.split('\t').collect();
+        let cigar = fields[5];
+        assert!(cigar.find('=').is_none());
+        assert!(cigar.find('X').is_none());
+    }
+}
+
 #[test]
 fn single_end_sam() {
-    // TODO --chunk-size 3
     // TODO -v
     let expected = String::from_utf8(read("tests/phix.se.sam").unwrap()).unwrap();
     let mut cmd = cmd();
     let p = cmd.args(&[
+        "--chunk-size=3",
         "--no-PG",
         "--eqx",
         "--rg-id=1",
@@ -52,7 +70,6 @@ fn single_end_sam() {
 
 #[test]
 fn paired_end_sam() {
-    // TODO --chunk-size 3
     let expected = String::from_utf8(read("tests/phix.pe.sam").unwrap()).unwrap();
     let mut cmd = cmd();
     let p = cmd.args(&[
