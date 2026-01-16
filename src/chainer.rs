@@ -175,7 +175,7 @@ impl Chainer {
             n_anchors += anchors.len();
             let chaining_timer = Instant::now();
             trace!("Chaining {} anchors", anchors.len());
-            anchors.sort_by_key(|a| (a.ref_id, a.ref_start, a.query_start));
+            anchors.sort_unstable_by_key(|a| (a.ref_id, a.ref_start, a.query_start));
             anchors.dedup();
             let (best_score, dp, predecessors) = self.collinear_chaining(&anchors);
 
