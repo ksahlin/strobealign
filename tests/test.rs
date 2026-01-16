@@ -1,14 +1,15 @@
-use assert_cmd::Command;
-use flate2::Compression;
-use flate2::write::GzEncoder;
-use predicates::prelude::*;
 use std::error::Error;
 use std::fs::read;
 use std::io::Write;
+
+use assert_cmd::{self, Command};
+use flate2::Compression;
+use flate2::write::GzEncoder;
+use predicates::prelude::*;
 use temp_file::TempFileBuilder;
 
 fn cmd() -> Command {
-    Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap()
+    Command::new(assert_cmd::cargo::cargo_bin!())
 }
 
 #[test]

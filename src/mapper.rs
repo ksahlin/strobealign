@@ -97,7 +97,7 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> [Vec<Query
     }
 
     // Generate syncmers for the forward sequence
-    let mut syncmer_iter = SyncmerIterator::new(
+    let syncmer_iter = SyncmerIterator::new(
         seq,
         parameters.syncmer.k,
         parameters.syncmer.s,

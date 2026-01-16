@@ -269,14 +269,14 @@ mod test {
 
     #[test]
     fn test_highest_scoring_segment() {
-        let (start, end, score) = highest_scoring_segment(b"", b"", 5, 7, 0);
+        let (start, end, _score) = highest_scoring_segment(b"", b"", 5, 7, 0);
         assert_eq!(start, 0);
         assert_eq!(end, 0);
 
-        let (start, end, score) = highest_scoring_segment(b"AAAAAAAAAA", b"AAAAAATTTT", 5, 7, 0);
+        let (start, end, _score) = highest_scoring_segment(b"AAAAAAAAAA", b"AAAAAATTTT", 5, 7, 0);
         assert_eq!(start, 0);
         assert_eq!(end, 6);
-        let (start, end, score) = highest_scoring_segment(b"AAAAAAAAAA", b"TTTTAAAAAA", 5, 7, 0);
+        let (start, end, _score) = highest_scoring_segment(b"AAAAAAAAAA", b"TTTTAAAAAA", 5, 7, 0);
         assert_eq!(start, 4);
         assert_eq!(end, 10);
 

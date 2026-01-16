@@ -135,10 +135,8 @@ fn find_all_hits(
     index: &StrobemerIndex,
     filter_cutoff: usize,
     mcs_strategy: McsStrategy,
-) -> (HitsDetails, bool, Vec<Hit>) {
+) -> (HitsDetails, Vec<Hit>) {
     let mut hits = Vec::with_capacity(query_randstrobes.len());
-    let mut sorting_needed =
-        mcs_strategy == McsStrategy::Always || mcs_strategy == McsStrategy::FirstStrobe;
     let mut hits_details = HitsDetails::default();
 
     if mcs_strategy != McsStrategy::FirstStrobe {
@@ -227,10 +225,9 @@ fn find_all_hits(
                 hits_details.partial_not_found += 1;
             }
         }
-        sorting_needed = true;
     }
 
-    (hits_details, sorting_needed, hits)
+    (hits_details, hits)
 }
 
 /// Rescue seeds from filtered regions that have a given minimum length (in
@@ -281,8 +278,8 @@ pub fn find_hits(
     mcs_strategy: McsStrategy,
     filter_cutoff: usize,
     rescue_distance: usize,
-) -> (HitsDetails, bool, Vec<Hit>) {
-    let (mut details, sorting_needed, mut hits) =
+) -> (HitsDetails, Vec<Hit>) {
+    let (mut details, mut hits) =
         find_all_hits(query_randstrobes, index, filter_cutoff, mcs_strategy);
 
     let total_hits = details.total_hits();
@@ -327,5 +324,5 @@ pub fn find_hits(
         }
     }
 
-    (details, sorting_needed, hits)
+    (details, hits)
 }
