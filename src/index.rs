@@ -109,8 +109,14 @@ impl IndexParameters {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum InvalidIndexParameter {
+    #[error("Invalid indexing parameter: {0}")]
+    InvalidParameter(&'static str),
+}
+
 impl IndexParameters {
-    pub fn new(
+    pub fn try_new(
         canonical_read_length: usize,
         k: usize,
         s: usize,
@@ -119,11 +125,11 @@ impl IndexParameters {
         q: u64,
         max_dist: u8,
         aux_len: u8,
-    ) -> Self {
+    ) -> Result<Self, InvalidIndexParameter> {
         let main_hash_mask = !0u64 << (9 + aux_len);
-        IndexParameters {
+        Ok(IndexParameters {
             canonical_read_length,
-            syncmer: SyncmerParameters::new(k, s),
+            syncmer: SyncmerParameters::try_new(k, s)?,
             randstrobe: RandstrobeParameters {
                 w_min,
                 w_max,
@@ -131,7 +137,7 @@ impl IndexParameters {
                 max_dist,
                 main_hash_mask,
             },
-        }
+        })
     }
     /// Create an IndexParameters instance based on a given read length.
     /// k, s, l, u, c and max_seed_len can be used to override determined parameters
@@ -144,7 +150,7 @@ impl IndexParameters {
         c: Option<u32>,
         max_seed_len: Option<usize>,
         aux_len: u8,
-    ) -> IndexParameters {
+    ) -> Result<IndexParameters, InvalidIndexParameter> {
         let default_c = 8;
         let mut canonical_read_length = 50;
         for profile in &PROFILES {
@@ -177,7 +183,7 @@ impl IndexParameters {
         };
         let q = 2u64.pow(c.unwrap_or(default_c)) - 1;
 
-        IndexParameters::new(
+        IndexParameters::try_new(
             canonical_read_length,
             k,
             s,
@@ -200,6 +206,7 @@ impl IndexParameters {
             None,
             DEFAULT_AUX_LEN,
         )
+        .unwrap()
     }
 }
 
@@ -791,6 +798,9 @@ pub enum IndexReadingError {
         "The randstrobe starts vector has an unexpected size in the .sti file. Did you use the correct -b option?"
     )]
     RandstrobeStartIndicesWrongSize,
+
+    #[error("The .sti (index) file uses an invalid indexing parameter: {0}")]
+    InvalidIndexParameter(#[from] InvalidIndexParameter),
 }
 
 impl<'a> StrobemerIndex<'a> {
@@ -871,7 +881,7 @@ impl<'a> StrobemerIndex<'a> {
         let max_dist = read_u32(&mut reader)? as u8;
         let main_hash_mask = read_u64(&mut reader)?;
 
-        let syncmer_parameters = SyncmerParameters::new(k, s);
+        let syncmer_parameters = SyncmerParameters::try_new(k, s)?;
         let randstrobe_parameters = RandstrobeParameters {
             w_min,
             w_max,
@@ -978,7 +988,7 @@ mod tests {
         let q = 255;
         let main_hash_mask = 0xfffffffffc000000;
         let aux_len = 17;
-        let sp = SyncmerParameters::new(k, s);
+        let sp = SyncmerParameters::try_new(k, s).unwrap();
         let rp = RandstrobeParameters {
             w_min,
             w_max,
@@ -986,7 +996,7 @@ mod tests {
             max_dist,
             main_hash_mask,
         };
-        let ip = IndexParameters::new(
+        let ip = IndexParameters::try_new(
             canonical_read_length,
             k,
             s,
@@ -995,7 +1005,8 @@ mod tests {
             q,
             max_dist,
             aux_len,
-        );
+        )
+        .unwrap();
         assert_eq!(ip.canonical_read_length, canonical_read_length);
         assert_eq!(ip.randstrobe, rp);
         assert_eq!(ip.syncmer, sp);
@@ -1022,7 +1033,7 @@ mod tests {
 
     #[test]
     fn test_canonical_syncmers() {
-        let parameters = SyncmerParameters::new(20, 16);
+        let parameters = SyncmerParameters::try_new(20, 16).unwrap();
         let f = File::open("tests/phix.fasta").unwrap();
         let mut reader = BufReader::new(f);
         let records = read_fasta(&mut reader).unwrap();
@@ -1044,7 +1055,7 @@ mod tests {
 
     #[test]
     fn test_pick_bits() {
-        let parameters = SyncmerParameters::new(20, 16);
+        let parameters = SyncmerParameters::try_new(20, 16).unwrap();
         assert_eq!(parameters.pick_bits(0), 8);
     }
 

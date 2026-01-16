@@ -25,7 +25,8 @@ use strobealign::fastq::{
     PeekableSequenceReader, SequenceRecord, interleaved_record_iterator, record_iterator,
 };
 use strobealign::index::{
-    IndexParameters, IndexReadingError, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex,
+    IndexParameters, IndexReadingError, InvalidIndexParameter,
+    REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex,
 };
 use strobealign::insertsize::InsertSizeDistribution;
 use strobealign::io::xopen;
@@ -272,13 +273,16 @@ enum CliError {
 
     #[error(transparent)]
     IndexReadingError(#[from] IndexReadingError),
+
+    #[error(transparent)]
+    InvalidIndexParameter(#[from] InvalidIndexParameter),
 }
 
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprint!("error: {}", e);
+            eprintln!("error: {}", e);
 
             ExitCode::FAILURE
         }
@@ -339,7 +343,7 @@ fn run() -> Result<(), CliError> {
         args.c,
         args.max_seed_length,
         args.aux_len,
-    );
+    )?;
 
     info!(
         "Canonical read length: {} bp",

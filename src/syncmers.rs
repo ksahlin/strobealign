@@ -2,6 +2,7 @@ use std::cmp::min;
 use std::collections::VecDeque;
 
 use crate::hash::xxh64;
+use crate::index::InvalidIndexParameter;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Syncmer {
@@ -17,26 +18,28 @@ pub struct SyncmerParameters {
 }
 
 impl SyncmerParameters {
-    pub fn new(k: usize, s: usize) -> Self {
-        SyncmerParameters {
+    pub fn try_new(k: usize, s: usize) -> Result<Self, InvalidIndexParameter> {
+        if k < 8 || k > 32 {
+            return Err(InvalidIndexParameter::InvalidParameter(
+                "k must be at least 8 and at most 32",
+            ));
+        }
+        if s > k {
+            return Err(InvalidIndexParameter::InvalidParameter(
+                "s must not be larger than k",
+            ));
+        }
+        if (k - s) % 2 != 0 {
+            return Err(InvalidIndexParameter::InvalidParameter(
+                "(k - s) must be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...",
+            ));
+        }
+        Ok(SyncmerParameters {
             k,
             s,
             t: (k - s) / 2 + 1,
-        }
+        })
     }
-
-    // TODO
-    // void verify() const {
-    //     if (k <= 7 || k > 32) {
-    //         throw BadParameter("k not in [8,32]");
-    //     }
-    //     if (s > k) {
-    //         throw BadParameter("s is larger than k");
-    //     }
-    //     if ((k - s) % 2 != 0) {
-    //         throw BadParameter("(k - s) must be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...");
-    //     }
-    // }
 }
 
 pub struct SyncmerIterator<'a> {
@@ -193,11 +196,22 @@ mod test {
     use super::*;
 
     #[test]
+    fn test_invalid_parameters() {
+        // k-s not even
+        assert!(SyncmerParameters::try_new(20, 17).is_err());
+        // s larger than k
+        assert!(SyncmerParameters::try_new(20, 25).is_err());
+        // k out of range
+        assert!(SyncmerParameters::try_new(34, 16).is_err());
+        assert!(SyncmerParameters::try_new(6, 25).is_err());
+    }
+
+    #[test]
     fn test_syncmer_iterator() {
         let seq = "AAAAAAAAAAAAAAAAAAAA";
         assert_eq!(seq.len(), 20);
 
-        let parameters = SyncmerParameters::new(8, 4);
+        let parameters = SyncmerParameters::try_new(8, 4).unwrap();
         assert_eq!(parameters.t, 3);
 
         let mut iterator =
