@@ -110,3 +110,12 @@ fn compressed_reference() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[test]
+fn fail_when_create_index_is_used_without_read_length() {
+    // Create index requires -r or reads file
+    cmd()
+        .args(&["--create-index", "tests/phix.fasta"])
+        .assert()
+        .failure();
+}

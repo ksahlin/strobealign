@@ -64,9 +64,6 @@ strobealign --no-PG -r 150 --use-index tests/phix.fasta tests/phix.1.fastq > wit
 diff without-sti.sam with-sti.sam
 rm without-sti.sam with-sti.sam
 
-# Create index requires -r or reads file
-if strobealign --create-index tests/phix.fasta > /dev/null 2> /dev/null; then false; fi
-
 # --details output is proper SAM
 strobealign --details tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq 2> /dev/null | samtools view -o /dev/null
 strobealign --details tests/phix.fasta tests/phix.1.fastq 2> /dev/null | samtools view -o /dev/null
