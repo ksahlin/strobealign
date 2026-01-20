@@ -6,7 +6,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  test:
     # Run for PRs only if they come from a forked repo (avoids duplicate runs)
     if: >-
       github.event_name != 'pull_request' ||
@@ -23,3 +23,12 @@ jobs:
       run: cargo build --verbose
     - name: Run cargo test
       run: cargo test --verbose
+    - name: Install Linux dependencies
+      if: runner.os == 'Linux'
+      run: sudo apt-get install samtools
+    - name: Install macOS dependencies
+      if: runner.os == 'macOS'
+      run: brew install samtools
+    - name: Run shell test
+      run: tests/rust.sh
+
