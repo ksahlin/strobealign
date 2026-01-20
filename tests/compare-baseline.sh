@@ -28,9 +28,6 @@ while getopts "b:st:m" opt; do
     s)
       ends=se  # single-end reads
       ;;
-    m)
-      mcs=1
-      ;;
 
     \?)
       exit 1
@@ -47,15 +44,8 @@ fi
 # Ensure test data is available
 tests/download.sh
 
-
 baseline_binary=baseline/strobealign-${baseline_commit}
-cmake_options=-DCMAKE_BUILD_TYPE=RelWithDebInfo
 extra_ext=""
-strobealign_options="-t ${threads}"
-if [[ ${mcs} == 1 ]]; then
-  extra_ext=".mcs"
-  strobealign_options="${strobealign_options} --mcs"
-fi
 baseline_bam=baseline/bam/${baseline_commit}.${ends}${extra_ext}.bam
 
 # Generate the baseline BAM if necessary
@@ -64,26 +54,21 @@ if ! test -f ${baseline_bam}; then
   if ! test -f ${baseline_binary}; then
     srcdir=$(mktemp -p . -d compile.XXXXXXX)
     git clone . ${srcdir}
-    ( cd ${srcdir} && git checkout -d ${baseline_commit} )
-    cmake ${srcdir} -B ${srcdir}/build ${cmake_options}
-    if ! make -s -j 4 -C ${srcdir}/build strobealign; then
-      exit 1
-    fi
-    mv ${srcdir}/build/strobealign ${baseline_binary}
+    pushd ${srcdir}
+    git checkout -d ${baseline_commit}
+    cargo build --release
+    popd
+    mv ${srcdir}/target/release/strobealign ${baseline_binary}
     rm -rf "${srcdir}"
   fi
-  ${baseline_binary} -v ${strobealign_options} ${ref} ${reads[@]} | samtools view -o ${baseline_bam}.tmp.bam
+  ${baseline_binary} -v -t ${threads} ${ref} ${reads[@]} | samtools view -o ${baseline_bam}.tmp.bam
   mv ${baseline_bam}.tmp.bam ${baseline_bam}
 fi
 
-# Run strobealign. This recompiles from scratch to ensure we use consistent
-# compiler options.
-builddir=$(mktemp -p . -d build.XXXXXXX)
-cmake . -B ${builddir} ${cmake_options}
-make -s -j 4 -C ${builddir} strobealign
+# Build and run strobealign
+cargo build --release
 set -x
-${builddir}/strobealign -v ${strobealign_options} ${ref} ${reads[@]} | samtools view -o head.bam
-rm -rf ${builddir}
+target/release/strobealign -v -t ${threads} ${ref} ${reads[@]} | samtools view -o head.bam
 
 # Do the actual comparison
 tests/samdiff.py ${baseline_bam} head.bam
