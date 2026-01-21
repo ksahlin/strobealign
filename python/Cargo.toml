@@ -1,0 +1,12 @@
+[package]
+name = "py-strobealign"
+version = "0.0.0"
+edition = "2024"
+
+[lib]
+name = "strobealign"
+crate-type = ["cdylib"]
+
+[dependencies]
+strobealign = { path = ".." }
+pyo3 = { version = "0.21.0-beta.0", features = ["extension-module"] }
