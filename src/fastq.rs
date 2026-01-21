@@ -6,9 +6,29 @@ use std::str;
 use crate::fasta::split_header;
 use crate::io::xopen;
 
+/// Which end a read is from according to the /1 or /2 suffix of its name.
+///
+/// Reads should normally not have this suffix, but some tools add them.
+/// We don’t consider the actual /1 or /2 suffix to be part of the read name
+/// and strip it. To retain the information, it is stored as part of a
+/// SequenceRecord. This is only used when pairing up 'mixed' reads
+/// (readname/1 followed by readname/2 is considered to be a paired-end read).
+#[derive(Debug, Clone)]
+pub enum End {
+    /// First read in a pair
+    One,
+
+    /// Second read in a pair
+    Two,
+
+    /// Read did not have a /1 or /2 suffix in the input file
+    None,
+}
+
 #[derive(Debug, Clone)]
 pub struct SequenceRecord {
     pub name: String,
+    pub end: End,
     pub comment: Option<String>,
     pub sequence: Vec<u8>,
     pub qualities: Option<Vec<u8>>,
@@ -23,6 +43,7 @@ impl SequenceRecord {
     ) -> Self {
         SequenceRecord {
             name,
+            end: End::None,
             comment,
             sequence,
             qualities,
@@ -129,11 +150,20 @@ impl<R: Read> Iterator for FastqReader<R> {
             }
         }
         let name = name[1..].trim_end();
-        let (name, comment) = split_header(name);
+        let (mut name, comment) = split_header(name);
 
         if name.is_empty() {
             //self.err = true;
             //return Some(Err("error"));
+        }
+
+        let mut end = End::None;
+        if name.ends_with("/1") {
+            name.truncate(name.len() - 2);
+            end = End::One
+        } else if name.ends_with("/2") {
+            name.truncate(name.len() - 2);
+            end = End::Two
         }
 
         let mut sequence = Vec::new();
@@ -155,6 +185,7 @@ impl<R: Read> Iterator for FastqReader<R> {
         assert_eq!(sequence.len(), qualities.len());
         Some(Ok(SequenceRecord {
             name,
+            end,
             comment,
             sequence: sequence.iter().map(|&c| c.to_ascii_uppercase()).collect(),
             qualities: Some(qualities),
@@ -240,7 +271,7 @@ pub fn interleaved_record_iterator<'a, R: Read + Send + 'a>(
 mod tests {
     use crate::fastq::{PeekableSequenceReader, RecordPair, interleaved_record_iterator};
     use std::fs::File;
-    use std::io::Result;
+    use std::io::{Cursor, Result};
 
     #[test]
     fn test_peekable_sequence_reader() {
@@ -255,7 +286,7 @@ mod tests {
                 .iter()
                 .map(|record| record.name.clone())
                 .collect::<Vec<String>>(),
-            vec![String::from("SRR1377138.2"), String::from("SRR1377138.3/1")]
+            vec![String::from("SRR1377138.2"), String::from("SRR1377138.3")]
         );
         assert_eq!(reader.next().unwrap().unwrap().name, "SRR1377138.2");
     }
@@ -286,5 +317,20 @@ mod tests {
 
         assert_eq!(record_pairs[2].0.name, "SRR4052021.13852607");
         assert!(record_pairs[2].1.is_none());
+    }
+
+    #[test]
+    fn test_interleaved_records_with_slash12() {
+        // Record name a/1 followed by a/2 should be recognized as a
+        // paired-end read
+        let f = Cursor::new(b"@a/1\nAACC\n+\n####\n@a/2\nGGTT\n+n\n####\n");
+        let reader = PeekableSequenceReader::new(f);
+        let it = interleaved_record_iterator(reader);
+
+        let record_pairs: Vec<RecordPair> = it.collect::<Result<Vec<RecordPair>>>().unwrap();
+
+        assert_eq!(record_pairs.len(), 1);
+        assert_eq!(record_pairs[0].0.name, "a");
+        assert_eq!(record_pairs[0].1.as_ref().unwrap().name, "a");
     }
 }
