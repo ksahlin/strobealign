@@ -102,7 +102,7 @@ jobs:
           fetch-depth: 0  # Baseline comparison needs older commits
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get install samtools python3-pysam picard-tools libisal-dev
+        run: sudo apt-get update && sudo apt-get install samtools python3-pysam picard-tools libisal-dev
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: brew install samtools pysam picard-tools isa-l
