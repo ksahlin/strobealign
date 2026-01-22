@@ -2,9 +2,10 @@ use std::fmt::{Display, Formatter};
 use std::time::Instant;
 
 use fastrand::Rng;
-use log::Level::Trace;
 use log::trace;
+use log::Level::Trace;
 
+use crate::chainer::Anchor;
 use crate::chainer::Chainer;
 use crate::details::NamDetails;
 use crate::fasta::RefSequence;
@@ -26,6 +27,7 @@ pub struct Nam {
     pub ref_id: usize,
     pub score: f32,
     pub is_revcomp: bool,
+    pub anchors: Vec<Anchor>,
 }
 
 impl Nam {

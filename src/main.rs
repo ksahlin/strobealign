@@ -231,6 +231,14 @@ struct Args {
     #[arg(long = "mw", default_value_t = ChainingParameters::default().matches_weight, help_heading = "Collinear chaining")]
     matches_weight: f32,
 
+    /// Use Piecewise extension instead of SSW for single-ends alignments
+    #[arg(long = "pw", help_heading = "Piecewise extension")]
+    use_piecewise: bool,
+
+    /// X-drop threshold for piecewise extension
+    #[arg(long = "xdrop", default_value_t = 500, value_name = "N", help_heading = "Piecewise extension")]
+    xdrop: i32,
+
     /// Multi-context seed strategy for finding hits
     #[arg(long = "mcs", value_enum, default_value_t = McsStrategy::default(), help_heading = "Search parameters")]
     mcs_strategy: McsStrategy,
@@ -459,6 +467,7 @@ fn run() -> Result<(), CliError> {
         rescue_distance: args.rescue_distance,
         output_unmapped: !args.only_mapped,
         mcs_strategy: args.mcs_strategy,
+        use_piecewise: args.use_piecewise,
     };
 
     let chaining_parameters = ChainingParameters {
@@ -481,7 +490,7 @@ fn run() -> Result<(), CliError> {
     debug!("{:?}", &scores);
 
     let chainer = Chainer::new(index.k(), chaining_parameters);
-    let aligner = Aligner::new(scores);
+    let aligner = Aligner::new(scores, index.k(), args.xdrop);
 
     let cmd_line = env::args().skip(1).collect::<Vec<_>>().join(" ");
     let rg_id = match args.rg_id {
