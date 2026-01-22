@@ -120,20 +120,27 @@ impl PiecewiseAligner {
 
         // In case we x-drop in reverse (aligning before the first anchor),
         // we exchange the query for the reversed reference and vice-versa
-        let (query_used, ref_used) = if reverse {
-            let mut query_rev = query.to_vec();
+        let query_used: &[u8];
+        let ref_used: &[u8];
+        let mut query_rev = Vec::new();
+        let mut ref_rev = Vec::new();
+
+        if reverse {
+            query_rev = query.to_vec();
             query_rev.reverse();
-            let mut ref_rev = reference.to_vec();
+            ref_rev = reference.to_vec();
             ref_rev.reverse();
-            (query_rev, ref_rev)
+            query_used = &query_rev;
+            ref_used = &ref_rev;
         } else {
-            (query.to_vec(), reference.to_vec())
-        };
+            query_used = query;
+            ref_used = reference;
+        }
 
         // Create padded sequences
         // blockaligner only has a AA profile, no nucleotide profile, so we have to use AA matrix
-        let q_padded = PaddedBytes::from_bytes::<AAMatrix>(&query_used, max_size);
-        let r_padded = PaddedBytes::from_bytes::<AAMatrix>(&ref_used, max_size);
+        let q_padded = PaddedBytes::from_bytes::<AAMatrix>(query_used, max_size);
+        let r_padded = PaddedBytes::from_bytes::<AAMatrix>(ref_used, max_size);
 
         // Create profile to align the reference on the query with end bonus
         // We need to build a position-specific scoring matrix
@@ -373,8 +380,6 @@ impl PiecewiseAligner {
                 let query_part = &query[prev_end_query..query_diff as usize];
                 let ref_part = &refseq[prev_end_ref..ref_diff as usize];
 
-                println!("{:?} and {:?}", query_part, ref_part);
-
                 if ref_diff == query_diff {
                     let hamming_aligned = hamming_align_global(
                         query_part,
@@ -392,6 +397,7 @@ impl PiecewiseAligner {
 
                         result.score += self.k as i32 * self.scores.match_ as i32;
                         result.cigar.push(CigarOperation::Eq, self.k);
+                        continue;
                     }
                 }
 
