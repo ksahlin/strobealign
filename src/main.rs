@@ -2,15 +2,15 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, IsTerminal, Write};
-use std::process::{ExitCode, exit};
-use std::sync::mpsc::{Receiver, Sender, channel, sync_channel};
+use std::process::{exit, ExitCode};
+use std::sync::mpsc::{channel, sync_channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use std::{env, io, thread, time};
 
-use clap::Parser;
-use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
+use clap::builder::Styles;
+use clap::Parser;
 use fastrand::Rng;
 use log::{debug, error, info, trace};
 use mimalloc::MiMalloc;
@@ -22,11 +22,11 @@ use strobealign::details::Details;
 use strobealign::fasta;
 use strobealign::fasta::{FastaError, RefSequence};
 use strobealign::fastq::{
-    PeekableSequenceReader, SequenceRecord, interleaved_record_iterator, record_iterator,
+    interleaved_record_iterator, record_iterator, PeekableSequenceReader, SequenceRecord,
 };
 use strobealign::index::{
-    IndexParameters, IndexReadingError, InvalidIndexParameter,
-    REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex,
+    IndexParameters, IndexReadingError, InvalidIndexParameter, StrobemerIndex,
+    REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES,
 };
 use strobealign::insertsize::InsertSizeDistribution;
 use strobealign::io::xopen;
@@ -35,7 +35,7 @@ use strobealign::maponly::{
     map_single_end_read,
 };
 use strobealign::mapper::{
-    MappingParameters, SamOutput, align_paired_end_read, align_single_end_read,
+    align_paired_end_read, align_single_end_read, MappingParameters, SamOutput,
 };
 use strobealign::mcsstrategy::McsStrategy;
 use strobealign::sam::{ReadGroup, SamHeader};
@@ -230,6 +230,14 @@ struct Args {
     /// Weight given to the number of anchors for the final score of chains
     #[arg(long = "mw", default_value_t = 0.01, help_heading = "Collinear chaining")]
     matches_weight: f32,
+
+    /// Use Piecewise extension instead of SSW for single-ends alignments
+    #[arg(long = "pw", help_heading = "Piecewise extension")]
+    use_piecewise: bool,
+
+    /// X-drop threshold for piecewise extension
+    #[arg(long = "xdrop", default_value_t = 500, value_name = "N", help_heading = "Piecewise extension")]
+    xdrop: i32,
 
     /// Multi-context seed strategy for finding hits
     #[arg(long = "mcs", value_enum, default_value_t = McsStrategy::default(), help_heading = "Search parameters")]
@@ -458,6 +466,7 @@ fn run() -> Result<(), CliError> {
         dropoff_threshold: args.dropoff_threshold,
         rescue_distance: args.rescue_distance,
         output_unmapped: !args.only_mapped,
+        use_piecewise: args.use_piecewise,
         ..MappingParameters::default()
     };
 
@@ -481,7 +490,7 @@ fn run() -> Result<(), CliError> {
     debug!("{:?}", &scores);
 
     let chainer = Chainer::new(index.k(), chaining_parameters);
-    let aligner = Aligner::new(scores);
+    let aligner = Aligner::new(scores, index.k(), args.xdrop);
 
     let cmd_line = env::args().skip(1).collect::<Vec<_>>().join(" ");
     let rg_id = match args.rg_id {
@@ -534,7 +543,11 @@ fn run() -> Result<(), CliError> {
                 break;
             }
         }
-        if chunk.is_empty() { None } else { Some(chunk) }
+        if chunk.is_empty() {
+            None
+        } else {
+            Some(chunk)
+        }
     });
 
     let mapper = Mapper {
@@ -959,14 +972,18 @@ fn estimate_read_length(records: &[SequenceRecord]) -> usize {
         n += 1;
     }
 
-    if n == 0 { 0 } else { s / n }
+    if n == 0 {
+        0
+    } else {
+        s / n
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use super::Args;
     use super::estimate_read_length;
     use super::xopen;
+    use super::Args;
     use strobealign::fastq::PeekableSequenceReader;
 
     #[test]

@@ -1,9 +1,9 @@
 use std::time::Instant;
 
-use log::{Level, log_enabled, trace};
+use log::{log_enabled, trace, Level};
 
 use crate::details::NamDetails;
-use crate::hit::{Hit, HitsDetails, find_hits};
+use crate::hit::{find_hits, Hit, HitsDetails};
 use crate::index::StrobemerIndex;
 use crate::mapper::QueryRandstrobe;
 use crate::mcsstrategy::McsStrategy;
@@ -11,11 +11,11 @@ use crate::nam::Nam;
 
 const N_PRECOMPUTED: usize = 1024;
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
-struct Anchor {
-    ref_id: usize,
-    ref_start: usize,
-    query_start: usize,
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
+pub struct Anchor {
+    pub ref_id: usize,
+    pub ref_start: usize,
+    pub query_start: usize,
 }
 
 #[derive(Debug)]
@@ -356,6 +356,7 @@ fn extract_chains_from_dp(
         let mut j = i;
         let mut c = 1;
         let mut overlaps = false;
+        let mut chain_anchors = vec![anchors[i]];
 
         while predecessors[j] != usize::MAX {
             j = predecessors[j];
@@ -363,6 +364,7 @@ fn extract_chains_from_dp(
                 overlaps = true;
                 break;
             }
+            chain_anchors.push(anchors[j]);
             used[j] = true;
             c += 1;
         }
@@ -373,6 +375,7 @@ fn extract_chains_from_dp(
 
         let first = &anchors[j];
         let last = &anchors[i];
+
         chains.push(Nam {
             nam_id: chains.len(),
             query_start: first.query_start,
@@ -385,6 +388,7 @@ fn extract_chains_from_dp(
             ref_id: last.ref_id,
             score: score + c as f32 * chaining_parameters.matches_weight,
             is_revcomp,
+            anchors: chain_anchors,
         });
     }
 }

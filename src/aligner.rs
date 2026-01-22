@@ -2,10 +2,12 @@
 
 use std::cell::Cell;
 
+use crate::chainer::Anchor;
 use crate::cigar::{Cigar, CigarOperation};
+use crate::piecewisealigner::PiecewiseAligner;
 use crate::ssw::SswAligner;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Scores {
     // match is a score, the others are penalties
     pub match_: u8,
@@ -49,19 +51,22 @@ pub struct Aligner {
     pub scores: Scores, // TODO should not be pub?
     call_count: Cell<usize>,
     ssw_aligner: SswAligner,
+    piecewise_aligner: PiecewiseAligner,
 }
 
 impl Aligner {
-    pub fn new(scores: Scores) -> Self {
+    pub fn new(scores: Scores, k: usize, xdrop: i32) -> Self {
         let ssw_aligner = SswAligner::new(
             scores.match_,
             scores.mismatch,
             scores.gap_open,
             scores.gap_extend,
         );
+        let piecewise_aligner = PiecewiseAligner::new(scores, k, xdrop);
         Aligner {
             scores,
             ssw_aligner,
+            piecewise_aligner,
             call_count: Cell::new(0usize),
         }
     }
@@ -143,6 +148,18 @@ impl Aligner {
         }
 
         Some(alignment)
+    }
+
+    pub fn align_piecewise(
+        &self,
+        query: &[u8],
+        refseq: &[u8],
+        chain: &[Anchor],
+        padding: usize,
+    ) -> AlignmentInfo {
+        self.call_count.set(self.call_count.get() + 1);
+        self.piecewise_aligner
+            .piecewise_extension(query, refseq, chain, padding)
     }
 }
 
@@ -241,13 +258,49 @@ pub fn hamming_align(
     })
 }
 
+pub fn hamming_align_global(
+    query: &[u8],
+    refseq: &[u8],
+    match_: u8,
+    mismatch: u8,
+) -> AlignmentInfo {
+    let mut result = AlignmentInfo {
+        cigar: Cigar::new(),
+        edit_distance: 0,
+        ref_start: 0,
+        ref_end: query.len(),
+        query_start: 0,
+        query_end: query.len(),
+        score: 0,
+    };
+
+    let mut score = 0;
+
+    for (q, r) in query.iter().zip(refseq.iter()) {
+        if q == r {
+            score += match_ as i32;
+            result.cigar.push(CigarOperation::Eq, 1);
+        } else {
+            score -= mismatch as i32;
+            result.edit_distance += 1;
+            result.cigar.push(CigarOperation::X, 1);
+        }
+    }
+
+    result.score = 0.max(score) as u32;
+    result
+}
+
 #[cfg(test)]
 mod test {
-    use crate::aligner::{Aligner, Scores, hamming_align, highest_scoring_segment};
+    use crate::{
+        aligner::{hamming_align, hamming_align_global, highest_scoring_segment, Aligner, Scores},
+        cigar::Cigar,
+    };
 
     #[test]
     fn test_ssw_align_no_result() {
-        let aligner = Aligner::new(Scores::default());
+        let aligner = Aligner::new(Scores::default(), 0, 0);
         let query = b"TCTCTCCCTCTCTCTCTCTCCCTCCCTCTCTCTCCCTCTCTCTCTCTCTCTCCCTCCCTT";
         let refseq = b"GAGGGAGAGAGAGAGAGGGAGAGAGAGAGAGAG";
         let info = aligner.align(query, refseq);
@@ -256,7 +309,7 @@ mod test {
 
     #[test]
     fn test_call_count() {
-        let aligner = Aligner::new(Scores::default());
+        let aligner = Aligner::new(Scores::default(), 0, 0);
         assert_eq!(aligner.call_count(), 0);
         let refseq = b"AAAAAACCCCCGGGGG";
         let query = b"CCCCC";
@@ -418,5 +471,49 @@ mod test {
         assert_eq!(info.ref_span(), 6);
         assert_eq!(info.query_start, 1);
         assert_eq!(info.query_end, 7);
+    }
+
+    #[test]
+    fn test_hamming_global_perfect_match() {
+        let info = hamming_align_global(b"ACGT", b"ACGT", 3, 7);
+        assert_eq!(info.cigar.to_string(), "4=");
+        assert_eq!(info.edit_distance, 0);
+        assert_eq!(info.score, 4 * 3);
+        assert_eq!(info.ref_start, 0);
+        assert_eq!(info.ref_end, 4);
+        assert_eq!(info.query_start, 0);
+        assert_eq!(info.query_end, 4);
+    }
+
+    #[test]
+    fn test_hamming_global_all_mismatches() {
+        let info = hamming_align_global(b"AAAA", b"TTTT", 3, 7);
+        assert_eq!(info.cigar.to_string(), "4X");
+        assert_eq!(info.edit_distance, 4);
+        assert_eq!(info.score, 0);
+    }
+
+    #[test]
+    fn test_hamming_global_mixed_matches_and_mismatches() {
+        let info = hamming_align_global(b"ACGT", b"AGGT", 3, 7);
+        assert_eq!(info.cigar.to_string(), "1=1X2=");
+        assert_eq!(info.edit_distance, 1);
+        assert_eq!(info.score, 3 * 3 - 7);
+    }
+
+    #[test]
+    fn test_hamming_global_single_base_mismatch() {
+        let info = hamming_align_global(b"A", b"C", 3, 7);
+        assert_eq!(info.cigar.to_string(), "1X");
+        assert_eq!(info.edit_distance, 1);
+        assert_eq!(info.score, 0);
+    }
+
+    #[test]
+    fn test_hamming_global_score_floored_with_mixed_alignment() {
+        let info = hamming_align_global(b"ACGT", b"AGGA", 3, 7);
+        assert_eq!(info.cigar.to_string(), "1=1X1=1X");
+        assert_eq!(info.edit_distance, 2);
+        assert_eq!(info.score, 0);
     }
 }

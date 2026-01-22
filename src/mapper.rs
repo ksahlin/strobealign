@@ -1,4 +1,4 @@
-use std::cmp::{Reverse, min};
+use std::cmp::{min, Reverse};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::mem;
@@ -8,7 +8,7 @@ use fastrand::Rng;
 use memchr::memmem;
 
 use crate::aligner::Aligner;
-use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
+use crate::aligner::{hamming_align, hamming_distance, AlignmentInfo};
 use crate::chainer::Chainer;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
@@ -18,12 +18,12 @@ use crate::index::{IndexParameters, StrobemerIndex};
 use crate::insertsize::InsertSizeDistribution;
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
-use crate::nam::{Nam, get_nams_by_chaining, reverse_nam_if_needed};
+use crate::nam::{get_nams_by_chaining, reverse_nam_if_needed, Nam};
 use crate::read::Read;
 use crate::revcomp::reverse_complement;
 use crate::sam::{
-    MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SamRecord, UNMAP,
-    strip_suffix,
+    strip_suffix, SamRecord, MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE,
+    SECONDARY, UNMAP,
 };
 use crate::strobes::RandstrobeIterator;
 use crate::syncmers::SyncmerIterator;
@@ -39,6 +39,7 @@ pub struct MappingParameters {
     pub max_tries: usize,
     pub mcs_strategy: McsStrategy,
     pub output_unmapped: bool,
+    pub use_piecewise: bool,
 }
 
 impl Default for MappingParameters {
@@ -51,6 +52,7 @@ impl Default for MappingParameters {
             max_tries: 20,
             mcs_strategy: McsStrategy::default(),
             output_unmapped: true,
+            use_piecewise: false,
         }
     }
 }
@@ -433,7 +435,14 @@ pub fn align_single_end_read(
         }
         let consistent_nam = reverse_nam_if_needed(nam, &read, references, k);
         details.inconsistent_nams += (!consistent_nam) as usize;
-        let alignment = extend_seed(aligner, nam, references, &read, consistent_nam);
+        let alignment = extend_seed(
+            aligner,
+            nam,
+            references,
+            &read,
+            consistent_nam,
+            mapping_parameters.use_piecewise,
+        );
         if alignment.is_none() {
             continue;
         }
@@ -533,6 +542,7 @@ fn extend_seed(
     references: &[RefSequence],
     read: &Read,
     consistent_nam: bool,
+    use_piecewise: bool,
 ) -> Option<Alignment> {
     let query = if nam.is_revcomp {
         read.rc()
@@ -575,11 +585,17 @@ fn extend_seed(
         }
     }
     if gapped {
-        let ref_start = projected_ref_start.saturating_sub(50);
-        let ref_end = min(projected_ref_end + 50, refseq.len());
-        let segment = &refseq[ref_start..ref_end];
-        info = aligner.align(query, segment)?;
-        result_ref_start = ref_start + info.ref_start;
+        let padding = read.len() / 10;
+        if use_piecewise {
+            info = aligner.align_piecewise(query, refseq, &nam.anchors, padding);
+            result_ref_start = info.ref_start;
+        } else {
+            let ref_start = projected_ref_start.saturating_sub(padding);
+            let ref_end = min(projected_ref_end + padding, refseq.len());
+            let segment = &refseq[ref_start..ref_end];
+            info = aligner.align(query, segment)?;
+            result_ref_start = ref_start + info.ref_start;
+        }
     }
     Some(Alignment {
         cigar: info.cigar.clone(),
@@ -802,8 +818,8 @@ fn extend_paired_seeds(
         let consistent_nam2 = reverse_nam_if_needed(&mut n_max2, read2, references, k);
         details[1].inconsistent_nams += !consistent_nam2 as usize;
 
-        let alignment1 = extend_seed(aligner, &n_max1, references, read1, consistent_nam1);
-        let alignment2 = extend_seed(aligner, &n_max2, references, read2, consistent_nam2);
+        let alignment1 = extend_seed(aligner, &n_max1, references, read1, consistent_nam1, false);
+        let alignment2 = extend_seed(aligner, &n_max2, references, read2, consistent_nam2, false);
         if let (Some(alignment1), Some(alignment2)) = (alignment1, alignment2) {
             details[0].tried_alignment += 1;
             details[0].gapped += alignment1.gapped as usize;
@@ -831,7 +847,14 @@ fn extend_paired_seeds(
     for i in 0..2 {
         let consistent_nam = reverse_nam_if_needed(&mut nams[i][0], reads[i], references, k);
         details[i].inconsistent_nams += !consistent_nam as usize;
-        a_indv_max[i] = extend_seed(aligner, &nams[i][0], references, reads[i], consistent_nam);
+        a_indv_max[i] = extend_seed(
+            aligner,
+            &nams[i][0],
+            references,
+            reads[i],
+            consistent_nam,
+            false,
+        );
         details[i].tried_alignment += 1;
         details[i].gapped += a_indv_max[i].as_ref().map_or(0, |a| a.gapped as usize);
         alignment_cache[i].insert(nams[i][0].nam_id, a_indv_max[i].clone());
@@ -862,8 +885,14 @@ fn extend_paired_seeds(
                     let consistent_nam =
                         reverse_nam_if_needed(&mut this_nam, reads[i], references, k);
                     details[i].inconsistent_nams += !consistent_nam as usize;
-                    alignment =
-                        extend_seed(aligner, &this_nam, references, reads[i], consistent_nam);
+                    alignment = extend_seed(
+                        aligner,
+                        &this_nam,
+                        references,
+                        reads[i],
+                        consistent_nam,
+                        false,
+                    );
                     details[i].tried_alignment += 1;
                     details[i].gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
                     e.insert(alignment.clone());
@@ -963,7 +992,8 @@ fn rescue_read(
         }
         let consistent_nam = reverse_nam_if_needed(nam, read1, references, k);
         details[0].inconsistent_nams += !consistent_nam as usize;
-        if let Some(alignment) = extend_seed(aligner, nam, references, read1, consistent_nam) {
+        if let Some(alignment) = extend_seed(aligner, nam, references, read1, consistent_nam, false)
+        {
             details[0].gapped += alignment.gapped as usize;
             alignments1.push(alignment);
             details[0].tried_alignment += 1;
@@ -1383,8 +1413,8 @@ fn top_dropoff(nams: &[Nam]) -> f32 {
 mod tests {
     use crate::cigar::Cigar;
     use crate::mapper::{
-        Alignment, ScoredAlignmentPair, count_best_alignment_pairs, deduplicate_scored_pairs,
-        has_shared_substring,
+        count_best_alignment_pairs, deduplicate_scored_pairs, has_shared_substring, Alignment,
+        ScoredAlignmentPair,
     };
 
     fn dummy_alignment() -> Alignment {
