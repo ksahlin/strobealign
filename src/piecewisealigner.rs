@@ -209,7 +209,7 @@ impl PiecewiseAligner {
         refseq: &[u8],
         first_anchor: &Anchor,
         padding: usize,
-        result: &mut AlignmentInfo,
+        result: &mut AlignmentResult,
     ) {
         if first_anchor.query_start > 0 && first_anchor.ref_start > 0 {
             let query_part = &query[..first_anchor.query_start];
@@ -227,7 +227,7 @@ impl PiecewiseAligner {
                     .cigar
                     .push(CigarOperation::Softclip, result.query_start);
             } else {
-                result.score += pre_align.score as u32;
+                result.score += pre_align.score;
                 result.query_start = pre_align.query_start;
                 result.ref_start = ref_start + pre_align.ref_start;
                 if result.query_start > 0 {
@@ -241,7 +241,7 @@ impl PiecewiseAligner {
             result.query_start = first_anchor.query_start;
             result.ref_start = first_anchor.ref_start;
             if result.query_start == 0 {
-                result.score += self.scores.end_bonus;
+                result.score += self.scores.end_bonus as i32;
             } else {
                 result
                     .cigar
@@ -256,7 +256,7 @@ impl PiecewiseAligner {
         refseq: &[u8],
         last_anchor: &Anchor,
         padding: usize,
-        result: &mut AlignmentInfo,
+        result: &mut AlignmentResult,
     ) {
         let last_anchor_query_end = last_anchor.query_start + self.k;
         let last_anchor_ref_end = last_anchor.ref_start + self.k;
@@ -278,7 +278,7 @@ impl PiecewiseAligner {
                     query.len() - last_anchor_query_end,
                 );
             } else {
-                result.score += post_align.score as u32;
+                result.score += post_align.score;
                 result.query_end = last_anchor_query_end + post_align.query_end;
                 result.ref_end = last_anchor_ref_end + post_align.ref_end;
                 if result.query_end < query.len() {
@@ -292,7 +292,7 @@ impl PiecewiseAligner {
             result.query_end = last_anchor_query_end;
             result.ref_end = last_anchor_ref_end;
             if result.query_end == query.len() {
-                result.score = self.scores.end_bonus;
+                result.score = self.scores.end_bonus as i32;
             } else {
                 result
                     .cigar
@@ -307,15 +307,14 @@ impl PiecewiseAligner {
         refseq: &[u8],
         anchors: &[Anchor],
         padding: usize,
-    ) -> AlignmentInfo {
-        let mut result = AlignmentInfo {
-            cigar: Cigar::new(),
-            edit_distance: 0,
-            ref_start: 0,
-            ref_end: 0,
+    ) -> Option<AlignmentInfo> {
+        let mut result = AlignmentResult {
+            score: 0,
             query_start: 0,
             query_end: 0,
-            score: 0,
+            ref_start: 0,
+            ref_end: 0,
+            cigar: Cigar::new(),
         };
 
         // Maybe use the original vector instead of copying it ?
@@ -324,7 +323,7 @@ impl PiecewiseAligner {
 
         self.align_before_first_anchor(query, refseq, &anchors[0], padding, &mut result);
 
-        result.score += self.k as u32 * self.scores.match_ as u32;
+        result.score += self.k as i32 * self.scores.match_ as i32;
         result.cigar.push(CigarOperation::Eq, self.k);
 
         for i in 1..anchors.len() {
@@ -354,8 +353,20 @@ impl PiecewiseAligner {
                     (padding as isize + ref_diff - query_diff) as usize,
                     &mut result,
                 );
-                result.edit_distance = result.cigar.edit_distance();
-                return result;
+
+                if result.score > 0 {
+                    return Some(AlignmentInfo {
+                        cigar: result.cigar.clone(),
+                        edit_distance: result.cigar.edit_distance(),
+                        ref_start: result.ref_start,
+                        ref_end: result.ref_end,
+                        query_start: result.query_start,
+                        query_end: result.query_end,
+                        score: result.score as u32,
+                    });
+                } else {
+                    return None;
+                }
             }
 
             if ref_diff > 0 && query_diff > 0 {
@@ -373,50 +384,48 @@ impl PiecewiseAligner {
                     );
 
                     if hamming_aligned.score
-                        >= self.scores.match_ as u32
+                        > self.scores.match_ as u32
                             * ((query_part.len() as f32) * 0.85).ceil() as u32
                     {
-                        result.score += hamming_aligned.score;
+                        result.score += hamming_aligned.score as i32;
                         result.cigar.extend(&hamming_aligned.cigar);
 
-                        result.score += self.k as u32 * self.scores.match_ as u32;
+                        result.score += self.k as i32 * self.scores.match_ as i32;
                         result.cigar.push(CigarOperation::Eq, self.k);
                     }
                 }
 
                 let aligned = self.global_alignment(query_part, ref_part);
 
-                result.score = (aligned.score + result.score as i32) as u32;
+                result.score = aligned.score + result.score as i32;
                 result.cigar.extend(&aligned.cigar);
 
-                result.score += self.k as u32 * self.scores.match_ as u32;
+                result.score += self.k as i32 * self.scores.match_ as i32;
                 result.cigar.push(CigarOperation::Eq, self.k);
             } else {
                 {
                     // Overlap between anchors, no need to align
                     if ref_diff < query_diff {
                         let inserted_part = (-ref_diff + query_diff) as usize;
-                        result.score += (-(self.scores.gap_open as isize)
-                            + (inserted_part as isize - 1) * -(self.scores.gap_extend as isize))
-                            as u32;
+                        result.score += -(self.scores.gap_open as i32)
+                            + (inserted_part as i32 - 1) * -(self.scores.gap_extend as i32);
                         result.cigar.push(CigarOperation::Insertion, inserted_part);
 
                         let matching_part = (self.k as isize + ref_diff) as usize;
-                        result.score += (matching_part * self.scores.match_ as usize) as u32;
+                        result.score += matching_part as i32 * self.scores.match_ as i32;
                         result.cigar.push(CigarOperation::Eq, matching_part);
                     } else if ref_diff > query_diff {
                         let deleted_part = (-query_diff + ref_diff) as usize;
-                        result.score += (-(self.scores.gap_open as isize)
-                            + (deleted_part as isize - 1) * -(self.scores.gap_extend as isize))
-                            as u32;
+                        result.score += -(self.scores.gap_open as i32)
+                            + (deleted_part as i32 - 1) * -(self.scores.gap_extend as i32);
                         result.cigar.push(CigarOperation::Deletion, deleted_part);
 
                         let matching_part = (self.k as isize + query_diff) as usize;
-                        result.score += (matching_part * self.scores.match_ as usize) as u32;
+                        result.score += matching_part as i32 * self.scores.match_ as i32;
                         result.cigar.push(CigarOperation::Eq, matching_part);
                     } else {
                         let matching_part = (self.k as isize + query_diff) as usize;
-                        result.score += (matching_part * self.scores.match_ as usize) as u32;
+                        result.score += matching_part as i32 * self.scores.match_ as i32;
                         result.cigar.push(CigarOperation::Eq, matching_part);
                     }
                 }
@@ -425,8 +434,19 @@ impl PiecewiseAligner {
 
         self.align_after_last_anchor(query, refseq, anchors.last().unwrap(), padding, &mut result);
 
-        result.edit_distance = result.cigar.edit_distance();
-        result
+        if result.score > 0 {
+            return Some(AlignmentInfo {
+                cigar: result.cigar.clone(),
+                edit_distance: result.cigar.edit_distance(),
+                ref_start: result.ref_start,
+                ref_end: result.ref_end,
+                query_start: result.query_start,
+                query_end: result.query_end,
+                score: result.score as u32,
+            });
+        } else {
+            return None;
+        }
     }
 }
 
