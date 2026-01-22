@@ -1,14 +1,13 @@
-use crate::mcsstrategy::McsStrategy;
-
 use fastrand::Rng;
 
 use crate::chainer::Chainer;
 use crate::details::Details;
 use crate::fasta::RefSequence;
-use crate::fastq::SequenceRecord;
+use crate::fastq::{End, SequenceRecord};
 use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
 use crate::mapper::{NamPair, get_best_scoring_nam_pairs, mapping_quality};
+use crate::mcsstrategy::McsStrategy;
 use crate::nam::{Nam, get_nams_by_chaining};
 use crate::paf::PafRecord;
 
@@ -44,6 +43,7 @@ pub fn map_single_end_read(
                 references,
                 record.sequence.len(),
                 Some(mapq),
+                End::None,
             )],
             nam_details.into(),
         )
@@ -87,9 +87,11 @@ fn paf_record_from_nam(
     references: &[RefSequence],
     query_length: usize,
     mapq: Option<u8>,
+    end: End,
 ) -> PafRecord {
     PafRecord {
         query_name: name.into(),
+        end,
         query_length: query_length as u64,
         query_start: nam.query_start as u64,
         query_end: nam.query_end as u64,
@@ -154,6 +156,7 @@ pub fn map_paired_end_read(
                     references,
                     r1.sequence.len(),
                     None,
+                    End::One,
                 ))
             }
             if let Some(nam) = nam2 {
@@ -163,6 +166,7 @@ pub fn map_paired_end_read(
                     references,
                     r2.sequence.len(),
                     None,
+                    End::Two,
                 ))
             }
         }
@@ -173,6 +177,7 @@ pub fn map_paired_end_read(
                 references,
                 r1.sequence.len(),
                 None,
+                End::One,
             ));
             records.push(paf_record_from_nam(
                 &nam2,
@@ -180,6 +185,7 @@ pub fn map_paired_end_read(
                 references,
                 r2.sequence.len(),
                 None,
+                End::Two,
             ));
         }
         MappedNams::Unmapped => {}

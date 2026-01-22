@@ -52,12 +52,13 @@ diff tests/phix.pe.sam phix.pe.sam
 rm phix.pe.sam
 
 # Single-end PAF
-strobealign -x tests/phix.fasta tests/phix.1.fastq | tail -n 11 > phix.se.paf
+# The sed strips the /1 suffix to get a result like the Rust version
+strobealign -x tests/phix.fasta tests/phix.1.fastq | tail -n 11 | sed 's|SRR1377138.39/1|SRR1377138.39|' > phix.se.paf
 diff tests/phix.se.paf phix.se.paf
 rm phix.se.paf
 
 # Single-end PAF (stdin input)
-cat tests/phix.1.fastq | strobealign -x tests/phix.fasta - | tail -n 11 > phix.se.paf
+cat tests/phix.1.fastq | strobealign -x tests/phix.fasta - | tail -n 11  | sed 's|SRR1377138.39/1|SRR1377138.39|' > phix.se.paf
 diff tests/phix.se.paf phix.se.paf
 rm phix.se.paf
 

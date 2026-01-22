@@ -25,6 +25,12 @@ pub enum End {
     None,
 }
 
+impl Default for End {
+    fn default() -> Self {
+        End::None
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SequenceRecord {
     pub name: String,
