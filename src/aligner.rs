@@ -156,7 +156,7 @@ impl Aligner {
         refseq: &[u8],
         chain: &[Anchor],
         padding: usize,
-    ) -> AlignmentInfo {
+    ) -> Option<AlignmentInfo> {
         self.call_count.set(self.call_count.get() + 1);
         self.piecewise_aligner
             .piecewise_extension(query, refseq, chain, padding)

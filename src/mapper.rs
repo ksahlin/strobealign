@@ -588,7 +588,7 @@ fn extend_seed(
     if gapped {
         let padding = read.len() / 10;
         if use_piecewise {
-            info = aligner.align_piecewise(query, refseq, &nam.anchors, padding);
+            info = aligner.align_piecewise(query, refseq, &nam.anchors, padding)?;
             result_ref_start = info.ref_start;
         } else {
             let ref_start = projected_ref_start.saturating_sub(padding);
