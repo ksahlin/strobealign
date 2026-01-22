@@ -337,10 +337,17 @@ impl SamOutput {
                 if mate.is_revcomp {
                     sam_records[i].flags |= MREVERSE;
                 }
+                // PNEXT (position of mate)
+                sam_records[i].mate_pos = Some(mate.ref_start as u32);
+
                 // RNEXT (reference name of mate)
+                sam_records[i].mate_reference_name =
+                    Some(references[mate.reference_id].name.clone());
                 if let Some(this) = alignments[i] {
                     // both aligned
+
                     if this.reference_id == mate.reference_id {
+                        // aligned to same reference
                         sam_records[i].mate_reference_name = Some("=".to_string());
 
                         // TLEN
@@ -364,10 +371,9 @@ impl SamOutput {
                         Some(references[mate.reference_id].name.clone());
                     sam_records[i].pos = Some(mate.ref_start as u32);
                 }
-                // PNEXT (position of mate)
-                sam_records[i].mate_pos = Some(mate.ref_start as u32);
             } else {
                 // mate unmapped
+
                 sam_records[i].flags |= MUNMAP;
                 // Set RNAME and POS identical to mate
                 if let Some(this) = alignments[i] {
