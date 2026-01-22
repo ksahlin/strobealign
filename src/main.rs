@@ -54,7 +54,7 @@ const STYLES: Styles = Styles::plain()
     .placeholder(AnsiColor::Green.on_default());
 
 #[derive(Parser, Debug)]
-#[command(version, long_about = None, styles = STYLES)]
+#[command(version, long_about = None, styles = STYLES, arg_required_else_help = true)]
 #[rustfmt::skip]
 struct Args {
     /// Number of threads

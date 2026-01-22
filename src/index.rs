@@ -294,7 +294,7 @@ pub const REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES: usize = u32::MAX as usize;
 
 impl RefRandstrobe {
     fn new(hash: RandstrobeHash, ref_index: u32, position: u32, offset: u8) -> Self {
-        let hash_offset = hash & REF_RANDSTROBE_HASH_MASK | (offset as u64);
+        let hash_offset = (hash & REF_RANDSTROBE_HASH_MASK) | (offset as u64);
         RefRandstrobe {
             hash_offset,
             position,

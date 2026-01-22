@@ -20,15 +20,15 @@ pub struct Hit {
 
 /// Aggregate statistics resulting from looking up all strobemers of a single
 /// query
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct HitsDetails {
     /// full hit not found
     pub full_not_found: usize,
 
-    /// found hit found but filtered
+    /// full hit found but filtered
     pub full_filtered: usize,
 
-    /// found hit found and not filtered
+    /// full hit found and not filtered
     pub full_found: usize,
 
     pub partial_not_found: usize,
@@ -36,20 +36,6 @@ pub struct HitsDetails {
     pub partial_found: usize,
 
     pub rescued: usize,
-}
-
-impl Default for HitsDetails {
-    fn default() -> Self {
-        HitsDetails {
-            full_not_found: 0,
-            full_filtered: 0,
-            full_found: 0,
-            partial_not_found: 0,
-            partial_filtered: 0,
-            partial_found: 0,
-            rescued: 0,
-        }
-    }
 }
 
 impl ops::AddAssign<HitsDetails> for HitsDetails {
