@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use crate::fastq::End;
+
 /* PAF columns (see https://github.com/lh3/miniasm/blob/master/PAF.md):
  * 1 query name
  * 2 query length
@@ -18,6 +20,7 @@ use std::fmt::Display;
 #[derive(Default, Debug)]
 pub struct PafRecord {
     pub query_name: String,
+    pub end: End,
     pub query_length: u64,
     pub query_start: u64,
     pub query_end: u64,
@@ -35,8 +38,13 @@ impl Display for PafRecord {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            "{}{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             self.query_name,
+            match self.end {
+                End::None => "",
+                End::One => "/1",
+                End::Two => "/2",
+            },
             self.query_length,
             self.query_start,
             self.query_end,

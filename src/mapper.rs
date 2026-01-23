@@ -23,7 +23,6 @@ use crate::read::Read;
 use crate::revcomp::reverse_complement;
 use crate::sam::{
     MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SamRecord, UNMAP,
-    strip_suffix,
 };
 use crate::strobes::RandstrobeIterator;
 use crate::syncmers::SyncmerIterator;
@@ -242,7 +241,7 @@ impl SamOutput {
             None
         };
         SamRecord {
-            query_name: strip_suffix(&record.name).into(),
+            query_name: record.name.clone(),
             flags,
             reference_name,
             pos: Some(alignment.ref_start as u32),
@@ -267,7 +266,7 @@ impl SamOutput {
             None
         };
         SamRecord {
-            query_name: strip_suffix(&record.name).into(),
+            query_name: record.name.clone(),
             flags: UNMAP,
             query_sequence: Some(record.sequence.clone()),
             query_qualities: record.qualities.clone(),
