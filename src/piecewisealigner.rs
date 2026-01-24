@@ -15,10 +15,11 @@ pub struct PiecewiseAligner {
     scores: Scores,
     k: usize,
     gaps: Gaps,
+    matrix: NucMatrix,
     xdrop: i32,
 }
 
-pub struct AlignmentResult {
+struct AlignmentResult {
     pub score: i32,
     pub query_start: usize,
     pub query_end: usize,
@@ -33,10 +34,12 @@ impl PiecewiseAligner {
             open: -(scores.gap_open as i8),
             extend: -(scores.gap_extend as i8),
         };
+        let matrix = NucMatrix::new_simple(scores.match_ as i8, -(scores.mismatch as i8));
         PiecewiseAligner {
             scores,
             k,
             gaps,
+            matrix,
             xdrop,
         }
     }
@@ -61,18 +64,17 @@ impl PiecewiseAligner {
         let max_size = max_len.max(128).next_power_of_two();
 
         // Create padded sequences
-        let q_padded = PaddedBytes::from_bytes::<NucMatrix>(query, max_size);
-        let r_padded = PaddedBytes::from_bytes::<NucMatrix>(reference, max_size);
-
-        // Create simple scoring matrix (match/mismatch)
-        let matrix = NucMatrix::new_simple(self.scores.match_ as i8, -(self.scores.mismatch as i8));
+        let mut q_padded = PaddedBytes::new::<NucMatrix>(query.len(), max_size);
+        q_padded.set_bytes::<NucMatrix>(query, max_size);
+        let mut r_padded = PaddedBytes::new::<NucMatrix>(reference.len(), max_size);
+        r_padded.set_bytes::<NucMatrix>(reference, max_size);
 
         // Make a global alignment call with traceback
         let mut block = Block::<true, false>::new(query.len(), reference.len(), max_size);
         block.align(
             &q_padded,
             &r_padded,
-            &matrix,
+            &self.matrix,
             self.gaps,
             min_size..=max_size,
             0, // 0 x-drop threshold for global alignment
@@ -118,39 +120,31 @@ impl PiecewiseAligner {
         let min_size = (max_len / 5).max(32).next_power_of_two();
         let max_size = (max_len / 2).max(128).next_power_of_two();
 
-        // In case we x-drop in reverse (aligning before the first anchor),
-        // we exchange the query for the reversed reference and vice-versa
-        let query_used: &[u8];
-        let ref_used: &[u8];
-        let mut query_rev = Vec::new();
-        let mut ref_rev = Vec::new();
-
-        if reverse {
-            query_rev = query.to_vec();
-            query_rev.reverse();
-            ref_rev = reference.to_vec();
-            ref_rev.reverse();
-            query_used = &query_rev;
-            ref_used = &ref_rev;
-        } else {
-            query_used = query;
-            ref_used = reference;
-        }
-
         // Create padded sequences
         // blockaligner only has a AA profile, no nucleotide profile, so we have to use AA matrix
-        let q_padded = PaddedBytes::from_bytes::<AAMatrix>(query_used, max_size);
-        let r_padded = PaddedBytes::from_bytes::<AAMatrix>(ref_used, max_size);
+        let mut q_padded = PaddedBytes::new::<AAMatrix>(query.len(), max_size);
+        let mut r_padded = PaddedBytes::new::<AAMatrix>(reference.len(), max_size);
+
+        if reverse {
+            q_padded.set_bytes_rev::<AAMatrix>(query, max_size);
+            r_padded.set_bytes_rev::<AAMatrix>(reference, max_size);
+        } else {
+            q_padded.set_bytes::<AAMatrix>(query, max_size);
+            r_padded.set_bytes::<AAMatrix>(reference, max_size);
+        }
 
         // Create profile to align the reference on the query with end bonus
         // We need to build a position-specific scoring matrix
         // blockaligner only has a AA profile, no nucleotide profile
-        let mut profile =
-            AAProfile::new(query_used.len(), max_size, -(self.scores.gap_extend as i8));
+        let mut profile = AAProfile::new(query.len(), max_size, -(self.scores.gap_extend as i8));
 
         // Set scores for each nucleotide combination
-        for i in 1..=query_used.len() {
-            let query_char = query_used[i - 1];
+        for i in 1..=query.len() {
+            let query_char = if reverse {
+                query[query.len() - i]
+            } else {
+                query[i - 1]
+            };
             for c in [b'A', b'C', b'G', b'T', b'N'] {
                 if c == query_char {
                     profile.set(i, c, self.scores.match_ as i8);
@@ -166,14 +160,14 @@ impl PiecewiseAligner {
         profile.set_all_gap_open_R(-(self.scores.gap_open as i8) - -(self.scores.gap_extend as i8));
 
         // Give a bonus score to the end
-        let bonus_pos = query_used.len();
+        let bonus_pos = query.len();
         for c in [b'A', b'C', b'G', b'T', b'N'] {
             let current_score = profile.get(bonus_pos, c);
             profile.set(bonus_pos, c, current_score + self.scores.end_bonus as i8);
         }
 
         // Make an x-drop alignment call with traceback
-        let mut block = Block::<true, true>::new(ref_used.len(), query_used.len(), max_size);
+        let mut block = Block::<true, true>::new(reference.len(), query.len(), max_size);
         block.align_profile(&r_padded, &profile, min_size..=max_size, self.xdrop);
         let res = block.res();
 
@@ -299,7 +293,7 @@ impl PiecewiseAligner {
             result.query_end = last_anchor_query_end;
             result.ref_end = last_anchor_ref_end;
             if result.query_end == query.len() {
-                result.score = self.scores.end_bonus as i32;
+                result.score += self.scores.end_bonus as i32;
             } else {
                 result
                     .cigar
@@ -312,7 +306,7 @@ impl PiecewiseAligner {
         &self,
         query: &[u8],
         refseq: &[u8],
-        anchors: &[Anchor],
+        anchors: &mut Vec<Anchor>, //anchors are sorted from last to first
         padding: usize,
     ) -> Option<AlignmentInfo> {
         let mut result = AlignmentResult {
@@ -324,18 +318,22 @@ impl PiecewiseAligner {
             cigar: Cigar::new(),
         };
 
-        // Maybe use the original vector instead of copying it ?
-        let mut anchors: Vec<Anchor> = anchors.to_vec();
-        remove_spurious_anchors(&mut anchors);
+        remove_spurious_anchors(anchors);
 
-        self.align_before_first_anchor(query, refseq, &anchors[0], padding, &mut result);
+        self.align_before_first_anchor(
+            query,
+            refseq,
+            &anchors[anchors.len() - 1],
+            padding,
+            &mut result,
+        );
 
         result.score += self.k as i32 * self.scores.match_ as i32;
         result.cigar.push(CigarOperation::Eq, self.k);
 
-        for i in 1..anchors.len() {
-            let anchor = &anchors[i];
-            let prev_anchor = &anchors[i - 1];
+        for i in (1..anchors.len()).rev() {
+            let anchor = &anchors[i - 1];
+            let prev_anchor = &anchors[i];
 
             let curr_start_query = anchor.query_start;
             let curr_start_ref = anchor.ref_start;
@@ -349,36 +347,36 @@ impl PiecewiseAligner {
             // Because of spurious strobemer matches on the end of the query, chains tend to have a cluster of spurious
             // anchors on the ends of the query, this heuristic stop trusting the anchors if they create a suspiciously
             // large deletion on the end of the query
-            if query.len() - curr_start_query <= 200
-                && ref_diff - query_diff
-                    >= query.len() as isize - prev_end_query as isize / 2 - self.k as isize
-            {
-                self.align_after_last_anchor(
-                    query,
-                    refseq,
-                    prev_anchor,
-                    (padding as isize + ref_diff - query_diff) as usize,
-                    &mut result,
-                );
-
-                if result.score > 0 {
-                    return Some(AlignmentInfo {
-                        cigar: result.cigar.clone(),
-                        edit_distance: result.cigar.edit_distance(),
-                        ref_start: result.ref_start,
-                        ref_end: result.ref_end,
-                        query_start: result.query_start,
-                        query_end: result.query_end,
-                        score: result.score as u32,
-                    });
-                } else {
-                    return None;
-                }
-            }
+            // if query.len() - curr_start_query <= 200
+            //     && ref_diff - query_diff
+            //         >= (query.len() as isize - prev_end_query as isize) / 2 - self.k as isize
+            // {
+            //     self.align_after_last_anchor(
+            //         query,
+            //         refseq,
+            //         prev_anchor,
+            //         (padding as isize + ref_diff - query_diff) as usize,
+            //         &mut result,
+            //     );
+            //
+            //     if result.score > 0 {
+            //         return Some(AlignmentInfo {
+            //             cigar: result.cigar.clone(),
+            //             edit_distance: result.cigar.edit_distance(),
+            //             ref_start: result.ref_start,
+            //             ref_end: result.ref_end,
+            //             query_start: result.query_start,
+            //             query_end: result.query_end,
+            //             score: result.score as u32,
+            //         });
+            //     } else {
+            //         return None;
+            //     }
+            // }
 
             if ref_diff > 0 && query_diff > 0 {
-                let query_part = &query[prev_end_query..query_diff as usize];
-                let ref_part = &refseq[prev_end_ref..ref_diff as usize];
+                let query_part = &query[prev_end_query..prev_end_query + query_diff as usize];
+                let ref_part = &refseq[prev_end_ref..prev_end_ref + ref_diff as usize];
 
                 if ref_diff == query_diff {
                     let hamming_aligned = hamming_align_global(
@@ -388,9 +386,10 @@ impl PiecewiseAligner {
                         self.scores.mismatch,
                     );
 
-                    if hamming_aligned.score
-                        > self.scores.match_ as u32
-                            * ((query_part.len() as f32) * 0.85).ceil() as u32
+                    if hamming_aligned.score > 0
+                        && hamming_aligned.score
+                            > self.scores.match_ as u32
+                                * ((query_part.len() as f32) * 0.85).ceil() as u32
                     {
                         result.score += hamming_aligned.score as i32;
                         result.cigar.extend(&hamming_aligned.cigar);
@@ -403,7 +402,7 @@ impl PiecewiseAligner {
 
                 let aligned = self.global_alignment(query_part, ref_part);
 
-                result.score = aligned.score + result.score as i32;
+                result.score += aligned.score;
                 result.cigar.extend(&aligned.cigar);
 
                 result.score += self.k as i32 * self.scores.match_ as i32;
@@ -412,7 +411,8 @@ impl PiecewiseAligner {
                 {
                     // Overlap between anchors, no need to align
                     if ref_diff < query_diff {
-                        let inserted_part = (-ref_diff + query_diff) as usize;
+                        let inserted_part = (query_diff - ref_diff) as usize;
+
                         result.score += -(self.scores.gap_open as i32)
                             + (inserted_part as i32 - 1) * -(self.scores.gap_extend as i32);
                         result.cigar.push(CigarOperation::Insertion, inserted_part);
@@ -421,7 +421,7 @@ impl PiecewiseAligner {
                         result.score += matching_part as i32 * self.scores.match_ as i32;
                         result.cigar.push(CigarOperation::Eq, matching_part);
                     } else if ref_diff > query_diff {
-                        let deleted_part = (-query_diff + ref_diff) as usize;
+                        let deleted_part = (ref_diff - query_diff) as usize;
                         result.score += -(self.scores.gap_open as i32)
                             + (deleted_part as i32 - 1) * -(self.scores.gap_extend as i32);
                         result.cigar.push(CigarOperation::Deletion, deleted_part);
@@ -438,10 +438,10 @@ impl PiecewiseAligner {
             }
         }
 
-        self.align_after_last_anchor(query, refseq, anchors.last().unwrap(), padding, &mut result);
+        self.align_after_last_anchor(query, refseq, &anchors[0], padding, &mut result);
 
         if result.score > 0 {
-            return Some(AlignmentInfo {
+            Some(AlignmentInfo {
                 cigar: result.cigar.clone(),
                 edit_distance: result.cigar.edit_distance(),
                 ref_start: result.ref_start,
@@ -449,9 +449,9 @@ impl PiecewiseAligner {
                 query_start: result.query_start,
                 query_end: result.query_end,
                 score: result.score as u32,
-            });
+            })
         } else {
-            return None;
+            None
         }
     }
 }
@@ -533,8 +533,8 @@ fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
 
     let mut i = 1;
     while i < anchors.len() {
-        let query_diff = (anchors[i].query_start as isize) - (anchors[i - 1].query_start as isize);
-        let ref_diff = (anchors[i].ref_start as isize) - (anchors[i - 1].ref_start as isize);
+        let query_diff = (anchors[i - 1].query_start as isize) - (anchors[i].query_start as isize);
+        let ref_diff = (anchors[i - 1].ref_start as isize) - (anchors[i].ref_start as isize);
 
         let indel = query_diff - ref_diff;
 
@@ -564,38 +564,40 @@ fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
     // the idea is that spurious anchors are much more difficult to detect on the ends of the chain,
     // so we look at a small ratio of anchors and remove any anchors creating deviations.
 
-    let edge_prune_ratio = 0.1;
-    let max_prune_count = ((anchors.len() as f32) * edge_prune_ratio).ceil() as usize;
-
-    for i in 1..anchors.len().max(max_prune_count) {
-        let query_diff = (anchors[i].query_start as isize) - (anchors[i - 1].query_start as isize);
-        let ref_diff = (anchors[i].ref_start as isize) - (anchors[i - 1].ref_start as isize);
-
-        let indel = query_diff - ref_diff;
-
-        if indel.abs() != 0 {
-            anchors.drain(..i);
-            break;
-        }
-    }
-
-    let max_prune_count = ((anchors.len() as f32) * (1.0 - edge_prune_ratio)).ceil() as usize;
-
-    for i in (max_prune_count..anchors.len()).rev() {
-        let query_diff = (anchors[i].query_start as isize) - (anchors[i - 1].query_start as isize);
-        let ref_diff = (anchors[i].ref_start as isize) - (anchors[i - 1].ref_start as isize);
-
-        let indel = query_diff - ref_diff;
-
-        if indel.abs() != 0 {
-            anchors.drain(i..);
-            break;
-        }
-    }
+    // let edge_prune_ratio = 0.1;
+    // let max_prune_count = ((anchors.len() as f32) * edge_prune_ratio).ceil() as usize;
+    //
+    // for i in 1..anchors.len().max(max_prune_count) {
+    //     let query_diff = (anchors[i].query_start as isize) - (anchors[i - 1].query_start as isize);
+    //     let ref_diff = (anchors[i].ref_start as isize) - (anchors[i - 1].ref_start as isize);
+    //
+    //     let indel = query_diff - ref_diff;
+    //
+    //     if indel.abs() != 0 {
+    //         anchors.drain(..i);
+    //         break;
+    //     }
+    // }
+    //
+    // let max_prune_count = ((anchors.len() as f32) * (1.0 - edge_prune_ratio)).ceil() as usize;
+    //
+    // for i in (max_prune_count..anchors.len()).rev() {
+    //     let query_diff = (anchors[i].query_start as isize) - (anchors[i - 1].query_start as isize);
+    //     let ref_diff = (anchors[i].ref_start as isize) - (anchors[i - 1].ref_start as isize);
+    //
+    //     let indel = query_diff - ref_diff;
+    //
+    //     if indel.abs() != 0 {
+    //         anchors.drain(i..);
+    //         break;
+    //     }
+    // }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::{hint::black_box, time::Instant};
+
     use super::*;
 
     #[test]
@@ -1148,5 +1150,125 @@ mod tests {
         assert_eq!(result.ref_start, 0);
         assert_eq!(result.ref_end, 10);
         assert_eq!(result.cigar.to_string(), "3=2D5=");
+    }
+
+    // bench
+
+    fn make_sequences() -> (Vec<u8>, Vec<u8>) {
+        let reference = b"ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT".to_vec();
+        let query = b"ACGTACGTACGTACGTACGT".to_vec();
+
+        (query, reference)
+    }
+
+    #[test]
+    fn bench_global_alignment() {
+        let aligner = PiecewiseAligner::new(
+            Scores {
+                match_: 2,
+                mismatch: 8,
+                gap_open: 12,
+                gap_extend: 1,
+                end_bonus: 10,
+            },
+            0,
+            100,
+        );
+        let (query, reference) = make_sequences();
+
+        let iterations = 10_000;
+
+        // Warm-up
+        for _ in 0..100 {
+            black_box(aligner.global_alignment(&query, &reference));
+        }
+
+        let start = Instant::now();
+        for _ in 0..iterations {
+            black_box(aligner.global_alignment(&query, &reference));
+        }
+        let elapsed = start.elapsed();
+
+        println!("[global_alignment]");
+        println!("  iterations: {}", iterations);
+        println!("  total time: {:.3} ms", elapsed.as_secs_f64() * 1e3);
+        println!(
+            "  per call:   {:.1} ns",
+            elapsed.as_nanos() as f64 / iterations as f64
+        );
+    }
+
+    #[test]
+    fn bench_xdrop_alignment_forward() {
+        let aligner = PiecewiseAligner::new(
+            Scores {
+                match_: 2,
+                mismatch: 8,
+                gap_open: 12,
+                gap_extend: 1,
+                end_bonus: 10,
+            },
+            0,
+            100,
+        );
+        let (query, reference) = make_sequences();
+
+        let iterations = 10_000;
+
+        // Warm-up
+        for _ in 0..100 {
+            black_box(aligner.xdrop_alignment(&query, &reference, false));
+        }
+
+        let start = Instant::now();
+        for _ in 0..iterations {
+            black_box(aligner.xdrop_alignment(&query, &reference, false));
+        }
+        let elapsed = start.elapsed();
+
+        println!("[xdrop_alignment reverse=false]");
+        println!("  iterations: {}", iterations);
+        println!("  total time: {:.3} ms", elapsed.as_secs_f64() * 1e3);
+        println!(
+            "  per call:   {:.1} ns",
+            elapsed.as_nanos() as f64 / iterations as f64
+        );
+    }
+
+    #[test]
+    fn bench_xdrop_alignment_reverse() {
+        let aligner = PiecewiseAligner::new(
+            Scores {
+                match_: 2,
+                mismatch: 8,
+                gap_open: 12,
+                gap_extend: 1,
+                end_bonus: 10,
+            },
+            0,
+            100,
+        );
+        let (query, reference) = make_sequences();
+
+        let iterations = 10_000;
+
+        // Warm-up
+        for _ in 0..100 {
+            black_box(aligner.xdrop_alignment(&query, &reference, true));
+        }
+
+        let start = Instant::now();
+        for _ in 0..iterations {
+            black_box(aligner.xdrop_alignment(&query, &reference, true));
+        }
+        let elapsed = start.elapsed();
+
+        println!("[xdrop_alignment reverse=true]");
+        println!("  iterations: {}", iterations);
+        println!("  total time: {:.3} ms", elapsed.as_secs_f64() * 1e3);
+        println!(
+            "  per call:   {:.1} ns",
+            elapsed.as_nanos() as f64 / iterations as f64
+        );
     }
 }
