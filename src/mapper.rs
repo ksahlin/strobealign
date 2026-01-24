@@ -538,7 +538,7 @@ pub fn align_single_end_read(
 /// alignment.
 fn extend_seed(
     aligner: &Aligner,
-    nam: &Nam,
+    nam: &mut Nam,
     references: &[RefSequence],
     read: &Read,
     consistent_nam: bool,
@@ -587,7 +587,7 @@ fn extend_seed(
     if gapped {
         let padding = read.len() / 10;
         if use_piecewise {
-            info = aligner.align_piecewise(query, refseq, &nam.anchors, padding)?;
+            info = aligner.align_piecewise(query, refseq, &mut nam.anchors, padding)?;
             result_ref_start = info.ref_start;
         } else {
             let ref_start = projected_ref_start.saturating_sub(padding);
@@ -818,8 +818,22 @@ fn extend_paired_seeds(
         let consistent_nam2 = reverse_nam_if_needed(&mut n_max2, read2, references, k);
         details[1].inconsistent_nams += !consistent_nam2 as usize;
 
-        let alignment1 = extend_seed(aligner, &n_max1, references, read1, consistent_nam1, false);
-        let alignment2 = extend_seed(aligner, &n_max2, references, read2, consistent_nam2, false);
+        let alignment1 = extend_seed(
+            aligner,
+            &mut n_max1,
+            references,
+            read1,
+            consistent_nam1,
+            false,
+        );
+        let alignment2 = extend_seed(
+            aligner,
+            &mut n_max2,
+            references,
+            read2,
+            consistent_nam2,
+            false,
+        );
         if let (Some(alignment1), Some(alignment2)) = (alignment1, alignment2) {
             details[0].tried_alignment += 1;
             details[0].gapped += alignment1.gapped as usize;
@@ -849,7 +863,7 @@ fn extend_paired_seeds(
         details[i].inconsistent_nams += !consistent_nam as usize;
         a_indv_max[i] = extend_seed(
             aligner,
-            &nams[i][0],
+            &mut nams[i][0],
             references,
             reads[i],
             consistent_nam,
@@ -887,7 +901,7 @@ fn extend_paired_seeds(
                     details[i].inconsistent_nams += !consistent_nam as usize;
                     alignment = extend_seed(
                         aligner,
-                        &this_nam,
+                        &mut this_nam,
                         references,
                         reads[i],
                         consistent_nam,
