@@ -198,6 +198,21 @@ impl Chainer {
             trace!("Chaining {} anchors", anchors.len());
             anchors.sort_unstable_by_key(|a| (a.ref_id, a.ref_start, a.query_start));
             anchors.dedup();
+
+            trace!(
+                "Anchors for {} strand [{}]",
+                if is_revcomp == 0 {
+                    "forward"
+                } else {
+                    "reverse"
+                },
+                anchors
+                    .iter()
+                    .map(|anchor| format!("{:?}", anchor))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            );
+
             let (best_score, dp, predecessors) = self.collinear_chaining(&anchors);
 
             extract_chains_from_dp(

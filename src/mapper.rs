@@ -5,6 +5,7 @@ use std::mem;
 use std::time::Instant;
 
 use fastrand::Rng;
+use log::{logger, trace};
 use memchr::memmem;
 
 use crate::aligner::Aligner;
@@ -397,7 +398,7 @@ pub fn align_single_end_read(
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let (nam_details, nams) = get_nams_by_chaining(
+    let (nam_details, mut nams) = get_nams_by_chaining(
         &record.sequence,
         index,
         chainer,
@@ -426,7 +427,11 @@ pub fn align_single_end_read(
 
     let k = index.parameters.syncmer.k;
     let read = Read::new(&record.sequence);
-    for (tries, nam) in nams.iter().take(mapping_parameters.max_tries).enumerate() {
+    for (tries, nam) in nams
+        .iter_mut()
+        .take(mapping_parameters.max_tries)
+        .enumerate()
+    {
         let score_dropoff = nam.n_matches as f32 / nam_max.n_matches as f32;
 
         if (tries > 1 && best_edit_distance == 0)
@@ -449,6 +454,27 @@ pub fn align_single_end_read(
         ) else {
             continue;
         };
+
+        // outputting Piecewise vs SSW alignments for evaluation
+        // if log::log_enabled!(log::Level::Trace) {
+        //     let (ssw, pw) = if mapping_parameters.use_piecewise {
+        //         (
+        //             extend_seed(aligner, nam, references, &read, consistent_nam, false),
+        //             alignment.clone(),
+        //         )
+        //     } else {
+        //         (
+        //             alignment.clone(),
+        //             extend_seed(aligner, nam, references, &read, consistent_nam, true),
+        //         )
+        //     };
+        //     if let Some(pw) = pw {
+        //         if let Some(ssw) = ssw {
+        //             trace!("Alignment:[{:?},SSW:{:?},PW:{:?}]", nam.clone(), ssw, pw);
+        //         }
+        //     }
+        // }
+
         details.tried_alignment += 1;
         details.gapped += alignment.gapped as usize;
 
