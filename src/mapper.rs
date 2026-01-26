@@ -5,6 +5,7 @@ use std::mem;
 use std::time::Instant;
 
 use fastrand::Rng;
+use log::{logger, trace};
 use memchr::memmem;
 
 use crate::aligner::Aligner;
@@ -443,6 +444,27 @@ pub fn align_single_end_read(
             consistent_nam,
             mapping_parameters.use_piecewise,
         );
+
+        // outputting Piecewise vs SSW alignments for evaluation
+        if log::log_enabled!(log::Level::Trace) {
+            let (ssw, pw) = if mapping_parameters.use_piecewise {
+                (
+                    extend_seed(aligner, nam, references, &read, consistent_nam, false),
+                    alignment.clone(),
+                )
+            } else {
+                (
+                    alignment.clone(),
+                    extend_seed(aligner, nam, references, &read, consistent_nam, true),
+                )
+            };
+            if let Some(pw) = pw {
+                if let Some(ssw) = ssw {
+                    trace!("Alignment:[{:?},SSW:{:?},PW:{:?}]", nam.clone(), ssw, pw);
+                }
+            }
+        }
+
         if alignment.is_none() {
             continue;
         }

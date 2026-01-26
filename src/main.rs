@@ -844,7 +844,7 @@ impl Mapper<'_> {
         let mut cumulative_details = Details::new();
         for record in chunk {
             let (r1, r2) = record?;
-            trace!("\nQuery: {}", r1.name);
+            trace!("\nQuery: {}\nl={},k={}", r1.name, r1.len(), self.index.k());
             match self.mode {
                 Mode::Sam => {
                     let (sam_records, details) = if let Some(r2) = r2 {
