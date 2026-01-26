@@ -4,7 +4,7 @@ use std::string::FromUtf8Error;
 
 use thiserror::Error;
 
-use crate::fastq::SequenceRecord;
+use crate::fastq::{End, SequenceRecord};
 
 #[derive(Debug, Clone)]
 pub struct RefSequence {
@@ -97,6 +97,7 @@ impl<R: Read> Iterator for FastaReader<R> {
                             self.header = if n > 0 { Some(line) } else { None };
                             let record = SequenceRecord {
                                 name: name.to_string(),
+                                end: End::None,
                                 comment,
                                 sequence: std::mem::take(&mut self.sequence),
                                 qualities: None,

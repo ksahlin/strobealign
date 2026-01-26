@@ -5,7 +5,7 @@ use std::mem;
 use std::time::Instant;
 
 use fastrand::Rng;
-use log::{logger, trace};
+use log::trace;
 use memchr::memmem;
 
 use crate::aligner::Aligner;
@@ -23,8 +23,7 @@ use crate::nam::{get_nams_by_chaining, reverse_nam_if_needed, Nam};
 use crate::read::Read;
 use crate::revcomp::reverse_complement;
 use crate::sam::{
-    strip_suffix, SamRecord, MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE,
-    SECONDARY, UNMAP,
+    SamRecord, MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, UNMAP,
 };
 use crate::strobes::RandstrobeIterator;
 use crate::syncmers::SyncmerIterator;
@@ -245,7 +244,7 @@ impl SamOutput {
             None
         };
         SamRecord {
-            query_name: strip_suffix(&record.name).into(),
+            query_name: record.name.clone(),
             flags,
             reference_name,
             pos: Some(alignment.ref_start as u32),
@@ -270,7 +269,7 @@ impl SamOutput {
             None
         };
         SamRecord {
-            query_name: strip_suffix(&record.name).into(),
+            query_name: record.name.clone(),
             flags: UNMAP,
             query_sequence: Some(record.sequence.clone()),
             query_qualities: record.qualities.clone(),
@@ -340,10 +339,17 @@ impl SamOutput {
                 if mate.is_revcomp {
                     sam_records[i].flags |= MREVERSE;
                 }
+                // PNEXT (position of mate)
+                sam_records[i].mate_pos = Some(mate.ref_start as u32);
+
                 // RNEXT (reference name of mate)
+                sam_records[i].mate_reference_name =
+                    Some(references[mate.reference_id].name.clone());
                 if let Some(this) = alignments[i] {
                     // both aligned
+
                     if this.reference_id == mate.reference_id {
+                        // aligned to same reference
                         sam_records[i].mate_reference_name = Some("=".to_string());
 
                         // TLEN
@@ -367,10 +373,9 @@ impl SamOutput {
                         Some(references[mate.reference_id].name.clone());
                     sam_records[i].pos = Some(mate.ref_start as u32);
                 }
-                // PNEXT (position of mate)
-                sam_records[i].mate_pos = Some(mate.ref_start as u32);
             } else {
                 // mate unmapped
+
                 sam_records[i].flags |= MUNMAP;
                 // Set RNAME and POS identical to mate
                 if let Some(this) = alignments[i] {
