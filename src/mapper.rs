@@ -508,7 +508,7 @@ pub fn align_single_end_read(
         //let max_out = min(alignments.len(), mapping_parameters.max_secondary + 1);
         for (i, alignment) in alignments.iter().enumerate() {
             if i >= mapping_parameters.max_secondary
-                || alignment.score - best_score
+                || alignment.score.saturating_sub(best_score)
                     > 2 * aligner.scores.mismatch as u32 + aligner.scores.gap_open as u32
             {
                 break;
