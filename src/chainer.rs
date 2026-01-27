@@ -28,6 +28,19 @@ pub struct ChainingParameters {
     pub matches_weight: f32,
 }
 
+impl Default for ChainingParameters {
+    fn default() -> Self {
+        ChainingParameters {
+            max_lookback: 50,
+            diag_diff_penalty: 0.1,
+            gap_length_penalty: 0.05,
+            valid_score_threshold: 0.7,
+            max_ref_gap: 10000,
+            matches_weight: 0.01,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Chainer {
     k: usize,
@@ -57,12 +70,7 @@ impl Chainer {
         }
     }
 
-    fn collinear_chaining(
-        &self,
-        anchors: &[Anchor],
-        // dp: &[f32],
-        // predecessors: &[usize],
-    ) -> (f32, Vec<f32>, Vec<usize>) {
+    fn collinear_chaining(&self, anchors: &[Anchor]) -> (f32, Vec<f32>, Vec<usize>) {
         let n = anchors.len();
         if n == 0 {
             return (0.0, vec![], vec![]);
@@ -71,11 +79,12 @@ impl Chainer {
         let mut dp = vec![self.k as f32; n];
         let mut predecessors = vec![usize::MAX; n];
         let mut best_score = 0.0;
+        let mut best_index = usize::MAX;
 
         for i in 0..n {
             let lookup_end = i.saturating_sub(self.parameters.max_lookback);
+            let ai = &anchors[i];
             for j in (lookup_end..i).rev() {
-                let ai = &anchors[i];
                 let aj = &anchors[j];
 
                 if ai.ref_id != aj.ref_id {
@@ -92,17 +101,14 @@ impl Chainer {
                 if dr >= self.parameters.max_ref_gap {
                     break;
                 }
-                if
-                /*dq <= 0 ||*/
-                dr <= 0 {
+                if dr <= 0 {
                     // Not collinear
                     continue;
                 }
 
                 let score = self.compute_score_cached(dq, dr);
-
                 let new_score = dp[j] + score;
-                if new_score > dp[i] {
+                if new_score >= dp[i] {
                     dp[i] = new_score;
                     predecessors[i] = j;
                     // Runtime heuristic: If the predecessor is on the same diagonal,
@@ -112,8 +118,30 @@ impl Chainer {
                     }
                 }
             }
+
+            // The above runtime heuristic sometimes skips the anchor that
+            // represents the so-far optimal chain and can then give suboptimal
+            // results. To mitigate the issue, we explicitly check that anchor.
+            if best_index != usize::MAX && ai.ref_id == anchors[best_index].ref_id {
+                let aj = &anchors[best_index];
+                if ai.query_start > aj.query_start {
+                    let dq = ai.query_start - aj.query_start;
+                    let dr = ai.ref_start - aj.ref_start;
+
+                    if dr > 0 {
+                        let score = self.compute_score_cached(dq, dr);
+                        let new_score = dp[best_index] + score;
+                        if new_score > dp[i] {
+                            dp[i] = new_score;
+                            predecessors[i] = best_index;
+                        }
+                    }
+                }
+            }
+
             if dp[i] > best_score {
                 best_score = dp[i];
+                best_index = i;
             }
         }
 
@@ -386,5 +414,30 @@ fn extract_chains_from_dp(
             score: score + c as f32 * chaining_parameters.matches_weight,
             is_revcomp,
         });
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{Anchor, Chainer, ChainingParameters};
+
+    #[test]
+    fn test_chainer_early_break() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        #[rustfmt::skip]
+        let anchors = [
+            Anchor { ref_id: 0, ref_start:  0, query_start:  0, },
+            Anchor { ref_id: 0, ref_start: 30, query_start: 20, },
+            Anchor { ref_id: 0, ref_start: 60, query_start:  0, },
+            Anchor { ref_id: 0, ref_start: 95, query_start: 35, },
+        ];
+
+        let (best_score, _dp, _predecessors) = chainer.collinear_chaining(&anchors);
+
+        // The best chain has score 42.342842 and uses anchors 0, 1, 3.
+        // When using the heuristic that breaks early if the predecessor is on the
+        // same diagonal, a suboptimal chain is found that has score 38.2 and
+        // consists of anchors 2 and 3.
+        assert!(best_score > 42.0);
     }
 }
