@@ -28,6 +28,19 @@ pub struct ChainingParameters {
     pub matches_weight: f32,
 }
 
+impl Default for ChainingParameters {
+    fn default() -> Self {
+        ChainingParameters {
+            max_lookback: 50,
+            diag_diff_penalty: 0.1,
+            gap_length_penalty: 0.05,
+            valid_score_threshold: 0.7,
+            max_ref_gap: 10000,
+            matches_weight: 0.01,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Chainer {
     k: usize,
