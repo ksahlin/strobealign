@@ -118,12 +118,13 @@ float Chainer::collinear_chaining(
     dp.assign(n, k);
     predecessors.assign(n, -1);
     float best_score = 0;
+    int best_index = -1;
 
     for (size_t i = 0; i < n; ++i) {
         const int lookup_end = std::max(0, static_cast<int>(i) - chaining_params.max_lookback);
+        const Anchor& ai = anchors[i];
 
         for (int j = i - 1; j >= lookup_end; --j) {
-            const Anchor& ai = anchors[i];
             const Anchor& aj = anchors[j];
 
             if (ai.ref_id != aj.ref_id) {
@@ -143,7 +144,7 @@ float Chainer::collinear_chaining(
             const float score = compute_score(dq, dr);
 
             const float new_score = dp[j] + score;
-            if (new_score > dp[i]) {
+            if (new_score >= dp[i]) {
                 dp[i] = new_score;
                 predecessors[i] = j;
 
@@ -154,8 +155,26 @@ float Chainer::collinear_chaining(
                 }
             }
         }
+
+        const Anchor& aj = anchors[best_index];
+
+        if (best_index != -1 && ai.ref_id == aj.ref_id) {
+            const int dq = ai.query_start - aj.query_start;
+            const int dr = ai.ref_start - aj.ref_start;
+
+            if (dq > 0 && dr > 0) {
+                const float score = compute_score(dq, dr);
+                const float new_score = dp[best_index] + score;
+                if (new_score > dp[i]) {
+                    dp[i] = new_score;
+                    predecessors[i] = best_index;
+                }
+            }
+        }
+
         if (dp[i] > best_score) {
             best_score = dp[i];
+            best_index = i;
         }
     }
     return best_score;

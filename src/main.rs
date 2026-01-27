@@ -208,27 +208,27 @@ struct Args {
     //args::Flag nams(parser, "nams", "Use NAMs instead of collinear chaining for alignments", {"nams"});
 
     /// Collinear chaining look back heuristic
-    #[arg(short = 'H', default_value_t = 50, value_name = "N", help_heading = "Collinear chaining")]
+    #[arg(short = 'H', default_value_t = ChainingParameters::default().max_lookback, value_name = "N", help_heading = "Collinear chaining")]
     max_lookback: usize,
 
     /// Collinear chaining diagonal gap cost
-    #[arg(long = "gd", default_value_t = 0.1, help_heading = "Collinear chaining")]
+    #[arg(long = "gd", default_value_t = ChainingParameters::default().diag_diff_penalty, help_heading = "Collinear chaining")]
     diag_diff_penalty: f32,
 
     /// Collinear chaining gap length cost
-    #[arg(long = "gl", default_value_t = 0.05, help_heading = "Collinear chaining")]
+    #[arg(long = "gl", default_value_t = ChainingParameters::default().gap_length_penalty, help_heading = "Collinear chaining")]
     gap_length_penalty: f32,
 
     /// Collinear chaining best chain score threshold
-    #[arg(long = "vp", default_value_t = 0.7, help_heading = "Collinear chaining")]
+    #[arg(long = "vp", default_value_t = ChainingParameters::default().valid_score_threshold, help_heading = "Collinear chaining")]
     valid_score_threshold: f32,
 
     /// Collinear chaining skip distance, how far on the reference do we allow anchors to chain
-    #[arg(long = "sg", default_value_t = 10000, help_heading = "Collinear chaining")]
+    #[arg(long = "sg", default_value_t = ChainingParameters::default().max_ref_gap, help_heading = "Collinear chaining")]
     max_ref_gap: usize,
 
     /// Weight given to the number of anchors for the final score of chains
-    #[arg(long = "mw", default_value_t = 0.01, help_heading = "Collinear chaining")]
+    #[arg(long = "mw", default_value_t = ChainingParameters::default().matches_weight, help_heading = "Collinear chaining")]
     matches_weight: f32,
 
     /// Use Piecewise extension instead of SSW for single-ends alignments
