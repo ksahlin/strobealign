@@ -465,7 +465,7 @@ pub fn align_single_end_read(
             if update_best {
                 best_score = alignment.score;
                 best_alignment = Some(alignment.clone());
-                best_index = tries;
+                best_index = alignments.len();
                 if mapping_parameters.max_secondary == 0 {
                     best_edit_distance = alignment.global_edit_distance();
                 }
