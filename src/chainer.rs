@@ -401,3 +401,28 @@ fn extract_chains_from_dp(
         });
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::{Anchor, Chainer, ChainingParameters};
+
+    #[test]
+    fn test_chainer_early_break() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        #[rustfmt::skip]
+        let anchors = [
+            Anchor { ref_id: 0, ref_start:  0, query_start:  0, },
+            Anchor { ref_id: 0, ref_start: 30, query_start: 20, },
+            Anchor { ref_id: 0, ref_start: 60, query_start:  0, },
+            Anchor { ref_id: 0, ref_start: 95, query_start: 35, },
+        ];
+
+        let (best_score, _dp, _predecessors) = chainer.collinear_chaining(&anchors);
+
+        // The best chain has score 42.342842 and uses anchors 0, 1, 3.
+        // When using the heuristic that breaks early if the predecessor is on the
+        // same diagonal, a suboptimal chain is found that has score 38.2 and
+        // consists of anchors 2 and 3.
+        assert!(best_score > 42.0);
+    }
+}
