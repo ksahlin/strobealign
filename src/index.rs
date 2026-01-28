@@ -14,8 +14,10 @@ use thiserror::Error;
 
 use crate::fasta::RefSequence;
 use crate::partition::custom_partition_point;
-use crate::strobes::{DEFAULT_AUX_LEN, RandstrobeHashMethod, RandstrobeIterator, RandstrobeParameters};
-use crate::syncmers::{SyncmerIterator, SyncmerParameters};
+use crate::strobes::{
+    DEFAULT_AUX_LEN, RandstrobeHashMethod, RandstrobeIterator, RandstrobeParameters,
+};
+use crate::syncmers::{KmerSyncmerIterator, SyncmerParameters};
 
 /// Pre-defined index parameters that work well for a certain
 /// "canonical" read length (and similar read lengths)
@@ -125,7 +127,7 @@ impl IndexParameters {
         q: u64,
         max_dist: u8,
         aux_len: u8,
-        hash_method: RandstrobeHashMethod
+        hash_method: RandstrobeHashMethod,
     ) -> Result<Self, InvalidIndexParameter> {
         if aux_len > 63 {
             return Err(InvalidIndexParameter::InvalidParameter(
@@ -332,7 +334,7 @@ impl RefRandstrobe {
 
 /// Count randstrobes by counting syncmers
 fn count_randstrobes(seq: &[u8], parameters: &IndexParameters) -> usize {
-    let syncmer_iterator = SyncmerIterator::new(
+    let syncmer_iterator = KmerSyncmerIterator::new(
         seq,
         parameters.syncmer.k,
         parameters.syncmer.s,
@@ -623,7 +625,7 @@ impl<'a> StrobemerIndex<'a> {
         if seq.len() < self.parameters.randstrobe.w_max {
             return;
         }
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             seq,
             self.parameters.syncmer.k,
             self.parameters.syncmer.s,
@@ -924,7 +926,9 @@ impl<'a> StrobemerIndex<'a> {
     }
 }
 
-fn read_randstrobe_hash_method<T: BufRead>(file: &mut T) -> Result<RandstrobeHashMethod, IndexReadingError> {
+fn read_randstrobe_hash_method<T: BufRead>(
+    file: &mut T,
+) -> Result<RandstrobeHashMethod, IndexReadingError> {
     let mut buf = [0u8; 1];
     file.read_exact(&mut buf)?;
 
@@ -1056,7 +1060,7 @@ mod tests {
     }
 
     fn syncmers_of(seq: &[u8], parameters: &SyncmerParameters) -> Vec<Syncmer> {
-        SyncmerIterator::new(seq, parameters.k, parameters.s, parameters.t).collect()
+        KmerSyncmerIterator::new(seq, parameters.k, parameters.s, parameters.t).collect()
     }
 
     #[test]

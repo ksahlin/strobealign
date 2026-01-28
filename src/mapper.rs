@@ -25,7 +25,7 @@ use crate::sam::{
     MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SamRecord, UNMAP,
 };
 use crate::strobes::RandstrobeIterator;
-use crate::syncmers::SyncmerIterator;
+use crate::syncmers::KmerSyncmerIterator;
 
 const MAX_PAIR_NAMS: usize = 1000;
 
@@ -94,7 +94,7 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> [Vec<Query
     }
 
     // Generate syncmers for the forward sequence
-    let syncmer_iter = SyncmerIterator::new(
+    let syncmer_iter = KmerSyncmerIterator::new(
         seq,
         parameters.syncmer.k,
         parameters.syncmer.s,

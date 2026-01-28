@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::index::{InvalidIndexParameter, REF_RANDSTROBE_HASH_MASK};
-use crate::syncmers::Syncmer;
+use crate::syncmers::SyncmerLike;
 
 pub const DEFAULT_AUX_LEN: u8 = 17;
 
@@ -16,21 +16,19 @@ pub enum RandstrobeHashMethod {
     /// the main hash and the bottom bits to the bits of the auxiliary
     /// hash. Since entries in the index are sorted by randstrobe hash, this allows
     /// us to search for the main syncmer by masking out the lower bits.
-    /// Xor: The combined hash is obtained by xor operation. 
+    /// Xor: The combined hash is obtained by xor operation.
     /// Main syncmer is not available in this method.
     #[default]
     McsHash = 0,
-    Xor = 1,   
+    Xor = 1,
 }
 
 impl RandstrobeHashMethod {
-
     #[inline]
     pub fn hash(&self, hash1: u64, hash2: u64, main_hash_mask: u64) -> u64 {
         match self {
             Self::McsHash => {
-                ((hash1 & main_hash_mask) | (hash2 & !main_hash_mask))
-                    & REF_RANDSTROBE_HASH_MASK
+                ((hash1 & main_hash_mask) | (hash2 & !main_hash_mask)) & REF_RANDSTROBE_HASH_MASK
             }
             Self::Xor => (hash1 ^ hash2) & REF_RANDSTROBE_HASH_MASK,
         }
@@ -88,33 +86,38 @@ pub struct Randstrobe {
 }
 
 impl Randstrobe {
-    pub fn from_strobes(hash_method: RandstrobeHashMethod, strobe1: Syncmer, strobe2: Syncmer, main_hash_mask: u64) -> Self {
+    pub fn from_strobes<S: SyncmerLike>(
+        hash_method: RandstrobeHashMethod,
+        strobe1: S,
+        strobe2: S,
+        main_hash_mask: u64,
+    ) -> Self {
         Randstrobe {
-            hash: hash_method.hash(strobe1.hash, strobe2.hash, main_hash_mask),
-            hash_revcomp: hash_method.hash_revcomp(strobe1.hash, strobe2.hash, main_hash_mask),
-            strobe1_pos: strobe1.position,
-            strobe2_pos: strobe2.position,
+            hash: hash_method.hash(strobe1.hash(), strobe2.hash(), main_hash_mask),
+            hash_revcomp: hash_method.hash_revcomp(strobe1.hash(), strobe2.hash(), main_hash_mask),
+            strobe1_pos: strobe1.position(),
+            strobe2_pos: strobe2.position(),
         }
     }
 }
 
-pub struct RandstrobeIterator<I: Iterator<Item = Syncmer>> {
+pub struct RandstrobeIterator<S: SyncmerLike, I: Iterator<Item = S>> {
     parameters: RandstrobeParameters,
-    syncmers: VecDeque<Syncmer>,
+    syncmers: VecDeque<S>,
     syncmer_iterator: I,
 }
 
-impl<I: Iterator<Item = Syncmer>> RandstrobeIterator<I> {
-    pub fn new(syncmer_iterator: I, parameters: RandstrobeParameters) -> RandstrobeIterator<I> {
+impl<S: SyncmerLike, I: Iterator<Item = S>> RandstrobeIterator<S, I> {
+    pub fn new(syncmer_iterator: I, parameters: RandstrobeParameters) -> RandstrobeIterator<S, I> {
         RandstrobeIterator {
             parameters,
-            syncmers: VecDeque::<Syncmer>::new(),
+            syncmers: VecDeque::<S>::new(),
             syncmer_iterator,
         }
     }
 }
 
-impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
+impl<S: SyncmerLike, SI: Iterator<Item = S>> Iterator for RandstrobeIterator<S, SI> {
     type Item = Randstrobe;
     fn next(&mut self) -> Option<Self::Item> {
         while self.syncmers.len() <= self.parameters.w_max {
@@ -128,16 +131,16 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
             return None;
         }
         let strobe1 = self.syncmers[0];
-        let max_position = strobe1.position + self.parameters.max_dist as usize;
+        let max_position = strobe1.position() + self.parameters.max_dist as usize;
         let mut min_val = u64::MAX;
         let mut strobe2 = self.syncmers[0]; // Defaults if no nearby syncmer
 
         for i in self.parameters.w_min..self.syncmers.len() {
             debug_assert!(i <= self.parameters.w_max);
-            if self.syncmers[i].position > max_position {
+            if self.syncmers[i].position() > max_position {
                 break;
             }
-            let b = (strobe1.hash ^ self.syncmers[i].hash) & self.parameters.q;
+            let b = (strobe1.hash() ^ self.syncmers[i].hash()) & self.parameters.q;
             let ones = b.count_ones() as u64;
             if ones < min_val {
                 min_val = ones;
@@ -146,7 +149,8 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
         }
         self.syncmers.pop_front();
 
-        Some(Randstrobe::from_strobes(self.parameters.hash_method,
+        Some(Randstrobe::from_strobes(
+            self.parameters.hash_method,
             strobe1,
             strobe2,
             self.parameters.main_hash_mask,
@@ -159,7 +163,7 @@ mod test {
     use super::*;
     use crate::fasta::{RefSequence, read_fasta};
     use crate::index::IndexParameters;
-    use crate::syncmers::SyncmerIterator;
+    use crate::syncmers::KmerSyncmerIterator;
     use std::fs::File;
     use std::io::BufReader;
 
@@ -185,7 +189,7 @@ mod test {
     fn test_randstrobe_iterator() {
         let refseq = read_phix().sequence;
         let parameters = IndexParameters::default_from_read_length(300);
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             &refseq,
             parameters.syncmer.k,
             parameters.syncmer.s,
@@ -207,7 +211,7 @@ mod test {
     fn test_syncmer_and_randstrobe_iterator_same_count() {
         let refseq = read_phix().sequence;
         let parameters = IndexParameters::default_from_read_length(100);
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             &refseq,
             parameters.syncmer.k,
             parameters.syncmer.s,
@@ -215,7 +219,7 @@ mod test {
         );
         let syncmer_count = syncmer_iter.count();
 
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             &refseq,
             parameters.syncmer.k,
             parameters.syncmer.s,
