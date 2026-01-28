@@ -31,7 +31,6 @@ const MAX_PAIR_NAMS: usize = 1000;
 
 #[derive(Debug)]
 pub struct MappingParameters {
-    pub r: usize,
     pub max_secondary: usize,
     pub dropoff_threshold: f32,
     pub rescue_distance: usize,
@@ -43,7 +42,6 @@ pub struct MappingParameters {
 impl Default for MappingParameters {
     fn default() -> Self {
         MappingParameters {
-            r: 150,
             max_secondary: 0,
             dropoff_threshold: 0.5,
             rescue_distance: 100,
