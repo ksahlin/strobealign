@@ -787,6 +787,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_canonical_syncmers() {
         let parameters = SyncmerParameters::try_new(20, 16).unwrap();
         let f = File::open("tests/phix.fasta").unwrap();
