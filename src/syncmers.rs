@@ -357,9 +357,7 @@ impl SyncmerEncoding for RymerEncoding {
 
     #[inline]
     fn hash_smer(value: (u32, u32)) -> u64 {
-        let h1 = xxh32(value.0);
-        let h2 = xxh32(value.1);
-        ((h1 as u64) << 32) | (h2 as u64)
+        xxh32(value.0) as u64
     }
 
     #[inline]
@@ -414,8 +412,8 @@ impl<'a, E: SyncmerEncoding> SyncmerIterator<'a, E> {
     }
 }
 
-impl Iterator for SyncmerIterator<'_, KmerEncoding> {
-    type Item = Syncmer;
+impl<E: SyncmerEncoding> Iterator for SyncmerIterator<'_, E> {
+    type Item = E::Syncmer;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.exhausted {
@@ -423,19 +421,19 @@ impl Iterator for SyncmerIterator<'_, KmerEncoding> {
         }
         for i in self.i..self.seq.len() {
             let ch = self.seq[i];
-            if let Some(c) = KmerEncoding::encode_nucleotide(ch) {
+            if let Some(c) = E::encode_nucleotide(ch) {
                 // not an "N" base
-                self.xk[0] = KmerEncoding::update_kmer_forward(self.xk[0], c, self.kmask);
-                self.xk[1] = KmerEncoding::update_kmer_reverse(self.xk[1], c, self.kshift);
-                self.xs[0] = KmerEncoding::update_smer_forward(self.xs[0], c, self.smask);
-                self.xs[1] = KmerEncoding::update_smer_reverse(self.xs[1], c, self.sshift);
+                self.xk[0] = E::update_kmer_forward(self.xk[0], c, self.kmask);
+                self.xk[1] = E::update_kmer_reverse(self.xk[1], c, self.kshift);
+                self.xs[0] = E::update_smer_forward(self.xs[0], c, self.smask);
+                self.xs[1] = E::update_smer_reverse(self.xs[1], c, self.sshift);
                 self.l += 1;
                 if self.l < self.s {
                     continue;
                 }
                 // we find an s-mer
-                let ys = KmerEncoding::canonical_smer(self.xs[0], self.xs[1]);
-                let hash_s = KmerEncoding::hash_smer(ys);
+                let ys = E::canonical_smer(self.xs[0], self.xs[1]);
+                let hash_s = E::hash_smer(ys);
                 self.qs.push_back(hash_s);
                 // not enough hashes in the queue, yet
                 if self.qs.len() < self.k - self.s + 1 {
@@ -462,8 +460,8 @@ impl Iterator for SyncmerIterator<'_, KmerEncoding> {
                 }
                 if self.qs[self.t - 1] == self.qs_min_val {
                     // occurs at t:th position in k-mer
-                    let yk = KmerEncoding::canonical_kmer(self.xk[0], self.xk[1]);
-                    let syncmer = KmerEncoding::make_syncmer(yk, i + 1 - self.k);
+                    let yk = E::canonical_kmer(self.xk[0], self.xk[1]);
+                    let syncmer = E::make_syncmer(yk, i + 1 - self.k);
                     self.i = i + 1;
                     return Some(syncmer);
                 }
@@ -471,80 +469,8 @@ impl Iterator for SyncmerIterator<'_, KmerEncoding> {
                 // if there is an "N", restart
                 self.qs_min_val = u64::MAX;
                 self.l = 0;
-                self.xs = [u64::default(), u64::default()];
-                self.xk = [u64::default(), u64::default()];
-                self.qs.clear();
-            }
-        }
-        self.exhausted = true;
-        None
-    }
-}
-
-impl Iterator for SyncmerIterator<'_, RymerEncoding> {
-    type Item = RymerSyncmer;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.exhausted {
-            return None;
-        }
-        for i in self.i..self.seq.len() {
-            let ch = self.seq[i];
-            if let Some(c) = RymerEncoding::encode_nucleotide(ch) {
-                // not an "N" base
-                self.xk[0] = RymerEncoding::update_kmer_forward(self.xk[0], c, self.kmask);
-                self.xk[1] = RymerEncoding::update_kmer_reverse(self.xk[1], c, self.kshift);
-                self.xs[0] = RymerEncoding::update_smer_forward(self.xs[0], c, self.smask);
-                self.xs[1] = RymerEncoding::update_smer_reverse(self.xs[1], c, self.sshift);
-                self.l += 1;
-                if self.l < self.s {
-                    continue;
-                }
-                // we find an s-mer
-                let ys = RymerEncoding::canonical_smer(self.xs[0], self.xs[1]);
-                let hash_s = RymerEncoding::hash_smer(ys);
-                self.qs.push_back(hash_s);
-                // not enough hashes in the queue, yet
-                if self.qs.len() < self.k - self.s + 1 {
-                    continue;
-                }
-                if self.qs.len() == (self.k - self.s + 1) {
-                    // We are at the last s-mer within the first k-mer, need to decide if we add it
-                    // TODO use min
-                    for j in 0..self.qs.len() {
-                        if self.qs[j] <= self.qs_min_val {
-                            self.qs_min_val = self.qs[j];
-                        }
-                    }
-                } else {
-                    // update queue and current minimum and position
-                    let front = self.qs.pop_front().unwrap();
-                    if front == self.qs_min_val {
-                        // we popped a minimum, find new brute force
-                        self.qs_min_val = u64::MAX;
-                        for j in 0..self.qs.len() {
-                            if self.qs[j] <= self.qs_min_val {
-                                self.qs_min_val = self.qs[j];
-                            }
-                        }
-                    } else if hash_s < self.qs_min_val {
-                        // the new value added to queue is the new minimum
-                        self.qs_min_val = hash_s;
-                    }
-                }
-                if self.qs[self.t - 1] == self.qs_min_val {
-                    // occurs at t:th position in k-mer
-                    let yk = RymerEncoding::canonical_kmer(self.xk[0], self.xk[1]);
-                    let syncmer = RymerEncoding::make_syncmer(yk, i + 1 - self.k);
-                    self.i = i + 1;
-                    return Some(syncmer);
-                }
-            } else {
-                // if there is an "N", restart
-                self.qs_min_val = u64::MAX;
-                self.l = 0;
-                self.xs = [(0, 0), (0, 0)];
-                self.xk = [(0, 0), (0, 0)];
+                self.xs = [E::SmerValue::default(), E::SmerValue::default()];
+                self.xk = [E::KmerValue::default(), E::KmerValue::default()];
                 self.qs.clear();
             }
         }
