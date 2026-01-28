@@ -128,14 +128,14 @@ if(NOT PYTHON_BINDINGS)
   install(TARGETS strobealign DESTINATION bin)
 endif()
 add_executable(test-strobealign
-  tests/tests.cpp
-  tests/test_input.cpp
-  tests/test_refs.cpp
-  tests/test_sam.cpp
-  tests/test_aligner.cpp
-  tests/test_cigar.cpp
-  tests/test_randstrobes.cpp
-  tests/test_indexparameters.cpp
+  cpp/tests/tests.cpp
+  cpp/tests/test_input.cpp
+  cpp/tests/test_refs.cpp
+  cpp/tests/test_sam.cpp
+  cpp/tests/test_aligner.cpp
+  cpp/tests/test_cigar.cpp
+  cpp/tests/test_randstrobes.cpp
+  cpp/tests/test_indexparameters.cpp
 )
 target_link_libraries(test-strobealign salib)
 target_include_directories(test-strobealign PUBLIC cpp/ cpp/ext/ ${PROJECT_BINARY_DIR})
