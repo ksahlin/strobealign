@@ -19,9 +19,11 @@ function strobealign() {
 function diff() {
     if ! env diff -u ${color} "$1" "$2"; then
       echo "Failure running 'diff $1 $2'"
-      exit 1
+      return 1
     fi
 }
+
+trap 'echo -e "\e[1;31mFailure\e[0m"' ERR
 
 cargo build
 
@@ -95,4 +97,4 @@ strobealign -C --no-PG --rg-id=1 --rg=SM:sample --rg=LB:library tests/phix.fasta
 diff tests/phix.tags.sam with-tags.sam
 rm with-tags.sam
 
-echo "Success"
+echo -e "\e[32mSuccess\e[0m"
