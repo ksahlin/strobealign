@@ -26,7 +26,7 @@ use crate::sam::{
     strip_suffix,
 };
 use crate::strobes::RandstrobeIterator;
-use crate::syncmers::SyncmerIterator;
+use crate::syncmers::KmerSyncmerIterator;
 
 const MAX_PAIR_NAMS: usize = 1000;
 
@@ -97,7 +97,7 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> [Vec<Query
     }
 
     // Generate syncmers for the forward sequence
-    let syncmer_iter = SyncmerIterator::new(
+    let syncmer_iter = KmerSyncmerIterator::new(
         seq,
         parameters.syncmer.k,
         parameters.syncmer.s,
