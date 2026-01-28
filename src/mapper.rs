@@ -395,7 +395,7 @@ pub fn align_single_end_read(
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let (nam_details, mut nams) = get_nams_by_chaining(
+    let (nam_details, nams) = get_nams_by_chaining(
         &record.sequence,
         index,
         chainer,
@@ -424,11 +424,7 @@ pub fn align_single_end_read(
 
     let k = index.parameters.syncmer.k;
     let read = Read::new(&record.sequence);
-    for (tries, nam) in nams
-        .iter_mut()
-        .take(mapping_parameters.max_tries)
-        .enumerate()
-    {
+    for (tries, nam) in nams.iter().take(mapping_parameters.max_tries).enumerate() {
         let score_dropoff = nam.n_matches as f32 / nam_max.n_matches as f32;
 
         if (tries > 1 && best_edit_distance == 0)
@@ -436,8 +432,11 @@ pub fn align_single_end_read(
         {
             break;
         }
-        let consistent_nam = reverse_nam_if_needed(nam, &read, references, k);
-        details.inconsistent_nams += (!consistent_nam) as usize;
+        let consistent_nam = nam.is_consistent(&read, references, k);
+        if !consistent_nam {
+            details.inconsistent_nams += 1;
+            continue;
+        }
         let Some(alignment) = extend_seed(aligner, nam, references, &read, consistent_nam) else {
             continue;
         };
