@@ -427,7 +427,6 @@ impl<'a> StrobemerIndex<'a> {
             self.parameters.syncmer.s,
             self.parameters.syncmer.t,
         );
-
         let randstrobe_iter =
             RandstrobeIterator::new(syncmer_iter, self.parameters.randstrobe.clone());
 
