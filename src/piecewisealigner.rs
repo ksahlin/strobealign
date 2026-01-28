@@ -224,18 +224,10 @@ impl PiecewiseAligner {
             if pre_align.score == 0 {
                 result.query_start = first_anchor.query_start;
                 result.ref_start = first_anchor.ref_start;
-                result
-                    .cigar
-                    .push(CigarOperation::Softclip, result.query_start);
             } else {
                 result.score += pre_align.score;
                 result.query_start = pre_align.query_start;
                 result.ref_start = ref_start + pre_align.ref_start;
-                if result.query_start > 0 {
-                    result
-                        .cigar
-                        .push(CigarOperation::Softclip, result.query_start);
-                }
                 result.cigar.extend(&pre_align.cigar);
             }
         } else {
@@ -243,10 +235,6 @@ impl PiecewiseAligner {
             result.ref_start = first_anchor.ref_start;
             if result.query_start == 0 {
                 result.score += self.scores.end_bonus as i32;
-            } else {
-                result
-                    .cigar
-                    .push(CigarOperation::Softclip, result.query_start);
             }
         }
     }
@@ -274,19 +262,10 @@ impl PiecewiseAligner {
             if post_align.score == 0 {
                 result.query_end = last_anchor_query_end;
                 result.ref_end = last_anchor_ref_end;
-                result.cigar.push(
-                    CigarOperation::Softclip,
-                    query.len() - last_anchor_query_end,
-                );
             } else {
                 result.score += post_align.score;
                 result.query_end = last_anchor_query_end + post_align.query_end;
                 result.ref_end = last_anchor_ref_end + post_align.ref_end;
-                if result.query_end < query.len() {
-                    result
-                        .cigar
-                        .push(CigarOperation::Softclip, query.len() - result.query_end);
-                }
                 result.cigar.extend(&post_align.cigar);
             }
         } else {
@@ -294,10 +273,6 @@ impl PiecewiseAligner {
             result.ref_end = last_anchor_ref_end;
             if result.query_end == query.len() {
                 result.score += self.scores.end_bonus as i32;
-            } else {
-                result
-                    .cigar
-                    .push(CigarOperation::Softclip, query.len() - result.query_end);
             }
         }
     }

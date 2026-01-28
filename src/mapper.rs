@@ -450,7 +450,7 @@ pub fn align_single_end_read(
             mapping_parameters.use_piecewise,
         );
 
-        // outputting Piecewise vs SSW alignments for evaluation
+        // outputting Piecewise vs SSW alignments for debugging
         if log::log_enabled!(log::Level::Trace) {
             let (ssw, pw) = if mapping_parameters.use_piecewise {
                 (
@@ -463,8 +463,19 @@ pub fn align_single_end_read(
                     extend_seed(aligner, nam, references, &read, consistent_nam, true),
                 )
             };
-            if let Some(pw) = pw {
-                if let Some(ssw) = ssw {
+            if let Some(mut pw) = pw {
+                // manually adding the soft clips
+                let mut cigar = Cigar::new();
+                cigar.push(CigarOperation::Softclip, pw.soft_clip_left);
+                cigar.extend(&pw.cigar);
+                cigar.push(CigarOperation::Softclip, pw.soft_clip_right);
+                pw.cigar = cigar;
+                if let Some(mut ssw) = ssw {
+                    let mut cigar = Cigar::new();
+                    cigar.push(CigarOperation::Softclip, ssw.soft_clip_left);
+                    cigar.extend(&ssw.cigar);
+                    cigar.push(CigarOperation::Softclip, ssw.soft_clip_right);
+                    ssw.cigar = cigar;
                     trace!("Alignment:[{:?},SSW:{:?},PW:{:?}]", nam.clone(), ssw, pw);
                 }
             }
