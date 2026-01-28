@@ -455,26 +455,6 @@ pub fn align_single_end_read(
             continue;
         };
 
-        // outputting Piecewise vs SSW alignments for evaluation
-        // if log::log_enabled!(log::Level::Trace) {
-        //     let (ssw, pw) = if mapping_parameters.use_piecewise {
-        //         (
-        //             extend_seed(aligner, nam, references, &read, consistent_nam, false),
-        //             alignment.clone(),
-        //         )
-        //     } else {
-        //         (
-        //             alignment.clone(),
-        //             extend_seed(aligner, nam, references, &read, consistent_nam, true),
-        //         )
-        //     };
-        //     if let Some(pw) = pw {
-        //         if let Some(ssw) = ssw {
-        //             trace!("Alignment:[{:?},SSW:{:?},PW:{:?}]", nam.clone(), ssw, pw);
-        //         }
-        //     }
-        // }
-
         details.tried_alignment += 1;
         details.gapped += alignment.gapped as usize;
 
