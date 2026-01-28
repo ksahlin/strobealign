@@ -426,12 +426,14 @@ pub fn align_single_end_read(
 
     let k = index.parameters.syncmer.k;
     let read = Read::new(&record.sequence);
-    for (tries, nam) in nams.iter_mut().enumerate() {
+    for (tries, nam) in nams
+        .iter_mut()
+        .take(mapping_parameters.max_tries)
+        .enumerate()
+    {
         let score_dropoff = nam.n_matches as f32 / nam_max.n_matches as f32;
 
-        // TODO iterate over slice of nams instead of tracking tries
-        if tries >= mapping_parameters.max_tries
-            || (tries > 1 && best_edit_distance == 0)
+        if (tries > 1 && best_edit_distance == 0)
             || score_dropoff < mapping_parameters.dropoff_threshold
         {
             break;
@@ -465,7 +467,7 @@ pub fn align_single_end_read(
             if update_best {
                 best_score = alignment.score;
                 best_alignment = Some(alignment.clone());
-                best_index = tries;
+                best_index = alignments.len();
                 if mapping_parameters.max_secondary == 0 {
                     best_edit_distance = alignment.global_edit_distance();
                 }
@@ -506,10 +508,9 @@ pub fn align_single_end_read(
 
         // Output secondary alignments
         //let max_out = min(alignments.len(), mapping_parameters.max_secondary + 1);
-        for (i, alignment) in alignments.iter().enumerate() {
-            if i >= mapping_parameters.max_secondary
-                || alignment.score - best_score
-                    > 2 * aligner.scores.mismatch as u32 + aligner.scores.gap_open as u32
+        for alignment in alignments.iter().take(mapping_parameters.max_secondary) {
+            if alignment.score.saturating_sub(best_score)
+                > 2 * aligner.scores.mismatch as u32 + aligner.scores.gap_open as u32
             {
                 break;
             }
