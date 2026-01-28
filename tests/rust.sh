@@ -51,6 +51,11 @@ rm phix.se.paf
 #diff tests/phix.pe.paf phix.pe.paf
 #rm phix.pe.paf
 
+# Single-end PAF with multi-context seeds in rescue mode
+strobealign -x tests/phix.fasta --mcs=rescue tests/phix.1.fastq | tail -n 11 > phix.mcsrescue.se.paf
+diff tests/phix.mcsrescue.se.paf phix.mcsrescue.se.paf
+rm phix.mcsrescue.se.paf
+
 # Single-end abundance estimation
 strobealign --aemb tests/phix.fasta tests/phix.1.fastq > phix.abun.se.txt
 diff tests/phix.abun.se.txt phix.abun.se.txt
