@@ -52,11 +52,14 @@ jobs:
         with:
           key: test-data-${{ hashFiles('tests/download.sh') }}
           path: tests/drosophila/
+      - name: Find baseline commit
+        run: |
+          echo "ci_baseline_commit=$(git --no-pager log -n1 --pretty=format:%H --grep='^Is-new-baseline: yes')" >> "$GITHUB_ENV"
       - name: Cache baseline BAM
         id: cache-baseline-bam
         uses: actions/cache@v4
         with:
-          key: baseline-bam-${{ hashFiles('tests/baseline-commit.txt') }}
+          key: baseline-bam-${{ env.ci_baseline_commit }}
           path: baseline/bam/
       - name: Compare to baseline (paired-end)
         run: tests/compare-baseline.sh
