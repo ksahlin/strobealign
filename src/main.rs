@@ -458,7 +458,7 @@ fn run() -> Result<(), CliError> {
         dropoff_threshold: args.dropoff_threshold,
         rescue_distance: args.rescue_distance,
         output_unmapped: !args.only_mapped,
-        ..MappingParameters::default()
+        mcs_strategy: args.mcs_strategy,
     };
 
     let chaining_parameters = ChainingParameters {

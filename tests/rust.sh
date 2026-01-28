@@ -19,9 +19,11 @@ function strobealign() {
 function diff() {
     if ! env diff -u ${color} "$1" "$2"; then
       echo "Failure running 'diff $1 $2'"
-      exit 1
+      return 1
     fi
 }
+
+trap 'echo -e "\e[1;31mFailure\e[0m"' ERR
 
 cargo build
 
@@ -48,6 +50,11 @@ rm phix.se.paf
 #strobealign -x tests/phix.fasta tests/phix.1.fastq tests/phix.2.fastq | tail -n 11 > phix.pe.paf
 #diff tests/phix.pe.paf phix.pe.paf
 #rm phix.pe.paf
+
+# Single-end PAF with multi-context seeds in rescue mode
+strobealign -x tests/phix.fasta --mcs=rescue tests/phix.1.fastq | tail -n 11 > phix.mcsrescue.se.paf
+diff tests/phix.mcsrescue.se.paf phix.mcsrescue.se.paf
+rm phix.mcsrescue.se.paf
 
 # Single-end abundance estimation
 strobealign --aemb tests/phix.fasta tests/phix.1.fastq > phix.abun.se.txt
@@ -95,4 +102,4 @@ strobealign -C --no-PG --rg-id=1 --rg=SM:sample --rg=LB:library tests/phix.fasta
 diff tests/phix.tags.sam with-tags.sam
 rm with-tags.sam
 
-echo "Success"
+echo -e "\e[32mSuccess\e[0m"
