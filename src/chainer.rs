@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use log::{Level, log_enabled, trace};
+use log::trace;
 
 use crate::details::NamDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
@@ -167,13 +167,6 @@ impl Chainer {
                 index.filter_cutoff,
                 rescue_distance,
             );
-
-            if log_enabled!(Level::Trace) {
-                trace!("Found {} hits", hits_details[is_revcomp].total_hits());
-                for hit in &hits[is_revcomp] {
-                    trace!("Hit: {:?}", hit);
-                }
-            }
         }
         let mut time_find_hits = hits_timer.elapsed().as_secs_f64();
 
