@@ -467,7 +467,7 @@ fn run() -> Result<(), CliError> {
         rescue_distance: args.rescue_distance,
         output_unmapped: !args.only_mapped,
         use_piecewise: args.use_piecewise,
-        ..MappingParameters::default()
+        mcs_strategy: args.mcs_strategy,
     };
 
     let chaining_parameters = ChainingParameters {

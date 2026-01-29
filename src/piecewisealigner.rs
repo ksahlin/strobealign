@@ -3,8 +3,6 @@ use block_aligner::{
     scan_block::{Block, PaddedBytes},
     scores::{AAMatrix, AAProfile, Gaps, NucMatrix, Profile},
 };
-use log::trace;
-
 use crate::{
     aligner::{hamming_align_global, AlignmentInfo, Scores},
     chainer::Anchor,

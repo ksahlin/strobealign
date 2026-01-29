@@ -68,7 +68,7 @@ diff tests/phix.pe.paf phix.pe.paf
 rm phix.pe.paf
 
 # Single-end PAF with multi-context seeds in rescue mode
-strobealign -x tests/phix.fasta --mcs=rescue tests/phix.1.fastq | tail -n 11 > phix.mcsrescue.se.paf
+strobealign -x tests/phix.fasta --mcs=rescue tests/phix.1.fastq | tail -n 11 | sed 's|SRR1377138.39/1|SRR1377138.39|' > phix.mcsrescue.se.paf
 diff tests/phix.mcsrescue.se.paf phix.mcsrescue.se.paf
 rm phix.mcsrescue.se.paf
 

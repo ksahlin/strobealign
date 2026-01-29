@@ -129,6 +129,7 @@ pub fn get_nams_by_chaining(
         query_randstrobes[0].len(),
         query_randstrobes[1].len()
     );
+
     let (mut nam_details, mut nams) =
         chainer.get_chains(&query_randstrobes, index, rescue_distance, mcs_strategy);
 
