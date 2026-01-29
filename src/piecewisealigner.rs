@@ -555,7 +555,7 @@ mod tests {
             0,
         );
         let result = aligner.global_alignment(b"AAATTT", b"AAATTT");
-        assert_eq!(result.score, 6 * Scores::default().match_ as i32);
+        assert_eq!(result.score, 6 * 2);
         assert_eq!(result.query_start, 0);
         assert_eq!(result.query_end, 6);
         assert_eq!(result.ref_start, 0);
@@ -577,7 +577,7 @@ mod tests {
             0,
         );
         let result = aligner.global_alignment(b"AAA", b"TTT");
-        assert_eq!(result.score, 3 * -(Scores::default().mismatch as i32));
+        assert_eq!(result.score, 3 * -8);
         assert_eq!(result.query_start, 0);
         assert_eq!(result.query_end, 3);
         assert_eq!(result.ref_start, 0);
@@ -599,10 +599,7 @@ mod tests {
             0,
         );
         let result = aligner.global_alignment(b"AAATAA", b"AAAAAA");
-        assert_eq!(
-            result.score,
-            5 * Scores::default().match_ as i32 - Scores::default().mismatch as i32
-        );
+        assert_eq!(result.score, 5 * 2 - 8);
         assert_eq!(result.query_start, 0);
         assert_eq!(result.query_end, 6);
         assert_eq!(result.ref_start, 0);
@@ -624,12 +621,7 @@ mod tests {
             0,
         );
         let result = aligner.global_alignment(b"AAATTT", b"AAAATTTT");
-        assert_eq!(
-            result.score,
-            6 * Scores::default().match_ as i32
-                - Scores::default().gap_open as i32
-                - Scores::default().gap_extend as i32
-        );
+        assert_eq!(result.score, 6 * 2 - 12 - 1);
         assert_eq!(result.query_start, 0);
         assert_eq!(result.query_end, 6);
         assert_eq!(result.ref_start, 0);
@@ -651,12 +643,7 @@ mod tests {
             0,
         );
         let result = aligner.global_alignment(b"AAAATTTT", b"AAATTT");
-        assert_eq!(
-            result.score,
-            6 * Scores::default().match_ as i32
-                - Scores::default().gap_open as i32
-                - Scores::default().gap_extend as i32,
-        );
+        assert_eq!(result.score, 6 * 2 - 12 - 1,);
         assert_eq!(result.query_start, 0);
         assert_eq!(result.query_end, 8);
         assert_eq!(result.ref_start, 0);
@@ -678,12 +665,7 @@ mod tests {
             0,
         );
         let result = aligner.global_alignment(b"AAATTT", b"TTAAATTT");
-        assert_eq!(
-            result.score,
-            6 * Scores::default().match_ as i32
-                - Scores::default().gap_open as i32
-                - Scores::default().gap_extend as i32
-        );
+        assert_eq!(result.score, 6 * 2 - 12 - 1);
         assert_eq!(result.query_start, 0);
         assert_eq!(result.query_end, 6);
         assert_eq!(result.ref_start, 0);
@@ -706,12 +688,7 @@ mod tests {
         );
         let result = aligner.global_alignment(b"AAATTT", b"AAATTTAA");
 
-        assert_eq!(
-            result.score,
-            6 * Scores::default().match_ as i32
-                - Scores::default().gap_open as i32
-                - Scores::default().gap_extend as i32
-        );
+        assert_eq!(result.score, 6 * 2 - 12 - 1);
         assert_eq!(result.query_start, 0);
         assert_eq!(result.query_end, 6);
         assert_eq!(result.ref_start, 0);
@@ -734,12 +711,7 @@ mod tests {
         );
         let result = aligner.global_alignment(b"TTAAATTT", b"AAATTT");
 
-        assert_eq!(
-            result.score,
-            6 * Scores::default().match_ as i32
-                - Scores::default().gap_open as i32
-                - Scores::default().gap_extend as i32
-        );
+        assert_eq!(result.score, 6 * 2 - 12 - 1);
         assert_eq!(result.query_start, 0);
         assert_eq!(result.query_end, 8);
         assert_eq!(result.ref_start, 0);
@@ -762,12 +734,7 @@ mod tests {
         );
         let result = aligner.global_alignment(b"AAATTTAA", b"AAATTT");
 
-        assert_eq!(
-            result.score,
-            6 * Scores::default().match_ as i32
-                - Scores::default().gap_open as i32
-                - Scores::default().gap_extend as i32
-        );
+        assert_eq!(result.score, 6 * 2 - 12 - 1);
         assert_eq!(result.query_start, 0);
         assert_eq!(result.query_end, 8);
         assert_eq!(result.ref_start, 0);
@@ -790,10 +757,7 @@ mod tests {
         );
         let result = aligner.global_alignment(b"ATATATATAT", b"AAAAAAAAAA");
 
-        assert_eq!(
-            result.score,
-            5 * Scores::default().match_ as i32 - 5 * Scores::default().mismatch as i32
-        );
+        assert_eq!(result.score, 5 * 2 - 5 * 8);
         assert_eq!(result.query_start, 0);
         assert_eq!(result.query_end, 10);
         assert_eq!(result.ref_start, 0);
@@ -815,13 +779,7 @@ mod tests {
             0,
         );
         let result = aligner.global_alignment(b"AAACTTAAACCTT", b"AAAATTGAAATT");
-        assert_eq!(
-            result.score,
-            10 * Scores::default().match_ as i32
-                - Scores::default().mismatch as i32
-                - 2 * Scores::default().gap_open as i32
-                - Scores::default().gap_extend as i32
-        );
+        assert_eq!(result.score, 10 * 2 - 8 - 2 * 12 - 1);
         assert_eq!(result.query_start, 0);
         assert_eq!(result.query_end, 13);
         assert_eq!(result.ref_start, 0);
@@ -1091,5 +1049,466 @@ mod tests {
         assert_eq!(result.ref_start, 0);
         assert_eq!(result.ref_end, 10);
         assert_eq!(result.cigar.to_string(), "3=2D5=");
+    }
+
+    #[test]
+    fn test_remove_spurious_anchors_control() {
+        let expected = vec![
+            Anchor {
+                ref_id: 0,
+                ref_start: 0,
+                query_start: 0,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 10,
+                query_start: 10,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 20,
+                query_start: 20,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 30,
+                query_start: 30,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 40,
+                query_start: 40,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 50,
+                query_start: 50,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 60,
+                query_start: 60,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 70,
+                query_start: 70,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 80,
+                query_start: 80,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 90,
+                query_start: 90,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 100,
+                query_start: 100,
+            },
+        ];
+        let mut result = expected.clone();
+        remove_spurious_anchors(&mut result);
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_remove_spurious_anchors_inside_trim() {
+        let mut result = vec![
+            Anchor {
+                ref_id: 0,
+                ref_start: 0,
+                query_start: 0,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 10,
+                query_start: 10,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 20,
+                query_start: 20,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 130,
+                query_start: 30,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 140,
+                query_start: 40,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 150,
+                query_start: 50,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 60,
+                query_start: 60,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 70,
+                query_start: 50,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 80,
+                query_start: 80,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 90,
+                query_start: 90,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 100,
+                query_start: 100,
+            },
+        ];
+        remove_spurious_anchors(&mut result);
+        let expected = vec![
+            Anchor {
+                ref_id: 0,
+                ref_start: 0,
+                query_start: 0,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 10,
+                query_start: 10,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 20,
+                query_start: 20,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 60,
+                query_start: 60,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 80,
+                query_start: 80,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 90,
+                query_start: 90,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 100,
+                query_start: 100,
+            },
+        ];
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_remove_spurious_anchors_ends_trim() {
+        let mut result = vec![
+            Anchor {
+                ref_id: 0,
+                ref_start: 5,
+                query_start: 0,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 15,
+                query_start: 10,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 20,
+                query_start: 20,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 30,
+                query_start: 30,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 40,
+                query_start: 40,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 50,
+                query_start: 50,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 60,
+                query_start: 60,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 70,
+                query_start: 70,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 80,
+                query_start: 80,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 90,
+                query_start: 95,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 100,
+                query_start: 105,
+            },
+        ];
+        remove_spurious_anchors(&mut result);
+        let expected = vec![
+            Anchor {
+                ref_id: 0,
+                ref_start: 20,
+                query_start: 20,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 30,
+                query_start: 30,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 40,
+                query_start: 40,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 50,
+                query_start: 50,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 60,
+                query_start: 60,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 70,
+                query_start: 70,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 80,
+                query_start: 80,
+            },
+        ];
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_piecewise_extension_matching() {
+        let aligner = PiecewiseAligner::new(
+            Scores {
+                match_: 2,
+                mismatch: 8,
+                gap_open: 12,
+                gap_extend: 1,
+                end_bonus: 10,
+            },
+            5,
+            100,
+        );
+        let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let refseq = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let mut anchors = vec![
+            Anchor {
+                ref_id: 0,
+                ref_start: 40,
+                query_start: 30,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 30,
+                query_start: 20,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 20,
+                query_start: 10,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 10,
+                query_start: 0,
+            },
+        ];
+        let result = aligner
+            .piecewise_extension(query, refseq, &mut anchors, 5)
+            .unwrap();
+        assert_eq!(result.score, 50 * 2 + 10 * 2);
+        assert_eq!(result.edit_distance, 0);
+        assert_eq!(result.query_start, 0);
+        assert_eq!(result.query_end, 50);
+        assert_eq!(result.ref_start, 10);
+        assert_eq!(result.ref_end, 60);
+        assert_eq!(result.cigar.to_string(), "50=");
+    }
+
+    #[test]
+    fn test_piecewise_extension_unmappable() {
+        let aligner = PiecewiseAligner::new(
+            Scores {
+                match_: 2,
+                mismatch: 8,
+                gap_open: 12,
+                gap_extend: 1,
+                end_bonus: 10,
+            },
+            5,
+            100,
+        );
+        let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let refseq = b"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT";
+        let mut anchors = vec![
+            Anchor {
+                ref_id: 0,
+                ref_start: 30,
+                query_start: 20,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 20,
+                query_start: 20,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 10,
+                query_start: 10,
+            },
+        ];
+        let result = aligner.piecewise_extension(query, refseq, &mut anchors, 5);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_piecewise_extension_overlapping_anchors() {
+        let aligner = PiecewiseAligner::new(
+            Scores {
+                match_: 2,
+                mismatch: 8,
+                gap_open: 12,
+                gap_extend: 1,
+                end_bonus: 10,
+            },
+            5,
+            100,
+        );
+        let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let refseq =
+            b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let mut anchors = vec![
+            Anchor {
+                ref_id: 0,
+                ref_start: 40,
+                query_start: 30,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 37,
+                query_start: 27,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 35,
+                query_start: 25,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 30,
+                query_start: 20,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 25,
+                query_start: 20,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 20,
+                query_start: 15,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 10,
+                query_start: 5,
+            },
+        ];
+        let result = aligner
+            .piecewise_extension(query, refseq, &mut anchors, 5)
+            .unwrap();
+        assert_eq!(result.score, 50 * 2 + 10 * 2 - 12 - 4 * 1);
+        assert_eq!(result.edit_distance, 5);
+        assert_eq!(result.query_start, 0);
+        assert_eq!(result.query_end, 50);
+        assert_eq!(result.ref_start, 5);
+        assert_eq!(result.ref_end, 60);
+        assert_eq!(result.cigar.to_string(), "25=5D25=");
+    }
+
+    #[test]
+    fn test_piecewise_extension_complex() {
+        let aligner = PiecewiseAligner::new(
+            Scores {
+                match_: 2,
+                mismatch: 8,
+                gap_open: 12,
+                gap_extend: 1,
+                end_bonus: 10,
+            },
+            5,
+            100,
+        );
+        let query = b"CTTTTAAAAATTTTAAAAATGGTTTCAAAAATTCCTAAAAATTTTTCCCCC";
+        let refseq = b"TTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAA";
+        let mut anchors = vec![
+            Anchor {
+                ref_id: 0,
+                ref_start: 35,
+                query_start: 36,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 15,
+                query_start: 14,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 5,
+                query_start: 5,
+            },
+        ];
+        let result = aligner
+            .piecewise_extension(query, refseq, &mut anchors, 5)
+            .unwrap();
+        assert_eq!(
+            result.score,
+            (13 + 6 + 3 + 7 + 11) * 2 + 10 - 12 * 2 - 1 - 8 * 4
+        );
+        assert_eq!(result.edit_distance, 7);
+        assert_eq!(result.query_start, 0);
+        assert_eq!(result.query_end, 46);
+        assert_eq!(result.ref_start, 0);
+        assert_eq!(result.ref_end, 45);
+        assert_eq!(result.cigar.to_string(), "1X13=1D6=2I3=1X7=2X11=");
     }
 }
