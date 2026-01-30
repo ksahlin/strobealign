@@ -288,10 +288,12 @@ pub fn find_hits(
     }
 
     if log::log_enabled!(Level::Trace) {
+        let n_filtered = hits.iter().filter(|h| h.is_filtered).count();
         trace!(
-            "Found {} hits ({} of those rescued):",
+            "Found {} hits ({} rescued, {} filtered):",
             hits.len(),
-            details.rescued
+            details.rescued,
+            n_filtered,
         );
         trace!("querypos count (p=partial, F=filtered)");
         for hit in &hits {
