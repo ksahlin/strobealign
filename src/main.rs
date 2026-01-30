@@ -22,7 +22,8 @@ use strobealign::details::Details;
 use strobealign::fasta;
 use strobealign::fasta::{FastaError, RefSequence};
 use strobealign::fastq::{
-    PeekableSequenceReader, SequenceRecord, interleaved_record_iterator, record_iterator,
+    FastqError, PeekableSequenceReader, RecordPair, SequenceRecord, interleaved_record_iterator,
+    record_iterator,
 };
 use strobealign::index::{
     IndexParameters, IndexReadingError, InvalidIndexParameter,
@@ -279,6 +280,9 @@ enum CliError {
 
     #[error("{0}")]
     FastaError(#[from] FastaError),
+
+    #[error("{0}")]
+    FastqError(#[from] FastqError),
 
     #[error(transparent)]
     IndexReadingError(#[from] IndexReadingError),
@@ -833,8 +837,8 @@ struct Mapper<'a> {
 impl Mapper<'_> {
     fn map_chunk(
         &mut self, // TODO only because of abundances
-        chunk: Vec<io::Result<(SequenceRecord, Option<SequenceRecord>)>>,
-    ) -> io::Result<(Vec<u8>, Details)> {
+        chunk: Vec<Result<RecordPair, FastqError>>,
+    ) -> Result<(Vec<u8>, Details), CliError> {
         let mut out = vec![];
         let mut rng = Rng::with_seed(0);
         let mut isizedist = InsertSizeDistribution::new();
