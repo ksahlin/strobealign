@@ -328,7 +328,6 @@ fn get_best_paired_map_location(
             );
         }
 
-        // TODO unwrap should not be needed
         MappedNams::Pair(best.0.unwrap(), best.1.unwrap())
     } else {
         MappedNams::Individual(best_individual_nam1.cloned(), best_individual_nam2.cloned())
