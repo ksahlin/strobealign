@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use log::{Level, log_enabled, trace};
+use log::trace;
 
 use crate::details::NamDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
@@ -167,13 +167,6 @@ impl Chainer {
                 index.filter_cutoff,
                 rescue_distance,
             );
-
-            if log_enabled!(Level::Trace) {
-                trace!("Found {} hits", hits_details[is_revcomp].total_hits());
-                for hit in &hits[is_revcomp] {
-                    trace!("Hit: {:?}", hit);
-                }
-            }
         }
         let mut time_find_hits = hits_timer.elapsed().as_secs_f64();
 
@@ -405,10 +398,8 @@ fn extract_chains_from_dp(
             nam_id: chains.len(),
             query_start: first.query_start,
             query_end: last.query_start + k,
-            query_prev_match_startpos: usize::MAX,
             ref_start: first.ref_start,
             ref_end: last.ref_start + k,
-            ref_prev_match_startpos: usize::MAX,
             n_matches: c,
             ref_id: last.ref_id,
             score: score + c as f32 * chaining_parameters.matches_weight,

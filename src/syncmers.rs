@@ -144,11 +144,8 @@ impl Iterator for SyncmerIterator<'_> {
                 }
                 if self.qs.len() == (self.k - self.s + 1) {
                     // We are at the last s-mer within the first k-mer, need to decide if we add it
-                    // TODO use min
                     for j in 0..self.qs.len() {
-                        if self.qs[j] <= self.qs_min_val {
-                            self.qs_min_val = self.qs[j];
-                        }
+                        self.qs_min_val = min(self.qs[j], self.qs_min_val);
                     }
                 } else {
                     // update queue and current minimum and position
@@ -157,9 +154,7 @@ impl Iterator for SyncmerIterator<'_> {
                         // we popped a minimum, find new brute force
                         self.qs_min_val = u64::MAX;
                         for j in 0..self.qs.len() {
-                            if self.qs[j] <= self.qs_min_val {
-                                self.qs_min_val = self.qs[j];
-                            }
+                            self.qs_min_val = min(self.qs[j], self.qs_min_val);
                         }
                     } else if hash_s < self.qs_min_val {
                         // the new value added to queue is the new minimum

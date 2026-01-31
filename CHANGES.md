@@ -1,5 +1,19 @@
 # Strobealign Changelog
 
+## development version
+
+* Strobealign has been ported to Rust. The Rust version is equivalent to the
+  C++ version in terms of accuracy and runtime, but the following features are
+  currently missing:
+  - Option `--index-statistics` is not implemented.
+  - Input reads must be in FASTQ format. (The C++ version supported reads in
+    FASTA format.)
+  - There are no Python bindings.
+  Please report any other regressions!
+
+  If you need one of the above features, use version 0.17.0.
+
+
 ## v0.17.0 (2025-12-18)
 
 * #504: Introduce collinear chaining as the new default mapping and alignment

@@ -126,19 +126,20 @@ impl IndexParameters {
         max_dist: u8,
         aux_len: u8,
     ) -> Result<Self, InvalidIndexParameter> {
+        if aux_len > 63 {
+            return Err(InvalidIndexParameter::InvalidParameter(
+                "aux length must be less than 64",
+            ));
+        }
+
         let main_hash_mask = !0u64 << (9 + aux_len);
         Ok(IndexParameters {
             canonical_read_length,
             syncmer: SyncmerParameters::try_new(k, s)?,
-            randstrobe: RandstrobeParameters {
-                w_min,
-                w_max,
-                q,
-                max_dist,
-                main_hash_mask,
-            },
+            randstrobe: RandstrobeParameters::try_new(w_min, w_max, q, max_dist, main_hash_mask)?,
         })
     }
+
     /// Create an IndexParameters instance based on a given read length.
     /// k, s, l, u, c and max_seed_len can be used to override determined parameters
     pub fn from_read_length(
@@ -178,7 +179,15 @@ impl IndexParameters {
         let w_max = w_max.unwrap();
 
         let max_dist = match max_seed_len {
-            Some(max_seed_len) => (max_seed_len - k) as u8,
+            Some(max_seed_len) => {
+                if max_seed_len < k || max_seed_len - k > 255 {
+                    dbg!(max_seed_len);
+                    return Err(InvalidIndexParameter::InvalidParameter(
+                        "max seed length must be between k and k + 255",
+                    ));
+                }
+                (max_seed_len - k) as u8
+            }
             None => usize::clamp(canonical_read_length.saturating_sub(70), k, 255) as u8,
         };
         let q = 2u64.pow(c.unwrap_or(default_c)) - 1;

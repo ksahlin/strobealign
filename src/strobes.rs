@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::index::REF_RANDSTROBE_HASH_MASK;
+use crate::index::{InvalidIndexParameter, REF_RANDSTROBE_HASH_MASK};
 use crate::syncmers::Syncmer;
 
 pub const DEFAULT_AUX_LEN: u8 = 17;
@@ -14,16 +14,29 @@ pub struct RandstrobeParameters {
 
     /// Mask for bits of the hash that represent the main hash
     pub main_hash_mask: u64,
-    // TODO ensure aux_len <= 63
-    // TODO
-    // void verify() const {
-    //     if (max_dist > 255) {
-    //         throw BadParameter("maximum seed length (-m <max_dist>) is larger than 255");
-    //     }
-    //     if (w_min > w_max) {
-    //         throw BadParameter("w_min is greater than w_max (choose different -l/-u parameters)");
-    //     }
-    // }
+}
+
+impl RandstrobeParameters {
+    pub fn try_new(
+        w_min: usize,
+        w_max: usize,
+        q: u64,
+        max_dist: u8,
+        main_hash_mask: u64,
+    ) -> Result<Self, InvalidIndexParameter> {
+        if w_min > w_max {
+            return Err(InvalidIndexParameter::InvalidParameter(
+                "w_min is greater than w_max (choose different -l/-u parameters)",
+            ));
+        }
+        Ok(RandstrobeParameters {
+            w_min,
+            w_max,
+            q,
+            max_dist,
+            main_hash_mask,
+        })
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]

@@ -438,11 +438,9 @@ pub fn align_single_end_read(
         }
         let consistent_nam = reverse_nam_if_needed(nam, &read, references, k);
         details.inconsistent_nams += (!consistent_nam) as usize;
-        let alignment = extend_seed(aligner, nam, references, &read, consistent_nam);
-        if alignment.is_none() {
+        let Some(alignment) = extend_seed(aligner, nam, references, &read, consistent_nam) else {
             continue;
-        }
-        let alignment = alignment.unwrap();
+        };
         details.tried_alignment += 1;
         details.gapped += alignment.gapped as usize;
 

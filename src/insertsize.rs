@@ -43,14 +43,8 @@ impl InsertSizeDistribution {
             self.sigma = self.variance.sqrt();
         }
         self.sample_size += 1;
-        /*
-        TODO
-        if self.mu < 0 {
-            std::cerr << "mu negative, mu: " << mu << " sigma: " << sigma << " SSE: " << SSE << " sample size: " << sample_size << std::endl;
-        }
-        if self.SSE < 0 {
-            std::cerr << "SSE negative, mu: " << mu << " sigma: " << sigma << " SSE: " << SSE << " sample size: " << sample_size << std::endl;
-        }
-        */
+
+        debug_assert!(self.mu >= 0.0);
+        debug_assert!(self.sse >= 0.0);
     }
 }

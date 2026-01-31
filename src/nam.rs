@@ -21,8 +21,6 @@ pub struct Nam {
     pub ref_end: usize,
     pub query_start: usize,
     pub query_end: usize,
-    pub query_prev_match_startpos: usize,
-    pub ref_prev_match_startpos: usize,
     pub n_matches: usize,
     pub ref_id: usize,
     pub score: f32,
