@@ -2,8 +2,8 @@ use std::fmt::{Display, Formatter};
 use std::time::Instant;
 
 use fastrand::Rng;
-use log::trace;
 use log::Level::Trace;
+use log::trace;
 
 use crate::chainer::Anchor;
 use crate::chainer::Chainer;
