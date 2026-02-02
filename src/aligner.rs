@@ -294,7 +294,7 @@ pub fn hamming_align_global(
 #[cfg(test)]
 mod test {
     use crate::{
-        aligner::{hamming_align, hamming_align_global, highest_scoring_segment, Aligner, Scores},
+        aligner::{Aligner, Scores, hamming_align, hamming_align_global, highest_scoring_segment},
         cigar::Cigar,
     };
 

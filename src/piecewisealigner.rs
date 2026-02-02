@@ -1,12 +1,12 @@
+use crate::{
+    aligner::{AlignmentInfo, Scores, hamming_align_global},
+    chainer::Anchor,
+    cigar::{Cigar, CigarOperation},
+};
 use block_aligner::{
     cigar::{Cigar as BlockCigar, Operation},
     scan_block::{Block, PaddedBytes},
     scores::{AAMatrix, AAProfile, Gaps, NucMatrix, Profile},
-};
-use crate::{
-    aligner::{hamming_align_global, AlignmentInfo, Scores},
-    chainer::Anchor,
-    cigar::{Cigar, CigarOperation},
 };
 
 #[derive(Clone)]

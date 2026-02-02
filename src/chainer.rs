@@ -1,9 +1,9 @@
 use std::time::Instant;
 
-use log::{log_enabled, trace, Level};
+use log::{Level, log_enabled, trace};
 
 use crate::details::NamDetails;
-use crate::hit::{find_hits, Hit, HitsDetails};
+use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::StrobemerIndex;
 use crate::mapper::QueryRandstrobe;
 use crate::mcsstrategy::McsStrategy;

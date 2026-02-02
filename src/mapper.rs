@@ -1,4 +1,4 @@
-use std::cmp::{min, Reverse};
+use std::cmp::{Reverse, min};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::mem;
@@ -9,7 +9,7 @@ use log::trace;
 use memchr::memmem;
 
 use crate::aligner::Aligner;
-use crate::aligner::{hamming_align, hamming_distance, AlignmentInfo};
+use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
 use crate::chainer::Chainer;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
@@ -19,11 +19,11 @@ use crate::index::{IndexParameters, StrobemerIndex};
 use crate::insertsize::InsertSizeDistribution;
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
-use crate::nam::{get_nams_by_chaining, reverse_nam_if_needed, Nam};
+use crate::nam::{Nam, get_nams_by_chaining, reverse_nam_if_needed};
 use crate::read::Read;
 use crate::revcomp::reverse_complement;
 use crate::sam::{
-    SamRecord, MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, UNMAP,
+    MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SamRecord, UNMAP,
 };
 use crate::strobes::RandstrobeIterator;
 use crate::syncmers::SyncmerIterator;
@@ -1464,8 +1464,8 @@ fn top_dropoff(nams: &[Nam]) -> f32 {
 mod tests {
     use crate::cigar::Cigar;
     use crate::mapper::{
-        count_best_alignment_pairs, deduplicate_scored_pairs, has_shared_substring, Alignment,
-        ScoredAlignmentPair,
+        Alignment, ScoredAlignmentPair, count_best_alignment_pairs, deduplicate_scored_pairs,
+        has_shared_substring,
     };
 
     fn dummy_alignment() -> Alignment {
