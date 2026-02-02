@@ -39,6 +39,24 @@ impl Nam {
     pub fn projected_ref_start(&self) -> usize {
         self.ref_start.saturating_sub(self.query_start)
     }
+
+    /// Returns whether a NAM represents a consistent match between read and
+    /// reference by comparing the nucleotide sequences of the first and last
+    /// strobe (taking orientation into account).
+    pub fn is_consistent(&self, read: &Read, references: &[RefSequence], k: usize) -> bool {
+        let ref_start_kmer = &references[self.ref_id].sequence[self.ref_start..self.ref_start + k];
+        let ref_end_kmer = &references[self.ref_id].sequence[self.ref_end - k..self.ref_end];
+
+        let seq = if self.is_revcomp {
+            read.rc()
+        } else {
+            read.seq()
+        };
+        let read_start_kmer = &seq[self.query_start..self.query_start + k];
+        let read_end_kmer = &seq[self.query_end - k..self.query_end];
+
+        ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer
+    }
 }
 
 impl Display for Nam {
