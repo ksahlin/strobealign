@@ -262,6 +262,7 @@ fn compute_score(dq: usize, dr: usize, k: usize, parameters: &ChainingParameters
     let dd = dr.abs_diff(dq);
     let dg = dq.min(dr);
     let mut score = k.min(dg) as f32;
+    let dg = dg.saturating_sub(k);
 
     let lin_penalty =
         parameters.diag_diff_penalty * dd as f32 + parameters.gap_length_penalty * dg as f32;
@@ -439,5 +440,19 @@ mod test {
         // same diagonal, a suboptimal chain is found that has score 38.2 and
         // consists of anchors 2 and 3.
         assert!(best_score > 42.0);
+    }
+
+    #[test]
+    fn test_linear_score_adjacent_anchors() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        #[rustfmt::skip]
+        let anchors = [
+            Anchor { ref_id: 0, ref_start:   0, query_start:  0, },
+            Anchor { ref_id: 0, ref_start:  20, query_start: 20, },
+            Anchor { ref_id: 0, ref_start:  40, query_start: 40, },
+        ];
+        let score1 = chainer.collinear_chaining(&anchors[0..1]).0;
+        assert_eq!(chainer.collinear_chaining(&anchors[0..2]).0, score1 * 2.0);
+        assert_eq!(chainer.collinear_chaining(&anchors[0..3]).0, score1 * 3.0);
     }
 }
