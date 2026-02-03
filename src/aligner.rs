@@ -264,38 +264,36 @@ pub fn hamming_align_global(
     match_: u8,
     mismatch: u8,
 ) -> AlignmentInfo {
-    let mut result = AlignmentInfo {
-        cigar: Cigar::new(),
-        edit_distance: 0,
-        ref_start: 0,
-        ref_end: query.len(),
-        query_start: 0,
-        query_end: query.len(),
-        score: 0,
-    };
-
     let mut score = 0;
+    let mut cigar = Cigar::new();
+    let mut edit_distance = 0;
 
     for (q, r) in query.iter().zip(refseq.iter()) {
         if q == r {
             score += match_ as i32;
-            result.cigar.push(CigarOperation::Eq, 1);
+            cigar.push(CigarOperation::Eq, 1);
         } else {
             score -= mismatch as i32;
-            result.edit_distance += 1;
-            result.cigar.push(CigarOperation::X, 1);
+            edit_distance += 1;
+            cigar.push(CigarOperation::X, 1);
         }
     }
 
-    result.score = 0.max(score) as u32;
-    result
+    AlignmentInfo {
+        cigar,
+        edit_distance,
+        ref_start: 0,
+        ref_end: query.len(),
+        query_start: 0,
+        query_end: query.len(),
+        score: 0.max(score) as u32,
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        aligner::{Aligner, Scores, hamming_align, hamming_align_global, highest_scoring_segment},
-        cigar::Cigar,
+    use crate::aligner::{
+        Aligner, Scores, hamming_align, hamming_align_global, highest_scoring_segment,
     };
 
     #[test]
