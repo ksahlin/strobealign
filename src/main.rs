@@ -205,6 +205,14 @@ struct Args {
     #[arg(short = 'L', default_value_t = Scores::default().end_bonus, value_name = "N", help_heading = "Alignment")]
     end_bonus: u32,
 
+    /// Use Piecewise extension instead of SSW for single-ends alignments
+    #[arg(long = "pw", help_heading = "Alignment")]
+    use_piecewise: bool,
+
+    /// X-drop threshold for piecewise extension
+    #[arg(long = "xdrop", default_value_t = 500, value_name = "N", help_heading = "Alignment")]
+    xdrop: i32,
+
     //args::Flag nams(parser, "nams", "Use NAMs instead of collinear chaining for alignments", {"nams"});
 
     /// Collinear chaining look back heuristic
@@ -230,14 +238,6 @@ struct Args {
     /// Weight given to the number of anchors for the final score of chains
     #[arg(long = "mw", default_value_t = ChainingParameters::default().matches_weight, help_heading = "Collinear chaining")]
     matches_weight: f32,
-
-    /// Use Piecewise extension instead of SSW for single-ends alignments
-    #[arg(long = "pw", help_heading = "Piecewise extension")]
-    use_piecewise: bool,
-
-    /// X-drop threshold for piecewise extension
-    #[arg(long = "xdrop", default_value_t = 500, value_name = "N", help_heading = "Piecewise extension")]
-    xdrop: i32,
 
     /// Multi-context seed strategy for finding hits
     #[arg(long = "mcs", value_enum, default_value_t = McsStrategy::default(), help_heading = "Search parameters")]
