@@ -56,36 +56,30 @@ Strobealign is available from [Bioconda](https://bioconda.github.io/).
 
 ### From source
 
-To compile from the source, you need CMake,
-a recent `g++` (tested with version 8), [zlib](https://zlib.net/), `pkg-config` and
-[ISA-L](https://github.com/intel/isa-l/) (Intel Intelligent Storage Acceleration Library).
-On Debian/Ubuntu,
-running `sudo apt-get install build-essential libisal-dev cmake` should take care of this.
-On macOS, use `brew install pkg-config isa-l`.
+To compile strobealign from sources, you need a somewhat recent Rust
+version, which you can obtain via
+[Rustup](https://rust-lang.org/tools/install/).
+At the time of writing,
+the Rust versions included in current Debian and Ubuntu releases are too old.
 
-Then do the following:
+When Rust is available, you can compile strobealign with
 ```
-git clone https://github.com/ksahlin/strobealign
-cd strobealign
-cmake -B build -DCMAKE_C_FLAGS="-march=native" -DCMAKE_CXX_FLAGS="-march=native"
-cmake --build build -j $(nproc)
+RUSTFLAGS='-C target-cpu=native' cargo build --release
 ```
-The resulting binary is `build/strobealign`.
+The resulting binary will then be available at `target/release/strobealign`.
 
-The binary is tailored to the CPU the compiler runs on.
-If it needs to run on other machines, use this `cmake` command instead for compatibility with most x86-64 CPUs in use today:
-```
-cmake -B build -DCMAKE_C_FLAGS="-msse4.2" -DCMAKE_CXX_FLAGS="-msse4.2"
-```
 
-See the [contributing instructions](#contributing) for how to compile strobealign
-as a developer.
+See the [contributing instructions](#contributing) for how to compile
+strobealign as a developer.
 
 ### Python bindings
 
-Experimental Python bindings can be installed with
-`pip install .`. The only documentation for the moment are the tests in
-`tests/*.py`.
+Experimental Python bindings were available in the C++ version of strobealign
+(until version 0.17.0) and have not been ported to Rust.
+We may add them back, but until then,
+you will need to get strobealign 0.17.0,
+and can then install them with `pip install .`.
+The only documentation for the moment are the tests in `tests/*.py`.
 
 ## Usage
 
