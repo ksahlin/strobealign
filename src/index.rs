@@ -14,9 +14,7 @@ use thiserror::Error;
 
 use crate::fasta::RefSequence;
 use crate::partition::custom_partition_point;
-use crate::strobes::{
-    DEFAULT_AUX_LEN, RandstrobeHashMethod, RandstrobeIterator, RandstrobeParameters, RymerIterator,
-};
+use crate::strobes::{DEFAULT_AUX_LEN, RandstrobeIterator, RandstrobeParameters, RymerIterator};
 use crate::syncmers::{KmerSyncmerIterator, RymerSyncmerIterator, SyncmerParameters};
 
 /// Pre-defined index parameters that work well for a certain
@@ -128,7 +126,6 @@ impl IndexParameters {
         q: u64,
         max_dist: u8,
         aux_len: u8,
-        hash_method: RandstrobeHashMethod,
         adna_mode: bool,
     ) -> Result<Self, InvalidIndexParameter> {
         let main_hash_mask = !0u64 << (9 + aux_len);
@@ -140,7 +137,6 @@ impl IndexParameters {
                 w_max,
                 q,
                 max_dist,
-                hash_method,
                 main_hash_mask,
             },
             adna_mode,
@@ -200,7 +196,6 @@ impl IndexParameters {
             q,
             max_dist,
             aux_len,
-            RandstrobeHashMethod::McsHash,
             adna_mode,
         )
     }
@@ -873,7 +868,6 @@ impl<'a> StrobemerIndex<'a> {
         {
             file.write_all(&val.to_ne_bytes())?;
         }
-        file.write_all(&(rp.hash_method as u8).to_ne_bytes())?;
         file.write_all(&(rp.main_hash_mask as u64).to_ne_bytes())?;
         file.write_all(&[self.parameters.adna_mode as u8])?;
 
@@ -921,7 +915,6 @@ impl<'a> StrobemerIndex<'a> {
         let w_max = read_u32(&mut reader)? as usize;
         let q = read_u32(&mut reader)? as u64;
         let max_dist = read_u32(&mut reader)? as u8;
-        let hash_method = read_randstrobe_hash_method(&mut reader)? as RandstrobeHashMethod;
         let main_hash_mask = read_u64(&mut reader)?;
         let adna_mode = read_bool(&mut reader)?;
 
@@ -931,7 +924,6 @@ impl<'a> StrobemerIndex<'a> {
             w_max,
             q,
             max_dist,
-            hash_method,
             main_hash_mask,
         };
         let sti_parameters = IndexParameters {
@@ -953,18 +945,6 @@ impl<'a> StrobemerIndex<'a> {
         }
 
         Ok(())
-    }
-}
-
-fn read_randstrobe_hash_method<T: BufRead>(
-    file: &mut T,
-) -> Result<RandstrobeHashMethod, IndexReadingError> {
-    let mut buf = [0u8; 1];
-    file.read_exact(&mut buf)?;
-
-    match buf[0] {
-        0 => Ok(RandstrobeHashMethod::McsHash),
-        _ => Err(IndexReadingError::ParameterMismatch),
     }
 }
 
@@ -1051,7 +1031,6 @@ mod tests {
         let w_max = 16;
         let max_dist = 180;
         let q = 255;
-        let hash_method = RandstrobeHashMethod::McsHash;
         let main_hash_mask = 0xfffffffffc000000;
         let aux_len = 17;
         let sp = SyncmerParameters::try_new(k, s).unwrap();
@@ -1060,7 +1039,6 @@ mod tests {
             w_max,
             q,
             max_dist,
-            hash_method,
             main_hash_mask,
         };
         let ip = IndexParameters::try_new(
@@ -1072,7 +1050,6 @@ mod tests {
             q,
             max_dist,
             aux_len,
-            hash_method,
             false,
         )
         .unwrap();
