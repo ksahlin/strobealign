@@ -183,6 +183,10 @@ struct Args {
     #[arg(long, default_value_t = DEFAULT_AUX_LEN, value_name = "N", help_heading = "Seeding")]
     aux_len: u8,
 
+    /// Use ancient DNA seeding mode (rymer syncmers instead of kmer syncmers)
+    #[arg(long, help_heading = "Seeding")]
+    adna: bool,
+
     // Alignment scores
 
     /// Match score
@@ -343,12 +347,16 @@ fn run() -> Result<(), CliError> {
         args.c,
         args.max_seed_length,
         args.aux_len,
+        args.adna,
     )?;
 
     info!(
         "Canonical read length: {} bp",
         parameters.canonical_read_length
     );
+    if parameters.adna_mode {
+        info!("Ancient DNA mode enabled (using rymer syncmers)");
+    }
     debug!("  {:?}", parameters.syncmer);
     debug!("  {:?}", parameters.randstrobe);
     debug!(
