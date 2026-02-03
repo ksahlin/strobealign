@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::index::{InvalidIndexParameter, REF_RANDSTROBE_HASH_MASK};
-use crate::syncmers::SyncmerLike;
+use crate::syncmers::{RymerSyncmer, SyncmerLike};
 
 pub const DEFAULT_AUX_LEN: u8 = 17;
 
@@ -10,17 +10,14 @@ pub const DEFAULT_AUX_LEN: u8 = 17;
 pub enum RandstrobeHashMethod {
     /// Combines two individual syncmer hashes into a randstrobe hash
     ///
-    /// McsHash: The first syncmer is designated as the "main", the other is
+    /// The first syncmer is designated as the "main", the other is
     /// the "auxiliary".
     /// The combined hash is obtained by setting the top bits to the bits of
     /// the main hash and the bottom bits to the bits of the auxiliary
     /// hash. Since entries in the index are sorted by randstrobe hash, this allows
     /// us to search for the main syncmer by masking out the lower bits.
-    /// Xor: The combined hash is obtained by xor operation.
-    /// Main syncmer is not available in this method.
     #[default]
     McsHash = 0,
-    Xor = 1,
 }
 
 impl RandstrobeHashMethod {
@@ -30,7 +27,6 @@ impl RandstrobeHashMethod {
             Self::McsHash => {
                 ((hash1 & main_hash_mask) | (hash2 & !main_hash_mask)) & REF_RANDSTROBE_HASH_MASK
             }
-            Self::Xor => (hash1 ^ hash2) & REF_RANDSTROBE_HASH_MASK,
         }
     }
 
@@ -158,12 +154,47 @@ impl<S: SyncmerLike, SI: Iterator<Item = S>> Iterator for RandstrobeIterator<S, 
     }
 }
 
+pub struct RymerIterator<I: Iterator<Item = RymerSyncmer>> {
+    syncmer_iterator: I,
+    main_hash_mask: u64,
+    hash_method: RandstrobeHashMethod,
+}
+
+impl<I: Iterator<Item = RymerSyncmer>> RymerIterator<I> {
+    pub fn new(syncmer_iterator: I, main_hash_mask: u64) -> Self {
+        RymerIterator {
+            syncmer_iterator,
+            main_hash_mask,
+            hash_method: RandstrobeHashMethod::McsHash,
+        }
+    }
+}
+
+impl<I: Iterator<Item = RymerSyncmer>> Iterator for RymerIterator<I> {
+    type Item = Randstrobe;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let syncmer = self.syncmer_iterator.next()?;
+        let hash1 = syncmer.hash1 as u64;
+        let hash2 = syncmer.hash2 as u64;
+
+        Some(Randstrobe {
+            hash: self.hash_method.hash(hash1, hash2, self.main_hash_mask),
+            hash_revcomp: self
+                .hash_method
+                .hash_revcomp(hash1, hash2, self.main_hash_mask),
+            strobe1_pos: syncmer.position,
+            strobe2_pos: syncmer.position,
+        })
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::fasta::{RefSequence, read_fasta};
     use crate::index::IndexParameters;
-    use crate::syncmers::KmerSyncmerIterator;
+    use crate::syncmers::{KmerSyncmerIterator, RymerSyncmerIterator, SyncmerParameters};
     use std::fs::File;
     use std::io::BufReader;
 
@@ -229,5 +260,39 @@ mod test {
         let randstrobe_count = randstrobe_iter.count();
 
         assert_eq!(randstrobe_count, syncmer_count);
+    }
+
+    #[test]
+    fn test_rymer_iterator() {
+        let refseq = read_phix().sequence;
+        let parameters = SyncmerParameters::try_new(20, 16).unwrap();
+        let main_hash_mask = 0xfffffffffc000000u64;
+
+        let syncmer_iter =
+            RymerSyncmerIterator::new(&refseq, parameters.k, parameters.s, parameters.t);
+        let rymer_iter = RymerIterator::new(syncmer_iter, main_hash_mask);
+
+        for randstrobe in rymer_iter {
+            assert!(randstrobe.strobe1_pos == randstrobe.strobe2_pos);
+            assert!(randstrobe.strobe1_pos < refseq.len());
+        }
+    }
+
+    #[test]
+    fn test_rymer_iterator_count_matches_syncmer_count() {
+        let refseq = read_phix().sequence;
+        let parameters = SyncmerParameters::try_new(20, 16).unwrap();
+        let main_hash_mask = 0xfffffffffc000000u64;
+
+        let syncmer_iter =
+            RymerSyncmerIterator::new(&refseq, parameters.k, parameters.s, parameters.t);
+        let syncmer_count = syncmer_iter.count();
+
+        let syncmer_iter =
+            RymerSyncmerIterator::new(&refseq, parameters.k, parameters.s, parameters.t);
+        let rymer_iter = RymerIterator::new(syncmer_iter, main_hash_mask);
+        let rymer_count = rymer_iter.count();
+
+        assert_eq!(rymer_count, syncmer_count);
     }
 }

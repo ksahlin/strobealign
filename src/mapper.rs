@@ -24,8 +24,8 @@ use crate::revcomp::reverse_complement;
 use crate::sam::{
     MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SamRecord, UNMAP,
 };
-use crate::strobes::RandstrobeIterator;
-use crate::syncmers::KmerSyncmerIterator;
+use crate::strobes::{RandstrobeIterator, RymerIterator};
+use crate::syncmers::{KmerSyncmerIterator, RymerSyncmerIterator};
 
 const MAX_PAIR_NAMS: usize = 1000;
 
@@ -93,6 +93,19 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> [Vec<Query
         return randstrobes;
     }
 
+    if parameters.adna_mode {
+        randstrobes_query_adna(seq, parameters, &mut randstrobes);
+    } else {
+        randstrobes_query_kmer(seq, parameters, &mut randstrobes);
+    }
+    randstrobes
+}
+
+fn randstrobes_query_kmer(
+    seq: &[u8],
+    parameters: &IndexParameters,
+    randstrobes: &mut [Vec<QueryRandstrobe>; 2],
+) {
     // Generate syncmers for the forward sequence
     let syncmer_iter = KmerSyncmerIterator::new(
         seq,
@@ -138,7 +151,53 @@ pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> [Vec<Query
             end: randstrobe.strobe2_pos + parameters.syncmer.k,
         });
     }
-    randstrobes
+}
+
+fn randstrobes_query_adna(
+    seq: &[u8],
+    parameters: &IndexParameters,
+    randstrobes: &mut [Vec<QueryRandstrobe>; 2],
+) {
+    // Generate syncmers for the forward sequence
+    let syncmer_iter = RymerSyncmerIterator::new(
+        seq,
+        parameters.syncmer.k,
+        parameters.syncmer.s,
+        parameters.syncmer.t,
+    );
+    let mut syncmers: Vec<_> = syncmer_iter.collect();
+
+    // Generate randstrobes for the forward sequence
+    let randstrobe_iter =
+        RymerIterator::new(syncmers.iter().cloned(), parameters.randstrobe.main_hash_mask);
+
+    for randstrobe in randstrobe_iter {
+        randstrobes[0].push(QueryRandstrobe {
+            hash: randstrobe.hash,
+            hash_revcomp: randstrobe.hash_revcomp,
+            start: randstrobe.strobe1_pos,
+            end: randstrobe.strobe2_pos + parameters.syncmer.k,
+        });
+    }
+
+    // For the reverse complement, we can re-use the syncmers of the forward
+    // sequence because canonical syncmers are invariant under reverse
+    // complementing. Only the coordinates need to be adjusted.
+    syncmers.reverse();
+    for i in 0..syncmers.len() {
+        syncmers[i].position = seq.len() - syncmers[i].position - parameters.syncmer.k;
+    }
+
+    let rc_randstrobe_iter =
+        RymerIterator::new(syncmers.into_iter(), parameters.randstrobe.main_hash_mask);
+    for randstrobe in rc_randstrobe_iter {
+        randstrobes[1].push(QueryRandstrobe {
+            hash: randstrobe.hash,
+            hash_revcomp: randstrobe.hash_revcomp,
+            start: randstrobe.strobe1_pos,
+            end: randstrobe.strobe2_pos + parameters.syncmer.k,
+        });
+    }
 }
 
 /// Conversion of an Alignment into a SamRecord

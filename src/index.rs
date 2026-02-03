@@ -15,9 +15,9 @@ use thiserror::Error;
 use crate::fasta::RefSequence;
 use crate::partition::custom_partition_point;
 use crate::strobes::{
-    DEFAULT_AUX_LEN, RandstrobeHashMethod, RandstrobeIterator, RandstrobeParameters,
+    DEFAULT_AUX_LEN, RandstrobeHashMethod, RandstrobeIterator, RandstrobeParameters, RymerIterator,
 };
-use crate::syncmers::{KmerSyncmerIterator, SyncmerParameters};
+use crate::syncmers::{KmerSyncmerIterator, RymerSyncmerIterator, SyncmerParameters};
 
 /// Pre-defined index parameters that work well for a certain
 /// "canonical" read length (and similar read lengths)
@@ -95,6 +95,7 @@ pub struct IndexParameters {
     pub canonical_read_length: usize,
     pub syncmer: SyncmerParameters,
     pub randstrobe: RandstrobeParameters,
+    pub adna_mode: bool,
 }
 
 impl IndexParameters {
@@ -128,6 +129,7 @@ impl IndexParameters {
         max_dist: u8,
         aux_len: u8,
         hash_method: RandstrobeHashMethod,
+        adna_mode: bool,
     ) -> Result<Self, InvalidIndexParameter> {
         if aux_len > 63 {
             return Err(InvalidIndexParameter::InvalidParameter(
@@ -140,6 +142,7 @@ impl IndexParameters {
             canonical_read_length,
             syncmer: SyncmerParameters::try_new(k, s)?,
             randstrobe: RandstrobeParameters::try_new(w_min, w_max, q, max_dist, hash_method, main_hash_mask)?,
+            adna_mode,
         })
     }
 
@@ -154,6 +157,7 @@ impl IndexParameters {
         c: Option<u32>,
         max_seed_len: Option<usize>,
         aux_len: u8,
+        adna_mode: bool,
     ) -> Result<IndexParameters, InvalidIndexParameter> {
         let default_c = 8;
         let mut canonical_read_length = 50;
@@ -205,6 +209,7 @@ impl IndexParameters {
             max_dist,
             aux_len,
             RandstrobeHashMethod::McsHash,
+            adna_mode,
         )
     }
 
@@ -218,6 +223,7 @@ impl IndexParameters {
             None,
             None,
             DEFAULT_AUX_LEN,
+            false,
         )
         .unwrap()
     }
@@ -334,14 +340,23 @@ impl RefRandstrobe {
 
 /// Count randstrobes by counting syncmers
 fn count_randstrobes(seq: &[u8], parameters: &IndexParameters) -> usize {
-    let syncmer_iterator = KmerSyncmerIterator::new(
-        seq,
-        parameters.syncmer.k,
-        parameters.syncmer.s,
-        parameters.syncmer.t,
-    );
-
-    syncmer_iterator.count()
+    if parameters.adna_mode {
+        let syncmer_iterator = RymerSyncmerIterator::new(
+            seq,
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+        );
+        syncmer_iterator.count()
+    } else {
+        let syncmer_iterator = KmerSyncmerIterator::new(
+            seq,
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+        );
+        syncmer_iterator.count()
+    }
 }
 
 fn count_all_randstrobes(
@@ -625,16 +640,36 @@ impl<'a> StrobemerIndex<'a> {
         if seq.len() < self.parameters.randstrobe.w_max {
             return;
         }
-        let syncmer_iter = KmerSyncmerIterator::new(
-            seq,
-            self.parameters.syncmer.k,
-            self.parameters.syncmer.s,
-            self.parameters.syncmer.t,
-        );
 
-        let randstrobe_iter =
-            RandstrobeIterator::new(syncmer_iter, self.parameters.randstrobe.clone());
+        let n = if self.parameters.adna_mode {
+            let syncmer_iter = RymerSyncmerIterator::new(
+                seq,
+                self.parameters.syncmer.k,
+                self.parameters.syncmer.s,
+                self.parameters.syncmer.t,
+            );
+            let randstrobe_iter =
+                RymerIterator::new(syncmer_iter, self.parameters.randstrobe.main_hash_mask);
+            Self::construct_randstrobes(randstrobes, randstrobe_iter, ref_index)
+        } else {
+            let syncmer_iter = KmerSyncmerIterator::new(
+                seq,
+                self.parameters.syncmer.k,
+                self.parameters.syncmer.s,
+                self.parameters.syncmer.t,
+            );
+            let randstrobe_iter =
+                RandstrobeIterator::new(syncmer_iter, self.parameters.randstrobe.clone());
+            Self::construct_randstrobes(randstrobes, randstrobe_iter, ref_index)
+        };
+        debug_assert_eq!(n, randstrobes.len());
+    }
 
+    fn construct_randstrobes(
+        randstrobes: &mut [RefRandstrobe],
+        randstrobe_iter: impl Iterator<Item = crate::strobes::Randstrobe>,
+        ref_index: usize,
+    ) -> usize {
         let mut n = 0;
         for (i, randstrobe) in randstrobe_iter.enumerate() {
             n += 1;
@@ -646,7 +681,7 @@ impl<'a> StrobemerIndex<'a> {
                 offset as u8,
             );
         }
-        debug_assert_eq!(n, randstrobes.len());
+        n
     }
 
     pub fn get_full(&self, hash: RandstrobeHash) -> Option<usize> {
@@ -791,7 +826,7 @@ impl<'a> StrobemerIndex<'a> {
     }
 }
 
-const STI_FILE_FORMAT_VERSION: u32 = 6;
+const STI_FILE_FORMAT_VERSION: u32 = 7;
 
 #[derive(Error, Debug)]
 pub enum IndexReadingError {
@@ -848,6 +883,7 @@ impl<'a> StrobemerIndex<'a> {
         }
         file.write_all(&(rp.hash_method as u8).to_ne_bytes())?;
         file.write_all(&(rp.main_hash_mask as u64).to_ne_bytes())?;
+        file.write_all(&[self.parameters.adna_mode as u8])?;
 
         write_vec(&mut file, &self.randstrobes)?;
         write_vec(&mut file, &self.randstrobe_start_indices)?;
@@ -895,6 +931,7 @@ impl<'a> StrobemerIndex<'a> {
         let max_dist = read_u32(&mut reader)? as u8;
         let hash_method = read_randstrobe_hash_method(&mut reader)? as RandstrobeHashMethod;
         let main_hash_mask = read_u64(&mut reader)?;
+        let adna_mode = read_bool(&mut reader)?;
 
         let syncmer_parameters = SyncmerParameters::try_new(k, s)?;
         let randstrobe_parameters = RandstrobeParameters {
@@ -909,6 +946,7 @@ impl<'a> StrobemerIndex<'a> {
             canonical_read_length,
             syncmer: syncmer_parameters,
             randstrobe: randstrobe_parameters,
+            adna_mode,
         };
 
         if self.parameters != sti_parameters {
@@ -934,7 +972,6 @@ fn read_randstrobe_hash_method<T: BufRead>(
 
     match buf[0] {
         0 => Ok(RandstrobeHashMethod::McsHash),
-        1 => Ok(RandstrobeHashMethod::Xor),
         _ => Err(IndexReadingError::ParameterMismatch),
     }
 }
@@ -951,6 +988,13 @@ fn read_u64<T: BufRead>(file: &mut T) -> Result<u64, Error> {
     file.read_exact(&mut buf)?;
 
     Ok(u64::from_ne_bytes(buf))
+}
+
+fn read_bool<T: BufRead>(file: &mut T) -> Result<bool, Error> {
+    let mut buf = [0u8; 1];
+    file.read_exact(&mut buf)?;
+
+    Ok(buf[0] != 0)
 }
 
 fn read_vec<T, R: Read>(file: &mut BufReader<R>) -> Result<Vec<T>, Error> {
@@ -1037,11 +1081,13 @@ mod tests {
             max_dist,
             aux_len,
             hash_method,
+            false,
         )
         .unwrap();
         assert_eq!(ip.canonical_read_length, canonical_read_length);
         assert_eq!(ip.randstrobe, rp);
         assert_eq!(ip.syncmer, sp);
+        assert!(!ip.adna_mode);
 
         let ip = IndexParameters::default_from_read_length(canonical_read_length + 1);
         assert_eq!(ip.canonical_read_length, canonical_read_length);
