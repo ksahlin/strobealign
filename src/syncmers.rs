@@ -484,6 +484,8 @@ pub type RymerSyncmerIterator<'a> = SyncmerIterator<'a, RymerEncoding>;
 
 #[cfg(test)]
 mod test {
+    use crate::syncmers::{KmerEncoding, SyncmerEncoding};
+
     use super::{
         KmerSyncmerIterator, NUCLEOTIDES, RYMER_S1, RYMER_S2, RymerSyncmerIterator,
         SyncmerIterator, SyncmerLike, SyncmerParameters,
@@ -512,6 +514,58 @@ mod test {
             SyncmerIterator::new(seq.as_bytes(), parameters.k, parameters.s, parameters.t);
         let syncmer = iterator.next().unwrap();
         assert_eq!(syncmer.position(), 0);
+    }
+
+    #[test]
+    fn test_kmer_update() {
+        let k = 5;
+        let s = 3;
+        let kmask = KmerEncoding::kmer_mask(k);
+        let kshift = KmerEncoding::kmer_shift(k);
+        let smask = KmerEncoding::smer_mask(s);
+        let sshift = KmerEncoding::smer_shift(s);
+        let mut xk: [u64; 2] = [0, 0];
+        let mut xs: [u64; 2] = [0, 0];
+        let seq = "TACGTCAA";
+        for ch in seq.chars() {
+            if let Some(c) = KmerEncoding::encode_nucleotide(ch as u8) {
+                xk[0] = KmerEncoding::update_kmer_forward(xk[0], c, kmask);
+                xk[1] = KmerEncoding::update_kmer_reverse(xk[1], c, kshift);
+                xs[0] = KmerEncoding::update_smer_forward(xs[0], c, smask);
+                xs[1] = KmerEncoding::update_smer_reverse(xs[1], c, sshift);
+            }
+        }
+        assert_eq!(xk[0], 0b1011010000); // GTCAA
+        assert_eq!(xk[1], 0b1111100001); // TTGAC
+        assert_eq!(xs[0], 0b010000); // CAA
+        assert_eq!(xs[1], 0b111110); // TTG
+    }
+
+    #[test]
+    fn test_rymer_update() {
+        use crate::syncmers::RymerEncoding;
+
+        let k = 5;
+        let s = 3;
+        let kmask = RymerEncoding::kmer_mask(k);
+        let kshift = RymerEncoding::kmer_shift(k);
+        let smask = RymerEncoding::smer_mask(s);
+        let sshift = RymerEncoding::smer_shift(s);
+        let mut xk: [(u32, u32); 2] = [(0, 0), (0, 0)];
+        let mut xs: [(u32, u32); 2] = [(0, 0), (0, 0)];
+        let seq = "TACGTCAA";
+        for ch in seq.chars() {
+            if let Some(c) = RymerEncoding::encode_nucleotide(ch as u8) {
+                xk[0] = RymerEncoding::update_kmer_forward(xk[0], c, kmask);
+                xk[1] = RymerEncoding::update_kmer_reverse(xk[1], c, kshift);
+                xs[0] = RymerEncoding::update_smer_forward(xs[0], c, smask);
+                xs[1] = RymerEncoding::update_smer_reverse(xs[1], c, sshift);
+            }
+        }
+        assert_eq!(xk[0], (0b01100, 0b11000));
+        assert_eq!(xk[1], (0b11001, 0b11100));
+        assert_eq!(xs[0], (0b100, 0b000));
+        assert_eq!(xs[1], (0b110, 0b111));
     }
 
     #[test]
