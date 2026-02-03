@@ -464,7 +464,7 @@ pub fn align_single_end_read(
                 )
             };
             if let Some(mut pw) = pw {
-                // manually adding the soft clips
+                // manually adds the soft clips
                 let mut cigar = Cigar::new();
                 cigar.push(CigarOperation::Softclip, pw.soft_clip_left);
                 cigar.extend(&pw.cigar);
