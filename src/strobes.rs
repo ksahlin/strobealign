@@ -5,35 +5,22 @@ use crate::syncmers::{RymerSyncmer, SyncmerLike};
 
 pub const DEFAULT_AUX_LEN: u8 = 17;
 
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum RandstrobeHashMethod {
-    /// Combines two individual syncmer hashes into a randstrobe hash
-    ///
-    /// The first syncmer is designated as the "main", the other is
-    /// the "auxiliary".
-    /// The combined hash is obtained by setting the top bits to the bits of
-    /// the main hash and the bottom bits to the bits of the auxiliary
-    /// hash. Since entries in the index are sorted by randstrobe hash, this allows
-    /// us to search for the main syncmer by masking out the lower bits.
-    #[default]
-    McsHash = 0,
+/// Combines two individual syncmer hashes into a randstrobe hash
+///
+/// The first syncmer is designated as the "main", the other is
+/// the "auxiliary".
+/// The combined hash is obtained by setting the top bits to the bits of
+/// the main hash and the bottom bits to the bits of the auxiliary
+/// hash. Since entries in the index are sorted by randstrobe hash, this allows
+/// us to search for the main syncmer by masking out the lower bits.
+#[inline]
+pub fn randstrobe_hash(hash1: u64, hash2: u64, main_hash_mask: u64) -> u64 {
+    ((hash1 & main_hash_mask) | (hash2 & !main_hash_mask)) & REF_RANDSTROBE_HASH_MASK
 }
 
-impl RandstrobeHashMethod {
-    #[inline]
-    pub fn hash(&self, hash1: u64, hash2: u64, main_hash_mask: u64) -> u64 {
-        match self {
-            Self::McsHash => {
-                ((hash1 & main_hash_mask) | (hash2 & !main_hash_mask)) & REF_RANDSTROBE_HASH_MASK
-            }
-        }
-    }
-
-    #[inline]
-    pub fn hash_revcomp(&self, hash1: u64, hash2: u64, main_hash_mask: u64) -> u64 {
-        self.hash(hash2, hash1, main_hash_mask)
-    }
+#[inline]
+pub fn randstrobe_hash_revcomp(hash1: u64, hash2: u64, main_hash_mask: u64) -> u64 {
+    randstrobe_hash(hash2, hash1, main_hash_mask)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,7 +29,6 @@ pub struct RandstrobeParameters {
     pub w_max: usize,
     pub q: u64,
     pub max_dist: u8,
-    pub hash_method: RandstrobeHashMethod,
 
     /// Mask for bits of the hash that represent the main hash
     pub main_hash_mask: u64,
@@ -54,7 +40,6 @@ impl RandstrobeParameters {
         w_max: usize,
         q: u64,
         max_dist: u8,
-        hash_method: RandstrobeHashMethod,
         main_hash_mask: u64,
     ) -> Result<Self, InvalidIndexParameter> {
         if w_min > w_max {
@@ -67,7 +52,6 @@ impl RandstrobeParameters {
             w_max,
             q,
             max_dist,
-            hash_method,
             main_hash_mask,
         })
     }
@@ -82,15 +66,10 @@ pub struct Randstrobe {
 }
 
 impl Randstrobe {
-    pub fn from_strobes<S: SyncmerLike>(
-        hash_method: RandstrobeHashMethod,
-        strobe1: S,
-        strobe2: S,
-        main_hash_mask: u64,
-    ) -> Self {
+    pub fn from_strobes<S: SyncmerLike>(strobe1: S, strobe2: S, main_hash_mask: u64) -> Self {
         Randstrobe {
-            hash: hash_method.hash(strobe1.hash(), strobe2.hash(), main_hash_mask),
-            hash_revcomp: hash_method.hash_revcomp(strobe1.hash(), strobe2.hash(), main_hash_mask),
+            hash: randstrobe_hash(strobe1.hash(), strobe2.hash(), main_hash_mask),
+            hash_revcomp: randstrobe_hash_revcomp(strobe1.hash(), strobe2.hash(), main_hash_mask),
             strobe1_pos: strobe1.position(),
             strobe2_pos: strobe2.position(),
         }
@@ -146,7 +125,6 @@ impl<S: SyncmerLike, SI: Iterator<Item = S>> Iterator for RandstrobeIterator<S, 
         self.syncmers.pop_front();
 
         Some(Randstrobe::from_strobes(
-            self.parameters.hash_method,
             strobe1,
             strobe2,
             self.parameters.main_hash_mask,
@@ -157,7 +135,6 @@ impl<S: SyncmerLike, SI: Iterator<Item = S>> Iterator for RandstrobeIterator<S, 
 pub struct RymerIterator<I: Iterator<Item = RymerSyncmer>> {
     syncmer_iterator: I,
     main_hash_mask: u64,
-    hash_method: RandstrobeHashMethod,
 }
 
 impl<I: Iterator<Item = RymerSyncmer>> RymerIterator<I> {
@@ -165,7 +142,6 @@ impl<I: Iterator<Item = RymerSyncmer>> RymerIterator<I> {
         RymerIterator {
             syncmer_iterator,
             main_hash_mask,
-            hash_method: RandstrobeHashMethod::McsHash,
         }
     }
 }
@@ -179,10 +155,8 @@ impl<I: Iterator<Item = RymerSyncmer>> Iterator for RymerIterator<I> {
         let hash2 = syncmer.hash2 as u64;
 
         Some(Randstrobe {
-            hash: self.hash_method.hash(hash1, hash2, self.main_hash_mask),
-            hash_revcomp: self
-                .hash_method
-                .hash_revcomp(hash1, hash2, self.main_hash_mask),
+            hash: randstrobe_hash(hash1, hash2, self.main_hash_mask),
+            hash_revcomp: randstrobe_hash_revcomp(hash1, hash2, self.main_hash_mask),
             strobe1_pos: syncmer.position,
             strobe2_pos: syncmer.position,
         })
@@ -203,10 +177,9 @@ mod test {
         let main_hash_mask = 0xfffffffffc000000;
         let hash1 = 0x00000000ffffffff;
         let hash2 = 0xffffffff00000000;
-        let hash_method = RandstrobeHashMethod::McsHash;
 
-        assert!(hash_method.hash(hash1, hash2, main_hash_mask) == 0x00000000fc000000);
-        assert!(hash_method.hash_revcomp(hash1, hash2, main_hash_mask) == 0xffffffff03ffff00);
+        assert!(randstrobe_hash(hash1, hash2, main_hash_mask) == 0x00000000fc000000);
+        assert!(randstrobe_hash_revcomp(hash1, hash2, main_hash_mask) == 0xffffffff03ffff00);
     }
 
     fn read_phix() -> RefSequence {

@@ -168,8 +168,10 @@ fn randstrobes_query_adna(
     let mut syncmers: Vec<_> = syncmer_iter.collect();
 
     // Generate randstrobes for the forward sequence
-    let randstrobe_iter =
-        RymerIterator::new(syncmers.iter().cloned(), parameters.randstrobe.main_hash_mask);
+    let randstrobe_iter = RymerIterator::new(
+        syncmers.iter().cloned(),
+        parameters.randstrobe.main_hash_mask,
+    );
 
     for randstrobe in randstrobe_iter {
         randstrobes[0].push(QueryRandstrobe {
