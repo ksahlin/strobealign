@@ -213,9 +213,7 @@ impl PiecewiseAligner {
     ) {
         if first_anchor.query_start > 0 && first_anchor.ref_start > 0 {
             let query_part = &query[..first_anchor.query_start];
-            let ref_start = 0
-                .max(first_anchor.ref_start as isize - query_part.len() as isize - padding as isize)
-                as usize;
+            let ref_start = first_anchor.ref_start.saturating_sub(query_part.len() + padding);
             let ref_part = &refseq[ref_start..first_anchor.ref_start];
 
             let pre_align = self.xdrop_alignment(query_part, ref_part, true);
