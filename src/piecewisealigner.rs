@@ -290,11 +290,9 @@ impl PiecewiseAligner {
         &self,
         query: &[u8],
         refseq: &[u8],
-        anchors: &mut Vec<Anchor>, // anchors are sorted from last to first
+        anchors: &[Anchor], // anchors are sorted from last to first
         padding: usize,
     ) -> Option<AlignmentInfo> {
-        remove_spurious_anchors(anchors);
-
         let mut result =
             self.align_before_first_anchor(query, refseq, &anchors[anchors.len() - 1], padding);
 
@@ -457,7 +455,7 @@ fn build_cigar_reverse_swap_indel(block_cigar: &BlockCigar) -> Cigar {
     result
 }
 
-fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
+pub fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
     if anchors.len() < 2 {
         return;
     }
