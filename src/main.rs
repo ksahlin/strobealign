@@ -183,37 +183,27 @@ struct Args {
     #[arg(long, default_value_t = DEFAULT_AUX_LEN, value_name = "N", help_heading = "Seeding")]
     aux_len: u8,
 
-    // Alignment scores
+    /// Multi-context seed strategy for finding hits
+    #[arg(long = "mcs", value_enum, default_value_t = McsStrategy::default(), help_heading = "Search parameters")]
+    mcs_strategy: McsStrategy,
 
-    /// Match score
-    #[arg(short = 'A', default_value_t = Scores::default().match_, value_name = "N", help_heading = "Alignment")]
-    match_score: u8,
+    /// Top fraction of repetitive strobemers to filter out from sampling
+    #[arg(short, default_value_t = 0.0002, help_heading = "Search parameters")]
+    filter_fraction: f64,
 
-    /// Mismatch penalty
-    #[arg(short = 'B', default_value_t = Scores::default().mismatch, value_name = "N", help_heading = "Alignment")]
-    mismatch_score: u8,
+    /// Try candidate sites with mapping score at least S of maximum mapping score
+    #[arg(short = 'S', default_value_t = 0.5, help_heading = "Search parameters")]
+    dropoff_threshold: f32,
 
-    /// Gap open penalty
-    #[arg(short = 'O', default_value_t = Scores::default().gap_open, value_name = "N", help_heading = "Alignment")]
-    gap_open_penalty: u8,
+    /// Maximum number of mapping sites to try
+    #[arg(short = 'M', default_value_t = MappingParameters::default().max_tries, help_heading = "Search parameters")]
+    max_tries: usize,
 
-    /// Gap extension penalty
-    #[arg(short = 'E', default_value_t = Scores::default().gap_extend, value_name = "N", help_heading = "Alignment")]
-    gap_extension_penalty: u8,
-
-    /// Soft-clipping penalty
-    #[arg(short = 'L', default_value_t = Scores::default().end_bonus, value_name = "N", help_heading = "Alignment")]
-    end_bonus: u32,
-
-    /// Use SSW extension instead of Piecewise for single-ends alignments
-    #[arg(long = "ssw", help_heading = "Alignment")]
-    use_ssw: bool,
-
-    /// X-drop threshold for piecewise extension
-    #[arg(long = "xdrop", default_value_t = 500, value_name = "N", help_heading = "Alignment")]
-    xdrop: i32,
-
-    //args::Flag nams(parser, "nams", "Use NAMs instead of collinear chaining for alignments", {"nams"});
+    /// Maximum distance (in nucleotides) that filtered seeds may span.
+    /// The lower the value, the more seeds are rescued.
+    /// Use 0 to disable rescue.
+    #[arg(short = 'R', default_value_t = MappingParameters::default().rescue_distance, help_heading = "Search parameters")]
+    rescue_distance: usize,
 
     /// Collinear chaining look back heuristic
     #[arg(short = 'H', default_value_t = ChainingParameters::default().max_lookback, value_name = "N", help_heading = "Collinear chaining")]
@@ -239,27 +229,38 @@ struct Args {
     #[arg(long = "mw", default_value_t = ChainingParameters::default().matches_weight, help_heading = "Collinear chaining")]
     matches_weight: f32,
 
-    /// Multi-context seed strategy for finding hits
-    #[arg(long = "mcs", value_enum, default_value_t = McsStrategy::default(), help_heading = "Search parameters")]
-    mcs_strategy: McsStrategy,
+    // Alignment parameters
 
-    /// Top fraction of repetitive strobemers to filter out from sampling
-    #[arg(short, default_value_t = 0.0002, help_heading = "Search parameters")]
-    filter_fraction: f64,
+    //args::Flag nams(parser, "nams", "Use NAMs instead of collinear chaining for alignments", {"nams"});
 
-    /// Try candidate sites with mapping score at least S of maximum mapping score
-    #[arg(short = 'S', default_value_t = 0.5, help_heading = "Search parameters")]
-    dropoff_threshold: f32,
+    /// Match score
+    #[arg(short = 'A', default_value_t = Scores::default().match_, value_name = "N", help_heading = "Alignment")]
+    match_score: u8,
 
-    /// Maximum number of mapping sites to try
-    #[arg(short = 'M', default_value_t = MappingParameters::default().max_tries, help_heading = "Search parameters")]
-    max_tries: usize,
+    /// Mismatch penalty
+    #[arg(short = 'B', default_value_t = Scores::default().mismatch, value_name = "N", help_heading = "Alignment")]
+    mismatch_score: u8,
 
-    /// Maximum distance (in nucleotides) that filtered seeds may span.
-    /// The lower the value, the more seeds are rescued.
-    /// Use 0 to disable rescue.
-    #[arg(short = 'R', default_value_t = MappingParameters::default().rescue_distance, help_heading = "Search parameters")]
-    rescue_distance: usize,
+    /// Gap open penalty
+    #[arg(short = 'O', default_value_t = Scores::default().gap_open, value_name = "N", help_heading = "Alignment")]
+    gap_open_penalty: u8,
+
+    /// Gap extension penalty
+    #[arg(short = 'E', default_value_t = Scores::default().gap_extend, value_name = "N", help_heading = "Alignment")]
+    gap_extension_penalty: u8,
+
+    /// Soft-clipping penalty
+    #[arg(short = 'L', default_value_t = Scores::default().end_bonus, value_name = "N", help_heading = "Alignment")]
+    end_bonus: u32,
+
+    /// Use SSW extension instead of piecewise for single-ends alignments
+    #[arg(long = "ssw", help_heading = "Alignment")]
+    use_ssw: bool,
+
+    /// X-drop threshold for piecewise extension
+    #[arg(long = "xdrop", default_value_t = 500, value_name = "N", help_heading = "Alignment")]
+    xdrop: i32,
+
 
     /// Path to input reference (in FASTA format)
     ref_path: String,
