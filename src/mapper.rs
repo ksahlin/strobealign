@@ -440,52 +440,53 @@ pub fn align_single_end_read(
         {
             break;
         }
-        let consistent_nam = reverse_nam_if_needed(nam, &read, references, k);
-        details.inconsistent_nams += (!consistent_nam) as usize;
-        let alignment = extend_seed(
+
+        let consistent_nam = nam.is_consistent(&read, references, k);
+        if !consistent_nam {
+            details.inconsistent_nams += 1;
+            continue;
+        }
+
+        let Some(alignment) = extend_seed(
             aligner,
             nam,
             references,
             &read,
             consistent_nam,
             mapping_parameters.use_piecewise,
-        );
+        ) else {
+            continue;
+        };
 
         // outputting Piecewise vs SSW alignments for debugging
         if log::log_enabled!(log::Level::Trace) {
-            let (ssw, pw) = if mapping_parameters.use_piecewise {
+            let (mut ssw, mut pw) = if mapping_parameters.use_piecewise {
                 (
-                    extend_seed(aligner, nam, references, &read, consistent_nam, false),
+                    extend_seed(aligner, nam, references, &read, consistent_nam, false).unwrap(),
                     alignment.clone(),
                 )
             } else {
                 (
                     alignment.clone(),
-                    extend_seed(aligner, nam, references, &read, consistent_nam, true),
+                    extend_seed(aligner, nam, references, &read, consistent_nam, true).unwrap(),
                 )
             };
-            if let Some(mut pw) = pw {
-                // manually adds the soft clips
-                let mut cigar = Cigar::new();
-                cigar.push(CigarOperation::Softclip, pw.soft_clip_left);
-                cigar.extend(&pw.cigar);
-                cigar.push(CigarOperation::Softclip, pw.soft_clip_right);
-                pw.cigar = cigar;
-                if let Some(mut ssw) = ssw {
-                    let mut cigar = Cigar::new();
-                    cigar.push(CigarOperation::Softclip, ssw.soft_clip_left);
-                    cigar.extend(&ssw.cigar);
-                    cigar.push(CigarOperation::Softclip, ssw.soft_clip_right);
-                    ssw.cigar = cigar;
-                    trace!("Alignment:[{:?},SSW:{:?},PW:{:?}]", nam.clone(), ssw, pw);
-                }
-            }
+            // manually adds the soft clips
+            let mut cigar = Cigar::new();
+            cigar.push(CigarOperation::Softclip, pw.soft_clip_left);
+            cigar.extend(&pw.cigar);
+            cigar.push(CigarOperation::Softclip, pw.soft_clip_right);
+            pw.cigar = cigar;
+
+            let mut cigar = Cigar::new();
+            cigar.push(CigarOperation::Softclip, ssw.soft_clip_left);
+            cigar.extend(&ssw.cigar);
+            cigar.push(CigarOperation::Softclip, ssw.soft_clip_right);
+            ssw.cigar = cigar;
+
+            trace!("Alignment:[{:?},SSW:{:?},PW:{:?}]", nam.clone(), ssw, pw);
         }
 
-        if alignment.is_none() {
-            continue;
-        }
-        let alignment = alignment.unwrap();
         details.tried_alignment += 1;
         details.gapped += alignment.gapped as usize;
 

@@ -17,13 +17,18 @@ more focused discussion.
 Use `cargo build --release`. The compiled binary is at
 `target/release/strobealign`.
 
-Without `--release`, the compiler uses the default `debug` profile *without
-optimizations*. This makes compilation much faster, but results in a slow
-binary.
+Without `--release`, the compiler uses the default `debug` profile, which does
+not enable as many optimizations. This makes compilation faster,
+but results in an unnecessarily slow binary.
+
+To create a slightly faster binary with optimizations specific to your CPU,
+run `cargo` with the `RUSTFLAGS` environment variable set like this:
+```
+RUSTFLAGS='-C target-cpu=native' cargo build --release
+```
 
 You can also build and run the program in one step using `cargo run`, which may
 look like this:
-
 ```
 cargo run -r -- -t 8 tests/phix.fasta tests/phix.1.fastq
 ```
