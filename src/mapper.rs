@@ -20,6 +20,7 @@ use crate::insertsize::InsertSizeDistribution;
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
 use crate::nam::{Nam, get_nams_by_chaining, reverse_nam_if_needed};
+use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
 use crate::revcomp::reverse_complement;
 use crate::sam::{
@@ -624,7 +625,8 @@ fn extend_seed(
     if gapped {
         let padding = read.len() / 10;
         if use_piecewise {
-            info = aligner.align_piecewise(query, refseq, &mut nam.anchors, padding)?;
+            remove_spurious_anchors(&mut nam.anchors);
+            info = aligner.align_piecewise(query, refseq, &nam.anchors, padding)?;
             result_ref_start = info.ref_start;
         } else {
             let ref_start = projected_ref_start.saturating_sub(padding);

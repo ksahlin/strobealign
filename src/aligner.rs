@@ -154,7 +154,7 @@ impl Aligner {
         &self,
         query: &[u8],
         refseq: &[u8],
-        chain: &mut Vec<Anchor>,
+        chain: &[Anchor],
         padding: usize,
     ) -> Option<AlignmentInfo> {
         self.call_count.set(self.call_count.get() + 1);
