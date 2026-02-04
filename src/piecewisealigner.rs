@@ -27,6 +27,19 @@ struct AlignmentResult {
     pub cigar: Cigar,
 }
 
+impl Default for AlignmentResult {
+    fn default() -> Self {
+        AlignmentResult {
+            score: 0,
+            query_start: 0,
+            query_end: 0,
+            ref_start: 0,
+            ref_end: 0,
+            cigar: Cigar::new(),
+        }
+    }
+}
+
 impl PiecewiseAligner {
     pub fn new(scores: Scores, k: usize, xdrop: i32) -> Self {
         let gaps = Gaps {
@@ -46,14 +59,7 @@ impl PiecewiseAligner {
     // Returns a full global alignment using blockaligner
     fn global_alignment(&self, query: &[u8], reference: &[u8]) -> AlignmentResult {
         if query.is_empty() || reference.is_empty() {
-            return AlignmentResult {
-                score: 0,
-                query_start: 0,
-                query_end: 0,
-                ref_start: 0,
-                ref_end: 0,
-                cigar: Cigar::new(),
-            };
+            return AlignmentResult::default();
         }
 
         // Blockaligner block ranges, set to maximum values for full global alignment
@@ -103,14 +109,7 @@ impl PiecewiseAligner {
     // Returns an x-drop alignment using blockaligner
     fn xdrop_alignment(&self, query: &[u8], reference: &[u8], reverse: bool) -> AlignmentResult {
         if query.is_empty() || reference.is_empty() {
-            return AlignmentResult {
-                score: 0,
-                query_start: 0,
-                query_end: 0,
-                ref_start: 0,
-                ref_end: 0,
-                cigar: Cigar::new(),
-            };
+            return AlignmentResult::default();
         }
 
         // Blockaligner block ranges, set to 20% and 50% of longest sequence
@@ -144,7 +143,7 @@ impl PiecewiseAligner {
             } else {
                 query[i - 1]
             };
-            for c in [b'A', b'C', b'G', b'T', b'N'] {
+            for &c in b"ACGTN" {
                 if c == query_char {
                     profile.set(i, c, self.scores.match_ as i8);
                 } else {
@@ -188,7 +187,7 @@ impl PiecewiseAligner {
                 query_end: query.len(),
                 ref_start: reference.len() - res.query_idx,
                 ref_end: reference.len(),
-                cigar: build_cigar_reverse_swap_id(&cigar),
+                cigar: build_cigar_reverse_swap_indel(&cigar),
             }
         } else {
             // Return the cigar with insertions and deletions swapped
@@ -198,7 +197,7 @@ impl PiecewiseAligner {
                 query_end: res.reference_idx,
                 ref_start: 0,
                 ref_end: res.query_idx,
-                cigar: build_cigar_swap_id(&cigar),
+                cigar: build_cigar_swap_indel(&cigar),
             }
         }
     }
@@ -209,29 +208,36 @@ impl PiecewiseAligner {
         refseq: &[u8],
         first_anchor: &Anchor,
         padding: usize,
-        result: &mut AlignmentResult,
-    ) {
+    ) -> AlignmentResult {
         if first_anchor.query_start > 0 && first_anchor.ref_start > 0 {
             let query_part = &query[..first_anchor.query_start];
-            let ref_start = first_anchor.ref_start.saturating_sub(query_part.len() + padding);
+            let ref_start = first_anchor
+                .ref_start
+                .saturating_sub(query_part.len() + padding);
             let ref_part = &refseq[ref_start..first_anchor.ref_start];
 
-            let pre_align = self.xdrop_alignment(query_part, ref_part, true);
+            let mut pre_align = self.xdrop_alignment(query_part, ref_part, true);
 
             if pre_align.score == 0 {
-                result.query_start = first_anchor.query_start;
-                result.ref_start = first_anchor.ref_start;
+                AlignmentResult {
+                    query_start: first_anchor.query_start,
+                    ref_start: first_anchor.ref_start,
+                    ..Default::default()
+                }
             } else {
-                result.score += pre_align.score;
-                result.query_start = pre_align.query_start;
-                result.ref_start = ref_start + pre_align.ref_start;
-                result.cigar.extend(&pre_align.cigar);
+                pre_align.ref_start += ref_start;
+                pre_align
             }
         } else {
-            result.query_start = first_anchor.query_start;
-            result.ref_start = first_anchor.ref_start;
-            if result.query_start == 0 {
-                result.score += self.scores.end_bonus as i32;
+            AlignmentResult {
+                query_start: first_anchor.query_start,
+                ref_start: first_anchor.ref_start,
+                score: if first_anchor.query_start == 0 {
+                    self.scores.end_bonus as i32
+                } else {
+                    0
+                },
+                ..Default::default()
             }
         }
     }
@@ -242,8 +248,7 @@ impl PiecewiseAligner {
         refseq: &[u8],
         last_anchor: &Anchor,
         padding: usize,
-        result: &mut AlignmentResult,
-    ) {
+    ) -> AlignmentResult {
         let last_anchor_query_end = last_anchor.query_start + self.k;
         let last_anchor_ref_end = last_anchor.ref_start + self.k;
 
@@ -254,22 +259,29 @@ impl PiecewiseAligner {
                 .min(last_anchor_ref_end + query_part.len() + padding);
             let ref_part = &refseq[last_anchor_ref_end..ref_end];
 
-            let post_align = self.xdrop_alignment(query_part, ref_part, false);
+            let mut post_align = self.xdrop_alignment(query_part, ref_part, false);
 
             if post_align.score == 0 {
-                result.query_end = last_anchor_query_end;
-                result.ref_end = last_anchor_ref_end;
+                AlignmentResult {
+                    query_end: last_anchor_query_end,
+                    ref_end: last_anchor_ref_end,
+                    ..Default::default()
+                }
             } else {
-                result.score += post_align.score;
-                result.query_end = last_anchor_query_end + post_align.query_end;
-                result.ref_end = last_anchor_ref_end + post_align.ref_end;
-                result.cigar.extend(&post_align.cigar);
+                post_align.query_end += last_anchor_query_end;
+                post_align.ref_end += last_anchor_ref_end;
+                post_align
             }
         } else {
-            result.query_end = last_anchor_query_end;
-            result.ref_end = last_anchor_ref_end;
-            if result.query_end == query.len() {
-                result.score += self.scores.end_bonus as i32;
+            AlignmentResult {
+                query_end: last_anchor_query_end,
+                ref_end: last_anchor_ref_end,
+                score: if last_anchor_query_end == query.len() {
+                    self.scores.end_bonus as i32
+                } else {
+                    0
+                },
+                ..Default::default()
             }
         }
     }
@@ -281,24 +293,10 @@ impl PiecewiseAligner {
         anchors: &mut Vec<Anchor>, // anchors are sorted from last to first
         padding: usize,
     ) -> Option<AlignmentInfo> {
-        let mut result = AlignmentResult {
-            score: 0,
-            query_start: 0,
-            query_end: 0,
-            ref_start: 0,
-            ref_end: 0,
-            cigar: Cigar::new(),
-        };
-
         remove_spurious_anchors(anchors);
 
-        self.align_before_first_anchor(
-            query,
-            refseq,
-            &anchors[anchors.len() - 1],
-            padding,
-            &mut result,
-        );
+        let mut result =
+            self.align_before_first_anchor(query, refseq, &anchors[anchors.len() - 1], padding);
 
         result.score += self.k as i32 * self.scores.match_ as i32;
         result.cigar.push(CigarOperation::Eq, self.k);
@@ -349,46 +347,48 @@ impl PiecewiseAligner {
                 result.score += self.k as i32 * self.scores.match_ as i32;
                 result.cigar.push(CigarOperation::Eq, self.k);
             } else {
-                {
-                    // Overlap between anchors, no need to align
-                    if ref_diff < query_diff {
-                        let inserted_part = (query_diff - ref_diff) as usize;
+                // Overlap between anchors, no need to align
+                if ref_diff < query_diff {
+                    let inserted_part = (query_diff - ref_diff) as usize;
 
-                        result.score += -(self.scores.gap_open as i32)
-                            + (inserted_part as i32 - 1) * -(self.scores.gap_extend as i32);
-                        result.cigar.push(CigarOperation::Insertion, inserted_part);
+                    result.score += -(self.scores.gap_open as i32)
+                        + (inserted_part as i32 - 1) * -(self.scores.gap_extend as i32);
+                    result.cigar.push(CigarOperation::Insertion, inserted_part);
 
-                        let matching_part = (self.k as isize + ref_diff) as usize;
-                        result.score += matching_part as i32 * self.scores.match_ as i32;
-                        result.cigar.push(CigarOperation::Eq, matching_part);
-                    } else if ref_diff > query_diff {
-                        let deleted_part = (ref_diff - query_diff) as usize;
-                        result.score += -(self.scores.gap_open as i32)
-                            + (deleted_part as i32 - 1) * -(self.scores.gap_extend as i32);
-                        result.cigar.push(CigarOperation::Deletion, deleted_part);
+                    let matching_part = (self.k as isize + ref_diff) as usize;
+                    result.score += matching_part as i32 * self.scores.match_ as i32;
+                    result.cigar.push(CigarOperation::Eq, matching_part);
+                } else if ref_diff > query_diff {
+                    let deleted_part = (ref_diff - query_diff) as usize;
+                    result.score += -(self.scores.gap_open as i32)
+                        + (deleted_part as i32 - 1) * -(self.scores.gap_extend as i32);
+                    result.cigar.push(CigarOperation::Deletion, deleted_part);
 
-                        let matching_part = (self.k as isize + query_diff) as usize;
-                        result.score += matching_part as i32 * self.scores.match_ as i32;
-                        result.cigar.push(CigarOperation::Eq, matching_part);
-                    } else {
-                        let matching_part = (self.k as isize + query_diff) as usize;
-                        result.score += matching_part as i32 * self.scores.match_ as i32;
-                        result.cigar.push(CigarOperation::Eq, matching_part);
-                    }
+                    let matching_part = (self.k as isize + query_diff) as usize;
+                    result.score += matching_part as i32 * self.scores.match_ as i32;
+                    result.cigar.push(CigarOperation::Eq, matching_part);
+                } else {
+                    let matching_part = (self.k as isize + query_diff) as usize;
+                    result.score += matching_part as i32 * self.scores.match_ as i32;
+                    result.cigar.push(CigarOperation::Eq, matching_part);
                 }
             }
         }
 
-        self.align_after_last_anchor(query, refseq, &anchors[0], padding, &mut result);
+        let end_result = self.align_after_last_anchor(query, refseq, &anchors[0], padding);
+        result.cigar.extend(&end_result.cigar);
+        result.score += end_result.score;
+
+        let edit_distance = result.cigar.edit_distance();
 
         if result.score > 0 {
             Some(AlignmentInfo {
-                cigar: result.cigar.clone(),
-                edit_distance: result.cigar.edit_distance(),
+                cigar: result.cigar,
+                edit_distance,
                 ref_start: result.ref_start,
-                ref_end: result.ref_end,
+                ref_end: end_result.ref_end,
                 query_start: result.query_start,
-                query_end: result.query_end,
+                query_end: end_result.query_end,
                 score: result.score as u32,
             })
         } else {
@@ -418,7 +418,7 @@ fn build_cigar(block_cigar: &BlockCigar) -> Cigar {
 }
 
 // Converts a blockaligner Cigar to our Cigar format with I/D swapped
-fn build_cigar_swap_id(block_cigar: &BlockCigar) -> Cigar {
+fn build_cigar_swap_indel(block_cigar: &BlockCigar) -> Cigar {
     let mut result = Cigar::new();
 
     for i in 0..block_cigar.len() {
@@ -438,7 +438,7 @@ fn build_cigar_swap_id(block_cigar: &BlockCigar) -> Cigar {
 }
 
 // Converts a blockaligner Cigar to our Cigar format in reverse order with I/D swapped
-fn build_cigar_reverse_swap_id(block_cigar: &BlockCigar) -> Cigar {
+fn build_cigar_reverse_swap_indel(block_cigar: &BlockCigar) -> Cigar {
     let mut result = Cigar::new();
 
     for i in (0..block_cigar.len()).rev() {
