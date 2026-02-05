@@ -205,6 +205,14 @@ struct Args {
     #[arg(short = 'L', default_value_t = Scores::default().end_bonus, value_name = "N", help_heading = "Alignment")]
     end_bonus: u32,
 
+    /// Use Piecewise extension instead of SSW for single-ends alignments
+    #[arg(long = "pw", help_heading = "Alignment")]
+    use_piecewise: bool,
+
+    /// X-drop threshold for piecewise extension
+    #[arg(long = "xdrop", default_value_t = 500, value_name = "N", help_heading = "Alignment")]
+    xdrop: i32,
+
     //args::Flag nams(parser, "nams", "Use NAMs instead of collinear chaining for alignments", {"nams"});
 
     /// Collinear chaining look back heuristic
@@ -458,6 +466,7 @@ fn run() -> Result<(), CliError> {
         dropoff_threshold: args.dropoff_threshold,
         rescue_distance: args.rescue_distance,
         output_unmapped: !args.only_mapped,
+        use_piecewise: args.use_piecewise,
         mcs_strategy: args.mcs_strategy,
     };
 
@@ -481,7 +490,7 @@ fn run() -> Result<(), CliError> {
     debug!("{:?}", &scores);
 
     let chainer = Chainer::new(index.k(), chaining_parameters);
-    let aligner = Aligner::new(scores);
+    let aligner = Aligner::new(scores, index.k(), args.xdrop);
 
     let cmd_line = env::args().skip(1).collect::<Vec<_>>().join(" ");
     let rg_id = match args.rg_id {
@@ -831,7 +840,7 @@ impl Mapper<'_> {
         let mut cumulative_details = Details::new();
         for record in chunk {
             let (r1, r2) = record?;
-            trace!("\nQuery: {}", r1.name);
+            trace!("\nQuery: {}\nlength={}", r1.name, r1.len());
             match self.mode {
                 Mode::Sam => {
                     let (sam_records, details) = if let Some(r2) = r2 {

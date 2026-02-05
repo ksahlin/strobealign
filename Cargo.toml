@@ -21,6 +21,12 @@ flate2 = { version = "1.0", features = ["zlib-rs"]}
 thiserror = "2.0.11"
 rayon = "1.11.0"
 mimalloc = "0.1.48"
+[target.'cfg(target_arch = "wasm32-wasi")'.dependencies]
+block-aligner = { version = "0.5", features = ["simd_wasm"] }
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+block-aligner = { version = "0.5", features = ["simd_avx2"] }
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+block-aligner = { version = "0.5", features = ["simd_neon"] }
 
 [dev-dependencies]
 assert_cmd = "2.0.16"

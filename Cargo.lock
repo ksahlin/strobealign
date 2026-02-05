@@ -89,6 +89,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
+name = "block-aligner"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8986feb1596f749fdcf1046e1b8068dfe802fc45708e6e293b736e4c0bb3b3a5"
+
+[[package]]
 name = "bstr"
 version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -576,6 +582,7 @@ name = "strobealign"
 version = "0.18.0-alpha"
 dependencies = [
  "assert_cmd",
+ "block-aligner",
  "cc",
  "clap",
  "fastrand",
