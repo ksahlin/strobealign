@@ -133,50 +133,27 @@ impl<R: Read> Iterator for FastaReader<R> {
 
 /// Split header into name and comment
 pub fn split_header(header: &str) -> (String, Option<String>) {
-    match header.split_once(' ') {
+    match header.split_once(&[' ', '\t']) {
         Some((name, comment)) => (name.to_string(), Some(comment.to_string())),
         None => (header.to_string(), None),
     }
 }
 
 pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, FastaError> {
-    let mut records = Vec::<RefSequence>::new();
-    let mut name = String::new();
-    let mut sequence = Vec::new();
-    let mut has_record = false;
-    for line in reader.lines() {
-        let line = line?;
-        let line = line.as_bytes();
-        if line.is_empty() {
-            continue;
-        }
-        if line[0] == b'>' {
-            if has_record {
-                records.push(RefSequence { name, sequence });
-            }
-            let mut name_bytes = &line[1..];
-            if let Some(i) = name_bytes.iter().position(|c| c.is_ascii_whitespace()) {
-                name_bytes = &name_bytes[..i];
-            }
-            if !is_valid_name(name_bytes) {
-                return Err(FastaError::Name);
-            }
-            name = String::from_utf8(name_bytes.to_vec())?;
-            sequence = Vec::new();
-            has_record = true;
-        } else {
-            if !has_record {
-                return Err(FastaError::Parse(
-                    "FASTA file must start with '>'".to_string(),
-                ));
-            }
-            sequence.extend(line.iter().map(|&c| c.to_ascii_uppercase()));
-        }
-    }
-    if has_record {
-        records.push(RefSequence { name, sequence });
-    }
+    let fasta_reader = FastaReader::new(reader);
+    let records = fasta_reader
+        .map(
+            |result| result.map(
+                |record| RefSequence { name: record.name, sequence: record.sequence }
+            )
+        )
+        .collect::<Result<Vec<RefSequence>, FastaError>>()?;
 
+    for record in &records {
+        if !is_valid_name(&record.name.as_bytes()) {
+            return Err(FastaError::Name);
+        }
+    }
     check_duplicate_names(&records)?;
 
     Ok(records)
