@@ -62,7 +62,7 @@ impl PiecewiseAligner {
         }
     }
 
-    // Returns a full global alignment using blockaligner
+    // Returns a global alignment between `query` and `reference`
     fn global_alignment(&self, query: &[u8], reference: &[u8]) -> AlignmentResult {
         if query.is_empty() || reference.is_empty() {
             return AlignmentResult::default();
@@ -112,7 +112,16 @@ impl PiecewiseAligner {
         }
     }
 
-    // Returns an x-drop alignment using blockaligner
+    // Returns an alignment between `query` and `reference` where one end is fixed
+    // and the other end is allowed to terminate early based on the x-drop criterion.
+    //
+    // The mode controls which end is fixed:
+    // - `GlobalStartLocalEnd`: the alignment must start at the beginning of both
+    //   sequences, but may end before the last position.
+    // - `LocalStartGlobalEnd`: the alignment must end at the last position of both
+    //   sequences, but may start after the first position. This is implemented by
+    //   reversing the sequences internally and transforming the result back to
+    //   forward coordinates.
     fn xdrop_alignment(&self, query: &[u8], reference: &[u8], mode: XdropMode) -> AlignmentResult {
         if query.is_empty() || reference.is_empty() {
             return AlignmentResult::default();
@@ -269,7 +278,7 @@ impl PiecewiseAligner {
         &self,
         query: &[u8],
         refseq: &[u8],
-        anchors: &[Anchor], // anchors are sorted from last to first
+        anchors: &[Anchor], // `anchors` are sorted from last to first
         padding: usize,
     ) -> Option<AlignmentInfo> {
         let mut result =
@@ -440,6 +449,9 @@ fn make_aa_profile(query: &[u8], scores: &Scores, max_size: usize, mode: XdropMo
 
     // Set scores for each nucleotide combination
     for i in 1..=query.len() {
+        // Select the query character at this position depending on the alignment mode.
+        // `GlobalStartLocalEnd`: traverse the query from start to end (forward).
+        // `LocalStartGlobalEnd`: traverse the query from end to start (reversed).
         let query_char = match mode {
             XdropMode::GlobalStartLocalEnd => query[i - 1],
             XdropMode::LocalStartGlobalEnd => query[query.len() - i],
