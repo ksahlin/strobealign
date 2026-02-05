@@ -289,6 +289,9 @@ enum CliError {
 
     #[error(transparent)]
     InvalidIndexParameter(#[from] InvalidIndexParameter),
+
+    #[error("No sequences found in the reference FASTA")]
+    NoReference,
 }
 
 fn main() -> ExitCode {
@@ -397,7 +400,7 @@ fn run() -> Result<(), CliError> {
         .iter()
         .map(|r| r.sequence.len())
         .max()
-        .expect("No reference found");
+        .ok_or(CliError::NoReference)?;
     info!(
         "Reference size: {:.2} Mbp ({} contig{}; largest: {:.2} Mbp)",
         total_ref_size as f64 / 1E6,
