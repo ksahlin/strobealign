@@ -5,27 +5,10 @@ use std::marker::PhantomData;
 use crate::hash::{xxh32, xxh64};
 use crate::index::InvalidIndexParameter;
 
-pub trait SyncmerLike: Copy {
-    fn hash(&self) -> u64;
-    fn position(&self) -> usize;
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Syncmer {
     pub hash: u64,
     pub position: usize,
-}
-
-impl SyncmerLike for Syncmer {
-    #[inline]
-    fn hash(&self) -> u64 {
-        self.hash
-    }
-
-    #[inline]
-    fn position(&self) -> usize {
-        self.position
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,18 +16,6 @@ pub struct RymerSyncmer {
     pub hash1: u32,
     pub hash2: u32,
     pub position: usize,
-}
-
-impl SyncmerLike for RymerSyncmer {
-    #[inline]
-    fn hash(&self) -> u64 {
-        ((self.hash1 as u64) << 32) | (self.hash2 as u64)
-    }
-
-    #[inline]
-    fn position(&self) -> usize {
-        self.position
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -80,7 +51,7 @@ impl SyncmerParameters {
 }
 
 pub trait SyncmerEncoding {
-    type Syncmer: SyncmerLike;
+    type Syncmer: Copy;
     type KmerValue: Copy + Default;
     type SmerValue: Copy + Default;
 
@@ -488,7 +459,7 @@ mod test {
 
     use super::{
         KmerSyncmerIterator, NUCLEOTIDES, RYMER_S1, RYMER_S2, RymerSyncmerIterator,
-        SyncmerIterator, SyncmerLike, SyncmerParameters,
+        SyncmerIterator, SyncmerParameters,
     };
 
     #[test]
@@ -513,7 +484,7 @@ mod test {
         let mut iterator: KmerSyncmerIterator =
             SyncmerIterator::new(seq.as_bytes(), parameters.k, parameters.s, parameters.t);
         let syncmer = iterator.next().unwrap();
-        assert_eq!(syncmer.position(), 0);
+        assert_eq!(syncmer.position, 0);
     }
 
     #[test]
@@ -628,23 +599,5 @@ mod test {
             SyncmerIterator::new(seq.as_bytes(), parameters.k, parameters.s, parameters.t);
         let syncmer = iterator.next();
         assert!(syncmer.is_some());
-    }
-
-    #[test]
-    fn test_syncmer_like_trait() {
-        let seq = "ACGTACGTACGTACGTACGT";
-        let parameters = SyncmerParameters::try_new(8, 4).unwrap();
-
-        let mut kmer_iter: KmerSyncmerIterator =
-            SyncmerIterator::new(seq.as_bytes(), parameters.k, parameters.s, parameters.t);
-        let kmer_syncmer = kmer_iter.next().unwrap();
-        assert!(kmer_syncmer.hash() > 0);
-        assert!(kmer_syncmer.position() < seq.len());
-
-        let mut rymer_iter: RymerSyncmerIterator =
-            SyncmerIterator::new(seq.as_bytes(), parameters.k, parameters.s, parameters.t);
-        let rymer_syncmer = rymer_iter.next().unwrap();
-        assert!(rymer_syncmer.hash() > 0);
-        assert!(rymer_syncmer.position() < seq.len());
     }
 }

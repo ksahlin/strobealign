@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::index::{InvalidIndexParameter, REF_RANDSTROBE_HASH_MASK};
-use crate::syncmers::{RymerSyncmer, SyncmerLike};
+use crate::syncmers::{RymerSyncmer, Syncmer};
 
 pub const DEFAULT_AUX_LEN: u8 = 17;
 
@@ -66,33 +66,33 @@ pub struct Randstrobe {
 }
 
 impl Randstrobe {
-    pub fn from_strobes<S: SyncmerLike>(strobe1: S, strobe2: S, main_hash_mask: u64) -> Self {
+    pub fn from_strobes(strobe1: Syncmer, strobe2: Syncmer, main_hash_mask: u64) -> Self {
         Randstrobe {
-            hash: randstrobe_hash(strobe1.hash(), strobe2.hash(), main_hash_mask),
-            hash_revcomp: randstrobe_hash_revcomp(strobe1.hash(), strobe2.hash(), main_hash_mask),
-            strobe1_pos: strobe1.position(),
-            strobe2_pos: strobe2.position(),
+            hash: randstrobe_hash(strobe1.hash, strobe2.hash, main_hash_mask),
+            hash_revcomp: randstrobe_hash_revcomp(strobe1.hash, strobe2.hash, main_hash_mask),
+            strobe1_pos: strobe1.position,
+            strobe2_pos: strobe2.position,
         }
     }
 }
 
-pub struct RandstrobeIterator<S: SyncmerLike, I: Iterator<Item = S>> {
+pub struct RandstrobeIterator<I: Iterator<Item = Syncmer>> {
     parameters: RandstrobeParameters,
-    syncmers: VecDeque<S>,
+    syncmers: VecDeque<Syncmer>,
     syncmer_iterator: I,
 }
 
-impl<S: SyncmerLike, I: Iterator<Item = S>> RandstrobeIterator<S, I> {
-    pub fn new(syncmer_iterator: I, parameters: RandstrobeParameters) -> RandstrobeIterator<S, I> {
+impl<I: Iterator<Item = Syncmer>> RandstrobeIterator<I> {
+    pub fn new(syncmer_iterator: I, parameters: RandstrobeParameters) -> RandstrobeIterator<I> {
         RandstrobeIterator {
             parameters,
-            syncmers: VecDeque::<S>::new(),
+            syncmers: VecDeque::new(),
             syncmer_iterator,
         }
     }
 }
 
-impl<S: SyncmerLike, SI: Iterator<Item = S>> Iterator for RandstrobeIterator<S, SI> {
+impl<I: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<I> {
     type Item = Randstrobe;
     fn next(&mut self) -> Option<Self::Item> {
         while self.syncmers.len() <= self.parameters.w_max {
@@ -106,16 +106,16 @@ impl<S: SyncmerLike, SI: Iterator<Item = S>> Iterator for RandstrobeIterator<S, 
             return None;
         }
         let strobe1 = self.syncmers[0];
-        let max_position = strobe1.position() + self.parameters.max_dist as usize;
+        let max_position = strobe1.position + self.parameters.max_dist as usize;
         let mut min_val = u64::MAX;
-        let mut strobe2 = self.syncmers[0]; // Defaults if no nearby syncmer
+        let mut strobe2 = self.syncmers[0];
 
         for i in self.parameters.w_min..self.syncmers.len() {
             debug_assert!(i <= self.parameters.w_max);
-            if self.syncmers[i].position() > max_position {
+            if self.syncmers[i].position > max_position {
                 break;
             }
-            let b = (strobe1.hash() ^ self.syncmers[i].hash()) & self.parameters.q;
+            let b = (strobe1.hash ^ self.syncmers[i].hash) & self.parameters.q;
             let ones = b.count_ones() as u64;
             if ones < min_val {
                 min_val = ones;
