@@ -30,7 +30,7 @@ use strobealign::index::{
     REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex,
 };
 use strobealign::insertsize::InsertSizeDistribution;
-use strobealign::io::xopen;
+use strobealign::xopen::xopen;
 use strobealign::maponly::{
     abundances_paired_end_read, abundances_single_end_read, map_paired_end_read,
     map_single_end_read,
