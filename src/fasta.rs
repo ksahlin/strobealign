@@ -1,6 +1,5 @@
 use std::io;
 use std::io::{BufRead, BufReader, Read};
-use std::string::FromUtf8Error;
 
 use thiserror::Error;
 
@@ -19,9 +18,6 @@ pub enum FastaError {
 
     #[error("FASTA file cannot be parsed: {0}")]
     Parse(String),
-
-    #[error("Invalid UTF-8")]
-    Utf8(#[from] FromUtf8Error),
 
     #[error("Invalid character in record name")]
     Name,
