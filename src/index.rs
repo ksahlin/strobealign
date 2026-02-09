@@ -12,7 +12,7 @@ use rayon;
 use rayon::slice::ParallelSliceMut;
 use thiserror::Error;
 
-use crate::fasta::RefSequence;
+use crate::io::fasta::RefSequence;
 use crate::partition::custom_partition_point;
 use crate::strobes::{DEFAULT_AUX_LEN, RandstrobeIterator, RandstrobeParameters};
 use crate::syncmers::{SyncmerIterator, SyncmerParameters};
@@ -965,7 +965,7 @@ fn write_vec<T>(file: &mut File, data: &[T]) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fasta::read_fasta;
+    use crate::io::fasta::read_fasta;
     use crate::revcomp::reverse_complement;
     use crate::syncmers::Syncmer;
     use std::fs::File;

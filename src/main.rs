@@ -19,18 +19,20 @@ use thiserror::Error;
 use strobealign::aligner::{Aligner, Scores};
 use strobealign::chainer::{Chainer, ChainingParameters};
 use strobealign::details::Details;
-use strobealign::fasta;
-use strobealign::fasta::{FastaError, RefSequence};
-use strobealign::fastq::{
-    FastqError, PeekableSequenceReader, RecordPair, SequenceRecord, interleaved_record_iterator,
-    record_iterator,
-};
 use strobealign::index::{
     IndexParameters, IndexReadingError, InvalidIndexParameter,
     REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex,
 };
 use strobealign::insertsize::InsertSizeDistribution;
-use strobealign::xopen::xopen;
+use strobealign::io::SequenceIOError;
+use strobealign::io::fasta;
+use strobealign::io::fasta::RefSequence;
+use strobealign::io::fastq::{
+    PeekableSequenceReader, RecordPair, interleaved_record_iterator, record_iterator,
+};
+use strobealign::io::record::SequenceRecord;
+use strobealign::io::sam::{ReadGroup, SamHeader};
+use strobealign::io::xopen::xopen;
 use strobealign::maponly::{
     abundances_paired_end_read, abundances_single_end_read, map_paired_end_read,
     map_single_end_read,
@@ -39,7 +41,6 @@ use strobealign::mapper::{
     MappingParameters, SamOutput, align_paired_end_read, align_single_end_read,
 };
 use strobealign::mcsstrategy::McsStrategy;
-use strobealign::sam::{ReadGroup, SamHeader};
 use strobealign::strobes::DEFAULT_AUX_LEN;
 
 mod logger;
@@ -270,10 +271,7 @@ enum CliError {
     Io(#[from] io::Error),
 
     #[error("{0}")]
-    FastaError(#[from] FastaError),
-
-    #[error("{0}")]
-    FastqError(#[from] FastqError),
+    SequenceIOError(#[from] SequenceIOError),
 
     #[error(transparent)]
     IndexReadingError(#[from] IndexReadingError),
@@ -390,7 +388,8 @@ fn run() -> Result<(), CliError> {
     let max_contig_size = references
         .iter()
         .map(|r| r.sequence.len())
-        .max().ok_or(CliError::NoReference)?;
+        .max()
+        .ok_or(CliError::NoReference)?;
     info!(
         "Reference size: {:.2} Mbp ({} contig{}; largest: {:.2} Mbp)",
         total_ref_size as f64 / 1E6,
@@ -829,7 +828,7 @@ struct Mapper<'a> {
 impl Mapper<'_> {
     fn map_chunk(
         &mut self, // TODO only because of abundances
-        chunk: Vec<Result<RecordPair, FastqError>>,
+        chunk: Vec<Result<RecordPair, SequenceIOError>>,
     ) -> Result<(Vec<u8>, Details), CliError> {
         let mut out = vec![];
         let mut rng = Rng::with_seed(0);
@@ -973,7 +972,7 @@ mod test {
     use super::Args;
     use super::estimate_read_length;
     use super::xopen;
-    use strobealign::fastq::PeekableSequenceReader;
+    use strobealign::io::fastq::PeekableSequenceReader;
 
     #[test]
     fn verify_cli() {
