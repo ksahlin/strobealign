@@ -35,7 +35,7 @@ impl Default for ChainingParameters {
             diag_diff_penalty: 0.1,
             gap_length_penalty: 0.05,
             valid_score_threshold: 0.7,
-            max_ref_gap: 10000,
+            max_ref_gap: 1000,
             matches_weight: 0.01,
         }
     }
@@ -128,7 +128,7 @@ impl Chainer {
                     let dq = ai.query_start - aj.query_start;
                     let dr = ai.ref_start - aj.ref_start;
 
-                    if dr > 0 {
+                    if dr < self.parameters.max_ref_gap && dr > 0 {
                         let score = self.compute_score_cached(dq, dr);
                         let new_score = dp[best_index] + score;
                         if new_score > dp[i] {
