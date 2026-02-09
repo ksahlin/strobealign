@@ -9,6 +9,9 @@ use block_aligner::{
     scores::{AAMatrix, AAProfile, Gaps, NucMatrix, Profile},
 };
 
+// Maximum value for blockaligner's block sizes, higher values might cause a crash
+const MAXIMIM_BLOCK_SIZE: usize = 8192;
+
 #[derive(Clone, Copy)]
 enum XdropMode {
     GlobalStartLocalEnd,
@@ -71,23 +74,22 @@ impl PiecewiseAligner {
         // Blockaligner block ranges, set to maximum values for full global alignment
         // Must be powers of 2
         let max_len = query.len().max(reference.len());
-        let min_size = max_len.max(32).next_power_of_two();
-        let max_size = max_len.max(128).next_power_of_two();
+        let block_size = max_len.next_power_of_two().clamp(32, MAXIMIM_BLOCK_SIZE);
 
         // Create padded sequences
-        let mut q_padded = PaddedBytes::new::<NucMatrix>(query.len(), max_size);
-        q_padded.set_bytes::<NucMatrix>(query, max_size);
-        let mut r_padded = PaddedBytes::new::<NucMatrix>(reference.len(), max_size);
-        r_padded.set_bytes::<NucMatrix>(reference, max_size);
+        let mut q_padded = PaddedBytes::new::<NucMatrix>(query.len(), block_size);
+        q_padded.set_bytes::<NucMatrix>(query, block_size);
+        let mut r_padded = PaddedBytes::new::<NucMatrix>(reference.len(), block_size);
+        r_padded.set_bytes::<NucMatrix>(reference, block_size);
 
         // Make a global alignment call with traceback
-        let mut block = Block::<true, false>::new(query.len(), reference.len(), max_size);
+        let mut block = Block::<true, false>::new(query.len(), reference.len(), block_size);
         block.align(
             &q_padded,
             &r_padded,
             &self.matrix,
             self.gaps,
-            min_size..=max_size,
+            block_size..=block_size,
             0, // 0 x-drop threshold for global alignment
         );
         let res = block.res();
@@ -130,8 +132,12 @@ impl PiecewiseAligner {
         // Blockaligner block ranges, set to 20% and 50% of longest sequence
         // Must be powers of 2
         let max_len = query.len().max(reference.len());
-        let min_size = (max_len / 5).max(32).next_power_of_two();
-        let max_size = (max_len / 2).max(128).next_power_of_two();
+        let min_size = (max_len / 5)
+            .next_power_of_two()
+            .clamp(32, MAXIMIM_BLOCK_SIZE);
+        let max_size = (max_len / 2)
+            .next_power_of_two()
+            .clamp(128, MAXIMIM_BLOCK_SIZE);
 
         // Create padded sequences
         // blockaligner only has a AA profile, no nucleotide profile, so we have to use AA matrix
