@@ -8,6 +8,7 @@ const PRIME64_4: u64 = 0x85EBCA77C2B2AE63;
 const PRIME64_5: u64 = 0x27D4EB2F165667C5;
 
 // xxHash32 constants
+const PRIME32_1: u32 = 0x9E3779B1;
 const PRIME32_2: u32 = 0x85EBCA77;
 const PRIME32_3: u32 = 0xC2B2AE3D;
 const PRIME32_4: u32 = 0x27D4EB2F;
@@ -37,8 +38,13 @@ pub fn xxh64(input: u64) -> u64 {
 #[inline]
 pub fn xxh32(input: u32) -> u32 {
     let mut result = PRIME32_5.wrapping_add(4);
-    result = result.wrapping_add(input.wrapping_mul(PRIME32_3));
-    result = result.rotate_left(17).wrapping_mul(PRIME32_4);
+    result = result.wrapping_add(input
+        .wrapping_mul(PRIME32_2)
+        .rotate_left(13)
+        .wrapping_mul(PRIME32_1));
+    result = result
+        .rotate_left(17)
+        .wrapping_mul(PRIME32_4);
     result ^= result >> 15;
     result = result.wrapping_mul(PRIME32_2);
     result ^= result >> 13;
