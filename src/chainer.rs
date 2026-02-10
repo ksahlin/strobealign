@@ -379,6 +379,9 @@ fn extract_chains_from_dp(
         let mut c = 1;
         let mut overlaps = false;
 
+        let mut matching_bases = k;
+        let mut ref_coverage = anchors[i].ref_start;
+
         while predecessors[j] != usize::MAX {
             j = predecessors[j];
             if used[j] {
@@ -387,6 +390,9 @@ fn extract_chains_from_dp(
             }
             used[j] = true;
             c += 1;
+
+            matching_bases += ref_coverage.saturating_sub(anchors[j].ref_start).min(k);
+            ref_coverage = anchors[j].ref_start;
         }
 
         if overlaps {
@@ -402,6 +408,7 @@ fn extract_chains_from_dp(
             ref_start: first.ref_start,
             ref_end: last.ref_start + k,
             n_matches: c,
+            matching_bases,
             ref_id: last.ref_id,
             score: score + c as f32 * chaining_parameters.matches_weight,
             is_revcomp,

@@ -12,7 +12,7 @@ use crate::fastq::End;
  * 7 target length
  * 8 target start
  * 9 target end
- * 10 no. of matches
+ * 10 no. of matching bases
  * 11 alignment block length
  * 12 mapping quality (0-255; 255 for missing)
  */
@@ -29,7 +29,7 @@ pub struct PafRecord {
     pub target_length: u64,
     pub target_start: u64,
     pub target_end: u64,
-    pub n_matches: u64,
+    pub matching_bases: u64,
     pub alignment_length: u64,
     pub mapping_quality: Option<u8>,
 }
@@ -53,7 +53,7 @@ impl Display for PafRecord {
             self.target_length,
             self.target_start,
             self.target_end,
-            self.n_matches,
+            self.matching_bases,
             self.alignment_length,
             self.mapping_quality.unwrap_or(255),
         )
