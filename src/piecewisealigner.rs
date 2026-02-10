@@ -10,7 +10,7 @@ use block_aligner::{
 };
 
 // Maximum value for blockaligner's block sizes, higher values might cause a crash
-const MAXIMIM_BLOCK_SIZE: usize = 8192;
+const MAXIMUM_BLOCK_SIZE: usize = 8192;
 
 #[derive(Clone, Copy)]
 enum XdropMode {
@@ -65,7 +65,22 @@ impl PiecewiseAligner {
         }
     }
 
-    // Returns a global alignment between `query` and `reference`
+    /// Performs a global alignment between two sequences.
+    ///
+    /// The alignment uses the blockaligner crate with block sizes
+    /// determined based on the largest length of the 2 sequences.
+    ///
+    /// # Parameters
+    ///
+    /// * `query` - The query sequence as a byte slice
+    /// * `reference` - The reference sequence as a byte slice
+    ///
+    /// # Returns
+    ///
+    /// An [`AlignmentResult`] containing:
+    /// - The alignment score
+    /// - Start and end positions in both sequences
+    /// - A CIGAR string representing the alignment operations
     fn global_alignment(&self, query: &[u8], reference: &[u8]) -> AlignmentResult {
         if query.is_empty() || reference.is_empty() {
             return AlignmentResult::default();
@@ -74,7 +89,7 @@ impl PiecewiseAligner {
         // Blockaligner block ranges, set to maximum values for full global alignment
         // Must be powers of 2
         let max_len = query.len().max(reference.len());
-        let block_size = max_len.next_power_of_two().clamp(32, MAXIMIM_BLOCK_SIZE);
+        let block_size = max_len.next_power_of_two().clamp(32, MAXIMUM_BLOCK_SIZE);
 
         // Create padded sequences
         let mut q_padded = PaddedBytes::new::<NucMatrix>(query.len(), block_size);
@@ -114,16 +129,35 @@ impl PiecewiseAligner {
         }
     }
 
-    // Returns an alignment between `query` and `reference` where one end is fixed
-    // and the other end is allowed to terminate early based on the x-drop criterion.
-    //
-    // The mode controls which end is fixed:
-    // - `GlobalStartLocalEnd`: the alignment must start at the beginning of both
-    //   sequences, but may end before the last position.
-    // - `LocalStartGlobalEnd`: the alignment must end at the last position of both
-    //   sequences, but may start after the first position. This is implemented by
-    //   reversing the sequences internally and transforming the result back to
-    //   forward coordinates.
+    /// Performs an alignment with one end fixed and the other allowed to terminate
+    /// early based on the x-drop mode.
+    ///
+    /// This method computes a semi-global alignment where one end of the alignment is
+    /// anchored while the other end can terminate early if the alignment score drops
+    /// too far below the maximum observed score (determined by the x-drop value).
+    ///
+    /// The alignment uses the blockaligner crate with block sizes chosen dynamically
+    /// as 20% of the maximum length of the 2 sequences and 50% of the maximum length
+    /// of the 2 sequences.
+    ///
+    /// # Parameters
+    ///
+    /// * `query` - The query sequence as a byte slice
+    /// * `reference` - The reference sequence as a byte slice
+    /// * `mode` - Controls which end is fixed:
+    ///   - [`XdropMode::GlobalStartLocalEnd`]: Alignment must start at position 0 of
+    ///     both sequences but may end before the last position
+    ///   - [`XdropMode::LocalStartGlobalEnd`]: Alignment must end at the last position
+    ///     of both sequences but may start after position 0. This is implemented by
+    ///     reversing both sequences, aligning them, and transforming the result back
+    ///     to forward coordinates.
+    ///
+    /// # Returns
+    ///
+    /// An [`AlignmentResult`] containing:
+    /// - The alignment score
+    /// - Start and end positions in both sequences
+    /// - A CIGAR string representing the alignment operations
     fn xdrop_alignment(&self, query: &[u8], reference: &[u8], mode: XdropMode) -> AlignmentResult {
         if query.is_empty() || reference.is_empty() {
             return AlignmentResult::default();
@@ -134,10 +168,10 @@ impl PiecewiseAligner {
         let max_len = query.len().max(reference.len());
         let min_size = (max_len / 5)
             .next_power_of_two()
-            .clamp(32, MAXIMIM_BLOCK_SIZE);
+            .clamp(32, MAXIMUM_BLOCK_SIZE);
         let max_size = (max_len / 2)
             .next_power_of_two()
-            .clamp(128, MAXIMIM_BLOCK_SIZE);
+            .clamp(128, MAXIMUM_BLOCK_SIZE);
 
         // Create padded sequences
         // blockaligner only has a AA profile, no nucleotide profile, so we have to use AA matrix
@@ -194,6 +228,31 @@ impl PiecewiseAligner {
         }
     }
 
+    /// Aligns the query sequence region before the first anchor.
+    ///
+    /// This method handles the prefix alignment by taking the query sequence up to the
+    /// first anchor's start position and aligning it against a corresponding region in
+    /// the reference sequence. The reference region is extended backward from the anchor
+    /// by the query prefix length plus padding to allow for potential indels.
+    ///
+    /// # Parameters
+    ///
+    /// * `query` - The full query sequence as a byte slice
+    /// * `refseq` - The full reference sequence as a byte slice
+    /// * `first_anchor` - The first anchor
+    /// * `padding` - Additional bases to include in the reference region to account for
+    ///   potential insertions/deletions
+    ///
+    /// # Returns
+    ///
+    /// An [`AlignmentResult`] containing:
+    /// - The alignment score (including end bonus if alignment starts at the beginning of
+    ///   the query)
+    /// - Start and end positions in both sequences
+    /// - A CIGAR string representing the alignment operations
+    ///
+    /// If there is no sequence before the first anchor or the alignment score is 0,
+    /// returns a result indicating the alignment starts at the first anchor position.
     fn align_before_first_anchor(
         &self,
         query: &[u8],
@@ -235,6 +294,30 @@ impl PiecewiseAligner {
         }
     }
 
+    /// Aligns the query sequence region after the last anchor.
+    ///
+    /// This method handles the suffix alignment by taking the query sequence after the
+    /// last anchor's end position and aligning it against a corresponding region in
+    /// the reference sequence. The reference region is extended forward from the anchor
+    /// by the query suffix length plus padding to allow for potential indels.
+    ///
+    /// # Parameters
+    ///
+    /// * `query` - The full query sequence as a byte slice
+    /// * `refseq` - The full reference sequence as a byte slice
+    /// * `last_anchor` - The last anchor
+    /// * `padding` - Additional bases to include in the reference region to account for
+    ///   potential insertions/deletions
+    ///
+    /// # Returns
+    ///
+    /// An [`AlignmentResult`] containing:
+    /// - The alignment score (including end bonus if alignment reaches the end of the query)
+    /// - Start and end positions in both sequences
+    /// - A CIGAR string representing the alignment operations
+    ///
+    /// If there is no sequence after the last anchor or the alignment score is 0,
+    /// returns a result indicating the alignment ends at the last anchor position.
     fn align_after_last_anchor(
         &self,
         query: &[u8],
@@ -280,18 +363,53 @@ impl PiecewiseAligner {
         }
     }
 
-    pub fn piecewise_extension(
+    /// Performs piecewise alignment between query and reference sequences using anchor.
+    ///
+    /// This method implements a piecewise alignment extension strategy that uses previously
+    /// calculated anchors from chaining (exact k-mer matches) to guide the alignment.
+    /// The alignment is constructed by:
+    /// -  Aligning the sequence before the first anchor
+    /// -  Adding each anchor as a perfect match of length k
+    /// -  Aligning regions between consecutive anchors
+    /// -  Aligning the sequence after the last anchor
+    ///
+    /// Between anchors, the method uses different strategies based on the distance:
+    /// - If both sequences have positive gaps of equal length, attempts Hamming distance
+    ///   alignment first (faster), falling back to full global alignment if quality is poor
+    /// - If gaps are unequal or negative (overlapping anchors), handles insertions/deletions
+    ///   directly without alignment
+    ///
+    /// # Parameters
+    ///
+    /// * `query` - The query sequence as a byte slice
+    /// * `refseq` - The reference sequence as a byte slice
+    /// * `anchors` - A slice of anchor sorted from last to first (reverse order)
+    /// * `padding` - Additional bases to include when aligning prefix/suffix regions to
+    ///   account for potential insertions/deletions
+    ///
+    /// # Returns
+    ///
+    /// An [`Option<AlignmentInfo>`] containing:
+    /// - `Some(AlignmentInfo)` with the alignment score, CIGAR string, edit distance,
+    ///   and start/end positions in both sequences if the alignment score is positive
+    /// - `None` if the alignment score is <= 0
+    pub fn extend_piecewise(
         &self,
         query: &[u8],
         refseq: &[u8],
-        anchors: &[Anchor], // `anchors` are sorted from last to first
+        anchors: &[Anchor],
         padding: usize,
     ) -> Option<AlignmentInfo> {
-        let mut result =
-            self.align_before_first_anchor(query, refseq, &anchors[anchors.len() - 1], padding);
+        let AlignmentResult {
+            mut cigar,
+            ref_start,
+            query_start,
+            mut score,
+            ..
+        } = self.align_before_first_anchor(query, refseq, anchors.last()?, padding);
 
-        result.score += self.k as i32 * self.scores.match_ as i32;
-        result.cigar.push(CigarOperation::Eq, self.k);
+        score += self.k as i32 * self.scores.match_ as i32;
+        cigar.push(CigarOperation::Eq, self.k);
 
         for i in (1..anchors.len()).rev() {
             let curr_query_start = anchors[i - 1].query_start;
@@ -319,66 +437,72 @@ impl PiecewiseAligner {
                             > self.scores.match_ as u32
                                 * ((query_part.len() as f32) * 0.85).ceil() as u32
                     {
-                        result.score += hamming_aligned.score as i32;
-                        result.cigar.extend(&hamming_aligned.cigar);
+                        score += hamming_aligned.score as i32;
+                        cigar.extend(&hamming_aligned.cigar);
 
-                        result.score += self.k as i32 * self.scores.match_ as i32;
-                        result.cigar.push(CigarOperation::Eq, self.k);
+                        score += self.k as i32 * self.scores.match_ as i32;
+                        cigar.push(CigarOperation::Eq, self.k);
                         continue;
                     }
                 }
 
                 let aligned = self.global_alignment(query_part, ref_part);
 
-                result.score += aligned.score;
-                result.cigar.extend(&aligned.cigar);
+                score += aligned.score;
+                cigar.extend(&aligned.cigar);
 
-                result.score += self.k as i32 * self.scores.match_ as i32;
-                result.cigar.push(CigarOperation::Eq, self.k);
+                score += self.k as i32 * self.scores.match_ as i32;
+                cigar.push(CigarOperation::Eq, self.k);
             } else {
                 // Overlap between anchors, no need to align
                 if ref_diff < query_diff {
                     let inserted_part = (query_diff - ref_diff) as usize;
 
-                    result.score += -(self.scores.gap_open as i32)
+                    score += -(self.scores.gap_open as i32)
                         + (inserted_part as i32 - 1) * -(self.scores.gap_extend as i32);
-                    result.cigar.push(CigarOperation::Insertion, inserted_part);
+                    cigar.push(CigarOperation::Insertion, inserted_part);
 
                     let matching_part = (self.k as isize + ref_diff) as usize;
-                    result.score += matching_part as i32 * self.scores.match_ as i32;
-                    result.cigar.push(CigarOperation::Eq, matching_part);
+                    score += matching_part as i32 * self.scores.match_ as i32;
+                    cigar.push(CigarOperation::Eq, matching_part);
                 } else if ref_diff > query_diff {
                     let deleted_part = (ref_diff - query_diff) as usize;
-                    result.score += -(self.scores.gap_open as i32)
+                    score += -(self.scores.gap_open as i32)
                         + (deleted_part as i32 - 1) * -(self.scores.gap_extend as i32);
-                    result.cigar.push(CigarOperation::Deletion, deleted_part);
+                    cigar.push(CigarOperation::Deletion, deleted_part);
 
                     let matching_part = (self.k as isize + query_diff) as usize;
-                    result.score += matching_part as i32 * self.scores.match_ as i32;
-                    result.cigar.push(CigarOperation::Eq, matching_part);
+                    score += matching_part as i32 * self.scores.match_ as i32;
+                    cigar.push(CigarOperation::Eq, matching_part);
                 } else {
                     let matching_part = (self.k as isize + query_diff) as usize;
-                    result.score += matching_part as i32 * self.scores.match_ as i32;
-                    result.cigar.push(CigarOperation::Eq, matching_part);
+                    score += matching_part as i32 * self.scores.match_ as i32;
+                    cigar.push(CigarOperation::Eq, matching_part);
                 }
             }
         }
 
-        let end_result = self.align_after_last_anchor(query, refseq, &anchors[0], padding);
-        result.cigar.extend(&end_result.cigar);
-        result.score += end_result.score;
+        let AlignmentResult {
+            cigar: end_cigar,
+            ref_end,
+            query_end,
+            score: end_score,
+            ..
+        } = self.align_after_last_anchor(query, refseq, anchors.first()?, padding);
 
-        let edit_distance = result.cigar.edit_distance();
+        cigar.extend(&end_cigar);
+        score += end_score;
+        let edit_distance = cigar.edit_distance();
 
-        if result.score > 0 {
+        if score > 0 {
             Some(AlignmentInfo {
-                cigar: result.cigar,
+                cigar,
                 edit_distance,
-                ref_start: result.ref_start,
-                ref_end: end_result.ref_end,
-                query_start: result.query_start,
-                query_end: end_result.query_end,
-                score: result.score as u32,
+                ref_start,
+                ref_end,
+                query_start,
+                query_end,
+                score: score as u32,
             })
         } else {
             None
@@ -386,7 +510,7 @@ impl PiecewiseAligner {
     }
 }
 
-// Converts a blockaligner Cigar to our Cigar format
+/// Converts a blockaligner CIGAR string to our internal CIGAR format.
 fn build_cigar(block_cigar: &BlockCigar) -> Cigar {
     let mut result = Cigar::new();
 
@@ -406,7 +530,8 @@ fn build_cigar(block_cigar: &BlockCigar) -> Cigar {
     result
 }
 
-// Converts a blockaligner Cigar to our Cigar format with I/D swapped
+/// Converts a blockaligner CIGAR string to our internal CIGAR format with
+/// insertions and deletions swapped.
 fn build_cigar_swap_indel(block_cigar: &BlockCigar) -> Cigar {
     let mut result = Cigar::new();
 
@@ -426,7 +551,8 @@ fn build_cigar_swap_indel(block_cigar: &BlockCigar) -> Cigar {
     result
 }
 
-// Converts a blockaligner Cigar to our Cigar format in reverse order with I/D swapped
+/// Converts a blockaligner CIGAR string to our internal CIGAR format in reverse
+/// order with insertions and deletions swapped.
 fn build_cigar_reverse_swap_indel(block_cigar: &BlockCigar) -> Cigar {
     let mut result = Cigar::new();
 
@@ -446,7 +572,20 @@ fn build_cigar_reverse_swap_indel(block_cigar: &BlockCigar) -> Cigar {
     result
 }
 
-// Create profile to align the reference on the query with end bonus
+/// Creates a position-specific scoring matrix (profile) for aligning the reference
+/// against the query with end bonuses.
+///
+/// # Parameters
+///
+/// * `query` - The query sequence to build the profile from
+/// * `scores` - Scoring parameters
+/// * `max_size` - Maximum block size for alignment
+/// * `mode` - Alignment mode determining sequence traversal direction
+///
+/// # Returns
+///
+/// An [`AAProfile`] configured with position-specific scores for each nucleotide
+/// pairing and appropriate end bonuses based on the alignment mode.
 fn make_aa_profile(query: &[u8], scores: &Scores, max_size: usize, mode: XdropMode) -> AAProfile {
     let mut profile = AAProfile::new(query.len(), max_size, -(scores.gap_extend as i8));
 
@@ -484,6 +623,25 @@ fn make_aa_profile(query: &[u8], scores: &Scores, max_size: usize, mode: XdropMo
     profile
 }
 
+/// Removes spurious anchors from a chain of anchor points.
+///
+/// This method applies two pruning strategies to filter out unreliable anchors that
+/// may interfere with the optimal alignment. Spurious anchors can arise from repetitive
+/// sequences or random k-mer matches and can disrupt the alignment path.
+///
+/// # Pruning Strategies
+///
+/// ## First Pruning: Canceling Indels
+/// Removes clusters of anchors that create two cancelling indels within the diagonal
+/// tolerance (5 bases).
+///
+/// ## Second Pruning: Edge Anchors
+/// Removes anchors at the beginning and end of the chain (up to 20% of the chain
+/// length) if they create any indel.
+///
+/// # Parameters
+///
+/// * `anchors` - A mutable vector of anchor points to be pruned in place
 pub fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
     if anchors.len() < 2 {
         return;
@@ -509,16 +667,16 @@ pub fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
         // 2 anchors are consider to deviate from the diagonal if
         // they create an indel bigger than the diagonal tolerance
         if indel.abs() > diag_tolerance {
-            if let Some(index) = deviation_start {
-                if (tracked_indel + indel).abs() <= diag_tolerance {
-                    // if we find an indel canceling the tracked indel, we
-                    // remove all anchors covered between the 2 indel positions
-                    anchors.drain(index..i);
-                    i -= i - index;
-                    deviation_start = None;
-                    tracked_indel = 0;
-                    continue;
-                }
+            if let Some(index) = deviation_start
+                && (tracked_indel + indel).abs() <= diag_tolerance
+            {
+                // if we find an indel canceling the tracked indel, we
+                // remove all anchors covered between the 2 indel positions
+                anchors.drain(index..i);
+                i = index;
+                deviation_start = None;
+                tracked_indel = 0;
+                continue;
             }
             deviation_start = Some(i);
             tracked_indel = indel;
@@ -1353,7 +1511,7 @@ mod tests {
     }
 
     #[test]
-    fn test_piecewise_extension_matching() {
+    fn test_extend_piecewise_matching() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1390,7 +1548,7 @@ mod tests {
             },
         ];
         let result = aligner
-            .piecewise_extension(query, refseq, &mut anchors, 5)
+            .extend_piecewise(query, refseq, &mut anchors, 5)
             .unwrap();
         assert_eq!(result.score, 50 * 2 + 10 * 2);
         assert_eq!(result.edit_distance, 0);
@@ -1402,7 +1560,7 @@ mod tests {
     }
 
     #[test]
-    fn test_piecewise_extension_unmappable() {
+    fn test_extend_piecewise_unmappable() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1433,12 +1591,12 @@ mod tests {
                 query_start: 10,
             },
         ];
-        let result = aligner.piecewise_extension(query, refseq, &mut anchors, 5);
+        let result = aligner.extend_piecewise(query, refseq, &mut anchors, 5);
         assert!(result.is_none());
     }
 
     #[test]
-    fn test_piecewise_extension_overlapping_anchors() {
+    fn test_extend_piecewise_overlapping_anchors() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1491,7 +1649,7 @@ mod tests {
             },
         ];
         let result = aligner
-            .piecewise_extension(query, refseq, &mut anchors, 5)
+            .extend_piecewise(query, refseq, &mut anchors, 5)
             .unwrap();
         assert_eq!(result.score, 50 * 2 + 10 * 2 - 12 - 4 * 1);
         assert_eq!(result.edit_distance, 5);
@@ -1503,7 +1661,7 @@ mod tests {
     }
 
     #[test]
-    fn test_piecewise_extension_complex() {
+    fn test_extend_piecewise_complex() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1535,7 +1693,7 @@ mod tests {
             },
         ];
         let result = aligner
-            .piecewise_extension(query, refseq, &mut anchors, 5)
+            .extend_piecewise(query, refseq, &mut anchors, 5)
             .unwrap();
         assert_eq!(
             result.score,
