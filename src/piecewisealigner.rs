@@ -294,20 +294,17 @@ impl PiecewiseAligner {
         result.cigar.push(CigarOperation::Eq, self.k);
 
         for i in (1..anchors.len()).rev() {
-            let anchor = &anchors[i - 1];
-            let prev_anchor = &anchors[i];
+            let curr_query_start = anchors[i - 1].query_start;
+            let curr_ref_start = anchors[i - 1].ref_start;
+            let prev_query_end = anchors[i].query_start + self.k;
+            let prev_ref_end = anchors[i].ref_start + self.k;
 
-            let curr_start_query = anchor.query_start;
-            let curr_start_ref = anchor.ref_start;
-            let prev_end_query = prev_anchor.query_start + self.k;
-            let prev_end_ref = prev_anchor.ref_start + self.k;
-
-            let query_diff = curr_start_query as isize - prev_end_query as isize;
-            let ref_diff = curr_start_ref as isize - prev_end_ref as isize;
+            let query_diff = curr_query_start as isize - prev_query_end as isize;
+            let ref_diff = curr_ref_start as isize - prev_ref_end as isize;
 
             if ref_diff > 0 && query_diff > 0 {
-                let query_part = &query[prev_end_query..prev_end_query + query_diff as usize];
-                let ref_part = &refseq[prev_end_ref..prev_end_ref + ref_diff as usize];
+                let query_part = &query[prev_query_end..prev_query_end + query_diff as usize];
+                let ref_part = &refseq[prev_ref_end..prev_ref_end + ref_diff as usize];
 
                 if ref_diff == query_diff {
                     let hamming_aligned = hamming_align_global(
