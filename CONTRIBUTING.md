@@ -12,7 +12,7 @@ Instead of one large PR, consider submitting multiple small, logically
 self-contained PRs if it makes sense. This facilitates review and allows for a
 more focused discussion.
 
-## Building the Rust version of strobealign
+## Building strobealign
 
 Use `cargo build --release`. The compiled binary is at
 `target/release/strobealign`.
@@ -37,36 +37,22 @@ strobealign.
 
 Run the tests with `cargo test`.
 
-## Building the C++ version of strobealign
+There are additional tests that should be run with `tests/run.sh`.
+(These have have not yet been ported to native Rust tests.)
 
-When configuring the strobealign build with CMake (`cmake -B build`),
-you can specify a build type to set some useful compiler options:
+## Building the legacy C++ version of strobealign
+
+Until version 0.17.0, strobealign was written in C++. The code currently still
+exists in the repository. To compile that code, run `cmake -B build`.
+You can add specify a build type to set some useful compiler options by adding
+one of these options to the command:
 - Use `-DCMAKE_BUILD_TYPE=Release` when building a release (`-O3 -DNDEBUG`) (this is the default)
 - Use `-DCMAKE_BUILD_TYPE=Debug` for development (`-O2 -g`)
 - Use `-DCMAKE_BUILD_TYPE=RelWithDebInfo` for profiling (`-O3 -g -DNDEBUG`)
 
 `-g` gives you debug symbols and `-DNDEBUG` disables assertions.
 
-### Other options
-
-If needed, run `cmake --build build` with `VERBOSE=1` to get more logging
-output at build time.
-
-To get more logging output when running strobealign, add the `-v` option to
-the command line.
-
-Add `--details` to get more detailed SAM output with some
-strobealign-specific tags added to each alignment record.
-(See below.)
-
-### Testing
-
-When your `build/` directory already exists
-(i.e., after you have run `cmake -B build`),
-you can use this one-liner to compile strobealign and run the tests:
-```
-cmake --build build -j && tests/run.sh
-```
+## Testing
 
 Whenever you make changes that could potentially affect mapping results, you can
 run a more elaborate test that compares strobealign against a “baseline”
@@ -89,7 +75,7 @@ baseline commit does not change.
 ## Making a release
 
 * Update changelog (adjust section header)
-* Bump version in `CMakeLists.txt`
+* Bump version in `Cargo.toml`
 * Bump version in `setup.py`
 * Commit
 * Push and wait for CI to pass
@@ -97,17 +83,6 @@ baseline commit does not change.
 * Make a release via the GitHub releases page
 * Wait for the Bioconda bot to pick up the new release and then approve its
   version bump PR
-
-## Style guide
-
-Existing code in strobealign is currently not necessarily consistent with this
-style guide, but new code should follow it.
-
-* Use the `clang-format` code formatter with the `-style=file` option.
-* Use Python-like naming of functions, methods, variables, etc. That is, it
-  should be `ClassName`, `variable_name`, `method_name`, `CONSTANT`.
-* The header guard of a file named `xyz.hpp` should be named
-  `STROBEALIGN_XYZ_HPP`.
 
 ## Detailed SAM output (`--details`)
 

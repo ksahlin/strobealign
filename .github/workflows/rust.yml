@@ -30,7 +30,7 @@ jobs:
       if: runner.os == 'macOS'
       run: brew install samtools
     - name: Run shell test
-      run: tests/rust.sh
+      run: tests/run.sh
 
   compare:
     if: >-
