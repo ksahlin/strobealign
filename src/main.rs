@@ -205,9 +205,9 @@ struct Args {
     #[arg(short = 'L', default_value_t = Scores::default().end_bonus, value_name = "N", help_heading = "Alignment")]
     end_bonus: u32,
 
-    /// Use Piecewise extension instead of SSW for single-ends alignments
-    #[arg(long = "pw", help_heading = "Alignment")]
-    use_piecewise: bool,
+    /// Use SSW extension instead of Piecewise for single-ends alignments
+    #[arg(long = "ssw", help_heading = "Alignment")]
+    use_ssw: bool,
 
     /// X-drop threshold for piecewise extension
     #[arg(long = "xdrop", default_value_t = 500, value_name = "N", help_heading = "Alignment")]
@@ -467,7 +467,7 @@ fn run() -> Result<(), CliError> {
         rescue_distance: args.rescue_distance,
         output_unmapped: !args.only_mapped,
         mcs_strategy: args.mcs_strategy,
-        use_piecewise: args.use_piecewise,
+        use_ssw: args.use_ssw,
     };
 
     let chaining_parameters = ChainingParameters {

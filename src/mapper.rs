@@ -38,7 +38,7 @@ pub struct MappingParameters {
     pub max_tries: usize,
     pub mcs_strategy: McsStrategy,
     pub output_unmapped: bool,
-    pub use_piecewise: bool,
+    pub use_ssw: bool,
 }
 
 impl Default for MappingParameters {
@@ -50,7 +50,7 @@ impl Default for MappingParameters {
             max_tries: 20,
             mcs_strategy: McsStrategy::default(),
             output_unmapped: true,
-            use_piecewise: false,
+            use_ssw: false,
         }
     }
 }
@@ -450,22 +450,22 @@ pub fn align_single_end_read(
             references,
             &read,
             consistent_nam,
-            mapping_parameters.use_piecewise,
+            mapping_parameters.use_ssw,
         ) else {
             continue;
         };
 
         // outputting Piecewise vs SSW alignments for debugging
         // if log::log_enabled!(log::Level::Trace) {
-        //     let (mut ssw, mut pw) = if mapping_parameters.use_piecewise {
+        //     let (mut ssw, mut pw) = if !mapping_parameters.use_ssw {
         //         (
-        //             extend_seed(aligner, nam, references, &read, consistent_nam, false).unwrap(),
+        //             extend_seed(aligner, nam, references, &read, consistent_nam, true).unwrap(),
         //             alignment.clone(),
         //         )
         //     } else {
         //         (
         //             alignment.clone(),
-        //             extend_seed(aligner, nam, references, &read, consistent_nam, true).unwrap(),
+        //             extend_seed(aligner, nam, references, &read, consistent_nam, false).unwrap(),
         //         )
         //     };
         //     // manually adds the soft clips
@@ -578,7 +578,7 @@ fn extend_seed(
     references: &[RefSequence],
     read: &Read,
     consistent_nam: bool,
-    use_piecewise: bool,
+    use_ssw: bool,
 ) -> Option<Alignment> {
     let query = if nam.is_revcomp {
         read.rc()
@@ -622,16 +622,16 @@ fn extend_seed(
     }
     if gapped {
         let padding = read.len() / 10;
-        if use_piecewise {
-            remove_spurious_anchors(&mut nam.anchors);
-            info = aligner.align_piecewise(query, refseq, &nam.anchors, padding)?;
-            result_ref_start = info.ref_start;
-        } else {
+        if use_ssw {
             let ref_start = projected_ref_start.saturating_sub(padding);
             let ref_end = min(projected_ref_end + padding, refseq.len());
             let segment = &refseq[ref_start..ref_end];
             info = aligner.align(query, segment)?;
             result_ref_start = ref_start + info.ref_start;
+        } else {
+            remove_spurious_anchors(&mut nam.anchors);
+            info = aligner.align_piecewise(query, refseq, &nam.anchors, padding)?;
+            result_ref_start = info.ref_start;
         }
     }
     Some(Alignment {
@@ -861,7 +861,7 @@ fn extend_paired_seeds(
             references,
             read1,
             consistent_nam1,
-            false,
+            true, // SSW
         );
         let alignment2 = extend_seed(
             aligner,
@@ -869,7 +869,7 @@ fn extend_paired_seeds(
             references,
             read2,
             consistent_nam2,
-            false,
+            true, // SSW
         );
         if let (Some(alignment1), Some(alignment2)) = (alignment1, alignment2) {
             details[0].tried_alignment += 1;
@@ -904,7 +904,7 @@ fn extend_paired_seeds(
             references,
             reads[i],
             consistent_nam,
-            false,
+            true, // SSW
         );
         details[i].tried_alignment += 1;
         details[i].gapped += a_indv_max[i].as_ref().map_or(0, |a| a.gapped as usize);
@@ -942,7 +942,7 @@ fn extend_paired_seeds(
                         references,
                         reads[i],
                         consistent_nam,
-                        false,
+                        true, // SSW
                     );
                     details[i].tried_alignment += 1;
                     details[i].gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
@@ -1043,7 +1043,7 @@ fn rescue_read(
         }
         let consistent_nam = reverse_nam_if_needed(nam, read1, references, k);
         details[0].inconsistent_nams += !consistent_nam as usize;
-        if let Some(alignment) = extend_seed(aligner, nam, references, read1, consistent_nam, false)
+        if let Some(alignment) = extend_seed(aligner, nam, references, read1, consistent_nam, true)
         {
             details[0].gapped += alignment.gapped as usize;
             alignments1.push(alignment);
