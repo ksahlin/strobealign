@@ -22,6 +22,7 @@ pub struct Nam {
     pub query_start: usize,
     pub query_end: usize,
     pub n_matches: usize,
+    pub matching_bases: usize,
     pub ref_id: usize,
     pub score: f32,
     pub is_revcomp: bool,
