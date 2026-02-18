@@ -12,7 +12,8 @@
   Please report any other regressions!
 
   If you need one of the above features, use version 0.17.0.
-
+* #550: Introduce piecewise extension for single-end reads. The previous 
+  SSW extension can be enabled with `--ssw`.
 
 ## v0.17.0 (2025-12-18)
 
