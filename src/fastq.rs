@@ -1,7 +1,9 @@
 use std::collections::VecDeque;
 use std::fmt;
-use std::io::{BufRead, BufReader, Read, Result};
+use std::io::{self, BufRead, BufReader, Read};
 use std::str;
+
+use thiserror::Error;
 
 use crate::fasta::split_header;
 use crate::io::xopen;
@@ -97,7 +99,7 @@ impl<R: Read + Send> PeekableSequenceReader<R> {
     }
 
     // Retrieve up to n records
-    pub fn peek(&mut self, n: usize) -> Result<Vec<SequenceRecord>> {
+    pub fn peek(&mut self, n: usize) -> Result<Vec<SequenceRecord>, FastqError> {
         while self.buffer.len() < n {
             if let Some(item) = self.fastq_reader.next() {
                 self.buffer.push_back(item?)
@@ -111,7 +113,7 @@ impl<R: Read + Send> PeekableSequenceReader<R> {
 }
 
 impl<R: Read + Send> Iterator for PeekableSequenceReader<R> {
-    type Item = Result<SequenceRecord>;
+    type Item = Result<SequenceRecord, FastqError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(item) = self.buffer.pop_front() {
@@ -120,6 +122,15 @@ impl<R: Read + Send> Iterator for PeekableSequenceReader<R> {
             self.fastq_reader.next()
         }
     }
+}
+
+#[derive(Error, Debug)]
+pub enum FastqError {
+    #[error("IO")]
+    IO(#[from] io::Error),
+
+    #[error("FASTQ file cannot be parsed: {0}")]
+    Parse(String),
 }
 
 #[derive(Debug)]
@@ -138,7 +149,7 @@ impl<R: Read> FastqReader<R> {
 }
 
 impl<R: Read> Iterator for FastqReader<R> {
-    type Item = Result<SequenceRecord>;
+    type Item = Result<SequenceRecord, FastqError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.err {
@@ -152,15 +163,23 @@ impl<R: Read> Iterator for FastqReader<R> {
             Ok(_) => {}
             Err(e) => {
                 self.err = true;
-                return Some(Err(e));
+                return Some(Err(FastqError::IO(e)));
             }
+        }
+        if !name.starts_with('@') {
+            let start = name.bytes().nth(0).unwrap() as char;
+            let msg = format!("Record must start with '@', but found '{}'.", start);
+            self.err = true;
+            return Some(Err(FastqError::Parse(msg)));
         }
         let name = name[1..].trim_end();
         let (mut name, comment) = split_header(name);
 
         if name.is_empty() {
-            //self.err = true;
-            //return Some(Err("error"));
+            self.err = true;
+            return Some(Err(FastqError::Parse(
+                "Record identifier is empty".to_string(),
+            )));
         }
 
         let mut end = End::None;
@@ -188,7 +207,16 @@ impl<R: Read> Iterator for FastqReader<R> {
         if !qualities.is_empty() && qualities[qualities.len() - 1] == b'\r' {
             qualities.pop();
         }
-        assert_eq!(sequence.len(), qualities.len());
+        if sequence.len() != qualities.len() {
+            let msg = format!(
+                "Found {} nucleotides but {} quality values in record '{}'",
+                sequence.len(),
+                qualities.len(),
+                name
+            );
+            self.err = true;
+            return Some(Err(FastqError::Parse(msg)));
+        }
         Some(Ok(SequenceRecord {
             name,
             end,
@@ -199,13 +227,13 @@ impl<R: Read> Iterator for FastqReader<R> {
     }
 }
 
-type RecordPair = (SequenceRecord, Option<SequenceRecord>);
+pub type RecordPair = (SequenceRecord, Option<SequenceRecord>);
 
 /// Iterate over paired-end *or* single-end reads
 pub fn record_iterator<'a, R: Read + Send + 'a>(
     fastq_reader1: PeekableSequenceReader<R>,
     path_r2: Option<&str>,
-) -> Result<Box<dyn Iterator<Item = Result<RecordPair>> + Send + 'a>> {
+) -> io::Result<Box<dyn Iterator<Item = Result<RecordPair, FastqError>> + Send + 'a>> {
     if let Some(r2_path) = path_r2 {
         let fastq_reader2 = FastqReader::new(xopen(r2_path)?);
         Ok(Box::new(fastq_reader1.zip(fastq_reader2).map(
@@ -235,7 +263,7 @@ impl<R: Read + Send> InterleavedIterator<R> {
 }
 
 impl<R: Read + Send> Iterator for InterleavedIterator<R> {
-    type Item = Result<RecordPair>;
+    type Item = Result<RecordPair, FastqError>;
 
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         let record1 = if let Some(record) = self.next_record.take() {
@@ -269,15 +297,18 @@ impl<R: Read + Send> Iterator for InterleavedIterator<R> {
 
 pub fn interleaved_record_iterator<'a, R: Read + Send + 'a>(
     fastq_reader: PeekableSequenceReader<R>,
-) -> Box<dyn Iterator<Item = Result<RecordPair>> + Send + 'a> {
+) -> Box<dyn Iterator<Item = Result<RecordPair, FastqError>> + Send + 'a> {
     Box::new(InterleavedIterator::new(fastq_reader))
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::fastq::{PeekableSequenceReader, RecordPair, interleaved_record_iterator};
+    use super::{
+        FastqError, FastqReader, PeekableSequenceReader, RecordPair, SequenceRecord,
+        interleaved_record_iterator,
+    };
     use std::fs::File;
-    use std::io::{Cursor, Result};
+    use std::io::Cursor;
 
     #[test]
     fn test_peekable_sequence_reader() {
@@ -302,8 +333,8 @@ mod tests {
         let f = File::open("tests/interleaved.fq").unwrap();
         let reader = PeekableSequenceReader::new(f);
         let it = interleaved_record_iterator(reader);
-
-        let record_pairs: Vec<RecordPair> = it.collect::<Result<Vec<RecordPair>>>().unwrap();
+        let record_pairs: Vec<RecordPair> =
+            it.collect::<Result<Vec<RecordPair>, FastqError>>().unwrap();
 
         assert_eq!(record_pairs.len(), 6);
         assert_eq!(record_pairs[0].0.name, "SRR4052021.2");
@@ -333,10 +364,29 @@ mod tests {
         let reader = PeekableSequenceReader::new(f);
         let it = interleaved_record_iterator(reader);
 
-        let record_pairs: Vec<RecordPair> = it.collect::<Result<Vec<RecordPair>>>().unwrap();
+        let record_pairs: Vec<RecordPair> =
+            it.collect::<Result<Vec<RecordPair>, FastqError>>().unwrap();
 
         assert_eq!(record_pairs.len(), 1);
         assert_eq!(record_pairs[0].0.name, "a");
         assert_eq!(record_pairs[0].1.as_ref().unwrap().name, "a");
+    }
+
+    #[test]
+    fn test_invalid_record_start() {
+        let f = Cursor::new(b"@a\nA\n+\n#\n>b");
+        let reader = FastqReader::new(f);
+        let result = reader.collect::<Result<Vec<SequenceRecord>, FastqError>>();
+
+        assert!(matches!(result, Err(FastqError::Parse(_))));
+    }
+
+    #[test]
+    fn test_too_few_quality_values() {
+        let f = Cursor::new(b"@a\nA\n+\n#\n>b");
+        let reader = FastqReader::new(f);
+        let result = reader.collect::<Result<Vec<SequenceRecord>, FastqError>>();
+
+        assert!(matches!(result, Err(FastqError::Parse(_))));
     }
 }
