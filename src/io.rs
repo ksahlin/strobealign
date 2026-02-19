@@ -3,7 +3,24 @@ use std::io;
 use std::io::{Error, Read};
 use std::path::Path;
 
-use flate2::read::MultiGzDecoder;
+//use flate2::read::MultiGzDecoder;
+use isal::read::GzipDecoder;
+
+struct UnsafeGzipDecoder<R: Read>(GzipDecoder<R>);
+
+impl<R: Read> UnsafeGzipDecoder<R> {
+    fn new(f: R) -> Self {
+        Self(GzipDecoder::new(f))
+    }
+}
+
+impl<R: Read> Read for UnsafeGzipDecoder<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.0.read(buf)
+    }
+}
+
+unsafe impl<R: Read> std::marker::Send for UnsafeGzipDecoder<R> {}
 
 /// Open an uncompressed or a gzip-compressed file depending on the file name extension
 pub fn xopen<P: AsRef<Path>>(path: P) -> Result<Box<dyn Read + Send>, Error> {
@@ -13,7 +30,7 @@ pub fn xopen<P: AsRef<Path>>(path: P) -> Result<Box<dyn Read + Send>, Error> {
     } else {
         let f = File::open(path)?;
         match path.extension() {
-            Some(x) if x == "gz" => Ok(Box::new(MultiGzDecoder::new(f))),
+            Some(x) if x == "gz" => Ok(Box::new(UnsafeGzipDecoder::new(f))),
             _ => Ok(Box::new(f)),
         }
     }
