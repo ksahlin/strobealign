@@ -493,7 +493,7 @@ pub fn align_single_end_read(
         {
             break;
         }
-        let consistent_nam = nam.is_consistent(&read, references, k);
+        let consistent_nam = nam.is_consistent(&read, references, k, index.parameters.adna_mode);
         if !consistent_nam {
             details.inconsistent_nams += 1;
             continue;
@@ -703,6 +703,7 @@ pub fn align_paired_end_read(
         mapping_parameters.dropoff_threshold,
         insert_size_distribution,
         mapping_parameters.max_tries,
+        index_parameters.adna_mode,
     );
 
     let mut sam_records = Vec::new();
@@ -798,6 +799,7 @@ fn extend_paired_seeds(
     dropoff: f32,
     insert_size_distribution: &InsertSizeDistribution,
     max_tries: usize,
+    adna_mode: bool,
 ) -> AlignedPairs {
     let mu = insert_size_distribution.mu;
     let sigma = insert_size_distribution.sigma;
@@ -821,6 +823,7 @@ fn extend_paired_seeds(
             k,
             mu,
             sigma,
+            adna_mode,
         ));
     }
 
@@ -839,6 +842,7 @@ fn extend_paired_seeds(
             k,
             mu,
             sigma,
+            adna_mode,
         );
         details.swap(0, 1);
         for pair in &mut pairs {
@@ -859,9 +863,9 @@ fn extend_paired_seeds(
         let mut n_max1 = nams[0][0].clone();
         let mut n_max2 = nams[1][0].clone();
 
-        let consistent_nam1 = reverse_nam_if_needed(&mut n_max1, read1, references, k);
+        let consistent_nam1 = reverse_nam_if_needed(&mut n_max1, read1, references, k, adna_mode);
         details[0].inconsistent_nams += !consistent_nam1 as usize;
-        let consistent_nam2 = reverse_nam_if_needed(&mut n_max2, read2, references, k);
+        let consistent_nam2 = reverse_nam_if_needed(&mut n_max2, read2, references, k, adna_mode);
         details[1].inconsistent_nams += !consistent_nam2 as usize;
 
         let alignment1 = extend_seed(aligner, &n_max1, references, read1, consistent_nam1);
@@ -891,7 +895,7 @@ fn extend_paired_seeds(
     // the paired-end read as two single-end reads.
     let mut a_indv_max = [None, None];
     for i in 0..2 {
-        let consistent_nam = reverse_nam_if_needed(&mut nams[i][0], reads[i], references, k);
+        let consistent_nam = reverse_nam_if_needed(&mut nams[i][0], reads[i], references, k, adna_mode);
         details[i].inconsistent_nams += !consistent_nam as usize;
         a_indv_max[i] = extend_seed(aligner, &nams[i][0], references, reads[i], consistent_nam);
         details[i].tried_alignment += 1;
@@ -922,7 +926,7 @@ fn extend_paired_seeds(
             if let Some(mut this_nam) = namsp[i].clone() {
                 if let Entry::Vacant(e) = alignment_cache[i].entry(this_nam.nam_id) {
                     let consistent_nam =
-                        reverse_nam_if_needed(&mut this_nam, reads[i], references, k);
+                        reverse_nam_if_needed(&mut this_nam, reads[i], references, k, adna_mode);
                     details[i].inconsistent_nams += !consistent_nam as usize;
                     alignment =
                         extend_seed(aligner, &this_nam, references, reads[i], consistent_nam);
@@ -935,7 +939,7 @@ fn extend_paired_seeds(
             } else {
                 let mut other_nam = namsp[1 - i].clone().unwrap();
                 details[1 - i].inconsistent_nams +=
-                    !reverse_nam_if_needed(&mut other_nam, reads[1 - i], references, k) as usize;
+                    !reverse_nam_if_needed(&mut other_nam, reads[1 - i], references, k, adna_mode) as usize;
                 alignment = rescue_align(aligner, &other_nam, references, reads[i], mu, sigma, k);
                 if alignment.is_some() {
                     details[i].mate_rescue += 1;
@@ -1012,6 +1016,7 @@ fn rescue_read(
     k: usize,
     mu: f32,
     sigma: f32,
+    adna_mode: bool,
 ) -> Vec<ScoredAlignmentPair> {
     let n_max1_hits = nams1[0].n_matches;
 
@@ -1023,7 +1028,7 @@ fn rescue_read(
         if score_dropoff1 < dropoff {
             break;
         }
-        let consistent_nam = reverse_nam_if_needed(nam, read1, references, k);
+        let consistent_nam = reverse_nam_if_needed(nam, read1, references, k, adna_mode);
         details[0].inconsistent_nams += !consistent_nam as usize;
         if let Some(alignment) = extend_seed(aligner, nam, references, read1, consistent_nam) {
             details[0].gapped += alignment.gapped as usize;

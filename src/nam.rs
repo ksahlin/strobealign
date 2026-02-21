@@ -12,6 +12,7 @@ use crate::index::StrobemerIndex;
 use crate::mapper;
 use crate::mcsstrategy::McsStrategy;
 use crate::read::Read;
+use crate::syncmers::ry_equal;
 
 /// Non-overlapping approximate match
 #[derive(Clone, Debug)]
@@ -41,9 +42,15 @@ impl Nam {
     }
 
     /// Returns whether a NAM represents a consistent match between read and
-    /// reference by comparing the nucleotide sequences of the first and last
-    /// strobe (taking orientation into account).
-    pub fn is_consistent(&self, read: &Read, references: &[RefSequence], k: usize) -> bool {
+    /// reference by comparing the first and last strobe (taking orientation
+    /// into account). In adna mode, comparison uses RY encoding.
+    pub fn is_consistent(
+        &self,
+        read: &Read,
+        references: &[RefSequence],
+        k: usize,
+        adna_mode: bool,
+    ) -> bool {
         let ref_start_kmer = &references[self.ref_id].sequence[self.ref_start..self.ref_start + k];
         let ref_end_kmer = &references[self.ref_id].sequence[self.ref_end - k..self.ref_end];
 
@@ -55,7 +62,12 @@ impl Nam {
         let read_start_kmer = &seq[self.query_start..self.query_start + k];
         let read_end_kmer = &seq[self.query_end - k..self.query_end];
 
-        ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer
+        if adna_mode {
+            ry_equal(ref_start_kmer, read_start_kmer)
+                && ry_equal(ref_end_kmer, read_end_kmer)
+        } else {
+            ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer
+        }
     }
 }
 
@@ -89,9 +101,14 @@ pub fn reverse_nam_if_needed(
     read: &Read,
     references: &[RefSequence],
     k: usize,
+    adna_mode: bool,
 ) -> bool {
     let ref_start_kmer = &references[nam.ref_id].sequence[nam.ref_start..nam.ref_start + k];
     let ref_end_kmer = &references[nam.ref_id].sequence[nam.ref_end - k..nam.ref_end];
+
+    let kmers_match = |a: &[u8], b: &[u8]| -> bool {
+        if adna_mode { ry_equal(a, b) } else { a == b }
+    };
 
     let (seq, seq_rc) = if nam.is_revcomp {
         (read.rc(), read.seq())
@@ -100,7 +117,9 @@ pub fn reverse_nam_if_needed(
     };
     let read_start_kmer = &seq[nam.query_start..nam.query_start + k];
     let read_end_kmer = &seq[nam.query_end - k..nam.query_end];
-    if ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer {
+    if kmers_match(ref_start_kmer, read_start_kmer)
+        && kmers_match(ref_end_kmer, read_end_kmer)
+    {
         return true;
     }
 
@@ -113,7 +132,9 @@ pub fn reverse_nam_if_needed(
     // false reverse match, change coordinates in nam to forward
     let read_start_kmer = &seq_rc[q_start_tmp..q_start_tmp + k];
     let read_end_kmer = &seq_rc[q_end_tmp - k..q_end_tmp];
-    if ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer {
+    if kmers_match(ref_start_kmer, read_start_kmer)
+        && kmers_match(ref_end_kmer, read_end_kmer)
+    {
         nam.is_revcomp = !nam.is_revcomp;
         nam.query_start = q_start_tmp;
         nam.query_end = q_end_tmp;

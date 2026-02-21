@@ -179,6 +179,16 @@ impl SyncmerEncoding for KmerEncoding {
     }
 }
 
+/// Compare two nucleotide sequences by their RY (purine/pyrimidine) encoding.
+pub fn ry_equal(a: &[u8], b: &[u8]) -> bool {
+    a.len() == b.len()
+        && a.iter().zip(b.iter()).all(|(&x, &y)| {
+            let sx = RYMER_S1[x as usize];
+            let sy = RYMER_S1[y as usize];
+            sx < 4 && sx == sy
+        })
+}
+
 pub struct RymerEncoding;
 
 // S1: a, A -> 0; c, C -> 1; g, G -> 0; t, T, u, U -> 1
