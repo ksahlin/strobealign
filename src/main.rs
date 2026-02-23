@@ -96,7 +96,7 @@ struct Args {
     aemb: bool,
 
     /// Interleaved (or mixed single-end/paired-end) input
-    #[arg(short = 'p', long, help_heading = "Input/output", conflicts_with = "fastq_path2")]
+    #[arg(short = 'p', long, help_heading = "Input/output", conflicts_with = "reads_path2")]
     interleaved: bool,
 
     // args::ValueFlag<std::string> index_statistics(parser, "PATH", "Print statistics of indexing to PATH", {"index-statistics"});
@@ -268,10 +268,10 @@ struct Args {
     ref_path: String,
 
     /// Path to input FASTQ
-    fastq_path: Option<String>,
+    reads_path: Option<String>,
 
     /// Path to input FASTQ with R2 reads (if paired end)
-    fastq_path2: Option<String>,
+    reads_path2: Option<String>,
 }
 
 #[derive(Debug, Error)]
@@ -318,20 +318,20 @@ fn run() -> Result<(), CliError> {
 
     // Open R1 FASTQ file and estimate read length if necessary
     let read_length;
-    let fastq_reader1;
+    let reads_reader1;
 
-    if let Some(fastq_path) = args.fastq_path {
-        let f1 = xopen(&fastq_path)?;
-        let mut fastq_reader = PeekableSequenceReader::new(f1);
+    if let Some(reads_path) = args.reads_path {
+        let f1 = xopen(&reads_path)?;
+        let mut reads_reader = PeekableSequenceReader::new(f1);
         read_length = match args.read_length {
             Some(r) => r,
             None => {
-                let r = estimate_read_length(&fastq_reader.peek(500)?);
+                let r = estimate_read_length(&reads_reader.peek(500)?);
                 info!("Estimated read length: {} bp", r);
                 r
             }
         };
-        fastq_reader1 = Some(fastq_reader);
+        reads_reader1 = Some(reads_reader);
     } else {
         if !args.create_index {
             error!("FASTQ path is required");
@@ -345,7 +345,7 @@ fn run() -> Result<(), CliError> {
             );
             exit(1);
         }
-        fastq_reader1 = None;
+        reads_reader1 = None;
     }
 
     let parameters = IndexParameters::from_read_length(
@@ -463,7 +463,7 @@ fn run() -> Result<(), CliError> {
 
         exit(0);
     }
-    let fastq_reader1 = fastq_reader1.unwrap();
+    let reads_reader1 = reads_reader1.unwrap();
 
     let timer = Instant::now();
     let mapping_parameters = MappingParameters {
@@ -532,9 +532,9 @@ fn run() -> Result<(), CliError> {
     }
 
     let mut record_iter = if args.interleaved {
-        interleaved_record_iterator(fastq_reader1)
+        interleaved_record_iterator(reads_reader1)
     } else {
-        record_iterator(fastq_reader1, args.fastq_path2.as_deref())?
+        record_iterator(reads_reader1, args.reads_path2.as_deref())?
     };
 
     let chunks_iter = std::iter::from_fn(move || {
@@ -993,7 +993,7 @@ mod test {
     #[test]
     fn test_estimate_read_length_phix_r1() {
         let f = xopen("tests/phix.1.fastq").unwrap();
-        let mut fastq_reader = PeekableSequenceReader::new(f);
-        assert_eq!(estimate_read_length(&fastq_reader.peek(500).unwrap()), 289);
+        let mut reads_reader = PeekableSequenceReader::new(f);
+        assert_eq!(estimate_read_length(&reads_reader.peek(500).unwrap()), 289);
     }
 }
