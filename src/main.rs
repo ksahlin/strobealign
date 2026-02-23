@@ -24,11 +24,11 @@ use strobealign::index::{
     REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex,
 };
 use strobealign::insertsize::InsertSizeDistribution;
+use strobealign::io::SequenceIOError;
 use strobealign::io::fasta;
 use strobealign::io::fasta::RefSequence;
-use strobealign::io::SequenceIOError;
 use strobealign::io::fastq::{
-    FastqError, PeekableSequenceReader, RecordPair, SequenceRecord, interleaved_record_iterator,
+    PeekableSequenceReader, RecordPair, SequenceRecord, interleaved_record_iterator,
     record_iterator,
 };
 use strobealign::io::sam::{ReadGroup, SamHeader};
@@ -281,9 +281,6 @@ enum CliError {
 
     #[error("{0}")]
     SequenceIOError(#[from] SequenceIOError),
-
-    #[error("{0}")]
-    FastqError(#[from] FastqError),
 
     #[error(transparent)]
     IndexReadingError(#[from] IndexReadingError),
@@ -841,7 +838,7 @@ struct Mapper<'a> {
 impl Mapper<'_> {
     fn map_chunk(
         &mut self, // TODO only because of abundances
-        chunk: Vec<Result<RecordPair, FastqError>>,
+        chunk: Vec<Result<RecordPair, SequenceIOError>>,
     ) -> Result<(Vec<u8>, Details), CliError> {
         let mut out = vec![];
         let mut rng = Rng::with_seed(0);
