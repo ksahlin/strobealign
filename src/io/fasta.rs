@@ -1,7 +1,7 @@
 use std::io::{BufRead, BufReader, Read};
 
 use crate::io::SequenceIOError;
-use crate::io::fastq::{End, SequenceRecord};
+use crate::io::record::{End, SequenceRecord};
 
 #[derive(Debug, Clone)]
 pub struct RefSequence {

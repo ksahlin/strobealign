@@ -15,7 +15,7 @@ use crate::details::Details;
 use crate::index::{IndexParameters, StrobemerIndex};
 use crate::insertsize::InsertSizeDistribution;
 use crate::io::fasta::RefSequence;
-use crate::io::fastq::SequenceRecord;
+use crate::io::record::SequenceRecord;
 use crate::io::sam::{
     MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SamRecord, UNMAP,
 };

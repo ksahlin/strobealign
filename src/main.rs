@@ -28,9 +28,9 @@ use strobealign::io::SequenceIOError;
 use strobealign::io::fasta;
 use strobealign::io::fasta::RefSequence;
 use strobealign::io::fastq::{
-    PeekableSequenceReader, RecordPair, SequenceRecord, interleaved_record_iterator,
-    record_iterator,
+    PeekableSequenceReader, RecordPair, interleaved_record_iterator, record_iterator,
 };
+use strobealign::io::record::SequenceRecord;
 use strobealign::io::sam::{ReadGroup, SamHeader};
 use strobealign::io::xopen::xopen;
 use strobealign::maponly::{
