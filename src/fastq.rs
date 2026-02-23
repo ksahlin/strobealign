@@ -6,7 +6,7 @@ use std::str;
 use thiserror::Error;
 
 use crate::fasta::split_header;
-use crate::xopen::xopen;
+use crate::io::xopen::xopen;
 
 /// Which end a read is from according to the /1 or /2 suffix of its name.
 ///

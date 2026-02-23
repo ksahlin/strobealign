@@ -8,7 +8,7 @@ pub mod hash;
 pub mod hit;
 pub mod index;
 pub mod insertsize;
-pub mod xopen;
+pub mod io;
 pub mod maponly;
 pub mod mapper;
 pub mod math;
