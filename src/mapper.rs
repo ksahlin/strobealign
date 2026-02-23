@@ -12,10 +12,10 @@ use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
 use crate::chainer::Chainer;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
-use crate::fastq::SequenceRecord;
 use crate::index::{IndexParameters, StrobemerIndex};
 use crate::insertsize::InsertSizeDistribution;
 use crate::io::fasta::RefSequence;
+use crate::io::fastq::SequenceRecord;
 use crate::io::sam::{
     MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SamRecord, UNMAP,
 };

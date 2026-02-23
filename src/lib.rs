@@ -2,7 +2,6 @@ pub mod aligner;
 pub mod chainer;
 pub mod cigar;
 pub mod details;
-pub mod fastq;
 pub mod hash;
 pub mod hit;
 pub mod index;

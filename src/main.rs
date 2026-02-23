@@ -19,10 +19,6 @@ use thiserror::Error;
 use strobealign::aligner::{Aligner, Scores};
 use strobealign::chainer::{Chainer, ChainingParameters};
 use strobealign::details::Details;
-use strobealign::fastq::{
-    FastqError, PeekableSequenceReader, RecordPair, SequenceRecord, interleaved_record_iterator,
-    record_iterator,
-};
 use strobealign::index::{
     IndexParameters, IndexReadingError, InvalidIndexParameter,
     REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex,
@@ -30,6 +26,10 @@ use strobealign::index::{
 use strobealign::insertsize::InsertSizeDistribution;
 use strobealign::io::fasta;
 use strobealign::io::fasta::{FastaError, RefSequence};
+use strobealign::io::fastq::{
+    FastqError, PeekableSequenceReader, RecordPair, SequenceRecord, interleaved_record_iterator,
+    record_iterator,
+};
 use strobealign::io::sam::{ReadGroup, SamHeader};
 use strobealign::io::xopen::xopen;
 use strobealign::maponly::{
@@ -984,7 +984,7 @@ mod test {
     use super::Args;
     use super::estimate_read_length;
     use super::xopen;
-    use strobealign::fastq::PeekableSequenceReader;
+    use strobealign::io::fastq::PeekableSequenceReader;
 
     #[test]
     fn verify_cli() {

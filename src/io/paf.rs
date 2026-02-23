@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::fastq::End;
+use crate::io::fastq::End;
 
 /* PAF columns (see https://github.com/lh3/miniasm/blob/master/PAF.md):
  * 1 query name

@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::fmt;
 use std::io::{self, BufRead, BufReader, Read};
 use std::str;
 

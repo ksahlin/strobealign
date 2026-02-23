@@ -3,7 +3,7 @@ use std::io::{BufRead, BufReader, Read};
 
 use thiserror::Error;
 
-use crate::fastq::{End, SequenceRecord};
+use crate::io::fastq::{End, SequenceRecord};
 
 #[derive(Debug, Clone)]
 pub struct RefSequence {
