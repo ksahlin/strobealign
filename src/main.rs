@@ -27,10 +27,10 @@ use strobealign::insertsize::InsertSizeDistribution;
 use strobealign::io::SequenceIOError;
 use strobealign::io::fasta;
 use strobealign::io::fasta::RefSequence;
-use strobealign::io::fastq::{
-    PeekableSequenceReader, RecordPair, interleaved_record_iterator, record_iterator,
+use strobealign::io::reads::{
+    PeekableSequenceReader, interleaved_record_iterator, record_iterator,
 };
-use strobealign::io::record::SequenceRecord;
+use strobealign::io::record::{RecordPair, SequenceRecord};
 use strobealign::io::sam::{ReadGroup, SamHeader};
 use strobealign::io::xopen::xopen;
 use strobealign::maponly::{
@@ -982,7 +982,8 @@ mod test {
     use super::Args;
     use super::estimate_read_length;
     use super::xopen;
-    use strobealign::io::fastq::PeekableSequenceReader;
+
+    use strobealign::io::reads::PeekableSequenceReader;
 
     #[test]
     fn verify_cli() {

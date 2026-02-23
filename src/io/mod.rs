@@ -1,6 +1,7 @@
 pub mod fasta;
 pub mod fastq;
 pub mod paf;
+pub mod reads;
 pub mod record;
 pub mod sam;
 pub mod xopen;

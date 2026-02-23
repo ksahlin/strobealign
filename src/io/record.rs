@@ -74,3 +74,5 @@ impl fmt::Display for SequenceRecord {
         )
     }
 }
+
+pub type RecordPair = (SequenceRecord, Option<SequenceRecord>);
