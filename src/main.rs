@@ -322,7 +322,7 @@ fn run() -> Result<(), CliError> {
 
     if let Some(reads_path) = args.reads_path {
         let f1 = xopen(&reads_path)?;
-        let mut reads_reader = PeekableSequenceReader::new(f1);
+        let mut reads_reader = PeekableSequenceReader::new(BufReader::new(f1));
         read_length = match args.read_length {
             Some(r) => r,
             None => {
@@ -979,6 +979,8 @@ fn estimate_read_length(records: &[SequenceRecord]) -> usize {
 
 #[cfg(test)]
 mod test {
+    use std::io::BufReader;
+
     use super::Args;
     use super::estimate_read_length;
     use super::xopen;
@@ -994,7 +996,7 @@ mod test {
     #[test]
     fn test_estimate_read_length_phix_r1() {
         let f = xopen("tests/phix.1.fastq").unwrap();
-        let mut reads_reader = PeekableSequenceReader::new(f);
+        let mut reads_reader = PeekableSequenceReader::new(BufReader::new(f));
         assert_eq!(estimate_read_length(&reads_reader.peek(500).unwrap()), 289);
     }
 }

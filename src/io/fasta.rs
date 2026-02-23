@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader, Read};
+use std::io::BufRead;
 
 use crate::io::record::{End, SequenceRecord};
 use crate::io::{SequenceIOError, split_header};
@@ -41,17 +41,17 @@ fn check_duplicate_names(records: &[RefSequence]) -> Result<(), SequenceIOError>
 }
 
 #[derive(Debug)]
-struct FastaReader<R> {
-    reader: BufReader<R>,
+struct FastaReader<B: BufRead> {
+    reader: B,
     err: bool,
     header: Option<String>,
     sequence: Vec<u8>,
 }
 
-impl<R: Read> FastaReader<R> {
-    pub fn new(reader: R) -> FastaReader<R> {
+impl<B: BufRead> FastaReader<B> {
+    pub fn new(reader: B) -> FastaReader<B> {
         FastaReader {
-            reader: BufReader::new(reader),
+            reader,
             err: false,
             header: None,
             sequence: vec![],
@@ -59,7 +59,7 @@ impl<R: Read> FastaReader<R> {
     }
 }
 
-impl<R: Read> Iterator for FastaReader<R> {
+impl<B: BufRead> Iterator for FastaReader<B> {
     type Item = Result<SequenceRecord, SequenceIOError>;
 
     fn next(&mut self) -> Option<Self::Item> {

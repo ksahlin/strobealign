@@ -1,25 +1,22 @@
-use std::io::{BufRead, BufReader, Read};
+use std::io::BufRead;
 
 use crate::io::SequenceIOError;
 use crate::io::record::{End, SequenceRecord};
 use crate::io::split_header;
 
 #[derive(Debug)]
-pub struct FastqReader<R: Read> {
-    reader: BufReader<R>,
+pub struct FastqReader<B: BufRead> {
+    reader: B,
     err: bool,
 }
 
-impl<R: Read> FastqReader<R> {
-    pub fn new(reader: R) -> FastqReader<R> {
-        FastqReader {
-            reader: BufReader::new(reader),
-            err: false,
-        }
+impl<B: BufRead> FastqReader<B> {
+    pub fn new(reader: B) -> FastqReader<B> {
+        FastqReader { reader, err: false }
     }
 }
 
-impl<R: Read> Iterator for FastqReader<R> {
+impl<B: BufRead> Iterator for FastqReader<B> {
     type Item = Result<SequenceRecord, SequenceIOError>;
 
     fn next(&mut self) -> Option<Self::Item> {
