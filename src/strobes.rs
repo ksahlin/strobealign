@@ -129,8 +129,8 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::fasta::{RefSequence, read_fasta};
     use crate::index::IndexParameters;
+    use crate::io::fasta::{RefSequence, read_fasta};
     use crate::syncmers::SyncmerIterator;
     use std::fs::File;
     use std::io::BufReader;

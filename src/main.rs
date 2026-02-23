@@ -19,8 +19,6 @@ use thiserror::Error;
 use strobealign::aligner::{Aligner, Scores};
 use strobealign::chainer::{Chainer, ChainingParameters};
 use strobealign::details::Details;
-use strobealign::fasta;
-use strobealign::fasta::{FastaError, RefSequence};
 use strobealign::fastq::{
     FastqError, PeekableSequenceReader, RecordPair, SequenceRecord, interleaved_record_iterator,
     record_iterator,
@@ -30,6 +28,8 @@ use strobealign::index::{
     REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex,
 };
 use strobealign::insertsize::InsertSizeDistribution;
+use strobealign::io::fasta;
+use strobealign::io::fasta::{FastaError, RefSequence};
 use strobealign::io::sam::{ReadGroup, SamHeader};
 use strobealign::io::xopen::xopen;
 use strobealign::maponly::{
