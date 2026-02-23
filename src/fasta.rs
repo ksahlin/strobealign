@@ -138,11 +138,12 @@ pub fn split_header(header: &str) -> (String, Option<String>) {
 pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, FastaError> {
     let fasta_reader = FastaReader::new(reader);
     let records = fasta_reader
-        .map(
-            |result| result.map(
-                |record| RefSequence { name: record.name, sequence: record.sequence }
-            )
-        )
+        .map(|result| {
+            result.map(|record| RefSequence {
+                name: record.name,
+                sequence: record.sequence,
+            })
+        })
         .collect::<Result<Vec<RefSequence>, FastaError>>()?;
 
     for record in &records {

@@ -30,6 +30,7 @@ use strobealign::index::{
     REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex,
 };
 use strobealign::insertsize::InsertSizeDistribution;
+use strobealign::io::sam::{ReadGroup, SamHeader};
 use strobealign::io::xopen::xopen;
 use strobealign::maponly::{
     abundances_paired_end_read, abundances_single_end_read, map_paired_end_read,
@@ -39,7 +40,6 @@ use strobealign::mapper::{
     MappingParameters, SamOutput, align_paired_end_read, align_single_end_read,
 };
 use strobealign::mcsstrategy::McsStrategy;
-use strobealign::sam::{ReadGroup, SamHeader};
 use strobealign::strobes::DEFAULT_AUX_LEN;
 
 mod logger;

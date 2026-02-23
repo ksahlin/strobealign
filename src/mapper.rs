@@ -16,15 +16,15 @@ use crate::fasta::RefSequence;
 use crate::fastq::SequenceRecord;
 use crate::index::{IndexParameters, StrobemerIndex};
 use crate::insertsize::InsertSizeDistribution;
+use crate::io::sam::{
+    MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SamRecord, UNMAP,
+};
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
 use crate::nam::{Nam, get_nams_by_chaining, reverse_nam_if_needed};
 use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
 use crate::revcomp::reverse_complement;
-use crate::sam::{
-    MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SamRecord, UNMAP,
-};
 use crate::strobes::RandstrobeIterator;
 use crate::syncmers::SyncmerIterator;
 

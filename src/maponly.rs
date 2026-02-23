@@ -6,10 +6,10 @@ use crate::fasta::RefSequence;
 use crate::fastq::{End, SequenceRecord};
 use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
+use crate::io::paf::PafRecord;
 use crate::mapper::{NamPair, get_best_scoring_nam_pairs, mapping_quality};
 use crate::mcsstrategy::McsStrategy;
 use crate::nam::{Nam, get_nams_by_chaining};
-use crate::io::paf::PafRecord;
 
 /// Map a single-end read to the reference and return PAF records
 ///

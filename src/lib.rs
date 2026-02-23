@@ -18,7 +18,6 @@ pub mod partition;
 pub mod piecewisealigner;
 pub mod read;
 pub mod revcomp;
-pub mod sam;
 pub mod ssw;
 pub mod strobes;
 pub mod syncmers;
