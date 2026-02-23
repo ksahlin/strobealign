@@ -3,8 +3,8 @@ use std::io::{self, BufRead, BufReader, Read};
 use std::str;
 
 use crate::io::SequenceIOError;
-use crate::io::fasta::split_header;
 use crate::io::record::{End, SequenceRecord};
+use crate::io::split_header;
 use crate::io::xopen::xopen;
 
 #[derive(Debug)]

@@ -26,3 +26,11 @@ pub enum SequenceIOError {
     #[error("Duplicate record name {0}")]
     DuplicateName(String),
 }
+
+/// Split header into name and comment
+pub fn split_header(header: &str) -> (String, Option<String>) {
+    match header.split_once(&[' ', '\t']) {
+        Some((name, comment)) => (name.to_string(), Some(comment.to_string())),
+        None => (header.to_string(), None),
+    }
+}
