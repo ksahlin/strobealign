@@ -25,7 +25,8 @@ use strobealign::index::{
 };
 use strobealign::insertsize::InsertSizeDistribution;
 use strobealign::io::fasta;
-use strobealign::io::fasta::{FastaError, RefSequence};
+use strobealign::io::fasta::RefSequence;
+use strobealign::io::SequenceIOError;
 use strobealign::io::fastq::{
     FastqError, PeekableSequenceReader, RecordPair, SequenceRecord, interleaved_record_iterator,
     record_iterator,
@@ -279,7 +280,7 @@ enum CliError {
     Io(#[from] io::Error),
 
     #[error("{0}")]
-    FastaError(#[from] FastaError),
+    SequenceIOError(#[from] SequenceIOError),
 
     #[error("{0}")]
     FastqError(#[from] FastqError),

@@ -1,29 +1,12 @@
-use std::io;
 use std::io::{BufRead, BufReader, Read};
 
-use thiserror::Error;
-
+use crate::io::SequenceIOError;
 use crate::io::fastq::{End, SequenceRecord};
 
 #[derive(Debug, Clone)]
 pub struct RefSequence {
     pub name: String,
     pub sequence: Vec<u8>,
-}
-
-#[derive(Error, Debug)]
-pub enum FastaError {
-    #[error("IO")]
-    IO(#[from] io::Error),
-
-    #[error("FASTA file cannot be parsed: {0}")]
-    Parse(String),
-
-    #[error("Invalid character in record name")]
-    Name,
-
-    #[error("Duplicate record name {0}")]
-    DuplicateName(String),
 }
 
 /// Check whether a name is fine to use in SAM output.
@@ -45,12 +28,12 @@ fn is_valid_name(name: &[u8]) -> bool {
     true
 }
 
-fn check_duplicate_names(records: &[RefSequence]) -> Result<(), FastaError> {
+fn check_duplicate_names(records: &[RefSequence]) -> Result<(), SequenceIOError> {
     let mut names: Vec<_> = records.iter().map(|r| &r.name).collect();
     names.sort();
     for window in names.windows(2) {
         if window[0] == window[1] {
-            return Err(FastaError::DuplicateName(window[0].to_string()));
+            return Err(SequenceIOError::DuplicateName(window[0].to_string()));
         }
     }
 
@@ -77,7 +60,7 @@ impl<R: Read> FastaReader<R> {
 }
 
 impl<R: Read> Iterator for FastaReader<R> {
-    type Item = Result<SequenceRecord, FastaError>;
+    type Item = Result<SequenceRecord, SequenceIOError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.err {
@@ -107,7 +90,7 @@ impl<R: Read> Iterator for FastaReader<R> {
                         self.header = Some(line)
                     } else {
                         if self.header.is_none() {
-                            return Some(Err(FastaError::Parse(
+                            return Some(Err(SequenceIOError::Fasta(
                                 "FASTA file must start with '>'".to_string(),
                             )));
                         }
@@ -120,7 +103,7 @@ impl<R: Read> Iterator for FastaReader<R> {
                 }
                 Err(e) => {
                     self.err = true;
-                    return Some(Err(FastaError::IO(e)));
+                    return Some(Err(SequenceIOError::IO(e)));
                 }
             }
         }
@@ -135,7 +118,7 @@ pub fn split_header(header: &str) -> (String, Option<String>) {
     }
 }
 
-pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, FastaError> {
+pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, SequenceIOError> {
     let fasta_reader = FastaReader::new(reader);
     let records = fasta_reader
         .map(|result| {
@@ -144,11 +127,11 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, FastaE
                 sequence: record.sequence,
             })
         })
-        .collect::<Result<Vec<RefSequence>, FastaError>>()?;
+        .collect::<Result<Vec<RefSequence>, SequenceIOError>>()?;
 
     for record in &records {
         if !is_valid_name(&record.name.as_bytes()) {
-            return Err(FastaError::Name);
+            return Err(SequenceIOError::Name);
         }
     }
     check_duplicate_names(&records)?;
