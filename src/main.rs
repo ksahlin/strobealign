@@ -291,6 +291,9 @@ enum CliError {
 
     #[error("No sequences found in the reference FASTA")]
     NoReference,
+
+    #[error("When opening '{0}': {1}", .path, .e)]
+    IoWithPath { e: io::Error, path: String },
 }
 
 fn main() -> ExitCode {
@@ -322,8 +325,12 @@ fn run() -> Result<(), CliError> {
     let reads_reader1;
 
     if let Some(reads_path) = args.reads_path {
-        let f1 = xopen(&reads_path)?;
-        let mut reads_reader = PeekableSequenceReader::new(Box::new(FastqReader::new(BufReader::new(f1))));
+        let f1 = xopen(&reads_path).map_err(|e| CliError::IoWithPath {
+            e,
+            path: reads_path,
+        })?;
+        let mut reads_reader =
+            PeekableSequenceReader::new(Box::new(FastqReader::new(BufReader::new(f1))));
         read_length = match args.read_length {
             Some(r) => r,
             None => {
@@ -389,7 +396,11 @@ fn run() -> Result<(), CliError> {
 
     // Read reference FASTA
     let timer = Instant::now();
-    let references = fasta::read_fasta(&mut BufReader::new(xopen(&args.ref_path)?))?;
+    let ref_file = xopen(&args.ref_path).map_err(|e| CliError::IoWithPath {
+        e,
+        path: args.ref_path.clone(),
+    })?;
+    let references = fasta::read_fasta(&mut BufReader::new(ref_file))?;
     info!(
         "Time reading reference: {:.2} s",
         timer.elapsed().as_secs_f64()
@@ -464,7 +475,6 @@ fn run() -> Result<(), CliError> {
 
         exit(0);
     }
-    let reads_reader1 = reads_reader1.unwrap();
 
     let timer = Instant::now();
     let mapping_parameters = MappingParameters {
@@ -532,10 +542,16 @@ fn run() -> Result<(), CliError> {
         write!(out, "{}", header)?;
     }
 
+    let reads_reader1 = reads_reader1.unwrap();
     let mut record_iter = if args.interleaved {
         interleaved_record_iterator(reads_reader1)
     } else {
-        record_iterator(reads_reader1, args.reads_path2.as_deref())?
+        record_iterator(reads_reader1, args.reads_path2.as_deref()).map_err(|e| {
+            CliError::IoWithPath {
+                e,
+                path: args.reads_path2.unwrap(),
+            }
+        })?
     };
 
     let chunks_iter = std::iter::from_fn(move || {
@@ -998,7 +1014,8 @@ mod test {
     #[test]
     fn test_estimate_read_length_phix_r1() {
         let f = xopen("tests/phix.1.fastq").unwrap();
-        let mut reads_reader = PeekableSequenceReader::new(Box::new(FastqReader::new(BufReader::new(f))));
+        let mut reads_reader =
+            PeekableSequenceReader::new(Box::new(FastqReader::new(BufReader::new(f))));
         assert_eq!(estimate_read_length(&reads_reader.peek(500).unwrap()), 289);
     }
 }

@@ -6,9 +6,7 @@ use super::fastq::FastqReader;
 use super::record::{RecordPair, SequenceRecord};
 use super::xopen::xopen;
 
-type SequenceReader =
-    Box<dyn Iterator<Item = Result<SequenceRecord, SequenceIOError>> + Send>;
-
+type SequenceReader = Box<dyn Iterator<Item = Result<SequenceRecord, SequenceIOError>> + Send>;
 
 pub struct PeekableSequenceReader {
     reader: SequenceReader,
