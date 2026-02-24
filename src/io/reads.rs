@@ -6,17 +6,35 @@ use super::fastq::FastqReader;
 use super::record::{RecordPair, SequenceRecord};
 use super::xopen::xopen;
 
-#[derive(Debug)]
-pub struct PeekableSequenceReader<B: BufRead + Send> {
-    fastq_reader: FastqReader<B>,
+pub struct SequenceReader {
+    iterator: Box<dyn Iterator<Item = Result<SequenceRecord, SequenceIOError>> + Send>,
+}
+
+impl SequenceReader {
+    pub fn new<B: BufRead + Send + 'static>(reader: B) -> Self {
+        SequenceReader {
+            iterator: Box::new(FastqReader::new(reader)),
+        }
+    }
+}
+
+impl Iterator for SequenceReader {
+    type Item = Result<SequenceRecord, SequenceIOError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iterator.next()
+    }
+}
+
+pub struct PeekableSequenceReader {
+    reader: SequenceReader,
     buffer: VecDeque<SequenceRecord>,
 }
 
-impl<B: BufRead + Send> PeekableSequenceReader<B> {
-    pub fn new(reader: B) -> Self {
-        let fastq_reader = FastqReader::new(reader);
+impl PeekableSequenceReader {
+    pub fn new<B: BufRead + Send + 'static>(reader: B) -> Self {
         PeekableSequenceReader {
-            fastq_reader,
+            reader: SequenceReader::new(reader),
             buffer: VecDeque::new(),
         }
     }
@@ -24,7 +42,7 @@ impl<B: BufRead + Send> PeekableSequenceReader<B> {
     // Retrieve up to n records
     pub fn peek(&mut self, n: usize) -> Result<Vec<SequenceRecord>, SequenceIOError> {
         while self.buffer.len() < n {
-            if let Some(item) = self.fastq_reader.next() {
+            if let Some(item) = self.reader.next() {
                 self.buffer.push_back(item?)
             } else {
                 break;
@@ -35,58 +53,56 @@ impl<B: BufRead + Send> PeekableSequenceReader<B> {
     }
 }
 
-impl<B: BufRead + Send> Iterator for PeekableSequenceReader<B> {
+impl Iterator for PeekableSequenceReader {
     type Item = Result<SequenceRecord, SequenceIOError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(item) = self.buffer.pop_front() {
             Some(Ok(item))
         } else {
-            self.fastq_reader.next()
+            self.reader.next()
         }
     }
 }
 
 /// Iterate over paired-end *or* single-end reads
-pub fn record_iterator<'a, B: BufRead + Send + 'a>(
-    fastq_reader1: PeekableSequenceReader<B>,
+pub fn record_iterator(
+    reader1: PeekableSequenceReader,
     path_r2: Option<&str>,
-) -> io::Result<Box<dyn Iterator<Item = Result<RecordPair, SequenceIOError>> + Send + 'a>> {
+) -> io::Result<Box<dyn Iterator<Item = Result<RecordPair, SequenceIOError>> + Send>> {
     if let Some(r2_path) = path_r2 {
         let fastq_reader2 = FastqReader::new(BufReader::new(xopen(r2_path)?));
-        Ok(Box::new(fastq_reader1.zip(fastq_reader2).map(
-            |p| match p {
-                (Ok(r1), Ok(r2)) => Ok((r1, Some(r2))),
-                (Err(e), _) => Err(e),
-                (_, Err(e)) => Err(e),
-            },
-        )))
+        Ok(Box::new(reader1.zip(fastq_reader2).map(|p| match p {
+            (Ok(r1), Ok(r2)) => Ok((r1, Some(r2))),
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+        })))
     } else {
-        Ok(Box::new(fastq_reader1.map(|r| r.map(|sr| (sr, None)))))
+        Ok(Box::new(reader1.map(|r| r.map(|sr| (sr, None)))))
     }
 }
 
-struct InterleavedIterator<B: BufRead + Send> {
-    fastq_reader: PeekableSequenceReader<B>,
+struct InterleavedIterator {
+    reader: PeekableSequenceReader,
     next_record: Option<SequenceRecord>,
 }
 
-impl<B: BufRead + Send> InterleavedIterator<B> {
-    pub fn new(fastq_reader: PeekableSequenceReader<B>) -> Self {
+impl InterleavedIterator {
+    pub fn new(reader: PeekableSequenceReader) -> Self {
         InterleavedIterator {
-            fastq_reader,
+            reader,
             next_record: None,
         }
     }
 }
 
-impl<B: BufRead + Send> Iterator for InterleavedIterator<B> {
+impl Iterator for InterleavedIterator {
     type Item = Result<RecordPair, SequenceIOError>;
 
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         let record1 = if let Some(record) = self.next_record.take() {
             record
-        } else if let Some(record) = self.fastq_reader.next() {
+        } else if let Some(record) = self.reader.next() {
             match record {
                 Ok(record) => record,
                 Err(e) => {
@@ -97,7 +113,7 @@ impl<B: BufRead + Send> Iterator for InterleavedIterator<B> {
             return None;
         };
 
-        match self.fastq_reader.next() {
+        match self.reader.next() {
             Some(Err(e)) => Some(Err(e)),
             Some(Ok(record2)) => {
                 if record1.name != record2.name {
@@ -113,10 +129,10 @@ impl<B: BufRead + Send> Iterator for InterleavedIterator<B> {
     }
 }
 
-pub fn interleaved_record_iterator<'a, B: BufRead + Send + 'a>(
-    fastq_reader: PeekableSequenceReader<B>,
-) -> Box<dyn Iterator<Item = Result<RecordPair, SequenceIOError>> + Send + 'a> {
-    Box::new(InterleavedIterator::new(fastq_reader))
+pub fn interleaved_record_iterator(
+    reader: PeekableSequenceReader,
+) -> Box<dyn Iterator<Item = Result<RecordPair, SequenceIOError>> + Send> {
+    Box::new(InterleavedIterator::new(reader))
 }
 
 #[cfg(test)]
