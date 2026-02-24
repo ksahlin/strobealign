@@ -14,6 +14,7 @@ use clap::builder::styling::AnsiColor;
 use fastrand::Rng;
 use log::{debug, error, info, trace};
 use mimalloc::MiMalloc;
+use strobealign::io::fastq::FastqReader;
 use thiserror::Error;
 
 use strobealign::aligner::{Aligner, Scores};
@@ -322,7 +323,7 @@ fn run() -> Result<(), CliError> {
 
     if let Some(reads_path) = args.reads_path {
         let f1 = xopen(&reads_path)?;
-        let mut reads_reader = PeekableSequenceReader::new(BufReader::new(f1));
+        let mut reads_reader = PeekableSequenceReader::new(Box::new(FastqReader::new(BufReader::new(f1))));
         read_length = match args.read_length {
             Some(r) => r,
             None => {
@@ -985,6 +986,7 @@ mod test {
     use super::estimate_read_length;
     use super::xopen;
 
+    use strobealign::io::fastq::FastqReader;
     use strobealign::io::reads::PeekableSequenceReader;
 
     #[test]
@@ -996,7 +998,7 @@ mod test {
     #[test]
     fn test_estimate_read_length_phix_r1() {
         let f = xopen("tests/phix.1.fastq").unwrap();
-        let mut reads_reader = PeekableSequenceReader::new(BufReader::new(f));
+        let mut reads_reader = PeekableSequenceReader::new(Box::new(FastqReader::new(BufReader::new(f))));
         assert_eq!(estimate_read_length(&reads_reader.peek(500).unwrap()), 289);
     }
 }

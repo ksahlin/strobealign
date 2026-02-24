@@ -1,30 +1,14 @@
 use std::collections::VecDeque;
-use std::io::{self, BufRead, BufReader};
+use std::io::{self, BufReader};
 
 use super::SequenceIOError;
 use super::fastq::FastqReader;
 use super::record::{RecordPair, SequenceRecord};
 use super::xopen::xopen;
 
-pub struct SequenceReader {
-    iterator: Box<dyn Iterator<Item = Result<SequenceRecord, SequenceIOError>> + Send>,
-}
+type SequenceReader =
+    Box<dyn Iterator<Item = Result<SequenceRecord, SequenceIOError>> + Send>;
 
-impl SequenceReader {
-    pub fn new<B: BufRead + Send + 'static>(reader: B) -> Self {
-        SequenceReader {
-            iterator: Box::new(FastqReader::new(reader)),
-        }
-    }
-}
-
-impl Iterator for SequenceReader {
-    type Item = Result<SequenceRecord, SequenceIOError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iterator.next()
-    }
-}
 
 pub struct PeekableSequenceReader {
     reader: SequenceReader,
@@ -32,9 +16,9 @@ pub struct PeekableSequenceReader {
 }
 
 impl PeekableSequenceReader {
-    pub fn new<B: BufRead + Send + 'static>(reader: B) -> Self {
+    pub fn new(reader: SequenceReader) -> Self {
         PeekableSequenceReader {
-            reader: SequenceReader::new(reader),
+            reader,
             buffer: VecDeque::new(),
         }
     }
@@ -147,7 +131,7 @@ mod test {
     #[test]
     fn test_peekable_sequence_reader() {
         let f = File::open("tests/phix.1.fastq").unwrap();
-        let mut reader = PeekableSequenceReader::new(BufReader::new(f));
+        let mut reader = PeekableSequenceReader::new(Box::new(FastqReader::new(BufReader::new(f))));
 
         assert_eq!(reader.next().unwrap().unwrap().name, "SRR1377138.1");
         assert_eq!(
@@ -165,7 +149,7 @@ mod test {
     #[test]
     fn test_interleaved_record_iterator() {
         let f = File::open("tests/interleaved.fq").unwrap();
-        let reader = PeekableSequenceReader::new(BufReader::new(f));
+        let reader = PeekableSequenceReader::new(Box::new(FastqReader::new(BufReader::new(f))));
         let it = interleaved_record_iterator(reader);
         let record_pairs: Vec<RecordPair> = it
             .collect::<Result<Vec<RecordPair>, SequenceIOError>>()
@@ -196,7 +180,7 @@ mod test {
         // Record name a/1 followed by a/2 should be recognized as a
         // paired-end read
         let f = Cursor::new(b"@a/1\nAACC\n+\n####\n@a/2\nGGTT\n+n\n####\n");
-        let reader = PeekableSequenceReader::new(f);
+        let reader = PeekableSequenceReader::new(Box::new(FastqReader::new(BufReader::new(f))));
         let it = interleaved_record_iterator(reader);
 
         let record_pairs: Vec<RecordPair> = it
