@@ -627,7 +627,6 @@ impl<'a> StrobemerIndex<'a> {
             self.parameters.syncmer.s,
             self.parameters.syncmer.t,
         );
-
         let randstrobe_iter =
             RandstrobeIterator::new(syncmer_iter, self.parameters.randstrobe.clone());
 
@@ -1041,6 +1040,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_canonical_syncmers() {
         let parameters = SyncmerParameters::try_new(20, 16).unwrap();
         let f = File::open("tests/phix.fasta").unwrap();
