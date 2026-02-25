@@ -187,6 +187,12 @@ struct Args {
     #[arg(long, help_heading = "Seeding")]
     adna: bool,
 
+    /// Number of positions within each k-mer that use RY encoding (default: k).
+    /// Remaining positions use standard nucleotide encoding.
+    /// Only used when --adna is set.
+    #[arg(long = "ry-len", help_heading = "Seeding")]
+    ry_len: Option<usize>,
+
     // Alignment scores
 
     /// Match score
@@ -348,6 +354,7 @@ fn run() -> Result<(), CliError> {
         args.max_seed_length,
         args.aux_len,
         args.adna,
+        args.ry_len,
     )?;
 
     info!(
@@ -355,7 +362,10 @@ fn run() -> Result<(), CliError> {
         parameters.canonical_read_length
     );
     if parameters.adna_mode {
-        info!("Ancient DNA mode enabled (using rymer syncmers)");
+        info!(
+            "Ancient DNA mode enabled (using rymer syncmers, ry_len={})",
+            parameters.ry_len
+        );
     }
     debug!("  {:?}", parameters.syncmer);
     debug!("  {:?}", parameters.randstrobe);

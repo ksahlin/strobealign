@@ -151,14 +151,10 @@ impl<I: Iterator<Item = RymerSyncmer>> Iterator for RymerIterator<I> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let syncmer = self.syncmer_iterator.next()?;
-        let hash1 = syncmer.hash1 as u64;
-        let hash2 = syncmer.hash2 as u64;
 
         Some(Randstrobe {
-            //todo what if aux_len + 9 > 32?
-            hash: randstrobe_hash(hash1 << 32, hash2, self.main_hash_mask),
-            //todo store rc syncmer hashes to enable different revcomp
-            hash_revcomp: randstrobe_hash_revcomp(hash2, hash1, self.main_hash_mask),
+            hash: randstrobe_hash(syncmer.hash1, syncmer.hash2, self.main_hash_mask),
+            hash_revcomp: randstrobe_hash_revcomp(syncmer.hash1, syncmer.hash2, self.main_hash_mask),
             strobe1_pos: syncmer.position,
             strobe2_pos: syncmer.position,
         })

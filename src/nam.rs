@@ -43,13 +43,15 @@ impl Nam {
 
     /// Returns whether a NAM represents a consistent match between read and
     /// reference by comparing the first and last strobe (taking orientation
-    /// into account). In adna mode, comparison uses RY encoding.
+    /// into account). In adna mode, comparison uses RY encoding for the first
+    /// `ry_len` positions and exact equality for the rest.
     pub fn is_consistent(
         &self,
         read: &Read,
         references: &[RefSequence],
         k: usize,
         adna_mode: bool,
+        ry_len: usize,
     ) -> bool {
         let ref_start_kmer = &references[self.ref_id].sequence[self.ref_start..self.ref_start + k];
         let ref_end_kmer = &references[self.ref_id].sequence[self.ref_end - k..self.ref_end];
@@ -63,8 +65,8 @@ impl Nam {
         let read_end_kmer = &seq[self.query_end - k..self.query_end];
 
         if adna_mode {
-            ry_equal(ref_start_kmer, read_start_kmer)
-                && ry_equal(ref_end_kmer, read_end_kmer)
+            ry_equal(ref_start_kmer, read_start_kmer, ry_len)
+                && ry_equal(ref_end_kmer, read_end_kmer, ry_len)
         } else {
             ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer
         }
@@ -102,12 +104,13 @@ pub fn reverse_nam_if_needed(
     references: &[RefSequence],
     k: usize,
     adna_mode: bool,
+    ry_len: usize,
 ) -> bool {
     let ref_start_kmer = &references[nam.ref_id].sequence[nam.ref_start..nam.ref_start + k];
     let ref_end_kmer = &references[nam.ref_id].sequence[nam.ref_end - k..nam.ref_end];
 
     let kmers_match = |a: &[u8], b: &[u8]| -> bool {
-        if adna_mode { ry_equal(a, b) } else { a == b }
+        if adna_mode { ry_equal(a, b, ry_len) } else { a == b }
     };
 
     let (seq, seq_rc) = if nam.is_revcomp {

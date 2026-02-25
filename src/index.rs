@@ -94,6 +94,7 @@ pub struct IndexParameters {
     pub syncmer: SyncmerParameters,
     pub randstrobe: RandstrobeParameters,
     pub adna_mode: bool,
+    pub ry_len: usize,
 }
 
 impl IndexParameters {
@@ -127,10 +128,16 @@ impl IndexParameters {
         max_dist: u8,
         aux_len: u8,
         adna_mode: bool,
+        ry_len: usize,
     ) -> Result<Self, InvalidIndexParameter> {
         if aux_len > 63 {
             return Err(InvalidIndexParameter::InvalidParameter(
                 "aux length must be less than 64",
+            ));
+        }
+        if ry_len > k {
+            return Err(InvalidIndexParameter::InvalidParameter(
+                "ry_len must not be larger than k",
             ));
         }
 
@@ -140,6 +147,7 @@ impl IndexParameters {
             syncmer: SyncmerParameters::try_new(k, s)?,
             randstrobe: RandstrobeParameters::try_new(w_min, w_max, q, max_dist, main_hash_mask)?,
             adna_mode,
+            ry_len,
         })
     }
 
@@ -155,6 +163,7 @@ impl IndexParameters {
         max_seed_len: Option<usize>,
         aux_len: u8,
         adna_mode: bool,
+        ry_len: Option<usize>,
     ) -> Result<IndexParameters, InvalidIndexParameter> {
         let default_c = 8;
         let mut canonical_read_length = 50;
@@ -196,6 +205,14 @@ impl IndexParameters {
         };
         let q = 2u64.pow(c.unwrap_or(default_c)) - 1;
 
+        let ry_len = ry_len.unwrap_or(k);
+
+        let aux_len = if adna_mode {
+            min(ry_len as u8, aux_len)
+        } else {
+            aux_len
+        };
+
         IndexParameters::try_new(
             canonical_read_length,
             k,
@@ -206,6 +223,7 @@ impl IndexParameters {
             max_dist,
             aux_len,
             adna_mode,
+            ry_len,
         )
     }
 
@@ -220,6 +238,7 @@ impl IndexParameters {
             None,
             DEFAULT_AUX_LEN,
             false,
+            None,
         )
         .unwrap()
     }
@@ -337,11 +356,12 @@ impl RefRandstrobe {
 /// Count randstrobes by counting syncmers
 fn count_randstrobes(seq: &[u8], parameters: &IndexParameters) -> usize {
     if parameters.adna_mode {
-        let syncmer_iterator = RymerSyncmerIterator::new(
+        let syncmer_iterator = RymerSyncmerIterator::with_ry_len(
             seq,
             parameters.syncmer.k,
             parameters.syncmer.s,
             parameters.syncmer.t,
+            parameters.ry_len,
         );
         syncmer_iterator.count()
     } else {
@@ -638,11 +658,12 @@ impl<'a> StrobemerIndex<'a> {
         }
 
         let n = if self.parameters.adna_mode {
-            let syncmer_iter = RymerSyncmerIterator::new(
+            let syncmer_iter = RymerSyncmerIterator::with_ry_len(
                 seq,
                 self.parameters.syncmer.k,
                 self.parameters.syncmer.s,
                 self.parameters.syncmer.t,
+                self.parameters.ry_len,
             );
             let randstrobe_iter =
                 RymerIterator::new(syncmer_iter, self.parameters.randstrobe.main_hash_mask);
@@ -879,6 +900,7 @@ impl<'a> StrobemerIndex<'a> {
         }
         file.write_all(&(rp.main_hash_mask as u64).to_ne_bytes())?;
         file.write_all(&[self.parameters.adna_mode as u8])?;
+        file.write_all(&[self.parameters.ry_len as u8])?;
 
         write_vec(&mut file, &self.randstrobes)?;
         write_vec(&mut file, &self.randstrobe_start_indices)?;
@@ -926,6 +948,7 @@ impl<'a> StrobemerIndex<'a> {
         let max_dist = read_u32(&mut reader)? as u8;
         let main_hash_mask = read_u64(&mut reader)?;
         let adna_mode = read_bool(&mut reader)?;
+        let ry_len = read_u8(&mut reader)? as usize;
 
         let syncmer_parameters = SyncmerParameters::try_new(k, s)?;
         let randstrobe_parameters = RandstrobeParameters {
@@ -940,6 +963,7 @@ impl<'a> StrobemerIndex<'a> {
             syncmer: syncmer_parameters,
             randstrobe: randstrobe_parameters,
             adna_mode,
+            ry_len,
         };
 
         if self.parameters != sti_parameters {
@@ -971,11 +995,15 @@ fn read_u64<T: BufRead>(file: &mut T) -> Result<u64, Error> {
     Ok(u64::from_ne_bytes(buf))
 }
 
-fn read_bool<T: BufRead>(file: &mut T) -> Result<bool, Error> {
+fn read_u8<T: BufRead>(file: &mut T) -> Result<u8, Error> {
     let mut buf = [0u8; 1];
     file.read_exact(&mut buf)?;
 
-    Ok(buf[0] != 0)
+    Ok(buf[0])
+}
+
+fn read_bool<T: BufRead>(file: &mut T) -> Result<bool, Error> {
+    Ok(read_u8(file)? != 0)
 }
 
 fn read_vec<T, R: Read>(file: &mut BufReader<R>) -> Result<Vec<T>, Error> {
@@ -1060,6 +1088,7 @@ mod tests {
             max_dist,
             aux_len,
             false,
+            k,
         )
         .unwrap();
         assert_eq!(ip.canonical_read_length, canonical_read_length);
