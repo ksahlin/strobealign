@@ -267,10 +267,10 @@ struct Args {
     /// Path to input reference (in FASTA format)
     ref_path: String,
 
-    /// Path to input FASTQ
+    /// Path to file with sequencing reads (in FASTQ or FASTA format)
     reads_path: Option<String>,
 
-    /// Path to input FASTQ with R2 reads (if paired end)
+    /// Path to file with R2 reads if paired-end (in FASTQ or FASTA format)
     reads_path2: Option<String>,
 }
 

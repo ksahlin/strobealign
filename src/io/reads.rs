@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::io::{self, BufRead, BufReader, Read};
 
 use super::SequenceIOError;
+use super::fasta::FastaReader;
 use super::fastq::FastqReader;
 use super::record::{RecordPair, SequenceRecord};
 use super::xopen::xopen;
@@ -120,7 +121,12 @@ pub fn interleaved_record_iterator(
 pub fn open_reads<'a, R: Read + Send + 'static>(
     f: R,
 ) -> Box<dyn Iterator<Item = Result<SequenceRecord, SequenceIOError>> + Send> {
-    let br = BufReader::new(f);
+    let mut br = BufReader::new(f);
+    if let Ok(_) = br.fill_buf() {
+        if let Some(b'>') = br.buffer().first() {
+            return Box::new(FastaReader::new(br));
+        }
+    }
 
     Box::new(FastqReader::new(br))
 }
@@ -135,11 +141,19 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_open_reads() {
+    fn test_open_reads_fastq() {
         let f = File::open("tests/phix.1.fastq").unwrap();
         let mut reader = open_reads(f);
         let record1 = reader.next().unwrap().unwrap();
         assert!(record1.qualities.is_some());
+    }
+
+    #[test]
+    fn test_open_reads_fasta() {
+        let f = File::open("tests/phix.fasta").unwrap();
+        let mut reader = open_reads(f);
+        let record1 = reader.next().unwrap().unwrap();
+        assert!(record1.qualities.is_none());
     }
 
     #[test]
