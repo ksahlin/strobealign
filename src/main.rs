@@ -14,7 +14,6 @@ use clap::builder::styling::AnsiColor;
 use fastrand::Rng;
 use log::{debug, error, info, trace};
 use mimalloc::MiMalloc;
-use strobealign::io::fastq::FastqReader;
 use thiserror::Error;
 
 use strobealign::aligner::{Aligner, Scores};
@@ -29,7 +28,7 @@ use strobealign::io::SequenceIOError;
 use strobealign::io::fasta;
 use strobealign::io::fasta::RefSequence;
 use strobealign::io::reads::{
-    PeekableSequenceReader, interleaved_record_iterator, record_iterator,
+    PeekableSequenceReader, interleaved_record_iterator, open_reads, record_iterator,
 };
 use strobealign::io::record::{RecordPair, SequenceRecord};
 use strobealign::io::sam::{ReadGroup, SamHeader};
@@ -329,8 +328,7 @@ fn run() -> Result<(), CliError> {
             e,
             path: reads_path,
         })?;
-        let mut reads_reader =
-            PeekableSequenceReader::new(Box::new(FastqReader::new(BufReader::new(f1))));
+        let mut reads_reader = PeekableSequenceReader::new(open_reads(f1));
         read_length = match args.read_length {
             Some(r) => r,
             None => {
@@ -996,14 +994,12 @@ fn estimate_read_length(records: &[SequenceRecord]) -> usize {
 
 #[cfg(test)]
 mod test {
-    use std::io::BufReader;
-
     use super::Args;
     use super::estimate_read_length;
     use super::xopen;
 
-    use strobealign::io::fastq::FastqReader;
     use strobealign::io::reads::PeekableSequenceReader;
+    use strobealign::io::reads::open_reads;
 
     #[test]
     fn verify_cli() {
@@ -1014,8 +1010,7 @@ mod test {
     #[test]
     fn test_estimate_read_length_phix_r1() {
         let f = xopen("tests/phix.1.fastq").unwrap();
-        let mut reads_reader =
-            PeekableSequenceReader::new(Box::new(FastqReader::new(BufReader::new(f))));
+        let mut reads_reader = PeekableSequenceReader::new(open_reads(f));
         assert_eq!(estimate_read_length(&reads_reader.peek(500).unwrap()), 289);
     }
 }

@@ -41,7 +41,7 @@ fn check_duplicate_names(records: &[RefSequence]) -> Result<(), SequenceIOError>
 }
 
 #[derive(Debug)]
-struct FastaReader<B: BufRead> {
+pub struct FastaReader<B: BufRead> {
     reader: B,
     err: bool,
     header: Option<String>,

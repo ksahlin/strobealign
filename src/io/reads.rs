@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::io::{self, BufReader};
+use std::io::{self, BufRead, BufReader, Read};
 
 use super::SequenceIOError;
 use super::fastq::FastqReader;
@@ -53,7 +53,7 @@ pub fn record_iterator(
     path_r2: Option<&str>,
 ) -> io::Result<Box<dyn Iterator<Item = Result<RecordPair, SequenceIOError>> + Send>> {
     if let Some(r2_path) = path_r2 {
-        let fastq_reader2 = FastqReader::new(BufReader::new(xopen(r2_path)?));
+        let fastq_reader2 = open_reads(xopen(r2_path)?);
         Ok(Box::new(reader1.zip(fastq_reader2).map(|p| match p {
             (Ok(r1), Ok(r2)) => Ok((r1, Some(r2))),
             (Err(e), _) => Err(e),
@@ -117,6 +117,14 @@ pub fn interleaved_record_iterator(
     Box::new(InterleavedIterator::new(reader))
 }
 
+pub fn open_reads<'a, R: Read + Send + 'static>(
+    f: R,
+) -> Box<dyn Iterator<Item = Result<SequenceRecord, SequenceIOError>> + Send> {
+    let br = BufReader::new(f);
+
+    Box::new(FastqReader::new(br))
+}
+
 #[cfg(test)]
 mod test {
     use std::{
@@ -127,9 +135,17 @@ mod test {
     use super::*;
 
     #[test]
+    fn test_open_reads() {
+        let f = File::open("tests/phix.1.fastq").unwrap();
+        let mut reader = open_reads(f);
+        let record1 = reader.next().unwrap().unwrap();
+        assert!(record1.qualities.is_some());
+    }
+
+    #[test]
     fn test_peekable_sequence_reader() {
         let f = File::open("tests/phix.1.fastq").unwrap();
-        let mut reader = PeekableSequenceReader::new(Box::new(FastqReader::new(BufReader::new(f))));
+        let mut reader = PeekableSequenceReader::new(open_reads(f));
 
         assert_eq!(reader.next().unwrap().unwrap().name, "SRR1377138.1");
         assert_eq!(
