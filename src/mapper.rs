@@ -5,6 +5,7 @@ use std::mem;
 use std::time::Instant;
 
 use fastrand::Rng;
+use log::trace;
 use memchr::memmem;
 
 use crate::aligner::Aligner;
@@ -492,13 +493,16 @@ pub fn align_single_end_read(
         if (tries > 1 && best_edit_distance == 0)
             || score_dropoff < mapping_parameters.dropoff_threshold
         {
+            trace!("  NAM #{} dropped (score_dropoff={:.3}, best_ed={})", tries, score_dropoff, best_edit_distance);
             break;
         }
         let consistent_nam = nam.is_consistent(&read, references, k, index.parameters.adna_mode, index.parameters.ry_len);
         if !consistent_nam {
+            trace!("  NAM #{} inconsistent: {}", tries, nam);
             details.inconsistent_nams += 1;
             continue;
         }
+        trace!("  NAM #{} consistent, extending: {}", tries, nam);
         let Some(alignment) = extend_seed(aligner, nam, references, &read, consistent_nam) else {
             continue;
         };

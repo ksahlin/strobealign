@@ -181,20 +181,23 @@ impl SyncmerEncoding for KmerEncoding {
 
 /// Compare two nucleotide sequences using RY encoding for the first `ry_len`
 /// positions and exact equality for the rest.
-pub fn ry_equal(a: &[u8], b: &[u8], ry_len: usize) -> bool {
+pub fn ry_equal(a: &[u8], b: &[u8], _ry_len: usize) -> bool {
+    const MAX_MISMATCHES: usize = 2;
     a.len() == b.len()
-        && a.iter()
-            .zip(b.iter())
+        && a.iter().cloned()
+            .zip(b.iter().cloned())
             .enumerate()
-            .all(|(i, (&x, &y))| {
-                if i < ry_len {
-                    let sx = RYMER_S1[x as usize];
-                    let sy = RYMER_S1[y as usize];
-                    sx < 4 && sx == sy
-                } else {
-                    x == y
-                }
+            .filter(|(_i, (x, y))| {
+                // if i < ry_len {
+                //     let sx = RYMER_S1[x as usize];
+                //     let sy = RYMER_S1[y as usize];
+                //     sx < 4 && sx == sy
+                // } else {
+                //     x == y
+                // }
+                x != y
             })
+            .count() <= MAX_MISMATCHES
 }
 
 // S1: a, A -> 0; c, C -> 1; g, G -> 0; t, T, u, U -> 1

@@ -152,9 +152,10 @@ impl<I: Iterator<Item = RymerSyncmer>> Iterator for RymerIterator<I> {
     fn next(&mut self) -> Option<Self::Item> {
         let syncmer = self.syncmer_iterator.next()?;
 
+        let hash = randstrobe_hash(syncmer.hash1, syncmer.hash2, self.main_hash_mask);
         Some(Randstrobe {
-            hash: randstrobe_hash(syncmer.hash1, syncmer.hash2, self.main_hash_mask),
-            hash_revcomp: randstrobe_hash_revcomp(syncmer.hash1, syncmer.hash2, self.main_hash_mask),
+            hash,
+            hash_revcomp: hash,
             strobe1_pos: syncmer.position,
             strobe2_pos: syncmer.position,
         })
