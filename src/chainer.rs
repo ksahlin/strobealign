@@ -186,7 +186,7 @@ impl Chainer {
         let mut n_anchors = 0;
         let mut time_chaining = 0.0;
         let mut chains = vec![];
-        for is_revcomp in orientations {
+        for &is_revcomp in &orientations {
             let hits_timer = Instant::now();
             let mut anchors = hits_to_anchors(&hits[is_revcomp], index);
             time_find_hits += hits_timer.elapsed().as_secs_f64();
@@ -244,6 +244,7 @@ impl Chainer {
             time_chaining,
             time_rescue: 0.0,
             time_sort_nams: 0f64,
+            both_orientations: orientations.len() > 1,
         };
 
         (details, chains)
