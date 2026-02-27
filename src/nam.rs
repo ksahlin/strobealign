@@ -15,7 +15,7 @@ use crate::read::Read;
 use crate::seeding::randstrobes_query;
 
 /// Non-overlapping approximate match
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Nam {
     pub nam_id: usize,
     pub ref_start: usize,
@@ -127,15 +127,12 @@ pub fn reverse_nam_if_needed(
 }
 
 /// Obtain NAMs for a sequence record, doing rescue if needed.
-///
-/// NAMs are returned sorted by decreasing score
 pub fn get_nams_by_chaining(
     sequence: &[u8],
     index: &StrobemerIndex,
     chainer: &Chainer,
     rescue_distance: usize,
     mcs_strategy: McsStrategy,
-    rng: &mut Rng,
 ) -> (NamDetails, Vec<Nam>) {
     let timer = Instant::now();
     let query_randstrobes = randstrobes_query(sequence, &index.parameters);
@@ -147,14 +144,9 @@ pub fn get_nams_by_chaining(
         query_randstrobes[1].len()
     );
 
-    let (mut nam_details, mut nams) =
+    let (mut nam_details, nams) =
         chainer.get_chains(&query_randstrobes, index, rescue_distance, mcs_strategy);
 
-    let timer = Instant::now();
-
-    nams.sort_by(|a, b| b.score.total_cmp(&a.score));
-    shuffle_top_nams(&mut nams, rng);
-    nam_details.time_sort_nams = timer.elapsed().as_secs_f64();
     nam_details.time_randstrobes = time_randstrobes;
 
     if log::log_enabled!(Trace) {
@@ -172,6 +164,13 @@ pub fn get_nams_by_chaining(
     }
 
     (nam_details, nams)
+}
+
+pub fn sort_nams(nams: &mut [Nam], rng: &mut Rng) -> f64 {
+    let timer = Instant::now();
+    nams.sort_by(|a, b| b.score.total_cmp(&a.score));
+    shuffle_top_nams(nams, rng);
+    timer.elapsed().as_secs_f64()
 }
 
 /// Shuffle the top-scoring NAMs. Input must be sorted by score.

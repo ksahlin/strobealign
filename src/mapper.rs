@@ -21,7 +21,7 @@ use crate::io::sam::{
 };
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
-use crate::nam::{Nam, get_nams_by_chaining, reverse_nam_if_needed};
+use crate::nam::{Nam, get_nams_by_chaining, reverse_nam_if_needed, sort_nams};
 use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
 use crate::revcomp::reverse_complement;
@@ -330,14 +330,14 @@ pub fn align_single_end_read(
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let (nam_details, mut nams) = get_nams_by_chaining(
+    let (mut nam_details, mut nams) = get_nams_by_chaining(
         &record.sequence,
         index,
         chainer,
         mapping_parameters.rescue_distance,
         mapping_parameters.mcs_strategy,
-        rng,
     );
+    nam_details.time_sort_nams = sort_nams(&mut nams, rng);
     let mut details: Details = nam_details.into();
 
     let timer = Instant::now();
@@ -600,14 +600,14 @@ pub fn align_paired_end_read(
 
     for is_r1 in [0, 1] {
         let record = if is_r1 == 0 { r1 } else { r2 };
-        let (nam_details, nams) = get_nams_by_chaining(
+        let (mut nam_details, mut nams) = get_nams_by_chaining(
             &record.sequence,
             index,
             chainer,
             mapping_parameters.rescue_distance,
             mapping_parameters.mcs_strategy,
-            rng,
         );
+        nam_details.time_sort_nams = sort_nams(&mut nams, rng);
         details[is_r1].nam = nam_details;
         nams_pair[is_r1] = nams;
     }
@@ -1122,7 +1122,7 @@ fn is_proper_pair(
     }
 }
 
-fn is_proper_nam_pair(nam1: &Nam, nam2: &Nam, mu: f32, sigma: f32) -> bool {
+pub fn is_proper_nam_pair(nam1: &Nam, nam2: &Nam, mu: f32, sigma: f32) -> bool {
     if nam1.ref_id != nam2.ref_id || nam1.is_revcomp == nam2.is_revcomp {
         return false;
     }
