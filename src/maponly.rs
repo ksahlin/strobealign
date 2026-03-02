@@ -2,14 +2,14 @@ use fastrand::Rng;
 
 use crate::chainer::Chainer;
 use crate::details::Details;
-use crate::fasta::RefSequence;
-use crate::fastq::{End, SequenceRecord};
 use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
+use crate::io::fasta::RefSequence;
+use crate::io::paf::PafRecord;
+use crate::io::record::{End, SequenceRecord};
 use crate::mapper::{NamPair, get_best_scoring_nam_pairs, mapping_quality};
 use crate::mcsstrategy::McsStrategy;
 use crate::nam::{Nam, get_nams_by_chaining};
-use crate::paf::PafRecord;
 
 /// Map a single-end read to the reference and return PAF records
 ///

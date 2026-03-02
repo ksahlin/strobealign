@@ -6,8 +6,6 @@
   C++ version in terms of accuracy and runtime, but the following features are
   currently missing:
   - Option `--index-statistics` is not implemented.
-  - Input reads must be in FASTQ format. (The C++ version supported reads in
-    FASTA format.)
   - There are no Python bindings.
   Please report any other regressions!
 

@@ -19,18 +19,20 @@ use thiserror::Error;
 use strobealign::aligner::{Aligner, Scores};
 use strobealign::chainer::{Chainer, ChainingParameters};
 use strobealign::details::Details;
-use strobealign::fasta;
-use strobealign::fasta::{FastaError, RefSequence};
-use strobealign::fastq::{
-    FastqError, PeekableSequenceReader, RecordPair, SequenceRecord, interleaved_record_iterator,
-    record_iterator,
-};
 use strobealign::index::{
     IndexParameters, IndexReadingError, InvalidIndexParameter,
     REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex,
 };
 use strobealign::insertsize::InsertSizeDistribution;
-use strobealign::io::xopen;
+use strobealign::io::SequenceIOError;
+use strobealign::io::fasta;
+use strobealign::io::fasta::RefSequence;
+use strobealign::io::reads::{
+    PeekableSequenceReader, interleaved_record_iterator, open_reads, record_iterator,
+};
+use strobealign::io::record::{RecordPair, SequenceRecord};
+use strobealign::io::sam::{ReadGroup, SamHeader};
+use strobealign::io::xopen::xopen;
 use strobealign::maponly::{
     abundances_paired_end_read, abundances_single_end_read, map_paired_end_read,
     map_single_end_read,
@@ -39,7 +41,6 @@ use strobealign::mapper::{
     MappingParameters, SamOutput, align_paired_end_read, align_single_end_read,
 };
 use strobealign::mcsstrategy::McsStrategy;
-use strobealign::sam::{ReadGroup, SamHeader};
 use strobealign::strobes::DEFAULT_AUX_LEN;
 
 mod logger;
@@ -95,7 +96,7 @@ struct Args {
     aemb: bool,
 
     /// Interleaved (or mixed single-end/paired-end) input
-    #[arg(short = 'p', long, help_heading = "Input/output", conflicts_with = "fastq_path2")]
+    #[arg(short = 'p', long, help_heading = "Input/output", conflicts_with = "reads_path2")]
     interleaved: bool,
 
     // args::ValueFlag<std::string> index_statistics(parser, "PATH", "Print statistics of indexing to PATH", {"index-statistics"});
@@ -266,11 +267,11 @@ struct Args {
     /// Path to input reference (in FASTA format)
     ref_path: String,
 
-    /// Path to input FASTQ
-    fastq_path: Option<String>,
+    /// Path to file with sequencing reads (in FASTQ or FASTA format)
+    reads_path: Option<String>,
 
-    /// Path to input FASTQ with R2 reads (if paired end)
-    fastq_path2: Option<String>,
+    /// Path to file with R2 reads if paired-end (in FASTQ or FASTA format)
+    reads_path2: Option<String>,
 }
 
 #[derive(Debug, Error)]
@@ -279,10 +280,7 @@ enum CliError {
     Io(#[from] io::Error),
 
     #[error("{0}")]
-    FastaError(#[from] FastaError),
-
-    #[error("{0}")]
-    FastqError(#[from] FastqError),
+    SequenceIOError(#[from] SequenceIOError),
 
     #[error(transparent)]
     IndexReadingError(#[from] IndexReadingError),
@@ -292,6 +290,9 @@ enum CliError {
 
     #[error("No sequences found in the reference FASTA")]
     NoReference,
+
+    #[error("When opening '{0}': {1}", .path, .e)]
+    IoWithPath { e: io::Error, path: String },
 }
 
 fn main() -> ExitCode {
@@ -320,20 +321,23 @@ fn run() -> Result<(), CliError> {
 
     // Open R1 FASTQ file and estimate read length if necessary
     let read_length;
-    let fastq_reader1;
+    let reads_reader1;
 
-    if let Some(fastq_path) = args.fastq_path {
-        let f1 = xopen(&fastq_path)?;
-        let mut fastq_reader = PeekableSequenceReader::new(f1);
+    if let Some(reads_path) = args.reads_path {
+        let f1 = xopen(&reads_path).map_err(|e| CliError::IoWithPath {
+            e,
+            path: reads_path,
+        })?;
+        let mut reads_reader = PeekableSequenceReader::new(open_reads(f1));
         read_length = match args.read_length {
             Some(r) => r,
             None => {
-                let r = estimate_read_length(&fastq_reader.peek(500)?);
+                let r = estimate_read_length(&reads_reader.peek(500)?);
                 info!("Estimated read length: {} bp", r);
                 r
             }
         };
-        fastq_reader1 = Some(fastq_reader);
+        reads_reader1 = Some(reads_reader);
     } else {
         if !args.create_index {
             error!("FASTQ path is required");
@@ -347,7 +351,7 @@ fn run() -> Result<(), CliError> {
             );
             exit(1);
         }
-        fastq_reader1 = None;
+        reads_reader1 = None;
     }
 
     let parameters = IndexParameters::from_read_length(
@@ -390,7 +394,11 @@ fn run() -> Result<(), CliError> {
 
     // Read reference FASTA
     let timer = Instant::now();
-    let references = fasta::read_fasta(&mut BufReader::new(xopen(&args.ref_path)?))?;
+    let ref_file = xopen(&args.ref_path).map_err(|e| CliError::IoWithPath {
+        e,
+        path: args.ref_path.clone(),
+    })?;
+    let references = fasta::read_fasta(&mut BufReader::new(ref_file))?;
     info!(
         "Time reading reference: {:.2} s",
         timer.elapsed().as_secs_f64()
@@ -465,7 +473,6 @@ fn run() -> Result<(), CliError> {
 
         exit(0);
     }
-    let fastq_reader1 = fastq_reader1.unwrap();
 
     let timer = Instant::now();
     let mapping_parameters = MappingParameters {
@@ -533,10 +540,16 @@ fn run() -> Result<(), CliError> {
         write!(out, "{}", header)?;
     }
 
+    let reads_reader1 = reads_reader1.unwrap();
     let mut record_iter = if args.interleaved {
-        interleaved_record_iterator(fastq_reader1)
+        interleaved_record_iterator(reads_reader1)
     } else {
-        record_iterator(fastq_reader1, args.fastq_path2.as_deref())?
+        record_iterator(reads_reader1, args.reads_path2.as_deref()).map_err(|e| {
+            CliError::IoWithPath {
+                e,
+                path: args.reads_path2.unwrap(),
+            }
+        })?
     };
 
     let chunks_iter = std::iter::from_fn(move || {
@@ -840,7 +853,7 @@ struct Mapper<'a> {
 impl Mapper<'_> {
     fn map_chunk(
         &mut self, // TODO only because of abundances
-        chunk: Vec<Result<RecordPair, FastqError>>,
+        chunk: Vec<Result<RecordPair, SequenceIOError>>,
     ) -> Result<(Vec<u8>, Details), CliError> {
         let mut out = vec![];
         let mut rng = Rng::with_seed(0);
@@ -984,7 +997,9 @@ mod test {
     use super::Args;
     use super::estimate_read_length;
     use super::xopen;
-    use strobealign::fastq::PeekableSequenceReader;
+
+    use strobealign::io::reads::PeekableSequenceReader;
+    use strobealign::io::reads::open_reads;
 
     #[test]
     fn verify_cli() {
@@ -995,7 +1010,7 @@ mod test {
     #[test]
     fn test_estimate_read_length_phix_r1() {
         let f = xopen("tests/phix.1.fastq").unwrap();
-        let mut fastq_reader = PeekableSequenceReader::new(f);
-        assert_eq!(estimate_read_length(&fastq_reader.peek(500).unwrap()), 289);
+        let mut reads_reader = PeekableSequenceReader::new(open_reads(f));
+        assert_eq!(estimate_read_length(&reads_reader.peek(500).unwrap()), 289);
     }
 }
