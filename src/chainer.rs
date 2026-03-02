@@ -63,7 +63,7 @@ impl Chainer {
 
     fn compute_score_cached(&self, dq: usize, dr: usize) -> f32 {
         // dq == dr is usually the most common case
-        if dq == dr && (dq as usize) < N_PRECOMPUTED {
+        if dq == dr && dq < N_PRECOMPUTED {
             self.precomputed_scores[dq]
         } else {
             compute_score(dq, dr, self.k, &self.parameters)
@@ -91,19 +91,14 @@ impl Chainer {
                     break;
                 }
 
-                if ai.query_start < aj.query_start {
+                let Some(dq) = ai.query_start.checked_sub(aj.query_start) else {
                     // Not collinear
                     continue;
-                }
-                let dq = ai.query_start - aj.query_start;
+                };
                 let dr = ai.ref_start - aj.ref_start;
 
                 if dr >= self.parameters.max_ref_gap {
                     break;
-                }
-                if dr <= 0 {
-                    // Not collinear
-                    continue;
                 }
 
                 let score = self.compute_score_cached(dq, dr);
