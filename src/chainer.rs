@@ -95,6 +95,12 @@ impl Chainer {
                     // Not collinear
                     continue;
                 };
+
+                debug_assert!(
+                    ai.ref_start >= aj.ref_start,
+                    "anchors must be sorted by reference start position"
+                );
+
                 let dr = ai.ref_start - aj.ref_start;
 
                 if dr >= self.parameters.max_ref_gap {
