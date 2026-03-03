@@ -29,7 +29,7 @@ set(ISAL "system" CACHE STRING "Where to find ISA-L: system (uses pkg-config), d
 set_property(CACHE ISAL PROPERTY STRINGS "system" "download")
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
-add_compile_options(-Wall -Wextra -Werror=maybe-uninitialized)
+add_compile_options(-Wall -Wextra -Werror=maybe-uninitialized -mpopcnt)
 
 add_subdirectory(cpp/ext/zstr)
 
