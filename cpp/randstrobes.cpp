@@ -232,6 +232,10 @@ std::array<std::vector<QueryRandstrobe>, 2> randstrobes_query(const std::string_
         return randstrobes;
     }
 
+    // Pre-allocate: roughly one randstrobe per syncmer
+    randstrobes[0].reserve(syncmers.size());
+    randstrobes[1].reserve(syncmers.size());
+
     // Generate randstrobes for the forward sequence
     RandstrobeIterator randstrobe_fwd_iter{syncmers, parameters.randstrobe};
     while (randstrobe_fwd_iter.has_next()) {
