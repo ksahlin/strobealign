@@ -234,6 +234,20 @@ struct StrobemerIndex {
         return (pos - randstrobes.begin() - 1) - position + 1;
     }
 
+    /*
+     * Prefetch the bucket and first randstrobe entries for a given hash key.
+     * Call this for the next query while processing the current one to hide
+     * memory latency.
+     */
+    void prefetch(randstrobe_hash_t key) const {
+        const unsigned int top_N = key >> (64 - bits);
+        __builtin_prefetch(&randstrobe_start_indices[top_N], 0, 0);
+        bucket_index_t pos = randstrobe_start_indices[top_N];
+        if (pos < randstrobes.size()) {
+            __builtin_prefetch(&randstrobes[pos], 0, 0);
+        }
+    }
+
     size_t end() const {
         return -1;
     }
