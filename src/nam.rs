@@ -65,8 +65,16 @@ impl Nam {
         let read_end_kmer = &seq[self.query_end - k..self.query_end];
 
         if adna_mode {
-            ry_equal(ref_start_kmer, read_start_kmer, ry_len)
-                && ry_equal(ref_end_kmer, read_end_kmer, ry_len)
+            let start_ok = ry_equal(ref_start_kmer, read_start_kmer, ry_len);
+            let end_ok = ry_equal(ref_end_kmer, read_end_kmer, ry_len);
+            // if !start_ok || !end_ok {
+            //     let start_mm: usize = ref_start_kmer.iter().zip(read_start_kmer.iter())
+            //         .filter(|(a, b)| a != b).count();
+            //     let end_mm: usize = ref_end_kmer.iter().zip(read_end_kmer.iter())
+            //         .filter(|(a, b)| a != b).count();
+            //     log::trace!("  inconsistent_mm start={} end={}", start_mm, end_mm);
+            // }
+            start_ok && end_ok
         } else {
             ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer
         }
