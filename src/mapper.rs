@@ -458,7 +458,7 @@ pub fn align_single_end_read(
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let (nam_details, nams) = get_nams_by_chaining(
+    let (nam_details, mut nams) = get_nams_by_chaining(
         &record.sequence,
         index,
         chainer,
@@ -487,7 +487,7 @@ pub fn align_single_end_read(
 
     let k = index.parameters.syncmer.k;
     let read = Read::new(&record.sequence);
-    for (tries, nam) in nams.iter().take(mapping_parameters.max_tries).enumerate() {
+    for (tries, nam) in nams.iter_mut().take(mapping_parameters.max_tries).enumerate() {
         let score_dropoff = nam.n_matches as f32 / nam_max.n_matches as f32;
 
         if (tries > 1 && best_edit_distance == 0)
@@ -496,10 +496,20 @@ pub fn align_single_end_read(
             trace!("  NAM #{} dropped (score_dropoff={:.3}, best_ed={})", tries, score_dropoff, best_edit_distance);
             break;
         }
-        let consistent_nam = nam.is_consistent(&read, references, k, index.parameters.adna_mode, index.parameters.ry_len);
+        // let consistent_nam = nam.is_consistent(&read, references, k, index.parameters.adna_mode, index.parameters.ry_len);
+        let consistent_nam = reverse_nam_if_needed(nam, &read, references, k, index.parameters.adna_mode, index.parameters.ry_len);
         if !consistent_nam {
-            trace!("  NAM #{} inconsistent: {}", tries, nam);
+            trace!("  NAM #{} inconsistent: {} read={}", tries, nam, record.name);
             details.inconsistent_nams += 1;
+            // // Try aligning the inconsistent NAM anyway to check if it would be correct
+            // if log::log_enabled!(log::Level::Trace) {
+            //     if let Some(alignment) = extend_seed(aligner, nam, references, &read, false) {
+            //         let ref_name = &references[alignment.reference_id].name;
+            //         trace!("  inconsistent_alignment ref={} start={} end={} score={} edit_dist={} read={}",
+            //             ref_name, alignment.ref_start, alignment.ref_start + alignment.length,
+            //             alignment.score, alignment.global_edit_distance(), record.name);
+            //     }
+            // }
             continue;
         }
         trace!("  NAM #{} consistent, extending: {}", tries, nam);

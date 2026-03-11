@@ -151,6 +151,20 @@ pub fn reverse_nam_if_needed(
         nam.query_end = q_end_tmp;
         true
     } else {
+        // // Log mismatch details for both orientations
+        // if log::log_enabled!(Trace) {
+        //     let fwd_start_mm: usize = ref_start_kmer.iter().zip(seq[nam.query_start..nam.query_start + k].iter())
+        //         .filter(|(a, b)| a != b).count();
+        //     let fwd_end_mm: usize = ref_end_kmer.iter().zip(seq[nam.query_end - k..nam.query_end].iter())
+        //         .filter(|(a, b)| a != b).count();
+        //     let rc_start_mm: usize = ref_start_kmer.iter().zip(seq_rc[q_start_tmp..q_start_tmp + k].iter())
+        //         .filter(|(a, b)| a != b).count();
+        //     let rc_end_mm: usize = ref_end_kmer.iter().zip(seq_rc[q_end_tmp - k..q_end_tmp].iter())
+        //         .filter(|(a, b)| a != b).count();
+        //     let best_mm = std::cmp::min(fwd_start_mm + fwd_end_mm, rc_start_mm + rc_end_mm);
+        //     trace!("  inconsistent_detail fwd_start_mm={} fwd_end_mm={} rc_start_mm={} rc_end_mm={} best_total_mm={} n_matches={}",
+        //         fwd_start_mm, fwd_end_mm, rc_start_mm, rc_end_mm, best_mm, nam.n_matches);
+        // }
         false
     }
 }
