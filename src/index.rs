@@ -99,12 +99,14 @@ pub struct RefRandstrobe {
     ref_index: u32,
 }
 
-pub const REF_RANDSTROBE_HASH_MASK: u64 = 0xFFFFFFFFFFFFFF00;
+pub const REF_RANDSTROBE_HASH_MASK: u64 = 0xFFFFFFFFFFFFFC00;
+pub const STROBE2_OFFSET_BITS: u32 = 8;
+pub const STROBE2_OFFSET_MASK: u64 = (1u64 << STROBE2_OFFSET_BITS) - 1;
 pub const REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES: usize = u32::MAX as usize;
 
 impl RefRandstrobe {
     fn new(hash: RandstrobeHash, ref_index: u32, position: u32, offset: u8) -> Self {
-        let hash_offset = (hash & REF_RANDSTROBE_HASH_MASK) | (offset as u64);
+        let hash_offset = (hash & !STROBE2_OFFSET_MASK) | (offset as u64);
         RefRandstrobe {
             hash_offset,
             position,
@@ -125,7 +127,15 @@ impl RefRandstrobe {
     }
 
     pub fn strobe2_offset(&self) -> usize {
-        (self.hash_offset & 0xff) as usize
+        (self.hash_offset & STROBE2_OFFSET_MASK) as usize
+    }
+
+    pub fn canonicity_bits(&self) -> u8 {
+        ((self.hash_offset >> STROBE2_OFFSET_BITS) & 0x3) as u8
+    }
+
+    pub fn canonicity_matches(&self, query_hash: u64) -> bool {
+        ((query_hash >> STROBE2_OFFSET_BITS) & 0x3) as u8 == self.canonicity_bits()
     }
 }
 
@@ -583,7 +593,7 @@ impl<'a> StrobemerIndex<'a> {
     }
 }
 
-const STI_FILE_FORMAT_VERSION: u32 = 6;
+const STI_FILE_FORMAT_VERSION: u32 = 7;
 
 #[derive(Error, Debug)]
 pub enum IndexReadingError {
@@ -782,6 +792,7 @@ mod tests {
         assert_eq!(rr.position(), position as usize);
         assert_eq!(rr.reference_index(), ref_index as usize);
         assert_eq!(rr.strobe2_offset(), offset as usize);
+        assert_eq!(rr.canonicity_bits(), 0);
     }
 
     fn syncmers_of(seq: &[u8], parameters: &SyncmerParameters) -> Vec<Syncmer> {
@@ -806,7 +817,12 @@ mod tests {
             for syncmer_rev in &mut syncmers_reverse {
                 syncmer_rev.position = seq.len() - parameters.k - syncmer_rev.position;
             }
-            assert_eq!(syncmers_forward, syncmers_reverse);
+            assert_eq!(syncmers_forward.len(), syncmers_reverse.len());
+            for (sf, sr) in syncmers_forward.iter().zip(syncmers_reverse.iter()) {
+                assert_eq!(sf.hash, sr.hash);
+                assert_eq!(sf.position, sr.position);
+                assert_ne!(sf.is_canonical, sr.is_canonical);
+            }
         }
     }
 
@@ -872,5 +888,20 @@ mod tests {
                 panic!("Parameters are expected not to match");
             }
         }
+    }
+
+    #[test]
+    fn test_canonicity_bits() {
+        let hash_both: u64 = (0xABCD_u64 << 10) | (0b11 << STROBE2_OFFSET_BITS);
+        let ref_randstrobe = RefRandstrobe::new(hash_both, 0, 100, 5);
+        assert_eq!(ref_randstrobe.canonicity_bits(), 0b11);
+        assert_eq!(ref_randstrobe.strobe2_offset(), 5);
+        assert_eq!(ref_randstrobe.hash(), 0xABCD_u64 << 10);
+        assert!(ref_randstrobe.canonicity_matches(hash_both));
+
+        let hash_none: u64 = (0xABCD_u64 << 10) | (0b00 << STROBE2_OFFSET_BITS);
+        let ref_randstrobe2 = RefRandstrobe::new(hash_none, 0, 100, 5);
+        assert_eq!(ref_randstrobe2.canonicity_bits(), 0b00);
+        assert!(!ref_randstrobe2.canonicity_matches(hash_both));
     }
 }

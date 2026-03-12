@@ -118,7 +118,7 @@ impl SeedingParameters {
             ));
         }
 
-        let main_hash_mask = !0u64 << (9 + aux_len);
+        let main_hash_mask = !0u64 << (10 + aux_len);
         Ok(SeedingParameters {
             canonical_read_length,
             syncmer: SyncmerParameters::try_new(k, s)?,
@@ -218,7 +218,7 @@ mod test {
         let w_max = 16;
         let max_dist = 180;
         let q = 255;
-        let main_hash_mask = 0xfffffffffc000000;
+        let main_hash_mask = 0xfffffffff8000000;
         let aux_len = 17;
         let sp = SyncmerParameters::try_new(k, s).unwrap();
         let rp = RandstrobeParameters {
