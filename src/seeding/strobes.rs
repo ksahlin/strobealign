@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use super::{InvalidSeedingParameter, Syncmer};
-use crate::index::REF_RANDSTROBE_HASH_MASK;
+use crate::index::{REF_RANDSTROBE_HASH_MASK, STROBE2_OFFSET_BITS};
 
 pub const DEFAULT_AUX_LEN: u8 = 17;
 
@@ -49,9 +49,15 @@ pub struct Randstrobe {
 
 impl Randstrobe {
     pub fn from_strobes(strobe1: Syncmer, strobe2: Syncmer, main_hash_mask: u64) -> Self {
+        let canonical1 = strobe1.is_canonical as u64;
+        let canonical2 = strobe2.is_canonical as u64;
         Randstrobe {
-            hash: Randstrobe::hash(strobe1.hash, strobe2.hash, main_hash_mask),
-            hash_revcomp: Randstrobe::hash(strobe2.hash, strobe1.hash, main_hash_mask),
+            hash: Randstrobe::hash(strobe1.hash, strobe2.hash, main_hash_mask)
+                | (canonical1 << (STROBE2_OFFSET_BITS + 1))
+                | (canonical2 << STROBE2_OFFSET_BITS),
+            hash_revcomp: Randstrobe::hash(strobe2.hash, strobe1.hash, main_hash_mask)
+                | ((1 - canonical2) << (STROBE2_OFFSET_BITS + 1))
+                | ((1 - canonical1) << STROBE2_OFFSET_BITS),
             strobe1_pos: strobe1.position,
             strobe2_pos: strobe2.position,
         }

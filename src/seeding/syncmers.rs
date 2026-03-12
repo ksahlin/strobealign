@@ -8,6 +8,7 @@ use super::hash::xxh64;
 pub struct Syncmer {
     pub hash: u64,
     pub position: usize,
+    pub is_canonical: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -163,10 +164,12 @@ impl Iterator for SyncmerIterator<'_> {
                 }
                 if self.qs[self.t - 1] == self.qs_min_val {
                     // occurs at t:th position in k-mer
-                    let yk = min(self.xk[0], self.xk[1]);
+                    let is_canonical = self.xk[0] <= self.xk[1];
+                    let yk = if is_canonical { self.xk[0] } else { self.xk[1] };
                     let syncmer = Syncmer {
                         hash: syncmer_kmer_hash(yk),
                         position: i + 1 - self.k,
+                        is_canonical,
                     };
                     self.i = i + 1;
                     return Some(syncmer);
