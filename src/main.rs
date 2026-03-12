@@ -41,7 +41,7 @@ use strobealign::mapper::{
     MappingParameters, SamOutput, align_paired_end_read, align_single_end_read,
 };
 use strobealign::mcsstrategy::McsStrategy;
-use strobealign::strobes::DEFAULT_AUX_LEN;
+use strobealign::seeding::DEFAULT_AUX_LEN;
 
 mod logger;
 

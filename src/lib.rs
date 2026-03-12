@@ -16,6 +16,5 @@ pub mod partition;
 pub mod piecewisealigner;
 pub mod read;
 pub mod revcomp;
-pub mod ssw;
-pub mod strobes;
 pub mod seeding;
+pub mod ssw;

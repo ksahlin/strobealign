@@ -14,8 +14,9 @@ use thiserror::Error;
 
 use crate::io::fasta::RefSequence;
 use crate::partition::custom_partition_point;
-use crate::strobes::{DEFAULT_AUX_LEN, RandstrobeIterator, RandstrobeParameters};
-use crate::seeding::{SyncmerIterator, SyncmerParameters};
+use crate::seeding::{
+    DEFAULT_AUX_LEN, RandstrobeIterator, RandstrobeParameters, SyncmerIterator, SyncmerParameters,
+};
 
 /// Pre-defined seeding parameters that work well for a certain
 /// "canonical" read length (and similar read lengths)

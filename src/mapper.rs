@@ -25,8 +25,7 @@ use crate::nam::{Nam, get_nams_by_chaining, reverse_nam_if_needed};
 use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
 use crate::revcomp::reverse_complement;
-use crate::strobes::RandstrobeIterator;
-use crate::seeding::SyncmerIterator;
+use crate::seeding::{RandstrobeIterator, SyncmerIterator};
 
 const MAX_PAIR_NAMS: usize = 1000;
 
