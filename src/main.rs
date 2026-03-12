@@ -20,8 +20,8 @@ use strobealign::aligner::{Aligner, Scores};
 use strobealign::chainer::{Chainer, ChainingParameters};
 use strobealign::details::Details;
 use strobealign::index::{
-    IndexParameters, IndexReadingError, InvalidIndexParameter,
-    REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex,
+    IndexReadingError, InvalidSeedingParameter, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES,
+    SeedingParameters, StrobemerIndex,
 };
 use strobealign::insertsize::InsertSizeDistribution;
 use strobealign::io::SequenceIOError;
@@ -286,7 +286,7 @@ enum CliError {
     IndexReadingError(#[from] IndexReadingError),
 
     #[error(transparent)]
-    InvalidIndexParameter(#[from] InvalidIndexParameter),
+    InvalidSeedingParameter(#[from] InvalidSeedingParameter),
 
     #[error("No sequences found in the reference FASTA")]
     NoReference,
@@ -354,7 +354,7 @@ fn run() -> Result<(), CliError> {
         reads_reader1 = None;
     }
 
-    let parameters = IndexParameters::from_read_length(
+    let parameters = SeedingParameters::from_read_length(
         read_length,
         args.k,
         args.s,
@@ -571,7 +571,7 @@ fn run() -> Result<(), CliError> {
         index: &index,
         references: &references,
         mapping_parameters: &mapping_parameters,
-        index_parameters: &parameters,
+        seeding_parameters: &parameters,
         chainer: &chainer,
         sam_output: &sam_output,
         aligner,
@@ -841,7 +841,7 @@ struct Mapper<'a> {
     index: &'a StrobemerIndex<'a>,
     references: &'a [RefSequence],
     mapping_parameters: &'a MappingParameters,
-    index_parameters: &'a IndexParameters,
+    seeding_parameters: &'a SeedingParameters,
     sam_output: &'a SamOutput,
     aligner: Aligner,
     chainer: &'a Chainer,
@@ -872,7 +872,7 @@ impl Mapper<'_> {
                             self.references,
                             self.mapping_parameters,
                             self.sam_output,
-                            self.index_parameters,
+                            self.seeding_parameters,
                             &mut isizedist,
                             &self.chainer,
                             &self.aligner,

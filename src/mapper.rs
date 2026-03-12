@@ -12,7 +12,7 @@ use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
 use crate::chainer::Chainer;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
-use crate::index::{IndexParameters, StrobemerIndex};
+use crate::index::{SeedingParameters, StrobemerIndex};
 use crate::insertsize::InsertSizeDistribution;
 use crate::io::fasta::RefSequence;
 use crate::io::record::SequenceRecord;
@@ -87,7 +87,7 @@ pub struct QueryRandstrobe {
 
 /// Generate randstrobes for a query sequence and its reverse complement.
 /// TODO move to strobes.rs?
-pub fn randstrobes_query(seq: &[u8], parameters: &IndexParameters) -> [Vec<QueryRandstrobe>; 2] {
+pub fn randstrobes_query(seq: &[u8], parameters: &SeedingParameters) -> [Vec<QueryRandstrobe>; 2] {
     let mut randstrobes = {
         let expected = seq.len() / (parameters.syncmer.k - parameters.syncmer.s + 1);
         [Vec::with_capacity(expected), Vec::with_capacity(expected)]
@@ -657,7 +657,7 @@ pub fn align_paired_end_read(
     references: &[RefSequence],
     mapping_parameters: &MappingParameters,
     sam_output: &SamOutput,
-    index_parameters: &IndexParameters,
+    seeding_parameters: &SeedingParameters,
     insert_size_distribution: &mut InsertSizeDistribution,
     chainer: &Chainer,
     aligner: &Aligner,
@@ -688,7 +688,7 @@ pub fn align_paired_end_read(
         &mut nams_pair,
         &read1,
         &read2,
-        index_parameters.syncmer.k,
+        seeding_parameters.syncmer.k,
         references,
         &mut details,
         mapping_parameters.dropoff_threshold,

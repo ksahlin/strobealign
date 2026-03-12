@@ -17,7 +17,7 @@ use crate::partition::custom_partition_point;
 use crate::strobes::{DEFAULT_AUX_LEN, RandstrobeIterator, RandstrobeParameters};
 use crate::syncmers::{SyncmerIterator, SyncmerParameters};
 
-/// Pre-defined index parameters that work well for a certain
+/// Pre-defined seeding parameters that work well for a certain
 /// "canonical" read length (and similar read lengths)
 struct Profile {
     canonical_read_length: usize,
@@ -87,21 +87,21 @@ static PROFILES: [Profile; 7] = [
     },
 ];
 
-/* Settings that influence index creation */
+/* Settings that influence seeding (creation */
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct IndexParameters {
+pub struct SeedingParameters {
     pub canonical_read_length: usize,
     pub syncmer: SyncmerParameters,
     pub randstrobe: RandstrobeParameters,
 }
 
-impl IndexParameters {
+impl SeedingParameters {
     /// Return a parameter-specific filename extension such as ".r100.sti"
     ///
     /// If any of the parameters deviate from the defaults for the current
     /// canonical read length, the returned extension is just ".sti".
     pub fn filename_extension(&self) -> String {
-        if *self != IndexParameters::default_from_read_length(self.canonical_read_length) {
+        if *self != SeedingParameters::default_from_read_length(self.canonical_read_length) {
             ".sti".to_string()
         } else {
             format!(".r{}.sti", self.canonical_read_length)
@@ -110,12 +110,12 @@ impl IndexParameters {
 }
 
 #[derive(Error, Debug)]
-pub enum InvalidIndexParameter {
-    #[error("Invalid indexing parameter: {0}")]
+pub enum InvalidSeedingParameter {
+    #[error("Invalid seeding parameter: {0}")]
     InvalidParameter(&'static str),
 }
 
-impl IndexParameters {
+impl SeedingParameters {
     pub fn try_new(
         canonical_read_length: usize,
         k: usize,
@@ -125,15 +125,15 @@ impl IndexParameters {
         q: u64,
         max_dist: u8,
         aux_len: u8,
-    ) -> Result<Self, InvalidIndexParameter> {
+    ) -> Result<Self, InvalidSeedingParameter> {
         if aux_len > 63 {
-            return Err(InvalidIndexParameter::InvalidParameter(
+            return Err(InvalidSeedingParameter::InvalidParameter(
                 "aux length must be less than 64",
             ));
         }
 
         let main_hash_mask = !0u64 << (9 + aux_len);
-        Ok(IndexParameters {
+        Ok(SeedingParameters {
             canonical_read_length,
             syncmer: SyncmerParameters::try_new(k, s)?,
             randstrobe: RandstrobeParameters::try_new(w_min, w_max, q, max_dist, main_hash_mask)?,
@@ -151,7 +151,7 @@ impl IndexParameters {
         c: Option<u32>,
         max_seed_len: Option<usize>,
         aux_len: u8,
-    ) -> Result<IndexParameters, InvalidIndexParameter> {
+    ) -> Result<SeedingParameters, InvalidSeedingParameter> {
         let default_c = 8;
         let mut canonical_read_length = 50;
         for profile in &PROFILES {
@@ -182,7 +182,7 @@ impl IndexParameters {
             Some(max_seed_len) => {
                 if max_seed_len < k || max_seed_len - k > 255 {
                     dbg!(max_seed_len);
-                    return Err(InvalidIndexParameter::InvalidParameter(
+                    return Err(InvalidSeedingParameter::InvalidParameter(
                         "max seed length must be between k and k + 255",
                     ));
                 }
@@ -192,7 +192,7 @@ impl IndexParameters {
         };
         let q = 2u64.pow(c.unwrap_or(default_c)) - 1;
 
-        IndexParameters::try_new(
+        SeedingParameters::try_new(
             canonical_read_length,
             k,
             s,
@@ -204,7 +204,7 @@ impl IndexParameters {
         )
     }
 
-    pub fn default_from_read_length(read_length: usize) -> IndexParameters {
+    pub fn default_from_read_length(read_length: usize) -> SeedingParameters {
         Self::from_read_length(
             read_length,
             None,
@@ -329,7 +329,7 @@ impl RefRandstrobe {
 }
 
 /// Count randstrobes by counting syncmers
-fn count_randstrobes(seq: &[u8], parameters: &IndexParameters) -> usize {
+fn count_randstrobes(seq: &[u8], parameters: &SeedingParameters) -> usize {
     let syncmer_iterator = SyncmerIterator::new(
         seq,
         parameters.syncmer.k,
@@ -342,7 +342,7 @@ fn count_randstrobes(seq: &[u8], parameters: &IndexParameters) -> usize {
 
 fn count_all_randstrobes(
     references: &[RefSequence],
-    parameters: &IndexParameters,
+    parameters: &SeedingParameters,
     n_threads: usize,
 ) -> Vec<usize> {
     let counts = vec![0; references.len()];
@@ -369,7 +369,7 @@ fn count_all_randstrobes(
 // TODO UnpopulatedStrobemerIndex
 pub struct StrobemerIndex<'a> {
     references: &'a [RefSequence],
-    pub parameters: IndexParameters,
+    pub parameters: SeedingParameters,
     pub stats: IndexCreationStatistics,
 
     /// no. of bits of the hash to use when indexing a randstrobe bucket
@@ -399,7 +399,7 @@ pub struct StrobemerIndex<'a> {
 impl<'a> StrobemerIndex<'a> {
     pub fn new(
         references: &'a [RefSequence],
-        parameters: IndexParameters,
+        parameters: SeedingParameters,
         bits: Option<u8>,
     ) -> Self {
         let total_reference_length = references.iter().map(|r| r.sequence.len()).sum();
@@ -804,7 +804,7 @@ pub enum IndexReadingError {
     RandstrobeStartIndicesWrongSize,
 
     #[error("The .sti (index) file uses an invalid indexing parameter: {0}")]
-    InvalidIndexParameter(#[from] InvalidIndexParameter),
+    InvalidIndexParameter(#[from] InvalidSeedingParameter),
 }
 
 impl<'a> StrobemerIndex<'a> {
@@ -893,7 +893,7 @@ impl<'a> StrobemerIndex<'a> {
             max_dist,
             main_hash_mask,
         };
-        let sti_parameters = IndexParameters {
+        let sti_parameters = SeedingParameters {
             canonical_read_length,
             syncmer: syncmer_parameters,
             randstrobe: randstrobe_parameters,
@@ -982,7 +982,7 @@ mod tests {
     }
 
     #[test]
-    fn test_index_parameters() {
+    fn test_seeding_parameters() {
         let canonical_read_length = 250;
         let k = 22;
         let s = 18;
@@ -1000,7 +1000,7 @@ mod tests {
             max_dist,
             main_hash_mask,
         };
-        let ip = IndexParameters::try_new(
+        let seeding_parameters = SeedingParameters::try_new(
             canonical_read_length,
             k,
             s,
@@ -1011,24 +1011,27 @@ mod tests {
             aux_len,
         )
         .unwrap();
-        assert_eq!(ip.canonical_read_length, canonical_read_length);
-        assert_eq!(ip.randstrobe, rp);
-        assert_eq!(ip.syncmer, sp);
+        assert_eq!(
+            seeding_parameters.canonical_read_length,
+            canonical_read_length
+        );
+        assert_eq!(seeding_parameters.randstrobe, rp);
+        assert_eq!(seeding_parameters.syncmer, sp);
 
-        let ip = IndexParameters::default_from_read_length(canonical_read_length + 1);
+        let ip = SeedingParameters::default_from_read_length(canonical_read_length + 1);
         assert_eq!(ip.canonical_read_length, canonical_read_length);
         assert_eq!(ip.randstrobe, rp);
         assert_eq!(ip.syncmer, sp);
     }
 
     #[test]
-    fn test_index_parameters_similar_read_length() {
-        let ip150 = IndexParameters::default_from_read_length(150);
-        let ip149 = IndexParameters::default_from_read_length(149);
-        let ip151 = IndexParameters::default_from_read_length(151);
+    fn test_seeding_parameters_similar_read_length() {
+        let sp150 = SeedingParameters::default_from_read_length(150);
+        let sp149 = SeedingParameters::default_from_read_length(149);
+        let sp151 = SeedingParameters::default_from_read_length(151);
 
-        assert_eq!(ip150, ip149);
-        assert_eq!(ip150, ip151);
+        assert_eq!(sp150, sp149);
+        assert_eq!(sp150, sp151);
     }
 
     fn syncmers_of(seq: &[u8], parameters: &SyncmerParameters) -> Vec<Syncmer> {
@@ -1073,7 +1076,7 @@ mod tests {
     #[test]
     fn test_index_phix() {
         let references = read_ref("tests/phix.fasta");
-        let parameters = IndexParameters::default_from_read_length(150);
+        let parameters = SeedingParameters::default_from_read_length(150);
         let mut index = StrobemerIndex::new(&references, parameters, None);
         index.populate(0.1, 1);
         assert!(index.stats.distinct_strobemers > 0);
@@ -1085,7 +1088,7 @@ mod tests {
             name: "name".to_string(),
             sequence: vec![],
         }];
-        let parameters = IndexParameters::default_from_read_length(150);
+        let parameters = SeedingParameters::default_from_read_length(150);
         let mut index = StrobemerIndex::new(&references, parameters, None);
         index.populate(0.1, 1);
         assert_eq!(index.stats.distinct_strobemers, 0);
