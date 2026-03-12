@@ -1,8 +1,8 @@
 use std::cmp::min;
 use std::collections::VecDeque;
 
-use crate::hash::xxh64;
-use crate::index::InvalidIndexParameter;
+use super::InvalidSeedingParameter;
+use super::hash::xxh64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Syncmer {
@@ -18,19 +18,19 @@ pub struct SyncmerParameters {
 }
 
 impl SyncmerParameters {
-    pub fn try_new(k: usize, s: usize) -> Result<Self, InvalidIndexParameter> {
+    pub fn try_new(k: usize, s: usize) -> Result<Self, InvalidSeedingParameter> {
         if k < 8 || k > 32 {
-            return Err(InvalidIndexParameter::InvalidParameter(
+            return Err(InvalidSeedingParameter::InvalidParameter(
                 "k must be at least 8 and at most 32",
             ));
         }
         if s > k {
-            return Err(InvalidIndexParameter::InvalidParameter(
+            return Err(InvalidSeedingParameter::InvalidParameter(
                 "s must not be larger than k",
             ));
         }
         if (k - s) % 2 != 0 {
-            return Err(InvalidIndexParameter::InvalidParameter(
+            return Err(InvalidSeedingParameter::InvalidParameter(
                 "(k - s) must be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...",
             ));
         }

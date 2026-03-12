@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
-use crate::index::{InvalidIndexParameter, REF_RANDSTROBE_HASH_MASK};
-use crate::syncmers::Syncmer;
+use super::{InvalidSeedingParameter, Syncmer};
+use crate::index::REF_RANDSTROBE_HASH_MASK;
 
 pub const DEFAULT_AUX_LEN: u8 = 17;
 
@@ -23,9 +23,9 @@ impl RandstrobeParameters {
         q: u64,
         max_dist: u8,
         main_hash_mask: u64,
-    ) -> Result<Self, InvalidIndexParameter> {
+    ) -> Result<Self, InvalidSeedingParameter> {
         if w_min > w_max {
-            return Err(InvalidIndexParameter::InvalidParameter(
+            return Err(InvalidSeedingParameter::InvalidParameter(
                 "w_min is greater than w_max (choose different -l/-u parameters)",
             ));
         }
@@ -129,9 +129,9 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::index::IndexParameters;
     use crate::io::fasta::{RefSequence, read_fasta};
-    use crate::syncmers::SyncmerIterator;
+    use crate::seeding::SeedingParameters;
+    use crate::seeding::SyncmerIterator;
     use std::fs::File;
     use std::io::BufReader;
 
@@ -145,7 +145,7 @@ mod test {
     #[test]
     fn test_randstrobe_iterator() {
         let refseq = read_phix().sequence;
-        let parameters = IndexParameters::default_from_read_length(300);
+        let parameters = SeedingParameters::default_from_read_length(300);
         let syncmer_iter = SyncmerIterator::new(
             &refseq,
             parameters.syncmer.k,
@@ -167,7 +167,7 @@ mod test {
     #[test]
     fn test_syncmer_and_randstrobe_iterator_same_count() {
         let refseq = read_phix().sequence;
-        let parameters = IndexParameters::default_from_read_length(100);
+        let parameters = SeedingParameters::default_from_read_length(100);
         let syncmer_iter = SyncmerIterator::new(
             &refseq,
             parameters.syncmer.k,

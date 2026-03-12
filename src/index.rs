@@ -14,210 +14,10 @@ use thiserror::Error;
 
 use crate::io::fasta::RefSequence;
 use crate::partition::custom_partition_point;
-use crate::strobes::{DEFAULT_AUX_LEN, RandstrobeIterator, RandstrobeParameters};
-use crate::syncmers::{SyncmerIterator, SyncmerParameters};
-
-/// Pre-defined index parameters that work well for a certain
-/// "canonical" read length (and similar read lengths)
-struct Profile {
-    canonical_read_length: usize,
-    r_threshold: usize,
-    k: usize,
-    s_offset: isize,
-    w_min: usize,
-    w_max: usize,
-}
-
-static PROFILES: [Profile; 7] = [
-    Profile {
-        canonical_read_length: 50,
-        r_threshold: 70,
-        k: 18,
-        s_offset: -4,
-        w_min: 1,
-        w_max: 4,
-    },
-    Profile {
-        canonical_read_length: 75,
-        r_threshold: 90,
-        k: 20,
-        s_offset: -4,
-        w_min: 1,
-        w_max: 6,
-    },
-    Profile {
-        canonical_read_length: 100,
-        r_threshold: 110,
-        k: 20,
-        s_offset: -4,
-        w_min: 2,
-        w_max: 6,
-    },
-    Profile {
-        canonical_read_length: 125,
-        r_threshold: 135,
-        k: 20,
-        s_offset: -4,
-        w_min: 3,
-        w_max: 8,
-    },
-    Profile {
-        canonical_read_length: 150,
-        r_threshold: 175,
-        k: 20,
-        s_offset: -4,
-        w_min: 5,
-        w_max: 11,
-    },
-    Profile {
-        canonical_read_length: 250,
-        r_threshold: 375,
-        k: 22,
-        s_offset: -4,
-        w_min: 6,
-        w_max: 16,
-    },
-    Profile {
-        canonical_read_length: 400,
-        r_threshold: usize::MAX,
-        k: 23,
-        s_offset: -6,
-        w_min: 5,
-        w_max: 15,
-    },
-];
-
-/* Settings that influence index creation */
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct IndexParameters {
-    pub canonical_read_length: usize,
-    pub syncmer: SyncmerParameters,
-    pub randstrobe: RandstrobeParameters,
-}
-
-impl IndexParameters {
-    /// Return a parameter-specific filename extension such as ".r100.sti"
-    ///
-    /// If any of the parameters deviate from the defaults for the current
-    /// canonical read length, the returned extension is just ".sti".
-    pub fn filename_extension(&self) -> String {
-        if *self != IndexParameters::default_from_read_length(self.canonical_read_length) {
-            ".sti".to_string()
-        } else {
-            format!(".r{}.sti", self.canonical_read_length)
-        }
-    }
-}
-
-#[derive(Error, Debug)]
-pub enum InvalidIndexParameter {
-    #[error("Invalid indexing parameter: {0}")]
-    InvalidParameter(&'static str),
-}
-
-impl IndexParameters {
-    pub fn try_new(
-        canonical_read_length: usize,
-        k: usize,
-        s: usize,
-        w_min: usize,
-        w_max: usize,
-        q: u64,
-        max_dist: u8,
-        aux_len: u8,
-    ) -> Result<Self, InvalidIndexParameter> {
-        if aux_len > 63 {
-            return Err(InvalidIndexParameter::InvalidParameter(
-                "aux length must be less than 64",
-            ));
-        }
-
-        let main_hash_mask = !0u64 << (9 + aux_len);
-        Ok(IndexParameters {
-            canonical_read_length,
-            syncmer: SyncmerParameters::try_new(k, s)?,
-            randstrobe: RandstrobeParameters::try_new(w_min, w_max, q, max_dist, main_hash_mask)?,
-        })
-    }
-
-    /// Create an IndexParameters instance based on a given read length.
-    /// k, s, l, u, c and max_seed_len can be used to override determined parameters
-    pub fn from_read_length(
-        read_length: usize,
-        mut k: Option<usize>,
-        mut s: Option<usize>,
-        mut w_min: Option<usize>,
-        mut w_max: Option<usize>,
-        c: Option<u32>,
-        max_seed_len: Option<usize>,
-        aux_len: u8,
-    ) -> Result<IndexParameters, InvalidIndexParameter> {
-        let default_c = 8;
-        let mut canonical_read_length = 50;
-        for profile in &PROFILES {
-            if read_length <= profile.r_threshold {
-                if k.is_none() {
-                    k = Some(profile.k);
-                }
-                if s.is_none() {
-                    s = Some((k.unwrap() as isize + profile.s_offset) as usize);
-                }
-                if w_min.is_none() {
-                    w_min = Some(profile.w_min);
-                }
-                if w_max.is_none() {
-                    w_max = Some(profile.w_max);
-                }
-                canonical_read_length = profile.canonical_read_length;
-                break;
-            }
-        }
-
-        let k = k.unwrap();
-        let s = s.unwrap();
-        let w_min = w_min.unwrap();
-        let w_max = w_max.unwrap();
-
-        let max_dist = match max_seed_len {
-            Some(max_seed_len) => {
-                if max_seed_len < k || max_seed_len - k > 255 {
-                    dbg!(max_seed_len);
-                    return Err(InvalidIndexParameter::InvalidParameter(
-                        "max seed length must be between k and k + 255",
-                    ));
-                }
-                (max_seed_len - k) as u8
-            }
-            None => usize::clamp(canonical_read_length.saturating_sub(70), k, 255) as u8,
-        };
-        let q = 2u64.pow(c.unwrap_or(default_c)) - 1;
-
-        IndexParameters::try_new(
-            canonical_read_length,
-            k,
-            s,
-            w_min,
-            w_max,
-            q,
-            max_dist,
-            aux_len,
-        )
-    }
-
-    pub fn default_from_read_length(read_length: usize) -> IndexParameters {
-        Self::from_read_length(
-            read_length,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            DEFAULT_AUX_LEN,
-        )
-        .unwrap()
-    }
-}
+use crate::seeding::{
+    InvalidSeedingParameter, RandstrobeIterator, RandstrobeParameters, SeedingParameters,
+    SyncmerIterator, SyncmerParameters,
+};
 
 impl SyncmerParameters {
     /// Pick a suitable number of bits for indexing randstrobe start indices
@@ -329,7 +129,7 @@ impl RefRandstrobe {
 }
 
 /// Count randstrobes by counting syncmers
-fn count_randstrobes(seq: &[u8], parameters: &IndexParameters) -> usize {
+fn count_randstrobes(seq: &[u8], parameters: &SeedingParameters) -> usize {
     let syncmer_iterator = SyncmerIterator::new(
         seq,
         parameters.syncmer.k,
@@ -342,7 +142,7 @@ fn count_randstrobes(seq: &[u8], parameters: &IndexParameters) -> usize {
 
 fn count_all_randstrobes(
     references: &[RefSequence],
-    parameters: &IndexParameters,
+    parameters: &SeedingParameters,
     n_threads: usize,
 ) -> Vec<usize> {
     let counts = vec![0; references.len()];
@@ -369,7 +169,7 @@ fn count_all_randstrobes(
 // TODO UnpopulatedStrobemerIndex
 pub struct StrobemerIndex<'a> {
     references: &'a [RefSequence],
-    pub parameters: IndexParameters,
+    pub parameters: SeedingParameters,
     pub stats: IndexCreationStatistics,
 
     /// no. of bits of the hash to use when indexing a randstrobe bucket
@@ -399,7 +199,7 @@ pub struct StrobemerIndex<'a> {
 impl<'a> StrobemerIndex<'a> {
     pub fn new(
         references: &'a [RefSequence],
-        parameters: IndexParameters,
+        parameters: SeedingParameters,
         bits: Option<u8>,
     ) -> Self {
         let total_reference_length = references.iter().map(|r| r.sequence.len()).sum();
@@ -804,7 +604,7 @@ pub enum IndexReadingError {
     RandstrobeStartIndicesWrongSize,
 
     #[error("The .sti (index) file uses an invalid indexing parameter: {0}")]
-    InvalidIndexParameter(#[from] InvalidIndexParameter),
+    InvalidIndexParameter(#[from] InvalidSeedingParameter),
 }
 
 impl<'a> StrobemerIndex<'a> {
@@ -893,7 +693,7 @@ impl<'a> StrobemerIndex<'a> {
             max_dist,
             main_hash_mask,
         };
-        let sti_parameters = IndexParameters {
+        let sti_parameters = SeedingParameters {
             canonical_read_length,
             syncmer: syncmer_parameters,
             randstrobe: randstrobe_parameters,
@@ -960,9 +760,11 @@ fn write_vec<T>(file: &mut File, data: &[T]) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use crate::io::fasta::read_fasta;
     use crate::revcomp::reverse_complement;
-    use crate::syncmers::Syncmer;
+    use crate::seeding::Syncmer;
+
     use std::fs::File;
     use std::io::BufReader;
     use std::path::Path;
@@ -979,56 +781,6 @@ mod tests {
         assert_eq!(rr.position(), position as usize);
         assert_eq!(rr.reference_index(), ref_index as usize);
         assert_eq!(rr.strobe2_offset(), offset as usize);
-    }
-
-    #[test]
-    fn test_index_parameters() {
-        let canonical_read_length = 250;
-        let k = 22;
-        let s = 18;
-        let w_min = 6;
-        let w_max = 16;
-        let max_dist = 180;
-        let q = 255;
-        let main_hash_mask = 0xfffffffffc000000;
-        let aux_len = 17;
-        let sp = SyncmerParameters::try_new(k, s).unwrap();
-        let rp = RandstrobeParameters {
-            w_min,
-            w_max,
-            q,
-            max_dist,
-            main_hash_mask,
-        };
-        let ip = IndexParameters::try_new(
-            canonical_read_length,
-            k,
-            s,
-            w_min,
-            w_max,
-            q,
-            max_dist,
-            aux_len,
-        )
-        .unwrap();
-        assert_eq!(ip.canonical_read_length, canonical_read_length);
-        assert_eq!(ip.randstrobe, rp);
-        assert_eq!(ip.syncmer, sp);
-
-        let ip = IndexParameters::default_from_read_length(canonical_read_length + 1);
-        assert_eq!(ip.canonical_read_length, canonical_read_length);
-        assert_eq!(ip.randstrobe, rp);
-        assert_eq!(ip.syncmer, sp);
-    }
-
-    #[test]
-    fn test_index_parameters_similar_read_length() {
-        let ip150 = IndexParameters::default_from_read_length(150);
-        let ip149 = IndexParameters::default_from_read_length(149);
-        let ip151 = IndexParameters::default_from_read_length(151);
-
-        assert_eq!(ip150, ip149);
-        assert_eq!(ip150, ip151);
     }
 
     fn syncmers_of(seq: &[u8], parameters: &SyncmerParameters) -> Vec<Syncmer> {
@@ -1073,7 +825,7 @@ mod tests {
     #[test]
     fn test_index_phix() {
         let references = read_ref("tests/phix.fasta");
-        let parameters = IndexParameters::default_from_read_length(150);
+        let parameters = SeedingParameters::default_from_read_length(150);
         let mut index = StrobemerIndex::new(&references, parameters, None);
         index.populate(0.1, 1);
         assert!(index.stats.distinct_strobemers > 0);
@@ -1085,7 +837,7 @@ mod tests {
             name: "name".to_string(),
             sequence: vec![],
         }];
-        let parameters = IndexParameters::default_from_read_length(150);
+        let parameters = SeedingParameters::default_from_read_length(150);
         let mut index = StrobemerIndex::new(&references, parameters, None);
         index.populate(0.1, 1);
         assert_eq!(index.stats.distinct_strobemers, 0);
