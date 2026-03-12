@@ -760,9 +760,11 @@ fn write_vec<T>(file: &mut File, data: &[T]) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use crate::io::fasta::read_fasta;
     use crate::revcomp::reverse_complement;
-    use crate::seeding::syncmers::Syncmer;
+    use crate::seeding::Syncmer;
+
     use std::fs::File;
     use std::io::BufReader;
     use std::path::Path;
