@@ -1,8 +1,8 @@
 use std::cmp::min;
 use std::collections::VecDeque;
 
-use crate::hash::xxh64;
-use crate::seeding::InvalidSeedingParameter;
+use super::InvalidSeedingParameter;
+use super::hash::xxh64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Syncmer {

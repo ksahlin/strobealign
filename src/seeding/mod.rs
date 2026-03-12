@@ -1,3 +1,4 @@
+mod hash;
 pub mod parameters;
 pub mod strobes;
 pub mod syncmers;

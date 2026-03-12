@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
+use super::{InvalidSeedingParameter, Syncmer};
 use crate::index::REF_RANDSTROBE_HASH_MASK;
-use crate::seeding::{InvalidSeedingParameter, Syncmer};
 
 pub const DEFAULT_AUX_LEN: u8 = 17;
 
