@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
-use crate::index::{InvalidSeedingParameter, REF_RANDSTROBE_HASH_MASK};
+use crate::index::REF_RANDSTROBE_HASH_MASK;
+use crate::seeding::InvalidSeedingParameter;
 use crate::seeding::syncmers::Syncmer;
 
 pub const DEFAULT_AUX_LEN: u8 = 17;
@@ -129,8 +130,8 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::index::SeedingParameters;
     use crate::io::fasta::{RefSequence, read_fasta};
+    use crate::seeding::SeedingParameters;
     use crate::seeding::SyncmerIterator;
     use std::fs::File;
     use std::io::BufReader;

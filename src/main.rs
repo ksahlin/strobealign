@@ -20,8 +20,7 @@ use strobealign::aligner::{Aligner, Scores};
 use strobealign::chainer::{Chainer, ChainingParameters};
 use strobealign::details::Details;
 use strobealign::index::{
-    IndexReadingError, InvalidSeedingParameter, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES,
-    SeedingParameters, StrobemerIndex,
+    IndexReadingError, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex,
 };
 use strobealign::insertsize::InsertSizeDistribution;
 use strobealign::io::SequenceIOError;
@@ -41,7 +40,7 @@ use strobealign::mapper::{
     MappingParameters, SamOutput, align_paired_end_read, align_single_end_read,
 };
 use strobealign::mcsstrategy::McsStrategy;
-use strobealign::seeding::DEFAULT_AUX_LEN;
+use strobealign::seeding::{DEFAULT_AUX_LEN, InvalidSeedingParameter, SeedingParameters};
 
 mod logger;
 

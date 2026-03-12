@@ -2,7 +2,7 @@ use std::cmp::min;
 use std::collections::VecDeque;
 
 use crate::hash::xxh64;
-use crate::index::InvalidSeedingParameter;
+use crate::seeding::InvalidSeedingParameter;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Syncmer {

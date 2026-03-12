@@ -12,7 +12,7 @@ use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
 use crate::chainer::Chainer;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
-use crate::index::{SeedingParameters, StrobemerIndex};
+use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
 use crate::io::fasta::RefSequence;
 use crate::io::record::SequenceRecord;
@@ -25,7 +25,7 @@ use crate::nam::{Nam, get_nams_by_chaining, reverse_nam_if_needed};
 use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
 use crate::revcomp::reverse_complement;
-use crate::seeding::{RandstrobeIterator, SyncmerIterator};
+use crate::seeding::{RandstrobeIterator, SeedingParameters, SyncmerIterator};
 
 const MAX_PAIR_NAMS: usize = 1000;
 
