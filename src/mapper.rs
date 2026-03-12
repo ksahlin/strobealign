@@ -26,7 +26,7 @@ use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
 use crate::revcomp::reverse_complement;
 use crate::strobes::RandstrobeIterator;
-use crate::syncmers::SyncmerIterator;
+use crate::seeding::SyncmerIterator;
 
 const MAX_PAIR_NAMS: usize = 1000;
 

@@ -18,4 +18,4 @@ pub mod read;
 pub mod revcomp;
 pub mod ssw;
 pub mod strobes;
-pub mod syncmers;
+pub mod seeding;

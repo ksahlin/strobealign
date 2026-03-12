@@ -15,7 +15,7 @@ use thiserror::Error;
 use crate::io::fasta::RefSequence;
 use crate::partition::custom_partition_point;
 use crate::strobes::{DEFAULT_AUX_LEN, RandstrobeIterator, RandstrobeParameters};
-use crate::syncmers::{SyncmerIterator, SyncmerParameters};
+use crate::seeding::{SyncmerIterator, SyncmerParameters};
 
 /// Pre-defined seeding parameters that work well for a certain
 /// "canonical" read length (and similar read lengths)
@@ -962,7 +962,7 @@ mod tests {
     use super::*;
     use crate::io::fasta::read_fasta;
     use crate::revcomp::reverse_complement;
-    use crate::syncmers::Syncmer;
+    use crate::seeding::syncmers::Syncmer;
     use std::fs::File;
     use std::io::BufReader;
     use std::path::Path;

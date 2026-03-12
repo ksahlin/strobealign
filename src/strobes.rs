@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::index::{InvalidSeedingParameter, REF_RANDSTROBE_HASH_MASK};
-use crate::syncmers::Syncmer;
+use crate::seeding::syncmers::Syncmer;
 
 pub const DEFAULT_AUX_LEN: u8 = 17;
 
@@ -131,7 +131,7 @@ mod test {
     use super::*;
     use crate::index::SeedingParameters;
     use crate::io::fasta::{RefSequence, read_fasta};
-    use crate::syncmers::SyncmerIterator;
+    use crate::seeding::SyncmerIterator;
     use std::fs::File;
     use std::io::BufReader;
 
