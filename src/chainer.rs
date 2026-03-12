@@ -5,9 +5,9 @@ use log::trace;
 use crate::details::NamDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::StrobemerIndex;
-use crate::mapper::QueryRandstrobe;
 use crate::mcsstrategy::McsStrategy;
 use crate::nam::Nam;
+use crate::seeding::QueryRandstrobe;
 
 const N_PRECOMPUTED: usize = 1024;
 

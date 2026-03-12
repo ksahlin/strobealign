@@ -5,8 +5,8 @@ use log::Level;
 use log::trace;
 
 use crate::index::StrobemerIndex;
-use crate::mapper::QueryRandstrobe;
 use crate::mcsstrategy::McsStrategy;
+use crate::seeding::QueryRandstrobe;
 
 #[derive(Debug)]
 pub struct Hit {

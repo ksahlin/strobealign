@@ -10,9 +10,9 @@ use crate::chainer::Chainer;
 use crate::details::NamDetails;
 use crate::index::StrobemerIndex;
 use crate::io::fasta::RefSequence;
-use crate::mapper;
 use crate::mcsstrategy::McsStrategy;
 use crate::read::Read;
+use crate::seeding::randstrobes_query;
 
 /// Non-overlapping approximate match
 #[derive(Clone, Debug)]
@@ -138,7 +138,7 @@ pub fn get_nams_by_chaining(
     rng: &mut Rng,
 ) -> (NamDetails, Vec<Nam>) {
     let timer = Instant::now();
-    let query_randstrobes = mapper::randstrobes_query(sequence, &index.parameters);
+    let query_randstrobes = randstrobes_query(sequence, &index.parameters);
     let time_randstrobes = timer.elapsed().as_secs_f64();
 
     trace!(
