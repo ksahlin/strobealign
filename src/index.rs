@@ -134,8 +134,8 @@ impl RefRandstrobe {
         ((self.hash_offset >> STROBE2_OFFSET_BITS) & 0x3) as u8
     }
 
-    pub fn canonicity_matches(&self, query_hash: u64) -> bool {
-        ((query_hash >> STROBE2_OFFSET_BITS) & 0x3) as u8 == self.canonicity_bits()
+    pub fn canonicity_bit(&self) -> u8 {
+        ((self.hash_offset >> STROBE2_OFFSET_BITS) & 0x2) as u8
     }
 }
 
@@ -591,6 +591,16 @@ impl<'a> StrobemerIndex<'a> {
     pub fn is_too_frequent_partial(&self, position: usize, cutoff: usize) -> bool {
         self.is_too_frequent_forward_partial(position, cutoff)
     }
+
+    pub fn canonicity_matches(&self, hash: RandstrobeHash, position: usize) -> bool {
+        let query_canonicity = ((hash >> STROBE2_OFFSET_BITS) & 0x3) as u8;
+        self.randstrobes[position].canonicity_bits() == query_canonicity
+    }
+
+    pub fn canonicity_matches_partial(&self, hash: RandstrobeHash, position: usize) -> bool {
+        let query_canonicity = ((hash >> STROBE2_OFFSET_BITS) & 0x2) as u8;
+        self.randstrobes[position].canonicity_bit() == query_canonicity
+    }
 }
 
 const STI_FILE_FORMAT_VERSION: u32 = 7;
@@ -899,11 +909,9 @@ mod tests {
         assert_eq!(ref_randstrobe.canonicity_bits(), 0b11);
         assert_eq!(ref_randstrobe.strobe2_offset(), 5);
         assert_eq!(ref_randstrobe.hash(), 0xABCD_u64 << 10);
-        assert!(ref_randstrobe.canonicity_matches(hash_both));
 
         let hash_none: u64 = (0xABCD_u64 << 10) | (0b00 << STROBE2_OFFSET_BITS);
         let ref_randstrobe2 = RefRandstrobe::new(hash_none, 0, 100, 5);
         assert_eq!(ref_randstrobe2.canonicity_bits(), 0b00);
-        assert!(!ref_randstrobe2.canonicity_matches(hash_both));
     }
 }

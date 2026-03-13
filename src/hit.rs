@@ -14,6 +14,7 @@ pub struct Hit {
     pub query_end: usize,
     pub position: usize,
     pub hash_revcomp: u64,
+    pub hash: u64,
     pub is_partial: bool,
     pub is_filtered: bool,
 }
@@ -143,6 +144,7 @@ fn find_all_hits(
                     is_partial: false,
                     is_filtered,
                     hash_revcomp: randstrobe.hash_revcomp,
+                    hash: randstrobe.hash,
                 };
                 hits.push(hit);
             } else {
@@ -162,6 +164,7 @@ fn find_all_hits(
                             is_partial: true,
                             is_filtered,
                             hash_revcomp: randstrobe.hash_revcomp,
+                            hash: randstrobe.hash,
                         };
                         hits.push(hit);
                     } else {
@@ -200,6 +203,7 @@ fn find_all_hits(
                     is_partial: true,
                     is_filtered,
                     hash_revcomp: randstrobe.hash_revcomp,
+                    hash: randstrobe.hash,
                 };
                 hits.push(hit);
             } else {
