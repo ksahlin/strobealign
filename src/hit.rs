@@ -128,25 +128,27 @@ fn find_all_hits(
 
     if mcs_strategy != McsStrategy::FirstStrobe {
         for randstrobe in query_randstrobes {
-            if let Some(position) = index.get_full(randstrobe.hash) {
+            if let Some(count_position) = index.get_full(randstrobe.hash) {
                 let is_filtered =
-                    index.is_too_frequent(position, filter_cutoff, randstrobe.hash_revcomp);
+                    index.is_too_frequent(count_position, filter_cutoff, randstrobe.hash_revcomp);
                 if is_filtered {
                     hits_details.full_filtered += 1;
                 } else {
                     hits_details.full_found += 1;
                 }
 
-                let hit = Hit {
-                    position,
-                    query_start: randstrobe.start,
-                    query_end: randstrobe.end,
-                    is_partial: false,
-                    is_filtered,
-                    hash_revcomp: randstrobe.hash_revcomp,
-                    hash: randstrobe.hash,
-                };
-                hits.push(hit);
+                if let Some(position) = index.get_full_with_canonicity(randstrobe.hash) {
+                    let hit = Hit {
+                        position,
+                        query_start: randstrobe.start,
+                        query_end: randstrobe.end,
+                        is_partial: false,
+                        is_filtered,
+                        hash_revcomp: randstrobe.hash_revcomp,
+                        hash: randstrobe.hash,
+                    };
+                    hits.push(hit);
+                }
             } else {
                 hits_details.full_not_found += 1;
                 if mcs_strategy == McsStrategy::Always {

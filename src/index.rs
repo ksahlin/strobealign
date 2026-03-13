@@ -99,6 +99,7 @@ pub struct RefRandstrobe {
 }
 
 pub const REF_RANDSTROBE_HASH_MASK: u64 = 0xFFFFFFFFFFFFFC00;
+pub const CANONICAL_HASH_MASK: u64 = 0xFFFFFFFFFFFFFF00;
 pub const STROBE2_OFFSET_BITS: u32 = 8;
 pub const STROBE2_OFFSET_MASK: u64 = (1u64 << STROBE2_OFFSET_BITS) - 1;
 pub const REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES: usize = u32::MAX as usize;
@@ -115,6 +116,10 @@ impl RefRandstrobe {
 
     pub fn hash(&self) -> RandstrobeHash {
         self.hash_offset & REF_RANDSTROBE_HASH_MASK
+    }
+
+    pub fn canonical_hash(&self) -> RandstrobeHash {
+        self.hash_offset & CANONICAL_HASH_MASK
     }
 
     pub fn position(&self) -> usize {
@@ -459,13 +464,17 @@ impl<'a> StrobemerIndex<'a> {
         self.get_masked(hash, REF_RANDSTROBE_HASH_MASK)
     }
 
+    pub fn get_full_with_canonicity(&self, hash: RandstrobeHash) -> Option<usize> {
+        self.get_masked(hash, CANONICAL_HASH_MASK)
+    }
+
     /// Find the first entry that matches the main hash
     pub fn get_partial(&self, hash: RandstrobeHash) -> Option<usize> {
         self.get_masked(hash, self.parameters.randstrobe.main_hash_mask)
     }
 
     /// Find index of first entry in randstrobe table that has the given
-    /// hash value masked by the `hash_mask`
+    /// hash value masked by the `hash_mask`.
     pub fn get_masked(&self, hash: RandstrobeHash, hash_mask: RandstrobeHash) -> Option<usize> {
         let masked_hash = hash & hash_mask;
         const MAX_LINEAR_SEARCH: usize = 4;
@@ -477,18 +486,18 @@ impl<'a> StrobemerIndex<'a> {
             return None;
         } else if bucket.len() < MAX_LINEAR_SEARCH {
             for (pos, randstrobe) in bucket.iter().enumerate() {
-                if randstrobe.hash() & hash_mask == masked_hash {
+                if randstrobe.hash_offset & hash_mask == masked_hash {
                     return Some(position_start as usize + pos);
                 }
-                if randstrobe.hash() & hash_mask > masked_hash {
+                if randstrobe.hash_offset & hash_mask > masked_hash {
                     return None;
                 }
             }
             return None;
         }
 
-        let pos = custom_partition_point(bucket, |h| h.hash() & hash_mask < masked_hash);
-        if pos < bucket.len() && bucket[pos].hash() & hash_mask == masked_hash {
+        let pos = custom_partition_point(bucket, |h| h.hash_offset & hash_mask < masked_hash);
+        if pos < bucket.len() && bucket[pos].hash_offset & hash_mask == masked_hash {
             Some(position_start as usize + pos)
         } else {
             None
@@ -591,14 +600,12 @@ impl<'a> StrobemerIndex<'a> {
         self.is_too_frequent_forward_partial(position, cutoff)
     }
 
-    pub fn canonicity_matches(&self, hash: RandstrobeHash, position: usize) -> bool {
-        let query_canonicity = ((hash >> STROBE2_OFFSET_BITS) & 0x3) as u8;
-        self.randstrobes[position].canonicity_bits() == query_canonicity
+    pub fn query_canonicity(&self, hash: RandstrobeHash) -> u8 {
+        ((hash >> STROBE2_OFFSET_BITS) & 0x3) as u8
     }
 
-    pub fn canonicity_matches_partial(&self, hash: RandstrobeHash, position: usize) -> bool {
-        let query_canonicity = ((hash >> STROBE2_OFFSET_BITS) & 0x2) as u8;
-        self.randstrobes[position].canonicity_bit() == query_canonicity
+    pub fn query_canonicity_partial(&self, hash: RandstrobeHash) -> u8 {
+        ((hash >> STROBE2_OFFSET_BITS) & 0x2) as u8
     }
 }
 
