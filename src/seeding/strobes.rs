@@ -65,15 +65,15 @@ pub struct Randstrobe {
 
 impl Randstrobe {
     pub fn from_strobes(strobe1: Syncmer, strobe2: Syncmer, main_hash_mask: u64) -> Self {
-        let canonical1 = strobe1.is_canonical as u64;
-        let canonical2 = strobe2.is_canonical as u64;
+        let canonical1 = strobe1.is_canonical() as u64;
+        let canonical2 = strobe2.is_canonical() as u64;
         Randstrobe {
-            hash: Randstrobe::hash(strobe1.hash, strobe2.hash, main_hash_mask)
+            hash: Randstrobe::hash(strobe1.hash(), strobe2.hash(), main_hash_mask)
                 | (canonical1 << (STROBE2_OFFSET_BITS + 1))
                 | (canonical2 << STROBE2_OFFSET_BITS),
-            hash_revcomp: Randstrobe::hash(strobe2.hash, strobe1.hash, main_hash_mask)
-                | ((1 - canonical2) << (STROBE2_OFFSET_BITS + 1))
-                | ((1 - canonical1) << STROBE2_OFFSET_BITS),
+            hash_revcomp: Randstrobe::hash(strobe2.hash(), strobe1.hash(), main_hash_mask)
+                | ((canonical2 ^ 1) << (STROBE2_OFFSET_BITS + 1))
+                | ((canonical1 ^ 1) << STROBE2_OFFSET_BITS),
             strobe1_pos: strobe1.position,
             strobe2_pos: strobe2.position,
         }
@@ -131,7 +131,7 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
             if self.syncmers[i].position > max_position {
                 break;
             }
-            let b = (strobe1.hash ^ self.syncmers[i].hash) & self.parameters.q;
+            let b = (strobe1.hash() ^ self.syncmers[i].hash()) & self.parameters.q;
             let ones = b.count_ones() as u64;
             if ones < min_val {
                 min_val = ones;
