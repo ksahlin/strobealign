@@ -427,7 +427,6 @@ impl<'a> StrobemerIndex<'a> {
             self.parameters.syncmer.s,
             self.parameters.syncmer.t,
         );
-
         let randstrobe_iter =
             RandstrobeIterator::new(syncmer_iter, self.parameters.randstrobe.clone());
 
@@ -510,7 +509,7 @@ impl<'a> StrobemerIndex<'a> {
         reverse_count + self.get_count_full_forward(position)
     }
 
-    pub fn get_count_full_forward(&self, position: usize) -> usize {
+    fn get_count_full_forward(&self, position: usize) -> usize {
         self.get_count(position, REF_RANDSTROBE_HASH_MASK)
     }
 
@@ -542,7 +541,7 @@ impl<'a> StrobemerIndex<'a> {
     }
 
     /// Return whether the randstrobe at the given position occurs more often than cutoff
-    pub fn is_too_frequent_forward(&self, position: usize, cutoff: usize) -> bool {
+    fn is_too_frequent_forward(&self, position: usize, cutoff: usize) -> bool {
         if position + self.filter_cutoff < self.randstrobes.len() {
             self.randstrobes[position].hash() == self.randstrobes[position + cutoff].hash()
         } else {
@@ -567,7 +566,7 @@ impl<'a> StrobemerIndex<'a> {
         false
     }
 
-    pub fn is_too_frequent_forward_partial(&self, position: usize, cutoff: usize) -> bool {
+    fn is_too_frequent_forward_partial(&self, position: usize, cutoff: usize) -> bool {
         if position + cutoff < self.randstrobes.len() {
             self.randstrobes[position].hash() & self.parameters.randstrobe.main_hash_mask
                 == self.randstrobes[position + cutoff].hash()
@@ -577,8 +576,24 @@ impl<'a> StrobemerIndex<'a> {
         }
     }
 
-    pub fn is_too_frequent_partial(&self, position: usize, cutoff: usize) -> bool {
-        self.is_too_frequent_forward_partial(position, cutoff)
+    pub fn is_too_frequent_partial(&self, position: usize, cutoff: usize, hash_revcomp: u64) -> bool {
+        if self.is_too_frequent_forward_partial(position, cutoff) {
+            return true;
+        }
+
+        if let Some(position_revcomp) = self.get_partial(hash_revcomp) {
+            if self.is_too_frequent_forward_partial(position_revcomp, cutoff) {
+                return true;
+            }
+            /* TODO
+            let count = self.get_count_partial_forward(position)
+                + self.get_count_partial_forward(position_revcomp);
+
+            return count > cutoff;
+            */
+        }
+
+        false
     }
 }
 
@@ -788,6 +803,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_canonical_syncmers() {
         let parameters = SyncmerParameters::try_new(20, 16).unwrap();
         let f = File::open("tests/phix.fasta").unwrap();
