@@ -53,7 +53,7 @@ pub fn randstrobes_query(seq: &[u8], parameters: &SeedingParameters) -> [Vec<Que
     syncmers.reverse();
     for i in 0..syncmers.len() {
         syncmers[i].position = seq.len() - syncmers[i].position - parameters.syncmer.k;
-        syncmers[i].is_canonical = !syncmers[i].is_canonical;
+        syncmers[i].toggle_canonical();
     }
 
     // Randstrobes cannot be re-used for the reverse complement:
