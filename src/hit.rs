@@ -14,9 +14,9 @@ pub struct Hit {
     pub query_end: usize,
     pub position: usize,
     pub hash_revcomp: u64,
-    pub hash: u64,
     pub is_partial: bool,
     pub is_filtered: bool,
+    pub query_canonicity: u8,
 }
 
 /// Aggregate statistics resulting from looking up all strobemers of a single
@@ -146,7 +146,7 @@ fn find_all_hits(
                         is_partial: false,
                         is_filtered,
                         hash_revcomp: randstrobe.hash_revcomp,
-                        hash: randstrobe.hash,
+                        query_canonicity: index.query_canonicity(randstrobe.hash)
                     };
                     hits.push(hit);
                 }
@@ -167,7 +167,7 @@ fn find_all_hits(
                             is_partial: true,
                             is_filtered,
                             hash_revcomp: randstrobe.hash_revcomp,
-                            hash: randstrobe.hash,
+                            query_canonicity: index.query_canonicity_partial(randstrobe.hash),
                         };
                         hits.push(hit);
                     } else {
@@ -206,7 +206,7 @@ fn find_all_hits(
                     is_partial: true,
                     is_filtered,
                     hash_revcomp: randstrobe.hash_revcomp,
-                    hash: randstrobe.hash,
+                    query_canonicity: index.query_canonicity_partial(randstrobe.hash),
                 };
                 hits.push(hit);
             } else {
