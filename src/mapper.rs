@@ -786,10 +786,6 @@ fn extend_paired_seeds(
         details[0].inconsistent_nams += !consistent_nam1 as usize;
         let consistent_nam2 = n_max2.is_consistent(read2, references, k);
         details[1].inconsistent_nams += !consistent_nam2 as usize;
-        // let consistent_nam1 = reverse_nam_if_needed(&mut n_max1, read1, references, k);
-        // details[0].inconsistent_nams += !consistent_nam1 as usize;
-        // let consistent_nam2 = reverse_nam_if_needed(&mut n_max2, read2, references, k);
-        // details[1].inconsistent_nams += !consistent_nam2 as usize;
 
         let alignment1 = extend_seed(
             aligner,
