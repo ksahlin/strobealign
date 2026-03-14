@@ -360,7 +360,7 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
                 hit.query_start,
                 hit.query_end,
                 index,
-                hit.position
+                hit.position,
             );
         }
     }
