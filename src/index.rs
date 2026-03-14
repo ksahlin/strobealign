@@ -496,7 +496,7 @@ impl<'a> StrobemerIndex<'a> {
     }
 
     /// Find index of first entry in randstrobe table that has the given
-    /// hash value masked by the `hash_mask`.
+    /// hash value masked by the `hash_mask`
     pub fn get_masked(&self, hash: RandstrobeHash, hash_mask: RandstrobeHash) -> Option<usize> {
         let masked_hash = hash & hash_mask;
         const MAX_LINEAR_SEARCH: usize = 4;
