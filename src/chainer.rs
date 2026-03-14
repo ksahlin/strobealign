@@ -294,7 +294,7 @@ fn add_to_anchors_full(
 ) {
     let mut min_length_diff = usize::MAX;
     let canonical_hash = index.randstrobes[position].canonical_hash();
-    for randstrobe in index.randstrobes[position..].iter() {
+    for randstrobe in &index.randstrobes[position..] {
         if randstrobe.canonical_hash() != canonical_hash {
             break;
         }
@@ -323,10 +323,9 @@ fn add_to_anchors_partial(
     query_start: usize,
     index: &StrobemerIndex,
     position: usize,
-    query_hash: u64,
+    query_canonicity: u8,
 ) {
     let hash = index.get_hash_partial(position);
-    let query_canonicity = index.query_canonicity_partial(query_hash);
     for pos in position..index.randstrobes.len() {
         if index.get_hash_partial(pos) != hash {
             break;
@@ -354,7 +353,7 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
             continue;
         }
         if hit.is_partial {
-            add_to_anchors_partial(&mut anchors, hit.query_start, index, hit.position, hit.hash);
+            add_to_anchors_partial(&mut anchors, hit.query_start, index, hit.position, hit.query_canonicity);
         } else {
             add_to_anchors_full(
                 &mut anchors,

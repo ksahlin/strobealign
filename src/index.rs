@@ -464,10 +464,6 @@ impl<'a> StrobemerIndex<'a> {
         self.get_masked(hash, REF_RANDSTROBE_HASH_MASK)
     }
 
-    pub fn get_full_with_canonicity(&self, hash: RandstrobeHash) -> Option<usize> {
-        self.get_masked(hash, CANONICAL_HASH_MASK)
-    }
-
     /// Single lookup returning both the ref-masked position and the
     /// canonical-masked position.
     pub fn get_full_and_canonical(
