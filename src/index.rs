@@ -468,6 +468,31 @@ impl<'a> StrobemerIndex<'a> {
         self.get_masked(hash, CANONICAL_HASH_MASK)
     }
 
+    /// Single lookup returning both the ref-masked position and the
+    /// canonical-masked position.
+    pub fn get_full_and_canonical(
+        &self,
+        hash: RandstrobeHash,
+    ) -> (Option<usize>, Option<usize>) {
+        let Some(ref_pos) = self.get_full(hash) else {
+            return (None, None);
+        };
+
+        let canon_masked = hash & CANONICAL_HASH_MASK;
+        let ref_masked = hash & REF_RANDSTROBE_HASH_MASK;
+        let mut i = ref_pos;
+        while i < self.randstrobes.len()
+            && self.randstrobes[i].hash_offset & REF_RANDSTROBE_HASH_MASK == ref_masked
+        {
+            if self.randstrobes[i].hash_offset & CANONICAL_HASH_MASK == canon_masked {
+                return (Some(ref_pos), Some(i));
+            }
+            i += 1;
+        }
+
+        (Some(ref_pos), None)
+    }
+
     /// Find the first entry that matches the main hash
     pub fn get_partial(&self, hash: RandstrobeHash) -> Option<usize> {
         self.get_masked(hash, self.parameters.randstrobe.main_hash_mask)

@@ -128,7 +128,8 @@ fn find_all_hits(
 
     if mcs_strategy != McsStrategy::FirstStrobe {
         for randstrobe in query_randstrobes {
-            if let Some(count_position) = index.get_full(randstrobe.hash) {
+            let (full_pos, canon_pos) = index.get_full_and_canonical(randstrobe.hash);
+            if let Some(count_position) = full_pos {
                 let is_filtered =
                     index.is_too_frequent(count_position, filter_cutoff, randstrobe.hash_revcomp);
                 if is_filtered {
@@ -137,7 +138,7 @@ fn find_all_hits(
                     hits_details.full_found += 1;
                 }
 
-                if let Some(position) = index.get_full_with_canonicity(randstrobe.hash) {
+                if let Some(position) = canon_pos {
                     let hit = Hit {
                         position,
                         query_start: randstrobe.start,
