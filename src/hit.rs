@@ -129,15 +129,21 @@ fn find_all_hits(
     if mcs_strategy != McsStrategy::FirstStrobe {
         for randstrobe in query_randstrobes {
             if let Some(full_pos) = index.get_full(randstrobe.hash) {
-                let (is_filtered, forward_count) =
-                    index.is_too_frequent_with_forward_count(full_pos, filter_cutoff, randstrobe.hash_revcomp);
+                let (is_filtered, forward_count) = index.is_too_frequent_with_forward_count(
+                    full_pos,
+                    filter_cutoff,
+                    randstrobe.hash_revcomp,
+                );
                 if is_filtered {
                     hits_details.full_filtered += 1;
                 } else {
                     hits_details.full_found += 1;
                 }
-                if let Some(position) = index.find_canonical(randstrobe.hash, full_pos, forward_count) {
-                    let canonicity = ((randstrobe.hash >> crate::index::STROBE2_OFFSET_BITS) & 0x3) as u8;
+                if let Some(position) =
+                    index.find_canonical(randstrobe.hash, full_pos, forward_count)
+                {
+                    let canonicity =
+                        ((randstrobe.hash >> crate::index::STROBE2_OFFSET_BITS) & 0x3) as u8;
                     let hit = Hit {
                         position,
                         query_start: randstrobe.start,

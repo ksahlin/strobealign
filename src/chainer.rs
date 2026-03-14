@@ -349,7 +349,13 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
             continue;
         }
         if hit.is_partial {
-            add_to_anchors_partial(&mut anchors, hit.query_start, index, hit.position, hit.query_canonicity);
+            add_to_anchors_partial(
+                &mut anchors,
+                hit.query_start,
+                index,
+                hit.position,
+                hit.query_canonicity,
+            );
         } else {
             add_to_anchors_full(
                 &mut anchors,
