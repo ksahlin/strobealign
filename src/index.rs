@@ -465,29 +465,30 @@ impl<'a> StrobemerIndex<'a> {
         self.get_masked(hash, REF_RANDSTROBE_HASH_MASK)
     }
 
-    /// Single lookup returning both the ref-masked position and the
-    /// canonical-masked position.
-    pub fn get_full_and_canonical(
-        &self,
-        hash: RandstrobeHash,
-    ) -> (Option<usize>, Option<usize>) {
-        let Some(ref_pos) = self.get_full(hash) else {
-            return (None, None);
-        };
-
+    /// Search for the canonical hash within the range [start, start + count).
+    /// Returns the position of the first match, or None.
+    pub fn find_canonical(&self, hash: RandstrobeHash, start: usize, count: usize) -> Option<usize> {
         let canon_masked = hash & CANONICAL_HASH_MASK;
-        let ref_masked = hash & REF_RANDSTROBE_HASH_MASK;
-        let mut i = ref_pos;
-        while i < self.randstrobes.len()
-            && self.randstrobes[i].hash_offset & REF_RANDSTROBE_HASH_MASK == ref_masked
-        {
-            if self.randstrobes[i].hash_offset & CANONICAL_HASH_MASK == canon_masked {
-                return (Some(ref_pos), Some(i));
+        const MAX_LINEAR_SEARCH: usize = 4;
+        let bucket = &self.randstrobes[start..start + count];
+        if bucket.len() < MAX_LINEAR_SEARCH {
+            for (i, rs) in bucket.iter().enumerate() {
+                if rs.hash_offset & CANONICAL_HASH_MASK == canon_masked {
+                    return Some(start + i);
+                }
+                if rs.hash_offset & CANONICAL_HASH_MASK > canon_masked {
+                    return None;
+                }
             }
-            i += 1;
+            return None;
         }
 
-        (Some(ref_pos), None)
+        let pos = custom_partition_point(bucket, |h| h.hash_offset & CANONICAL_HASH_MASK < canon_masked);
+        if pos < bucket.len() && bucket[pos].hash_offset & CANONICAL_HASH_MASK == canon_masked {
+            Some(start + pos)
+        } else {
+            None
+        }
     }
 
     /// Find the first entry that matches the main hash
@@ -592,20 +593,30 @@ impl<'a> StrobemerIndex<'a> {
     }
 
     pub fn is_too_frequent(&self, position: usize, cutoff: usize, hash_revcomp: u64) -> bool {
+        self.is_too_frequent_with_forward_count(position, cutoff, hash_revcomp).0
+    }
+
+    /// Returns (is_filtered, forward_count) so the caller can reuse the
+    /// forward count without a second lookup.
+    pub fn is_too_frequent_with_forward_count(
+        &self,
+        position: usize,
+        cutoff: usize,
+        hash_revcomp: u64,
+    ) -> (bool, usize) {
         if self.is_too_frequent_forward(position, cutoff) {
-            return true;
+            return (true, 0);
         }
+        let forward_count = self.get_count_full_forward(position);
         if let Some(position_revcomp) = self.get_full(hash_revcomp) {
             if self.is_too_frequent_forward(position_revcomp, cutoff) {
-                return true;
+                return (true, forward_count);
             }
-            let count = self.get_count_full_forward(position)
-                + self.get_count_full_forward(position_revcomp);
-
-            return count > cutoff;
+            let total = forward_count + self.get_count_full_forward(position_revcomp);
+            return (total > cutoff, forward_count);
         }
 
-        false
+        (false, forward_count)
     }
 
     pub fn is_too_frequent_forward_partial(&self, position: usize, cutoff: usize) -> bool {
