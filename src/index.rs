@@ -466,7 +466,12 @@ impl<'a> StrobemerIndex<'a> {
 
     /// Search for the canonical hash within the range [start, start + count).
     /// Returns the position of the first match, or None.
-    pub fn find_canonical(&self, hash: RandstrobeHash, start: usize, count: usize) -> Option<usize> {
+    pub fn find_canonical(
+        &self,
+        hash: RandstrobeHash,
+        start: usize,
+        count: usize,
+    ) -> Option<usize> {
         let canon_masked = hash & CANONICAL_HASH_MASK;
         const MAX_LINEAR_SEARCH: usize = 4;
         let bucket = &self.randstrobes[start..start + count];
@@ -482,7 +487,9 @@ impl<'a> StrobemerIndex<'a> {
             return None;
         }
 
-        let pos = custom_partition_point(bucket, |h| h.hash_offset & CANONICAL_HASH_MASK < canon_masked);
+        let pos = custom_partition_point(bucket, |h| {
+            h.hash_offset & CANONICAL_HASH_MASK < canon_masked
+        });
         if pos < bucket.len() && bucket[pos].hash_offset & CANONICAL_HASH_MASK == canon_masked {
             Some(start + pos)
         } else {
@@ -592,7 +599,8 @@ impl<'a> StrobemerIndex<'a> {
     }
 
     pub fn is_too_frequent(&self, position: usize, cutoff: usize, hash_revcomp: u64) -> bool {
-        self.is_too_frequent_with_forward_count(position, cutoff, hash_revcomp).0
+        self.is_too_frequent_with_forward_count(position, cutoff, hash_revcomp)
+            .0
     }
 
     /// Returns (is_filtered, forward_count) so the caller can reuse the

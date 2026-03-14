@@ -180,7 +180,8 @@ impl Iterator for SyncmerIterator<'_> {
                     // occurs at t:th position in k-mer
                     let yk = min(self.xk[0], self.xk[1]);
                     let syncmer = Syncmer {
-                        hash_and_canonical: (syncmer_kmer_hash(yk) & !1) | ((self.xk[0] <= self.xk[1]) as u64),
+                        hash_and_canonical: (syncmer_kmer_hash(yk) & !1)
+                            | ((self.xk[0] <= self.xk[1]) as u64),
                         position: i + 1 - self.k,
                     };
                     self.i = i + 1;
