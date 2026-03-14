@@ -466,7 +466,6 @@ impl<'a> StrobemerIndex<'a> {
     }
 
     /// Search for the canonical hash within the range [start, start + count).
-    /// Returns the position of the first match, or None.
     pub fn find_canonical(
         &self,
         hash: RandstrobeHash,
