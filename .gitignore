@@ -1,2 +1,7 @@
 build/
 target/
+test_data/
+
+# pixi environments
+.pixi/*
+!.pixi/config.toml

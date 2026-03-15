@@ -66,6 +66,9 @@ std::tuple<std::vector<Hit>, HitsDetails, bool> find_all_hits(
     std::vector<Hit> hits;
     if (mcs_strategy != McsStrategy::FirstStrobe) {
         for (size_t i = 0; i < query_randstrobes.size(); ++i) {
+            if (i + 1 < query_randstrobes.size()) {
+                index.prefetch(query_randstrobes[i + 1].hash);
+            }
             const auto &q = query_randstrobes[i];
             size_t position = index.find_full(q.hash);
             if (position != index.end()) {
@@ -102,6 +105,9 @@ std::tuple<std::vector<Hit>, HitsDetails, bool> find_all_hits(
     ) {
         // Only partial lookups
         for (size_t i = 0; i < query_randstrobes.size(); ++i) {
+            if (i + 1 < query_randstrobes.size()) {
+                index.prefetch(query_randstrobes[i + 1].hash);
+            }
             const auto &q = query_randstrobes[i];
             size_t partial_pos = index.find_partial(q.hash);
             if (partial_pos != index.end()) {
