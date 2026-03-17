@@ -253,6 +253,14 @@ mod test {
     }
 
     #[test]
+    fn test_seeding_parameters_same_read_length() {
+        let sp150a = SeedingParameters::default_from_read_length(150);
+        let sp150b = SeedingParameters::default_from_read_length(150);
+
+        assert_eq!(sp150a, sp150b);
+    }
+
+    #[test]
     fn test_seeding_parameters_similar_read_length() {
         let sp150 = SeedingParameters::default_from_read_length(150);
         let sp149 = SeedingParameters::default_from_read_length(149);
