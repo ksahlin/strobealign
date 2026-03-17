@@ -31,6 +31,7 @@ block-aligner = { version = "0.5", features = ["simd_neon"] }
 [dev-dependencies]
 assert_cmd = "2.0.16"
 predicates = "3.1.3"
+temp-dir = "0.2.0"
 temp-file = "0.1.9"
 
 [profile.dev]
