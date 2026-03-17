@@ -40,8 +40,7 @@ impl<B: BufRead> Iterator for FastqReader<B> {
             self.err = true;
             return Some(Err(SequenceIOError::Fastq(msg)));
         }
-        let name = name[1..].trim_end();
-        let (mut name, comment) = split_header(name);
+        let (mut name, comment) = split_header(&name[1..]);
 
         if name.is_empty() {
             self.err = true;

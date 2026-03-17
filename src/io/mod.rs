@@ -30,8 +30,29 @@ pub enum SequenceIOError {
 
 /// Split header into name and comment
 pub fn split_header(header: &str) -> (String, Option<String>) {
+    let header = header.trim_ascii_end();
     match header.split_once(&[' ', '\t']) {
         Some((name, comment)) => (name.to_string(), Some(comment.to_string())),
         None => (header.to_string(), None),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_split_header() {
+        assert_eq!(
+            split_header("id comment"),
+            ("id".to_string(), Some("comment".to_string()))
+        );
+        assert_eq!(
+            split_header("id comment "),
+            ("id".to_string(), Some("comment".to_string()))
+        );
+        assert_eq!(split_header("id"), ("id".to_string(), None));
+        assert_eq!(split_header("id "), ("id".to_string(), None));
+        assert_eq!(split_header("id  "), ("id".to_string(), None));
     }
 }
