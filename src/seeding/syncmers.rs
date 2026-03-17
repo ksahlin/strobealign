@@ -6,22 +6,22 @@ use super::hash::xxh64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Syncmer {
-    /// Syncmer hash with canonicity stored in the least significant bit
-    hash_canonical: u64,
+    hash: u64,
+    canonical: bool,
     pub position: usize,
 }
 
 impl Syncmer {
     pub fn hash(&self) -> u64 {
-        self.hash_canonical & !1
+        self.hash
     }
 
     pub fn is_canonical(&self) -> bool {
-        self.hash_canonical & 1 != 0
+        self.canonical
     }
 
     pub fn toggle_canonical(&mut self) {
-        self.hash_canonical ^= 1;
+        self.canonical = !self.canonical;
     }
 }
 
@@ -180,8 +180,8 @@ impl Iterator for SyncmerIterator<'_> {
                     // occurs at t:th position in k-mer
                     let yk = min(self.xk[0], self.xk[1]);
                     let syncmer = Syncmer {
-                        hash_canonical: (syncmer_kmer_hash(yk) & !1)
-                            | ((self.xk[0] <= self.xk[1]) as u64),
+                        hash: syncmer_kmer_hash(yk),
+                        canonical: self.xk[0] <= self.xk[1],
                         position: i + 1 - self.k,
                     };
                     self.i = i + 1;

@@ -129,31 +129,23 @@ fn find_all_hits(
     if mcs_strategy != McsStrategy::FirstStrobe {
         for randstrobe in query_randstrobes {
             if let Some(position) = index.get_full(randstrobe.hash) {
-                let (is_filtered, forward_count) = index.is_too_frequent_with_forward_count(
-                    position,
-                    filter_cutoff,
-                    randstrobe.hash_revcomp,
-                );
+                let is_filtered = index.is_too_frequent(position, filter_cutoff, randstrobe.hash_revcomp);
+                // let canonical_pos = index.find_canonical(randstrobe.hash, position, forward_count);
                 if is_filtered {
                     hits_details.full_filtered += 1;
                 } else {
                     hits_details.full_found += 1;
                 }
-                if let Some(canonical_pos) =
-                    index.find_canonical(randstrobe.hash, position, forward_count)
-                {
-                    let canonicity = index.randstrobes[canonical_pos].canonicity_bits();
-                    let hit = Hit {
-                        position: canonical_pos,
-                        query_start: randstrobe.start,
-                        query_end: randstrobe.end,
-                        is_partial: false,
-                        is_filtered,
-                        hash_revcomp: randstrobe.hash_revcomp,
-                        query_canonicity: canonicity,
-                    };
-                    hits.push(hit);
-                }
+                let hit = Hit {
+                    position: position,
+                    query_start: randstrobe.start,
+                    query_end: randstrobe.end,
+                    is_partial: false,
+                    is_filtered,
+                    hash_revcomp: randstrobe.hash_revcomp,
+                    query_canonicity: index.query_canonicity(randstrobe.hash),
+                };
+                hits.push(hit);
             } else {
                 hits_details.full_not_found += 1;
                 if mcs_strategy == McsStrategy::Always {
