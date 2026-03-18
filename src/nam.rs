@@ -158,11 +158,7 @@ pub fn get_nams_by_chaining(
     nam_details.time_randstrobes = time_randstrobes;
 
     if log::log_enabled!(Trace) {
-        trace!(
-            "Found {} NAMs (rescue done: {})",
-            nams.len(),
-            nam_details.nam_rescue
-        );
+        trace!("Found {} NAMs", nams.len());
         let mut printed = 0;
         for nam in &nams {
             if nam.n_matches > 1 || printed < 10 {

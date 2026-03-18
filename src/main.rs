@@ -774,29 +774,11 @@ fn run() -> Result<(), CliError> {
         details.nam.n_nams as f64 / details.nam.n_reads as f64
     );
     debug!("");
-    debug!("## Rescue (-R)");
-    debug!("");
-    debug!("Rescue attempts: {:12}", details.nam.nam_rescue);
-    debug!("Rescue hits:     {:12}", details.nam.n_rescue_hits);
-    debug!("Rescued chains:  {:12}", details.nam.n_rescue_nams);
-    debug!("");
     debug!("## Other");
     debug!("");
     debug!("Total mapping sites tried: {}", details.tried_alignment);
     debug!("Inconsistent NAM ends: {}", details.inconsistent_nams);
     debug!("Mates rescued by alignment: {}", details.mate_rescue);
-    // Single-threaded:
-    // for chunk in chunks_iter {
-    //     mapper.map_chunk(&mut out, &mut rng, chunk)?;
-    // }
-    /*
-    TODO
-    let mut out = out.clone().lock().unwrap();;
-    if mode == Mode::Abundances {
-        mapper.output_abundances(&mut out)?;
-    }
-    */
-    // TODO out.lock().unwrap().flush()?;
 
     info!("Total time mapping: {:.2} s", timer.elapsed().as_secs_f64());
     //info!("Total time reading read-file(s): {:.2} s", );

@@ -18,18 +18,6 @@ pub struct NamDetails {
     /// Number of NAMs found
     pub n_nams: usize,
 
-    /// Number of rescue NAMs found
-    pub n_rescue_nams: usize,
-
-    /// Number of times find_nams_rescue() was needed
-    pub nam_rescue: usize,
-
-    /// Number of partial hits found during rescue
-    pub n_rescue_partial_hits: usize,
-
-    /// Number of rescue hits
-    pub n_rescue_hits: usize,
-
     pub time_randstrobes: f64,
     pub time_find_hits: f64,
     pub time_chaining: f64,
@@ -44,10 +32,6 @@ impl ops::AddAssign<NamDetails> for NamDetails {
         self.n_randstrobes += rhs.n_randstrobes;
         self.n_anchors += rhs.n_anchors;
         self.n_nams += rhs.n_nams;
-        self.n_rescue_nams += rhs.n_rescue_nams;
-        self.nam_rescue += rhs.nam_rescue;
-        self.n_rescue_partial_hits += rhs.n_rescue_partial_hits;
-        self.n_rescue_hits += rhs.n_rescue_hits;
         self.time_randstrobes += rhs.time_randstrobes;
         self.time_find_hits += rhs.time_find_hits;
         self.time_chaining += rhs.time_chaining;
