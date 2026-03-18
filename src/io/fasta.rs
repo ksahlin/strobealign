@@ -72,7 +72,7 @@ impl<B: BufRead> Iterator for FastaReader<B> {
                 Ok(n) => {
                     if n == 0 || line.starts_with('>') {
                         if let Some(header) = &self.header {
-                            let (name, comment) = split_header(header[1..].trim_ascii_end());
+                            let (name, comment) = split_header(&header[1..]);
                             self.header = if n > 0 { Some(line) } else { None };
                             let record = SequenceRecord {
                                 name: name.to_string(),

@@ -2,6 +2,7 @@ use std::cmp::{Reverse, min};
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error, Read, Write};
+use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -608,7 +609,7 @@ pub enum IndexReadingError {
 }
 
 impl<'a> StrobemerIndex<'a> {
-    pub fn write(&self, path: String) -> Result<(), Error> {
+    pub fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
         let mut file = File::create(path)?;
 
         file.write_all(b"STI\x01")?; // Magic number
@@ -646,7 +647,7 @@ impl<'a> StrobemerIndex<'a> {
     }
 
     #[must_use]
-    pub fn read(&mut self, path: &String) -> Result<(), IndexReadingError> {
+    pub fn read<P: AsRef<Path>>(&mut self, path: P) -> Result<(), IndexReadingError> {
         let file = File::open(path)?;
         let mut reader = BufReader::new(file);
 
@@ -841,5 +842,35 @@ mod tests {
         let mut index = StrobemerIndex::new(&references, parameters, None);
         index.populate(0.1, 1);
         assert_eq!(index.stats.distinct_strobemers, 0);
+    }
+
+    #[test]
+    fn test_sti_parameters_mismatch() {
+        use temp_dir::TempDir;
+
+        let dir = TempDir::new().unwrap();
+        let fasta_path = dir.path().join("phix.fasta");
+        std::fs::copy("tests/phix.fasta", &fasta_path).unwrap();
+        let f = File::open(fasta_path).unwrap();
+        let references = read_fasta(&mut BufReader::new(f)).unwrap();
+
+        let parameters = SeedingParameters::default_from_read_length(300);
+        let mut index = StrobemerIndex::new(&references, parameters, None);
+        index.populate(0.0002, 1);
+        let sti_path = dir.path().join("index.sti");
+        index.write(&sti_path).unwrap();
+
+        let mut other_index = StrobemerIndex::new(
+            &references,
+            SeedingParameters::default_from_read_length(50),
+            None,
+        );
+
+        match other_index.read(&sti_path) {
+            Err(IndexReadingError::ParameterMismatch) => {}
+            _ => {
+                panic!("Parameters are expected not to match");
+            }
+        }
     }
 }

@@ -90,12 +90,9 @@ fn paired_end_sam() {
 fn compressed_reference() -> Result<(), Box<dyn Error>> {
     let mut cmd = cmd();
     let fasta_contents = read("tests/phix.fasta")?;
-    let r = String::from_utf8(fasta_contents.clone())?;
-    dbg!(r);
     let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
     encoder.write_all(&fasta_contents)?;
     let compressed_fasta = encoder.finish()?;
-    dbg!(&compressed_fasta);
     let tmp = TempFileBuilder::new()
         .suffix(".gz")
         .build()?
