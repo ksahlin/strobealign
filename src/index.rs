@@ -1,3 +1,4 @@
+use fastant::Instant;
 use std::cmp::{Reverse, min};
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -6,7 +7,6 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Instant;
 
 use log::{debug, trace};
 use rayon;

@@ -1,8 +1,8 @@
+use fastant::Instant;
 use std::cmp::{Reverse, min};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::mem;
-use std::time::Instant;
 
 use fastrand::Rng;
 use memchr::memmem;

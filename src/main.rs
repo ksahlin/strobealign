@@ -1,3 +1,4 @@
+use fastant::Instant;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::fs::File;
@@ -5,7 +6,6 @@ use std::io::{BufReader, BufWriter, IsTerminal, Write};
 use std::process::{ExitCode, exit};
 use std::sync::mpsc::{Receiver, Sender, channel, sync_channel};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 use std::{env, io, thread, time};
 
 use clap::Parser;
