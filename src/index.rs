@@ -553,7 +553,7 @@ impl<'a> StrobemerIndex<'a> {
         self.get_count_full_with_forward(position, hash_revcomp).0
     }
 
-    /// Returns forward count with the full count to avoid additional lookups
+    /// Returns forward count with the full count for later use
     pub fn get_count_full_with_forward(&self, position: usize, hash_revcomp: u64) -> (usize, usize) {
         let forward_count = self.get_count_full_forward(position);
         let reverse_count = if let Some(position_revcomp) = self.get_full(hash_revcomp) {
@@ -609,7 +609,7 @@ impl<'a> StrobemerIndex<'a> {
             .0
     }
 
-    /// is_too_frequent with the forward count to avoid additional lookups
+    /// is_too_frequent with the forward count for later use
     pub fn is_too_frequent_with_forward_count(
         &self,
         position: usize,
@@ -645,11 +645,16 @@ impl<'a> StrobemerIndex<'a> {
         self.is_too_frequent_forward_partial(position, cutoff)
     }
 
-    pub fn query_canonicity(&self, hash: RandstrobeHash) -> u8 {
+    //Applies canonicity to unoriented hash
+    pub fn apply_canonicity(hash: RandstrobeHash, query_canonicity: u8) -> u64 {
+        (hash & REF_RANDSTROBE_HASH_MASK) ^ ((query_canonicity as u64) << 8)
+    }
+
+    pub fn query_canonicity(hash: RandstrobeHash) -> u8 {
         ((hash >> STROBE2_OFFSET_BITS) & 0x3) as u8
     }
 
-    pub fn query_canonicity_partial(&self, hash: RandstrobeHash) -> u8 {
+    pub fn query_canonicity_partial(hash: RandstrobeHash) -> u8 {
         ((hash >> STROBE2_OFFSET_BITS) & 0x2) as u8
     }
 }

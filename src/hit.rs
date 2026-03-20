@@ -133,6 +133,7 @@ fn find_all_hits(
 
     if mcs_strategy != McsStrategy::FirstStrobe {
         for randstrobe in query_randstrobes {
+            //Save forward count to find canonical hash later
             if let Some(position) = index.get_full(randstrobe.hash) {
                 let (is_filtered, forward_count) = index.is_too_frequent_with_forward_count(
                     position,
@@ -151,7 +152,7 @@ fn find_all_hits(
                     is_partial: false,
                     is_filtered,
                     hash_revcomp: randstrobe.hash_revcomp,
-                    query_canonicity: index.query_canonicity(randstrobe.hash),
+                    query_canonicity: StrobemerIndex::query_canonicity(randstrobe.hash),
                     forward_count,
                 };
                 hits.push(hit);
@@ -172,7 +173,7 @@ fn find_all_hits(
                             is_partial: true,
                             is_filtered,
                             hash_revcomp: randstrobe.hash_revcomp,
-                            query_canonicity: index.query_canonicity_partial(randstrobe.hash),
+                            query_canonicity: StrobemerIndex::query_canonicity_partial(randstrobe.hash),
                             forward_count: None,
                         };
                         hits.push(hit);
@@ -212,7 +213,7 @@ fn find_all_hits(
                     is_partial: true,
                     is_filtered,
                     hash_revcomp: randstrobe.hash_revcomp,
-                    query_canonicity: index.query_canonicity_partial(randstrobe.hash),
+                    query_canonicity: StrobemerIndex::query_canonicity_partial(randstrobe.hash),
                     forward_count: None,
                 };
                 hits.push(hit);

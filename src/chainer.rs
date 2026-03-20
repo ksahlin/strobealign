@@ -291,30 +291,29 @@ fn add_to_anchors_full(
     query_canonicity: u8,
 ) {
     let mut min_length_diff = usize::MAX;
-    let canonical_query_hash = index.randstrobes[position].hash() | ((query_canonicity as u64) << 8);
-    let start_pos = index.find_canonical(canonical_query_hash, position, forward_count)
-        .unwrap_or(position);
-    let canonical_hash = index.randstrobes[start_pos].canonical_hash();
-    for randstrobe in &index.randstrobes[start_pos..] {
-        if randstrobe.canonical_hash() != canonical_hash {
-            break;
-        }
-        let ref_start = randstrobe.position();
-        let ref_end = ref_start + randstrobe.strobe2_offset() + index.k();
-        let length_diff = (query_end - query_start).abs_diff(ref_end - ref_start);
-        if length_diff <= min_length_diff {
-            let ref_id = randstrobe.reference_index();
-            anchors.push(Anchor {
-                ref_id,
-                ref_start,
-                query_start,
-            });
-            anchors.push(Anchor {
-                ref_id,
-                ref_start: ref_end - index.k(),
-                query_start: query_end - index.k(),
-            });
-            min_length_diff = length_diff;
+    let canonical_query_hash = StrobemerIndex::apply_canonicity(index.randstrobes[position].hash(), query_canonicity);
+    if let Some(start_pos) = index.find_canonical(canonical_query_hash, position, forward_count) {
+        for randstrobe in &index.randstrobes[start_pos..] {
+            if randstrobe.canonical_hash() != canonical_query_hash {
+                break;
+            }
+            let ref_start = randstrobe.position();
+            let ref_end = ref_start + randstrobe.strobe2_offset() + index.k();
+            let length_diff = (query_end - query_start).abs_diff(ref_end - ref_start);
+            if length_diff <= min_length_diff {
+                let ref_id = randstrobe.reference_index();
+                anchors.push(Anchor {
+                    ref_id,
+                    ref_start,
+                    query_start,
+                });
+                anchors.push(Anchor {
+                    ref_id,
+                    ref_start: ref_end - index.k(),
+                    query_start: query_end - index.k(),
+                });
+                min_length_diff = length_diff;
+            }
         }
     }
 }
