@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use super::{InvalidSeedingParameter, Syncmer};
-use crate::index::{REF_RANDSTROBE_HASH_MASK, STROBE2_OFFSET_BITS};
+use crate::index::{STROBE2_OFFSET_BITS, UNDIRECTED_HASH_MASK};
 
 pub const DEFAULT_AUX_LEN: u8 = 17;
 
@@ -72,7 +72,7 @@ impl Randstrobe {
     /// hash. Since entries in the index are sorted by randstrobe hash, this allows
     /// us to search for the main syncmer by masking out the lower bits.
     pub fn hash(hash1: u64, hash2: u64, main_hash_mask: u64) -> u64 {
-        ((hash1 & main_hash_mask) | (hash2 & !main_hash_mask)) & REF_RANDSTROBE_HASH_MASK
+        ((hash1 & main_hash_mask) | (hash2 & !main_hash_mask)) & UNDIRECTED_HASH_MASK
     }
 }
 

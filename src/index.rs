@@ -99,8 +99,8 @@ pub struct RefRandstrobe {
     ref_index: u32,
 }
 
-pub const REF_RANDSTROBE_HASH_MASK: u64 = 0xFFFFFFFFFFFFFC00;
-pub const CANONICAL_HASH_MASK: u64 = 0xFFFFFFFFFFFFFF00;
+pub const UNDIRECTED_HASH_MASK: u64 = 0xFFFFFFFFFFFFFC00;
+pub const DIRECTED_HASH_MASK: u64 = 0xFFFFFFFFFFFFFF00;
 pub const STROBE2_OFFSET_BITS: u32 = 8;
 pub const STROBE2_OFFSET_MASK: u64 = (1u64 << STROBE2_OFFSET_BITS) - 1;
 pub const REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES: usize = u32::MAX as usize;
@@ -116,11 +116,11 @@ impl RefRandstrobe {
     }
 
     pub fn hash(&self) -> RandstrobeHash {
-        self.hash_offset & REF_RANDSTROBE_HASH_MASK
+        self.hash_offset & UNDIRECTED_HASH_MASK
     }
 
-    pub fn canonical_hash(&self) -> RandstrobeHash {
-        self.hash_offset & CANONICAL_HASH_MASK
+    pub fn directed_hash(&self) -> RandstrobeHash {
+        self.hash_offset & DIRECTED_HASH_MASK
     }
 
     pub fn position(&self) -> usize {
@@ -135,11 +135,11 @@ impl RefRandstrobe {
         (self.hash_offset & STROBE2_OFFSET_MASK) as usize
     }
 
-    pub fn canonicity_bits(&self) -> u8 {
+    pub fn orientation_full(&self) -> u8 {
         ((self.hash_offset >> STROBE2_OFFSET_BITS) & 0x3) as u8
     }
 
-    pub fn canonicity_bit(&self) -> u8 {
+    pub fn orientation_partial(&self) -> u8 {
         ((self.hash_offset >> STROBE2_OFFSET_BITS) & 0x2) as u8
     }
 }
@@ -462,26 +462,26 @@ impl<'a> StrobemerIndex<'a> {
     }
 
     pub fn get_full(&self, hash: RandstrobeHash) -> Option<usize> {
-        self.get_masked(hash, REF_RANDSTROBE_HASH_MASK)
+        self.get_masked(hash, UNDIRECTED_HASH_MASK)
     }
 
-    /// Search for the canonical hash within the range [start, start + count).
-    pub fn find_canonical(
+    /// Search for the directed hash within the range [start, start + count).
+    pub fn get_full_directed(
         &self,
         hash: RandstrobeHash,
         start: usize,
         count: Option<usize>,
     ) -> Option<usize> {
         let count = count.unwrap_or_else(|| self.get_count_full_forward(start));
-        let canon_masked = hash & CANONICAL_HASH_MASK;
+        let directed_masked = hash & DIRECTED_HASH_MASK;
         const MAX_LINEAR_SEARCH: usize = 4;
         let bucket = &self.randstrobes[start..start + count];
         if bucket.len() < MAX_LINEAR_SEARCH {
             for (i, rs) in bucket.iter().enumerate() {
-                if rs.hash_offset & CANONICAL_HASH_MASK == canon_masked {
+                if rs.hash_offset & DIRECTED_HASH_MASK == directed_masked {
                     return Some(start + i);
                 }
-                if rs.hash_offset & CANONICAL_HASH_MASK > canon_masked {
+                if rs.hash_offset & DIRECTED_HASH_MASK > directed_masked {
                     return None;
                 }
             }
@@ -489,9 +489,9 @@ impl<'a> StrobemerIndex<'a> {
         }
 
         let pos = custom_partition_point(bucket, |h| {
-            h.hash_offset & CANONICAL_HASH_MASK < canon_masked
+            h.hash_offset & DIRECTED_HASH_MASK < directed_masked
         });
-        if pos < bucket.len() && bucket[pos].hash_offset & CANONICAL_HASH_MASK == canon_masked {
+        if pos < bucket.len() && bucket[pos].hash_offset & DIRECTED_HASH_MASK == directed_masked {
             Some(start + pos)
         } else {
             None
@@ -554,7 +554,11 @@ impl<'a> StrobemerIndex<'a> {
     }
 
     /// Returns forward count with the full count for later use
-    pub fn get_count_full_with_forward(&self, position: usize, hash_revcomp: u64) -> (usize, usize) {
+    pub fn get_count_full_with_forward(
+        &self,
+        position: usize,
+        hash_revcomp: u64,
+    ) -> (usize, usize) {
         let forward_count = self.get_count_full_forward(position);
         let reverse_count = if let Some(position_revcomp) = self.get_full(hash_revcomp) {
             self.get_count_full_forward(position_revcomp)
@@ -565,7 +569,7 @@ impl<'a> StrobemerIndex<'a> {
     }
 
     pub fn get_count_full_forward(&self, position: usize) -> usize {
-        self.get_count(position, REF_RANDSTROBE_HASH_MASK)
+        self.get_count(position, UNDIRECTED_HASH_MASK)
     }
 
     pub fn get_count_partial(&self, position: usize) -> usize {
@@ -645,16 +649,16 @@ impl<'a> StrobemerIndex<'a> {
         self.is_too_frequent_forward_partial(position, cutoff)
     }
 
-    //Applies canonicity to unoriented hash
-    pub fn apply_canonicity(hash: RandstrobeHash, query_canonicity: u8) -> u64 {
-        (hash & REF_RANDSTROBE_HASH_MASK) ^ ((query_canonicity as u64) << 8)
+    //Applies orientation to undirected hash
+    pub fn apply_orientation(hash: RandstrobeHash, query_orientation: u8) -> u64 {
+        (hash & UNDIRECTED_HASH_MASK) ^ ((query_orientation as u64) << STROBE2_OFFSET_BITS)
     }
 
-    pub fn query_canonicity(hash: RandstrobeHash) -> u8 {
+    pub fn query_orientation(hash: RandstrobeHash) -> u8 {
         ((hash >> STROBE2_OFFSET_BITS) & 0x3) as u8
     }
 
-    pub fn query_canonicity_partial(hash: RandstrobeHash) -> u8 {
+    pub fn query_orientation_partial(hash: RandstrobeHash) -> u8 {
         ((hash >> STROBE2_OFFSET_BITS) & 0x2) as u8
     }
 }
@@ -848,7 +852,7 @@ mod tests {
 
     #[test]
     fn test_ref_randstrobe() {
-        let hash: u64 = 0x1234567890ABCDEFu64 & REF_RANDSTROBE_HASH_MASK;
+        let hash: u64 = 0x1234567890ABCDEFu64 & UNDIRECTED_HASH_MASK;
         let ref_index: u32 = (REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES - 1) as u32;
         let offset = 255;
         let position = !0;
@@ -858,7 +862,7 @@ mod tests {
         assert_eq!(rr.position(), position as usize);
         assert_eq!(rr.reference_index(), ref_index as usize);
         assert_eq!(rr.strobe2_offset(), offset as usize);
-        assert_eq!(rr.canonicity_bits(), 0);
+        assert_eq!(rr.orientation_full(), 0);
     }
 
     fn syncmers_of(seq: &[u8], parameters: &SyncmerParameters) -> Vec<Syncmer> {
@@ -957,15 +961,15 @@ mod tests {
     }
 
     #[test]
-    fn test_canonicity_bits() {
+    fn test_orientation() {
         let hash_both: u64 = (0xABCD_u64 << 10) | (0b11 << STROBE2_OFFSET_BITS);
         let ref_randstrobe = RefRandstrobe::new(hash_both, 0, 100, 5);
-        assert_eq!(ref_randstrobe.canonicity_bits(), 0b11);
+        assert_eq!(ref_randstrobe.orientation_full(), 0b11);
         assert_eq!(ref_randstrobe.strobe2_offset(), 5);
         assert_eq!(ref_randstrobe.hash(), 0xABCD_u64 << 10);
 
         let hash_none: u64 = (0xABCD_u64 << 10) | (0b00 << STROBE2_OFFSET_BITS);
         let ref_randstrobe2 = RefRandstrobe::new(hash_none, 0, 100, 5);
-        assert_eq!(ref_randstrobe2.canonicity_bits(), 0b00);
+        assert_eq!(ref_randstrobe2.orientation_full(), 0b00);
     }
 }
