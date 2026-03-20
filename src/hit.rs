@@ -16,7 +16,7 @@ pub struct Hit {
     pub hash_revcomp: u64,
     pub is_partial: bool,
     pub is_filtered: bool,
-    pub query_canonicity: u8,
+    pub query_orientation: u8,
     pub forward_count: Option<usize>,
 }
 
@@ -97,7 +97,8 @@ fn rescue_least_frequent(
         let (cnt, fwd_count) = if hits[i].is_partial {
             (index.get_count_partial(hits[i].position), None)
         } else {
-            let (total, fwd) = index.get_count_full_with_forward(hits[i].position, hits[i].hash_revcomp);
+            let (total, fwd) =
+                index.get_count_full_with_forward(hits[i].position, hits[i].hash_revcomp);
             (total, Some(fwd))
         };
         if rescue_threshold.is_none() || cnt <= rescue_threshold.unwrap() {
@@ -152,7 +153,7 @@ fn find_all_hits(
                     is_partial: false,
                     is_filtered,
                     hash_revcomp: randstrobe.hash_revcomp,
-                    query_canonicity: StrobemerIndex::query_canonicity(randstrobe.hash),
+                    query_orientation: StrobemerIndex::query_orientation(randstrobe.hash),
                     forward_count,
                 };
                 hits.push(hit);
@@ -173,7 +174,9 @@ fn find_all_hits(
                             is_partial: true,
                             is_filtered,
                             hash_revcomp: randstrobe.hash_revcomp,
-                            query_canonicity: StrobemerIndex::query_canonicity_partial(randstrobe.hash),
+                            query_orientation: StrobemerIndex::query_orientation_partial(
+                                randstrobe.hash,
+                            ),
                             forward_count: None,
                         };
                         hits.push(hit);
@@ -213,7 +216,7 @@ fn find_all_hits(
                     is_partial: true,
                     is_filtered,
                     hash_revcomp: randstrobe.hash_revcomp,
-                    query_canonicity: StrobemerIndex::query_canonicity_partial(randstrobe.hash),
+                    query_orientation: StrobemerIndex::query_orientation_partial(randstrobe.hash),
                     forward_count: None,
                 };
                 hits.push(hit);
