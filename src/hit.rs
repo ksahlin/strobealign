@@ -17,6 +17,7 @@ pub struct Hit {
     pub is_partial: bool,
     pub is_filtered: bool,
     pub query_canonicity: u8,
+    pub forward_count: Option<usize>,
 }
 
 /// Aggregate statistics resulting from looking up all strobemers of a single
@@ -90,16 +91,17 @@ fn rescue_least_frequent(
 ) -> usize {
     let mut rescued = 0;
 
-    // Index and hit count
+    // Index, hit count, and forward count
     let mut hit_counts = vec![];
     for i in start..end {
-        let cnt = if hits[i].is_partial {
-            index.get_count_partial(hits[i].position)
+        let (cnt, fwd_count) = if hits[i].is_partial {
+            (index.get_count_partial(hits[i].position), None)
         } else {
-            index.get_count_full(hits[i].position, hits[i].hash_revcomp)
+            let (total, fwd) = index.get_count_full_with_forward(hits[i].position, hits[i].hash_revcomp);
+            (total, Some(fwd))
         };
         if rescue_threshold.is_none() || cnt <= rescue_threshold.unwrap() {
-            hit_counts.push((i, cnt));
+            hit_counts.push((i, cnt, fwd_count));
         }
     }
 
@@ -107,9 +109,12 @@ fn rescue_least_frequent(
     hit_counts.sort_by_key(|hc| hc.1);
 
     // Take up to num_to_rescue lowest count
-    for &(hit_index, _cnt) in hit_counts.iter().take(to_rescue) {
+    for &(hit_index, _cnt, fwd_count) in hit_counts.iter().take(to_rescue) {
         rescued += hits[hit_index].is_filtered as usize;
         hits[hit_index].is_filtered = false;
+        if hits[hit_index].forward_count.is_none() {
+            hits[hit_index].forward_count = fwd_count;
+        }
     }
 
     rescued
@@ -129,21 +134,25 @@ fn find_all_hits(
     if mcs_strategy != McsStrategy::FirstStrobe {
         for randstrobe in query_randstrobes {
             if let Some(position) = index.get_full(randstrobe.hash) {
-                let is_filtered = index.is_too_frequent(position, filter_cutoff, randstrobe.hash_revcomp);
-                // let canonical_pos = index.find_canonical(randstrobe.hash, position, forward_count);
+                let (is_filtered, forward_count) = index.is_too_frequent_with_forward_count(
+                    position,
+                    filter_cutoff,
+                    randstrobe.hash_revcomp,
+                );
                 if is_filtered {
                     hits_details.full_filtered += 1;
                 } else {
                     hits_details.full_found += 1;
                 }
                 let hit = Hit {
-                    position: position,
+                    position,
                     query_start: randstrobe.start,
                     query_end: randstrobe.end,
                     is_partial: false,
                     is_filtered,
                     hash_revcomp: randstrobe.hash_revcomp,
                     query_canonicity: index.query_canonicity(randstrobe.hash),
+                    forward_count,
                 };
                 hits.push(hit);
             } else {
@@ -164,6 +173,7 @@ fn find_all_hits(
                             is_filtered,
                             hash_revcomp: randstrobe.hash_revcomp,
                             query_canonicity: index.query_canonicity_partial(randstrobe.hash),
+                            forward_count: None,
                         };
                         hits.push(hit);
                     } else {
@@ -203,6 +213,7 @@ fn find_all_hits(
                     is_filtered,
                     hash_revcomp: randstrobe.hash_revcomp,
                     query_canonicity: index.query_canonicity_partial(randstrobe.hash),
+                    forward_count: None,
                 };
                 hits.push(hit);
             } else {

@@ -253,6 +253,7 @@ mod test {
             syncmers_reverse.reverse();
             for syncmer in &mut syncmers_reverse {
                 syncmer.position = s.len() - parameters.k - syncmer.position;
+                syncmer.toggle_canonical();
             }
 
             assert_eq!(syncmers_forward, syncmers_reverse);

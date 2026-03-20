@@ -470,8 +470,9 @@ impl<'a> StrobemerIndex<'a> {
         &self,
         hash: RandstrobeHash,
         start: usize,
-        count: usize,
+        count: Option<usize>,
     ) -> Option<usize> {
+        let count = count.unwrap_or_else(|| self.get_count_full_forward(start));
         let canon_masked = hash & CANONICAL_HASH_MASK;
         const MAX_LINEAR_SEARCH: usize = 4;
         let bucket = &self.randstrobes[start..start + count];
@@ -549,13 +550,18 @@ impl<'a> StrobemerIndex<'a> {
 
     /// Count number of hits for the randstrobe *and* its "reverse complement"
     pub fn get_count_full(&self, position: usize, hash_revcomp: u64) -> usize {
-        let reverse_count;
-        if let Some(position_revcomp) = self.get_full(hash_revcomp) {
-            reverse_count = self.get_count_full_forward(position_revcomp);
+        self.get_count_full_with_forward(position, hash_revcomp).0
+    }
+
+    /// Returns forward count with the full count to avoid additional lookups
+    pub fn get_count_full_with_forward(&self, position: usize, hash_revcomp: u64) -> (usize, usize) {
+        let forward_count = self.get_count_full_forward(position);
+        let reverse_count = if let Some(position_revcomp) = self.get_full(hash_revcomp) {
+            self.get_count_full_forward(position_revcomp)
         } else {
-            reverse_count = 0;
-        }
-        reverse_count + self.get_count_full_forward(position)
+            0
+        };
+        (reverse_count + forward_count, forward_count)
     }
 
     pub fn get_count_full_forward(&self, position: usize) -> usize {
@@ -603,27 +609,26 @@ impl<'a> StrobemerIndex<'a> {
             .0
     }
 
-    /// Returns (is_filtered, forward_count) so the caller can reuse the
-    /// forward count without a second lookup.
+    /// is_too_frequent with the forward count to avoid additional lookups
     pub fn is_too_frequent_with_forward_count(
         &self,
         position: usize,
         cutoff: usize,
         hash_revcomp: u64,
-    ) -> (bool, usize) {
+    ) -> (bool, Option<usize>) {
         if self.is_too_frequent_forward(position, cutoff) {
-            return (true, 0);
+            return (true, None);
         }
         let forward_count = self.get_count_full_forward(position);
         if let Some(position_revcomp) = self.get_full(hash_revcomp) {
             if self.is_too_frequent_forward(position_revcomp, cutoff) {
-                return (true, forward_count);
+                return (true, Some(forward_count));
             }
             let total = forward_count + self.get_count_full_forward(position_revcomp);
-            return (total > cutoff, forward_count);
+            return (total > cutoff, Some(forward_count));
         }
 
-        (false, forward_count)
+        (false, Some(forward_count))
     }
 
     pub fn is_too_frequent_forward_partial(&self, position: usize, cutoff: usize) -> bool {
