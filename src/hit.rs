@@ -13,11 +13,10 @@ pub struct Hit {
     pub query_start: usize,
     pub query_end: usize,
     pub position: usize,
+    pub undirected_position: Option<usize>,
     pub hash_revcomp: u64,
     pub is_partial: bool,
     pub is_filtered: bool,
-    pub query_orientation: u8,
-    pub forward_count: Option<usize>,
 }
 
 /// Aggregate statistics resulting from looking up all strobemers of a single
@@ -91,18 +90,16 @@ fn rescue_least_frequent(
 ) -> usize {
     let mut rescued = 0;
 
-    // Index, hit count, and forward count
+    // Index and hit count
     let mut hit_counts = vec![];
     for i in start..end {
-        let (cnt, fwd_count) = if hits[i].is_partial {
-            (index.get_count_partial(hits[i].position), None)
+        let cnt = if let Some(undirected_pos) = hits[i].undirected_position {
+            index.get_count_partial(undirected_pos)
         } else {
-            let (total, fwd) =
-                index.get_count_full_with_forward(hits[i].position, hits[i].hash_revcomp);
-            (total, Some(fwd))
+            index.get_count_full(hits[i].position, hits[i].hash_revcomp)
         };
         if rescue_threshold.is_none() || cnt <= rescue_threshold.unwrap() {
-            hit_counts.push((i, cnt, fwd_count));
+            hit_counts.push((i, cnt));
         }
     }
 
@@ -110,12 +107,9 @@ fn rescue_least_frequent(
     hit_counts.sort_by_key(|hc| hc.1);
 
     // Take up to num_to_rescue lowest count
-    for &(hit_index, _cnt, fwd_count) in hit_counts.iter().take(to_rescue) {
+    for &(hit_index, _cnt) in hit_counts.iter().take(to_rescue) {
         rescued += hits[hit_index].is_filtered as usize;
         hits[hit_index].is_filtered = false;
-        if hits[hit_index].forward_count.is_none() {
-            hits[hit_index].forward_count = fwd_count;
-        }
     }
 
     rescued
@@ -134,13 +128,9 @@ fn find_all_hits(
 
     if mcs_strategy != McsStrategy::FirstStrobe {
         for randstrobe in query_randstrobes {
-            //Save forward count to find canonical hash later
-            if let Some(position) = index.get_full(randstrobe.hash) {
-                let (is_filtered, forward_count) = index.is_too_frequent_with_forward_count(
-                    position,
-                    filter_cutoff,
-                    randstrobe.hash_revcomp,
-                );
+            if let Some(position) = index.get_full_forward(randstrobe.hash) {
+                let is_filtered =
+                    index.is_too_frequent(position, filter_cutoff, randstrobe.hash_revcomp);
                 if is_filtered {
                     hits_details.full_filtered += 1;
                 } else {
@@ -148,38 +138,41 @@ fn find_all_hits(
                 }
                 let hit = Hit {
                     position,
+                    undirected_position: None,
                     query_start: randstrobe.start,
                     query_end: randstrobe.end,
                     is_partial: false,
                     is_filtered,
                     hash_revcomp: randstrobe.hash_revcomp,
-                    query_orientation: StrobemerIndex::query_orientation(randstrobe.hash),
-                    forward_count,
                 };
                 hits.push(hit);
             } else {
                 hits_details.full_not_found += 1;
                 if mcs_strategy == McsStrategy::Always {
-                    if let Some(position) = index.get_partial(randstrobe.hash) {
-                        let is_filtered = index.is_too_frequent_partial(position, filter_cutoff);
-                        if is_filtered {
-                            hits_details.partial_filtered += 1;
+                    if let Some(undirected_pos) = index.get_partial(randstrobe.hash) {
+                        let is_filtered =
+                            index.is_too_frequent_partial(undirected_pos, filter_cutoff);
+                        if let Some(position) =
+                            index.get_partial_forward_from(randstrobe.hash, undirected_pos)
+                        {
+                            if is_filtered {
+                                hits_details.partial_filtered += 1;
+                            } else {
+                                hits_details.partial_found += 1;
+                            }
+                            let hit = Hit {
+                                position,
+                                undirected_position: Some(undirected_pos),
+                                query_start: randstrobe.start,
+                                query_end: randstrobe.start + index.k(),
+                                is_partial: true,
+                                is_filtered,
+                                hash_revcomp: randstrobe.hash_revcomp,
+                            };
+                            hits.push(hit);
                         } else {
-                            hits_details.partial_found += 1;
+                            hits_details.partial_not_found += 1;
                         }
-                        let hit = Hit {
-                            position,
-                            query_start: randstrobe.start,
-                            query_end: randstrobe.start + index.k(),
-                            is_partial: true,
-                            is_filtered,
-                            hash_revcomp: randstrobe.hash_revcomp,
-                            query_orientation: StrobemerIndex::query_orientation_partial(
-                                randstrobe.hash,
-                            ),
-                            forward_count: None,
-                        };
-                        hits.push(hit);
                     } else {
                         hits_details.partial_not_found += 1;
                     }
@@ -202,24 +195,29 @@ fn find_all_hits(
             && hits_details.full_filtered + hits_details.full_found == 0)
     {
         for randstrobe in query_randstrobes {
-            if let Some(position) = index.get_partial(randstrobe.hash) {
-                let is_filtered = index.is_too_frequent_partial(position, filter_cutoff);
-                if is_filtered {
-                    hits_details.partial_filtered += 1;
+            if let Some(undirected_pos) = index.get_partial(randstrobe.hash) {
+                let is_filtered = index.is_too_frequent_partial(undirected_pos, filter_cutoff);
+                if let Some(position) =
+                    index.get_partial_forward_from(randstrobe.hash, undirected_pos)
+                {
+                    if is_filtered {
+                        hits_details.partial_filtered += 1;
+                    } else {
+                        hits_details.partial_found += 1;
+                    }
+                    let hit = Hit {
+                        position,
+                        undirected_position: Some(undirected_pos),
+                        query_start: randstrobe.start,
+                        query_end: randstrobe.start + index.k(),
+                        is_partial: true,
+                        is_filtered,
+                        hash_revcomp: randstrobe.hash_revcomp,
+                    };
+                    hits.push(hit);
                 } else {
-                    hits_details.partial_found += 1;
+                    hits_details.partial_not_found += 1;
                 }
-                let hit = Hit {
-                    position,
-                    query_start: randstrobe.start,
-                    query_end: randstrobe.start + index.k(),
-                    is_partial: true,
-                    is_filtered,
-                    hash_revcomp: randstrobe.hash_revcomp,
-                    query_orientation: StrobemerIndex::query_orientation_partial(randstrobe.hash),
-                    forward_count: None,
-                };
-                hits.push(hit);
             } else {
                 hits_details.partial_not_found += 1;
             }
@@ -310,8 +308,8 @@ pub fn find_hits(
         );
         trace!("querypos count (p=partial, F=filtered)");
         for hit in &hits {
-            let cnt = if hit.is_partial {
-                index.get_count_partial(hit.position)
+            let cnt = if let Some(undirected_pos) = hit.undirected_position {
+                index.get_count_partial(undirected_pos)
             } else {
                 index.get_count_full(hit.position, hit.hash_revcomp)
             };
