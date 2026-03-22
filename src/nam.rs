@@ -163,9 +163,6 @@ pub fn get_nams_by_chaining(
         for nam in &nams {
             if nam.n_matches > 1 || printed < 10 {
                 trace!("- {}", nam);
-                for anchor in &nam.anchors {
-                    trace!("    {:?}", anchor);
-                }
                 printed += 1;
             }
         }
