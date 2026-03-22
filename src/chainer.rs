@@ -344,14 +344,16 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
             continue;
         }
         if hit.is_partial {
-            add_to_anchors_partial(&mut anchors, hit.query_start, index, hit.position);
+            if let Some(position) = hit.forward_position {
+                add_to_anchors_partial(&mut anchors, hit.query_start, index, position);
+            }
         } else {
             add_to_anchors_full(
                 &mut anchors,
                 hit.query_start,
                 hit.query_end,
                 index,
-                hit.position,
+                hit.forward_position.unwrap(),
             );
         }
     }
