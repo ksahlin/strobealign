@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use super::{InvalidSeedingParameter, Syncmer};
-use crate::index::{STROBE2_OFFSET_BITS, UNDIRECTED_HASH_MASK};
+use crate::index::{REF_RANDSTROBE_HASH_MASK, STROBE2_OFFSET_BITS};
 
 pub const DEFAULT_AUX_LEN: u8 = 17;
 
@@ -14,6 +14,12 @@ pub struct RandstrobeParameters {
 
     /// Mask for bits of the hash that represent the main hash
     pub main_hash_mask: u64,
+
+    /// Mask for the main hash including its orientation bit
+    pub forward_main_hash_mask: u64,
+
+    /// Bit position of the partial orientation bit
+    pub partial_orientation_pos: u32,
 }
 
 impl RandstrobeParameters {
@@ -24,12 +30,15 @@ impl RandstrobeParameters {
         max_dist: u8,
         main_hash_mask: u64,
     ) -> Result<Self, InvalidSeedingParameter> {
+        let partial_orientation_pos = main_hash_mask.trailing_zeros() - 1;
         RandstrobeParameters {
             w_min,
             w_max,
             q,
             max_dist,
             main_hash_mask,
+            forward_main_hash_mask: main_hash_mask | (1u64 << partial_orientation_pos),
+            partial_orientation_pos,
         }
         .with_window(Some(w_min), Some(w_max))
     }
@@ -64,16 +73,20 @@ pub struct Randstrobe {
 }
 
 impl Randstrobe {
-    pub fn from_strobes(strobe1: Syncmer, strobe2: Syncmer, main_hash_mask: u64) -> Self {
+    pub fn from_strobes(
+        strobe1: Syncmer,
+        strobe2: Syncmer,
+        parameters: &RandstrobeParameters,
+    ) -> Self {
         let canonical1 = strobe1.is_canonical() as u64;
         let canonical2 = strobe2.is_canonical() as u64;
         Randstrobe {
-            hash: Randstrobe::hash(strobe1.hash(), strobe2.hash(), main_hash_mask)
-                | (canonical1 << (STROBE2_OFFSET_BITS + 1))
-                | (canonical2 << STROBE2_OFFSET_BITS),
-            hash_revcomp: Randstrobe::hash(strobe2.hash(), strobe1.hash(), main_hash_mask)
-                | ((canonical2 ^ 1) << (STROBE2_OFFSET_BITS + 1))
-                | ((canonical1 ^ 1) << STROBE2_OFFSET_BITS),
+            hash: Randstrobe::hash(strobe1.hash(), strobe2.hash(), parameters)
+                ^ (canonical1 << parameters.partial_orientation_pos)
+                ^ (canonical2 << STROBE2_OFFSET_BITS),
+            hash_revcomp: Randstrobe::hash(strobe2.hash(), strobe1.hash(), parameters)
+                ^ ((canonical2 ^ 1) << parameters.partial_orientation_pos)
+                ^ ((canonical1 ^ 1) << STROBE2_OFFSET_BITS),
             strobe1_pos: strobe1.position,
             strobe2_pos: strobe2.position,
         }
@@ -87,8 +100,10 @@ impl Randstrobe {
     /// the main hash and the bottom bits to the bits of the auxiliary
     /// hash. Since entries in the index are sorted by randstrobe hash, this allows
     /// us to search for the main syncmer by masking out the lower bits.
-    pub fn hash(hash1: u64, hash2: u64, main_hash_mask: u64) -> u64 {
-        ((hash1 & main_hash_mask) | (hash2 & !main_hash_mask)) & UNDIRECTED_HASH_MASK
+    /// The orientation bit position (between main and aux) is left as zero.
+    pub fn hash(hash1: u64, hash2: u64, parameters: &RandstrobeParameters) -> u64 {
+        ((hash1 & parameters.main_hash_mask) ^ (hash2 & !parameters.forward_main_hash_mask))
+            & (REF_RANDSTROBE_HASH_MASK << 1)
     }
 }
 
@@ -141,11 +156,7 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
         }
         self.syncmers.pop_front();
 
-        Some(Randstrobe::from_strobes(
-            strobe1,
-            strobe2,
-            self.parameters.main_hash_mask,
-        ))
+        Some(Randstrobe::from_strobes(strobe1, strobe2, &self.parameters))
     }
 }
 

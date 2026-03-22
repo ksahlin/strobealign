@@ -287,34 +287,29 @@ fn add_to_anchors_full(
     query_end: usize,
     index: &StrobemerIndex,
     position: usize,
-    forward_count: Option<usize>,
-    query_orientation: u8,
 ) {
     let mut min_length_diff = usize::MAX;
-    let directed_query_hash =
-        StrobemerIndex::apply_orientation(index.randstrobes[position].hash(), query_orientation);
-    if let Some(start_pos) = index.get_full_directed(directed_query_hash, position, forward_count) {
-        for randstrobe in &index.randstrobes[start_pos..] {
-            if randstrobe.directed_hash() != directed_query_hash {
-                break;
-            }
-            let ref_start = randstrobe.position();
-            let ref_end = ref_start + randstrobe.strobe2_offset() + index.k();
-            let length_diff = (query_end - query_start).abs_diff(ref_end - ref_start);
-            if length_diff <= min_length_diff {
-                let ref_id = randstrobe.reference_index();
-                anchors.push(Anchor {
-                    ref_id,
-                    ref_start,
-                    query_start,
-                });
-                anchors.push(Anchor {
-                    ref_id,
-                    ref_start: ref_end - index.k(),
-                    query_start: query_end - index.k(),
-                });
-                min_length_diff = length_diff;
-            }
+    let forward_hash = index.randstrobes[position].hash();
+    for randstrobe in &index.randstrobes[position..] {
+        if randstrobe.hash() != forward_hash {
+            break;
+        }
+        let ref_start = randstrobe.position();
+        let ref_end = ref_start + randstrobe.strobe2_offset() + index.k();
+        let length_diff = (query_end - query_start).abs_diff(ref_end - ref_start);
+        if length_diff <= min_length_diff {
+            let ref_id = randstrobe.reference_index();
+            anchors.push(Anchor {
+                ref_id,
+                ref_start,
+                query_start,
+            });
+            anchors.push(Anchor {
+                ref_id,
+                ref_start: ref_end - index.k(),
+                query_start: query_end - index.k(),
+            });
+            min_length_diff = length_diff;
         }
     }
 }
@@ -324,16 +319,11 @@ fn add_to_anchors_partial(
     query_start: usize,
     index: &StrobemerIndex,
     position: usize,
-    query_orientation: u8,
 ) {
-    let hash = index.get_hash_partial(position);
+    let forward_hash = index.get_hash_partial_forward(position);
     for pos in position..index.randstrobes.len() {
-        if index.get_hash_partial(pos) != hash {
+        if index.get_hash_partial_forward(pos) != forward_hash {
             break;
-        }
-        let entry_orientation = index.randstrobes[pos].orientation_partial();
-        if entry_orientation != query_orientation {
-            continue;
         }
         let randstrobe = &index.randstrobes[pos];
         let ref_id = randstrobe.reference_index();
@@ -354,13 +344,7 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
             continue;
         }
         if hit.is_partial {
-            add_to_anchors_partial(
-                &mut anchors,
-                hit.query_start,
-                index,
-                hit.position,
-                hit.query_orientation,
-            );
+            add_to_anchors_partial(&mut anchors, hit.query_start, index, hit.position);
         } else {
             add_to_anchors_full(
                 &mut anchors,
@@ -368,8 +352,6 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
                 hit.query_end,
                 index,
                 hit.position,
-                hit.forward_count,
-                hit.query_orientation,
             );
         }
     }
