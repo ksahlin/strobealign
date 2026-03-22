@@ -12,8 +12,9 @@ use crate::seeding::QueryRandstrobe;
 pub struct Hit {
     pub query_start: usize,
     pub query_end: usize,
-    pub forward_position: Option<usize>,
-    pub undirected_position: Option<usize>,
+    //Forward position for full hashes, undirected for partial
+    pub position: usize,
+    pub hash: u64,
     pub hash_revcomp: u64,
     pub is_partial: bool,
     pub is_filtered: bool,
@@ -94,9 +95,9 @@ fn rescue_least_frequent(
     let mut hit_counts = vec![];
     for i in start..end {
         let cnt = if hits[i].is_partial {
-            index.get_count_partial(hits[i].undirected_position.unwrap())
+            index.get_count_partial(hits[i].position)
         } else {
-            index.get_count_full(hits[i].forward_position.unwrap(), hits[i].hash_revcomp)
+            index.get_count_full(hits[i].position, hits[i].hash_revcomp)
         };
         if rescue_threshold.is_none() || cnt <= rescue_threshold.unwrap() {
             hit_counts.push((i, cnt));
@@ -137,12 +138,12 @@ fn find_all_hits(
                     hits_details.full_found += 1;
                 }
                 let hit = Hit {
-                    forward_position: Some(position),
-                    undirected_position: None,
+                    position: position,
                     query_start: randstrobe.start,
                     query_end: randstrobe.end,
                     is_partial: false,
                     is_filtered,
+                    hash: randstrobe.hash,
                     hash_revcomp: randstrobe.hash_revcomp,
                 };
                 hits.push(hit);
@@ -158,12 +159,12 @@ fn find_all_hits(
                             hits_details.partial_found += 1;
                         }
                         let hit = Hit {
-                            forward_position: index.get_partial_forward_from(randstrobe.hash, undirected_pos),
-                            undirected_position: Some(undirected_pos),
+                            position: undirected_pos,
                             query_start: randstrobe.start,
                             query_end: randstrobe.start + index.k(),
                             is_partial: true,
                             is_filtered,
+                            hash: randstrobe.hash,
                             hash_revcomp: randstrobe.hash_revcomp,
                         };
                         hits.push(hit);
@@ -190,20 +191,19 @@ fn find_all_hits(
     {
         for randstrobe in query_randstrobes {
             if let Some(undirected_pos) = index.get_partial(randstrobe.hash) {
-                let is_filtered =
-                    index.is_too_frequent_partial(undirected_pos, filter_cutoff);
+                let is_filtered = index.is_too_frequent_partial(undirected_pos, filter_cutoff);
                 if is_filtered {
                     hits_details.partial_filtered += 1;
                 } else {
                     hits_details.partial_found += 1;
                 }
                 let hit = Hit {
-                    forward_position: index.get_partial_forward_from(randstrobe.hash, undirected_pos),
-                    undirected_position: Some(undirected_pos),
+                    position: undirected_pos,
                     query_start: randstrobe.start,
                     query_end: randstrobe.start + index.k(),
                     is_partial: true,
                     is_filtered,
+                    hash: randstrobe.hash,
                     hash_revcomp: randstrobe.hash_revcomp,
                 };
                 hits.push(hit);
@@ -298,9 +298,9 @@ pub fn find_hits(
         trace!("querypos count (p=partial, F=filtered)");
         for hit in &hits {
             let cnt = if hit.is_partial {
-                index.get_count_partial(hit.undirected_position.unwrap())
+                index.get_count_partial(hit.position)
             } else {
-                index.get_count_full(hit.forward_position.unwrap(), hit.hash_revcomp)
+                index.get_count_full(hit.position, hit.hash_revcomp)
             };
             trace!(
                 "{:6} {}{:6} {}",

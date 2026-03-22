@@ -920,17 +920,37 @@ mod tests {
     }
 
     #[test]
-    fn test_orientation() {
-        let hash_both: u64 = (0xABCD_u64 << 10) | (0b11 << STROBE2_OFFSET_BITS);
-        let ref_randstrobe = RefRandstrobe::new(hash_both, 0, 100, 5);
-        assert_eq!(ref_randstrobe.strobe2_offset(), 5);
-        assert_eq!(
-            ref_randstrobe.hash(),
-            (0xABCD_u64 << 10) | (0b11 << STROBE2_OFFSET_BITS)
-        );
+    fn test_partial_orientation() {
+        let references = read_ref("tests/phix.fasta");
+        let seq = &references[0].sequence;
+        let rc_seq = reverse_complement(seq);
+        let rc_references = vec![RefSequence {
+            name: "phix_rc".to_string(),
+            sequence: rc_seq,
+        }];
 
-        let hash_none: u64 = (0xABCD_u64 << 10) | (0b00 << STROBE2_OFFSET_BITS);
-        let ref_randstrobe2 = RefRandstrobe::new(hash_none, 0, 100, 5);
-        assert_eq!(ref_randstrobe2.hash(), 0xABCD_u64 << 10);
+        let parameters = SeedingParameters::default_from_read_length(300);
+
+        let mut fwd_index = StrobemerIndex::new(&references, parameters.clone(), None);
+        fwd_index.populate(0.0000001, 1);
+
+        let mut rc_index = StrobemerIndex::new(&rc_references, parameters.clone(), None);
+        rc_index.populate(0.0000001, 1);
+
+        assert_eq!(fwd_index.randstrobes.len(), rc_index.randstrobes.len());
+
+        // Iterate over fwd index entries and look up each hash in the rc index
+        for i in 0..fwd_index.randstrobes.len() {
+            let fwd_hash = fwd_index.randstrobes[i].hash();
+
+            let rev_pos_result = rc_index.get_partial(fwd_hash);
+            assert!(rev_pos_result.is_some());
+            let rev_pos = rev_pos_result.unwrap();
+
+            let rc_partial_query = fwd_index.randstrobes[i].hash()
+                ^ ((1 as u64) << rc_index.parameters.randstrobe.partial_orientation_pos);
+            let rev_pos_forward = rc_index.get_partial_forward_from(rc_partial_query, rev_pos);
+            assert!(rev_pos_forward.is_some());
+        }
     }
 }

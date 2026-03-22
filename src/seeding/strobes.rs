@@ -121,7 +121,6 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
             return None;
         }
         let strobe1 = self.syncmers[0];
-        let strobe1_hash = strobe1.hash();
         let max_position = strobe1.position + self.parameters.max_dist as usize;
         let mut min_val = u64::MAX;
         let mut strobe2 = self.syncmers[0]; // Defaults if no nearby syncmer
@@ -131,7 +130,7 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
             if self.syncmers[i].position > max_position {
                 break;
             }
-            let b = (strobe1_hash ^ self.syncmers[i].hash()) & self.parameters.q;
+            let b = (strobe1.hash() ^ self.syncmers[i].hash()) & self.parameters.q;
             let ones = b.count_ones() as u64;
             if ones < min_val {
                 min_val = ones;
