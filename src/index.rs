@@ -491,8 +491,8 @@ impl<'a> StrobemerIndex<'a> {
         let top_n = (hash >> (64 - self.bits)) as usize;
         let position_start =
             start_position.unwrap_or(self.randstrobe_start_indices[top_n] as usize);
-        let position_end = self.randstrobe_start_indices[top_n + 1] as usize;
-        let bucket = &self.randstrobes[position_start..position_end];
+        let position_end = self.randstrobe_start_indices[top_n + 1];
+        let bucket = &self.randstrobes[position_start as usize..position_end as usize];
         if bucket.is_empty() {
             return None;
         } else if bucket.len() < MAX_LINEAR_SEARCH {
@@ -507,9 +507,9 @@ impl<'a> StrobemerIndex<'a> {
             return None;
         }
 
-        let pos = custom_partition_point(bucket, |h| h.hash_offset & hash_mask < masked_hash);
+        let pos = custom_partition_point(bucket, |h| h.hash() & hash_mask < masked_hash);
         if pos < bucket.len() && bucket[pos].hash() & hash_mask == masked_hash {
-            Some(position_start + pos)
+            Some(position_start as usize + pos)
         } else {
             None
         }
