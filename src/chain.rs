@@ -21,7 +21,7 @@ pub struct Chain {
     pub ref_end: usize,
     pub query_start: usize,
     pub query_end: usize,
-    pub n_matches: usize,
+    pub n_anchors: usize,
     pub matching_bases: usize,
     pub ref_id: usize,
     pub score: f32,
@@ -160,7 +160,7 @@ pub fn get_chains(
         trace!("Found {} NAMs", chains.len());
         let mut printed = 0;
         for chain in &chains {
-            if chain.n_matches > 1 || printed < 10 {
+            if chain.n_anchors > 1 || printed < 10 {
                 trace!("- {}", chain);
                 printed += 1;
             }

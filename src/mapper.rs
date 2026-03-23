@@ -364,7 +364,7 @@ pub fn align_single_end_read(
         .take(mapping_parameters.max_tries)
         .enumerate()
     {
-        let score_dropoff = chain.n_matches as f32 / chain_max.n_matches as f32;
+        let score_dropoff = chain.n_anchors as f32 / chain_max.n_anchors as f32;
 
         if (tries > 1 && best_edit_distance == 0)
             || score_dropoff < mapping_parameters.dropoff_threshold
@@ -963,12 +963,12 @@ fn rescue_read(
     mu: f32,
     sigma: f32,
 ) -> Vec<ScoredAlignmentPair> {
-    let n_max1_hits = chains1[0].n_matches;
+    let n_max1_hits = chains1[0].n_anchors;
 
     let mut alignments1 = vec![];
     let mut alignments2 = vec![];
     for chain in chains1.iter_mut().take(max_tries) {
-        let score_dropoff1 = chain.n_matches as f32 / n_max1_hits as f32;
+        let score_dropoff1 = chain.n_anchors as f32 / n_max1_hits as f32;
         // only consider top hits (as minimap2 does) and break if below dropoff cutoff.
         if score_dropoff1 < dropoff {
             break;
@@ -1163,7 +1163,7 @@ pub fn get_best_scoring_chain_pairs(
     let mut best_joint_matches = 0;
     for chain1 in chains1.iter().take(MAX_PAIR_CHAINS) {
         for chain2 in chains2.iter().take(MAX_PAIR_CHAINS) {
-            let joint_matches = chain1.n_matches + chain2.n_matches;
+            let joint_matches = chain1.n_anchors + chain2.n_anchors;
             if joint_matches < best_joint_matches / 2 {
                 break;
             }
@@ -1185,10 +1185,10 @@ pub fn get_best_scoring_chain_pairs(
         let best_joint_hits1 = if best_joint_matches > 0 {
             best_joint_matches
         } else {
-            chains1[0].n_matches
+            chains1[0].n_anchors
         };
         for chain1 in chains1 {
-            if chain1.n_matches < best_joint_hits1 / 2 {
+            if chain1.n_anchors < best_joint_hits1 / 2 {
                 break;
             }
             if added_n1.contains(&chain1.id) {
@@ -1207,10 +1207,10 @@ pub fn get_best_scoring_chain_pairs(
         let best_joint_hits2 = if best_joint_matches > 0 {
             best_joint_matches
         } else {
-            chains2[0].n_matches
+            chains2[0].n_anchors
         };
         for chain2 in chains2 {
-            if chain2.n_matches < best_joint_hits2 / 2 {
+            if chain2.n_anchors < best_joint_hits2 / 2 {
                 break;
             }
             if added_n2.contains(&chain2.id) {
@@ -1236,7 +1236,7 @@ pub fn mapping_quality(chains: &[Chain]) -> u8 {
     let s1 = chains[0].score;
     let s2 = chains[1].score;
     // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
-    let min_matches = min(chains[0].n_matches, 10) as f32 / 10.0;
+    let min_matches = min(chains[0].n_anchors, 10) as f32 / 10.0;
     let uncapped_mapq = 40.0 * (1.0 - s2 / s1) * min_matches * s1.ln();
 
     uncapped_mapq.min(60.0) as u8
@@ -1384,10 +1384,10 @@ fn joint_mapq_from_high_scores(pairs: &[ScoredAlignmentPair]) -> u8 {
 /// compute dropoff of the first (top) chain
 fn top_dropoff(chains: &[Chain]) -> f32 {
     let n_max = &chains[0];
-    if n_max.n_matches <= 2 {
+    if n_max.n_anchors <= 2 {
         1.0
     } else if chains.len() > 1 {
-        chains[1].n_matches as f32 / n_max.n_matches as f32
+        chains[1].n_anchors as f32 / n_max.n_anchors as f32
     } else {
         0.0
     }
