@@ -256,8 +256,7 @@ number of anchors and h is a constant set at 50 by default.
 Several command line options allow fine tuning of the chaining behavior: `-H` 
 controls the chaining look-back window heuristic, `--gd` sets the diagonal gap cost, 
 `--gl` sets the gap length cost, `--vp` determines the best-chain score threshold, 
-and `--sg` controls the maximum skip distance on the reference. The previous NAM method 
-remains available via the `--nams` flag.
+and `--sg` controls the maximum skip distance on the reference.
 
 ## Changelog
 
