@@ -16,7 +16,7 @@ use crate::seeding::randstrobes_query;
 
 #[derive(Clone, Debug)]
 pub struct Chain {
-    pub nam_id: usize,
+    pub id: usize,
     pub ref_start: usize,
     pub ref_end: usize,
     pub query_start: usize,
