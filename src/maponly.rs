@@ -8,7 +8,7 @@ use crate::insertsize::InsertSizeDistribution;
 use crate::io::fasta::RefSequence;
 use crate::io::paf::PafRecord;
 use crate::io::record::{End, SequenceRecord};
-use crate::mapper::{NamPair, get_best_scoring_nam_pairs, mapping_quality};
+use crate::mapper::{ChainPair, get_best_scoring_chain_pairs, mapping_quality};
 use crate::mcsstrategy::McsStrategy;
 
 /// Map a single-end read to the reference and return PAF records
@@ -23,7 +23,7 @@ pub fn map_single_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) -> (Vec<PafRecord>, Details) {
-    let (nam_details, nams) = get_chains(
+    let (chain_details, chains) = get_chains(
         &record.sequence,
         index,
         chainer,
@@ -32,20 +32,20 @@ pub fn map_single_end_read(
         rng,
     );
 
-    if nams.is_empty() {
-        (vec![], nam_details.into())
+    if chains.is_empty() {
+        (vec![], chain_details.into())
     } else {
-        let mapq = mapping_quality(&nams);
+        let mapq = mapping_quality(&chains);
         (
-            vec![paf_record_from_nam(
-                &nams[0],
+            vec![paf_record_from_chain(
+                &chains[0],
                 &record.name,
                 references,
                 record.sequence.len(),
                 Some(mapq),
                 End::None,
             )],
-            nam_details.into(),
+            chain_details.into(),
         )
     }
 }
@@ -62,7 +62,7 @@ pub fn abundances_single_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) {
-    let (_, nams) = get_chains(
+    let (_, chains) = get_chains(
         &record.sequence,
         index,
         chainer,
@@ -70,19 +70,19 @@ pub fn abundances_single_end_read(
         mcs_strategy,
         rng,
     );
-    let n_best = nams
+    let n_best = chains
         .iter()
-        .take_while(|nam| nam.score == nams[0].score)
+        .take_while(|chain| chain.score == chains[0].score)
         .count();
     let weight = record.sequence.len() as f64 / n_best as f64;
-    for nam in &nams[0..n_best] {
-        abundances[nam.ref_id] += weight;
+    for chain in &chains[0..n_best] {
+        abundances[chain.ref_id] += weight;
     }
 }
 
-/// Convert Nam into PAF record
-fn paf_record_from_nam(
-    nam: &Chain,
+/// Convert chain into PAF record
+fn paf_record_from_chain(
+    chain: &Chain,
     name: &str,
     references: &[RefSequence],
     query_length: usize,
@@ -93,15 +93,15 @@ fn paf_record_from_nam(
         query_name: name.into(),
         end,
         query_length: query_length as u64,
-        query_start: nam.query_start as u64,
-        query_end: nam.query_end as u64,
-        is_revcomp: nam.is_revcomp,
-        target_name: references[nam.ref_id].name.clone(),
-        target_length: references[nam.ref_id].sequence.len() as u64,
-        target_start: nam.ref_start as u64,
-        target_end: nam.ref_end as u64,
-        matching_bases: nam.matching_bases as u64,
-        alignment_length: (nam.ref_end - nam.ref_start) as u64,
+        query_start: chain.query_start as u64,
+        query_end: chain.query_end as u64,
+        is_revcomp: chain.is_revcomp,
+        target_name: references[chain.ref_id].name.clone(),
+        target_length: references[chain.ref_id].sequence.len() as u64,
+        target_start: chain.ref_start as u64,
+        target_end: chain.ref_end as u64,
+        matching_bases: chain.matching_bases as u64,
+        alignment_length: (chain.ref_end - chain.ref_start) as u64,
         mapping_quality: mapq,
     }
 }
@@ -120,7 +120,7 @@ pub fn map_paired_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) -> (Vec<PafRecord>, Details) {
-    let (mut nam_details1, nams1) = get_chains(
+    let (mut chain_details1, chains1) = get_chains(
         &r1.sequence,
         index,
         chainer,
@@ -128,7 +128,7 @@ pub fn map_paired_end_read(
         mcs_strategy,
         rng,
     );
-    let (nam_details2, nams2) = get_chains(
+    let (chain_details2, chains2) = get_chains(
         &r2.sequence,
         index,
         chainer,
@@ -137,21 +137,21 @@ pub fn map_paired_end_read(
         rng,
     );
 
-    let nam_pairs = get_best_scoring_nam_pairs(
-        &nams1,
-        &nams2,
+    let chain_pairs = get_best_scoring_chain_pairs(
+        &chains1,
+        &chains2,
         insert_size_distribution.mu,
         insert_size_distribution.sigma,
     );
-    let mapped_nam =
-        get_best_paired_map_location(&nam_pairs, &nams1, &nams2, insert_size_distribution);
+    let mapped_chain =
+        get_best_paired_map_location(&chain_pairs, &chains1, &chains2, insert_size_distribution);
     let mut records = vec![];
 
-    match mapped_nam {
-        MappedNams::Individual(nam1, nam2) => {
-            if let Some(nam) = nam1 {
-                records.push(paf_record_from_nam(
-                    &nam,
+    match mapped_chain {
+        MappedChains::Individual(chain1, chain2) => {
+            if let Some(chain) = chain1 {
+                records.push(paf_record_from_chain(
+                    &chain,
                     &r1.name,
                     references,
                     r1.sequence.len(),
@@ -159,9 +159,9 @@ pub fn map_paired_end_read(
                     End::One,
                 ))
             }
-            if let Some(nam) = nam2 {
-                records.push(paf_record_from_nam(
-                    &nam,
+            if let Some(chain) = chain2 {
+                records.push(paf_record_from_chain(
+                    &chain,
                     &r2.name,
                     references,
                     r2.sequence.len(),
@@ -170,17 +170,17 @@ pub fn map_paired_end_read(
                 ))
             }
         }
-        MappedNams::Pair(nam1, nam2) => {
-            records.push(paf_record_from_nam(
-                &nam1,
+        MappedChains::Pair(chain1, chain2) => {
+            records.push(paf_record_from_chain(
+                &chain1,
                 &r1.name,
                 references,
                 r1.sequence.len(),
                 None,
                 End::One,
             ));
-            records.push(paf_record_from_nam(
-                &nam2,
+            records.push(paf_record_from_chain(
+                &chain2,
                 &r2.name,
                 references,
                 r2.sequence.len(),
@@ -188,10 +188,10 @@ pub fn map_paired_end_read(
                 End::Two,
             ));
         }
-        MappedNams::Unmapped => {}
+        MappedChains::Unmapped => {}
     }
-    nam_details1 += nam_details2;
-    (records, nam_details1.into())
+    chain_details1 += chain_details2;
+    (records, chain_details1.into())
 }
 
 /// Map a paired-end read pair to the reference and estimate abundances
@@ -208,7 +208,7 @@ pub fn abundances_paired_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) {
-    let nams1 = get_chains(
+    let chains1 = get_chains(
         &r1.sequence,
         index,
         chainer,
@@ -217,7 +217,7 @@ pub fn abundances_paired_end_read(
         rng,
     )
     .1;
-    let nams2 = get_chains(
+    let chains2 = get_chains(
         &r2.sequence,
         index,
         chainer,
@@ -227,97 +227,101 @@ pub fn abundances_paired_end_read(
     )
     .1;
 
-    let nam_pairs = get_best_scoring_nam_pairs(
-        &nams1,
-        &nams2,
+    let chain_pairs = get_best_scoring_chain_pairs(
+        &chains1,
+        &chains2,
         insert_size_distribution.mu,
         insert_size_distribution.sigma,
     );
-    let mapped_nam =
-        get_best_paired_map_location(&nam_pairs, &nams1, &nams2, insert_size_distribution);
+    let mapped_chain =
+        get_best_paired_map_location(&chain_pairs, &chains1, &chains2, insert_size_distribution);
 
-    match mapped_nam {
-        MappedNams::Pair(nam1, nam2) => {
-            let joint_score = nam1.score + nam2.score;
-            let n_best = nam_pairs
+    match mapped_chain {
+        MappedChains::Pair(chain1, chain2) => {
+            let joint_score = chain1.score + chain2.score;
+            let n_best = chain_pairs
                 .iter()
-                .take_while(|nam_pair| {
-                    nam_pair.nam1.as_ref().map_or(0.0, |nam| nam.score)
-                        + nam_pair.nam2.as_ref().map_or(0.0, |nam| nam.score)
+                .take_while(|chain_pair| {
+                    chain_pair.chain1.as_ref().map_or(0.0, |chain| chain.score)
+                        + chain_pair.chain2.as_ref().map_or(0.0, |chain| chain.score)
                         == joint_score
                 })
                 .count();
             let weight_r1 = r1.sequence.len() as f64 / n_best as f64;
             let weight_r2 = r2.sequence.len() as f64 / n_best as f64;
-            for nam_pair in &nam_pairs[..n_best] {
-                if let Some(nam) = &nam_pair.nam1 {
-                    abundances[nam.ref_id] += weight_r1;
+            for chain_pair in &chain_pairs[..n_best] {
+                if let Some(chain) = &chain_pair.chain1 {
+                    abundances[chain.ref_id] += weight_r1;
                 }
-                if let Some(nam) = &nam_pair.nam2 {
-                    abundances[nam.ref_id] += weight_r2;
+                if let Some(chain) = &chain_pair.chain2 {
+                    abundances[chain.ref_id] += weight_r2;
                 }
             }
         }
-        MappedNams::Individual(_, _) => {
-            for (nams, read_len) in [(&nams1, r1.sequence.len()), (&nams2, r2.sequence.len())] {
-                let n_best = nams
+        MappedChains::Individual(_, _) => {
+            for (chains, read_len) in [(&chains1, r1.sequence.len()), (&chains2, r2.sequence.len())]
+            {
+                let n_best = chains
                     .iter()
-                    .take_while(|nam| nam.score == nams[0].score)
+                    .take_while(|chain| chain.score == chains[0].score)
                     .count();
                 let weight = read_len as f64 / n_best as f64;
-                for nam in &nams[0..n_best] {
-                    abundances[nam.ref_id] += weight;
+                for chain in &chains[0..n_best] {
+                    abundances[chain.ref_id] += weight;
                 }
             }
         }
-        MappedNams::Unmapped => {}
+        MappedChains::Unmapped => {}
     }
 }
 
-enum MappedNams {
+enum MappedChains {
     Individual(Option<Chain>, Option<Chain>),
     Pair(Chain, Chain),
     Unmapped,
 }
 
-/// Given two lists of NAMs from R1 and R2, find the best location (preferably a proper pair).
+/// Given two lists of chains from R1 and R2, find the best location (preferably a proper pair).
 /// This is used for mapping-only (PAF) mode and abundances output
 fn get_best_paired_map_location(
-    nam_pairs: &[NamPair],
-    nams1: &[Chain],
-    nams2: &[Chain],
+    chain_pairs: &[ChainPair],
+    chains1: &[Chain],
+    chains2: &[Chain],
     insert_size_distribution: &mut InsertSizeDistribution,
-) -> MappedNams {
-    if nam_pairs.is_empty() && nams1.is_empty() && nams2.is_empty() {
-        return MappedNams::Unmapped;
+) -> MappedChains {
+    if chain_pairs.is_empty() && chains1.is_empty() && chains2.is_empty() {
+        return MappedChains::Unmapped;
     }
 
-    // Find first NAM pair that is a proper pair.
+    // Find first chain pair that is a proper pair.
     // The first one is also the one with the highest score
-    // since nam_pairs is sorted descending by score
-    let best_joint_pair = nam_pairs
+    // since chain_pairs is sorted descending by score
+    let best_joint_pair = chain_pairs
         .iter()
-        .find(|&nam_pair| nam_pair.nam1.is_some() && nam_pair.nam2.is_some());
+        .find(|&chain_pair| chain_pair.chain1.is_some() && chain_pair.chain2.is_some());
 
-    let joint_score = if let Some(nam_pair) = best_joint_pair {
-        nam_pair.nam1.as_ref().map_or(0.0, |nam| nam.score)
-            + nam_pair.nam2.as_ref().map_or(0.0, |nam| nam.score)
+    let joint_score = if let Some(chain_pair) = best_joint_pair {
+        chain_pair.chain1.as_ref().map_or(0.0, |chain| chain.score)
+            + chain_pair.chain2.as_ref().map_or(0.0, |chain| chain.score)
     } else {
         0.0
     };
 
     // Get individual best scores.
-    // nams1 and nams2 are also sorted descending by score.
-    let best_individual_nam1 = nams1.first();
-    let best_individual_nam2 = nams2.first();
+    // chains1 and chains2 are also sorted descending by score.
+    let best_individual_chain1 = chains1.first();
+    let best_individual_chain2 = chains2.first();
 
-    let individual_score = best_individual_nam1.map_or(0.0, |nam| nam.score)
-        + best_individual_nam2.map_or(0.0, |nam| nam.score);
+    let individual_score = best_individual_chain1.map_or(0.0, |chain| chain.score)
+        + best_individual_chain2.map_or(0.0, |chain| chain.score);
 
     // Divisor 2 is penalty for being mapped individually
     if joint_score > individual_score / 2.0 {
         let best_joint_pair = best_joint_pair.unwrap();
-        let best = (best_joint_pair.nam1.clone(), best_joint_pair.nam2.clone());
+        let best = (
+            best_joint_pair.chain1.clone(),
+            best_joint_pair.chain2.clone(),
+        );
         if insert_size_distribution.sample_size < 400 {
             insert_size_distribution.update(
                 best.0
@@ -328,8 +332,11 @@ fn get_best_paired_map_location(
             );
         }
 
-        MappedNams::Pair(best.0.unwrap(), best.1.unwrap())
+        MappedChains::Pair(best.0.unwrap(), best.1.unwrap())
     } else {
-        MappedNams::Individual(best_individual_nam1.cloned(), best_individual_nam2.cloned())
+        MappedChains::Individual(
+            best_individual_chain1.cloned(),
+            best_individual_chain2.cloned(),
+        )
     }
 }

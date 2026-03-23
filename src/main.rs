@@ -777,7 +777,7 @@ fn run() -> Result<(), CliError> {
     debug!("## Other");
     debug!("");
     debug!("Total mapping sites tried: {}", details.tried_alignment);
-    debug!("Inconsistent NAM ends: {}", details.inconsistent_chains);
+    debug!("Inconsistent chain ends: {}", details.inconsistent_chains);
     debug!("Mates rescued by alignment: {}", details.mate_rescue);
 
     info!("Total time mapping: {:.2} s", timer.elapsed().as_secs_f64());
