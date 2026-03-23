@@ -14,9 +14,8 @@ use crate::mcsstrategy::McsStrategy;
 use crate::read::Read;
 use crate::seeding::randstrobes_query;
 
-/// Non-overlapping approximate match
 #[derive(Clone, Debug)]
-pub struct Nam {
+pub struct Chain {
     pub nam_id: usize,
     pub ref_start: usize,
     pub ref_end: usize,
@@ -30,7 +29,7 @@ pub struct Nam {
     pub anchors: Vec<Anchor>,
 }
 
-impl Nam {
+impl Chain {
     pub fn ref_span(&self) -> usize {
         self.ref_end - self.ref_start
     }
@@ -62,7 +61,7 @@ impl Nam {
     }
 }
 
-impl Display for Nam {
+impl Display for Chain {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -88,7 +87,7 @@ impl Display for Nam {
 ///   in place and return true.
 /// - If first and last strobe do not match consistently, return false.
 pub fn reverse_nam_if_needed(
-    nam: &mut Nam,
+    nam: &mut Chain,
     read: &Read,
     references: &[RefSequence],
     k: usize,
@@ -136,7 +135,7 @@ pub fn get_nams_by_chaining(
     rescue_distance: usize,
     mcs_strategy: McsStrategy,
     rng: &mut Rng,
-) -> (NamDetails, Vec<Nam>) {
+) -> (NamDetails, Vec<Chain>) {
     let timer = Instant::now();
     let query_randstrobes = randstrobes_query(sequence, &index.parameters);
     let time_randstrobes = timer.elapsed().as_secs_f64();
@@ -177,7 +176,7 @@ pub fn get_nams_by_chaining(
 /// Shuffle the top-scoring NAMs. Input must be sorted by score.
 /// This helps to ensure we pick a random location in case there are multiple
 /// equally good ones.
-fn shuffle_top_nams(nams: &mut [Nam], rng: &mut Rng) {
+fn shuffle_top_nams(nams: &mut [Chain], rng: &mut Rng) {
     if let Some(best) = nams.first() {
         let best_score = best.score;
 

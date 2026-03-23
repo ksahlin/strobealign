@@ -21,7 +21,7 @@ use crate::io::sam::{
 };
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
-use crate::nam::{Nam, get_nams_by_chaining, reverse_nam_if_needed};
+use crate::nam::{Chain, get_nams_by_chaining, reverse_nam_if_needed};
 use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
 use crate::revcomp::reverse_complement;
@@ -506,7 +506,7 @@ pub fn align_single_end_read(
 /// alignment.
 fn extend_seed(
     aligner: &Aligner,
-    nam: &mut Nam,
+    nam: &mut Chain,
     references: &[RefSequence],
     read: &Read,
     consistent_nam: bool,
@@ -712,7 +712,7 @@ enum AlignedPairs {
 /// compute base-level alignments
 fn extend_paired_seeds(
     aligner: &Aligner,
-    nams: &mut [Vec<Nam>; 2],
+    nams: &mut [Vec<Chain>; 2],
     read1: &Read,
     read2: &Read,
     k: usize,
@@ -955,7 +955,7 @@ fn rescue_read(
     read1: &Read, // read that has NAMs
     aligner: &Aligner,
     references: &[RefSequence],
-    nams1: &mut [Nam],
+    nams1: &mut [Chain],
     max_tries: usize,
     dropoff: f32,
     details: &mut [Details; 2],
@@ -1027,7 +1027,7 @@ fn rescue_read(
 /// Align a read to the reference given the mapping location of its mate.
 fn rescue_align(
     aligner: &Aligner,
-    mate_nam: &Nam,
+    mate_nam: &Chain,
     references: &[RefSequence],
     read: &Read,
     mu: f32,
@@ -1122,7 +1122,7 @@ fn is_proper_pair(
     }
 }
 
-fn is_proper_nam_pair(nam1: &Nam, nam2: &Nam, mu: f32, sigma: f32) -> bool {
+fn is_proper_nam_pair(nam1: &Chain, nam2: &Chain, mu: f32, sigma: f32) -> bool {
     if nam1.ref_id != nam2.ref_id || nam1.is_revcomp == nam2.is_revcomp {
         return false;
     }
@@ -1146,8 +1146,8 @@ fn is_proper_nam_pair(nam1: &Nam, nam2: &Nam, mu: f32, sigma: f32) -> bool {
 /// high-scoring NAMs that could not be paired up are returned (these are paired
 /// with None in the returned vector).
 pub fn get_best_scoring_nam_pairs(
-    nams1: &[Nam],
-    nams2: &[Nam],
+    nams1: &[Chain],
+    nams2: &[Chain],
     mu: f32,
     sigma: f32,
 ) -> Vec<NamPair> {
@@ -1228,7 +1228,7 @@ pub fn get_best_scoring_nam_pairs(
 }
 
 /// Return mapping quality for the top NAM
-pub fn mapping_quality(nams: &[Nam]) -> u8 {
+pub fn mapping_quality(nams: &[Chain]) -> u8 {
     if nams.len() <= 1 {
         return 60;
     }
@@ -1244,8 +1244,8 @@ pub fn mapping_quality(nams: &[Nam]) -> u8 {
 #[derive(Debug)]
 pub struct NamPair {
     pub score: f32,
-    pub nam1: Option<Nam>,
-    pub nam2: Option<Nam>,
+    pub nam1: Option<Chain>,
+    pub nam2: Option<Chain>,
 }
 
 #[derive(Debug, Clone)]
@@ -1381,7 +1381,7 @@ fn joint_mapq_from_high_scores(pairs: &[ScoredAlignmentPair]) -> u8 {
 }
 
 /// compute dropoff of the first (top) NAM
-fn top_dropoff(nams: &[Nam]) -> f32 {
+fn top_dropoff(nams: &[Chain]) -> f32 {
     let n_max = &nams[0];
     if n_max.n_matches <= 2 {
         1.0

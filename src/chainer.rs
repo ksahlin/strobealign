@@ -6,7 +6,7 @@ use crate::details::NamDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::StrobemerIndex;
 use crate::mcsstrategy::McsStrategy;
-use crate::nam::Nam;
+use crate::nam::Chain;
 use crate::seeding::QueryRandstrobe;
 
 const N_PRECOMPUTED: usize = 1024;
@@ -155,7 +155,7 @@ impl Chainer {
         index: &StrobemerIndex,
         rescue_distance: usize,
         mcs_strategy: McsStrategy,
-    ) -> (NamDetails, Vec<Nam>) {
+    ) -> (NamDetails, Vec<Chain>) {
         let hits_timer = Instant::now();
 
         let mut hits = [vec![], vec![]];
@@ -366,7 +366,7 @@ fn extract_chains_from_dp(
     best_score: f32,
     k: usize,
     is_revcomp: bool,
-    chains: &mut Vec<Nam>,
+    chains: &mut Vec<Chain>,
     chaining_parameters: &ChainingParameters,
 ) {
     let n = anchors.len();
@@ -416,7 +416,7 @@ fn extract_chains_from_dp(
         let first = &anchors[j];
         let last = &anchors[i];
 
-        chains.push(Nam {
+        chains.push(Chain {
             nam_id: chains.len(),
             query_start: first.query_start,
             query_end: last.query_start + k,

@@ -9,7 +9,7 @@ use crate::io::paf::PafRecord;
 use crate::io::record::{End, SequenceRecord};
 use crate::mapper::{NamPair, get_best_scoring_nam_pairs, mapping_quality};
 use crate::mcsstrategy::McsStrategy;
-use crate::nam::{Nam, get_nams_by_chaining};
+use crate::nam::{Chain, get_nams_by_chaining};
 
 /// Map a single-end read to the reference and return PAF records
 ///
@@ -82,7 +82,7 @@ pub fn abundances_single_end_read(
 
 /// Convert Nam into PAF record
 fn paf_record_from_nam(
-    nam: &Nam,
+    nam: &Chain,
     name: &str,
     references: &[RefSequence],
     query_length: usize,
@@ -275,8 +275,8 @@ pub fn abundances_paired_end_read(
 }
 
 enum MappedNams {
-    Individual(Option<Nam>, Option<Nam>),
-    Pair(Nam, Nam),
+    Individual(Option<Chain>, Option<Chain>),
+    Pair(Chain, Chain),
     Unmapped,
 }
 
@@ -284,8 +284,8 @@ enum MappedNams {
 /// This is used for mapping-only (PAF) mode and abundances output
 fn get_best_paired_map_location(
     nam_pairs: &[NamPair],
-    nams1: &[Nam],
-    nams2: &[Nam],
+    nams1: &[Chain],
+    nams2: &[Chain],
     insert_size_distribution: &mut InsertSizeDistribution,
 ) -> MappedNams {
     if nam_pairs.is_empty() && nams1.is_empty() && nams2.is_empty() {
