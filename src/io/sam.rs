@@ -118,7 +118,7 @@ impl Display for SamRecord {
             write!(
                 f,
                 "\tna:i:{}\tal:i:{}\tga:i:{}\tX0:i:{}",
-                details.nam.n_nams,
+                details.chain.n_chains,
                 details.tried_alignment,
                 details.gapped,
                 details.best_alignments,

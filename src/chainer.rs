@@ -3,7 +3,7 @@ use std::time::Instant;
 use log::trace;
 
 use crate::chain::Chain;
-use crate::details::NamDetails;
+use crate::details::ChainingDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::StrobemerIndex;
 use crate::mcsstrategy::McsStrategy;
@@ -155,7 +155,7 @@ impl Chainer {
         index: &StrobemerIndex,
         rescue_distance: usize,
         mcs_strategy: McsStrategy,
-    ) -> (NamDetails, Vec<Chain>) {
+    ) -> (ChainingDetails, Vec<Chain>) {
         let hits_timer = Instant::now();
 
         let mut hits = [vec![], vec![]];
@@ -230,17 +230,17 @@ impl Chainer {
         }
         let mut hits_details12 = hits_details[0].clone();
         hits_details12 += hits_details[1].clone();
-        let details = NamDetails {
+        let details = ChainingDetails {
             hits: hits_details12,
             n_reads: 1,
             n_randstrobes: query_randstrobes[0].len() + query_randstrobes[1].len(),
             n_anchors,
-            n_nams: chains.len(),
+            n_chains: chains.len(),
             time_randstrobes: 0.0,
             time_find_hits,
             time_chaining,
             time_rescue: 0.0,
-            time_sort_nams: 0f64,
+            time_sort_chains: 0f64,
         };
 
         (details, chains)

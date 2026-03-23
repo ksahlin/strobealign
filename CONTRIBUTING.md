@@ -89,7 +89,7 @@ baseline commit does not change.
 When `--details` is provided, the following additional SAM tags are output for
 mapped reads.
 
-`na`: Number of NAMs (seeds) found
+`na`: Number of chains found
 `mr`: Number of times mate rescue was attempted (local alignment of a mate to
   the expected region given its mate)
 `al`: Number of times an attempt was made to extend a seed (by gapped or ungapped alignment)

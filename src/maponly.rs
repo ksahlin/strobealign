@@ -1,6 +1,6 @@
 use fastrand::Rng;
 
-use crate::chain::{Chain, get_nams_by_chaining};
+use crate::chain::{Chain, get_chains};
 use crate::chainer::Chainer;
 use crate::details::Details;
 use crate::index::StrobemerIndex;
@@ -23,7 +23,7 @@ pub fn map_single_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) -> (Vec<PafRecord>, Details) {
-    let (nam_details, nams) = get_nams_by_chaining(
+    let (nam_details, nams) = get_chains(
         &record.sequence,
         index,
         chainer,
@@ -62,7 +62,7 @@ pub fn abundances_single_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) {
-    let (_, nams) = get_nams_by_chaining(
+    let (_, nams) = get_chains(
         &record.sequence,
         index,
         chainer,
@@ -120,7 +120,7 @@ pub fn map_paired_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) -> (Vec<PafRecord>, Details) {
-    let (mut nam_details1, nams1) = get_nams_by_chaining(
+    let (mut nam_details1, nams1) = get_chains(
         &r1.sequence,
         index,
         chainer,
@@ -128,7 +128,7 @@ pub fn map_paired_end_read(
         mcs_strategy,
         rng,
     );
-    let (nam_details2, nams2) = get_nams_by_chaining(
+    let (nam_details2, nams2) = get_chains(
         &r2.sequence,
         index,
         chainer,
@@ -208,7 +208,7 @@ pub fn abundances_paired_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) {
-    let nams1 = get_nams_by_chaining(
+    let nams1 = get_chains(
         &r1.sequence,
         index,
         chainer,
@@ -217,7 +217,7 @@ pub fn abundances_paired_end_read(
         rng,
     )
     .1;
-    let nams2 = get_nams_by_chaining(
+    let nams2 = get_chains(
         &r2.sequence,
         index,
         chainer,

@@ -7,7 +7,7 @@ use log::trace;
 
 use crate::chainer::Anchor;
 use crate::chainer::Chainer;
-use crate::details::NamDetails;
+use crate::details::ChainingDetails;
 use crate::index::StrobemerIndex;
 use crate::io::fasta::RefSequence;
 use crate::mcsstrategy::McsStrategy;
@@ -42,7 +42,7 @@ impl Chain {
         self.ref_start.saturating_sub(self.query_start)
     }
 
-    /// Returns whether a NAM represents a consistent match between read and
+    /// Returns whether a chain represents a consistent match between read and
     /// reference by comparing the nucleotide sequences of the first and last
     /// strobe (taking orientation into account).
     pub fn is_consistent(&self, read: &Read, references: &[RefSequence], k: usize) -> bool {
@@ -65,7 +65,7 @@ impl Display for Chain {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Nam(ref_id={}, query: {}..{}, ref: {}..{}, rc={}, score={})",
+            "Chain(ref_id={}, query: {}..{}, ref: {}..{}, rc={}, score={})",
             self.ref_id,
             self.query_start,
             self.query_end,
@@ -78,30 +78,30 @@ impl Display for Chain {
     }
 }
 
-/// Determine whether the NAM represents a match to the forward or
+/// Determine whether the chain represents a match to the forward or
 /// reverse-complemented sequence by checking in which orientation the
-/// first and last strobe in the NAM match
+/// first and last strobe in the chain match
 ///
 /// - If first and last strobe match in forward orientation, return true.
-/// - If first and last strobe match in reverse orientation, update the NAM
+/// - If first and last strobe match in reverse orientation, update the chain
 ///   in place and return true.
 /// - If first and last strobe do not match consistently, return false.
-pub fn reverse_nam_if_needed(
-    nam: &mut Chain,
+pub fn reverse_chain_if_needed(
+    chain: &mut Chain,
     read: &Read,
     references: &[RefSequence],
     k: usize,
 ) -> bool {
-    let ref_start_kmer = &references[nam.ref_id].sequence[nam.ref_start..nam.ref_start + k];
-    let ref_end_kmer = &references[nam.ref_id].sequence[nam.ref_end - k..nam.ref_end];
+    let ref_start_kmer = &references[chain.ref_id].sequence[chain.ref_start..chain.ref_start + k];
+    let ref_end_kmer = &references[chain.ref_id].sequence[chain.ref_end - k..chain.ref_end];
 
-    let (seq, seq_rc) = if nam.is_revcomp {
+    let (seq, seq_rc) = if chain.is_revcomp {
         (read.rc(), read.seq())
     } else {
         (read.seq(), read.rc())
     };
-    let read_start_kmer = &seq[nam.query_start..nam.query_start + k];
-    let read_end_kmer = &seq[nam.query_end - k..nam.query_end];
+    let read_start_kmer = &seq[chain.query_start..chain.query_start + k];
+    let read_end_kmer = &seq[chain.query_end - k..chain.query_end];
     if ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer {
         return true;
     }
@@ -110,32 +110,32 @@ pub fn reverse_nam_if_needed(
     // we need two extra checks for this - hopefully this will remove all the false matches we see
     // (true hash collisions should be very few)
     let read_len = read.len();
-    let q_start_tmp = read_len - nam.query_end;
-    let q_end_tmp = read_len - nam.query_start;
-    // false reverse match, change coordinates in nam to forward
+    let q_start_tmp = read_len - chain.query_end;
+    let q_end_tmp = read_len - chain.query_start;
+    // false reverse match, change coordinates to forward
     let read_start_kmer = &seq_rc[q_start_tmp..q_start_tmp + k];
     let read_end_kmer = &seq_rc[q_end_tmp - k..q_end_tmp];
     if ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer {
-        nam.is_revcomp = !nam.is_revcomp;
-        nam.query_start = q_start_tmp;
-        nam.query_end = q_end_tmp;
+        chain.is_revcomp = !chain.is_revcomp;
+        chain.query_start = q_start_tmp;
+        chain.query_end = q_end_tmp;
         true
     } else {
         false
     }
 }
 
-/// Obtain NAMs for a sequence record, doing rescue if needed.
+/// Obtain chains for a sequence record, doing rescue if needed.
 ///
-/// NAMs are returned sorted by decreasing score
-pub fn get_nams_by_chaining(
+/// The chains are returned sorted by decreasing score
+pub fn get_chains(
     sequence: &[u8],
     index: &StrobemerIndex,
     chainer: &Chainer,
     rescue_distance: usize,
     mcs_strategy: McsStrategy,
     rng: &mut Rng,
-) -> (NamDetails, Vec<Chain>) {
+) -> (ChainingDetails, Vec<Chain>) {
     let timer = Instant::now();
     let query_randstrobes = randstrobes_query(sequence, &index.parameters);
     let time_randstrobes = timer.elapsed().as_secs_f64();
@@ -146,44 +146,44 @@ pub fn get_nams_by_chaining(
         query_randstrobes[1].len()
     );
 
-    let (mut nam_details, mut nams) =
+    let (mut chain_details, mut chains) =
         chainer.get_chains(&query_randstrobes, index, rescue_distance, mcs_strategy);
 
     let timer = Instant::now();
 
-    nams.sort_by(|a, b| b.score.total_cmp(&a.score));
-    shuffle_top_nams(&mut nams, rng);
-    nam_details.time_sort_nams = timer.elapsed().as_secs_f64();
-    nam_details.time_randstrobes = time_randstrobes;
+    chains.sort_by(|a, b| b.score.total_cmp(&a.score));
+    shuffle_top_chains(&mut chains, rng);
+    chain_details.time_sort_chains = timer.elapsed().as_secs_f64();
+    chain_details.time_randstrobes = time_randstrobes;
 
     if log::log_enabled!(Trace) {
-        trace!("Found {} NAMs", nams.len());
+        trace!("Found {} NAMs", chains.len());
         let mut printed = 0;
-        for nam in &nams {
-            if nam.n_matches > 1 || printed < 10 {
-                trace!("- {}", nam);
+        for chain in &chains {
+            if chain.n_matches > 1 || printed < 10 {
+                trace!("- {}", chain);
                 printed += 1;
             }
         }
-        if printed < nams.len() {
-            trace!("+ {} single-anchor chains", nams.len() - printed);
+        if printed < chains.len() {
+            trace!("+ {} single-anchor chains", chains.len() - printed);
         }
     }
 
-    (nam_details, nams)
+    (chain_details, chains)
 }
 
-/// Shuffle the top-scoring NAMs. Input must be sorted by score.
+/// Shuffle the top-scoring chains. Input must be sorted by score.
 /// This helps to ensure we pick a random location in case there are multiple
 /// equally good ones.
-fn shuffle_top_nams(nams: &mut [Chain], rng: &mut Rng) {
-    if let Some(best) = nams.first() {
+fn shuffle_top_chains(chains: &mut [Chain], rng: &mut Rng) {
+    if let Some(best) = chains.first() {
         let best_score = best.score;
 
-        let pos = nams.iter().position(|nam| nam.score != best_score);
-        let end = pos.unwrap_or(nams.len());
+        let pos = chains.iter().position(|chain| chain.score != best_score);
+        let end = pos.unwrap_or(chains.len());
         if end > 1 {
-            rng.shuffle(&mut nams[0..end]);
+            rng.shuffle(&mut chains[0..end]);
         }
     }
 }
