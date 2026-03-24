@@ -1,5 +1,5 @@
-use ::strobealign::fasta;
-use ::strobealign::fasta::RefSequence;
+use ::strobealign::io::fasta;
+use ::strobealign::io::fasta::RefSequence;
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 use std::fs::File;

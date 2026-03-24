@@ -146,8 +146,12 @@ struct Args {
     // Seeding arguments
 
     /// Mean read length. Default: estimated from the first 500 records in the input file
-    #[arg(short, help_heading = "Seeding")]
+    #[arg(short, conflicts_with = "profile", help_heading = "Seeding")]
     read_length: Option<usize>,
+
+    /// Read profile (cannot be used together with -r). 'noisy' improves accuracy on error-prone reads but is slower.
+    #[arg(short = 'P', value_enum, help_heading = "Seeding")]
+    profile: Option<CmdlineProfile>,
 
     /// Maximum seed length.
     /// For reasonable values on -l and -u, the seed length distribution is
@@ -273,6 +277,11 @@ struct Args {
     reads_path2: Option<String>,
 }
 
+#[derive(Debug, Clone, clap::ValueEnum)]
+enum CmdlineProfile {
+    Noisy,
+}
+
 #[derive(Debug, Error)]
 enum CliError {
     #[error("{0}")]
@@ -353,21 +362,38 @@ fn run() -> Result<(), CliError> {
         reads_reader1 = None;
     }
 
-    let parameters = SeedingParameters::from_read_length(
-        read_length,
-        args.k,
-        args.s,
-        args.l,
-        args.u,
-        args.c,
-        args.max_seed_length,
-        args.aux_len,
-    )?;
-
+    let parameters = if args.profile.is_some() {
+        SeedingParameters::noisy(
+            args.k,
+            args.s,
+            args.l,
+            args.u,
+            args.c,
+            args.max_seed_length,
+            args.aux_len,
+        )
+    } else {
+        SeedingParameters::from_read_length(
+            read_length,
+            args.k,
+            args.s,
+            args.l,
+            args.u,
+            args.c,
+            args.max_seed_length,
+            args.aux_len,
+        )
+    }?;
     info!(
-        "Canonical read length: {} bp",
-        parameters.canonical_read_length
+        "Read profile: {} {}",
+        parameters.profile,
+        if parameters.is_custom() {
+            " (modified from default)"
+        } else {
+            ""
+        }
     );
+
     debug!("  {:?}", parameters.syncmer);
     debug!("  {:?}", parameters.randstrobe);
     debug!(
