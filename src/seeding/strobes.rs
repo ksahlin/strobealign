@@ -78,15 +78,15 @@ impl Randstrobe {
         strobe2: Syncmer,
         parameters: &RandstrobeParameters,
     ) -> Self {
-        let canonical1 = strobe1.is_canonical() as u64;
-        let canonical2 = strobe2.is_canonical() as u64;
+        let is_forward1 = strobe1.is_forward() as u64;
+        let is_forward2 = strobe2.is_forward() as u64;
         Randstrobe {
             hash: Randstrobe::hash(strobe1.hash(), strobe2.hash(), parameters)
-                ^ (canonical1 << parameters.partial_orientation_pos)
-                ^ (canonical2 << STROBE2_OFFSET_BITS),
+                ^ (is_forward1 << parameters.partial_orientation_pos)
+                ^ (is_forward2 << STROBE2_OFFSET_BITS),
             hash_revcomp: Randstrobe::hash(strobe2.hash(), strobe1.hash(), parameters)
-                ^ ((canonical2 ^ 1) << parameters.partial_orientation_pos)
-                ^ ((canonical1 ^ 1) << STROBE2_OFFSET_BITS),
+                ^ ((is_forward2 ^ 1) << parameters.partial_orientation_pos)
+                ^ ((is_forward1 ^ 1) << STROBE2_OFFSET_BITS),
             strobe1_pos: strobe1.position,
             strobe2_pos: strobe2.position,
         }

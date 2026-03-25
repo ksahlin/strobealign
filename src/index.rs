@@ -856,7 +856,7 @@ mod tests {
             for (sf, sr) in syncmers_forward.iter().zip(syncmers_reverse.iter()) {
                 assert_eq!(sf.hash(), sr.hash());
                 assert_eq!(sf.position, sr.position);
-                assert_ne!(sf.is_canonical(), sr.is_canonical());
+                assert_ne!(sf.is_forward(), sr.is_forward());
             }
         }
     }
