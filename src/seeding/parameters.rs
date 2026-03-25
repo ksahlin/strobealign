@@ -1,3 +1,5 @@
+use std::cmp::min;
+
 use thiserror::Error;
 
 use super::strobes::{DEFAULT_AUX_LEN, RandstrobeParameters};
@@ -79,6 +81,8 @@ pub struct SeedingParameters {
     pub canonical_read_length: usize,
     pub syncmer: SyncmerParameters,
     pub randstrobe: RandstrobeParameters,
+    pub adna_mode: bool,
+    pub ry_len: usize,
 }
 
 impl SeedingParameters {
@@ -111,6 +115,8 @@ impl SeedingParameters {
         q: u64,
         max_dist: u8,
         aux_len: u8,
+        adna_mode: bool,
+        ry_len: usize,
     ) -> Result<Self, InvalidSeedingParameter> {
         if aux_len > 63 {
             return Err(InvalidSeedingParameter::InvalidParameter(
@@ -123,6 +129,8 @@ impl SeedingParameters {
             canonical_read_length,
             syncmer: SyncmerParameters::try_new(k, s)?,
             randstrobe: RandstrobeParameters::try_new(w_min, w_max, q, max_dist, main_hash_mask)?,
+            adna_mode,
+            ry_len,
         })
     }
 
@@ -137,6 +145,8 @@ impl SeedingParameters {
         c: Option<u32>,
         max_seed_len: Option<usize>,
         aux_len: u8,
+        adna_mode: bool,
+        ry_len: Option<usize>,
     ) -> Result<SeedingParameters, InvalidSeedingParameter> {
         let default_c = 8;
         let mut canonical_read_length = 50;
@@ -178,6 +188,14 @@ impl SeedingParameters {
         };
         let q = 2u64.pow(c.unwrap_or(default_c)) - 1;
 
+        let ry_len = ry_len.unwrap_or(k);
+
+        let aux_len = if adna_mode {
+            min(ry_len as u8, aux_len)
+        } else {
+            aux_len
+        };
+
         SeedingParameters::try_new(
             canonical_read_length,
             k,
@@ -187,6 +205,8 @@ impl SeedingParameters {
             q,
             max_dist,
             aux_len,
+            adna_mode,
+            ry_len,
         )
     }
 
@@ -200,6 +220,8 @@ impl SeedingParameters {
             None,
             None,
             DEFAULT_AUX_LEN,
+            false,
+            None,
         )
         .unwrap()
     }
@@ -240,6 +262,8 @@ mod test {
             q,
             max_dist,
             aux_len,
+            false,
+            0,
         )
         .unwrap();
         assert_eq!(

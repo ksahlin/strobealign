@@ -16,8 +16,8 @@ use thiserror::Error;
 use crate::io::fasta::RefSequence;
 use crate::partition::custom_partition_point;
 use crate::seeding::{
-    InvalidSeedingParameter, RandstrobeIterator, RandstrobeParameters, SeedingParameters,
-    SyncmerIterator, SyncmerParameters,
+    InvalidSeedingParameter, KmerSyncmerIterator, RandstrobeIterator, RandstrobeParameters,
+    RymerIterator, RymerSyncmerIterator, SeedingParameters, SyncmerParameters,
 };
 
 impl SyncmerParameters {
@@ -133,14 +133,24 @@ impl RefRandstrobe {
 
 /// Count randstrobes by counting syncmers
 fn count_randstrobes(seq: &[u8], parameters: &SeedingParameters) -> usize {
-    let syncmer_iterator = SyncmerIterator::new(
-        seq,
-        parameters.syncmer.k,
-        parameters.syncmer.s,
-        parameters.syncmer.t,
-    );
-
-    syncmer_iterator.count()
+    if parameters.adna_mode {
+        RymerSyncmerIterator::with_ry_len(
+            seq,
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+            parameters.ry_len,
+        )
+        .count()
+    } else {
+        KmerSyncmerIterator::new(
+            seq,
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+        )
+        .count()
+    }
 }
 
 fn count_all_randstrobes(
@@ -424,16 +434,36 @@ impl<'a> StrobemerIndex<'a> {
         if seq.len() < self.parameters.randstrobe.w_max {
             return;
         }
-        let syncmer_iter = SyncmerIterator::new(
-            seq,
-            self.parameters.syncmer.k,
-            self.parameters.syncmer.s,
-            self.parameters.syncmer.t,
-        );
 
-        let randstrobe_iter =
-            RandstrobeIterator::new(syncmer_iter, self.parameters.randstrobe.clone());
+        if self.parameters.adna_mode {
+            let syncmer_iter = RymerSyncmerIterator::with_ry_len(
+                seq,
+                self.parameters.syncmer.k,
+                self.parameters.syncmer.s,
+                self.parameters.syncmer.t,
+                self.parameters.ry_len,
+            );
+            let randstrobe_iter =
+                RymerIterator::new(syncmer_iter, self.parameters.randstrobe.clone());
+            Self::fill_randstrobes(randstrobes, randstrobe_iter, ref_index);
+        } else {
+            let syncmer_iter = KmerSyncmerIterator::new(
+                seq,
+                self.parameters.syncmer.k,
+                self.parameters.syncmer.s,
+                self.parameters.syncmer.t,
+            );
+            let randstrobe_iter =
+                RandstrobeIterator::new(syncmer_iter, self.parameters.randstrobe.clone());
+            Self::fill_randstrobes(randstrobes, randstrobe_iter, ref_index);
+        }
+    }
 
+    fn fill_randstrobes(
+        randstrobes: &mut [RefRandstrobe],
+        randstrobe_iter: impl Iterator<Item = crate::seeding::strobes::Randstrobe>,
+        ref_index: usize,
+    ) {
         let mut n = 0;
         for (i, randstrobe) in randstrobe_iter.enumerate() {
             n += 1;
@@ -738,6 +768,8 @@ impl<'a> StrobemerIndex<'a> {
             canonical_read_length,
             syncmer: syncmer_parameters,
             randstrobe: randstrobe_parameters,
+            adna_mode: self.parameters.adna_mode,
+            ry_len: self.parameters.ry_len,
         };
 
         if self.parameters != sti_parameters {
@@ -825,7 +857,7 @@ mod tests {
     }
 
     fn syncmers_of(seq: &[u8], parameters: &SyncmerParameters) -> Vec<Syncmer> {
-        SyncmerIterator::new(seq, parameters.k, parameters.s, parameters.t).collect()
+        KmerSyncmerIterator::new(seq, parameters.k, parameters.s, parameters.t).collect()
     }
 
     #[test]

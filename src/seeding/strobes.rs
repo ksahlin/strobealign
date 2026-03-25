@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use super::syncmers::RymerSyncmer;
 use super::{InvalidSeedingParameter, Syncmer};
 use crate::index::{REF_RANDSTROBE_HASH_MASK, STROBE2_OFFSET_BITS};
 
@@ -57,7 +58,7 @@ pub struct Randstrobe {
 }
 
 impl Randstrobe {
-    pub fn from_strobes(
+    pub fn from_kmers(
         strobe1: Syncmer,
         strobe2: Syncmer,
         parameters: &RandstrobeParameters,
@@ -73,6 +74,21 @@ impl Randstrobe {
                 ^ ((canonical1 ^ 1) << STROBE2_OFFSET_BITS),
             strobe1_pos: strobe1.position,
             strobe2_pos: strobe2.position,
+        }
+    }
+
+    pub fn from_rymers(
+        syncmer: RymerSyncmer,
+        parameters: &RandstrobeParameters,
+    ) -> Self {
+        let canonical = syncmer.is_canonical() as u64;
+        Randstrobe {
+            hash: Randstrobe::hash(syncmer.hash1, syncmer.hash2, parameters)
+                ^ (canonical << parameters.partial_orientation_pos),
+            hash_revcomp: Randstrobe::hash(syncmer.hash1, syncmer.hash2, parameters)
+                ^ ((canonical ^ 1) << parameters.partial_orientation_pos),
+            strobe1_pos: syncmer.position,
+            strobe2_pos: syncmer.position,
         }
     }
 
@@ -139,7 +155,30 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
         }
         self.syncmers.pop_front();
 
-        Some(Randstrobe::from_strobes(strobe1, strobe2, &self.parameters))
+        Some(Randstrobe::from_kmers(strobe1, strobe2, &self.parameters))
+    }
+}
+
+pub struct RymerIterator<I: Iterator<Item = RymerSyncmer>> {
+    parameters: RandstrobeParameters,
+    syncmer_iterator: I,
+}
+
+impl<I: Iterator<Item = RymerSyncmer>> RymerIterator<I> {
+    pub fn new(syncmer_iterator: I, parameters: RandstrobeParameters) -> Self {
+        RymerIterator {
+            parameters,
+            syncmer_iterator,
+        }
+    }
+}
+
+impl<I: Iterator<Item = RymerSyncmer>> Iterator for RymerIterator<I> {
+    type Item = Randstrobe;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let syncmer = self.syncmer_iterator.next()?;
+        Some(Randstrobe::from_rymers(syncmer, &self.parameters))
     }
 }
 
@@ -148,7 +187,9 @@ mod test {
     use super::*;
     use crate::io::fasta::{RefSequence, read_fasta};
     use crate::seeding::SeedingParameters;
-    use crate::seeding::SyncmerIterator;
+    use crate::seeding::syncmers::{
+        KmerSyncmerIterator, RymerSyncmerIterator, SyncmerIterator, SyncmerParameters,
+    };
     use std::fs::File;
     use std::io::BufReader;
 
@@ -163,7 +204,7 @@ mod test {
     fn test_randstrobe_iterator() {
         let refseq = read_phix().sequence;
         let parameters = SeedingParameters::default_from_read_length(300);
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             &refseq,
             parameters.syncmer.k,
             parameters.syncmer.s,
@@ -179,13 +220,11 @@ mod test {
         }
     }
 
-    // Ensure SyncmerIterator and RandstrobeIterator return the same number of
-    // items. We need this to hold for `count_randstrobes()`.
     #[test]
     fn test_syncmer_and_randstrobe_iterator_same_count() {
         let refseq = read_phix().sequence;
         let parameters = SeedingParameters::default_from_read_length(100);
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             &refseq,
             parameters.syncmer.k,
             parameters.syncmer.s,
@@ -193,7 +232,7 @@ mod test {
         );
         let syncmer_count = syncmer_iter.count();
 
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             &refseq,
             parameters.syncmer.k,
             parameters.syncmer.s,
@@ -203,5 +242,49 @@ mod test {
         let randstrobe_count = randstrobe_iter.count();
 
         assert_eq!(randstrobe_count, syncmer_count);
+    }
+
+    #[test]
+    fn test_rymer_iterator() {
+        let refseq = read_phix().sequence;
+        let parameters = SeedingParameters::default_from_read_length(300);
+
+        let syncmer_iter = RymerSyncmerIterator::new(
+            &refseq,
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+        );
+        let rymer_iter = RymerIterator::new(syncmer_iter, parameters.randstrobe.clone());
+
+        for randstrobe in rymer_iter {
+            assert!(randstrobe.strobe1_pos == randstrobe.strobe2_pos);
+            assert!(randstrobe.strobe1_pos < refseq.len());
+        }
+    }
+
+    #[test]
+    fn test_rymer_iterator_count_matches_syncmer_count() {
+        let refseq = read_phix().sequence;
+        let parameters = SeedingParameters::default_from_read_length(300);
+
+        let syncmer_iter = RymerSyncmerIterator::new(
+            &refseq,
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+        );
+        let syncmer_count = syncmer_iter.count();
+
+        let syncmer_iter = RymerSyncmerIterator::new(
+            &refseq,
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+        );
+        let rymer_iter = RymerIterator::new(syncmer_iter, parameters.randstrobe.clone());
+        let rymer_count = rymer_iter.count();
+
+        assert_eq!(rymer_count, syncmer_count);
     }
 }

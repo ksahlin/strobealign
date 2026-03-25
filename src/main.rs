@@ -184,6 +184,16 @@ struct Args {
     #[arg(long, default_value_t = DEFAULT_AUX_LEN, value_name = "N", help_heading = "Seeding")]
     aux_len: u8,
 
+    /// Use ancient DNA seeding mode (rymer syncmers instead of kmer syncmers)
+    #[arg(long, help_heading = "Seeding")]
+    adna: bool,
+
+    /// Number of positions within each k-mer that use RY encoding (default: k).
+    /// Remaining positions use standard nucleotide encoding.
+    /// Only used when --adna is set.
+    #[arg(long = "ry-len", help_heading = "Seeding")]
+    ry_len: Option<usize>,
+
     /// Multi-context seed strategy for finding hits
     #[arg(long = "mcs", value_enum, default_value_t = McsStrategy::default(), help_heading = "Search parameters")]
     mcs_strategy: McsStrategy,
@@ -362,12 +372,20 @@ fn run() -> Result<(), CliError> {
         args.c,
         args.max_seed_length,
         args.aux_len,
+        args.adna,
+        args.ry_len,
     )?;
 
     info!(
         "Canonical read length: {} bp",
         parameters.canonical_read_length
     );
+    if parameters.adna_mode {
+        info!(
+            "Ancient DNA mode enabled (using rymer syncmers, ry_len={})",
+            parameters.ry_len
+        );
+    }
     debug!("  {:?}", parameters.syncmer);
     debug!("  {:?}", parameters.randstrobe);
     debug!(
