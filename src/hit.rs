@@ -150,6 +150,7 @@ fn find_all_hits(
             } else {
                 hits_details.full_not_found += 1;
                 if mcs_strategy == McsStrategy::Always {
+                    // Perform partial lookup in both directions for later use in rescue
                     if let Some(undirected_pos) = index.get_partial(randstrobe.hash) {
                         let is_filtered =
                             index.is_too_frequent_partial(undirected_pos, filter_cutoff);
@@ -190,6 +191,7 @@ fn find_all_hits(
             && hits_details.full_filtered + hits_details.full_found == 0)
     {
         for randstrobe in query_randstrobes {
+            // Perform partial lookup in both directions for later use in rescue
             if let Some(undirected_pos) = index.get_partial(randstrobe.hash) {
                 let is_filtered = index.is_too_frequent_partial(undirected_pos, filter_cutoff);
                 if is_filtered {
