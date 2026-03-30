@@ -363,15 +363,7 @@ fn run() -> Result<(), CliError> {
     }
 
     let parameters = if args.profile.is_some() {
-        SeedingParameters::noisy(
-            args.k,
-            args.s,
-            args.l,
-            args.u,
-            args.c,
-            args.max_seed_length,
-            args.aux_len,
-        )
+        SeedingParameters::noisy(args.k, args.s, args.l, args.u, args.c, args.max_seed_length)
     } else {
         SeedingParameters::from_read_length(
             read_length,
@@ -381,9 +373,9 @@ fn run() -> Result<(), CliError> {
             args.u,
             args.c,
             args.max_seed_length,
-            args.aux_len,
         )
-    }?;
+    }?
+    .with_aux_len(args.aux_len)?;
     info!(
         "Read profile: {} {}",
         parameters.profile,

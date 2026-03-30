@@ -5,23 +5,24 @@ use thiserror::Error;
 use super::strobes::{DEFAULT_AUX_LEN, RandstrobeParameters};
 use super::syncmers::SyncmerParameters;
 
-// A preset for seeding parameters (k, s, l, u, etc.)
+/// A preset for seeding parameters
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Profile {
     Noisy,
-    Canonical50,
-    Canonical75,
-    Canonical100,
-    Canonical125,
-    Canonical150,
-    Canonical250,
-    Canonical400,
+    ReadLength50,
+    ReadLength75,
+    ReadLength100,
+    ReadLength125,
+    ReadLength150,
+    ReadLength250,
+    ReadLength400,
 }
 
-impl From<usize> for Profile {
+/*impl From<usize> for Profile {
     /// Given a read length, returns the corresponding closest canonical `Profile`
     ///
-    /// This never returns the `Noisy` variant (construct that explicitly).
+    /// This never returns the `Noisy` variant (to get it, construct it explicitly
+    /// instead).
     fn from(read_length: usize) -> Self {
         // unwrap is fine because the last r_threshold is usize::MAX
         READ_LENGTH_SETTINGS
@@ -31,39 +32,49 @@ impl From<usize> for Profile {
             .profile
             .clone()
     }
-}
+}*/
 
 impl Profile {
+    /// If this is a read-length based profile, returns the canonical length.
+    /// Otherwise, returns None.
+    fn length(&self) -> Option<usize> {
+        match *self {
+            Profile::Noisy => None,
+            Profile::ReadLength50 => Some(50),
+            Profile::ReadLength75 => Some(75),
+            Profile::ReadLength100 => Some(100),
+            Profile::ReadLength125 => Some(125),
+            Profile::ReadLength150 => Some(150),
+            Profile::ReadLength250 => Some(250),
+            Profile::ReadLength400 => Some(400),
+        }
+    }
+
     /// Returns the identifier for the profile (used in the index file name).
     fn identifier(&self) -> String {
-        match self {
-            Profile::Noisy => "noisy",
-            Profile::Canonical50 => "r50",
-            Profile::Canonical75 => "r75",
-            Profile::Canonical100 => "r100",
-            Profile::Canonical125 => "r125",
-            Profile::Canonical150 => "r150",
-            Profile::Canonical250 => "r250",
-            Profile::Canonical400 => "r400",
+        if let Some(length) = self.length() {
+            format!("r{}", length)
+        } else {
+            "noisy".to_string()
         }
-        .to_string()
     }
 }
 
-/// A u32 value is stored in `.sti` files to encode the profile.
+/// A u32 value is stored in `.sti` files to encode the profile. This trait
+/// implementation is used to convert it back to a `Profile`.
 impl TryFrom<u32> for Profile {
     type Error = ();
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value as u32 {
             x if x == Profile::Noisy as u32 => Ok(Profile::Noisy),
-            x if x == Profile::Canonical50 as u32 => Ok(Profile::Canonical50),
-            x if x == Profile::Canonical75 as u32 => Ok(Profile::Canonical75),
-            x if x == Profile::Canonical100 as u32 => Ok(Profile::Canonical100),
-            x if x == Profile::Canonical125 as u32 => Ok(Profile::Canonical125),
-            x if x == Profile::Canonical150 as u32 => Ok(Profile::Canonical150),
-            x if x == Profile::Canonical250 as u32 => Ok(Profile::Canonical250),
-            x if x == Profile::Canonical400 as u32 => Ok(Profile::Canonical400),
+            x if x == Profile::ReadLength50 as u32 => Ok(Profile::ReadLength50),
+            x if x == Profile::ReadLength75 as u32 => Ok(Profile::ReadLength75),
+            x if x == Profile::ReadLength100 as u32 => Ok(Profile::ReadLength100),
+            x if x == Profile::ReadLength125 as u32 => Ok(Profile::ReadLength125),
+            x if x == Profile::ReadLength150 as u32 => Ok(Profile::ReadLength150),
+            x if x == Profile::ReadLength250 as u32 => Ok(Profile::ReadLength250),
+            x if x == Profile::ReadLength400 as u32 => Ok(Profile::ReadLength400),
             _ => Err(()),
         }
     }
@@ -71,15 +82,10 @@ impl TryFrom<u32> for Profile {
 
 impl Display for Profile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Profile::Noisy => write!(f, "noisy"),
-            Profile::Canonical50 => write!(f, "canonical 50 nt"),
-            Profile::Canonical75 => write!(f, "canonical 75 nt"),
-            Profile::Canonical100 => write!(f, "canonical 100 nt"),
-            Profile::Canonical125 => write!(f, "canonical 125 nt"),
-            Profile::Canonical150 => write!(f, "canonical 150 nt"),
-            Profile::Canonical250 => write!(f, "canonical 250 nt"),
-            Profile::Canonical400 => write!(f, "canonical 400 nt"),
+        if let Some(length) = self.length() {
+            write!(f, "canonical {} nt", length)
+        } else {
+            write!(f, "noisy")
         }
     }
 }
@@ -97,7 +103,7 @@ struct ReadLengthSettings {
 
 static READ_LENGTH_SETTINGS: [ReadLengthSettings; 7] = [
     ReadLengthSettings {
-        profile: Profile::Canonical50,
+        profile: Profile::ReadLength50,
         canonical_read_length: 50,
         r_threshold: 70,
         k: 18,
@@ -106,7 +112,7 @@ static READ_LENGTH_SETTINGS: [ReadLengthSettings; 7] = [
         w_max: 4,
     },
     ReadLengthSettings {
-        profile: Profile::Canonical75,
+        profile: Profile::ReadLength75,
         canonical_read_length: 75,
         r_threshold: 90,
         k: 20,
@@ -115,7 +121,7 @@ static READ_LENGTH_SETTINGS: [ReadLengthSettings; 7] = [
         w_max: 6,
     },
     ReadLengthSettings {
-        profile: Profile::Canonical100,
+        profile: Profile::ReadLength100,
         canonical_read_length: 100,
         r_threshold: 110,
         k: 20,
@@ -124,7 +130,7 @@ static READ_LENGTH_SETTINGS: [ReadLengthSettings; 7] = [
         w_max: 6,
     },
     ReadLengthSettings {
-        profile: Profile::Canonical125,
+        profile: Profile::ReadLength125,
         canonical_read_length: 125,
         r_threshold: 135,
         k: 20,
@@ -133,7 +139,7 @@ static READ_LENGTH_SETTINGS: [ReadLengthSettings; 7] = [
         w_max: 8,
     },
     ReadLengthSettings {
-        profile: Profile::Canonical150,
+        profile: Profile::ReadLength150,
         canonical_read_length: 150,
         r_threshold: 175,
         k: 20,
@@ -142,7 +148,7 @@ static READ_LENGTH_SETTINGS: [ReadLengthSettings; 7] = [
         w_max: 11,
     },
     ReadLengthSettings {
-        profile: Profile::Canonical250,
+        profile: Profile::ReadLength250,
         canonical_read_length: 250,
         r_threshold: 375,
         k: 22,
@@ -151,7 +157,7 @@ static READ_LENGTH_SETTINGS: [ReadLengthSettings; 7] = [
         w_max: 16,
     },
     ReadLengthSettings {
-        profile: Profile::Canonical400,
+        profile: Profile::ReadLength400,
         canonical_read_length: 400,
         r_threshold: usize::MAX,
         k: 23,
@@ -169,38 +175,6 @@ pub struct SeedingParameters {
     pub randstrobe: RandstrobeParameters,
 }
 
-impl From<&Profile> for SeedingParameters {
-    fn from(profile: &Profile) -> Self {
-        let rp = READ_LENGTH_SETTINGS
-            .iter()
-            .find(|&rlp| rlp.profile == *profile)
-            .expect("missing profile");
-
-        // TODO duplicated code
-        let q = 2u64.pow(8) - 1;
-
-        // TODO duplicated code
-        let main_hash_mask = !0u64 << (9 + DEFAULT_AUX_LEN);
-
-        // TODO duplicated code
-        let max_dist = usize::clamp(rp.canonical_read_length.saturating_sub(70), rp.k, 255) as u8;
-
-        SeedingParameters {
-            profile: profile.clone(),
-            syncmer: SyncmerParameters::try_new(rp.k, (rp.k as isize + rp.s_offset) as usize)
-                .unwrap(),
-            randstrobe: RandstrobeParameters::try_new(
-                rp.w_min,
-                rp.w_max,
-                q,
-                max_dist,
-                main_hash_mask,
-            )
-            .unwrap(),
-        }
-    }
-}
-
 #[derive(Error, Debug)]
 pub enum InvalidSeedingParameter {
     #[error("Invalid seeding parameter: {0}")]
@@ -208,6 +182,55 @@ pub enum InvalidSeedingParameter {
 }
 
 impl SeedingParameters {
+    pub fn new(profile: &Profile) -> Self {
+        let c = 8;
+        let q = 2u64.pow(c) - 1;
+        let main_hash_mask = !0u64 << (9 + DEFAULT_AUX_LEN);
+
+        match profile {
+            Profile::Noisy => SeedingParameters {
+                profile: profile.clone(),
+                syncmer: SyncmerParameters::try_new(16, 12).unwrap(),
+                randstrobe: RandstrobeParameters::try_new(2, 2, q, 84, main_hash_mask).unwrap(),
+            },
+            profile => {
+                let read_length = profile.length().unwrap();
+                let read_length_profile = READ_LENGTH_SETTINGS
+                    .iter()
+                    .find(|&rp| read_length <= rp.r_threshold)
+                    .expect("missing profile");
+
+                let s = (read_length_profile.k as isize + read_length_profile.s_offset) as usize;
+                let max_dist =
+                    usize::clamp(read_length.saturating_sub(70), read_length_profile.k, 255) as u8;
+
+                SeedingParameters {
+                    profile: profile.clone(),
+                    syncmer: SyncmerParameters::try_new(read_length_profile.k, s).unwrap(),
+                    randstrobe: RandstrobeParameters::try_new(
+                        read_length_profile.w_min,
+                        read_length_profile.w_max,
+                        q,
+                        max_dist,
+                        main_hash_mask,
+                    )
+                    .unwrap(),
+                }
+            }
+        }
+    }
+
+    pub fn with_aux_len(mut self, aux_len: u8) -> Result<Self, InvalidSeedingParameter> {
+        if aux_len > 63 {
+            return Err(InvalidSeedingParameter::InvalidParameter(
+                "aux length must be less than 64",
+            ));
+        }
+        self.randstrobe.main_hash_mask = !0u64 << (9 + aux_len);
+
+        Ok(self)
+    }
+
     pub fn try_new(
         profile: Profile,
         k: usize,
@@ -216,15 +239,8 @@ impl SeedingParameters {
         w_max: usize,
         q: u64,
         max_dist: u8,
-        aux_len: u8,
     ) -> Result<Self, InvalidSeedingParameter> {
-        if aux_len > 63 {
-            return Err(InvalidSeedingParameter::InvalidParameter(
-                "aux length must be less than 64",
-            ));
-        }
-
-        let main_hash_mask = !0u64 << (9 + aux_len);
+        let main_hash_mask = Self::new(&profile).randstrobe.main_hash_mask;
         Ok(SeedingParameters {
             profile,
             syncmer: SyncmerParameters::try_new(k, s)?,
@@ -241,7 +257,6 @@ impl SeedingParameters {
         w_max: Option<usize>,
         c: Option<u32>,
         max_seed_len: Option<usize>,
-        aux_len: u8,
     ) -> Result<Self, InvalidSeedingParameter> {
         struct P {
             k: usize,
@@ -277,7 +292,7 @@ impl SeedingParameters {
             None => p.max_dist,
         };
 
-        SeedingParameters::try_new(Profile::Noisy, k, s, w_min, w_max, q, max_dist, aux_len)
+        SeedingParameters::try_new(Profile::Noisy, k, s, w_min, w_max, q, max_dist)
     }
 
     /// Create an IndexParameters instance based on a given read length.
@@ -290,7 +305,6 @@ impl SeedingParameters {
         w_max: Option<usize>,
         c: Option<u32>,
         max_seed_len: Option<usize>,
-        aux_len: u8,
     ) -> Result<Self, InvalidSeedingParameter> {
         let read_length_profile = READ_LENGTH_SETTINGS
             .iter()
@@ -327,39 +341,22 @@ impl SeedingParameters {
             w_max,
             q,
             max_dist,
-            aux_len,
         )
     }
 
     pub fn default_from_read_length(read_length: usize) -> SeedingParameters {
-        Self::from_read_length(
-            read_length,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            DEFAULT_AUX_LEN,
-        )
-        .unwrap()
+        Self::from_read_length(read_length, None, None, None, None, None, None).unwrap()
     }
 
     pub fn default_from_profile(profile: &Profile) -> SeedingParameters {
-        match profile {
-            Profile::Noisy => {
-                Self::noisy(None, None, None, None, None, None, DEFAULT_AUX_LEN).unwrap()
-            }
-            Profile::Canonical50 => Self::default_from_read_length(50),
-            Profile::Canonical75 => Self::default_from_read_length(75),
-            Profile::Canonical100 => Self::default_from_read_length(100),
-            Profile::Canonical125 => Self::default_from_read_length(125),
-            Profile::Canonical150 => Self::default_from_read_length(150),
-            Profile::Canonical250 => Self::default_from_read_length(250),
-            Profile::Canonical400 => Self::default_from_read_length(400),
+        if let Some(length) = profile.length() {
+            Self::default_from_read_length(length)
+        } else {
+            Self::noisy(None, None, None, None, None, None).unwrap()
         }
     }
 
+    /// Returns whether the settings differ from the profile they are based on.
     pub fn is_custom(&self) -> bool {
         Self::default_from_profile(&self.profile) != *self
     }
@@ -369,7 +366,7 @@ impl SeedingParameters {
     ///
     /// If the profile was modified from the default, returns just ".sti".
     pub fn filename_extension(&self) -> String {
-        if *self != SeedingParameters::from(&self.profile) {
+        if self.is_custom() {
             ".sti".to_string()
         } else {
             format!(".{}.sti", self.profile.identifier())
@@ -400,23 +397,17 @@ mod test {
             max_dist,
             main_hash_mask,
         };
-        let seeding_parameters = SeedingParameters::try_new(
-            Profile::Canonical250,
-            k,
-            s,
-            w_min,
-            w_max,
-            q,
-            max_dist,
-            aux_len,
-        )
-        .unwrap();
-        assert_eq!(seeding_parameters.profile, Profile::Canonical250);
+        let seeding_parameters =
+            SeedingParameters::try_new(Profile::ReadLength250, k, s, w_min, w_max, q, max_dist)
+                .unwrap()
+                .with_aux_len(aux_len)
+                .unwrap();
+        assert_eq!(seeding_parameters.profile, Profile::ReadLength250);
         assert_eq!(seeding_parameters.randstrobe, rp);
         assert_eq!(seeding_parameters.syncmer, sp);
 
         let ip = SeedingParameters::default_from_read_length(canonical_read_length + 1);
-        assert_eq!(ip.profile, Profile::Canonical250);
+        assert_eq!(ip.profile, Profile::ReadLength250);
         assert_eq!(ip.randstrobe, rp);
         assert_eq!(ip.syncmer, sp);
     }
