@@ -832,7 +832,7 @@ mod tests {
     #[test]
     fn test_index_phix() {
         let references = read_ref("tests/phix.fasta");
-        let parameters = SeedingParameters::default_from_read_length(150);
+        let parameters = SeedingParameters::new(150);
         let mut index = StrobemerIndex::new(&references, parameters, None);
         index.populate(0.1, 1);
         assert!(index.stats.distinct_strobemers > 0);
@@ -844,7 +844,7 @@ mod tests {
             name: "name".to_string(),
             sequence: vec![],
         }];
-        let parameters = SeedingParameters::default_from_read_length(150);
+        let parameters = SeedingParameters::new(150);
         let mut index = StrobemerIndex::new(&references, parameters, None);
         index.populate(0.1, 1);
         assert_eq!(index.stats.distinct_strobemers, 0);
@@ -860,17 +860,13 @@ mod tests {
         let f = File::open(fasta_path).unwrap();
         let references = read_fasta(&mut BufReader::new(f)).unwrap();
 
-        let parameters = SeedingParameters::default_from_read_length(300);
+        let parameters = SeedingParameters::new(300);
         let mut index = StrobemerIndex::new(&references, parameters, None);
         index.populate(0.0002, 1);
         let sti_path = dir.path().join("index.sti");
         index.write(&sti_path).unwrap();
 
-        let mut other_index = StrobemerIndex::new(
-            &references,
-            SeedingParameters::default_from_read_length(50),
-            None,
-        );
+        let mut other_index = StrobemerIndex::new(&references, SeedingParameters::new(50), None);
 
         match other_index.read(&sti_path) {
             Err(IndexReadingError::ParameterMismatch) => {}

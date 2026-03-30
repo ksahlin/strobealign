@@ -362,20 +362,20 @@ fn run() -> Result<(), CliError> {
         reads_reader1 = None;
     }
 
-    let parameters = if args.profile.is_some() {
-        SeedingParameters::noisy(args.k, args.s, args.l, args.u, args.c, args.max_seed_length)
+    let mut parameters = if args.profile.is_some() {
+        SeedingParameters::noisy()
     } else {
-        SeedingParameters::from_read_length(
-            read_length,
-            args.k,
-            args.s,
-            args.l,
-            args.u,
-            args.c,
-            args.max_seed_length,
-        )
-    }?
+        SeedingParameters::new(read_length)
+    }
+    .with_k_s(args.k, args.s)?
+    .with_window(args.l, args.u)?
     .with_aux_len(args.aux_len)?;
+    if let Some(length) = args.max_seed_length {
+        parameters = parameters.with_max_seed_length(length)?;
+    }
+    if let Some(bitcount) = args.c {
+        parameters = parameters.with_bitcount(bitcount)?;
+    }
     info!(
         "Read profile: {} {}",
         parameters.profile,

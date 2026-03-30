@@ -24,18 +24,34 @@ impl RandstrobeParameters {
         max_dist: u8,
         main_hash_mask: u64,
     ) -> Result<Self, InvalidSeedingParameter> {
-        if w_min > w_max {
-            return Err(InvalidSeedingParameter::InvalidParameter(
-                "w_min is greater than w_max (choose different -l/-u parameters)",
-            ));
-        }
-        Ok(RandstrobeParameters {
+        RandstrobeParameters {
             w_min,
             w_max,
             q,
             max_dist,
             main_hash_mask,
-        })
+        }
+        .with_window(Some(w_min), Some(w_max))
+    }
+
+    pub fn with_window(
+        mut self,
+        w_min: Option<usize>,
+        w_max: Option<usize>,
+    ) -> Result<Self, InvalidSeedingParameter> {
+        let new_w_min = w_min.unwrap_or(self.w_min);
+        let new_w_max = w_max.unwrap_or(self.w_max);
+
+        if w_min > w_max {
+            return Err(InvalidSeedingParameter::InvalidParameter(
+                "w_min is greater than w_max (choose different -l/-u parameters)",
+            ));
+        }
+
+        self.w_min = new_w_min;
+        self.w_max = new_w_max;
+
+        Ok(self)
     }
 }
 
@@ -145,7 +161,7 @@ mod test {
     #[test]
     fn test_randstrobe_iterator() {
         let refseq = read_phix().sequence;
-        let parameters = SeedingParameters::default_from_read_length(300);
+        let parameters = SeedingParameters::new(300);
         let syncmer_iter = SyncmerIterator::new(
             &refseq,
             parameters.syncmer.k,
@@ -167,7 +183,7 @@ mod test {
     #[test]
     fn test_syncmer_and_randstrobe_iterator_same_count() {
         let refseq = read_phix().sequence;
-        let parameters = SeedingParameters::default_from_read_length(100);
+        let parameters = SeedingParameters::new(100);
         let syncmer_iter = SyncmerIterator::new(
             &refseq,
             parameters.syncmer.k,
