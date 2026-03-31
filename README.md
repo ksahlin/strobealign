@@ -171,15 +171,14 @@ options. Some important ones are:
   to disk next to the input reference FASTA. Do not map reads. If read files are
   provided, they are used to estimate read length. See [index files](#index-files).
 
-## Index files
+## Read profiles and canonical read lengths
 
-### Background
+Strobealign needs to build an index of the reference before it can map reads to it.
 
-Strobealign needs to build an index (strobemer index) of the reference before
-it can map reads to it.
-The optimal indexing parameters depend on the length of the input reads.
-There are pre-defined sets of parameters that are optimized for different read
-lengths. These *canonical read lengths* are
+The optimal indexing parameters depend on the type of reads that are to be mapped.
+
+Strobealign by default uses pre-defined sets of parameters that are optimized
+for different read lengths. These *canonical read lengths* are
 50, 75, 100, 125, 150, 250 and 400. When deciding which of the pre-defined
 indexing parameter sets to use, strobealign chooses one whose canonical
 read length is close to the average read length of the input.
@@ -187,31 +186,46 @@ read length is close to the average read length of the input.
 The average read length of the input is normally estimated from the first
 500 reads, but can also be explicitly set with `-r`.
 
+In addition, it is possible to choose a profile optimized for “noisy”, that is,
+error-prone reads. Use `-P noisy` on the command line to select it.
+This is equivalent to `-k 16 -s 12 -l 2 -u 2 -m 100`.
+We found these settings to increase accuracy on error-prone reads,
+but note this comes at the cost of runtime.
+
+## Index files
+
 ### Pre-computing an index (`.sti`)
 
 By default, strobealign creates a new index every time the program is run.
-Depending on CPU, indexing a human-sized genome takes
-1 to 2 minutes, which is not long compared to mapping many millions of reads.
-However, for repeatedly mapping small libraries, it is faster to pre-generate
+On current CPUs (and using multiple cores), indexing a human-sized genome takes
+less than 1 minute, which is not long compared to mapping many millions of reads.
+However, for repeatedly mapping small libraries, it may be faster to pre-generate
 an index on disk and use that.
 
 To create an index, use the `--create-index` option.
-Since strobealign needs to know the read length, either provide it with
-read file(s) as if you wanted to map them:
+Since strobealign needs to know the read profile, either provide some reads on
+the command line as if you wanted to map them:
 
     strobealign --create-index -t 8 ref.fa reads.1.fastq.gz reads.2.fastq.gz
 
-Or set the read length explicitly with `-r`:
+This will use a read-length based profile based on the estimated read length.
+You can also set the read length explicitly with `-r`:
 
-    strobealign --create-index -t 8 ref.fa -r 150
+    strobealign --create-index -t 8  -r 150 ref.fa
 
-This creates a file named `ref.fa.rX.sti` containing the strobemer index,
-where `X` is the canonical read length that the index is optimized for (see
-above).
+Or use the “noisy” profile with `-P noisy`:
+
+    strobealign --create-index -t 8 -P noisy ref.fa
+
+This creates a file named `ref.fa.X.sti` containing the strobemer index,
+where `X` is an identifier for the read profile (such as `r50`, `r100`, `noisy`).
 To use the index when mapping, provide option `--use-index` when doing the
 actual mapping:
 
     strobealign --use-index -t 8 ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools ...
+
+If you want to use the “noisy” profile, you also need to specify `-P noisy`
+during mapping.
 
 - Note that the `.sti` files are usually tied to a specific strobealign version.
   That is, when upgrading strobealign, the `.sti` files need to be regenerated.
