@@ -1,4 +1,6 @@
 use std::io::BufRead;
+use std::ops::Index;
+use std::slice::SliceIndex;
 
 use crate::io::record::{End, SequenceRecord};
 use crate::io::{SequenceIOError, split_header};
@@ -6,7 +8,28 @@ use crate::io::{SequenceIOError, split_header};
 #[derive(Debug, Clone)]
 pub struct RefSequence {
     pub name: String,
-    pub sequence: Vec<u8>,
+    sequence: Vec<u8>,
+}
+
+impl RefSequence {
+    pub fn new(name: String, sequence: Vec<u8>) -> Self {
+        RefSequence { name, sequence }
+    }
+
+    pub fn len(&self) -> usize {
+        self.sequence.len()
+    }
+}
+
+impl<Idx> Index<Idx> for RefSequence
+where
+    Idx: SliceIndex<[u8]>,
+{
+    type Output = Idx::Output;
+
+    fn index(&self, index: Idx) -> &Self::Output {
+        self.sequence.index(index)
+    }
 }
 
 /// Check whether a name is fine to use in SAM output.
@@ -136,6 +159,17 @@ mod tests {
     use super::*;
     use std::fs::File;
     use std::io::BufReader;
+
+    #[test]
+    fn test_ref_sequence() {
+        let name = "Name".to_string();
+        let sequence = b"ACGT".to_vec();
+        let rs = RefSequence { name, sequence };
+
+        assert_eq!(rs.len(), 4);
+        assert_eq!(&rs[0..rs.len()], b"ACGT");
+        assert_eq!(&rs[2..rs.len()], b"GT");
+    }
 
     #[test]
     fn test_read_fasta() {

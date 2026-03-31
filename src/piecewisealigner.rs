@@ -2,6 +2,7 @@ use crate::{
     aligner::{AlignmentInfo, Scores, hamming_align_global},
     chainer::Anchor,
     cigar::{Cigar, CigarOperation},
+    io::fasta::RefSequence,
 };
 use block_aligner::{
     cigar::{Cigar as BlockCigar, Operation},
@@ -256,7 +257,7 @@ impl PiecewiseAligner {
     fn align_before_first_anchor(
         &self,
         query: &[u8],
-        refseq: &[u8],
+        refseq: &RefSequence,
         first_anchor: &Anchor,
         padding: usize,
     ) -> AlignmentResult {
@@ -321,7 +322,7 @@ impl PiecewiseAligner {
     fn align_after_last_anchor(
         &self,
         query: &[u8],
-        refseq: &[u8],
+        refseq: &RefSequence,
         last_anchor: &Anchor,
         padding: usize,
     ) -> AlignmentResult {
@@ -396,7 +397,7 @@ impl PiecewiseAligner {
     pub fn extend_piecewise(
         &self,
         query: &[u8],
-        refseq: &[u8],
+        refseq: &RefSequence,
         anchors: &[Anchor],
         padding: usize,
     ) -> Option<AlignmentInfo> {
@@ -1524,7 +1525,10 @@ mod tests {
             100,
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-        let refseq = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let refseq = RefSequence::new(
+            "name".to_string(),
+            b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_vec(),
+        );
         let mut anchors = vec![
             Anchor {
                 ref_id: 0,
@@ -1548,7 +1552,7 @@ mod tests {
             },
         ];
         let result = aligner
-            .extend_piecewise(query, refseq, &mut anchors, 5)
+            .extend_piecewise(query, &refseq, &mut anchors, 5)
             .unwrap();
         assert_eq!(result.score, 50 * 2 + 10 * 2);
         assert_eq!(result.edit_distance, 0);
@@ -1573,7 +1577,10 @@ mod tests {
             100,
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-        let refseq = b"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT";
+        let refseq = RefSequence::new(
+            "name".to_string(),
+            b"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT".to_vec(),
+        );
         let mut anchors = vec![
             Anchor {
                 ref_id: 0,
@@ -1591,7 +1598,7 @@ mod tests {
                 query_start: 10,
             },
         ];
-        let result = aligner.extend_piecewise(query, refseq, &mut anchors, 5);
+        let result = aligner.extend_piecewise(query, &refseq, &mut anchors, 5);
         assert!(result.is_none());
     }
 
@@ -1609,8 +1616,11 @@ mod tests {
             100,
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-        let refseq =
-            b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let refseq = RefSequence::new(
+            "name".to_string(),
+            b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                .to_vec(),
+        );
         let mut anchors = vec![
             Anchor {
                 ref_id: 0,
@@ -1649,7 +1659,7 @@ mod tests {
             },
         ];
         let result = aligner
-            .extend_piecewise(query, refseq, &mut anchors, 5)
+            .extend_piecewise(query, &refseq, &mut anchors, 5)
             .unwrap();
         assert_eq!(result.score, 50 * 2 + 10 * 2 - 12 - 4 * 1);
         assert_eq!(result.edit_distance, 5);
@@ -1674,7 +1684,10 @@ mod tests {
             100,
         );
         let query = b"CTTTTAAAAATTTTAAAAATGGTTTCAAAAATTCCTAAAAATTTTTCCCCC";
-        let refseq = b"TTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAA";
+        let refseq = RefSequence::new(
+            "name".to_string(),
+            b"TTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAA".to_vec(),
+        );
         let mut anchors = vec![
             Anchor {
                 ref_id: 0,
@@ -1693,7 +1706,7 @@ mod tests {
             },
         ];
         let result = aligner
-            .extend_piecewise(query, refseq, &mut anchors, 5)
+            .extend_piecewise(query, &refseq, &mut anchors, 5)
             .unwrap();
         assert_eq!(
             result.score,

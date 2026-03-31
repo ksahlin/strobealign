@@ -97,7 +97,7 @@ fn paf_record_from_nam(
         query_end: nam.query_end as u64,
         is_revcomp: nam.is_revcomp,
         target_name: references[nam.ref_id].name.clone(),
-        target_length: references[nam.ref_id].sequence.len() as u64,
+        target_length: references[nam.ref_id].len() as u64,
         target_start: nam.ref_start as u64,
         target_end: nam.ref_end as u64,
         matching_bases: nam.matching_bases as u64,

@@ -222,8 +222,8 @@ mod test {
     #[test]
     fn test_canonical_syncmers() {
         let mut f = BufReader::new(File::open("tests/phix.fasta").unwrap());
-        let seq = read_fasta(&mut f).unwrap().pop().unwrap().sequence;
-        let sequences = ["AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".into(), seq];
+        let seq = &read_fasta(&mut f).unwrap().pop().unwrap()[..];
+        let sequences = [b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", seq];
         let parameters = SyncmerParameters::try_new(20, 16).unwrap();
         for s in sequences {
             let revcomped = reverse_complement(&s);

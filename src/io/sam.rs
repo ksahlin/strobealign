@@ -179,7 +179,7 @@ impl Display for SamHeader<'_> {
         writeln!(f, "@HD\tVN:1.6\tSO:unsorted")?;
 
         for refseq in self.references {
-            writeln!(f, "@SQ\tSN:{}\tLN:{}", refseq.name, refseq.sequence.len())?;
+            writeln!(f, "@SQ\tSN:{}\tLN:{}", refseq.name, refseq.len())?;
         }
         if let Some(read_group) = &self.read_group {
             write!(f, "@RG\tID:{}", read_group.id)?;

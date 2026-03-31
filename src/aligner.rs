@@ -4,6 +4,7 @@ use std::cell::Cell;
 
 use crate::chainer::Anchor;
 use crate::cigar::{Cigar, CigarOperation};
+use crate::io::fasta::RefSequence;
 use crate::piecewisealigner::PiecewiseAligner;
 use crate::ssw::SswAligner;
 
@@ -153,7 +154,7 @@ impl Aligner {
     pub fn align_piecewise(
         &self,
         query: &[u8],
-        refseq: &[u8],
+        refseq: &RefSequence,
         chain: &[Anchor],
         padding: usize,
     ) -> Option<AlignmentInfo> {

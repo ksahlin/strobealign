@@ -47,8 +47,8 @@ impl Nam {
     /// reference by comparing the nucleotide sequences of the first and last
     /// strobe (taking orientation into account).
     pub fn is_consistent(&self, read: &Read, references: &[RefSequence], k: usize) -> bool {
-        let ref_start_kmer = &references[self.ref_id].sequence[self.ref_start..self.ref_start + k];
-        let ref_end_kmer = &references[self.ref_id].sequence[self.ref_end - k..self.ref_end];
+        let ref_start_kmer = &references[self.ref_id][self.ref_start..self.ref_start + k];
+        let ref_end_kmer = &references[self.ref_id][self.ref_end - k..self.ref_end];
 
         let seq = if self.is_revcomp {
             read.rc()
@@ -93,8 +93,8 @@ pub fn reverse_nam_if_needed(
     references: &[RefSequence],
     k: usize,
 ) -> bool {
-    let ref_start_kmer = &references[nam.ref_id].sequence[nam.ref_start..nam.ref_start + k];
-    let ref_end_kmer = &references[nam.ref_id].sequence[nam.ref_end - k..nam.ref_end];
+    let ref_start_kmer = &references[nam.ref_id][nam.ref_start..nam.ref_start + k];
+    let ref_end_kmer = &references[nam.ref_id][nam.ref_end - k..nam.ref_end];
 
     let (seq, seq_rc) = if nam.is_revcomp {
         (read.rc(), read.seq())

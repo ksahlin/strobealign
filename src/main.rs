@@ -420,10 +420,10 @@ fn run() -> Result<(), CliError> {
         "Time reading reference: {:.2} s",
         timer.elapsed().as_secs_f64()
     );
-    let total_ref_size = references.iter().map(|r| r.sequence.len()).sum::<usize>();
+    let total_ref_size = references.iter().map(|r| r.len()).sum::<usize>();
     let max_contig_size = references
         .iter()
-        .map(|r| r.sequence.len())
+        .map(|r| r.len())
         .max()
         .ok_or(CliError::NoReference)?;
     info!(
@@ -974,7 +974,7 @@ pub fn output_abundances<T: Write>(
     out: &mut T,
 ) -> io::Result<()> {
     for i in 0..references.len() {
-        let normalized = abundances[i] / references[i].sequence.len() as f64;
+        let normalized = abundances[i] / references[i].len() as f64;
         writeln!(out, "{}\t{:.6}", references[i].name, normalized)?;
     }
     Ok(())

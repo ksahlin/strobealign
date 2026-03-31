@@ -517,7 +517,7 @@ fn extend_seed(
     } else {
         read.seq()
     };
-    let refseq = &references[nam.ref_id].sequence;
+    let refseq = &references[nam.ref_id];
 
     let projected_ref_start = nam.ref_start.saturating_sub(nam.query_start);
     let projected_ref_end = min(nam.ref_end + query.len() - nam.query_end, refseq.len());
@@ -1052,7 +1052,7 @@ fn rescue_align(
         )
     };
 
-    let ref_len = references[mate_nam.ref_id].sequence.len();
+    let ref_len = references[mate_nam.ref_id].len();
     let ref_start = ref_start.min(ref_len);
     let ref_end = ref_end.min(ref_len);
 
@@ -1060,7 +1060,7 @@ fn rescue_align(
         //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return None;
     }
-    let ref_segm = &references[mate_nam.ref_id].sequence[ref_start..ref_end];
+    let ref_segm = &references[mate_nam.ref_id][ref_start..ref_end];
 
     if !has_shared_substring(r_tmp, ref_segm, k) {
         return None;

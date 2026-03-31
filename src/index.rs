@@ -157,7 +157,7 @@ fn count_all_randstrobes(
                     if j >= references.len() {
                         break;
                     }
-                    let count = count_randstrobes(&references[j].sequence, parameters);
+                    let count = count_randstrobes(&references[j][..], parameters);
                     mutex.lock().unwrap()[j] = count;
                 }
             });
@@ -203,7 +203,7 @@ impl<'a> StrobemerIndex<'a> {
         parameters: SeedingParameters,
         bits: Option<u8>,
     ) -> Self {
-        let total_reference_length = references.iter().map(|r| r.sequence.len()).sum();
+        let total_reference_length = references.iter().map(|r| r.len()).sum();
         let bits = bits.unwrap_or_else(|| parameters.syncmer.pick_bits(total_reference_length));
         let randstrobes = vec![];
         let randstrobe_start_indices = vec![];
@@ -233,11 +233,7 @@ impl<'a> StrobemerIndex<'a> {
         self.stats.tot_strobemer_count = total_randstrobes as u64;
 
         debug!("  Total number of randstrobes: {}", total_randstrobes);
-        let total_length: usize = self
-            .references
-            .iter()
-            .map(|refseq| refseq.sequence.len())
-            .sum();
+        let total_length: usize = self.references.iter().map(|refseq| refseq.len()).sum();
         let memory_bytes: usize = total_length
             + size_of::<RefRandstrobe>() * total_randstrobes
             + size_of::<BucketIndex>() * (1usize << self.bits);
@@ -418,7 +414,7 @@ impl<'a> StrobemerIndex<'a> {
 
     /// Compute randstrobes of one reference contig and assign them to the provided slice
     fn assign_randstrobes(&self, ref_index: usize, randstrobes: &mut [RefRandstrobe]) {
-        let seq = &self.references[ref_index].sequence;
+        let seq = &self.references[ref_index][..];
         if seq.len() < self.parameters.randstrobe.w_max {
             return;
         }
@@ -802,7 +798,7 @@ mod tests {
         let records = read_fasta(&mut reader).unwrap();
         let seqs = vec![
             "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".as_bytes(),
-            &records[0].sequence,
+            &records[0][..],
         ];
         for seq in seqs {
             let seq_revcomp = reverse_complement(seq);
@@ -840,10 +836,7 @@ mod tests {
 
     #[test]
     fn test_index_empty_reference() {
-        let references = vec![RefSequence {
-            name: "name".to_string(),
-            sequence: vec![],
-        }];
+        let references = vec![RefSequence::new("name".to_string(), vec![])];
         let parameters = SeedingParameters::new(150);
         let mut index = StrobemerIndex::new(&references, parameters, None);
         index.populate(0.1, 1);
