@@ -1318,7 +1318,7 @@ fn aligned_pairs_to_sam(
         return records;
     }
 
-    let mapq = joint_mapq_from_high_scores(high_scores);
+    let mapq = alignment_quality(high_scores, |ap| ap.score as f32);
     let best_aln_pair = &high_scores[0];
 
     if max_secondary == 0 {
@@ -1366,15 +1366,17 @@ fn aligned_pairs_to_sam(
     records
 }
 
-fn joint_mapq_from_high_scores(pairs: &[ScoredAlignmentPair]) -> u8 {
-    if pairs.len() <= 1 {
+fn alignment_quality<T, F>(items: &[T], score: F) -> u8
+where
+    F: Fn(&T) -> f32,
+{
+    if items.len() <= 1 {
         return 60;
     }
-    let score1 = pairs[0].score;
-    let score2 = pairs[1].score;
-    if score1 == score2 {
-        return 0;
-    }
+
+    let score1 = score(&items[0]);
+    let score2 = score(&items[1]);
+
     if score1 > 0.0 && score2 > 0.0 {
         (score1 - score2).min(60.0) as u8
     } else if score1 > 0.0 && score2 <= 0.0 {
