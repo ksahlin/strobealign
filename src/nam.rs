@@ -13,6 +13,7 @@ use crate::io::fasta::RefSequence;
 use crate::mcsstrategy::McsStrategy;
 use crate::read::Read;
 use crate::seeding::randstrobes_query;
+use crate::shuffle::shuffle_best;
 
 /// Non-overlapping approximate match
 #[derive(Clone, Debug, Default)]
@@ -155,7 +156,7 @@ pub fn get_nams_by_chaining(
 pub fn sort_nams(nams: &mut [Nam], rng: &mut Rng) -> f64 {
     let timer = Instant::now();
     nams.sort_by(|a, b| b.score.total_cmp(&a.score));
-    shuffle_top_nams(nams, rng);
+    shuffle_best(nams, |nam| nam.score, rng);
 
     if log::log_enabled!(Trace) {
         trace!("Found {} NAMs", nams.len());
@@ -172,19 +173,4 @@ pub fn sort_nams(nams: &mut [Nam], rng: &mut Rng) -> f64 {
     }
 
     timer.elapsed().as_secs_f64()
-}
-
-/// Shuffle the top-scoring NAMs. Input must be sorted by score.
-/// This helps to ensure we pick a random location in case there are multiple
-/// equally good ones.
-fn shuffle_top_nams(nams: &mut [Nam], rng: &mut Rng) {
-    if let Some(best) = nams.first() {
-        let best_score = best.score;
-
-        let pos = nams.iter().position(|nam| nam.score != best_score);
-        let end = pos.unwrap_or(nams.len());
-        if end > 1 {
-            rng.shuffle(&mut nams[0..end]);
-        }
-    }
 }
