@@ -392,7 +392,6 @@ fn extract_chains_from_dp(
         }
 
         let mut j = i;
-        let mut c = 1;
         let mut overlaps = false;
         let mut chain_anchors = vec![anchors[i]];
 
@@ -407,7 +406,6 @@ fn extract_chains_from_dp(
             }
             chain_anchors.push(anchors[j]);
             used[j] = true;
-            c += 1;
 
             matching_bases += ref_coverage.saturating_sub(anchors[j].ref_start).min(k);
             ref_coverage = anchors[j].ref_start;
@@ -426,10 +424,9 @@ fn extract_chains_from_dp(
             query_end: last.query_start + k,
             ref_start: first.ref_start,
             ref_end: last.ref_start + k,
-            n_matches: c,
             matching_bases,
             ref_id: last.ref_id,
-            score: score + c as f32 * chaining_parameters.matches_weight,
+            score: score + chain_anchors.len() as f32 * chaining_parameters.matches_weight,
             is_revcomp,
             anchors: chain_anchors,
         });
