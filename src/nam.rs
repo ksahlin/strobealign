@@ -127,6 +127,8 @@ pub fn reverse_nam_if_needed(
 }
 
 /// Obtain NAMs for a sequence record, doing rescue if needed.
+///
+/// NAMs are returned unsorted
 pub fn get_nams_by_chaining(
     sequence: &[u8],
     index: &StrobemerIndex,
@@ -156,7 +158,6 @@ pub fn sort_nams(nams: &mut [Nam], rng: &mut Rng) -> f64 {
     let timer = Instant::now();
     nams.sort_by(|a, b| b.score.total_cmp(&a.score));
     shuffle_best(nams, |nam| nam.score, rng);
-
     if log::log_enabled!(Trace) {
         trace!("Found {} NAMs", nams.len());
         let mut printed = 0;
