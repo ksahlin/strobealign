@@ -800,6 +800,10 @@ fn run() -> Result<(), CliError> {
     debug!("Total mapping sites tried: {}", details.tried_alignment);
     debug!("Inconsistent NAM ends: {}", details.inconsistent_nams);
     debug!("Mates rescued by alignment: {}", details.mate_rescue);
+    debug!(
+        "Best alignments with rescued pairs: {}",
+        details.best_rescued
+    );
 
     info!("Total time mapping: {:.2} s", timer.elapsed().as_secs_f64());
     //info!("Total time reading read-file(s): {:.2} s", );
