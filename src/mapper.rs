@@ -364,7 +364,7 @@ pub fn align_single_end_read(
         .take(mapping_parameters.max_tries)
         .enumerate()
     {
-        let score_dropoff = nam.n_matches as f32 / nam_max.n_matches as f32;
+        let score_dropoff = nam.anchors.len() as f32 / nam_max.anchors.len() as f32;
 
         if (tries > 1 && best_edit_distance == 0)
             || score_dropoff < mapping_parameters.dropoff_threshold
@@ -1235,7 +1235,7 @@ pub fn mapping_quality(nams: &[Nam]) -> u8 {
     let s1 = nams[0].score;
     let s2 = nams[1].score;
     // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
-    let min_matches = min(nams[0].n_matches, 10) as f32 / 10.0;
+    let min_matches = min(nams[0].anchors.len(), 10) as f32 / 10.0;
     let uncapped_mapq = 40.0 * (1.0 - s2 / s1) * min_matches * s1.ln();
 
     uncapped_mapq.min(60.0) as u8
