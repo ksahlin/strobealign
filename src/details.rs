@@ -53,6 +53,9 @@ pub struct Details {
     /// No. of times rescue by local alignment was attempted
     pub mate_rescue: usize,
 
+    /// No. of best alignments found using mate rescue
+    pub best_rescued: usize,
+
     /// No. of computed alignments (get_alignment or rescue_mate)
     pub tried_alignment: usize,
 
@@ -70,6 +73,7 @@ impl ops::AddAssign<Details> for Details {
         self.nam += rhs.nam;
         self.inconsistent_nams += rhs.inconsistent_nams;
         self.mate_rescue += rhs.mate_rescue;
+        self.best_rescued += rhs.best_rescued;
         self.tried_alignment += rhs.tried_alignment;
         self.gapped += rhs.gapped;
         self.best_alignments += rhs.best_alignments;
