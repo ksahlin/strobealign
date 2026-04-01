@@ -12,6 +12,7 @@ pub mod mapper;
 pub mod math;
 pub mod mcsstrategy;
 pub mod nam;
+pub mod pairing;
 pub mod partition;
 pub mod piecewisealigner;
 pub mod read;
