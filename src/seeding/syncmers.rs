@@ -49,13 +49,11 @@ pub struct SyncmerIterator<'a> {
     t: usize,
     kmask: u64,
     smask: u64,
-    kshift: usize,
-    sshift: usize,
     qs: VecDeque<u64>, // s-mer hashes
     qs_min_val: u64,
     l: usize,
-    xk: [u64; 2],
-    xs: [u64; 2],
+    xk: u64,
+    xs: u64,
     i: usize,
     exhausted: bool,
 }
@@ -69,13 +67,11 @@ impl<'a> SyncmerIterator<'a> {
             t,
             kmask: (1 << (2 * k)) - 1,
             smask: (1 << (2 * s)) - 1,
-            kshift: (k - 1) * 2,
-            sshift: (s - 1) * 2,
             qs: VecDeque::new(),
             qs_min_val: u64::MAX,
             l: 0,
-            xk: [0, 0],
-            xs: [0, 0],
+            xk: 0,
+            xs: 0,
             i: 0,
             exhausted: false,
         }
@@ -126,17 +122,14 @@ impl Iterator for SyncmerIterator<'_> {
             let c = NUCLEOTIDES[ch as usize];
             if c < 4 {
                 // not an "N" base
-                self.xk[0] = ((self.xk[0] << 2) | (c as u64)) & self.kmask; // forward strand
-                self.xk[1] = (self.xk[1] >> 2) | (((3 - c) as u64) << self.kshift); // reverse strand
-                self.xs[0] = ((self.xs[0] << 2) | (c as u64)) & self.smask; // forward strand
-                self.xs[1] = (self.xs[1] >> 2) | (((3 - c) as u64) << self.sshift); // reverse strand
+                self.xk = ((self.xk << 2) | (c as u64)) & self.kmask;
+                self.xs = ((self.xs << 2) | (c as u64)) & self.smask;
                 self.l += 1;
                 if self.l < self.s {
                     continue;
                 }
                 // we find an s-mer
-                let ys = min(self.xs[0], self.xs[1]);
-                let hash_s = syncmer_smer_hash(ys);
+                let hash_s = syncmer_smer_hash(self.xs);
                 self.qs.push_back(hash_s);
                 // not enough hashes in the queue, yet
                 if self.qs.len() < self.k - self.s + 1 {
@@ -163,9 +156,8 @@ impl Iterator for SyncmerIterator<'_> {
                 }
                 if self.qs[self.t - 1] == self.qs_min_val {
                     // occurs at t:th position in k-mer
-                    let yk = min(self.xk[0], self.xk[1]);
                     let syncmer = Syncmer {
-                        hash: syncmer_kmer_hash(yk),
+                        hash: syncmer_kmer_hash(self.xk),
                         position: i + 1 - self.k,
                     };
                     self.i = i + 1;
@@ -175,8 +167,8 @@ impl Iterator for SyncmerIterator<'_> {
                 // if there is an "N", restart
                 self.qs_min_val = u64::MAX;
                 self.l = 0;
-                self.xs = [0, 0];
-                self.xk = [0, 0];
+                self.xs = 0;
+                self.xk = 0;
                 self.qs.clear();
             }
         }
