@@ -26,9 +26,9 @@ def test_index_parameters():
 
 
 def test_reverse_complement():
-    assert strobealign.reverse_complement("") == ""
-    assert strobealign.reverse_complement("A") == "T"
-    assert strobealign.reverse_complement("AAAACCCGGT") == "ACCGGGTTTT"
+    assert strobealign.reverse_complement(b"") == b""
+    assert strobealign.reverse_complement(b"A") == b"T"
+    assert strobealign.reverse_complement(b"AAAACCCGGT") == b"ACCGGGTTTT"
 
 
 def test_indexing_and_match_finding():

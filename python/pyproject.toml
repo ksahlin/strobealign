@@ -13,3 +13,6 @@ version = "0.2.0"
 # Private Rust extension module to be nested into the Python package
 target = "strobealign"  # The last part of the name (e.g. "_lib") has to match lib.name in Cargo.toml,
                              # but you can add a prefix to nest it inside of a Python package.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
