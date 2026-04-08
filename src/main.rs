@@ -640,7 +640,7 @@ fn run() -> Result<(), CliError> {
                 out_arc.lock().unwrap().write_all(data.as_ref()).unwrap();
                 total_details += details;
                 if show_progress {
-                    progress_tx.send(total_details.nam.n_reads).unwrap();
+                    progress_tx.send(total_details.chain.n_reads).unwrap();
                 }
                 next_index += 1;
             }
@@ -733,92 +733,92 @@ fn run() -> Result<(), CliError> {
     debug!("");
     debug!(
         "Reads:                                    {:12}",
-        details.nam.n_reads
+        details.chain.n_reads
     );
     debug!("");
     debug!("## Randstrobe lookup (without rescue)");
     debug!("");
     debug!(
         "Randstrobes                               {:12}     100.0 %   Per read: {:7.1}",
-        details.nam.n_randstrobes,
-        details.nam.n_randstrobes as f64 / details.nam.n_reads as f64
+        details.chain.n_randstrobes,
+        details.chain.n_randstrobes as f64 / details.chain.n_reads as f64
     );
     debug!(
         "  Full randstrobe found                   {:12} {:9.1} %",
-        details.nam.hits.full_found,
-        100f64 * details.nam.hits.full_found as f64 / details.nam.n_randstrobes as f64
+        details.chain.hits.full_found,
+        100f64 * details.chain.hits.full_found as f64 / details.chain.n_randstrobes as f64
     );
     debug!(
         "  Full randstrobe found but filtered      {:12} {:9.1} %",
-        details.nam.hits.full_filtered,
-        100f64 * details.nam.hits.full_filtered as f64 / details.nam.n_randstrobes as f64
+        details.chain.hits.full_filtered,
+        100f64 * details.chain.hits.full_filtered as f64 / details.chain.n_randstrobes as f64
     );
     debug!(
         "  Full randstrobe not found               {:12} {:9.1} %",
-        details.nam.hits.full_not_found,
-        100f64 * details.nam.hits.full_not_found as f64 / details.nam.n_randstrobes as f64
+        details.chain.hits.full_not_found,
+        100f64 * details.chain.hits.full_not_found as f64 / details.chain.n_randstrobes as f64
     );
     debug!(
         "    Partial randstrobe found              {:12} {:9.1} %",
-        details.nam.hits.partial_found,
-        100f64 * details.nam.hits.partial_found as f64 / details.nam.n_randstrobes as f64
+        details.chain.hits.partial_found,
+        100f64 * details.chain.hits.partial_found as f64 / details.chain.n_randstrobes as f64
     );
     debug!(
         "    Partial randstrobe found but filtered {:12} {:9.1} %",
-        details.nam.hits.partial_filtered,
-        100f64 * details.nam.hits.partial_filtered as f64 / details.nam.n_randstrobes as f64
+        details.chain.hits.partial_filtered,
+        100f64 * details.chain.hits.partial_filtered as f64 / details.chain.n_randstrobes as f64
     );
     debug!(
         "    Partial randstrobe not found          {:12} {:9.1} %",
-        details.nam.hits.partial_not_found,
-        100f64 * details.nam.hits.partial_not_found as f64 / details.nam.n_randstrobes as f64
+        details.chain.hits.partial_not_found,
+        100f64 * details.chain.hits.partial_not_found as f64 / details.chain.n_randstrobes as f64
     );
     debug!("");
     debug!(
         "Filtered but rescued randstrobes          {:12}",
-        details.nam.hits.rescued
+        details.chain.hits.rescued
     );
     debug!("");
     debug!("## Chaining");
     debug!("");
     debug!(
         "Found anchors:                            {:12}               Per read: {:7.1}",
-        details.nam.n_anchors,
-        details.nam.n_anchors as f64 / details.nam.n_reads as f64
+        details.chain.n_anchors,
+        details.chain.n_anchors as f64 / details.chain.n_reads as f64
     );
     debug!(
         "Found chains:                             {:12}               Per read: {:7.1}",
-        details.nam.n_nams,
-        details.nam.n_nams as f64 / details.nam.n_reads as f64
+        details.chain.n_chains,
+        details.chain.n_chains as f64 / details.chain.n_reads as f64
     );
     debug!("");
     debug!("## Other");
     debug!("");
     debug!("Total mapping sites tried: {}", details.tried_alignment);
-    debug!("Inconsistent NAM ends: {}", details.inconsistent_nams);
+    debug!("Inconsistent chain ends: {}", details.inconsistent_chains);
     debug!("Mates rescued by alignment: {}", details.mate_rescue);
 
     info!("Total time mapping: {:.2} s", timer.elapsed().as_secs_f64());
     //info!("Total time reading read-file(s): {:.2} s", );
     info!(
         "Total time creating strobemers: {:.2} s",
-        details.nam.time_randstrobes
+        details.chain.time_randstrobes
     );
     info!(
         "Total time finding hits (non-rescue mode): {:.2} s",
-        details.nam.time_find_hits
+        details.chain.time_find_hits
     );
     info!(
         "Total time finding hits (rescue mode): {:.2} s",
-        details.nam.time_rescue
+        details.chain.time_rescue
     );
     info!(
         "Total time chaining (non-rescue mode): {:.2} s",
-        details.nam.time_chaining
+        details.chain.time_chaining
     );
     info!(
         "Total time sorting NAMs/chains by score: {:.2} s",
-        details.nam.time_sort_nams
+        details.chain.time_sort_chains
     );
     info!(
         "Total time extending and pairing seeds: {:.2} s",

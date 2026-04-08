@@ -176,7 +176,7 @@ pub struct StrobemerIndex<'a> {
     /// no. of bits of the hash to use when indexing a randstrobe bucket
     pub bits: u8,
 
-    /// Regular (non-rescue) NAM finding ignores randstrobes that occur more often than
+    /// Regular (non-rescue) hit finding ignores randstrobes that occur more often than
     /// this (see StrobemerIndex::is_too_frequent())
     pub filter_cutoff: usize,
 
@@ -360,7 +360,7 @@ impl<'a> StrobemerIndex<'a> {
         self.filter_cutoff = usize::clamp(
             filter_cutoff,
             30, // cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
-            100, // limit upper cutoff for normal NAM finding - use rescue mode instead
+            100, // limit upper cutoff for normal hit finding - use rescue mode instead
         );
         self.rescue_cutoff = min(self.filter_cutoff * 2, 1000);
         //stats.elapsed_hash_index = hash_index_timer.duration();

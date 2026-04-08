@@ -2,11 +2,11 @@ use std::time::Instant;
 
 use log::trace;
 
-use crate::details::NamDetails;
+use crate::chain::Chain;
+use crate::details::ChainingDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::StrobemerIndex;
 use crate::mcsstrategy::McsStrategy;
-use crate::nam::Nam;
 use crate::seeding::QueryRandstrobe;
 
 const N_PRECOMPUTED: usize = 1024;
@@ -155,7 +155,7 @@ impl Chainer {
         index: &StrobemerIndex,
         rescue_distance: usize,
         mcs_strategy: McsStrategy,
-    ) -> (NamDetails, Vec<Nam>) {
+    ) -> (ChainingDetails, Vec<Chain>) {
         let hits_timer = Instant::now();
 
         let mut hits = [vec![], vec![]];
@@ -230,17 +230,17 @@ impl Chainer {
         }
         let mut hits_details12 = hits_details[0].clone();
         hits_details12 += hits_details[1].clone();
-        let details = NamDetails {
+        let details = ChainingDetails {
             hits: hits_details12,
             n_reads: 1,
             n_randstrobes: query_randstrobes[0].len() + query_randstrobes[1].len(),
             n_anchors,
-            n_nams: chains.len(),
+            n_chains: chains.len(),
             time_randstrobes: 0.0,
             time_find_hits,
             time_chaining,
             time_rescue: 0.0,
-            time_sort_nams: 0f64,
+            time_sort_chains: 0f64,
         };
 
         (details, chains)
@@ -366,7 +366,7 @@ fn extract_chains_from_dp(
     best_score: f32,
     k: usize,
     is_revcomp: bool,
-    chains: &mut Vec<Nam>,
+    chains: &mut Vec<Chain>,
     chaining_parameters: &ChainingParameters,
 ) {
     let n = anchors.len();
@@ -388,7 +388,6 @@ fn extract_chains_from_dp(
         }
 
         let mut j = i;
-        let mut c = 1;
         let mut overlaps = false;
         let mut chain_anchors = vec![anchors[i]];
 
@@ -403,7 +402,6 @@ fn extract_chains_from_dp(
             }
             chain_anchors.push(anchors[j]);
             used[j] = true;
-            c += 1;
 
             matching_bases += ref_coverage.saturating_sub(anchors[j].ref_start).min(k);
             ref_coverage = anchors[j].ref_start;
@@ -416,16 +414,17 @@ fn extract_chains_from_dp(
         let first = &anchors[j];
         let last = &anchors[i];
 
-        chains.push(Nam {
-            nam_id: chains.len(),
+        let n_anchors = chain_anchors.len();
+        chains.push(Chain {
+            id: chains.len(),
             query_start: first.query_start,
             query_end: last.query_start + k,
             ref_start: first.ref_start,
             ref_end: last.ref_start + k,
-            n_matches: c,
+            n_anchors,
             matching_bases,
             ref_id: last.ref_id,
-            score: score + c as f32 * chaining_parameters.matches_weight,
+            score: score + n_anchors as f32 * chaining_parameters.matches_weight,
             is_revcomp,
             anchors: chain_anchors,
         });
