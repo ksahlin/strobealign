@@ -604,6 +604,9 @@ pub enum IndexReadingError {
     )]
     RandstrobeStartIndicesWrongSize,
 
+    #[error("The .sti (index) file uses an unknown profile")]
+    WrongProfile,
+
     #[error("The .sti (index) file uses an invalid indexing parameter: {0}")]
     InvalidIndexParameter(#[from] InvalidSeedingParameter),
 }
@@ -622,7 +625,7 @@ impl<'a> StrobemerIndex<'a> {
         file.write_all(&(self.filter_cutoff as u32).to_ne_bytes())?;
         file.write_all(&(self.bits as u32).to_ne_bytes())?;
 
-        file.write_all(&(self.parameters.canonical_read_length as u32).to_ne_bytes())?;
+        file.write_all(&(self.parameters.profile.clone() as u32).to_ne_bytes())?;
         let sp = &self.parameters.syncmer;
         for val in [sp.k, sp.s].iter() {
             file.write_all(&(*val as u32).to_ne_bytes())?
@@ -676,7 +679,10 @@ impl<'a> StrobemerIndex<'a> {
         self.rescue_cutoff = self.filter_cutoff;
         let bits = read_u32(&mut reader)?;
 
-        let canonical_read_length = read_u32(&mut reader)? as usize;
+        let profile = read_u32(&mut reader)?
+            .try_into()
+            .map_err(|_| IndexReadingError::WrongProfile)?;
+
         let k = read_u32(&mut reader)? as usize;
         let s = read_u32(&mut reader)? as usize;
 
@@ -695,7 +701,7 @@ impl<'a> StrobemerIndex<'a> {
             main_hash_mask,
         };
         let sti_parameters = SeedingParameters {
-            canonical_read_length,
+            profile,
             syncmer: syncmer_parameters,
             randstrobe: randstrobe_parameters,
         };
@@ -826,7 +832,7 @@ mod tests {
     #[test]
     fn test_index_phix() {
         let references = read_ref("tests/phix.fasta");
-        let parameters = SeedingParameters::default_from_read_length(150);
+        let parameters = SeedingParameters::new(150);
         let mut index = StrobemerIndex::new(&references, parameters, None);
         index.populate(0.1, 1);
         assert!(index.stats.distinct_strobemers > 0);
@@ -838,7 +844,7 @@ mod tests {
             name: "name".to_string(),
             sequence: vec![],
         }];
-        let parameters = SeedingParameters::default_from_read_length(150);
+        let parameters = SeedingParameters::new(150);
         let mut index = StrobemerIndex::new(&references, parameters, None);
         index.populate(0.1, 1);
         assert_eq!(index.stats.distinct_strobemers, 0);
@@ -854,17 +860,13 @@ mod tests {
         let f = File::open(fasta_path).unwrap();
         let references = read_fasta(&mut BufReader::new(f)).unwrap();
 
-        let parameters = SeedingParameters::default_from_read_length(300);
+        let parameters = SeedingParameters::new(300);
         let mut index = StrobemerIndex::new(&references, parameters, None);
         index.populate(0.0002, 1);
         let sti_path = dir.path().join("index.sti");
         index.write(&sti_path).unwrap();
 
-        let mut other_index = StrobemerIndex::new(
-            &references,
-            SeedingParameters::default_from_read_length(50),
-            None,
-        );
+        let mut other_index = StrobemerIndex::new(&references, SeedingParameters::new(50), None);
 
         match other_index.read(&sti_path) {
             Err(IndexReadingError::ParameterMismatch) => {}
