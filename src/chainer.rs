@@ -34,7 +34,7 @@ impl Default for ChainingParameters {
             max_lookback: 50,
             diag_diff_penalty: 0.1,
             gap_length_penalty: 0.05,
-            valid_score_threshold: 0.7,
+            valid_score_threshold: 0.0,
             max_ref_gap: 1000,
             matches_weight: 0.01,
         }

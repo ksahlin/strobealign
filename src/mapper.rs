@@ -17,7 +17,8 @@ use crate::insertsize::InsertSizeDistribution;
 use crate::io::fasta::RefSequence;
 use crate::io::record::SequenceRecord;
 use crate::io::sam::{
-    MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SamRecord, UNMAP,
+    MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SUPPLEMENTARY,
+    SamRecord, UNMAP,
 };
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
@@ -107,6 +108,7 @@ impl SamOutput {
         record: &SequenceRecord,
         mapq: u8,
         is_primary: bool,
+        is_supplementary: bool,
         details: Details,
     ) -> SamRecord {
         match alignment {
@@ -116,6 +118,7 @@ impl SamOutput {
                 record,
                 mapq,
                 is_primary,
+                is_supplementary,
                 details.clone(),
             ),
             None => self.make_unmapped_record(record, details.clone()),
@@ -130,6 +133,7 @@ impl SamOutput {
         record: &SequenceRecord,
         mut mapq: u8,
         is_primary: bool,
+        is_supplementary: bool,
         details: Details,
     ) -> SamRecord {
         let mut flags = 0;
@@ -140,6 +144,9 @@ impl SamOutput {
         if !is_primary {
             mapq = 0;
             flags |= SECONDARY;
+        }
+        if is_supplementary {
+            flags |= SUPPLEMENTARY;
         }
 
         let query_sequence = if alignment.is_revcomp {
@@ -244,6 +251,7 @@ impl SamOutput {
                 records[0],
                 mapq[0],
                 is_primary,
+                false,
                 details[0].clone(),
             ),
             self.make_record(
@@ -252,6 +260,7 @@ impl SamOutput {
                 records[1],
                 mapq[1],
                 is_primary,
+                false,
                 details[1].clone(),
             ),
         ];
@@ -347,13 +356,10 @@ pub fn align_single_end_read(
             details,
         );
     }
-    let mut sam_records = Vec::new();
     let mut alignments = Vec::new();
     let nam_max = nams[0].clone();
     let mut best_edit_distance = usize::MAX;
     let mut best_score = 0;
-    let mut best_index = 0;
-    let mut second_best_score = 0;
     let mut alignments_with_best_score = 0;
     let mut best_alignment = None;
 
@@ -420,7 +426,6 @@ pub fn align_single_end_read(
         details.gapped += alignment.gapped as usize;
 
         if alignment.score >= best_score {
-            second_best_score = best_score;
             let mut update_best = false;
             if alignment.score > best_score {
                 alignments_with_best_score = 1;
@@ -438,65 +443,68 @@ pub fn align_single_end_read(
             if update_best {
                 best_score = alignment.score;
                 best_alignment = Some(alignment.clone());
-                best_index = alignments.len();
                 if mapping_parameters.max_secondary == 0 {
                     best_edit_distance = alignment.global_edit_distance();
                 }
             }
-        } else if alignment.score > second_best_score {
-            second_best_score = alignment.score;
         }
-        if mapping_parameters.max_secondary > 0 {
-            alignments.push(alignment);
-        }
+        alignments.push(alignment);
     }
-    if best_alignment.is_none() {
+
+    let Some(best_alignment) = best_alignment else {
         return (
             vec![sam_output.make_unmapped_record(record, details.clone())],
             details,
         );
-    }
-    let mapq = (60 * (best_score - second_best_score)).div_ceil(best_score) as u8;
+    };
 
-    let best_alignment = best_alignment.unwrap();
-    let mut is_primary = true;
-    sam_records.push(sam_output.make_mapped_record(
-        &best_alignment,
+    let mapq = if alignments.len() == 1 {
+        60
+    } else {
+        (60 * (alignments[0].score - alignments[1].score)).div_ceil(alignments[0].score) as u8
+    };
+    let secondary_dropoff = 2 * aligner.scores.mismatch + aligner.scores.gap_open;
+    let (primary, secondary) = classify_alignments(
+        aligner,
         references,
-        record,
-        mapq,
-        is_primary,
-        details.clone(),
-    ));
+        &read,
+        best_alignment,
+        alignments,
+        secondary_dropoff as u32,
+        mapping_parameters.max_secondary,
+        nams,
+        k,
+        &mut details,
+        mapping_parameters.use_ssw,
+    );
 
-    // Secondary alignments
-    if mapping_parameters.max_secondary > 0 {
-        // Remove the primary alignment
-        alignments.swap_remove(best_index);
-
-        // Highest score first
-        alignments.sort_by_key(|k| Reverse(k.score));
-
-        // Output secondary alignments
-        //let max_out = min(alignments.len(), mapping_parameters.max_secondary + 1);
-        for alignment in alignments.iter().take(mapping_parameters.max_secondary) {
-            if alignment.score.saturating_sub(best_score)
-                > 2 * aligner.scores.mismatch as u32 + aligner.scores.gap_open as u32
-            {
-                break;
-            }
-            is_primary = false;
-            // TODO .clone()
-            sam_records.push(sam_output.make_mapped_record(
-                alignment,
-                references,
-                record,
-                mapq,
-                is_primary,
-                details.clone(),
-            ));
-        }
+    let mut sam_records = Vec::new();
+    let mut is_supplementary = false;
+    for a in primary {
+        sam_records.push(sam_output.make_mapped_record(
+            &a,
+            references,
+            record,
+            mapq,
+            true,
+            is_supplementary,
+            details.clone(),
+        ));
+        is_supplementary = true;
     }
+
+    for a in secondary {
+        sam_records.push(sam_output.make_mapped_record(
+            &a,
+            references,
+            record,
+            mapq,
+            false,
+            false,
+            details.clone(),
+        ));
+    }
+
     details.time_extend = timer.elapsed().as_secs_f64();
 
     (sam_records, details)
@@ -1390,6 +1398,98 @@ fn top_dropoff(nams: &[Nam]) -> f32 {
     } else {
         0.0
     }
+}
+
+fn classify_alignments(
+    aligner: &Aligner,
+    references: &[RefSequence],
+    read: &Read,
+    primary: Alignment,
+    mut alignments: Vec<Alignment>,
+    secondary_dropoff: u32,
+    max_secondary: usize,
+    mut nams: Vec<Nam>,
+    k: usize,
+    details: &mut Details,
+    use_ssw: bool,
+) -> (Vec<Alignment>, Vec<Alignment>) {
+    // Find candidate for supplementary alignments
+    for nam in nams.iter_mut() {
+        if nam_alignment_query_overlap(nam, &primary) > 0.5 {
+            continue;
+        }
+
+        let consistent_nam = nam.is_consistent(read, references, k);
+        if !consistent_nam {
+            details.inconsistent_nams += 1;
+            continue;
+        }
+        let Some(aln) = extend_seed(aligner, nam, references, read, consistent_nam, use_ssw) else {
+            continue;
+        };
+        alignments.push(aln);
+    }
+
+    alignments.sort_unstable_by(|a, b| b.score.cmp(&a.score));
+    let mut primary = vec![primary];
+    let mut secondary = vec![];
+
+    for a in alignments {
+        if primary.iter().any(|p| alignment_query_overlap(&a, p) > 0.5) {
+            if secondary.len() < max_secondary && (primary[0].score - a.score) > secondary_dropoff {
+                secondary.push(a);
+            }
+            continue;
+        }
+        primary.push(a);
+    }
+
+    (primary, secondary)
+}
+
+fn alignment_query_overlap(a: &Alignment, b: &Alignment) -> f32 {
+    let a_start = a.soft_clip_left;
+    let a_end = a.soft_clip_left + a.length;
+
+    let b_start = b.soft_clip_left;
+    let b_end = b.soft_clip_left + b.length;
+
+    let start = a_start.max(b_start);
+    let end = a_end.min(b_end);
+
+    let overlap = end.saturating_sub(start);
+    if overlap == 0 {
+        return 0.0;
+    }
+
+    let min_len = a.length.min(b.length);
+    overlap as f32 / min_len as f32
+}
+
+fn nam_alignment_query_overlap(nam: &Nam, aln: &Alignment) -> f32 {
+    // Alignment query interval
+    let aln_start = aln.soft_clip_left;
+    let aln_end = aln.soft_clip_left + aln.length;
+
+    // NAM query interval
+    let nam_start = nam.query_start;
+    let nam_end = nam.query_end;
+
+    // Compute intersection
+    let start = nam_start.max(aln_start);
+    let end = nam_end.min(aln_end);
+
+    let overlap = end.saturating_sub(start);
+    if overlap == 0 {
+        return 0.0;
+    }
+
+    let nam_len = nam.query_span();
+    let aln_len = aln.length;
+
+    let min_len = nam_len.min(aln_len);
+
+    overlap as f32 / min_len as f32
 }
 
 #[cfg(test)]

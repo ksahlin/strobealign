@@ -36,18 +36,60 @@ pub fn map_single_end_read(
         (vec![], nam_details.into())
     } else {
         let mapq = mapping_quality(&nams);
-        (
-            vec![paf_record_from_nam(
-                &nams[0],
-                &record.name,
-                references,
-                record.sequence.len(),
-                Some(mapq),
-                End::None,
-            )],
-            nam_details.into(),
-        )
+        let primary = get_primary_chains(nams);
+        let records = primary
+            .iter()
+            .map(|p| {
+                paf_record_from_nam(
+                    p,
+                    &record.name,
+                    references,
+                    record.sequence.len(),
+                    Some(mapq),
+                    End::None,
+                )
+            })
+            .collect();
+        (records, nam_details.into())
     }
+}
+
+/// Returns the set of NAMs that compose the primary mapping location.
+///
+/// Nams are added to the set if they contribute at least 50% of their coverage
+/// to a non covered part of the query.
+/// The set will always contain the first element of the vector.
+///
+/// This function assumes that the NAMs are sorted by score.
+fn get_primary_chains(candidates: Vec<Nam>) -> Vec<Nam> {
+    let mut primary = vec![];
+    for nam in candidates {
+        if primary.is_empty() || !primary.iter().any(|p| query_overlap(&nam, p) > 0.5) {
+            primary.push(nam);
+        }
+    }
+    primary
+}
+
+/// Computes the normalized query overlap between two Nams.
+///
+/// The overlap is calculated on the query coordinate axis as the length of the
+/// intersection between the two query intervals:
+fn query_overlap(a: &Nam, b: &Nam) -> f32 {
+    let start = a.query_start.max(b.query_start);
+    let end = a.query_end.min(b.query_end);
+
+    let overlap = end.saturating_sub(start);
+
+    if overlap == 0 {
+        return 0.0;
+    }
+
+    let len_a = a.query_span();
+    let len_b = b.query_span();
+    let min_len = len_a.min(len_b);
+
+    overlap as f32 / min_len as f32
 }
 
 /// Map a single-end read to the reference and estimate abundances
