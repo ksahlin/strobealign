@@ -322,7 +322,7 @@ fn add_to_anchors_partial(
 ) {
     let forward_hash = index.get_hash_partial_forward(position);
     for pos in position..index.randstrobes.len() {
-        //Filter out partial lookups with different orientation
+        // Filter out partial lookups with different orientation
         if index.get_hash_partial_forward(pos) != forward_hash {
             break;
         }

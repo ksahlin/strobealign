@@ -138,7 +138,7 @@ fn find_all_hits(
                     hits_details.full_found += 1;
                 }
                 let hit = Hit {
-                    position: position,
+                    position,
                     query_start: randstrobe.start,
                     query_end: randstrobe.end,
                     is_partial: false,

@@ -7,7 +7,7 @@ use super::hash::xxh64;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Syncmer {
     hash: u64,
-    forward: bool,
+    is_forward: bool,
     pub position: usize,
 }
 
@@ -17,11 +17,11 @@ impl Syncmer {
     }
 
     pub fn is_forward(&self) -> bool {
-        self.forward
+        self.is_forward
     }
 
     pub fn toggle_orientation(&mut self) {
-        self.forward = !self.forward;
+        self.is_forward = !self.is_forward;
     }
 }
 
@@ -181,7 +181,7 @@ impl Iterator for SyncmerIterator<'_> {
                     let yk = min(self.xk[0], self.xk[1]);
                     let syncmer = Syncmer {
                         hash: syncmer_kmer_hash(yk),
-                        forward: self.xk[0] <= self.xk[1],
+                        is_forward: self.xk[0] <= self.xk[1],
                         position: i + 1 - self.k,
                     };
                     self.i = i + 1;

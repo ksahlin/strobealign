@@ -81,12 +81,8 @@ impl Randstrobe {
         let is_forward1 = strobe1.is_forward() as u64;
         let is_forward2 = strobe2.is_forward() as u64;
         Randstrobe {
-            hash: Randstrobe::hash(strobe1.hash(), strobe2.hash(), parameters)
-                ^ (is_forward1 << parameters.partial_orientation_pos)
-                ^ (is_forward2 << STROBE2_OFFSET_BITS),
-            hash_revcomp: Randstrobe::hash(strobe2.hash(), strobe1.hash(), parameters)
-                ^ ((is_forward2 ^ 1) << parameters.partial_orientation_pos)
-                ^ ((is_forward1 ^ 1) << STROBE2_OFFSET_BITS),
+            hash: Randstrobe::hash(strobe1.hash(), strobe2.hash(), is_forward1, is_forward2, parameters),
+            hash_revcomp: Randstrobe::hash(strobe2.hash(), strobe1.hash(), is_forward1 ^ 1, is_forward2  ^ 1, parameters),
             strobe1_pos: strobe1.position,
             strobe2_pos: strobe2.position,
         }
@@ -101,8 +97,17 @@ impl Randstrobe {
     /// hash. Since entries in the index are sorted by randstrobe hash, this allows
     /// us to search for the main syncmer by masking out the lower bits.
     /// The orientation bit position (between main and aux) is left as zero.
-    pub fn hash(hash1: u64, hash2: u64, parameters: &RandstrobeParameters) -> u64 {
-        ((hash1 & parameters.main_hash_mask) ^ (hash2 & !parameters.forward_main_hash_mask))
+    pub fn hash(
+        hash1: u64,
+        hash2: u64,
+        is_forward1: u64,
+        is_forward2: u64,
+        parameters: &RandstrobeParameters,
+    ) -> u64 {
+        ((hash1 & parameters.main_hash_mask)
+            | (hash2 & !parameters.forward_main_hash_mask)
+            | (is_forward1 << parameters.partial_orientation_pos)
+            | (is_forward2 << STROBE2_OFFSET_BITS))
             & (REF_RANDSTROBE_HASH_MASK << 1)
     }
 }
