@@ -93,14 +93,25 @@ impl Display for IndexCreationStatistics {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Default, Clone)]
 #[repr(C)]
 pub struct RefRandstrobe {
-    /// packed representation of the hash and the strobe offset
+    /// Packed representation of the hash and the strobe offset.  
+    /// Has the following layout
+    /// `<strobe1 hash><strobe1 orientation bit><strobe2 hash><strobe2 orientation bit><strobe2 offset from strobe1>`
+    ///
+    /// [`RandstrobeParameters::partial_orientation_pos`] specifies the position of strobe1 orientation bit in the layout  
+    /// [`RandstrobeParameters::forward_main_hash_mask`] is the mask for strobe1 hash (without the orientation bit)  
+    /// [`RandstrobeParameters::main_hash_mask`] is the mask for strobe1 hash which includes the orientation bit  
+    /// [`REF_RANDSTROBE_HASH_MASK`] is the mask for strobe1 and strobe2 hashes (including their orientations)  
+    /// The [`STROBE2_OFFSET_BITS`] constant specifies the number of bits reserved for the offset  
     hash_offset: u64,
     position: u32,
     ref_index: u32,
 }
 
+/// Mask for the part of the randstrobe hash that includes individual strobe hashes and orientations
 pub const REF_RANDSTROBE_HASH_MASK: u64 = 0xFFFFFFFFFFFFFF00;
+/// Number of bits reserved for offset between first and second strobe
 pub const STROBE2_OFFSET_BITS: u32 = 8;
+/// Mask for the part of the randstrobe hash that includes the offset between first and second strobe
 pub const STROBE2_OFFSET_MASK: u64 = (1u64 << STROBE2_OFFSET_BITS) - 1;
 pub const REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES: usize = u32::MAX as usize;
 
@@ -448,11 +459,12 @@ impl<'a> StrobemerIndex<'a> {
         debug_assert_eq!(n, randstrobes.len());
     }
 
+    // Find the first entry that matches the forwald full hash (including orientation bits)
     pub fn get_full_forward(&self, hash: RandstrobeHash) -> Option<usize> {
         self.get_masked(hash, REF_RANDSTROBE_HASH_MASK)
     }
 
-    /// Find the first entry that matches the undirected main hash
+    /// Find the first entry that matches the undirected main hash (without orientation bit)
     pub fn get_partial(&self, hash: RandstrobeHash) -> Option<usize> {
         self.get_masked(hash, self.parameters.randstrobe.main_hash_mask)
     }

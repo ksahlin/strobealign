@@ -81,8 +81,20 @@ impl Randstrobe {
         let is_forward1 = strobe1.is_forward() as u64;
         let is_forward2 = strobe2.is_forward() as u64;
         Randstrobe {
-            hash: Randstrobe::hash(strobe1.hash(), strobe2.hash(), is_forward1, is_forward2, parameters),
-            hash_revcomp: Randstrobe::hash(strobe2.hash(), strobe1.hash(), is_forward1 ^ 1, is_forward2  ^ 1, parameters),
+            hash: Randstrobe::hash(
+                strobe1.hash(),
+                strobe2.hash(),
+                is_forward1,
+                is_forward2,
+                parameters,
+            ),
+            hash_revcomp: Randstrobe::hash(
+                strobe2.hash(),
+                strobe1.hash(),
+                is_forward1 ^ 1,
+                is_forward2 ^ 1,
+                parameters,
+            ),
             strobe1_pos: strobe1.position,
             strobe2_pos: strobe2.position,
         }
