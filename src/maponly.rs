@@ -381,7 +381,7 @@ fn find_pairs(fwd: &[Nam], rev: &[Nam], mu: f32, sigma: f32, swap_order: bool) -
     let mut out = Vec::new();
     let max_dist = (mu + 10.0 * sigma).ceil() as usize; // distance cutoff from insert size distribution
     let mut rev_ptr = 0;
-    let mut last_paired: Option<(usize, f64)> = None;
+    let mut last_paired = None;
 
     for f in fwd {
         // Advance revcomp pointer to the first possible candidate
@@ -400,33 +400,33 @@ fn find_pairs(fwd: &[Nam], rev: &[Nam], mu: f32, sigma: f32, swap_order: bool) -
         }
 
         // Scan window of revcomp nams within distance limit.
-        let mut best: Option<(usize, f32)> = None;
+        let mut best = None;
         let mut i = rev_ptr;
         while i < rev.len()
             && rev[i].ref_id == f.ref_id
             && (rev[i].projected_ref_start() - f.projected_ref_start()) <= max_dist
         {
-            let s = rev[i].score;
-            if best.is_none_or(|(_, bs)| s > bs) {
-                best = Some((i, s));
+            let r = &rev[i];
+            // The pairing score gets a bonus based on the reference distance of the two chosen nam
+            // paired and from our current knowledge of the reference distance distribution
+            let x = f.ref_start.abs_diff(r.ref_start);
+            let score = f.score as f64
+                + r.score as f64
+                + 0.001f64.max((normal_pdf(x as f32, mu, sigma) + 1.0).ln() as f64);
+
+            if best.is_none_or(|(_, highest_score)| score > highest_score) {
+                best = Some((i, score));
             }
             i += 1;
         }
 
-        // Best scoring candidate
-        let Some((best_id, best_score)) = best else {
+        // Highest scoring candidate
+        let Some((best_id, score)) = best else {
             continue;
         };
         let r = &rev[best_id];
 
-        // The pairing score get's a bonus based on the reference distance of the two chosen nam
-        // paired and from our current knowledge of the reference distance distribution
-        let score = f.score as f64
-            + best_score as f64
-            + (-20.0f64 + 0.001)
-                .max(normal_pdf(f.ref_start.abs_diff(r.ref_start) as f32, mu, sigma).ln() as f64);
-
-        // If the same recomp nam was paired previously, keep only the better scoring pair.
+        // If the same revcomp nam was paired previously, keep only the better scoring pair.
         if let Some((last_id, prev_score)) = last_paired
             && last_id == best_id
         {
