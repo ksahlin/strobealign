@@ -4,6 +4,7 @@ pub mod cigar;
 pub mod details;
 pub mod hit;
 pub mod index;
+pub mod indexer;
 pub mod insertsize;
 pub mod io;
 pub mod maponly;

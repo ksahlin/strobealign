@@ -235,28 +235,30 @@ mod test {
         assert_eq!(syncmer.position, 0);
     }
 
+    fn syncmers_of(seq: &[u8], parameters: &SyncmerParameters) -> Vec<Syncmer> {
+        SyncmerIterator::new(seq, parameters.k, parameters.s, parameters.t).collect()
+    }
+
     #[test]
     fn test_canonical_syncmers() {
+        let parameters = SyncmerParameters::try_new(20, 16).unwrap();
         let mut f = BufReader::new(File::open("tests/phix.fasta").unwrap());
         let seq = read_fasta(&mut f).unwrap().pop().unwrap().sequence;
         let sequences = ["AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".into(), seq];
-        let parameters = SyncmerParameters::try_new(20, 16).unwrap();
         for s in sequences {
-            let revcomped = reverse_complement(&s);
-
-            let syncmers_forward: Vec<_> =
-                SyncmerIterator::new(&s, parameters.k, parameters.s, parameters.t).collect();
-
-            let mut syncmers_reverse: Vec<_> =
-                SyncmerIterator::new(&revcomped, parameters.k, parameters.s, parameters.t)
-                    .collect();
+            let seq_revcomp = reverse_complement(&s);
+            let syncmers_forward = syncmers_of(&s, &parameters);
+            let mut syncmers_reverse = syncmers_of(&seq_revcomp, &parameters);
             syncmers_reverse.reverse();
-            for syncmer in &mut syncmers_reverse {
-                syncmer.position = s.len() - parameters.k - syncmer.position;
-                syncmer.toggle_orientation();
+            for syncmer_rev in &mut syncmers_reverse {
+                syncmer_rev.position = s.len() - parameters.k - syncmer_rev.position;
             }
-
-            assert_eq!(syncmers_forward, syncmers_reverse);
+            assert_eq!(syncmers_forward.len(), syncmers_reverse.len());
+            for (sf, sr) in syncmers_forward.iter().zip(syncmers_reverse.iter()) {
+                assert_eq!(sf.hash(), sr.hash());
+                assert_eq!(sf.position, sr.position);
+                assert_ne!(sf.is_forward(), sr.is_forward());
+            }
         }
     }
 }
