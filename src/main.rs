@@ -12,7 +12,7 @@ use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use fastrand::Rng;
-use log::{debug, error, info, trace};
+use log::{debug, error, info, trace, warn};
 use mimalloc::MiMalloc;
 use thiserror::Error;
 
@@ -326,6 +326,9 @@ fn run() -> Result<(), CliError> {
     };
     logger::init(level).unwrap();
     info!("This is {} {}", NAME, VERSION);
+    if cfg!(target_os = "linux") {
+        warn_clocksource();
+    }
 
     // Open R1 FASTQ file and estimate read length if necessary
     let read_length;
@@ -989,6 +992,19 @@ fn estimate_read_length(records: &[SequenceRecord]) -> usize {
     }
 
     if n == 0 { 0 } else { s / n }
+}
+
+fn warn_clocksource() {
+    if let Ok(result) =
+        std::fs::read("/sys/devices/system/clocksource/clocksource0/current_clocksource")
+    {
+        if result == b"hpet\n" {
+            warn!(
+                "\nWARNING: This system uses the 'hpet' clocksource, which can \
+                slow down strobealign significantly. If possible, prefer 'tsc' instead.\n"
+            );
+        }
+    }
 }
 
 #[cfg(test)]
