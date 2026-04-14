@@ -180,11 +180,9 @@ fn count_all_randstrobes(
     mutex.into_inner().unwrap()
 }
 
-// TODO UnpopulatedStrobemerIndex
 pub struct StrobemerIndex<'a> {
     references: &'a [RefSequence],
     pub parameters: SeedingParameters,
-    pub stats: IndexCreationStatistics,
 
     /// no. of bits of the hash to use when indexing a randstrobe bucket
     pub bits: u8,
@@ -220,13 +218,11 @@ impl<'a> StrobemerIndex<'a> {
         let bits = bits.unwrap_or_else(|| parameters.syncmer.pick_bits(total_reference_length));
         let randstrobes = vec![];
         let randstrobe_start_indices = vec![];
-        let stats = IndexCreationStatistics::default();
         let filter_cutoff = 0;
         let rescue_cutoff = 0;
         StrobemerIndex {
             references,
             parameters,
-            stats,
             bits,
             filter_cutoff,
             partial_filter_cutoff: filter_cutoff,
@@ -236,14 +232,15 @@ impl<'a> StrobemerIndex<'a> {
         }
     }
 
-    pub fn populate(&mut self, filter_fraction: f64, n_threads: usize) {
+    pub fn populate(&mut self, filter_fraction: f64, n_threads: usize) -> IndexCreationStatistics {
         let timer = Instant::now();
         let randstrobe_counts = count_all_randstrobes(self.references, &self.parameters, n_threads);
         debug!("  Counting hashes: {:.2} s", timer.elapsed().as_secs_f64());
         // stats.elapsed_counting_hashes = count_hash.duration();
+        let mut stats = IndexCreationStatistics::default();
 
         let total_randstrobes: usize = randstrobe_counts.iter().sum();
-        self.stats.tot_strobemer_count = total_randstrobes as u64;
+        stats.tot_strobemer_count = total_randstrobes as u64;
 
         debug!("  Total number of randstrobes: {}", total_randstrobes);
         let total_length: usize = self
@@ -298,7 +295,7 @@ impl<'a> StrobemerIndex<'a> {
         let mut tot_mid_ab = 0;
         let mut strobemer_counts = Vec::<usize>::new();
 
-        self.stats.tot_occur_once = 0;
+        stats.tot_occur_once = 0;
         self.randstrobe_start_indices
             .reserve((1usize << self.bits) + 1);
 
@@ -323,7 +320,7 @@ impl<'a> StrobemerIndex<'a> {
             unique_mers += 1;
 
             if count == 1 {
-                self.stats.tot_occur_once += 1;
+                stats.tot_occur_once += 1;
             } else {
                 if count > 100 {
                     tot_high_ab += 1;
@@ -341,7 +338,7 @@ impl<'a> StrobemerIndex<'a> {
         }
         // wrap up last entry
         if count == 1 {
-            self.stats.tot_occur_once += 1;
+            stats.tot_occur_once += 1;
         } else {
             if count > 100 {
                 tot_high_ab += 1;
@@ -354,13 +351,13 @@ impl<'a> StrobemerIndex<'a> {
             self.randstrobe_start_indices
                 .push(self.randstrobes.len() as BucketIndex);
         }
-        self.stats.tot_high_ab = tot_high_ab;
-        self.stats.tot_mid_ab = tot_mid_ab;
+        stats.tot_high_ab = tot_high_ab;
+        stats.tot_mid_ab = tot_mid_ab;
 
         strobemer_counts.sort_unstable_by_key(|k| Reverse(*k));
 
         let index_cutoff = (unique_mers as f64 * filter_fraction) as usize;
-        self.stats.index_cutoff = index_cutoff;
+        stats.index_cutoff = index_cutoff;
         let filter_cutoff = if index_cutoff < strobemer_counts.len() {
             strobemer_counts[index_cutoff]
         } else {
@@ -378,7 +375,9 @@ impl<'a> StrobemerIndex<'a> {
         self.rescue_cutoff = min(self.filter_cutoff * 2, 1000);
         //stats.elapsed_hash_index = hash_index_timer.duration();
         debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
-        self.stats.distinct_strobemers = unique_mers;
+        stats.distinct_strobemers = unique_mers;
+
+        stats
     }
 
     /*
@@ -891,8 +890,8 @@ mod tests {
         let references = read_ref("tests/phix.fasta");
         let parameters = SeedingParameters::new(150);
         let mut index = StrobemerIndex::new(&references, parameters, None);
-        index.populate(0.1, 1);
-        assert!(index.stats.distinct_strobemers > 0);
+        let stats = index.populate(0.1, 1);
+        assert!(stats.distinct_strobemers > 0);
     }
 
     #[test]
@@ -903,8 +902,8 @@ mod tests {
         }];
         let parameters = SeedingParameters::new(150);
         let mut index = StrobemerIndex::new(&references, parameters, None);
-        index.populate(0.1, 1);
-        assert_eq!(index.stats.distinct_strobemers, 0);
+        let stats = index.populate(0.1, 1);
+        assert_eq!(stats.distinct_strobemers, 0);
     }
 
     #[test]

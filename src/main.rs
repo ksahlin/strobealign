@@ -470,14 +470,14 @@ fn run() -> Result<(), CliError> {
             indexing_threads,
             if indexing_threads == 1 { "" } else { "s" }
         );
-        index.populate(args.filter_fraction, indexing_threads);
+        let index_stats = index.populate(args.filter_fraction, indexing_threads);
         info!(
             "Total time indexing: {:.2} s",
             timer.elapsed().as_secs_f64()
         );
+        debug!("{}", &index_stats);
     }
     let index = index;
-    debug!("{}", &index.stats);
     debug!("Filtered cutoff count: {}", index.filter_cutoff);
     debug!("Using rescue cutoff: {}", index.rescue_cutoff);
 
