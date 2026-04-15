@@ -12,7 +12,9 @@ use crate::seeding::QueryRandstrobe;
 pub struct Hit {
     pub query_start: usize,
     pub query_end: usize,
+    //Forward position for full hashes, undirected for partial
     pub position: usize,
+    pub hash: u64,
     pub hash_revcomp: u64,
     pub is_partial: bool,
     pub is_filtered: bool,
@@ -127,7 +129,7 @@ fn find_all_hits(
 
     if mcs_strategy != McsStrategy::FirstStrobe {
         for randstrobe in query_randstrobes {
-            if let Some(position) = index.get_full(randstrobe.hash) {
+            if let Some(position) = index.get_full_forward(randstrobe.hash) {
                 let is_filtered =
                     index.is_too_frequent(position, filter_cutoff, randstrobe.hash_revcomp);
                 if is_filtered {
@@ -135,32 +137,35 @@ fn find_all_hits(
                 } else {
                     hits_details.full_found += 1;
                 }
-
                 let hit = Hit {
                     position,
                     query_start: randstrobe.start,
                     query_end: randstrobe.end,
                     is_partial: false,
                     is_filtered,
+                    hash: randstrobe.hash,
                     hash_revcomp: randstrobe.hash_revcomp,
                 };
                 hits.push(hit);
             } else {
                 hits_details.full_not_found += 1;
                 if mcs_strategy == McsStrategy::Always {
-                    if let Some(position) = index.get_partial(randstrobe.hash) {
-                        let is_filtered = index.is_too_frequent_partial(position, filter_cutoff);
+                    // Perform partial lookup in both directions for later use in rescue
+                    if let Some(undirected_pos) = index.get_partial(randstrobe.hash) {
+                        let is_filtered =
+                            index.is_too_frequent_partial(undirected_pos, filter_cutoff);
                         if is_filtered {
                             hits_details.partial_filtered += 1;
                         } else {
                             hits_details.partial_found += 1;
                         }
                         let hit = Hit {
-                            position,
+                            position: undirected_pos,
                             query_start: randstrobe.start,
                             query_end: randstrobe.start + index.k(),
                             is_partial: true,
                             is_filtered,
+                            hash: randstrobe.hash,
                             hash_revcomp: randstrobe.hash_revcomp,
                         };
                         hits.push(hit);
@@ -186,19 +191,21 @@ fn find_all_hits(
             && hits_details.full_filtered + hits_details.full_found == 0)
     {
         for randstrobe in query_randstrobes {
-            if let Some(position) = index.get_partial(randstrobe.hash) {
-                let is_filtered = index.is_too_frequent_partial(position, filter_cutoff);
+            // Perform partial lookup in both directions for later use in rescue
+            if let Some(undirected_pos) = index.get_partial(randstrobe.hash) {
+                let is_filtered = index.is_too_frequent_partial(undirected_pos, filter_cutoff);
                 if is_filtered {
                     hits_details.partial_filtered += 1;
                 } else {
                     hits_details.partial_found += 1;
                 }
                 let hit = Hit {
-                    position,
+                    position: undirected_pos,
                     query_start: randstrobe.start,
                     query_end: randstrobe.start + index.k(),
                     is_partial: true,
                     is_filtered,
+                    hash: randstrobe.hash,
                     hash_revcomp: randstrobe.hash_revcomp,
                 };
                 hits.push(hit);

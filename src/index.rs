@@ -93,13 +93,26 @@ impl Display for IndexCreationStatistics {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Default, Clone)]
 #[repr(C)]
 pub struct RefRandstrobe {
-    /// packed representation of the hash and the strobe offset
+    /// Packed representation of the hash and the strobe offset.  
+    /// Has the following layout
+    /// `<strobe1 hash><strobe1 orientation bit><strobe2 hash><strobe2 orientation bit><strobe2 offset from strobe1>`
+    ///
+    /// [`RandstrobeParameters::partial_orientation_pos`] specifies the position of strobe1 orientation bit in the layout  
+    /// [`RandstrobeParameters::forward_main_hash_mask`] is the mask for strobe1 hash (without the orientation bit)  
+    /// [`RandstrobeParameters::main_hash_mask`] is the mask for strobe1 hash which includes the orientation bit  
+    /// [`REF_RANDSTROBE_HASH_MASK`] is the mask for strobe1 and strobe2 hashes (including their orientations)  
+    /// The [`STROBE2_OFFSET_BITS`] constant specifies the number of bits reserved for the offset  
     hash_offset: u64,
     position: u32,
     ref_index: u32,
 }
 
+/// Mask for the part of the randstrobe hash that includes individual strobe hashes and orientations
 pub const REF_RANDSTROBE_HASH_MASK: u64 = 0xFFFFFFFFFFFFFF00;
+/// Number of bits reserved for offset between first and second strobe
+pub const STROBE2_OFFSET_BITS: u32 = 8;
+/// Mask for the part of the randstrobe hash that includes the offset between first and second strobe
+pub const STROBE2_OFFSET_MASK: u64 = (1u64 << STROBE2_OFFSET_BITS) - 1;
 pub const REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES: usize = u32::MAX as usize;
 
 impl RefRandstrobe {
@@ -125,7 +138,7 @@ impl RefRandstrobe {
     }
 
     pub fn strobe2_offset(&self) -> usize {
-        (self.hash_offset & 0xff) as usize
+        (self.hash_offset & STROBE2_OFFSET_MASK) as usize
     }
 }
 
@@ -446,22 +459,50 @@ impl<'a> StrobemerIndex<'a> {
         debug_assert_eq!(n, randstrobes.len());
     }
 
-    pub fn get_full(&self, hash: RandstrobeHash) -> Option<usize> {
+    // Find the first entry that matches the forwald full hash (including orientation bits)
+    pub fn get_full_forward(&self, hash: RandstrobeHash) -> Option<usize> {
         self.get_masked(hash, REF_RANDSTROBE_HASH_MASK)
     }
 
-    /// Find the first entry that matches the main hash
+    /// Find the first entry that matches the undirected main hash (without orientation bit)
     pub fn get_partial(&self, hash: RandstrobeHash) -> Option<usize> {
         self.get_masked(hash, self.parameters.randstrobe.main_hash_mask)
     }
 
+    /// Find the first entry matching the forward main hash
+    pub fn get_partial_forward(&self, hash: RandstrobeHash) -> Option<usize> {
+        self.get_masked(hash, self.parameters.randstrobe.forward_main_hash_mask)
+    }
+
+    /// Find the first entry matching the forward main hash, starting from
+    /// the undirected main position
+    pub fn get_partial_forward_from(
+        &self,
+        hash: RandstrobeHash,
+        undirected_position: usize,
+    ) -> Option<usize> {
+        self.get_masked_from(
+            hash,
+            self.parameters.randstrobe.forward_main_hash_mask,
+            Some(undirected_position),
+        )
+    }
+
     /// Find index of first entry in randstrobe table that has the given
-    /// hash value masked by the `hash_mask`
-    pub fn get_masked(&self, hash: RandstrobeHash, hash_mask: RandstrobeHash) -> Option<usize> {
+    /// hash value masked by the `hash_mask`.
+    /// If `start_position` is provided, search starts from there instead of
+    /// the bucket start.
+    pub fn get_masked_from(
+        &self,
+        hash: RandstrobeHash,
+        hash_mask: RandstrobeHash,
+        start_position: Option<usize>,
+    ) -> Option<usize> {
         let masked_hash = hash & hash_mask;
         const MAX_LINEAR_SEARCH: usize = 4;
         let top_n = (hash >> (64 - self.bits)) as usize;
-        let position_start = self.randstrobe_start_indices[top_n];
+        let position_start =
+            start_position.unwrap_or(self.randstrobe_start_indices[top_n] as usize);
         let position_end = self.randstrobe_start_indices[top_n + 1];
         let bucket = &self.randstrobes[position_start as usize..position_end as usize];
         if bucket.is_empty() {
@@ -486,12 +527,20 @@ impl<'a> StrobemerIndex<'a> {
         }
     }
 
+    pub fn get_masked(&self, hash: RandstrobeHash, hash_mask: RandstrobeHash) -> Option<usize> {
+        self.get_masked_from(hash, hash_mask, None)
+    }
+
     pub fn k(&self) -> usize {
         self.parameters.syncmer.k
     }
 
     pub fn get_hash_partial(&self, position: usize) -> RandstrobeHash {
         self.randstrobes[position].hash() & self.parameters.randstrobe.main_hash_mask
+    }
+
+    pub fn get_hash_partial_forward(&self, position: usize) -> RandstrobeHash {
+        self.randstrobes[position].hash_offset & self.parameters.randstrobe.forward_main_hash_mask
     }
 
     pub fn strobe_extent_partial(&self, position: usize) -> (usize, usize) {
@@ -503,7 +552,7 @@ impl<'a> StrobemerIndex<'a> {
     /// Count number of hits for the randstrobe *and* its "reverse complement"
     pub fn get_count_full(&self, position: usize, hash_revcomp: u64) -> usize {
         let reverse_count;
-        if let Some(position_revcomp) = self.get_full(hash_revcomp) {
+        if let Some(position_revcomp) = self.get_full_forward(hash_revcomp) {
             reverse_count = self.get_count_full_forward(position_revcomp);
         } else {
             reverse_count = 0;
@@ -555,7 +604,7 @@ impl<'a> StrobemerIndex<'a> {
         if self.is_too_frequent_forward(position, cutoff) {
             return true;
         }
-        if let Some(position_revcomp) = self.get_full(hash_revcomp) {
+        if let Some(position_revcomp) = self.get_full_forward(hash_revcomp) {
             if self.is_too_frequent_forward(position_revcomp, cutoff) {
                 return true;
             }
@@ -583,7 +632,7 @@ impl<'a> StrobemerIndex<'a> {
     }
 }
 
-const STI_FILE_FORMAT_VERSION: u32 = 6;
+const STI_FILE_FORMAT_VERSION: u32 = 7;
 
 #[derive(Error, Debug)]
 pub enum IndexReadingError {
@@ -693,12 +742,15 @@ impl<'a> StrobemerIndex<'a> {
         let main_hash_mask = read_u64(&mut reader)?;
 
         let syncmer_parameters = SyncmerParameters::try_new(k, s)?;
+        let partial_orientation_pos = main_hash_mask.trailing_zeros() - 1;
         let randstrobe_parameters = RandstrobeParameters {
             w_min,
             w_max,
             q,
             max_dist,
             main_hash_mask,
+            forward_main_hash_mask: main_hash_mask | (1u64 << partial_orientation_pos),
+            partial_orientation_pos,
         };
         let sti_parameters = SeedingParameters {
             profile,
@@ -812,7 +864,12 @@ mod tests {
             for syncmer_rev in &mut syncmers_reverse {
                 syncmer_rev.position = seq.len() - parameters.k - syncmer_rev.position;
             }
-            assert_eq!(syncmers_forward, syncmers_reverse);
+            assert_eq!(syncmers_forward.len(), syncmers_reverse.len());
+            for (sf, sr) in syncmers_forward.iter().zip(syncmers_reverse.iter()) {
+                assert_eq!(sf.hash(), sr.hash());
+                assert_eq!(sf.position, sr.position);
+                assert_ne!(sf.is_forward(), sr.is_forward());
+            }
         }
     }
 
@@ -873,6 +930,41 @@ mod tests {
             _ => {
                 panic!("Parameters are expected not to match");
             }
+        }
+    }
+
+    #[test]
+    fn test_partial_orientation() {
+        let references = read_ref("tests/phix.fasta");
+        let seq = &references[0].sequence;
+        let rc_seq = reverse_complement(seq);
+        let rc_references = vec![RefSequence {
+            name: "phix_rc".to_string(),
+            sequence: rc_seq,
+        }];
+
+        let parameters = SeedingParameters::new(300);
+
+        let mut fwd_index = StrobemerIndex::new(&references, parameters.clone(), None);
+        fwd_index.populate(0.0000001, 1);
+
+        let mut rc_index = StrobemerIndex::new(&rc_references, parameters.clone(), None);
+        rc_index.populate(0.0000001, 1);
+
+        assert_eq!(fwd_index.randstrobes.len(), rc_index.randstrobes.len());
+
+        // Iterate over fwd index entries and look up each hash in the rc index
+        for i in 0..fwd_index.randstrobes.len() {
+            let fwd_hash = fwd_index.randstrobes[i].hash();
+
+            let rev_pos_result = rc_index.get_partial(fwd_hash);
+            assert!(rev_pos_result.is_some());
+            let rev_pos = rev_pos_result.unwrap();
+
+            let rc_partial_query = fwd_index.randstrobes[i].hash()
+                ^ ((1 as u64) << rc_index.parameters.randstrobe.partial_orientation_pos);
+            let rev_pos_forward = rc_index.get_partial_forward_from(rc_partial_query, rev_pos);
+            assert!(rev_pos_forward.is_some());
         }
     }
 }

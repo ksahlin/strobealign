@@ -289,9 +289,9 @@ fn add_to_anchors_full(
     position: usize,
 ) {
     let mut min_length_diff = usize::MAX;
-    let hash = index.randstrobes[position].hash();
+    let forward_hash = index.randstrobes[position].hash();
     for randstrobe in &index.randstrobes[position..] {
-        if randstrobe.hash() != hash {
+        if randstrobe.hash() != forward_hash {
             break;
         }
         let ref_start = randstrobe.position();
@@ -320,9 +320,10 @@ fn add_to_anchors_partial(
     index: &StrobemerIndex,
     position: usize,
 ) {
-    let hash = index.get_hash_partial(position);
+    let forward_hash = index.get_hash_partial_forward(position);
     for pos in position..index.randstrobes.len() {
-        if index.get_hash_partial(pos) != hash {
+        // Filter out partial lookups with different orientation
+        if index.get_hash_partial_forward(pos) != forward_hash {
             break;
         }
         let randstrobe = &index.randstrobes[pos];
@@ -344,7 +345,9 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
             continue;
         }
         if hit.is_partial {
-            add_to_anchors_partial(&mut anchors, hit.query_start, index, hit.position);
+            if let Some(forward_position) = index.get_partial_forward_from(hit.hash, hit.position) {
+                add_to_anchors_partial(&mut anchors, hit.query_start, index, forward_position);
+            }
         } else {
             add_to_anchors_full(
                 &mut anchors,
