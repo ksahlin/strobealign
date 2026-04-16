@@ -41,6 +41,13 @@ impl Default for ChainingParameters {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct ChainingResult {
+    best_score: f32,
+    dp: Vec<f32>,
+    predecessors: Vec<usize>,
+}
+
 #[derive(Debug)]
 pub struct Chainer {
     k: usize,
@@ -70,10 +77,10 @@ impl Chainer {
         }
     }
 
-    fn collinear_chaining(&self, anchors: &[Anchor]) -> (f32, Vec<f32>, Vec<usize>) {
+    fn collinear_chaining(&self, anchors: &[Anchor]) -> ChainingResult {
         let n = anchors.len();
         if n == 0 {
-            return (0.0, vec![], vec![]);
+            return ChainingResult::default();
         }
 
         let mut dp = vec![self.k as f32; n];
@@ -146,7 +153,11 @@ impl Chainer {
             }
         }
 
-        (best_score, dp, predecessors)
+        ChainingResult {
+            best_score,
+            dp,
+            predecessors,
+        }
     }
 
     pub fn get_chains(
@@ -191,9 +202,6 @@ impl Chainer {
             let hits_timer = Instant::now();
             let mut anchors = hits_to_anchors(&hits[is_revcomp], index);
             time_find_hits += hits_timer.elapsed().as_secs_f64();
-            /*for anchor in anchors.iter().take(100) {
-                trace!("{:?}", anchor);
-            }*/
             n_anchors += anchors.len();
             let chaining_timer = Instant::now();
             trace!("Chaining {} anchors", anchors.len());
@@ -214,13 +222,10 @@ impl Chainer {
             //         .join(",")
             // );
 
-            let (best_score, dp, predecessors) = self.collinear_chaining(&anchors);
+            let chaining_result = self.collinear_chaining(&anchors);
 
-            extract_chains_from_dp(
+            chaining_result.extract_chains(
                 &anchors,
-                &dp,
-                &predecessors,
-                best_score,
                 index.k(),
                 is_revcomp == 1,
                 &mut chains,
@@ -363,73 +368,73 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
     anchors
 }
 
-fn extract_chains_from_dp(
-    anchors: &[Anchor],
-    dp: &[f32],
-    predecessors: &[usize],
-    best_score: f32,
-    k: usize,
-    is_revcomp: bool,
-    chains: &mut Vec<Nam>,
-    chaining_parameters: &ChainingParameters,
-) {
-    let n = anchors.len();
-    let valid_score = best_score * chaining_parameters.valid_score_threshold;
+impl ChainingResult {
+    fn extract_chains(
+        &self,
+        anchors: &[Anchor],
+        k: usize,
+        is_revcomp: bool,
+        chains: &mut Vec<Nam>,
+        chaining_parameters: &ChainingParameters,
+    ) {
+        let n = anchors.len();
+        let valid_score = self.best_score * chaining_parameters.valid_score_threshold;
 
-    let mut candidates = vec![];
-    for i in 0..n {
-        if dp[i] >= valid_score {
-            candidates.push((i, dp[i]));
-        }
-    }
-
-    candidates.sort_by(|a, b| b.1.total_cmp(&a.1));
-
-    let mut used = vec![false; n];
-    for (i, score) in candidates {
-        if used[i] {
-            continue;
-        }
-
-        let mut j = i;
-        let mut overlaps = false;
-        let mut chain_anchors = vec![anchors[i]];
-
-        let mut matching_bases = k;
-        let mut ref_coverage = anchors[i].ref_start;
-
-        while predecessors[j] != usize::MAX {
-            j = predecessors[j];
-            if used[j] {
-                overlaps = true;
-                break;
+        let mut candidates = vec![];
+        for i in 0..n {
+            if self.dp[i] >= valid_score {
+                candidates.push((i, self.dp[i]));
             }
-            chain_anchors.push(anchors[j]);
-            used[j] = true;
-
-            matching_bases += ref_coverage.saturating_sub(anchors[j].ref_start).min(k);
-            ref_coverage = anchors[j].ref_start;
         }
 
-        if overlaps {
-            continue;
+        candidates.sort_by(|a, b| b.1.total_cmp(&a.1));
+
+        let mut used = vec![false; n];
+        for (i, score) in candidates {
+            if used[i] {
+                continue;
+            }
+
+            let mut j = i;
+            let mut overlaps = false;
+            let mut chain_anchors = vec![anchors[i]];
+
+            let mut matching_bases = k;
+            let mut ref_coverage = anchors[i].ref_start;
+
+            while self.predecessors[j] != usize::MAX {
+                j = self.predecessors[j];
+                if used[j] {
+                    overlaps = true;
+                    break;
+                }
+                chain_anchors.push(anchors[j]);
+                used[j] = true;
+
+                matching_bases += ref_coverage.saturating_sub(anchors[j].ref_start).min(k);
+                ref_coverage = anchors[j].ref_start;
+            }
+
+            if overlaps {
+                continue;
+            }
+
+            let first = &anchors[j];
+            let last = &anchors[i];
+
+            chains.push(Nam {
+                nam_id: chains.len(),
+                query_start: first.query_start,
+                query_end: last.query_start + k,
+                ref_start: first.ref_start,
+                ref_end: last.ref_start + k,
+                matching_bases,
+                ref_id: last.ref_id,
+                score: score + chain_anchors.len() as f32 * chaining_parameters.matches_weight,
+                is_revcomp,
+                anchors: chain_anchors,
+            });
         }
-
-        let first = &anchors[j];
-        let last = &anchors[i];
-
-        chains.push(Nam {
-            nam_id: chains.len(),
-            query_start: first.query_start,
-            query_end: last.query_start + k,
-            ref_start: first.ref_start,
-            ref_end: last.ref_start + k,
-            matching_bases,
-            ref_id: last.ref_id,
-            score: score + chain_anchors.len() as f32 * chaining_parameters.matches_weight,
-            is_revcomp,
-            anchors: chain_anchors,
-        });
     }
 }
 
@@ -448,13 +453,13 @@ mod test {
             Anchor { ref_id: 0, ref_start: 95, query_start: 35, },
         ];
 
-        let (best_score, _dp, _predecessors) = chainer.collinear_chaining(&anchors);
+        let chaining_result = chainer.collinear_chaining(&anchors);
 
         // The best chain has score 42.342842 and uses anchors 0, 1, 3.
         // When using the heuristic that breaks early if the predecessor is on the
         // same diagonal, a suboptimal chain is found that has score 38.2 and
         // consists of anchors 2 and 3.
-        assert!(best_score > 42.0);
+        assert!(chaining_result.best_score > 42.0);
     }
 
     #[test]
@@ -466,8 +471,15 @@ mod test {
             Anchor { ref_id: 0, ref_start:  20, query_start: 20, },
             Anchor { ref_id: 0, ref_start:  40, query_start: 40, },
         ];
-        let score1 = chainer.collinear_chaining(&anchors[0..1]).0;
-        assert_eq!(chainer.collinear_chaining(&anchors[0..2]).0, score1 * 2.0);
-        assert_eq!(chainer.collinear_chaining(&anchors[0..3]).0, score1 * 3.0);
+        let chaining_result = chainer.collinear_chaining(&anchors[0..1]);
+        let score1 = chaining_result.best_score;
+        assert_eq!(
+            chainer.collinear_chaining(&anchors[0..2]).best_score,
+            score1 * 2.0
+        );
+        assert_eq!(
+            chainer.collinear_chaining(&anchors[0..3]).best_score,
+            score1 * 3.0
+        );
     }
 }
