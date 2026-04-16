@@ -46,6 +46,7 @@ pub struct ChainingResult {
     best_score: f32,
     dp: Vec<f32>,
     predecessors: Vec<usize>,
+    anchors: Vec<Anchor>,
 }
 
 #[derive(Debug)]
@@ -77,7 +78,7 @@ impl Chainer {
         }
     }
 
-    fn collinear_chaining(&self, anchors: &[Anchor]) -> ChainingResult {
+    fn collinear_chaining(&self, anchors: Vec<Anchor>) -> ChainingResult {
         let n = anchors.len();
         if n == 0 {
             return ChainingResult::default();
@@ -157,6 +158,7 @@ impl Chainer {
             best_score,
             dp,
             predecessors,
+            anchors,
         }
     }
 
@@ -222,10 +224,9 @@ impl Chainer {
             //         .join(",")
             // );
 
-            let chaining_result = self.collinear_chaining(&anchors);
+            let chaining_result = self.collinear_chaining(anchors);
 
             chaining_result.extract_chains(
-                &anchors,
                 index.k(),
                 is_revcomp == 1,
                 &mut chains,
@@ -371,13 +372,12 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
 impl ChainingResult {
     fn extract_chains(
         &self,
-        anchors: &[Anchor],
         k: usize,
         is_revcomp: bool,
         chains: &mut Vec<Nam>,
         chaining_parameters: &ChainingParameters,
     ) {
-        let n = anchors.len();
+        let n = self.anchors.len();
         let valid_score = self.best_score * chaining_parameters.valid_score_threshold;
 
         let mut candidates = vec![];
@@ -397,10 +397,10 @@ impl ChainingResult {
 
             let mut j = i;
             let mut overlaps = false;
-            let mut chain_anchors = vec![anchors[i]];
+            let mut chain_anchors = vec![self.anchors[i]];
 
             let mut matching_bases = k;
-            let mut ref_coverage = anchors[i].ref_start;
+            let mut ref_coverage = self.anchors[i].ref_start;
 
             while self.predecessors[j] != usize::MAX {
                 j = self.predecessors[j];
@@ -408,19 +408,21 @@ impl ChainingResult {
                     overlaps = true;
                     break;
                 }
-                chain_anchors.push(anchors[j]);
+                chain_anchors.push(self.anchors[j]);
                 used[j] = true;
 
-                matching_bases += ref_coverage.saturating_sub(anchors[j].ref_start).min(k);
-                ref_coverage = anchors[j].ref_start;
+                matching_bases += ref_coverage
+                    .saturating_sub(self.anchors[j].ref_start)
+                    .min(k);
+                ref_coverage = self.anchors[j].ref_start;
             }
 
             if overlaps {
                 continue;
             }
 
-            let first = &anchors[j];
-            let last = &anchors[i];
+            let first = &self.anchors[j];
+            let last = &self.anchors[i];
 
             chains.push(Nam {
                 nam_id: chains.len(),
@@ -446,14 +448,14 @@ mod test {
     fn test_chainer_early_break() {
         let chainer = Chainer::new(20, ChainingParameters::default());
         #[rustfmt::skip]
-        let anchors = [
+        let anchors = vec![
             Anchor { ref_id: 0, ref_start:  0, query_start:  0, },
             Anchor { ref_id: 0, ref_start: 30, query_start: 20, },
             Anchor { ref_id: 0, ref_start: 60, query_start:  0, },
             Anchor { ref_id: 0, ref_start: 95, query_start: 35, },
         ];
 
-        let chaining_result = chainer.collinear_chaining(&anchors);
+        let chaining_result = chainer.collinear_chaining(anchors);
 
         // The best chain has score 42.342842 and uses anchors 0, 1, 3.
         // When using the heuristic that breaks early if the predecessor is on the
@@ -471,14 +473,18 @@ mod test {
             Anchor { ref_id: 0, ref_start:  20, query_start: 20, },
             Anchor { ref_id: 0, ref_start:  40, query_start: 40, },
         ];
-        let chaining_result = chainer.collinear_chaining(&anchors[0..1]);
+        let chaining_result = chainer.collinear_chaining(anchors[0..1].to_vec());
         let score1 = chaining_result.best_score;
         assert_eq!(
-            chainer.collinear_chaining(&anchors[0..2]).best_score,
+            chainer
+                .collinear_chaining(anchors[0..2].to_vec())
+                .best_score,
             score1 * 2.0
         );
         assert_eq!(
-            chainer.collinear_chaining(&anchors[0..3]).best_score,
+            chainer
+                .collinear_chaining(anchors[0..3].to_vec())
+                .best_score,
             score1 * 3.0
         );
     }
