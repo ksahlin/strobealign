@@ -375,7 +375,7 @@ fn split_nams_by_orientation(nams: &mut [Nam]) -> (&mut [Nam], &mut [Nam]) {
     nams.split_at_mut(left)
 }
 
-/// Find most forward/revcomp pairs using a linear two-pointer scan.
+/// Find most forward/revcomp pairs using a two-pointer scan.
 /// Assumes both slices are sorted by (ref_id, projected_ref_start).
 fn find_pairs(fwd: &[Nam], rev: &[Nam], mu: f32, sigma: f32, swap_order: bool) -> Vec<NamPair> {
     let mut out = Vec::new();
