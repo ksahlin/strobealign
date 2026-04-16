@@ -149,10 +149,18 @@ pub fn get_nams_by_chaining(
 
     nam_details.time_randstrobes = time_randstrobes;
 
+    (nam_details, nams)
+}
+
+pub fn sort_nams(nams: &mut [Nam], rng: &mut Rng) -> f64 {
+    let timer = Instant::now();
+    nams.sort_by(|a, b| b.score.total_cmp(&a.score));
+    shuffle_top_nams(nams, rng);
+
     if log::log_enabled!(Trace) {
         trace!("Found {} NAMs", nams.len());
         let mut printed = 0;
-        for nam in &nams {
+        for nam in nams.iter() {
             if nam.n_matches > 1 || printed < 10 {
                 trace!("- {}", nam);
                 printed += 1;
@@ -163,13 +171,6 @@ pub fn get_nams_by_chaining(
         }
     }
 
-    (nam_details, nams)
-}
-
-pub fn sort_nams(nams: &mut [Nam], rng: &mut Rng) -> f64 {
-    let timer = Instant::now();
-    nams.sort_by(|a, b| b.score.total_cmp(&a.score));
-    shuffle_top_nams(nams, rng);
     timer.elapsed().as_secs_f64()
 }
 
