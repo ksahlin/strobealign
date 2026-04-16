@@ -18,7 +18,7 @@ pub struct Anchor {
     pub query_start: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ChainingParameters {
     pub max_lookback: usize,
     pub diag_diff_penalty: f32,
@@ -47,6 +47,7 @@ pub struct ChainingResult {
     dp: Vec<f32>,
     predecessors: Vec<usize>,
     anchors: Vec<Anchor>,
+    parameters: ChainingParameters,
 }
 
 #[derive(Debug)]
@@ -159,6 +160,7 @@ impl Chainer {
             dp,
             predecessors,
             anchors,
+            parameters: self.parameters.clone(),
         }
     }
 
@@ -226,12 +228,7 @@ impl Chainer {
 
             let chaining_result = self.collinear_chaining(anchors);
 
-            chaining_result.extract_chains(
-                index.k(),
-                is_revcomp == 1,
-                &mut chains,
-                &self.parameters,
-            );
+            chaining_result.extract_chains(index.k(), is_revcomp == 1, &mut chains);
             time_chaining += chaining_timer.elapsed().as_secs_f64();
         }
         let mut hits_details12 = hits_details[0].clone();
@@ -370,15 +367,9 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
 }
 
 impl ChainingResult {
-    fn extract_chains(
-        &self,
-        k: usize,
-        is_revcomp: bool,
-        chains: &mut Vec<Nam>,
-        chaining_parameters: &ChainingParameters,
-    ) {
+    fn extract_chains(&self, k: usize, is_revcomp: bool, chains: &mut Vec<Nam>) {
         let n = self.anchors.len();
-        let valid_score = self.best_score * chaining_parameters.valid_score_threshold;
+        let valid_score = self.best_score * self.parameters.valid_score_threshold;
 
         let mut candidates = vec![];
         for i in 0..n {
@@ -432,7 +423,7 @@ impl ChainingResult {
                 ref_end: last.ref_start + k,
                 matching_bases,
                 ref_id: last.ref_id,
-                score: score + chain_anchors.len() as f32 * chaining_parameters.matches_weight,
+                score: score + chain_anchors.len() as f32 * self.parameters.matches_weight,
                 is_revcomp,
                 anchors: chain_anchors,
             });
