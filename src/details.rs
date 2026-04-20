@@ -23,6 +23,9 @@ pub struct NamDetails {
     pub time_chaining: f64,
     pub time_rescue: f64,
     pub time_sort_nams: f64,
+
+    /// Whether both orientations were tested
+    pub both_orientations: bool,
 }
 
 impl ops::AddAssign<NamDetails> for NamDetails {
