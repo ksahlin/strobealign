@@ -1,5 +1,4 @@
 #include <deque>
-#include <bitset>
 #include <algorithm>
 #include <cassert>
 #include <array>
@@ -176,8 +175,7 @@ Randstrobe RandstrobeIterator::get(unsigned int strobe1_index) const {
         assert(i < syncmers.size());
 
         // Method 3' skew sample more for prob exact matching
-        std::bitset<64> b = (strobe1.hash ^ syncmers[i].hash) & parameters.q;
-        uint64_t res = b.count();
+        uint64_t res = __builtin_popcountll((strobe1.hash ^ syncmers[i].hash) & parameters.q);
 
         if (res < min_val) {
             min_val = res;
@@ -207,8 +205,7 @@ Randstrobe RandstrobeGenerator::next() {
     for (auto i = parameters.w_min; i < syncmers.size() && syncmers[i].position <= max_position; i++) {
         assert(i <= parameters.w_max);
         // Method 3' skew sample more for prob exact matching
-        std::bitset<64> b = (strobe1.hash ^ syncmers[i].hash) & parameters.q;
-        uint64_t res = b.count();
+        uint64_t res = __builtin_popcountll((strobe1.hash ^ syncmers[i].hash) & parameters.q);
 
         if (res < min_val) {
             min_val = res;
@@ -234,6 +231,10 @@ std::array<std::vector<QueryRandstrobe>, 2> randstrobes_query(const std::string_
     if (syncmers.empty()) {
         return randstrobes;
     }
+
+    // Pre-allocate: roughly one randstrobe per syncmer
+    randstrobes[0].reserve(syncmers.size());
+    randstrobes[1].reserve(syncmers.size());
 
     // Generate randstrobes for the forward sequence
     RandstrobeIterator randstrobe_fwd_iter{syncmers, parameters.randstrobe};
