@@ -82,7 +82,7 @@ struct Args {
     #[arg(long = "trace", hide = true)]
     trace: bool,
 
-    /// Disable progress report (enabled by default if output is a terminal)
+    /// Do not show progress indicator. Default: enable indicator if output is a terminal
     #[arg(long = "no-progress", default_value_t = false, help_heading = "Input/output")]
     no_progress: bool,
 
