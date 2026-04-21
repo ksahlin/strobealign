@@ -65,8 +65,7 @@ impl RefRandstrobe {
     }
 }
 
-pub struct StrobemerIndex<'a> {
-    references: &'a [RefSequence],
+pub struct StrobemerIndex {
     pub parameters: SeedingParameters,
 
     /// no. of bits of the hash to use when indexing a randstrobe bucket
@@ -91,9 +90,8 @@ pub struct StrobemerIndex<'a> {
     randstrobe_start_indices: Vec<BucketIndex>,
 }
 
-impl<'a> StrobemerIndex<'a> {
+impl StrobemerIndex {
     pub fn new(
-        references: &'a [RefSequence],
         parameters: SeedingParameters,
         bits: u8,
         filter_cutoff: usize,
@@ -102,7 +100,6 @@ impl<'a> StrobemerIndex<'a> {
         randstrobe_start_indices: Vec<BucketIndex>,
     ) -> Self {
         StrobemerIndex {
-            references,
             parameters,
             bits,
             filter_cutoff,
@@ -317,7 +314,7 @@ pub enum IndexReadingError {
     InvalidIndexParameter(#[from] InvalidSeedingParameter),
 }
 
-impl<'a> StrobemerIndex<'a> {
+impl StrobemerIndex {
     pub fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
         let mut file = File::create(path)?;
 
@@ -361,7 +358,7 @@ pub fn read_index<'a, P: AsRef<Path>>(
     references: &'a [RefSequence],
     parameters: SeedingParameters,
     bits: Option<u8>,
-) -> Result<StrobemerIndex<'a>, IndexReadingError> {
+) -> Result<StrobemerIndex, IndexReadingError> {
     // TODO these two lines are duplicated in make_index
     let total_reference_length = references.iter().map(|r| r.sequence.len()).sum();
     let bits = bits.unwrap_or_else(|| parameters.syncmer.pick_bits(total_reference_length));
@@ -438,7 +435,6 @@ pub fn read_index<'a, P: AsRef<Path>>(
     }
 
     Ok(StrobemerIndex {
-        references,
         parameters,
         bits,
         filter_cutoff,

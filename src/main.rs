@@ -848,7 +848,7 @@ enum Mode {
 
 #[derive(Clone)]
 struct Mapper<'a> {
-    index: &'a StrobemerIndex<'a>,
+    index: &'a StrobemerIndex,
     references: &'a [RefSequence],
     mapping_parameters: &'a MappingParameters,
     seeding_parameters: &'a SeedingParameters,

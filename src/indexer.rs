@@ -20,7 +20,7 @@ pub fn make_index<'a>(
     bits: Option<u8>,
     filter_fraction: f64,
     n_threads: usize,
-) -> (StrobemerIndex<'a>, IndexCreationStatistics) {
+) -> (StrobemerIndex, IndexCreationStatistics) {
     let total_reference_length = references.iter().map(|r| r.sequence.len()).sum();
     let bits = bits.unwrap_or_else(|| parameters.syncmer.pick_bits(total_reference_length));
 
@@ -160,7 +160,6 @@ pub fn make_index<'a>(
 
     (
         StrobemerIndex::new(
-            references,
             parameters,
             bits,
             filter_cutoff,
