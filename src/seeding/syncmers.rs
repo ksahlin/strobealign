@@ -204,9 +204,7 @@ impl Iterator for SyncmerIterator<'_> {
 
 #[cfg(test)]
 mod test {
-    use std::{fs::File, io::BufReader};
-
-    use crate::{io::fasta::read_fasta, revcomp::reverse_complement};
+    use crate::{io::fasta::read_ref, revcomp::reverse_complement};
 
     use super::*;
 
@@ -242,8 +240,11 @@ mod test {
     #[test]
     fn test_canonical_syncmers() {
         let parameters = SyncmerParameters::try_new(20, 16).unwrap();
-        let mut f = BufReader::new(File::open("tests/phix.fasta").unwrap());
-        let seq = read_fasta(&mut f).unwrap().pop().unwrap().sequence;
+        let seq = read_ref("tests/phix.fasta")
+            .unwrap()
+            .pop()
+            .unwrap()
+            .sequence;
         let sequences = ["AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".into(), seq];
         for s in sequences {
             let seq_revcomp = reverse_complement(&s);

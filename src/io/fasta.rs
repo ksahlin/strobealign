@@ -1,4 +1,6 @@
-use std::io::BufRead;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::path::Path;
 
 use crate::io::record::{End, SequenceRecord};
 use crate::io::{SequenceIOError, split_header};
@@ -131,6 +133,13 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, Sequen
     Ok(records)
 }
 
+pub fn read_ref<P: AsRef<Path>>(path: P) -> Result<Vec<RefSequence>, SequenceIOError> {
+    let f = File::open(path).unwrap();
+    let mut reader = BufReader::new(f);
+
+    read_fasta(&mut reader)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,9 +148,7 @@ mod tests {
 
     #[test]
     fn test_read_fasta() {
-        let f = File::open("tests/phix.fasta").unwrap();
-        let mut reader = BufReader::new(f);
-        let records = read_fasta(&mut reader).unwrap();
+        let records = read_ref("tests/phix.fasta").unwrap();
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].name, "NC_001422.1");
         assert_eq!(records[0].sequence.len(), 5386);
@@ -210,8 +217,7 @@ mod tests {
         let tmp = temp_file::with_contents(
             b">ref1 a comment\nacgt\n\n>ref2\naacc\ngg\n\ntt\n>empty\n>empty_at_end_of_file",
         );
-        let mut reader = BufReader::new(File::open(tmp.path()).unwrap());
-        let records = read_fasta(&mut reader).unwrap();
+        let records = read_ref(tmp.path()).unwrap();
         assert_eq!(records.len(), 4);
         assert_eq!(records[0].name, "ref1");
         assert_eq!(records[0].sequence, b"ACGT");
@@ -243,10 +249,7 @@ mod tests {
 
     #[test]
     fn test_fasta_error_on_fastq() {
-        let f = File::open("tests/phix.1.fastq").unwrap();
-        let mut reader = BufReader::new(f);
-        let result = read_fasta(&mut reader);
-        assert!(result.is_err());
+        assert!(read_ref("tests/phix.1.fastq").is_err());
     }
 
     #[test]

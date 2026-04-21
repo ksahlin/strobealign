@@ -476,10 +476,7 @@ mod tests {
     use super::*;
 
     use crate::indexer::make_index;
-    use crate::io::fasta::read_fasta;
-
-    use std::fs::File;
-    use std::io::BufReader;
+    use crate::io::fasta::read_ref;
 
     #[test]
     fn test_ref_randstrobe() {
@@ -502,8 +499,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let fasta_path = dir.path().join("phix.fasta");
         std::fs::copy("tests/phix.fasta", &fasta_path).unwrap();
-        let f = File::open(fasta_path).unwrap();
-        let references = read_fasta(&mut BufReader::new(f)).unwrap();
+        let references = read_ref(fasta_path).unwrap();
 
         let parameters = SeedingParameters::new(300);
         let index = make_index(&references, parameters, None, 0.0002, 1).0;

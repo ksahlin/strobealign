@@ -364,11 +364,9 @@ impl Display for IndexCreationStatistics {
 
 #[cfg(test)]
 mod test {
-    use std::{fs::File, io::BufReader, path::Path};
-
     use crate::{
         indexer::make_index,
-        io::fasta::{RefSequence, read_fasta},
+        io::fasta::{RefSequence, read_ref},
         revcomp::reverse_complement,
         seeding::{SeedingParameters, SyncmerParameters},
     };
@@ -378,16 +376,10 @@ mod test {
         let parameters = SyncmerParameters::try_new(20, 16).unwrap();
         assert_eq!(parameters.pick_bits(0), 8);
     }
-    pub fn read_ref<P: AsRef<Path>>(path: P) -> Vec<RefSequence> {
-        let f = File::open(path).unwrap();
-        let mut reader = BufReader::new(f);
-
-        read_fasta(&mut reader).unwrap()
-    }
 
     #[test]
     fn test_index_phix() {
-        let references = read_ref("tests/phix.fasta");
+        let references = read_ref("tests/phix.fasta").unwrap();
         let parameters = SeedingParameters::new(150);
         let (_index, stats) = make_index(&references, parameters, None, 0.1, 1);
         assert!(stats.distinct_strobemers > 0);
@@ -406,7 +398,7 @@ mod test {
 
     #[test]
     fn test_partial_orientation() {
-        let references = read_ref("tests/phix.fasta");
+        let references = read_ref("tests/phix.fasta").unwrap();
         let seq = &references[0].sequence;
         let rc_seq = reverse_complement(seq);
         let rc_references = vec![RefSequence {
