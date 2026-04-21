@@ -2,7 +2,7 @@ use crate::index::{BucketIndex, RandstrobeHash, RefRandstrobe, StrobemerIndex};
 use crate::io::fasta::RefSequence;
 use crate::seeding::{RandstrobeIterator, SeedingParameters, SyncmerIterator, SyncmerParameters};
 
-use std::cmp::{Reverse, min};
+use std::cmp::Reverse;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -154,7 +154,6 @@ pub fn make_index<'a>(
         30, // cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
         100, // limit upper cutoff for normal NAM finding - use rescue mode instead
     );
-    let rescue_cutoff = min(filter_cutoff * 2, 1000);
     //stats.elapsed_hash_index = hash_index_timer.duration();
     debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
     stats.distinct_strobemers = unique_mers;
@@ -166,7 +165,6 @@ pub fn make_index<'a>(
             bits,
             filter_cutoff,
             filter_cutoff,
-            rescue_cutoff,
             randstrobes,
             randstrobe_start_indices,
         ),

@@ -488,7 +488,6 @@ fn run() -> Result<(), CliError> {
         index
     };
     debug!("Filtered cutoff count: {}", index.filter_cutoff());
-    debug!("Using rescue cutoff: {}", index.rescue_cutoff());
 
     if args.create_index {
         let timer = Instant::now();

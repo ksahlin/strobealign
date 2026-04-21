@@ -79,8 +79,6 @@ pub struct StrobemerIndex<'a> {
     /// Filter partial seeds that occur more often than this
     partial_filter_cutoff: usize,
 
-    rescue_cutoff: usize,
-
     /// The randstrobes vector contains all randstrobes sorted by hash.
     /// The randstrobe_start_indices vector points to entries in the
     /// randstrobes vector. `randstrobe_start_indices[x]` is the index of the
@@ -100,7 +98,6 @@ impl<'a> StrobemerIndex<'a> {
         bits: u8,
         filter_cutoff: usize,
         partial_filter_cutoff: usize,
-        rescue_cutoff: usize,
         randstrobes: Vec<RefRandstrobe>,
         randstrobe_start_indices: Vec<BucketIndex>,
     ) -> Self {
@@ -110,7 +107,6 @@ impl<'a> StrobemerIndex<'a> {
             bits,
             filter_cutoff,
             partial_filter_cutoff,
-            rescue_cutoff,
             randstrobes,
             randstrobe_start_indices,
         }
@@ -118,10 +114,6 @@ impl<'a> StrobemerIndex<'a> {
 
     pub fn filter_cutoff(&self) -> usize {
         self.filter_cutoff
-    }
-
-    pub fn rescue_cutoff(&self) -> usize {
-        self.rescue_cutoff
     }
 
     // Find the first entry that matches the forwald full hash (including orientation bits)
@@ -399,7 +391,6 @@ pub fn read_index<'a, P: AsRef<Path>>(
     reader.read_exact(&mut buf)?;
 
     let filter_cutoff = read_u32(&mut reader)? as usize;
-    let rescue_cutoff = filter_cutoff;
     let sti_bits = read_u32(&mut reader)? as u8;
     if sti_bits != bits {
         return Err(IndexReadingError::ParameterMismatch);
@@ -452,7 +443,6 @@ pub fn read_index<'a, P: AsRef<Path>>(
         bits,
         filter_cutoff,
         partial_filter_cutoff: filter_cutoff,
-        rescue_cutoff,
         randstrobes,
         randstrobe_start_indices,
     })
