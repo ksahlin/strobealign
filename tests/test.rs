@@ -13,6 +13,19 @@ fn cmd() -> Command {
 }
 
 #[test]
+fn cargo_fmt_check() {
+    assert!(
+        Command::new("cargo")
+            .arg("fmt")
+            .arg("--check")
+            .assert()
+            .try_success()
+            .is_ok(),
+        "'cargo fmt --check' failed, please run 'cargo fmt'"
+    );
+}
+
+#[test]
 fn fail_without_arguments() {
     let mut cmd = cmd();
     cmd.assert().failure();
