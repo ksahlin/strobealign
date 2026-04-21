@@ -66,20 +66,20 @@ impl RefRandstrobe {
 }
 
 pub struct StrobemerIndex<'a> {
-    pub references: &'a [RefSequence],
+    references: &'a [RefSequence],
     pub parameters: SeedingParameters,
 
     /// no. of bits of the hash to use when indexing a randstrobe bucket
-    pub bits: u8,
+    bits: u8,
 
     /// Regular (non-rescue) NAM finding ignores randstrobes that occur more often than
     /// this (see StrobemerIndex::is_too_frequent())
-    pub filter_cutoff: usize,
+    filter_cutoff: usize,
 
     /// Filter partial seeds that occur more often than this
-    pub partial_filter_cutoff: usize,
+    partial_filter_cutoff: usize,
 
-    pub rescue_cutoff: usize,
+    rescue_cutoff: usize,
 
     /// The randstrobes vector contains all randstrobes sorted by hash.
     /// The randstrobe_start_indices vector points to entries in the
@@ -90,10 +90,40 @@ pub struct StrobemerIndex<'a> {
     /// randstrobe_start_indices has one extra guard entry at the end that
     /// is always randstrobes.len().
     pub randstrobes: Vec<RefRandstrobe>,
-    pub randstrobe_start_indices: Vec<BucketIndex>,
+    randstrobe_start_indices: Vec<BucketIndex>,
 }
 
 impl<'a> StrobemerIndex<'a> {
+    pub fn new(
+        references: &'a [RefSequence],
+        parameters: SeedingParameters,
+        bits: u8,
+        filter_cutoff: usize,
+        partial_filter_cutoff: usize,
+        rescue_cutoff: usize,
+        randstrobes: Vec<RefRandstrobe>,
+        randstrobe_start_indices: Vec<BucketIndex>,
+    ) -> Self {
+        StrobemerIndex {
+            references,
+            parameters,
+            bits,
+            filter_cutoff,
+            partial_filter_cutoff,
+            rescue_cutoff,
+            randstrobes,
+            randstrobe_start_indices,
+        }
+    }
+
+    pub fn filter_cutoff(&self) -> usize {
+        self.filter_cutoff
+    }
+
+    pub fn rescue_cutoff(&self) -> usize {
+        self.rescue_cutoff
+    }
+
     // Find the first entry that matches the forwald full hash (including orientation bits)
     pub fn get_full_forward(&self, hash: RandstrobeHash) -> Option<usize> {
         self.get_masked(hash, REF_RANDSTROBE_HASH_MASK)
@@ -477,6 +507,7 @@ mod tests {
 
     use crate::indexer::make_index;
     use crate::io::fasta::read_ref;
+    use crate::revcomp::reverse_complement;
 
     #[test]
     fn test_ref_randstrobe() {
@@ -514,6 +545,39 @@ mod tests {
             _ => {
                 panic!("Parameters are expected not to match");
             }
+        }
+    }
+
+    #[test]
+    fn test_partial_orientation() {
+        let references = read_ref("tests/phix.fasta").unwrap();
+        let seq = &references[0].sequence;
+        let rc_seq = reverse_complement(seq);
+        let rc_references = vec![RefSequence {
+            name: "phix_rc".to_string(),
+            sequence: rc_seq,
+        }];
+
+        let parameters = SeedingParameters::new(300);
+
+        let (fwd_index, _stats) = make_index(&references, parameters.clone(), None, 0.0000001, 1);
+
+        let (rc_index, _stats) = make_index(&rc_references, parameters.clone(), None, 0.0000001, 1);
+
+        assert_eq!(fwd_index.randstrobes.len(), rc_index.randstrobes.len());
+
+        // Iterate over fwd index entries and look up each hash in the rc index
+        for i in 0..fwd_index.randstrobes.len() {
+            let fwd_hash = fwd_index.randstrobes[i].hash();
+
+            let rev_pos_result = rc_index.get_partial(fwd_hash);
+            assert!(rev_pos_result.is_some());
+            let rev_pos = rev_pos_result.unwrap();
+
+            let rc_partial_query = fwd_index.randstrobes[i].hash()
+                ^ ((1 as u64) << rc_index.parameters.randstrobe.partial_orientation_pos);
+            let rev_pos_forward = rc_index.get_partial_forward_from(rc_partial_query, rev_pos);
+            assert!(rev_pos_forward.is_some());
         }
     }
 }

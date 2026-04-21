@@ -357,7 +357,7 @@ pub fn align_single_end_read(
     let mut alignments_with_best_score = 0;
     let mut best_alignment = None;
 
-    let k = index.parameters.syncmer.k;
+    let k = index.k();
     let read = Read::new(&record.sequence);
     for (tries, nam) in nams
         .iter_mut()

@@ -160,16 +160,16 @@ pub fn make_index<'a>(
     stats.distinct_strobemers = unique_mers;
 
     (
-        StrobemerIndex {
+        StrobemerIndex::new(
             references,
             parameters,
             bits,
             filter_cutoff,
-            partial_filter_cutoff: filter_cutoff,
+            filter_cutoff,
             rescue_cutoff,
             randstrobes,
             randstrobe_start_indices,
-        },
+        ),
         stats,
     )
 }
@@ -364,12 +364,9 @@ impl Display for IndexCreationStatistics {
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        indexer::make_index,
-        io::fasta::{RefSequence, read_ref},
-        revcomp::reverse_complement,
-        seeding::{SeedingParameters, SyncmerParameters},
-    };
+    use crate::io::fasta::read_ref;
+
+    use super::*;
 
     #[test]
     fn test_pick_bits() {
@@ -394,38 +391,5 @@ mod test {
         let parameters = SeedingParameters::new(150);
         let (_index2, stats) = make_index(&references, parameters, None, 0.1, 1);
         assert_eq!(stats.distinct_strobemers, 0);
-    }
-
-    #[test]
-    fn test_partial_orientation() {
-        let references = read_ref("tests/phix.fasta").unwrap();
-        let seq = &references[0].sequence;
-        let rc_seq = reverse_complement(seq);
-        let rc_references = vec![RefSequence {
-            name: "phix_rc".to_string(),
-            sequence: rc_seq,
-        }];
-
-        let parameters = SeedingParameters::new(300);
-
-        let (fwd_index, _stats) = make_index(&references, parameters.clone(), None, 0.0000001, 1);
-
-        let (rc_index, _stats) = make_index(&rc_references, parameters.clone(), None, 0.0000001, 1);
-
-        assert_eq!(fwd_index.randstrobes.len(), rc_index.randstrobes.len());
-
-        // Iterate over fwd index entries and look up each hash in the rc index
-        for i in 0..fwd_index.randstrobes.len() {
-            let fwd_hash = fwd_index.randstrobes[i].hash();
-
-            let rev_pos_result = rc_index.get_partial(fwd_hash);
-            assert!(rev_pos_result.is_some());
-            let rev_pos = rev_pos_result.unwrap();
-
-            let rc_partial_query = fwd_index.randstrobes[i].hash()
-                ^ ((1 as u64) << rc_index.parameters.randstrobe.partial_orientation_pos);
-            let rev_pos_forward = rc_index.get_partial_forward_from(rc_partial_query, rev_pos);
-            assert!(rev_pos_forward.is_some());
-        }
     }
 }
