@@ -371,10 +371,8 @@ pub fn align_single_end_read(
         {
             break;
         }
-        let consistent_nam = reverse_nam_if_needed(
-            nam, &read, references, k,
-            index.parameters.adna_mode, index.parameters.ry_len,
-        );
+        let consistent_nam = nam.is_consistent(&read, references, k, 
+            index.parameters.adna_mode, index.parameters.ry_len);
         if !consistent_nam {
             details.inconsistent_nams += 1;
             continue;

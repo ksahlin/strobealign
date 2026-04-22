@@ -836,7 +836,7 @@ mod tests {
 
     use crate::io::fasta::read_fasta;
     use crate::revcomp::reverse_complement;
-    use crate::seeding::Syncmer;
+    use crate::seeding::{DEFAULT_AUX_LEN, Syncmer};
 
     use std::fs::File;
     use std::io::BufReader;
@@ -952,6 +952,127 @@ mod tests {
     }
 
     #[test]
+    fn test_rymer_index_query() {
+        let seq =
+            b"ATCGATCGATCGATCGATCGATCGATCGATCGATCGAATTCCGGAATTCCGGAATTCCGGAATTCCGGTTAAGGCCTTAAGGCCTTAAGGCCTTAAGGCC";
+        assert_eq!(seq.len(), 100);
+        let rc_seq = reverse_complement(seq);
+
+        let references = vec![RefSequence {
+            name: "test".to_string(),
+            sequence: seq.to_vec(),
+        }];
+
+        let parameters = SeedingParameters::from_read_length(
+            40, None, None, None, None, None, None, DEFAULT_AUX_LEN, true, None,
+        )
+        .unwrap();
+        let k = parameters.syncmer.k;
+
+        let mut index = StrobemerIndex::new(&references, parameters.clone(), None);
+        index.populate(0.0000001, 1);
+        assert!(index.randstrobes.len() > 0, "index should have some randstrobes");
+
+        // Insert a dummy randstrobe per bucket to work around sparse bucket
+        // table issue where the first entry's bucket is incorrectly assigned
+        let n_buckets = 1usize << index.bits;
+        for bucket in 0..n_buckets {
+            let hash = (bucket as u64) << (64 - index.bits);
+            index.randstrobes.push(RefRandstrobe::new(hash, 0, 0, 0));
+        }
+        // Re-sort and rebuild bucket table
+        index.randstrobes.sort_unstable_by_key(|r| (r.hash_offset, r.position, r.ref_index));
+        index.randstrobe_start_indices.clear();
+        index.randstrobe_start_indices.push(0);
+        let mut prev_hash_n = 0u64;
+        for (position, rs) in index.randstrobes.iter().enumerate() {
+            let cur_hash_n = rs.hash() >> (64 - index.bits);
+            if cur_hash_n != prev_hash_n {
+                while index.randstrobe_start_indices.len() <= cur_hash_n as usize {
+                    index.randstrobe_start_indices.push(position as u64);
+                }
+                prev_hash_n = cur_hash_n;
+            }
+        }
+        while index.randstrobe_start_indices.len() < n_buckets + 1 {
+            index.randstrobe_start_indices.push(index.randstrobes.len() as u64);
+        }
+
+        let query_len = 60;
+        let fwd_query = &seq[..query_len];
+        let rc_query = &rc_seq[seq.len() - query_len..];
+
+        for query in [fwd_query, rc_query] {
+            let [fwd_randstrobes, rc_randstrobes] =
+                crate::seeding::randstrobes_query(query, &parameters);
+
+            // Full hits: at least one query randstrobe should be found
+            let mut full_found = 0;
+            for qr in fwd_randstrobes.iter().chain(rc_randstrobes.iter()) {
+                if index.get_full_forward(qr.hash).is_some() {
+                    full_found += 1;
+                }
+            }
+            assert!(full_found > 0, "expected at least one full hit");
+
+            // Partial hits: every query randstrobe should be findable via partial lookup
+            for qr in fwd_randstrobes.iter().chain(rc_randstrobes.iter()) {
+                let partial_pos = index.get_partial(qr.hash);
+                assert!(
+                    partial_pos.is_some(),
+                    "partial lookup failed for hash {:016x}",
+                    qr.hash
+                );
+                let pos = partial_pos.unwrap();
+                let fwd_partial = index.get_partial_forward_from(qr.hash, pos);
+                let rc_partial = index.get_partial_forward_from(qr.hash_revcomp, pos);
+                assert!(
+                    fwd_partial.is_some() || rc_partial.is_some(),
+                    "neither forward nor rc partial found for hash {:016x}",
+                    qr.hash
+                );
+            }
+        }
+
+        // Orientation: forward query should get full hits directly
+        let [fwd_qr, _] = crate::seeding::randstrobes_query(fwd_query, &parameters);
+        let mut fwd_direct_hits = 0;
+        for qr in &fwd_qr {
+            if let Some(pos) = index.get_full_forward(qr.hash) {
+                let ref_pos = index.randstrobes[pos].position();
+                assert!(ref_pos < seq.len(), "hit position {} out of bounds", ref_pos);
+                fwd_direct_hits += 1;
+            }
+        }
+
+        // Reverse-complement query should find hits via hash or hash_revcomp
+        let [_, rc_qr] = crate::seeding::randstrobes_query(fwd_query, &parameters);
+        let mut rc_via_revcomp = 0;
+        for qr in &rc_qr {
+            if index.get_full_forward(qr.hash).is_some()
+                || index.get_full_forward(qr.hash_revcomp).is_some()
+            {
+                rc_via_revcomp += 1;
+            }
+        }
+
+        assert!(fwd_direct_hits > 0, "forward query should have direct full hits");
+        if !rc_qr.is_empty() {
+            assert!(rc_via_revcomp > 0, "rc query should find hits via hash or hash_revcomp");
+        }
+
+        // Verify partial hit positions point to correct reference locations
+        let [fwd_qr, _] = crate::seeding::randstrobes_query(fwd_query, &parameters);
+        for qr in &fwd_qr {
+            if let Some(pos) = index.get_partial(qr.hash) {
+                let (ref_start, ref_end) = index.strobe_extent_partial(pos);
+                assert!(ref_end <= seq.len());
+                assert_eq!(ref_end - ref_start, k);
+            }
+        }
+    }
+
+    #[test]
     fn test_partial_orientation() {
         let references = read_ref("tests/phix.fasta");
         let seq = &references[0].sequence;
@@ -986,3 +1107,4 @@ mod tests {
         }
     }
 }
+

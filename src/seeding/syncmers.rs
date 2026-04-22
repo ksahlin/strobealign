@@ -220,15 +220,34 @@ impl SyncmerEncoding for KmerEncoding {
 
 /// Compare two nucleotide sequences using fuzzy matching for aDNA mode.
 /// Allows up to MAX_MISMATCHES mismatches.
-pub fn ry_equal(a: &[u8], b: &[u8], _ry_len: usize) -> bool {
-    const MAX_MISMATCHES: usize = 2;
+pub fn ry_equal(a: &[u8], b: &[u8], ry_len: usize) -> bool {
     a.len() == b.len()
-        && a.iter()
-            .cloned()
-            .zip(b.iter().cloned())
-            .filter(|(x, y)| x != y)
-            .count()
-            <= MAX_MISMATCHES
+    // fixme use anchor orientation to avoid two checks; optimize
+    && (a.iter()
+        .zip(b.iter())
+        .enumerate()
+        .all(|(i, (&x, &y))| {
+            if i < ry_len {
+                let sx = RYMER_S1[x as usize];
+                let sy = RYMER_S1[y as usize];
+                sx < 4 && sx == sy
+            } else {
+                x == y
+            }
+        }) ||
+        a.iter()
+        .zip(b.iter())
+        .enumerate()
+        .all(|(i, (&x, &y))| {
+            if i >= a.len() - ry_len {
+                let sx = RYMER_S1[x as usize];
+                let sy = RYMER_S1[y as usize];
+                sx < 4 && sx == sy
+            } else {
+                x == y
+            }
+        })
+    )
 }
 
 // S1: a, A -> 0; c, C -> 1; g, G -> 0; t, T, u, U -> 1
@@ -716,4 +735,5 @@ mod test {
     //     assert!(ry_equal(b"ACGT", b"ACGT", 0));
     //     assert!(!ry_equal(b"ACGT", b"GCGT", 0));
     // }
+
 }

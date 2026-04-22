@@ -211,3 +211,110 @@ fn shuffle_top_nams(nams: &mut [Nam], rng: &mut Rng) {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::chainer::{Chainer, ChainingParameters};
+    use crate::index::StrobemerIndex;
+    use crate::io::fasta::RefSequence;
+    use crate::seeding::{DEFAULT_AUX_LEN, SeedingParameters};
+
+    #[test]
+    fn test_partial_rymer_consistency() {
+        // Build a reference containing a known k-mer whose canonical form
+        // is the reverse complement. Construct a 200bp reference with unique flanking sequence so
+        // the k-mer at the target position is the only hit.
+        let target_kmer = b"TTGGCACAACTTCTTCTACAT";
+        let k = 21;
+        let ry_len = 8;
+
+        let left_flank = b"ACGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC";
+        let right_flank = b"TAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTA";
+
+        let mut ref_seq = Vec::new();
+        ref_seq.extend_from_slice(left_flank);
+        ref_seq.extend_from_slice(target_kmer);
+        ref_seq.extend_from_slice(right_flank);
+        let target_pos = left_flank.len();
+
+        let references = vec![RefSequence {
+            name: "test".to_string(),
+            sequence: ref_seq.clone(),
+        }];
+
+        let parameters = SeedingParameters::from_read_length(
+            40,
+            Some(k),
+            None,
+            None,
+            None,
+            None,
+            None,
+            DEFAULT_AUX_LEN,
+            true,
+            Some(ry_len),
+        )
+        .unwrap();
+        assert_eq!(parameters.syncmer.k, k);
+        assert_eq!(parameters.ry_len, ry_len);
+
+        let mut index = StrobemerIndex::new(&references, parameters.clone(), None);
+        index.populate(0.0000001, 1);
+
+        let chainer = Chainer::new(k, ChainingParameters::default());
+
+        // Create a read that matches the target position but with C→T at
+        // position 15 of the k-mer (a deamination-like change).
+        // We include some flanking context from the reference so the read
+        // is longer than k and produces multiple seeds.
+        let deam_pos = 15; // within the target k-mer
+        let read_start = target_pos;
+        let read_len = 40;
+        let mut read_seq: Vec<u8> = ref_seq[read_start..read_start + read_len].to_vec();
+        assert_eq!(read_seq[deam_pos], b'C');
+        read_seq[deam_pos] = b'T'; // C→T deamination
+
+        let read = Read::new(&read_seq);
+
+        let mut rng = Rng::with_seed(42);
+        let (_details, nams) = get_nams_by_chaining(
+            &read_seq,
+            &index,
+            &chainer,
+            100,
+            McsStrategy::Always,
+            &mut rng,
+        );
+
+        // Find NAMs that overlap the correct reference position
+        let correct_nams: Vec<&Nam> = nams
+            .iter()
+            .filter(|nam| {
+                nam.ref_id == 0
+                    && nam.ref_start <= target_pos + deam_pos
+                    && nam.ref_end >= target_pos
+            })
+            .collect();
+
+        assert!(
+            !correct_nams.is_empty(),
+            "Expected at least one NAM overlapping the correct reference position {}",
+            target_pos,
+        );
+
+        // Check consistency of matches that contain at least one reverse complement
+        for nam in &correct_nams {
+            let consistent = nam.is_consistent(
+                &read,
+                &references,
+                k,
+                true,
+                ry_len,
+            );
+            if nam.ref_start == left_flank.len() {            
+                assert!(consistent, "Found inconsistent NAM {} for ry_len {}", nam, ry_len);
+            }
+        }
+    }
+}
