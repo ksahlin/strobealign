@@ -91,15 +91,13 @@ pub trait SyncmerEncoding {
         encoded: u8,
         mask: Self::KmerValue,
     ) -> Self::KmerValue;
-    fn update_kmer_reverse(current: Self::KmerValue, encoded: u8, shift: usize)
-        -> Self::KmerValue;
+    fn update_kmer_reverse(current: Self::KmerValue, encoded: u8, shift: usize) -> Self::KmerValue;
     fn update_smer_forward(
         current: Self::SmerValue,
         encoded: u8,
         mask: Self::SmerValue,
     ) -> Self::SmerValue;
-    fn update_smer_reverse(current: Self::SmerValue, encoded: u8, shift: usize)
-        -> Self::SmerValue;
+    fn update_smer_reverse(current: Self::SmerValue, encoded: u8, shift: usize) -> Self::SmerValue;
     fn canonical_smer(forward: Self::SmerValue, reverse: Self::SmerValue) -> Self::SmerValue;
     /// Returns (canonical_value, is_canonical) where is_canonical = (forward <= reverse)
     fn canonical_kmer(
@@ -209,7 +207,13 @@ impl SyncmerEncoding for KmerEncoding {
     }
 
     #[inline]
-    fn make_syncmer(kmer: u64, position: usize, _k: usize, _ry_len: usize, canonical: bool) -> Syncmer {
+    fn make_syncmer(
+        kmer: u64,
+        position: usize,
+        _k: usize,
+        _ry_len: usize,
+        canonical: bool,
+    ) -> Syncmer {
         Syncmer {
             hash: xxh64(kmer),
             canonical,
@@ -218,36 +222,80 @@ impl SyncmerEncoding for KmerEncoding {
     }
 }
 
-/// Compare two nucleotide sequences using fuzzy matching for aDNA mode.
-/// Allows up to MAX_MISMATCHES mismatches.
+/// Collision check for aDNA NAM consistency: the first `ry_len` positions use
+/// RY-class equality (A/G vs C/T), the remaining positions require exact
+/// nucleotide equality.
 pub fn ry_equal(a: &[u8], b: &[u8], ry_len: usize) -> bool {
-    a.len() == b.len()
-    // fixme use anchor orientation to avoid two checks; optimize
-    && (a.iter()
-        .zip(b.iter())
-        .enumerate()
-        .all(|(i, (&x, &y))| {
-            if i < ry_len {
-                let sx = RYMER_S1[x as usize];
-                let sy = RYMER_S1[y as usize];
-                sx < 4 && sx == sy
-            } else {
-                x == y
+    if a.len() != b.len() {
+        return false;
+    }
+    let k = a.len();
+    let mut forward_ok = true;
+    let mut reverse_ok = true;
+    for (i, (&x, &y)) in a.iter().zip(b.iter()).enumerate() {
+        if !forward_ok && !reverse_ok {
+            return false;
+        }
+        let exact = x == y;
+        let ry = {
+            let sx = RYMER_S1[x as usize];
+            let sy = RYMER_S1[y as usize];
+            sx < 4 && sx == sy
+        };
+        if forward_ok {
+            let ok = if i < ry_len { ry } else { exact };
+            if !ok {
+                forward_ok = false;
             }
-        }) ||
-        a.iter()
-        .zip(b.iter())
-        .enumerate()
-        .all(|(i, (&x, &y))| {
-            if i >= a.len() - ry_len {
-                let sx = RYMER_S1[x as usize];
-                let sy = RYMER_S1[y as usize];
-                sx < 4 && sx == sy
-            } else {
-                x == y
+        }
+        if reverse_ok {
+            let ok = if i + ry_len >= k { ry } else { exact };
+            if !ok {
+                reverse_ok = false;
             }
-        })
-    )
+        }
+    }
+    forward_ok || reverse_ok
+}
+
+/// Compare two nucleotide sequences during aDNA NAM verification.
+///
+/// A position in the k-mer uses RY-class equality (A/G vs C/T) instead of exact
+/// nucleotide equality when the corresponding position in the read
+/// is within `ry_end_threshold` of either read end.
+///
+/// All other positions require an exact nucleotide match. The total number of
+/// mismatches across the k-mer must not exceed `max_mismatches`.
+pub fn ry_kmer_match(
+    ref_kmer: &[u8],
+    read_kmer: &[u8],
+    kmer_start_in_read: usize,
+    read_len: usize,
+    ry_end_threshold: usize,
+    max_mismatches: usize,
+) -> bool {
+    if ref_kmer.len() != read_kmer.len() {
+        return false;
+    }
+    let mut mismatches = 0;
+    for (i, (&x, &y)) in ref_kmer.iter().zip(read_kmer.iter()).enumerate() {
+        let read_pos = kmer_start_in_read + i;
+        let near_read_end = read_pos < ry_end_threshold || read_pos + ry_end_threshold >= read_len;
+        let matches = if near_read_end {
+            let sx = RYMER_S1[x as usize];
+            let sy = RYMER_S1[y as usize];
+            sx < 4 && sx == sy
+        } else {
+            x == y
+        };
+        if !matches {
+            mismatches += 1;
+            if mismatches > max_mismatches {
+                return false;
+            }
+        }
+    }
+    true
 }
 
 // S1: a, A -> 0; c, C -> 1; g, G -> 0; t, T, u, U -> 1
@@ -350,11 +398,7 @@ impl SyncmerEncoding for RymerEncoding {
     }
 
     #[inline]
-    fn update_kmer_reverse(
-        current: (u64, u32, u32),
-        encoded: u8,
-        shift: usize,
-    ) -> (u64, u32, u32) {
+    fn update_kmer_reverse(current: (u64, u32, u32), encoded: u8, shift: usize) -> (u64, u32, u32) {
         let nuc = (encoded & 3) as u64;
         let s1 = ((encoded >> 2) & 1) as u32;
         let s2 = ((encoded >> 3) & 1) as u32;
@@ -404,6 +448,8 @@ impl SyncmerEncoding for RymerEncoding {
     ) -> ((u64, u32, u32), bool) {
         let fwd_ry = ((forward.1 as u64) << 32) | (forward.2 as u64);
         let rev_ry = ((reverse.1 as u64) << 32) | (reverse.2 as u64);
+        // let fwd_ry = forward.1 as u64;
+        // let rev_ry = reverse.1 as u64;
         if fwd_ry <= rev_ry {
             (forward, true)
         } else {
@@ -695,16 +741,34 @@ mod test {
         let parameters = SyncmerParameters::try_new(8, 4).unwrap();
 
         let positions_full: Vec<usize> = RymerSyncmerIterator::with_ry_len(
-            seq.as_bytes(), parameters.k, parameters.s, parameters.t, parameters.k,
-        ).map(|s| s.position).collect();
+            seq.as_bytes(),
+            parameters.k,
+            parameters.s,
+            parameters.t,
+            parameters.k,
+        )
+        .map(|s| s.position)
+        .collect();
 
         let positions_half: Vec<usize> = RymerSyncmerIterator::with_ry_len(
-            seq.as_bytes(), parameters.k, parameters.s, parameters.t, parameters.k / 2,
-        ).map(|s| s.position).collect();
+            seq.as_bytes(),
+            parameters.k,
+            parameters.s,
+            parameters.t,
+            parameters.k / 2,
+        )
+        .map(|s| s.position)
+        .collect();
 
         let positions_zero: Vec<usize> = RymerSyncmerIterator::with_ry_len(
-            seq.as_bytes(), parameters.k, parameters.s, parameters.t, 0,
-        ).map(|s| s.position).collect();
+            seq.as_bytes(),
+            parameters.k,
+            parameters.s,
+            parameters.t,
+            0,
+        )
+        .map(|s| s.position)
+        .collect();
 
         assert_eq!(positions_full, positions_half);
         assert_eq!(positions_full, positions_zero);
@@ -716,12 +780,24 @@ mod test {
         let parameters = SyncmerParameters::try_new(8, 4).unwrap();
 
         let hashes_full: Vec<_> = RymerSyncmerIterator::with_ry_len(
-            seq.as_bytes(), parameters.k, parameters.s, parameters.t, parameters.k,
-        ).map(|s| (s.hash1, s.hash2)).collect();
+            seq.as_bytes(),
+            parameters.k,
+            parameters.s,
+            parameters.t,
+            parameters.k,
+        )
+        .map(|s| (s.hash1, s.hash2))
+        .collect();
 
         let hashes_half: Vec<_> = RymerSyncmerIterator::with_ry_len(
-            seq.as_bytes(), parameters.k, parameters.s, parameters.t, parameters.k / 2,
-        ).map(|s| (s.hash1, s.hash2)).collect();
+            seq.as_bytes(),
+            parameters.k,
+            parameters.s,
+            parameters.t,
+            parameters.k / 2,
+        )
+        .map(|s| (s.hash1, s.hash2))
+        .collect();
 
         assert_ne!(hashes_full, hashes_half);
     }
@@ -735,5 +811,4 @@ mod test {
     //     assert!(ry_equal(b"ACGT", b"ACGT", 0));
     //     assert!(!ry_equal(b"ACGT", b"GCGT", 0));
     // }
-
 }

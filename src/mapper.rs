@@ -371,10 +371,27 @@ pub fn align_single_end_read(
         {
             break;
         }
-        let consistent_nam = nam.is_consistent(&read, references, k, 
-            index.parameters.adna_mode, index.parameters.ry_len);
+        let consistent_nam = nam.is_consistent(
+            &read,
+            references,
+            k,
+            index.parameters.adna_mode,
+            index.parameters.ry_len,
+        );
         if !consistent_nam {
             details.inconsistent_nams += 1;
+            continue;
+        }
+        if index.parameters.adna_mode
+            && !nam.adna_filter(
+                &read,
+                references,
+                k,
+                index.parameters.ry_end_threshold,
+                index.parameters.max_mismatches,
+            )
+        {
+            details.adna_filtered_nams += 1;
             continue;
         }
         let Some(alignment) = extend_seed(
@@ -837,7 +854,8 @@ fn extend_paired_seeds(
     // the paired-end read as two single-end reads.
     let mut a_indv_max = [None, None];
     for i in 0..2 {
-        let consistent_nam = reverse_nam_if_needed(&mut nams[i][0], reads[i], references, k, adna_mode, ry_len);
+        let consistent_nam =
+            reverse_nam_if_needed(&mut nams[i][0], reads[i], references, k, adna_mode, ry_len);
         details[i].inconsistent_nams += !consistent_nam as usize;
         a_indv_max[i] = extend_seed(
             aligner,
@@ -874,8 +892,14 @@ fn extend_paired_seeds(
             let alignment;
             if let Some(mut this_nam) = namsp[i].clone() {
                 if let Entry::Vacant(e) = alignment_cache[i].entry(this_nam.nam_id) {
-                    let consistent_nam =
-                        reverse_nam_if_needed(&mut this_nam, reads[i], references, k, adna_mode, ry_len);
+                    let consistent_nam = reverse_nam_if_needed(
+                        &mut this_nam,
+                        reads[i],
+                        references,
+                        k,
+                        adna_mode,
+                        ry_len,
+                    );
                     details[i].inconsistent_nams += !consistent_nam as usize;
                     alignment = extend_seed(
                         aligner,
@@ -893,8 +917,14 @@ fn extend_paired_seeds(
                 }
             } else {
                 let mut other_nam = namsp[1 - i].clone().unwrap();
-                details[1 - i].inconsistent_nams +=
-                    !reverse_nam_if_needed(&mut other_nam, reads[1 - i], references, k, adna_mode, ry_len) as usize;
+                details[1 - i].inconsistent_nams += !reverse_nam_if_needed(
+                    &mut other_nam,
+                    reads[1 - i],
+                    references,
+                    k,
+                    adna_mode,
+                    ry_len,
+                ) as usize;
                 alignment = rescue_align(aligner, &other_nam, references, reads[i], mu, sigma, k);
                 if alignment.is_some() {
                     details[i].mate_rescue += 1;

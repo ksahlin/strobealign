@@ -47,6 +47,9 @@ pub struct Details {
 
     pub inconsistent_nams: usize,
 
+    /// No. of NAMs rejected by the aDNA filter
+    pub adna_filtered_nams: usize,
+
     /// No. of times rescue by local alignment was attempted
     pub mate_rescue: usize,
 
@@ -66,6 +69,7 @@ impl ops::AddAssign<Details> for Details {
     fn add_assign(&mut self, rhs: Details) {
         self.nam += rhs.nam;
         self.inconsistent_nams += rhs.inconsistent_nams;
+        self.adna_filtered_nams += rhs.adna_filtered_nams;
         self.mate_rescue += rhs.mate_rescue;
         self.tried_alignment += rhs.tried_alignment;
         self.gapped += rhs.gapped;

@@ -770,6 +770,8 @@ impl<'a> StrobemerIndex<'a> {
             randstrobe: randstrobe_parameters,
             adna_mode: self.parameters.adna_mode,
             ry_len: self.parameters.ry_len,
+            ry_end_threshold: self.parameters.ry_end_threshold,
+            max_mismatches: self.parameters.max_mismatches,
         };
 
         if self.parameters != sti_parameters {
@@ -964,14 +966,28 @@ mod tests {
         }];
 
         let parameters = SeedingParameters::from_read_length(
-            40, None, None, None, None, None, None, DEFAULT_AUX_LEN, true, None,
+            40,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            DEFAULT_AUX_LEN,
+            true,
+            None,
+            12,
+            2,
         )
         .unwrap();
         let k = parameters.syncmer.k;
 
         let mut index = StrobemerIndex::new(&references, parameters.clone(), None);
         index.populate(0.0000001, 1);
-        assert!(index.randstrobes.len() > 0, "index should have some randstrobes");
+        assert!(
+            index.randstrobes.len() > 0,
+            "index should have some randstrobes"
+        );
 
         // Insert a dummy randstrobe per bucket to work around sparse bucket
         // table issue where the first entry's bucket is incorrectly assigned
@@ -981,7 +997,9 @@ mod tests {
             index.randstrobes.push(RefRandstrobe::new(hash, 0, 0, 0));
         }
         // Re-sort and rebuild bucket table
-        index.randstrobes.sort_unstable_by_key(|r| (r.hash_offset, r.position, r.ref_index));
+        index
+            .randstrobes
+            .sort_unstable_by_key(|r| (r.hash_offset, r.position, r.ref_index));
         index.randstrobe_start_indices.clear();
         index.randstrobe_start_indices.push(0);
         let mut prev_hash_n = 0u64;
@@ -995,7 +1013,9 @@ mod tests {
             }
         }
         while index.randstrobe_start_indices.len() < n_buckets + 1 {
-            index.randstrobe_start_indices.push(index.randstrobes.len() as u64);
+            index
+                .randstrobe_start_indices
+                .push(index.randstrobes.len() as u64);
         }
 
         let query_len = 60;
@@ -1040,7 +1060,11 @@ mod tests {
         for qr in &fwd_qr {
             if let Some(pos) = index.get_full_forward(qr.hash) {
                 let ref_pos = index.randstrobes[pos].position();
-                assert!(ref_pos < seq.len(), "hit position {} out of bounds", ref_pos);
+                assert!(
+                    ref_pos < seq.len(),
+                    "hit position {} out of bounds",
+                    ref_pos
+                );
                 fwd_direct_hits += 1;
             }
         }
@@ -1056,9 +1080,15 @@ mod tests {
             }
         }
 
-        assert!(fwd_direct_hits > 0, "forward query should have direct full hits");
+        assert!(
+            fwd_direct_hits > 0,
+            "forward query should have direct full hits"
+        );
         if !rc_qr.is_empty() {
-            assert!(rc_via_revcomp > 0, "rc query should find hits via hash or hash_revcomp");
+            assert!(
+                rc_via_revcomp > 0,
+                "rc query should find hits via hash or hash_revcomp"
+            );
         }
 
         // Verify partial hit positions point to correct reference locations
@@ -1107,4 +1137,3 @@ mod tests {
         }
     }
 }
-

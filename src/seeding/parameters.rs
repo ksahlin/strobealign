@@ -83,6 +83,11 @@ pub struct SeedingParameters {
     pub randstrobe: RandstrobeParameters,
     pub adna_mode: bool,
     pub ry_len: usize,
+    /// Positions within this distance from either read end use RY-class equality
+    /// when verifying an aDNA NAM. Other positions require exact nucleotide match.
+    pub ry_end_threshold: usize,
+    /// Maximum number of mismatches tolerated when verifying an aDNA NAM.
+    pub max_mismatches: usize,
 }
 
 impl SeedingParameters {
@@ -117,6 +122,8 @@ impl SeedingParameters {
         aux_len: u8,
         adna_mode: bool,
         ry_len: usize,
+        ry_end_threshold: usize,
+        max_mismatches: usize,
     ) -> Result<Self, InvalidSeedingParameter> {
         if aux_len > 63 {
             return Err(InvalidSeedingParameter::InvalidParameter(
@@ -131,6 +138,8 @@ impl SeedingParameters {
             randstrobe: RandstrobeParameters::try_new(w_min, w_max, q, max_dist, main_hash_mask)?,
             adna_mode,
             ry_len,
+            ry_end_threshold,
+            max_mismatches,
         })
     }
 
@@ -147,6 +156,8 @@ impl SeedingParameters {
         aux_len: u8,
         adna_mode: bool,
         ry_len: Option<usize>,
+        ry_end_threshold: usize,
+        max_mismatches: usize,
     ) -> Result<SeedingParameters, InvalidSeedingParameter> {
         let default_c = 8;
         let mut canonical_read_length = 50;
@@ -207,6 +218,8 @@ impl SeedingParameters {
             aux_len,
             adna_mode,
             ry_len,
+            ry_end_threshold,
+            max_mismatches,
         )
     }
 
@@ -222,10 +235,15 @@ impl SeedingParameters {
             DEFAULT_AUX_LEN,
             false,
             None,
+            DEFAULT_RY_END_THRESHOLD,
+            DEFAULT_MAX_MISMATCHES,
         )
         .unwrap()
     }
 }
+
+pub const DEFAULT_RY_END_THRESHOLD: usize = 12;
+pub const DEFAULT_MAX_MISMATCHES: usize = 2;
 
 #[cfg(test)]
 mod test {
@@ -264,6 +282,8 @@ mod test {
             aux_len,
             false,
             0,
+            DEFAULT_RY_END_THRESHOLD,
+            DEFAULT_MAX_MISMATCHES,
         )
         .unwrap();
         assert_eq!(

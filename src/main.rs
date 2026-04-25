@@ -194,6 +194,17 @@ struct Args {
     #[arg(long = "ry-len", help_heading = "Seeding")]
     ry_len: Option<usize>,
 
+    /// In aDNA NAM verification, only positions within this distance from either
+    /// read end use RY-class equality; other positions require exact nucleotide
+    /// match. Only used when --adna is set.
+    #[arg(long = "ry-end-threshold", default_value_t = 12, help_heading = "Seeding")]
+    ry_end_threshold: usize,
+
+    /// Maximum number of mismatches tolerated when verifying an aDNA NAM
+    /// (counted after applying --ry-end-threshold). Only used when --adna is set.
+    #[arg(long = "adna-max-mismatches", default_value_t = 2, help_heading = "Seeding")]
+    adna_max_mismatches: usize,
+
     /// Multi-context seed strategy for finding hits
     #[arg(long = "mcs", value_enum, default_value_t = McsStrategy::default(), help_heading = "Search parameters")]
     mcs_strategy: McsStrategy,
@@ -374,6 +385,8 @@ fn run() -> Result<(), CliError> {
         args.aux_len,
         args.adna,
         args.ry_len,
+        args.ry_end_threshold,
+        args.adna_max_mismatches,
     )?;
 
     info!(
@@ -796,6 +809,7 @@ fn run() -> Result<(), CliError> {
     debug!("");
     debug!("Total mapping sites tried: {}", details.tried_alignment);
     debug!("Inconsistent NAM ends: {}", details.inconsistent_nams);
+    debug!("aDNA-filtered NAMs: {}", details.adna_filtered_nams);
     debug!("Mates rescued by alignment: {}", details.mate_rescue);
 
     info!("Total time mapping: {:.2} s", timer.elapsed().as_secs_f64());

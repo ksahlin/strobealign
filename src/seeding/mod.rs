@@ -7,7 +7,7 @@ pub use parameters::{InvalidSeedingParameter, SeedingParameters};
 pub use strobes::{DEFAULT_AUX_LEN, RandstrobeIterator, RandstrobeParameters, RymerIterator};
 pub use syncmers::{
     KmerSyncmerIterator, RymerSyncmer, RymerSyncmerIterator, Syncmer, SyncmerIterator,
-    SyncmerParameters, ry_equal,
+    SyncmerParameters, ry_equal, ry_kmer_match,
 };
 
 #[derive(Debug)]

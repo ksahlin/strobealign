@@ -77,10 +77,7 @@ impl Randstrobe {
         }
     }
 
-    pub fn from_rymers(
-        syncmer: RymerSyncmer,
-        parameters: &RandstrobeParameters,
-    ) -> Self {
+    pub fn from_rymers(syncmer: RymerSyncmer, parameters: &RandstrobeParameters) -> Self {
         let canonical = syncmer.is_canonical() as u64;
         Randstrobe {
             hash: Randstrobe::hash(syncmer.hash1, syncmer.hash2, parameters)

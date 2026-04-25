@@ -13,7 +13,7 @@ use crate::io::fasta::RefSequence;
 use crate::mcsstrategy::McsStrategy;
 use crate::read::Read;
 use crate::seeding::randstrobes_query;
-use crate::seeding::ry_equal;
+use crate::seeding::{ry_equal, ry_kmer_match};
 
 /// Non-overlapping approximate match
 #[derive(Clone, Debug)]
@@ -44,9 +44,11 @@ impl Nam {
         self.ref_start.saturating_sub(self.query_start)
     }
 
-    /// Returns whether a NAM represents a consistent match between read and
-    /// reference by comparing the nucleotide sequences of the first and last
-    /// strobe (taking orientation into account).
+    /// Returns whether a NAM represents a consistent match
+    /// between read and reference by comparing the nucleotide sequences of the
+    /// first and last strobe (taking orientation into account). In aDNA mode,
+    /// the first `ry_len` positions of each k-mer are compared by RY class and
+    /// the remaining positions require exact nucleotide equality.
     pub fn is_consistent(
         &self,
         read: &Read,
@@ -72,6 +74,46 @@ impl Nam {
         } else {
             ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer
         }
+    }
+
+    /// aDNA filter: returns `true` if the first and last
+    /// k-mers of the NAM match within the configured RY-end window and
+    /// mismatch budget.
+    pub fn adna_filter(
+        &self,
+        read: &Read,
+        references: &[RefSequence],
+        k: usize,
+        ry_end_threshold: usize,
+        max_mismatches: usize,
+    ) -> bool {
+        let ref_start_kmer = &references[self.ref_id].sequence[self.ref_start..self.ref_start + k];
+        let ref_end_kmer = &references[self.ref_id].sequence[self.ref_end - k..self.ref_end];
+
+        let seq = if self.is_revcomp {
+            read.rc()
+        } else {
+            read.seq()
+        };
+        let read_start_kmer = &seq[self.query_start..self.query_start + k];
+        let read_end_kmer = &seq[self.query_end - k..self.query_end];
+
+        let read_len = read.len();
+        ry_kmer_match(
+            ref_start_kmer,
+            read_start_kmer,
+            self.query_start,
+            read_len,
+            ry_end_threshold,
+            max_mismatches,
+        ) && ry_kmer_match(
+            ref_end_kmer,
+            read_end_kmer,
+            self.query_end - k,
+            read_len,
+            ry_end_threshold,
+            max_mismatches,
+        )
     }
 }
 
@@ -112,7 +154,11 @@ pub fn reverse_nam_if_needed(
     let ref_end_kmer = &references[nam.ref_id].sequence[nam.ref_end - k..nam.ref_end];
 
     let kmers_match = |a: &[u8], b: &[u8]| -> bool {
-        if adna_mode { ry_equal(a, b, ry_len) } else { a == b }
+        if adna_mode {
+            ry_equal(a, b, ry_len)
+        } else {
+            a == b
+        }
     };
 
     let (seq, seq_rc) = if nam.is_revcomp {
@@ -122,9 +168,7 @@ pub fn reverse_nam_if_needed(
     };
     let read_start_kmer = &seq[nam.query_start..nam.query_start + k];
     let read_end_kmer = &seq[nam.query_end - k..nam.query_end];
-    if kmers_match(ref_start_kmer, read_start_kmer)
-        && kmers_match(ref_end_kmer, read_end_kmer)
-    {
+    if kmers_match(ref_start_kmer, read_start_kmer) && kmers_match(ref_end_kmer, read_end_kmer) {
         return true;
     }
 
@@ -137,9 +181,7 @@ pub fn reverse_nam_if_needed(
     // false reverse match, change coordinates in nam to forward
     let read_start_kmer = &seq_rc[q_start_tmp..q_start_tmp + k];
     let read_end_kmer = &seq_rc[q_end_tmp - k..q_end_tmp];
-    if kmers_match(ref_start_kmer, read_start_kmer)
-        && kmers_match(ref_end_kmer, read_end_kmer)
-    {
+    if kmers_match(ref_start_kmer, read_start_kmer) && kmers_match(ref_end_kmer, read_end_kmer) {
         nam.is_revcomp = !nam.is_revcomp;
         nam.query_start = q_start_tmp;
         nam.query_end = q_end_tmp;
@@ -254,6 +296,8 @@ mod test {
             DEFAULT_AUX_LEN,
             true,
             Some(ry_len),
+            12,
+            2,
         )
         .unwrap();
         assert_eq!(parameters.syncmer.k, k);
@@ -305,15 +349,13 @@ mod test {
 
         // Check consistency of matches that contain at least one reverse complement
         for nam in &correct_nams {
-            let consistent = nam.is_consistent(
-                &read,
-                &references,
-                k,
-                true,
-                ry_len,
-            );
-            if nam.ref_start == left_flank.len() {            
-                assert!(consistent, "Found inconsistent NAM {} for ry_len {}", nam, ry_len);
+            let consistent = nam.is_consistent(&read, &references, k, true, parameters.ry_len);
+            if nam.ref_start == left_flank.len() {
+                assert!(
+                    consistent,
+                    "Found inconsistent NAM {} for ry_len {}",
+                    nam, ry_len
+                );
             }
         }
     }
