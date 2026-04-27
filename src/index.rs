@@ -75,9 +75,6 @@ pub struct StrobemerIndex {
     /// this (see StrobemerIndex::is_too_frequent())
     filter_cutoff: usize,
 
-    /// Filter partial seeds that occur more often than this
-    partial_filter_cutoff: usize,
-
     /// The randstrobes vector contains all randstrobes sorted by hash.
     /// The randstrobe_start_indices vector points to entries in the
     /// randstrobes vector. `randstrobe_start_indices[x]` is the index of the
@@ -95,7 +92,6 @@ impl StrobemerIndex {
         parameters: SeedingParameters,
         bits: u8,
         filter_cutoff: usize,
-        partial_filter_cutoff: usize,
         randstrobes: Vec<RefRandstrobe>,
         randstrobe_start_indices: Vec<BucketIndex>,
     ) -> Self {
@@ -103,7 +99,6 @@ impl StrobemerIndex {
             parameters,
             bits,
             filter_cutoff,
-            partial_filter_cutoff,
             randstrobes,
             randstrobe_start_indices,
         }
@@ -438,7 +433,6 @@ pub fn read_index<'a, P: AsRef<Path>>(
         parameters,
         bits,
         filter_cutoff,
-        partial_filter_cutoff: filter_cutoff,
         randstrobes,
         randstrobe_start_indices,
     })

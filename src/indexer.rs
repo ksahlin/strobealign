@@ -163,7 +163,6 @@ pub fn make_index<'a>(
             parameters,
             bits,
             filter_cutoff,
-            filter_cutoff,
             randstrobes,
             randstrobe_start_indices,
         ),
