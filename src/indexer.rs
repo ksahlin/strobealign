@@ -17,13 +17,10 @@ use rayon::slice::ParallelSliceMut;
 pub fn make_index<'a>(
     references: &'a [RefSequence],
     parameters: SeedingParameters,
-    bits: Option<u8>,
+    bits: u8,
     filter_fraction: f64,
     n_threads: usize,
 ) -> (StrobemerIndex, IndexCreationStatistics) {
-    let total_reference_length = references.iter().map(|r| r.sequence.len()).sum();
-    let bits = bits.unwrap_or_else(|| parameters.syncmer.pick_bits(total_reference_length));
-
     let timer = Instant::now();
     let randstrobe_counts = count_all_randstrobes(references, &parameters, n_threads);
     debug!("  Counting hashes: {:.2} s", timer.elapsed().as_secs_f64());
@@ -293,8 +290,9 @@ fn count_randstrobes(seq: &[u8], parameters: &SeedingParameters) -> usize {
 
 impl SyncmerParameters {
     /// Pick a suitable number of bits for indexing randstrobe start indices
-    pub fn pick_bits(&self, size: usize) -> u8 {
-        let estimated_number_of_randstrobes = size / (self.k - self.s + 1) + 1;
+    pub fn pick_bits(&self, references: &[RefSequence]) -> u8 {
+        let total_length: usize = references.iter().map(|r| r.sequence.len()).sum();
+        let estimated_number_of_randstrobes = total_length / (self.k - self.s + 1) + 1;
         // Two randstrobes per bucket on average
         // TOOD checked_ilog2 or ilog2
         ((estimated_number_of_randstrobes as f64).log2() as u32).clamp(9, 32) as u8 - 1
@@ -367,14 +365,16 @@ mod test {
     #[test]
     fn test_pick_bits() {
         let parameters = SyncmerParameters::try_new(20, 16).unwrap();
-        assert_eq!(parameters.pick_bits(0), 8);
+        let references = read_ref("tests/phix.fasta").unwrap();
+        assert_eq!(parameters.pick_bits(&references), 9);
     }
 
     #[test]
     fn test_index_phix() {
         let references = read_ref("tests/phix.fasta").unwrap();
         let parameters = SeedingParameters::new(150);
-        let (_index, stats) = make_index(&references, parameters, None, 0.1, 1);
+        let bits = parameters.syncmer.pick_bits(&references);
+        let (_index, stats) = make_index(&references, parameters, bits, 0.1, 1);
         assert!(stats.distinct_strobemers > 0);
     }
 
@@ -385,7 +385,8 @@ mod test {
             sequence: vec![],
         }];
         let parameters = SeedingParameters::new(150);
-        let (_index2, stats) = make_index(&references, parameters, None, 0.1, 1);
+        let bits = parameters.syncmer.pick_bits(&references);
+        let (_index2, stats) = make_index(&references, parameters, bits, 0.1, 1);
         assert_eq!(stats.distinct_strobemers, 0);
     }
 }

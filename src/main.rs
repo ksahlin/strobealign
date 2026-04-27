@@ -448,7 +448,10 @@ fn run() -> Result<(), CliError> {
     // Create the index
     debug!("Auxiliary hash length: {}", args.aux_len);
     info!("Multi-context seed strategy: {}", args.mcs_strategy);
-    //info!("Bits used to index buckets: {}", index.bits);
+    let bits = args
+        .bits
+        .unwrap_or_else(|| parameters.syncmer.pick_bits(&references));
+    info!("Bits used to index buckets: {}", bits);
 
     let index = if args.use_index {
         // Read the index from a file
@@ -457,7 +460,7 @@ fn run() -> Result<(), CliError> {
         let mut sti_path = args.ref_path.clone();
         sti_path.push_str(&parameters.filename_extension());
         info!("Reading index from {}", sti_path);
-        let index = read_index(&sti_path, &references, parameters.clone(), args.bits)?;
+        let index = read_index(&sti_path, parameters.clone(), bits)?;
         info!(
             "Total time reading index: {:.2} s",
             read_index_timer.elapsed().as_secs_f64()
@@ -475,7 +478,7 @@ fn run() -> Result<(), CliError> {
         let (index, index_stats) = make_index(
             &references,
             parameters.clone(),
-            args.bits,
+            bits,
             args.filter_fraction,
             indexing_threads,
         );

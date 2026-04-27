@@ -4,7 +4,6 @@ use std::path::Path;
 
 use thiserror::Error;
 
-use crate::io::fasta::RefSequence;
 use crate::partition::custom_partition_point;
 use crate::seeding::{
     InvalidSeedingParameter, RandstrobeParameters, SeedingParameters, SyncmerParameters,
@@ -350,14 +349,9 @@ impl StrobemerIndex {
 
 pub fn read_index<'a, P: AsRef<Path>>(
     path: P,
-    references: &'a [RefSequence],
     parameters: SeedingParameters,
-    bits: Option<u8>,
+    bits: u8,
 ) -> Result<StrobemerIndex, IndexReadingError> {
-    // TODO these two lines are duplicated in make_index
-    let total_reference_length = references.iter().map(|r| r.sequence.len()).sum();
-    let bits = bits.unwrap_or_else(|| parameters.syncmer.pick_bits(total_reference_length));
-
     let file = File::open(path)?;
     let mut reader = BufReader::new(file);
 
@@ -486,7 +480,7 @@ mod tests {
     use super::*;
 
     use crate::indexer::make_index;
-    use crate::io::fasta::read_ref;
+    use crate::io::fasta::{RefSequence, read_ref};
     use crate::revcomp::reverse_complement;
 
     #[test]
@@ -513,12 +507,12 @@ mod tests {
         let references = read_ref(fasta_path).unwrap();
 
         let parameters = SeedingParameters::new(300);
-        let index = make_index(&references, parameters, None, 0.0002, 1).0;
+        let bits = parameters.syncmer.pick_bits(&references);
+        let index = make_index(&references, parameters, bits, 0.0002, 1).0;
         let sti_path = dir.path().join("index.sti");
         index.write(&sti_path).unwrap();
 
-        let read_index_result =
-            read_index(&sti_path, &references, SeedingParameters::new(50), None);
+        let read_index_result = read_index(&sti_path, SeedingParameters::new(50), bits);
 
         match read_index_result {
             Err(IndexReadingError::ParameterMismatch) => {}
@@ -539,10 +533,11 @@ mod tests {
         }];
 
         let parameters = SeedingParameters::new(300);
+        let bits = parameters.syncmer.pick_bits(&references);
 
-        let (fwd_index, _stats) = make_index(&references, parameters.clone(), None, 0.0000001, 1);
+        let (fwd_index, _stats) = make_index(&references, parameters.clone(), bits, 0.0000001, 1);
 
-        let (rc_index, _stats) = make_index(&rc_references, parameters.clone(), None, 0.0000001, 1);
+        let (rc_index, _stats) = make_index(&rc_references, parameters.clone(), bits, 0.0000001, 1);
 
         assert_eq!(fwd_index.randstrobes.len(), rc_index.randstrobes.len());
 
