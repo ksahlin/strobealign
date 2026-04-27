@@ -165,7 +165,7 @@ impl Chainer {
                 &query_randstrobes[is_revcomp],
                 index,
                 mcs_strategy,
-                index.filter_cutoff,
+                index.filter_cutoff(),
                 rescue_distance,
             );
         }

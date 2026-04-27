@@ -179,17 +179,16 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::io::fasta::{RefSequence, read_fasta};
+    use crate::io::fasta::{RefSequence, read_ref};
     use crate::seeding::SeedingParameters;
     use crate::seeding::SyncmerIterator;
-    use std::fs::File;
-    use std::io::BufReader;
 
     fn read_phix() -> RefSequence {
-        let f = File::open("tests/phix.fasta").unwrap();
-        let mut reader = BufReader::new(f);
-
-        read_fasta(&mut reader).unwrap().first().unwrap().clone()
+        read_ref("tests/phix.fasta")
+            .unwrap()
+            .first()
+            .unwrap()
+            .clone()
     }
 
     #[test]

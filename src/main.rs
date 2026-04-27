@@ -14,13 +14,14 @@ use clap::builder::styling::AnsiColor;
 use fastrand::Rng;
 use log::{debug, error, info, trace, warn};
 use mimalloc::MiMalloc;
+use strobealign::indexer::make_index;
 use thiserror::Error;
 
 use strobealign::aligner::{Aligner, Scores};
 use strobealign::chainer::{Chainer, ChainingParameters};
 use strobealign::details::Details;
 use strobealign::index::{
-    IndexReadingError, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex,
+    IndexReadingError, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex, read_index,
 };
 use strobealign::insertsize::InsertSizeDistribution;
 use strobealign::io::SequenceIOError;
@@ -445,23 +446,27 @@ fn run() -> Result<(), CliError> {
     }
 
     // Create the index
-    let mut index = StrobemerIndex::new(&references, parameters.clone(), args.bits);
     debug!("Auxiliary hash length: {}", args.aux_len);
     info!("Multi-context seed strategy: {}", args.mcs_strategy);
-    info!("Bits used to index buckets: {}", index.bits);
+    let bits = args
+        .bits
+        .unwrap_or_else(|| parameters.syncmer.pick_bits(&references));
+    info!("Bits used to index buckets: {}", bits);
 
-    if args.use_index {
+    let index = if args.use_index {
         // Read the index from a file
         assert!(!args.create_index);
         let read_index_timer = Instant::now();
         let mut sti_path = args.ref_path.clone();
         sti_path.push_str(&parameters.filename_extension());
         info!("Reading index from {}", sti_path);
-        index.read(&sti_path)?;
+        let index = read_index(&sti_path, parameters.clone(), bits)?;
         info!(
             "Total time reading index: {:.2} s",
             read_index_timer.elapsed().as_secs_f64()
         );
+
+        index
     } else {
         let timer = Instant::now();
         let indexing_threads = args.indexing_threads.unwrap_or(args.threads);
@@ -470,16 +475,22 @@ fn run() -> Result<(), CliError> {
             indexing_threads,
             if indexing_threads == 1 { "" } else { "s" }
         );
-        index.populate(args.filter_fraction, indexing_threads);
+        let (index, index_stats) = make_index(
+            &references,
+            parameters.clone(),
+            bits,
+            args.filter_fraction,
+            indexing_threads,
+        );
         info!(
             "Total time indexing: {:.2} s",
             timer.elapsed().as_secs_f64()
         );
-    }
-    let index = index;
-    debug!("{}", &index.stats);
-    debug!("Filtered cutoff count: {}", index.filter_cutoff);
-    debug!("Using rescue cutoff: {}", index.rescue_cutoff);
+        debug!("{}", &index_stats);
+
+        index
+    };
+    debug!("Filtered cutoff count: {}", index.filter_cutoff());
 
     if args.create_index {
         let timer = Instant::now();
@@ -840,7 +851,7 @@ enum Mode {
 
 #[derive(Clone)]
 struct Mapper<'a> {
-    index: &'a StrobemerIndex<'a>,
+    index: &'a StrobemerIndex,
     references: &'a [RefSequence],
     mapping_parameters: &'a MappingParameters,
     seeding_parameters: &'a SeedingParameters,

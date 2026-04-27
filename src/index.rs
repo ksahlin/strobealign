@@ -1,94 +1,16 @@
-use std::cmp::{Reverse, min};
-use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error, Read, Write};
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::Instant;
 
-use log::{debug, trace};
-use rayon;
-use rayon::slice::ParallelSliceMut;
 use thiserror::Error;
 
-use crate::io::fasta::RefSequence;
 use crate::partition::custom_partition_point;
 use crate::seeding::{
-    InvalidSeedingParameter, RandstrobeIterator, RandstrobeParameters, SeedingParameters,
-    SyncmerIterator, SyncmerParameters,
+    InvalidSeedingParameter, RandstrobeParameters, SeedingParameters, SyncmerParameters,
 };
 
-impl SyncmerParameters {
-    /// Pick a suitable number of bits for indexing randstrobe start indices
-    fn pick_bits(&self, size: usize) -> u8 {
-        let estimated_number_of_randstrobes = size / (self.k - self.s + 1) + 1;
-        // Two randstrobes per bucket on average
-        // TOOD checked_ilog2 or ilog2
-        ((estimated_number_of_randstrobes as f64).log2() as u32).clamp(9, 32) as u8 - 1
-    }
-}
-
-type RandstrobeHash = u64;
-type BucketIndex = u64;
-
-#[derive(Default)]
-pub struct IndexCreationStatistics {
-    tot_strobemer_count: u64,
-    tot_occur_once: u64,
-    tot_high_ab: u64,
-    tot_mid_ab: u64,
-    index_cutoff: usize,
-    distinct_strobemers: u64,
-}
-
-impl Display for IndexCreationStatistics {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Index statistics")?;
-        writeln!(f, "  Total strobemers:    {:14}", self.tot_strobemer_count)?;
-        writeln!(
-            f,
-            "  Distinct strobemers: {:14} (100.00%)",
-            self.distinct_strobemers
-        )?;
-        writeln!(
-            f,
-            "    1 occurrence:      {:14} ({:6.2}%)",
-            self.tot_occur_once,
-            100.0 * self.tot_occur_once as f64 / self.distinct_strobemers as f64
-        )?;
-        writeln!(
-            f,
-            "    2..100 occurrences:{:14} ({:6.2}%)",
-            self.tot_mid_ab,
-            100.0 * self.tot_mid_ab as f64 / self.distinct_strobemers as f64
-        )?;
-        writeln!(
-            f,
-            "    >100 occurrences:  {:14} ({:6.2}%)",
-            self.tot_high_ab,
-            100.0 * self.tot_high_ab as f64 / self.distinct_strobemers as f64
-        )?;
-        if self.tot_high_ab >= 1 {
-            writeln!(
-                f,
-                "Ratio distinct to highly abundant: {}",
-                self.distinct_strobemers / self.tot_high_ab
-            )?;
-        }
-        if self.tot_mid_ab >= 1 {
-            writeln!(
-                f,
-                "Ratio distinct to non distinct: {}",
-                self.distinct_strobemers / (self.tot_high_ab + self.tot_mid_ab)
-            )?;
-        }
-        write!(f, "Filtered cutoff index: {}", self.index_cutoff)?;
-
-        Ok(())
-    }
-}
+pub type RandstrobeHash = u64;
+pub type BucketIndex = u64;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Default, Clone)]
 #[repr(C)]
@@ -116,7 +38,7 @@ pub const STROBE2_OFFSET_MASK: u64 = (1u64 << STROBE2_OFFSET_BITS) - 1;
 pub const REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES: usize = u32::MAX as usize;
 
 impl RefRandstrobe {
-    fn new(hash: RandstrobeHash, ref_index: u32, position: u32, offset: u8) -> Self {
+    pub fn new(hash: RandstrobeHash, ref_index: u32, position: u32, offset: u8) -> Self {
         let hash_offset = (hash & REF_RANDSTROBE_HASH_MASK) | (offset as u64);
         RefRandstrobe {
             hash_offset,
@@ -142,61 +64,15 @@ impl RefRandstrobe {
     }
 }
 
-/// Count randstrobes by counting syncmers
-fn count_randstrobes(seq: &[u8], parameters: &SeedingParameters) -> usize {
-    let syncmer_iterator = SyncmerIterator::new(
-        seq,
-        parameters.syncmer.k,
-        parameters.syncmer.s,
-        parameters.syncmer.t,
-    );
-
-    syncmer_iterator.count()
-}
-
-fn count_all_randstrobes(
-    references: &[RefSequence],
-    parameters: &SeedingParameters,
-    n_threads: usize,
-) -> Vec<usize> {
-    let counts = vec![0; references.len()];
-    let mutex = Mutex::new(counts);
-    let ref_index = AtomicUsize::new(0);
-    thread::scope(|s| {
-        for _ in 0..n_threads {
-            s.spawn(|| {
-                loop {
-                    let j = ref_index.fetch_add(1, Ordering::SeqCst);
-                    if j >= references.len() {
-                        break;
-                    }
-                    let count = count_randstrobes(&references[j].sequence, parameters);
-                    mutex.lock().unwrap()[j] = count;
-                }
-            });
-        }
-    });
-
-    mutex.into_inner().unwrap()
-}
-
-// TODO UnpopulatedStrobemerIndex
-pub struct StrobemerIndex<'a> {
-    references: &'a [RefSequence],
+pub struct StrobemerIndex {
     pub parameters: SeedingParameters,
-    pub stats: IndexCreationStatistics,
 
     /// no. of bits of the hash to use when indexing a randstrobe bucket
-    pub bits: u8,
+    bits: u8,
 
     /// Regular (non-rescue) NAM finding ignores randstrobes that occur more often than
     /// this (see StrobemerIndex::is_too_frequent())
-    pub filter_cutoff: usize,
-
-    /// Filter partial seeds that occur more often than this
-    pub partial_filter_cutoff: usize,
-
-    pub rescue_cutoff: usize,
+    filter_cutoff: usize,
 
     /// The randstrobes vector contains all randstrobes sorted by hash.
     /// The randstrobe_start_indices vector points to entries in the
@@ -210,253 +86,25 @@ pub struct StrobemerIndex<'a> {
     randstrobe_start_indices: Vec<BucketIndex>,
 }
 
-impl<'a> StrobemerIndex<'a> {
+impl StrobemerIndex {
     pub fn new(
-        references: &'a [RefSequence],
         parameters: SeedingParameters,
-        bits: Option<u8>,
+        bits: u8,
+        filter_cutoff: usize,
+        randstrobes: Vec<RefRandstrobe>,
+        randstrobe_start_indices: Vec<BucketIndex>,
     ) -> Self {
-        let total_reference_length = references.iter().map(|r| r.sequence.len()).sum();
-        let bits = bits.unwrap_or_else(|| parameters.syncmer.pick_bits(total_reference_length));
-        let randstrobes = vec![];
-        let randstrobe_start_indices = vec![];
-        let stats = IndexCreationStatistics::default();
-        let filter_cutoff = 0;
-        let rescue_cutoff = 0;
         StrobemerIndex {
-            references,
             parameters,
-            stats,
             bits,
             filter_cutoff,
-            partial_filter_cutoff: filter_cutoff,
-            rescue_cutoff,
             randstrobes,
             randstrobe_start_indices,
         }
     }
 
-    pub fn populate(&mut self, filter_fraction: f64, n_threads: usize) {
-        let timer = Instant::now();
-        let randstrobe_counts = count_all_randstrobes(self.references, &self.parameters, n_threads);
-        debug!("  Counting hashes: {:.2} s", timer.elapsed().as_secs_f64());
-        // stats.elapsed_counting_hashes = count_hash.duration();
-
-        let total_randstrobes: usize = randstrobe_counts.iter().sum();
-        self.stats.tot_strobemer_count = total_randstrobes as u64;
-
-        debug!("  Total number of randstrobes: {}", total_randstrobes);
-        let total_length: usize = self
-            .references
-            .iter()
-            .map(|refseq| refseq.sequence.len())
-            .sum();
-        let memory_bytes: usize = total_length
-            + size_of::<RefRandstrobe>() * total_randstrobes
-            + size_of::<BucketIndex>() * (1usize << self.bits);
-        debug!(
-            "  Estimated total memory usage: {:.1} GB",
-            memory_bytes as f64 / 1E9
-        );
-
-        if total_randstrobes > BucketIndex::MAX as usize {
-            panic!("Too many randstrobes");
-        }
-        let timer = Instant::now();
-        debug!("  Generating randstrobes ...");
-        self.randstrobes = self.make_randstrobes_parallel(&randstrobe_counts, n_threads);
-        debug!("  Generating seeds: {:.2} s", timer.elapsed().as_secs_f64());
-        // stats.elapsed_generating_seeds = randstrobes_timer.duration();
-
-        let timer = Instant::now();
-        debug!("  Sorting ...");
-        // TODO
-        // ensure comparison function is branchless
-        // Comment from C++ code:
-        // Compare both hash and position to ensure that the order of the
-        // RefRandstrobes in the index is reproducible no matter which sorting
-        // function is used. This branchless comparison is faster than the
-        // equivalent one using std::tie.
-        // __uint128_t lhs = (static_cast<__uint128_t>(m_hash_offset_flag) << 64) | ((static_cast<uint64_t>(m_position) << 32) | m_ref_index);
-        // __uint128_t rhs = (static_cast<__uint128_t>(other.m_hash_offset_flag) << 64) | ((static_cast<uint64_t>(other.m_position) << 32) | m_ref_index);
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(n_threads)
-            .build()
-            .unwrap();
-        pool.install(|| {
-            self.randstrobes
-                .par_sort_unstable_by_key(|r| (r.hash_offset, r.position, r.ref_index));
-        });
-
-        debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
-        // stats.elapsed_sorting_seeds = sorting_timer.duration();
-
-        let timer = Instant::now();
-        debug!("  Generating hash table index ...");
-
-        let mut tot_high_ab = 0;
-        let mut tot_mid_ab = 0;
-        let mut strobemer_counts = Vec::<usize>::new();
-
-        self.stats.tot_occur_once = 0;
-        self.randstrobe_start_indices
-            .reserve((1usize << self.bits) + 1);
-
-        let mut unique_mers = u64::from(!self.randstrobes.is_empty());
-
-        let mut prev_hash: RandstrobeHash = if self.randstrobes.is_empty() {
-            0
-        } else {
-            self.randstrobes[0].hash()
-        };
-        let mut count = 1;
-
-        if !self.randstrobes.is_empty() {
-            self.randstrobe_start_indices.push(0);
-        }
-        for position in 1..self.randstrobes.len() {
-            let cur_hash = self.randstrobes[position].hash();
-            if cur_hash == prev_hash {
-                count += 1;
-                continue;
-            }
-            unique_mers += 1;
-
-            if count == 1 {
-                self.stats.tot_occur_once += 1;
-            } else {
-                if count > 100 {
-                    tot_high_ab += 1;
-                } else {
-                    tot_mid_ab += 1;
-                }
-                strobemer_counts.push(count);
-            }
-            count = 1;
-            let cur_hash_n = cur_hash >> (64 - self.bits);
-            while self.randstrobe_start_indices.len() <= cur_hash_n as usize {
-                self.randstrobe_start_indices.push(position as BucketIndex);
-            }
-            prev_hash = cur_hash;
-        }
-        // wrap up last entry
-        if count == 1 {
-            self.stats.tot_occur_once += 1;
-        } else {
-            if count > 100 {
-                tot_high_ab += 1;
-            } else {
-                tot_mid_ab += 1;
-            }
-            strobemer_counts.push(count);
-        }
-        while self.randstrobe_start_indices.len() < ((1usize << self.bits) + 1) {
-            self.randstrobe_start_indices
-                .push(self.randstrobes.len() as BucketIndex);
-        }
-        self.stats.tot_high_ab = tot_high_ab;
-        self.stats.tot_mid_ab = tot_mid_ab;
-
-        strobemer_counts.sort_unstable_by_key(|k| Reverse(*k));
-
-        let index_cutoff = (unique_mers as f64 * filter_fraction) as usize;
-        self.stats.index_cutoff = index_cutoff;
-        let filter_cutoff = if index_cutoff < strobemer_counts.len() {
-            strobemer_counts[index_cutoff]
-        } else {
-            *strobemer_counts.last().unwrap_or(&30)
-        };
-        trace!(
-            "Filter cutoff before clamping to [30, 100]: {}",
-            filter_cutoff
-        );
-        self.filter_cutoff = usize::clamp(
-            filter_cutoff,
-            30, // cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
-            100, // limit upper cutoff for normal NAM finding - use rescue mode instead
-        );
-        self.rescue_cutoff = min(self.filter_cutoff * 2, 1000);
-        //stats.elapsed_hash_index = hash_index_timer.duration();
-        debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
-        self.stats.distinct_strobemers = unique_mers;
-    }
-
-    /*
-        fn make_randstrobes(&self, randstrobe_counts: &[usize]) -> Vec<RefRandstrobe> {
-            let mut randstrobes = vec![RefRandstrobe::default(); randstrobe_counts.iter().sum()];
-
-            // Fill randstrobes vector
-            let mut offset = 0;
-            for ref_index in 0..self.references.len() {
-                self.assign_randstrobes(ref_index, &mut randstrobes[offset..offset+randstrobe_counts[ref_index]]);
-                offset += randstrobe_counts[ref_index];
-            }
-            randstrobes
-        }
-    */
-
-    fn make_randstrobes_parallel(
-        &mut self,
-        randstrobe_counts: &[usize],
-        n_threads: usize,
-    ) -> Vec<RefRandstrobe> {
-        let mut randstrobes = vec![RefRandstrobe::default(); randstrobe_counts.iter().sum()];
-        let mut slices = vec![];
-        {
-            let mut slice = &mut randstrobes[..];
-            for &mid in randstrobe_counts.iter().take(self.references.len() - 1) {
-                let (left, right) = slice.split_at_mut(mid);
-                slices.push(Arc::new(Mutex::new(left)));
-                slice = right;
-            }
-            slices.push(Arc::new(Mutex::new(slice)));
-        }
-        let ref_index = AtomicUsize::new(0);
-        thread::scope(|s| {
-            for _ in 0..n_threads {
-                s.spawn(|| {
-                    loop {
-                        let j = ref_index.fetch_add(1, Ordering::SeqCst);
-                        if j >= self.references.len() {
-                            break;
-                        }
-                        self.assign_randstrobes(j, *slices[j].lock().unwrap());
-                    }
-                });
-            }
-        });
-
-        randstrobes
-    }
-
-    /// Compute randstrobes of one reference contig and assign them to the provided slice
-    fn assign_randstrobes(&self, ref_index: usize, randstrobes: &mut [RefRandstrobe]) {
-        let seq = &self.references[ref_index].sequence;
-        if seq.len() < self.parameters.randstrobe.w_max {
-            return;
-        }
-        let syncmer_iter = SyncmerIterator::new(
-            seq,
-            self.parameters.syncmer.k,
-            self.parameters.syncmer.s,
-            self.parameters.syncmer.t,
-        );
-
-        let randstrobe_iter =
-            RandstrobeIterator::new(syncmer_iter, self.parameters.randstrobe.clone());
-
-        let mut n = 0;
-        for (i, randstrobe) in randstrobe_iter.enumerate() {
-            n += 1;
-            let offset = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
-            randstrobes[i] = RefRandstrobe::new(
-                randstrobe.hash,
-                ref_index as u32,
-                randstrobe.strobe1_pos as u32,
-                offset as u8,
-            );
-        }
-        debug_assert_eq!(n, randstrobes.len());
+    pub fn filter_cutoff(&self) -> usize {
+        self.filter_cutoff
     }
 
     // Find the first entry that matches the forwald full hash (including orientation bits)
@@ -660,7 +308,7 @@ pub enum IndexReadingError {
     InvalidIndexParameter(#[from] InvalidSeedingParameter),
 }
 
-impl<'a> StrobemerIndex<'a> {
+impl StrobemerIndex {
     pub fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
         let mut file = File::create(path)?;
 
@@ -697,80 +345,91 @@ impl<'a> StrobemerIndex<'a> {
 
         Ok(())
     }
+}
 
-    #[must_use]
-    pub fn read<P: AsRef<Path>>(&mut self, path: P) -> Result<(), IndexReadingError> {
-        let file = File::open(path)?;
-        let mut reader = BufReader::new(file);
+pub fn read_index<'a, P: AsRef<Path>>(
+    path: P,
+    parameters: SeedingParameters,
+    bits: u8,
+) -> Result<StrobemerIndex, IndexReadingError> {
+    let file = File::open(path)?;
+    let mut reader = BufReader::new(file);
 
-        let mut magic = [0; 4];
-        reader.read_exact(&mut magic)?;
-        if &magic != b"STI\x01" {
-            // Magic number
-            return Err(IndexReadingError::WrongMagic);
-        }
-
-        let file_format_version = read_u32(&mut reader)?;
-        if file_format_version != STI_FILE_FORMAT_VERSION {
-            return Err(IndexReadingError::WrongFileFormatVersion(
-                file_format_version,
-            ));
-        }
-
-        // Skip over variable-length chunk reserved for future use
-        let mut buf = [0; 8];
-        reader.read_exact(&mut buf)?;
-        let reserved_chunk_size = u64::from_ne_bytes(buf);
-        let mut buf = vec![0; reserved_chunk_size as usize];
-        reader.read_exact(&mut buf)?;
-
-        self.filter_cutoff = read_u32(&mut reader)? as usize;
-        self.rescue_cutoff = self.filter_cutoff;
-        let bits = read_u32(&mut reader)?;
-
-        let profile = read_u32(&mut reader)?
-            .try_into()
-            .map_err(|_| IndexReadingError::WrongProfile)?;
-
-        let k = read_u32(&mut reader)? as usize;
-        let s = read_u32(&mut reader)? as usize;
-
-        let w_min = read_u32(&mut reader)? as usize;
-        let w_max = read_u32(&mut reader)? as usize;
-        let q = read_u32(&mut reader)? as u64;
-        let max_dist = read_u32(&mut reader)? as u8;
-        let main_hash_mask = read_u64(&mut reader)?;
-
-        let syncmer_parameters = SyncmerParameters::try_new(k, s)?;
-        let partial_orientation_pos = main_hash_mask.trailing_zeros() - 1;
-        let randstrobe_parameters = RandstrobeParameters {
-            w_min,
-            w_max,
-            q,
-            max_dist,
-            main_hash_mask,
-            forward_main_hash_mask: main_hash_mask | (1u64 << partial_orientation_pos),
-            partial_orientation_pos,
-        };
-        let sti_parameters = SeedingParameters {
-            profile,
-            syncmer: syncmer_parameters,
-            randstrobe: randstrobe_parameters,
-        };
-
-        if self.parameters != sti_parameters {
-            return Err(IndexReadingError::ParameterMismatch);
-        }
-
-        self.randstrobes = read_vec(&mut reader)?;
-        self.randstrobe_start_indices = read_vec(&mut reader)?;
-
-        if self.randstrobe_start_indices.len() != (1 << bits) + 1 {
-            return Err(IndexReadingError::RandstrobeStartIndicesWrongSize);
-        }
-
-        Ok(())
+    let mut magic = [0; 4];
+    reader.read_exact(&mut magic)?;
+    if &magic != b"STI\x01" {
+        // Magic number
+        return Err(IndexReadingError::WrongMagic);
     }
+
+    let file_format_version = read_u32(&mut reader)?;
+    if file_format_version != STI_FILE_FORMAT_VERSION {
+        return Err(IndexReadingError::WrongFileFormatVersion(
+            file_format_version,
+        ));
+    }
+
+    // Skip over variable-length chunk reserved for future use
+    let mut buf = [0; 8];
+    reader.read_exact(&mut buf)?;
+    let reserved_chunk_size = u64::from_ne_bytes(buf);
+    let mut buf = vec![0; reserved_chunk_size as usize];
+    reader.read_exact(&mut buf)?;
+
+    let filter_cutoff = read_u32(&mut reader)? as usize;
+    let sti_bits = read_u32(&mut reader)? as u8;
+    if sti_bits != bits {
+        return Err(IndexReadingError::ParameterMismatch);
+    }
+
+    let profile = read_u32(&mut reader)?
+        .try_into()
+        .map_err(|_| IndexReadingError::WrongProfile)?;
+
+    let k = read_u32(&mut reader)? as usize;
+    let s = read_u32(&mut reader)? as usize;
+
+    let w_min = read_u32(&mut reader)? as usize;
+    let w_max = read_u32(&mut reader)? as usize;
+    let q = read_u32(&mut reader)? as u64;
+    let max_dist = read_u32(&mut reader)? as u8;
+    let main_hash_mask = read_u64(&mut reader)?;
+
+    let syncmer_parameters = SyncmerParameters::try_new(k, s)?;
+    let partial_orientation_pos = main_hash_mask.trailing_zeros() - 1;
+    let randstrobe_parameters = RandstrobeParameters {
+        w_min,
+        w_max,
+        q,
+        max_dist,
+        main_hash_mask,
+        forward_main_hash_mask: main_hash_mask | (1u64 << partial_orientation_pos),
+        partial_orientation_pos,
+    };
+    let sti_parameters = SeedingParameters {
+        profile,
+        syncmer: syncmer_parameters,
+        randstrobe: randstrobe_parameters,
+    };
+
+    if parameters != sti_parameters {
+        return Err(IndexReadingError::ParameterMismatch);
+    }
+
+    let randstrobes = read_vec(&mut reader)?;
+    let randstrobe_start_indices = read_vec(&mut reader)?;
+
+    if randstrobe_start_indices.len() != (1 << bits) + 1 {
+        return Err(IndexReadingError::RandstrobeStartIndicesWrongSize);
+    }
+
+    Ok(StrobemerIndex {
+        parameters,
+        bits,
+        filter_cutoff,
+        randstrobes,
+        randstrobe_start_indices,
+    })
 }
 
 fn read_u32<T: BufRead>(file: &mut T) -> Result<u32, Error> {
@@ -820,13 +479,9 @@ fn write_vec<T>(file: &mut File, data: &[T]) -> Result<(), Error> {
 mod tests {
     use super::*;
 
-    use crate::io::fasta::read_fasta;
+    use crate::indexer::make_index;
+    use crate::io::fasta::{RefSequence, read_ref};
     use crate::revcomp::reverse_complement;
-    use crate::seeding::Syncmer;
-
-    use std::fs::File;
-    use std::io::BufReader;
-    use std::path::Path;
 
     #[test]
     fn test_ref_randstrobe() {
@@ -842,71 +497,6 @@ mod tests {
         assert_eq!(rr.strobe2_offset(), offset as usize);
     }
 
-    fn syncmers_of(seq: &[u8], parameters: &SyncmerParameters) -> Vec<Syncmer> {
-        SyncmerIterator::new(seq, parameters.k, parameters.s, parameters.t).collect()
-    }
-
-    #[test]
-    fn test_canonical_syncmers() {
-        let parameters = SyncmerParameters::try_new(20, 16).unwrap();
-        let f = File::open("tests/phix.fasta").unwrap();
-        let mut reader = BufReader::new(f);
-        let records = read_fasta(&mut reader).unwrap();
-        let seqs = vec![
-            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".as_bytes(),
-            &records[0].sequence,
-        ];
-        for seq in seqs {
-            let seq_revcomp = reverse_complement(seq);
-            let syncmers_forward = syncmers_of(seq, &parameters);
-            let mut syncmers_reverse = syncmers_of(&seq_revcomp, &parameters);
-            syncmers_reverse.reverse();
-            for syncmer_rev in &mut syncmers_reverse {
-                syncmer_rev.position = seq.len() - parameters.k - syncmer_rev.position;
-            }
-            assert_eq!(syncmers_forward.len(), syncmers_reverse.len());
-            for (sf, sr) in syncmers_forward.iter().zip(syncmers_reverse.iter()) {
-                assert_eq!(sf.hash(), sr.hash());
-                assert_eq!(sf.position, sr.position);
-                assert_ne!(sf.is_forward(), sr.is_forward());
-            }
-        }
-    }
-
-    #[test]
-    fn test_pick_bits() {
-        let parameters = SyncmerParameters::try_new(20, 16).unwrap();
-        assert_eq!(parameters.pick_bits(0), 8);
-    }
-
-    pub fn read_ref<P: AsRef<Path>>(path: P) -> Vec<RefSequence> {
-        let f = File::open(path).unwrap();
-        let mut reader = BufReader::new(f);
-
-        read_fasta(&mut reader).unwrap()
-    }
-
-    #[test]
-    fn test_index_phix() {
-        let references = read_ref("tests/phix.fasta");
-        let parameters = SeedingParameters::new(150);
-        let mut index = StrobemerIndex::new(&references, parameters, None);
-        index.populate(0.1, 1);
-        assert!(index.stats.distinct_strobemers > 0);
-    }
-
-    #[test]
-    fn test_index_empty_reference() {
-        let references = vec![RefSequence {
-            name: "name".to_string(),
-            sequence: vec![],
-        }];
-        let parameters = SeedingParameters::new(150);
-        let mut index = StrobemerIndex::new(&references, parameters, None);
-        index.populate(0.1, 1);
-        assert_eq!(index.stats.distinct_strobemers, 0);
-    }
-
     #[test]
     fn test_sti_parameters_mismatch() {
         use temp_dir::TempDir;
@@ -914,18 +504,17 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let fasta_path = dir.path().join("phix.fasta");
         std::fs::copy("tests/phix.fasta", &fasta_path).unwrap();
-        let f = File::open(fasta_path).unwrap();
-        let references = read_fasta(&mut BufReader::new(f)).unwrap();
+        let references = read_ref(fasta_path).unwrap();
 
         let parameters = SeedingParameters::new(300);
-        let mut index = StrobemerIndex::new(&references, parameters, None);
-        index.populate(0.0002, 1);
+        let bits = parameters.syncmer.pick_bits(&references);
+        let index = make_index(&references, parameters, bits, 0.0002, 1).0;
         let sti_path = dir.path().join("index.sti");
         index.write(&sti_path).unwrap();
 
-        let mut other_index = StrobemerIndex::new(&references, SeedingParameters::new(50), None);
+        let read_index_result = read_index(&sti_path, SeedingParameters::new(50), bits);
 
-        match other_index.read(&sti_path) {
+        match read_index_result {
             Err(IndexReadingError::ParameterMismatch) => {}
             _ => {
                 panic!("Parameters are expected not to match");
@@ -935,7 +524,7 @@ mod tests {
 
     #[test]
     fn test_partial_orientation() {
-        let references = read_ref("tests/phix.fasta");
+        let references = read_ref("tests/phix.fasta").unwrap();
         let seq = &references[0].sequence;
         let rc_seq = reverse_complement(seq);
         let rc_references = vec![RefSequence {
@@ -944,12 +533,11 @@ mod tests {
         }];
 
         let parameters = SeedingParameters::new(300);
+        let bits = parameters.syncmer.pick_bits(&references);
 
-        let mut fwd_index = StrobemerIndex::new(&references, parameters.clone(), None);
-        fwd_index.populate(0.0000001, 1);
+        let (fwd_index, _stats) = make_index(&references, parameters.clone(), bits, 0.0000001, 1);
 
-        let mut rc_index = StrobemerIndex::new(&rc_references, parameters.clone(), None);
-        rc_index.populate(0.0000001, 1);
+        let (rc_index, _stats) = make_index(&rc_references, parameters.clone(), bits, 0.0000001, 1);
 
         assert_eq!(fwd_index.randstrobes.len(), rc_index.randstrobes.len());
 
