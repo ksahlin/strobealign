@@ -17,6 +17,7 @@ use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
 use crate::revcomp::reverse_complement;
 use crate::seeding::SeedingParameters;
+use bumpalo::Bump;
 use fastrand::Rng;
 use std::cmp::{Reverse, min};
 use std::time::Instant;
@@ -325,6 +326,7 @@ pub fn align_single_end_read(
     chainer: &Chainer,
     aligner: &Aligner,
     rng: &mut Rng,
+    arena: &Bump,
 ) -> (Vec<SamRecord>, Details) {
     let (mut nam_details, mut nams) = get_nams_by_chaining(
         &record.sequence,
@@ -332,6 +334,7 @@ pub fn align_single_end_read(
         chainer,
         mapping_parameters.rescue_distance,
         mapping_parameters.mcs_strategy,
+        arena,
     );
     nam_details.time_sort_nams = sort_nams(&mut nams, rng);
     let mut details: Details = nam_details.into();
@@ -590,6 +593,7 @@ pub fn align_paired_end_read(
     chainer: &Chainer,
     aligner: &Aligner,
     rng: &mut Rng,
+    arena: &Bump,
 ) -> (Vec<SamRecord>, Details) {
     let (nam_details1, nams1) = get_nams_by_chaining(
         &r1.sequence,
@@ -597,6 +601,7 @@ pub fn align_paired_end_read(
         chainer,
         mapping_parameters.rescue_distance,
         mapping_parameters.mcs_strategy,
+        arena,
     );
     let (nam_details2, nams2) = get_nams_by_chaining(
         &r2.sequence,
@@ -604,6 +609,7 @@ pub fn align_paired_end_read(
         chainer,
         mapping_parameters.rescue_distance,
         mapping_parameters.mcs_strategy,
+        arena,
     );
     let (mut details1, mut details2): (Details, Details) =
         (nam_details1.into(), nam_details2.into());

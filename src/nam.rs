@@ -1,6 +1,8 @@
 use std::fmt::{Display, Formatter};
 use std::time::Instant;
 
+use bumpalo::Bump;
+use bumpalo::collections::Vec as BumpVec;
 use fastrand::Rng;
 use log::Level::Trace;
 use log::trace;
@@ -16,8 +18,8 @@ use crate::seeding::randstrobes_query;
 use crate::shuffle::shuffle_best;
 
 /// Non-overlapping approximate match
-#[derive(Clone, Debug, Default)]
-pub struct Nam {
+#[derive(Clone, Debug)]
+pub struct Nam<'a> {
     pub nam_id: usize,
     pub ref_start: usize,
     pub ref_end: usize,
@@ -27,10 +29,10 @@ pub struct Nam {
     pub ref_id: usize,
     pub score: f32,
     pub is_revcomp: bool,
-    pub anchors: Vec<Anchor>,
+    pub anchors: BumpVec<'a, Anchor>,
 }
 
-impl Nam {
+impl<'a> Nam<'a> {
     pub fn ref_span(&self) -> usize {
         self.ref_end - self.ref_start
     }
@@ -62,7 +64,7 @@ impl Nam {
     }
 }
 
-impl Display for Nam {
+impl<'a> Display for Nam<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -129,13 +131,14 @@ pub fn reverse_nam_if_needed(
 /// Obtain NAMs for a sequence record, doing rescue if needed.
 ///
 /// NAMs are returned unsorted
-pub fn get_nams_by_chaining(
+pub fn get_nams_by_chaining<'a>(
     sequence: &[u8],
     index: &StrobemerIndex,
     chainer: &Chainer,
     rescue_distance: usize,
     mcs_strategy: McsStrategy,
-) -> (NamDetails, Vec<Nam>) {
+    arena: &'a Bump,
+) -> (NamDetails, BumpVec<'a, Nam<'a>>) {
     let timer = Instant::now();
     let query_randstrobes = randstrobes_query(sequence, &index.parameters);
     let time_randstrobes = timer.elapsed().as_secs_f64();
@@ -146,8 +149,13 @@ pub fn get_nams_by_chaining(
         query_randstrobes[1].len()
     );
 
-    let (mut nam_details, nams) =
-        chainer.get_chains(&query_randstrobes, index, rescue_distance, mcs_strategy);
+    let (mut nam_details, nams) = chainer.get_chains(
+        &query_randstrobes,
+        index,
+        rescue_distance,
+        mcs_strategy,
+        arena,
+    );
 
     nam_details.time_randstrobes = time_randstrobes;
 

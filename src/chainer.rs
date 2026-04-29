@@ -1,5 +1,7 @@
 use std::time::Instant;
 
+use bumpalo::Bump;
+use bumpalo::collections::Vec as BumpVec;
 use log::trace;
 
 use crate::details::NamDetails;
@@ -11,7 +13,7 @@ use crate::seeding::QueryRandstrobe;
 
 const N_PRECOMPUTED: usize = 1024;
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy, Default)]
 pub struct Anchor {
     pub ref_id: usize,
     pub ref_start: usize,
@@ -164,13 +166,14 @@ impl Chainer {
         }
     }
 
-    pub fn get_chains(
+    pub fn get_chains<'a>(
         &self,
         query_randstrobes: &[Vec<QueryRandstrobe>; 2],
         index: &StrobemerIndex,
         rescue_distance: usize,
         mcs_strategy: McsStrategy,
-    ) -> (NamDetails, Vec<Nam>) {
+        arena: &'a Bump,
+    ) -> (NamDetails, BumpVec<'a, Nam<'a>>) {
         let hits_timer = Instant::now();
 
         let mut hits = [vec![], vec![]];
@@ -201,7 +204,7 @@ impl Chainer {
 
         let mut n_anchors = 0;
         let mut time_chaining = 0.0;
-        let mut chains = vec![];
+        let mut chains = BumpVec::new_in(arena);
         for &is_revcomp in &orientations {
             let hits_timer = Instant::now();
             let mut anchors = hits_to_anchors(&hits[is_revcomp], index);
@@ -228,7 +231,7 @@ impl Chainer {
 
             let chaining_result = self.collinear_chaining(anchors);
 
-            chaining_result.extract_chains(index.k(), is_revcomp == 1, &mut chains);
+            chaining_result.extract_chains(index.k(), is_revcomp == 1, &mut chains, arena);
             time_chaining += chaining_timer.elapsed().as_secs_f64();
         }
         let mut hits_details12 = hits_details[0].clone();
@@ -367,7 +370,13 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
 }
 
 impl ChainingResult {
-    fn extract_chains(&self, k: usize, is_revcomp: bool, chains: &mut Vec<Nam>) {
+    fn extract_chains<'a>(
+        &self,
+        k: usize,
+        is_revcomp: bool,
+        chains: &mut BumpVec<'a, Nam<'a>>,
+        arena: &'a Bump,
+    ) {
         let n = self.anchors.len();
         let valid_score = self.best_score * self.parameters.valid_score_threshold;
 
@@ -388,7 +397,8 @@ impl ChainingResult {
 
             let mut j = i;
             let mut overlaps = false;
-            let mut chain_anchors = vec![self.anchors[i]];
+            let mut chain_anchors = BumpVec::new_in(arena);
+            chain_anchors.push(self.anchors[i]);
 
             let mut matching_bases = k;
             let mut ref_coverage = self.anchors[i].ref_start;
