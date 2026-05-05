@@ -635,8 +635,8 @@ pub fn align_paired_end_read(
         // Then the mapping quality is computed based on the NAMs.
         AlignedPairs::Proper((alignment1, alignment2)) => {
             let is_proper = is_proper_pair(
-                Some(&alignment1),
-                Some(&alignment2),
+                &alignment1,
+                &alignment2,
                 insert_size_distribution.mu,
                 insert_size_distribution.sigma,
             );
@@ -1099,7 +1099,7 @@ fn has_shared_substring(read_seq: &[u8], ref_seq: &[u8], k: usize) -> bool {
     false
 }
 
-fn is_proper_pair(
+fn is_proper_pair_opt(
     alignment1: Option<&Alignment>,
     alignment2: Option<&Alignment>,
     mu: f32,
@@ -1109,17 +1109,20 @@ fn is_proper_pair(
         (None, None) => false,
         (Some(_), None) => false,
         (None, Some(_)) => false,
-        (Some(a1), Some(a2)) => {
-            let dist = a2.ref_start as isize - a1.ref_start as isize;
-            let same_reference = a1.reference_id == a2.reference_id;
-            let r1_r2 = !a1.is_revcomp && a2.is_revcomp && dist >= 0; // r1 ---> <---- r2
-            let r2_r1 = !a2.is_revcomp && a1.is_revcomp && dist <= 0; // r2 ---> <---- r1
-            let rel_orientation_good = r1_r2 || r2_r1;
-            let insert_good = dist.unsigned_abs() <= (mu + sigma * 6.0) as usize;
-
-            same_reference && insert_good && rel_orientation_good
-        }
+        (Some(a1), Some(a2)) => is_proper_pair(a1, a2, mu, sigma),
     }
+}
+
+/// Return true if the two alignments form a proper pair:
+/// on the same reference, in opposite orientations, within the expected insert size.
+fn is_proper_pair(a1: &Alignment, a2: &Alignment, mu: f32, sigma: f32) -> bool {
+    let dist = a2.ref_start as isize - a1.ref_start as isize;
+    let same_reference = a1.reference_id == a2.reference_id;
+    let r1_r2 = !a1.is_revcomp && a2.is_revcomp && dist >= 0; // r1 ---> <---- r2
+    let r2_r1 = !a2.is_revcomp && a1.is_revcomp && dist <= 0; // r2 ---> <---- r1
+    let rel_orientation_good = r1_r2 || r2_r1;
+    let insert_good = dist.unsigned_abs() <= (mu + sigma * 6.0) as usize;
+    same_reference && insert_good && rel_orientation_good
 }
 
 pub fn is_proper_nam_pair(nam1: &Nam, nam2: &Nam, mu: f32, sigma: f32) -> bool {
@@ -1322,7 +1325,7 @@ fn aligned_pairs_to_sam(
         let alignment1 = &best_aln_pair.alignment1;
         let alignment2 = &best_aln_pair.alignment2;
 
-        let is_proper = is_proper_pair(alignment1.as_ref(), alignment2.as_ref(), mu, sigma);
+        let is_proper = is_proper_pair_opt(alignment1.as_ref(), alignment2.as_ref(), mu, sigma);
         let is_primary = true;
         records.extend(sam_output.make_paired_records(
             [alignment1.as_ref(), alignment2.as_ref()],
@@ -1341,7 +1344,8 @@ fn aligned_pairs_to_sam(
             let alignment2 = &aln_pair.alignment2;
             let s_score = aln_pair.score;
             if s_max - s_score < secondary_dropoff {
-                let is_proper = is_proper_pair(alignment1.as_ref(), alignment2.as_ref(), mu, sigma);
+                let is_proper =
+                    is_proper_pair_opt(alignment1.as_ref(), alignment2.as_ref(), mu, sigma);
                 let mapq = if is_primary { mapq } else { 0 };
                 records.extend(sam_output.make_paired_records(
                     [alignment1.as_ref(), alignment2.as_ref()],
@@ -1394,11 +1398,28 @@ fn top_dropoff(nams: &[Nam]) -> f32 {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::cigar::Cigar;
-    use crate::mapper::{
-        Alignment, ScoredAlignmentPair, count_best_alignment_pairs, deduplicate_scored_pairs,
-        has_shared_substring,
-    };
+
+    pub fn make_alignment(
+        reference_id: usize,
+        ref_start: usize,
+        score: u32,
+        is_revcomp: bool,
+    ) -> Alignment {
+        Alignment {
+            reference_id,
+            ref_start,
+            score,
+            is_revcomp,
+            edit_distance: 0,
+            soft_clip_left: 0,
+            soft_clip_right: 0,
+            length: 50,
+            cigar: Default::default(),
+            gapped: false,
+        }
+    }
 
     fn dummy_alignment() -> Alignment {
         Alignment {
@@ -1495,5 +1516,32 @@ mod tests {
             "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT".as_bytes(),
             20
         ));
+    }
+
+    #[test]
+    fn is_proper_pair_within_distance() {
+        let mu = 300.0_f32;
+        let sigma = 50.0_f32;
+        let a1 = make_alignment(0, 100, 40, false);
+        let a2 = make_alignment(0, 350, 40, true);
+        assert!(is_proper_pair(&a1, &a2, mu, sigma));
+    }
+
+    #[test]
+    fn is_proper_pair_rev_within_distance() {
+        let mu = 300.0_f32;
+        let sigma = 50.0_f32;
+        let a1 = make_alignment(0, 350, 40, true);
+        let a2 = make_alignment(0, 100, 40, false);
+        assert!(is_proper_pair(&a1, &a2, mu, sigma));
+    }
+
+    #[test]
+    fn is_proper_pair_incompatible() {
+        let mu = 300.0_f32;
+        let sigma = 50.0_f32;
+        let a1 = make_alignment(0, 100, 40, false);
+        let a2 = make_alignment(0, 350, 40, false);
+        assert!(!is_proper_pair(&a1, &a2, mu, sigma));
     }
 }
