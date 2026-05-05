@@ -1,5 +1,6 @@
-use fastrand::Rng;
+use std::cmp::Reverse;
 
+use crate::aligner::Aligner;
 use crate::chainer::Chainer;
 use crate::details::{Details, NamDetails};
 use crate::index::StrobemerIndex;
@@ -7,10 +8,14 @@ use crate::insertsize::InsertSizeDistribution;
 use crate::io::fasta::RefSequence;
 use crate::io::paf::PafRecord;
 use crate::io::record::{End, SequenceRecord};
-use crate::mapper::mapping_quality;
+use crate::mapper::{Alignment, extend_seed, mapping_quality, rescue_align};
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
-use crate::nam::{Nam, get_nams_by_chaining, sort_nams};
+use crate::nam::{Nam, get_nams_by_chaining, reverse_nam_if_needed, sort_nams};
+use crate::read::Read;
+use crate::shuffle::shuffle_best;
+
+use fastrand::Rng;
 
 /// Map a single-end read to the reference and return PAF records
 ///
@@ -132,7 +137,7 @@ pub fn map_paired_end_read(
         return (vec![], nam_details1.into());
     }
 
-    let nam_pairs = get_nam_pairs(
+    let mut nam_pairs = get_nam_pairs(
         &mut nams1,
         &mut nams2,
         insert_size_distribution.mu,
@@ -140,6 +145,7 @@ pub fn map_paired_end_read(
         &nam_details1,
         &nam_details2,
     );
+    shuffle_best(&mut nam_pairs, |p| p.score, rng);
 
     nam_details1.time_sort_nams = sort_nams(&mut nams1, rng);
     nam_details2.time_sort_nams = sort_nams(&mut nams2, rng);
@@ -215,7 +221,7 @@ pub fn abundances_paired_end_read(
         return;
     }
 
-    let nam_pairs = get_nam_pairs(
+    let mut nam_pairs = get_nam_pairs(
         &mut nams1,
         &mut nams2,
         insert_size_distribution.mu,
@@ -223,6 +229,7 @@ pub fn abundances_paired_end_read(
         &nam_details1,
         &nam_details2,
     );
+    shuffle_best(&mut nam_pairs, |p| p.score, rng);
 
     sort_nams(&mut nams1, rng);
     sort_nams(&mut nams2, rng);
@@ -268,8 +275,8 @@ enum MappedNams<'a> {
 }
 
 /// Choose between:
-/// - the best proper pair of mappings
-/// - the best individual mappings
+/// - the best individual NAMs
+/// - the best proper pair of NAMs
 ///
 /// Also updates the insert size distribution using confident pairs.
 ///
@@ -303,6 +310,7 @@ fn get_best_paired_mapping_location<'a>(
     }
 }
 
+/// Properly paired nams
 #[derive(Debug)]
 pub struct NamPair {
     pub nam1: Nam,
@@ -311,7 +319,7 @@ pub struct NamPair {
 }
 
 /// Build all plausible forward/revcomp mapping pairings
-fn get_nam_pairs(
+pub fn get_nam_pairs(
     nams1: &mut [Nam],
     nams2: &mut [Nam],
     mu: f32,
@@ -334,6 +342,7 @@ fn get_nam_pairs(
         rev2.sort_unstable_by_key(|nam| (nam.ref_id, nam.projected_ref_start()));
         nam_pairs.extend(find_pairs(fwd1, rev2, mu, sigma, false));
     }
+
     if !fwd2.is_empty() && !rev1.is_empty() {
         fwd2.sort_unstable_by_key(|nam| (nam.ref_id, nam.projected_ref_start()));
         rev1.sort_unstable_by_key(|nam| (nam.ref_id, nam.projected_ref_start()));
@@ -433,7 +442,7 @@ fn find_pairs(fwd: &[Nam], rev: &[Nam], mu: f32, sigma: f32, swap_order: bool) -
             if score <= prev_score {
                 continue; // keep the previous better pair
             }
-            out.pop(); // replace it 
+            out.pop(); // replace it
         }
 
         out.push(if swap_order {
@@ -455,4 +464,528 @@ fn find_pairs(fwd: &[Nam], rev: &[Nam], mu: f32, sigma: f32, swap_order: bool) -
     }
 
     out
+}
+
+/// A scored alignment pair
+#[derive(Debug, Clone)]
+pub struct PairedAlignments {
+    pub score: f64,
+    pub alignment1: Alignment,
+    pub alignment2: Alignment,
+}
+
+/// Align both reads and collect all plausible paired and individual alignments.
+/// First tries NAMs that could form proper pairs, then falls back to
+/// unpaired chains with mate rescue if the max_tries is not yet exhausted.
+pub fn get_paired_alignment(
+    aligner: &Aligner,
+    mut nams1: Vec<Nam>,
+    mut nams2: Vec<Nam>,
+    max_tries: usize,
+    dropoff: f32,
+    references: &[RefSequence],
+    read1: &Read,
+    read2: &Read,
+    details1: &mut Details,
+    details2: &mut Details,
+    mu: f32,
+    sigma: f32,
+    k: usize,
+    rng: &mut Rng,
+) -> (Vec<PairedAlignments>, Vec<Alignment>, Vec<Alignment>) {
+    let mut nam_pairs = get_nam_pairs(
+        &mut nams1,
+        &mut nams2,
+        mu,
+        sigma,
+        &details1.nam,
+        &details2.nam,
+    );
+    let max_score = nam_pairs.first().map_or(0.0, |p| p.score as f32);
+
+    let mut paired_alignments = vec![];
+    let mut alignments1 = vec![];
+    let mut alignments2 = vec![];
+
+    for p in nam_pairs.iter_mut() {
+        if p.score as f32 / max_score < dropoff || paired_alignments.len() == max_tries {
+            break;
+        }
+        let a1 = align_nam(aligner, &mut p.nam1, references, read1, k, details1);
+        let a2 = align_nam(aligner, &mut p.nam2, references, read2, k, details2);
+        if let (Some(a1), Some(a2)) = (&a1, &a2) {
+            paired_alignments.push(PairedAlignments {
+                score: compute_combined_score(a1, a2, mu, sigma),
+                alignment1: a1.clone(),
+                alignment2: a2.clone(),
+            });
+        }
+        alignments1.extend(a1);
+        alignments2.extend(a2);
+    }
+
+    // Fallback to unpaired NAMs only if we didn't have enough alignment pairs
+    if paired_alignments.len() < max_tries {
+        let mut unpaired_nams = get_unpaired_nams(nams1, nams2, &nam_pairs);
+        let max_score = max_score.max(unpaired_nams.first().map_or(0.0, |u| u.nam.score));
+        for u in unpaired_nams.iter_mut() {
+            if u.nam.score / max_score < dropoff || paired_alignments.len() == max_tries {
+                break;
+            }
+            let (a1, a2) = if u.read1 {
+                (
+                    align_nam(aligner, &mut u.nam, references, read1, k, details1),
+                    rescue_align(aligner, &u.nam, references, read2, mu, sigma, k, details2),
+                )
+            } else {
+                (
+                    rescue_align(aligner, &u.nam, references, read1, mu, sigma, k, details1),
+                    align_nam(aligner, &mut u.nam, references, read2, k, details2),
+                )
+            };
+            if let (Some(a1), Some(a2)) = (&a1, &a2) {
+                paired_alignments.push(PairedAlignments {
+                    score: compute_combined_score(a1, a2, mu, sigma),
+                    alignment1: a1.clone(),
+                    alignment2: a2.clone(),
+                });
+            }
+            alignments1.extend(a1);
+            alignments2.extend(a2);
+        }
+    }
+    alignments1.sort_unstable_by_key(|a| Reverse(a.score));
+    alignments2.sort_unstable_by_key(|a| Reverse(a.score));
+    shuffle_best(&mut alignments1, |a| a.score, rng);
+    shuffle_best(&mut alignments2, |a| a.score, rng);
+
+    if let Some(a1) = alignments1.first()
+        && let Some(a2) = alignments2.first()
+    {
+        paired_alignments.push(PairedAlignments {
+            score: compute_combined_score(a1, a2, mu, sigma),
+            alignment1: a1.clone(),
+            alignment2: a2.clone(),
+        });
+    }
+
+    paired_alignments.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
+    deduplicate_scored_pairs(&mut paired_alignments);
+    shuffle_best(&mut paired_alignments, |a| a.score, rng);
+
+    (paired_alignments, alignments1, alignments2)
+}
+
+/// Compute the combined score for a read pair.
+/// Properly oriented pairs within the expected insert size get a log-normal
+/// distance bonus
+fn compute_combined_score(a1: &Alignment, a2: &Alignment, mu: f32, sigma: f32) -> f64 {
+    let r1_r2 = a2.is_revcomp
+        && !a1.is_revcomp
+        && a1.ref_start <= a2.ref_start
+        && (a2.ref_start - a1.ref_start) < (mu + 10.0 * sigma) as usize;
+    let r2_r1 = a1.is_revcomp
+        && !a2.is_revcomp
+        && a2.ref_start <= a1.ref_start
+        && (a1.ref_start - a2.ref_start) < (mu + 10.0 * sigma) as usize;
+
+    if r1_r2 || r2_r1 {
+        let x = a1.ref_start.abs_diff(a2.ref_start);
+        a1.score as f64
+            + a2.score as f64
+            + (-20.0f64 + 0.001).max(normal_pdf(x as f32, mu, sigma).ln() as f64)
+    } else {
+        a1.score as f64 + a2.score as f64 - 20.0
+    }
+}
+
+/// Remove consecutive identical alignment pairs and leave only the first.
+fn deduplicate_scored_pairs(pairs: &mut Vec<PairedAlignments>) {
+    pairs.dedup_by(|a, b| {
+        a.alignment1.ref_start == b.alignment1.ref_start
+            && a.alignment1.reference_id == b.alignment1.reference_id
+            && a.alignment2.ref_start == b.alignment2.ref_start
+            && a.alignment2.reference_id == b.alignment2.reference_id
+    });
+}
+
+/// Align a NAM against the reference,
+fn align_nam(
+    aligner: &Aligner,
+    nam: &mut Nam,
+    references: &[RefSequence],
+    read: &Read,
+    k: usize,
+    details: &mut Details,
+) -> Option<Alignment> {
+    let consistent = reverse_nam_if_needed(nam, read, references, k);
+    details.inconsistent_nams += !consistent as usize;
+    // Can do piecewise here
+    let aln = extend_seed(aligner, nam, references, read, consistent, true);
+    details.tried_alignment += 1;
+    details.gapped += aln.as_ref().map_or(0, |a| a.gapped as usize);
+    aln
+}
+
+/// Nam without any pairing partner
+#[derive(Debug)]
+struct UnpairedNam {
+    nam: Nam,
+    read1: bool,
+}
+
+/// Returns the nams that did not get paired
+fn get_unpaired_nams(nams1: Vec<Nam>, nams2: Vec<Nam>, nam_pairs: &[NamPair]) -> Vec<UnpairedNam> {
+    let mut paired1 = vec![false; nams1.len()];
+    let mut paired2 = vec![false; nams2.len()];
+
+    for pair in nam_pairs {
+        paired1[pair.nam1.nam_id] = true;
+        paired2[pair.nam2.nam_id] = true;
+    }
+
+    let mut unpaired_nams =
+        Vec::with_capacity((nams1.len() + nams2.len()).saturating_sub(nam_pairs.len()));
+
+    for nam in nams1 {
+        if !paired1[nam.nam_id] {
+            unpaired_nams.push(UnpairedNam { nam, read1: true });
+        }
+    }
+    for nam in nams2 {
+        if !paired2[nam.nam_id] {
+            unpaired_nams.push(UnpairedNam { nam, read1: false });
+        }
+    }
+
+    unpaired_nams.sort_unstable_by(|a, b| b.nam.score.total_cmp(&a.nam.score));
+    unpaired_nams
+}
+
+pub fn make_alignment(
+    reference_id: usize,
+    ref_start: usize,
+    score: u32,
+    is_revcomp: bool,
+) -> Alignment {
+    Alignment {
+        reference_id,
+        ref_start,
+        score,
+        is_revcomp,
+        edit_distance: 0,
+        soft_clip_left: 0,
+        soft_clip_right: 0,
+        length: 50,
+        cigar: Default::default(),
+        gapped: false,
+        rescued: false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{chainer::Anchor, nam::Nam};
+
+    fn make_nam(
+        nam_id: usize,
+        ref_id: usize,
+        ref_start: usize,
+        ref_end: usize,
+        score: f32,
+        is_revcomp: bool,
+    ) -> Nam {
+        Nam {
+            nam_id,
+            ref_id,
+            ref_start,
+            ref_end,
+            query_start: 0,
+            query_end: ref_end - ref_start,
+            anchors: vec![Anchor {
+                ref_id: 0,
+                ref_start: 0,
+                query_start: 0,
+            }],
+            matching_bases: ref_end - ref_start,
+            score,
+            is_revcomp,
+        }
+    }
+
+    #[test]
+    fn find_pairs_swap_order() {
+        let mu = 300.0_f32;
+        let sigma = 50.0_f32;
+        let fwd = vec![make_nam(1, 0, 100, 150, 20.0, false)];
+        let rev = vec![make_nam(2, 0, 300, 350, 20.0, true)];
+        let pairs = find_pairs(&fwd, &rev, mu, sigma, true);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0].nam1.nam_id, 2);
+        assert_eq!(pairs[0].nam2.nam_id, 1);
+    }
+
+    #[test]
+    fn find_pairs_selects_best_scoring_candidate() {
+        let mu = 300.0_f32;
+        let sigma = 50.0_f32;
+        let fwd = vec![make_nam(0, 0, 100, 150, 20.0, false)];
+        let rev = vec![
+            make_nam(1, 0, 300, 350, 10.0, true),
+            make_nam(2, 0, 400, 450, 30.0, true),
+        ];
+        let pairs = find_pairs(&fwd, &rev, mu, sigma, false);
+        assert!(!pairs.is_empty());
+        assert_eq!(pairs[0].nam2.nam_id, 2);
+    }
+
+    #[test]
+    fn find_pairs_score() {
+        let mu = 300.0_f32;
+        let sigma = 50.0_f32;
+        let fwd = vec![make_nam(0, 0, 100, 150, 20.0, false)];
+        let rev = vec![make_nam(1, 0, 350, 400, 15.0, true)];
+        let pairs = find_pairs(&fwd, &rev, mu, sigma, false);
+        assert_eq!(pairs.len(), 1);
+        assert!(pairs[0].score > 20.0 + 15.0);
+    }
+
+    #[test]
+    fn get_nam_pairs_empty() {
+        let mut nams1: Vec<Nam> = vec![];
+        let mut nams2: Vec<Nam> = vec![];
+        let d1 = NamDetails {
+            both_orientations: false,
+            ..Default::default()
+        };
+        let d2 = NamDetails {
+            both_orientations: false,
+            ..Default::default()
+        };
+        let pairs = get_nam_pairs(&mut nams1, &mut nams2, 300.0, 50.0, &d1, &d2);
+        assert!(pairs.is_empty());
+    }
+
+    #[test]
+    fn get_nam_pairs_fwd_orientation() {
+        let mut nams1 = vec![make_nam(0, 0, 100, 150, 20.0, false)];
+        let mut nams2 = vec![make_nam(1, 0, 350, 400, 20.0, true)];
+        let d1 = NamDetails {
+            both_orientations: false,
+            ..Default::default()
+        };
+        let d2 = NamDetails {
+            both_orientations: false,
+            ..Default::default()
+        };
+        let pairs = get_nam_pairs(&mut nams1, &mut nams2, 300.0, 50.0, &d1, &d2);
+        assert!(!pairs.is_empty());
+        for w in pairs.windows(2) {
+            assert!(w[0].score >= w[1].score);
+        }
+    }
+
+    #[test]
+    fn get_nam_pairs_rev_orientation() {
+        let mut nams1 = vec![make_nam(0, 0, 350, 400, 20.0, true)];
+        let mut nams2 = vec![make_nam(1, 0, 100, 150, 20.0, false)];
+        let d1 = NamDetails {
+            both_orientations: false,
+            ..Default::default()
+        };
+        let d2 = NamDetails {
+            both_orientations: false,
+            ..Default::default()
+        };
+        let pairs = get_nam_pairs(&mut nams1, &mut nams2, 300.0, 50.0, &d1, &d2);
+        assert!(!pairs.is_empty());
+    }
+
+    #[test]
+    fn get_unpaired_nam() {
+        let nam_a = make_nam(0, 0, 100, 150, 10.0, false);
+        let nam_b = make_nam(1, 0, 200, 250, 5.0, false);
+        let nam_c = make_nam(0, 0, 300, 350, 8.0, true);
+        let nam_d = make_nam(1, 0, 400, 450, 20.0, true);
+        let nams1 = vec![nam_a, nam_b];
+        let nams2 = vec![nam_c, nam_d];
+        let paired = vec![NamPair {
+            nam1: make_nam(0, 0, 100, 150, 10.0, false),
+            nam2: make_nam(1, 0, 400, 450, 20.0, true),
+            score: 100.0,
+        }];
+        let unpaired = get_unpaired_nams(nams1, nams2, &paired);
+        assert_eq!(unpaired.len(), 2);
+        assert_eq!(unpaired[0].nam.nam_id, 0);
+        assert_eq!(unpaired[1].nam.nam_id, 1);
+    }
+
+    #[test]
+    fn get_unpaired_nams_all_paired() {
+        let nams1 = vec![make_nam(0, 0, 100, 150, 10.0, false)];
+        let nams2 = vec![make_nam(0, 0, 350, 400, 10.0, true)];
+        let paired = vec![NamPair {
+            nam1: make_nam(0, 0, 100, 150, 10.0, false),
+            nam2: make_nam(0, 0, 350, 400, 10.0, true),
+            score: 50.0,
+        }];
+        let unpaired = get_unpaired_nams(nams1, nams2, &paired);
+        assert!(unpaired.is_empty());
+    }
+
+    #[test]
+    fn get_unpaired_nams_none_paired() {
+        let nams1 = vec![make_nam(0, 0, 100, 150, 10.0, false)];
+        let nams2 = vec![make_nam(0, 0, 350, 400, 10.0, true)];
+        let unpaired = get_unpaired_nams(nams1, nams2, &[]);
+        assert_eq!(unpaired.len(), 2);
+    }
+
+    #[test]
+    fn get_unpaired_nams_flag_correct() {
+        let nams1 = vec![make_nam(0, 0, 100, 150, 10.0, false)];
+        let nams2 = vec![make_nam(0, 0, 200, 250, 10.0, true)];
+        let unpaired = get_unpaired_nams(nams1, nams2, &[]);
+        let u0 = unpaired
+            .iter()
+            .find(|u| u.nam.nam_id == 0 && u.read1)
+            .unwrap();
+        let u1 = unpaired
+            .iter()
+            .find(|u| u.nam.nam_id == 0 && !u.read1)
+            .unwrap();
+        assert!(u0.read1);
+        assert!(!u1.read1);
+    }
+
+    #[test]
+    fn compute_combined_score_bonus() {
+        let mu = 300.0_f32;
+        let sigma = 50.0_f32;
+        let a1 = make_alignment(0, 100, 40, false);
+        let a2 = make_alignment(0, 380, 40, true);
+        let score = compute_combined_score(&a1, &a2, mu, sigma);
+        assert!(score > (a1.score + a2.score) as f64 - 20.0);
+    }
+
+    #[test]
+    fn compute_combined_score_penalty() {
+        let mu = 300.0_f32;
+        let sigma = 50.0_f32;
+        let a1 = make_alignment(0, 100, 40, false);
+        let a2 = make_alignment(0, 380, 40, false);
+        let score = compute_combined_score(&a1, &a2, mu, sigma);
+        assert_eq!(score, (a1.score + a2.score) as f64 - 20.0);
+    }
+
+    #[test]
+    fn deduplicate_removes_consecutive_pairs() {
+        let aln = make_alignment(0, 100, 40, false);
+        let mut pairs = vec![
+            PairedAlignments {
+                score: 100.0,
+                alignment1: aln.clone(),
+                alignment2: aln.clone(),
+            },
+            PairedAlignments {
+                score: 90.0,
+                alignment1: aln.clone(),
+                alignment2: aln.clone(),
+            },
+        ];
+        deduplicate_scored_pairs(&mut pairs);
+        assert_eq!(pairs.len(), 1);
+    }
+
+    #[test]
+    fn deduplicate_keeps_distinct_pairs() {
+        let aln_a = make_alignment(0, 100, 40, false);
+        let aln_b = make_alignment(0, 500, 40, true);
+        let mut pairs = vec![
+            PairedAlignments {
+                score: 100.0,
+                alignment1: aln_a.clone(),
+                alignment2: aln_a.clone(),
+            },
+            PairedAlignments {
+                score: 80.0,
+                alignment1: aln_b.clone(),
+                alignment2: aln_b.clone(),
+            },
+        ];
+        deduplicate_scored_pairs(&mut pairs);
+        assert_eq!(pairs.len(), 2);
+    }
+
+    #[test]
+    fn deduplicate_single_pair_unchanged() {
+        let aln = make_alignment(0, 100, 40, false);
+        let mut pairs = vec![PairedAlignments {
+            score: 100.0,
+            alignment1: aln.clone(),
+            alignment2: aln.clone(),
+        }];
+        deduplicate_scored_pairs(&mut pairs);
+        assert_eq!(pairs.len(), 1);
+    }
+
+    #[test]
+    fn split_orientation() {
+        let mut nams = vec![
+            make_nam(0, 0, 100, 150, 10.0, false),
+            make_nam(1, 0, 200, 250, 10.0, true),
+            make_nam(2, 0, 300, 350, 10.0, false),
+            make_nam(3, 0, 400, 450, 10.0, true),
+        ];
+        let (fwd, rev) = split_nams_by_orientation(&mut nams);
+        assert_eq!(fwd.len(), 2);
+        assert_eq!(rev.len(), 2);
+        assert!(fwd.iter().all(|n| !n.is_revcomp));
+        assert!(rev.iter().all(|n| n.is_revcomp));
+    }
+
+    #[test]
+    fn split_checked_all_fwd() {
+        let mut nams = vec![
+            make_nam(0, 0, 100, 150, 10.0, false),
+            make_nam(1, 0, 200, 250, 10.0, false),
+        ];
+        let (fwd, rev) = split_nams_by_orientation_checked(&mut nams, false);
+        assert_eq!(fwd.len(), 2);
+        assert_eq!(rev.len(), 0);
+    }
+
+    #[test]
+    fn split_checked_all_rev() {
+        let mut nams = vec![
+            make_nam(0, 0, 100, 150, 10.0, true),
+            make_nam(1, 0, 200, 250, 10.0, true),
+        ];
+        let (fwd, rev) = split_nams_by_orientation_checked(&mut nams, false);
+        assert_eq!(fwd.len(), 0);
+        assert_eq!(rev.len(), 2);
+    }
+
+    #[test]
+    fn find_pairs_within_distance() {
+        let mu = 300.0_f32;
+        let sigma = 50.0_f32;
+        let fwd = vec![make_nam(0, 0, 100, 150, 20.0, false)];
+        let rev = vec![make_nam(1, 0, 350, 400, 20.0, true)];
+        let pairs = find_pairs(&fwd, &rev, mu, sigma, false);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0].nam1.nam_id, 0);
+        assert_eq!(pairs[0].nam2.nam_id, 1);
+    }
+
+    #[test]
+    fn find_pairs_beyond_distance() {
+        let mu = 300.0_f32;
+        let sigma = 50.0_f32;
+        let fwd = vec![make_nam(0, 0, 100, 150, 20.0, false)];
+        let rev = vec![make_nam(1, 0, 10_100, 10_150, 20.0, true)];
+        let pairs = find_pairs(&fwd, &rev, mu, sigma, false);
+        assert!(pairs.is_empty());
+    }
 }

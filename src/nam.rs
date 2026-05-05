@@ -13,6 +13,7 @@ use crate::io::fasta::RefSequence;
 use crate::mcsstrategy::McsStrategy;
 use crate::read::Read;
 use crate::seeding::randstrobes_query;
+use crate::shuffle::shuffle_best;
 
 /// Non-overlapping approximate match
 #[derive(Clone, Debug, Default)]
@@ -22,7 +23,6 @@ pub struct Nam {
     pub ref_end: usize,
     pub query_start: usize,
     pub query_end: usize,
-    pub n_matches: usize,
     pub matching_bases: usize,
     pub ref_id: usize,
     pub score: f32,
@@ -127,6 +127,8 @@ pub fn reverse_nam_if_needed(
 }
 
 /// Obtain NAMs for a sequence record, doing rescue if needed.
+///
+/// NAMs are returned unsorted
 pub fn get_nams_by_chaining(
     sequence: &[u8],
     index: &StrobemerIndex,
@@ -155,13 +157,12 @@ pub fn get_nams_by_chaining(
 pub fn sort_nams(nams: &mut [Nam], rng: &mut Rng) -> f64 {
     let timer = Instant::now();
     nams.sort_by(|a, b| b.score.total_cmp(&a.score));
-    shuffle_top_nams(nams, rng);
-
+    shuffle_best(nams, |nam| nam.score, rng);
     if log::log_enabled!(Trace) {
         trace!("Found {} NAMs", nams.len());
         let mut printed = 0;
         for nam in nams.iter() {
-            if nam.n_matches > 1 || printed < 10 {
+            if nam.anchors.len() > 1 || printed < 10 {
                 trace!("- {}", nam);
                 printed += 1;
             }
@@ -172,19 +173,4 @@ pub fn sort_nams(nams: &mut [Nam], rng: &mut Rng) -> f64 {
     }
 
     timer.elapsed().as_secs_f64()
-}
-
-/// Shuffle the top-scoring NAMs. Input must be sorted by score.
-/// This helps to ensure we pick a random location in case there are multiple
-/// equally good ones.
-fn shuffle_top_nams(nams: &mut [Nam], rng: &mut Rng) {
-    if let Some(best) = nams.first() {
-        let best_score = best.score;
-
-        let pos = nams.iter().position(|nam| nam.score != best_score);
-        let end = pos.unwrap_or(nams.len());
-        if end > 1 {
-            rng.shuffle(&mut nams[0..end]);
-        }
-    }
 }
