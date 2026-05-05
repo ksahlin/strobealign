@@ -1469,6 +1469,26 @@ mod tests {
     }
 
     #[test]
+    fn shared_substring_found() {
+        assert!(has_shared_substring(b"ACGTACGTACGT", b"NNNNACGTACNNNN", 9));
+    }
+
+    #[test]
+    fn shared_substring_not_found() {
+        assert!(!has_shared_substring(b"ACGTACGTACGT", b"TTTTTTTTTTTTTT", 9));
+    }
+
+    #[test]
+    fn shared_substring_empty() {
+        assert!(!has_shared_substring(b"", b"ACGT", 9));
+    }
+
+    #[test]
+    fn shared_substring_shorter_than_submer() {
+        assert!(!has_shared_substring(b"ACG", b"ACGACGACG", 9));
+    }
+
+    #[test]
     fn test_has_shared_substring() {
         assert!(!has_shared_substring(
             "GGGGGGGGGGGGGGGGG".as_bytes(),
