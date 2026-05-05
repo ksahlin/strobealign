@@ -23,7 +23,6 @@ pub struct Nam {
     pub ref_end: usize,
     pub query_start: usize,
     pub query_end: usize,
-    pub n_matches: usize,
     pub matching_bases: usize,
     pub ref_id: usize,
     pub score: f32,
@@ -162,7 +161,7 @@ pub fn sort_nams(nams: &mut [Nam], rng: &mut Rng) -> f64 {
         trace!("Found {} NAMs", nams.len());
         let mut printed = 0;
         for nam in nams.iter() {
-            if nam.n_matches > 1 || printed < 10 {
+            if nam.anchors.len() > 1 || printed < 10 {
                 trace!("- {}", nam);
                 printed += 1;
             }

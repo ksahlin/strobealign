@@ -364,7 +364,7 @@ pub fn align_single_end_read(
         .take(mapping_parameters.max_tries)
         .enumerate()
     {
-        let score_dropoff = nam.n_matches as f32 / nam_max.n_matches as f32;
+        let score_dropoff = nam.anchors.len() as f32 / nam_max.anchors.len() as f32;
 
         if (tries > 1 && best_edit_distance == 0)
             || score_dropoff < mapping_parameters.dropoff_threshold
@@ -963,12 +963,12 @@ fn rescue_read(
     mu: f32,
     sigma: f32,
 ) -> Vec<ScoredAlignmentPair> {
-    let n_max1_hits = nams1[0].n_matches;
+    let n_max1_hits = nams1[0].anchors.len();
 
     let mut alignments1 = vec![];
     let mut alignments2 = vec![];
     for nam in nams1.iter_mut().take(max_tries) {
-        let score_dropoff1 = nam.n_matches as f32 / n_max1_hits as f32;
+        let score_dropoff1 = nam.anchors.len() as f32 / n_max1_hits as f32;
         // only consider top hits (as minimap2 does) and break if below dropoff cutoff.
         if score_dropoff1 < dropoff {
             break;
@@ -1165,7 +1165,7 @@ pub fn get_best_scoring_nam_pairs(
     let mut best_joint_matches = 0;
     for nam1 in nams1.iter().take(MAX_PAIR_NAMS) {
         for nam2 in nams2.iter().take(MAX_PAIR_NAMS) {
-            let joint_matches = nam1.n_matches + nam2.n_matches;
+            let joint_matches = nam1.anchors.len() + nam2.anchors.len();
             if joint_matches < best_joint_matches / 2 {
                 break;
             }
@@ -1187,10 +1187,10 @@ pub fn get_best_scoring_nam_pairs(
         let best_joint_hits1 = if best_joint_matches > 0 {
             best_joint_matches
         } else {
-            nams1[0].n_matches
+            nams1[0].anchors.len()
         };
         for nam1 in nams1 {
-            if nam1.n_matches < best_joint_hits1 / 2 {
+            if nam1.anchors.len() < best_joint_hits1 / 2 {
                 break;
             }
             if added_n1.contains(&nam1.nam_id) {
@@ -1209,10 +1209,10 @@ pub fn get_best_scoring_nam_pairs(
         let best_joint_hits2 = if best_joint_matches > 0 {
             best_joint_matches
         } else {
-            nams2[0].n_matches
+            nams2[0].anchors.len()
         };
         for nam2 in nams2 {
-            if nam2.n_matches < best_joint_hits2 / 2 {
+            if nam2.anchors.len() < best_joint_hits2 / 2 {
                 break;
             }
             if added_n2.contains(&nam2.nam_id) {
@@ -1238,7 +1238,7 @@ pub fn mapping_quality(nams: &[Nam]) -> u8 {
     let s1 = nams[0].score;
     let s2 = nams[1].score;
     // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
-    let min_matches = min(nams[0].n_matches, 10) as f32 / 10.0;
+    let min_matches = min(nams[0].anchors.len(), 10) as f32 / 10.0;
     let uncapped_mapq = 40.0 * (1.0 - s2 / s1) * min_matches * s1.ln();
 
     uncapped_mapq.min(60.0) as u8
@@ -1387,10 +1387,10 @@ fn joint_mapq_from_high_scores(pairs: &[ScoredAlignmentPair]) -> u8 {
 /// compute dropoff of the first (top) NAM
 fn top_dropoff(nams: &[Nam]) -> f32 {
     let n_max = &nams[0];
-    if n_max.n_matches <= 2 {
+    if n_max.anchors.len() <= 2 {
         1.0
     } else if nams.len() > 1 {
-        nams[1].n_matches as f32 / n_max.n_matches as f32
+        nams[1].anchors.len() as f32 / n_max.anchors.len() as f32
     } else {
         0.0
     }
