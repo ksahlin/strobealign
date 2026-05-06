@@ -106,6 +106,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bumpalo"
+version = "3.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d20789868f4b01b2f2caec9f5c4e0213b41e3e5702a50157d699ae31ced2fcb"
+
+[[package]]
 name = "cc"
 version = "1.2.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -583,6 +589,7 @@ version = "0.18.0-alpha"
 dependencies = [
  "assert_cmd",
  "block-aligner",
+ "bumpalo",
  "cc",
  "clap",
  "fastrand",

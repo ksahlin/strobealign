@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use std::{env, io, thread, time};
 
+use bumpalo::Bump;
 use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
@@ -876,6 +877,7 @@ impl Mapper<'_> {
         let mut rng = Rng::with_seed(0);
         let mut isizedist = InsertSizeDistribution::new();
         let mut cumulative_details = Details::new();
+        let mut arena = Bump::new();
         for record in chunk {
             let (r1, r2) = record?;
             trace!("\nQuery: {}\nlength={}", r1.name, r1.len());
@@ -894,6 +896,7 @@ impl Mapper<'_> {
                             &self.chainer,
                             &self.aligner,
                             &mut rng,
+                            &mut arena,
                         );
                         if !self.include_unmapped
                             && !records[0].is_mapped()
@@ -913,6 +916,7 @@ impl Mapper<'_> {
                             &self.chainer,
                             &self.aligner,
                             &mut rng,
+                            &mut arena,
                         );
                         if !self.include_unmapped && !records[0].is_mapped() {
                             records = vec![];
@@ -938,6 +942,7 @@ impl Mapper<'_> {
                             self.mapping_parameters.mcs_strategy,
                             &self.chainer,
                             &mut rng,
+                            &mut arena,
                         )
                     } else {
                         map_single_end_read(
@@ -948,6 +953,7 @@ impl Mapper<'_> {
                             self.mapping_parameters.mcs_strategy,
                             &self.chainer,
                             &mut rng,
+                            &mut arena,
                         )
                     };
                     for paf_record in paf_records {
@@ -967,6 +973,7 @@ impl Mapper<'_> {
                             self.mapping_parameters.mcs_strategy,
                             &self.chainer,
                             &mut rng,
+                            &mut arena,
                         );
                     } else {
                         abundances_single_end_read(
@@ -977,10 +984,12 @@ impl Mapper<'_> {
                             self.mapping_parameters.mcs_strategy,
                             &self.chainer,
                             &mut rng,
+                            &mut arena,
                         );
                     }
                 }
             }
+            arena.reset();
         }
         Ok((out, cumulative_details))
     }

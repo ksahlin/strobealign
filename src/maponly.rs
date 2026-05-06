@@ -10,6 +10,7 @@ use crate::mcsstrategy::McsStrategy;
 use crate::nam::{Nam, get_nams_by_chaining, sort_nams};
 use crate::pairing::{PairedNams, get_paired_nams};
 use crate::shuffle::shuffle_best;
+use bumpalo::Bump;
 use fastrand::Rng;
 
 /// Map a single-end read to the reference and return PAF records
@@ -23,6 +24,7 @@ pub fn map_single_end_read(
     mcs_strategy: McsStrategy,
     chainer: &Chainer,
     rng: &mut Rng,
+    arena: &Bump,
 ) -> (Vec<PafRecord>, Details) {
     let (mut nam_details, mut nams) = get_nams_by_chaining(
         &record.sequence,
@@ -30,6 +32,7 @@ pub fn map_single_end_read(
         chainer,
         rescue_distance,
         mcs_strategy,
+        arena,
     );
     nam_details.time_sort_nams = sort_nams(&mut nams, rng);
 
@@ -62,6 +65,7 @@ pub fn abundances_single_end_read(
     mcs_strategy: McsStrategy,
     chainer: &Chainer,
     rng: &mut Rng,
+    arena: &Bump,
 ) {
     let (_, mut nams) = get_nams_by_chaining(
         &record.sequence,
@@ -69,6 +73,7 @@ pub fn abundances_single_end_read(
         chainer,
         rescue_distance,
         mcs_strategy,
+        arena,
     );
     sort_nams(&mut nams, rng);
 
@@ -121,11 +126,24 @@ pub fn map_paired_end_read(
     mcs_strategy: McsStrategy,
     chainer: &Chainer,
     rng: &mut Rng,
+    arena: &Bump,
 ) -> (Vec<PafRecord>, Details) {
-    let (mut nam_details1, mut nams1) =
-        get_nams_by_chaining(&r1.sequence, index, chainer, rescue_distance, mcs_strategy);
-    let (mut nam_details2, mut nams2) =
-        get_nams_by_chaining(&r2.sequence, index, chainer, rescue_distance, mcs_strategy);
+    let (mut nam_details1, mut nams1) = get_nams_by_chaining(
+        &r1.sequence,
+        index,
+        chainer,
+        rescue_distance,
+        mcs_strategy,
+        arena,
+    );
+    let (mut nam_details2, mut nams2) = get_nams_by_chaining(
+        &r2.sequence,
+        index,
+        chainer,
+        rescue_distance,
+        mcs_strategy,
+        arena,
+    );
 
     if nams1.is_empty() && nams2.is_empty() {
         nam_details1 += nam_details2;
@@ -206,11 +224,24 @@ pub fn abundances_paired_end_read(
     mcs_strategy: McsStrategy,
     chainer: &Chainer,
     rng: &mut Rng,
+    arena: &Bump,
 ) {
-    let (nam_details1, mut nams1) =
-        get_nams_by_chaining(&r1.sequence, index, chainer, rescue_distance, mcs_strategy);
-    let (nam_details2, mut nams2) =
-        get_nams_by_chaining(&r2.sequence, index, chainer, rescue_distance, mcs_strategy);
+    let (nam_details1, mut nams1) = get_nams_by_chaining(
+        &r1.sequence,
+        index,
+        chainer,
+        rescue_distance,
+        mcs_strategy,
+        arena,
+    );
+    let (nam_details2, mut nams2) = get_nams_by_chaining(
+        &r2.sequence,
+        index,
+        chainer,
+        rescue_distance,
+        mcs_strategy,
+        arena,
+    );
 
     if nams1.is_empty() && nams2.is_empty() {
         return;
@@ -264,9 +295,9 @@ pub fn abundances_paired_end_read(
 
 enum MappedNams<'a> {
     /// Two independent best NAMs (one per read)
-    Individual(Option<&'a Nam>, Option<&'a Nam>),
+    Individual(Option<&'a Nam<'a>>, Option<&'a Nam<'a>>),
     /// A proper paired NAMs (nam1, nam2, pairing score)
-    Pair(&'a Nam, &'a Nam, f64),
+    Pair(&'a Nam<'a>, &'a Nam<'a>, f64),
 }
 
 /// Choose between:
