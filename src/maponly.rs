@@ -540,7 +540,7 @@ pub fn get_paired_alignment(
             if u.nam.score / max_score < dropoff || paired_alignments.len() == max_tries {
                 break;
             }
-            let (a1, a2) = if u.read1 {
+            let (a1, a2) = if u.is_read1 {
                 (
                     align_nam(aligner, &mut u.nam, references, read1, k, details1),
                     rescue_align(aligner, &u.nam, references, read2, mu, sigma, k, details2),
@@ -629,7 +629,7 @@ fn align_nam(
 #[derive(Debug)]
 struct UnpairedNam {
     nam: Nam,
-    read1: bool,
+    is_read1: bool,
 }
 
 /// Returns the nams that did not get paired
@@ -647,12 +647,18 @@ fn get_unpaired_nams(nams1: Vec<Nam>, nams2: Vec<Nam>, nam_pairs: &[NamPair]) ->
 
     for nam in nams1 {
         if !paired1[nam.nam_id] {
-            unpaired_nams.push(UnpairedNam { nam, read1: true });
+            unpaired_nams.push(UnpairedNam {
+                nam,
+                is_read1: true,
+            });
         }
     }
     for nam in nams2 {
         if !paired2[nam.nam_id] {
-            unpaired_nams.push(UnpairedNam { nam, read1: false });
+            unpaired_nams.push(UnpairedNam {
+                nam,
+                is_read1: false,
+            });
         }
     }
 
@@ -847,14 +853,14 @@ mod tests {
         let unpaired = get_unpaired_nams(nams1, nams2, &[]);
         let u0 = unpaired
             .iter()
-            .find(|u| u.nam.nam_id == 0 && u.read1)
+            .find(|u| u.nam.nam_id == 0 && u.is_read1)
             .unwrap();
         let u1 = unpaired
             .iter()
-            .find(|u| u.nam.nam_id == 0 && !u.read1)
+            .find(|u| u.nam.nam_id == 0 && !u.is_read1)
             .unwrap();
-        assert!(u0.read1);
-        assert!(!u1.read1);
+        assert!(u0.is_read1);
+        assert!(!u1.is_read1);
     }
 
     #[test]
