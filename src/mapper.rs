@@ -650,12 +650,13 @@ pub fn align_paired_end_read(
     ) {
         BestPairedAlignment::Pair(a1, a2, best_score) => {
             let mapq = alignment_quality(&paired_alignments, |p| p.score as f32);
-            let proper = is_proper_pair(
+            let is_proper = is_proper_pair(
                 a1,
                 a2,
                 insert_size_distribution.mu,
                 insert_size_distribution.sigma,
             );
+            let is_primary = true;
 
             // Primary
             sam_records.extend(sam_output.make_paired_records(
@@ -665,8 +666,8 @@ pub fn align_paired_end_read(
                 [mapq, mapq],
                 &details1,
                 &details2,
-                true,
-                proper,
+                is_primary,
+                is_proper,
             ));
 
             // Secondaries
@@ -679,7 +680,7 @@ pub fn align_paired_end_read(
                 if (best_score - pair.score) >= secondary_dropoff {
                     break;
                 }
-                let proper = is_proper_pair(
+                let is_proper = is_proper_pair(
                     &pair.alignment1,
                     &pair.alignment2,
                     insert_size_distribution.mu,
@@ -693,14 +694,14 @@ pub fn align_paired_end_read(
                     &details1,
                     &details2,
                     false,
-                    proper,
+                    is_proper,
                 ));
             }
         }
         BestPairedAlignment::Individual(a1, a2) => {
             let mapq1 = alignment_quality(&alignments1, |a| a.score as f32);
             let mapq2 = alignment_quality(&alignments2, |a| a.score as f32);
-            let proper = if let (Some(a1), Some(a2)) = (a1, a2) {
+            let is_proper = if let (Some(a1), Some(a2)) = (a1, a2) {
                 is_proper_pair(
                     a1,
                     a2,
@@ -718,7 +719,7 @@ pub fn align_paired_end_read(
                 &details1,
                 &details2,
                 true,
-                proper,
+                is_proper,
             ));
         }
     }
@@ -729,7 +730,7 @@ pub fn align_paired_end_read(
 }
 
 enum BestPairedAlignment<'a> {
-    /// Best proper paired alignment
+    /// Best properly paired alignment
     Pair(&'a Alignment, &'a Alignment, f64),
     /// Independent best alignments
     Individual(Option<&'a Alignment>, Option<&'a Alignment>),
