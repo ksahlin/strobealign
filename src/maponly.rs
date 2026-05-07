@@ -1,4 +1,4 @@
-use std::cmp::Reverse;
+use std::cmp::{Reverse, min};
 
 use crate::aligner::Aligner;
 use crate::chainer::Chainer;
@@ -9,8 +9,7 @@ use crate::io::fasta::RefSequence;
 use crate::io::paf::PafRecord;
 use crate::io::record::{End, SequenceRecord};
 use crate::mapper::{
-    Alignment, ScoredAlignmentPair, deduplicate_scored_pairs, extend_seed, mapping_quality,
-    rescue_align,
+    Alignment, ScoredAlignmentPair, deduplicate_scored_pairs, extend_seed, rescue_align,
 };
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
@@ -57,6 +56,20 @@ pub fn map_single_end_read(
             nam_details.into(),
         )
     }
+}
+
+/// Return mapping quality for the top NAM
+fn mapping_quality(nams: &[Nam]) -> u8 {
+    if nams.len() <= 1 {
+        return 60;
+    }
+    let s1 = nams[0].score;
+    let s2 = nams[1].score;
+    // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
+    let min_matches = min(nams[0].anchors.len(), 10) as f32 / 10.0;
+    let uncapped_mapq = 40.0 * (1.0 - s2 / s1) * min_matches * s1.ln();
+
+    uncapped_mapq.min(60.0) as u8
 }
 
 /// Map a single-end read to the reference and estimate abundances
