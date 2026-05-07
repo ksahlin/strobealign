@@ -935,28 +935,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::maponly::make_alignment;
 
-    pub fn make_alignment(
-        reference_id: usize,
-        ref_start: usize,
-        score: u32,
-        is_revcomp: bool,
-    ) -> Alignment {
-        Alignment {
-            reference_id,
-            ref_start,
-            score,
-            is_revcomp,
-            edit_distance: 0,
-            soft_clip_left: 0,
-            soft_clip_right: 0,
-            length: 50,
-            cigar: Default::default(),
-            gapped: false,
-            rescued: false,
-        }
-    }
+    use super::*;
 
     #[test]
     fn shared_substring_found() {
