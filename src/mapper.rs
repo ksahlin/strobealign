@@ -204,7 +204,7 @@ impl SamOutput {
         }
     }
 
-    pub fn make_unmapped_pair(
+    fn make_unmapped_pair(
         &self,
         record1: &SequenceRecord,
         record2: &SequenceRecord,
@@ -829,7 +829,7 @@ pub fn rescue_align(
 
 /// Determine (roughly) whether the read sequence has some l-mer (with l = k*2/3)
 /// in common with the reference sequence
-pub fn has_shared_substring(read_seq: &[u8], ref_seq: &[u8], k: usize) -> bool {
+fn has_shared_substring(read_seq: &[u8], ref_seq: &[u8], k: usize) -> bool {
     let sub_size = 2 * k / 3;
     let step_size = k / 3;
     for i in (0..read_seq.len().saturating_sub(sub_size)).step_by(step_size) {
@@ -854,26 +854,6 @@ fn is_proper_pair(a1: &Alignment, a2: &Alignment, mu: f32, sigma: f32) -> bool {
     same_reference && insert_good && rel_orientation_good
 }
 
-pub fn is_proper_nam_pair(nam1: &Nam, nam2: &Nam, mu: f32, sigma: f32) -> bool {
-    if nam1.ref_id != nam2.ref_id || nam1.is_revcomp == nam2.is_revcomp {
-        return false;
-    }
-    let r1_ref_start = nam1.projected_ref_start();
-    let r2_ref_start = nam2.projected_ref_start();
-
-    // r1 ---> <---- r2
-    let r1_r2 = nam2.is_revcomp
-        && (r1_ref_start <= r2_ref_start)
-        && ((r2_ref_start - r1_ref_start) as f32) < mu + 10.0 * sigma;
-
-    // r2 ---> <---- r1
-    let r2_r1 = nam1.is_revcomp
-        && (r2_ref_start <= r1_ref_start)
-        && ((r1_ref_start - r2_ref_start) as f32) < mu + 10.0 * sigma;
-
-    r1_r2 || r2_r1
-}
-
 /// Return mapping quality for the top NAM
 pub fn mapping_quality(nams: &[Nam]) -> u8 {
     if nams.len() <= 1 {
@@ -886,13 +866,6 @@ pub fn mapping_quality(nams: &[Nam]) -> u8 {
     let uncapped_mapq = 40.0 * (1.0 - s2 / s1) * min_matches * s1.ln();
 
     uncapped_mapq.min(60.0) as u8
-}
-
-#[derive(Debug)]
-pub struct NamPair {
-    pub score: f32,
-    pub nam1: Option<Nam>,
-    pub nam2: Option<Nam>,
 }
 
 /// A scored alignment pair

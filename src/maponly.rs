@@ -315,10 +315,10 @@ fn get_best_paired_mapping_location<'a>(
 
 /// Properly paired nams
 #[derive(Debug)]
-pub struct NamPair {
-    pub nam1: Nam,
-    pub nam2: Nam,
-    pub score: f64,
+struct NamPair {
+    nam1: Nam,
+    nam2: Nam,
+    score: f64,
 }
 
 /// Build all plausible forward/revcomp mapping pairings
