@@ -304,11 +304,13 @@ fn add_to_anchors_full(
                 ref_start,
                 query_start,
             });
-            anchors.push(Anchor {
-                ref_id,
-                ref_start: ref_end - index.k(),
-                query_start: query_end - index.k(),
-            });
+            if ref_start != ref_end - index.k() {
+                anchors.push(Anchor {
+                    ref_id,
+                    ref_start: ref_end - index.k(),
+                    query_start: query_end - index.k(),
+                });
+            }
             min_length_diff = length_diff;
         }
     }
