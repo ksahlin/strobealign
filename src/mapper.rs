@@ -382,18 +382,18 @@ pub fn align_single_end_read(
             details.inconsistent_nams += 1;
             continue;
         }
-        if index.parameters.adna_mode
-            && !nam.adna_filter(
-                &read,
-                references,
-                k,
-                index.parameters.ry_end_threshold,
-                index.parameters.max_mismatches,
-            )
-        {
-            details.adna_filtered_nams += 1;
-            continue;
-        }
+        // if index.parameters.adna_mode
+        //     && !nam.adna_filter(
+        //         &read,
+        //         references,
+        //         k,
+        //         index.parameters.ry_end_threshold,
+        //         index.parameters.max_mismatches,
+        //     )
+        // {
+        //     details.adna_filtered_nams += 1;
+        //     continue;
+        // }
         let Some(alignment) = extend_seed(
             aligner,
             nam,
