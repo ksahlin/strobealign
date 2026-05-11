@@ -82,8 +82,13 @@ pub struct StrobemerIndex {
     ///
     /// randstrobe_start_indices has one extra guard entry at the end that
     /// is always randstrobes.len().
-    pub randstrobes: Vec<RefRandstrobe>,
+    randstrobes: Vec<RefRandstrobe>,
     randstrobe_start_indices: Vec<BucketIndex>,
+}
+
+pub struct IndexEntry<'a> {
+    strobemer_index: &'a StrobemerIndex,
+    pub position: usize,
 }
 
 impl StrobemerIndex {
@@ -103,32 +108,42 @@ impl StrobemerIndex {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.randstrobes.len()
+    }
     pub fn filter_cutoff(&self) -> usize {
         self.filter_cutoff
     }
 
+    pub fn entry(&'_ self, position: usize) -> IndexEntry<'_> {
+        IndexEntry {
+            strobemer_index: self,
+            position,
+        }
+    }
+
     // Find the first entry that matches the forwald full hash (including orientation bits)
-    pub fn get_full_forward(&self, hash: RandstrobeHash) -> Option<usize> {
+    pub fn get_full_forward(&'_ self, hash: RandstrobeHash) -> Option<IndexEntry<'_>> {
         self.get_masked(hash, REF_RANDSTROBE_HASH_MASK)
     }
 
     /// Find the first entry that matches the undirected main hash (without orientation bit)
-    pub fn get_partial(&self, hash: RandstrobeHash) -> Option<usize> {
+    pub fn get_partial(&'_ self, hash: RandstrobeHash) -> Option<IndexEntry<'_>> {
         self.get_masked(hash, self.parameters.randstrobe.main_hash_mask)
     }
 
     /// Find the first entry matching the forward main hash
-    pub fn get_partial_forward(&self, hash: RandstrobeHash) -> Option<usize> {
+    pub fn get_partial_forward(&'_ self, hash: RandstrobeHash) -> Option<IndexEntry<'_>> {
         self.get_masked(hash, self.parameters.randstrobe.forward_main_hash_mask)
     }
 
     /// Find the first entry matching the forward main hash, starting from
     /// the undirected main position
     pub fn get_partial_forward_from(
-        &self,
+        &'_ self,
         hash: RandstrobeHash,
         undirected_position: usize,
-    ) -> Option<usize> {
+    ) -> Option<IndexEntry<'_>> {
         self.get_masked_from(
             hash,
             self.parameters.randstrobe.forward_main_hash_mask,
@@ -141,11 +156,11 @@ impl StrobemerIndex {
     /// If `start_position` is provided, search starts from there instead of
     /// the bucket start.
     pub fn get_masked_from(
-        &self,
+        &'_ self,
         hash: RandstrobeHash,
         hash_mask: RandstrobeHash,
         start_position: Option<usize>,
-    ) -> Option<usize> {
+    ) -> Option<IndexEntry<'_>> {
         let masked_hash = hash & hash_mask;
         const MAX_LINEAR_SEARCH: usize = 4;
         let top_n = (hash >> (64 - self.bits)) as usize;
@@ -158,7 +173,10 @@ impl StrobemerIndex {
         } else if bucket.len() < MAX_LINEAR_SEARCH {
             for (pos, randstrobe) in bucket.iter().enumerate() {
                 if randstrobe.hash() & hash_mask == masked_hash {
-                    return Some(position_start as usize + pos);
+                    return Some(IndexEntry {
+                        strobemer_index: self,
+                        position: position_start as usize + pos,
+                    });
                 }
                 if randstrobe.hash() & hash_mask > masked_hash {
                     return None;
@@ -169,64 +187,85 @@ impl StrobemerIndex {
 
         let pos = custom_partition_point(bucket, |h| h.hash() & hash_mask < masked_hash);
         if pos < bucket.len() && bucket[pos].hash() & hash_mask == masked_hash {
-            Some(position_start as usize + pos)
+            Some(IndexEntry {
+                strobemer_index: self,
+                position: position_start as usize + pos,
+            })
         } else {
             None
         }
     }
 
-    pub fn get_masked(&self, hash: RandstrobeHash, hash_mask: RandstrobeHash) -> Option<usize> {
+    pub fn get_masked(
+        &'_ self,
+        hash: RandstrobeHash,
+        hash_mask: RandstrobeHash,
+    ) -> Option<IndexEntry<'_>> {
         self.get_masked_from(hash, hash_mask, None)
     }
 
     pub fn k(&self) -> usize {
         self.parameters.syncmer.k
     }
+}
 
-    pub fn get_hash_partial(&self, position: usize) -> RandstrobeHash {
-        self.randstrobes[position].hash() & self.parameters.randstrobe.main_hash_mask
+impl<'a> IndexEntry<'a> {
+    pub fn randstrobe(&self) -> &RefRandstrobe {
+        &self.strobemer_index.randstrobes[self.position]
     }
 
-    pub fn get_hash_partial_forward(&self, position: usize) -> RandstrobeHash {
-        self.randstrobes[position].hash_offset & self.parameters.randstrobe.forward_main_hash_mask
+    pub fn get_hash_partial(&self) -> RandstrobeHash {
+        self.strobemer_index.randstrobes[self.position].hash()
+            & self.strobemer_index.parameters.randstrobe.main_hash_mask
     }
 
-    pub fn strobe_extent_partial(&self, position: usize) -> (usize, usize) {
-        let p = self.randstrobes[position].position;
+    pub fn get_hash_partial_forward(&self) -> RandstrobeHash {
+        self.strobemer_index.randstrobes[self.position].hash_offset
+            & self
+                .strobemer_index
+                .parameters
+                .randstrobe
+                .forward_main_hash_mask
+    }
+
+    pub fn strobe_extent_partial(&self) -> (usize, usize) {
+        let p = self.strobemer_index.randstrobes[self.position].position;
 
         (p as usize, p as usize + self.k())
     }
 
     /// Count number of hits for the randstrobe *and* its "reverse complement"
-    pub fn get_count_full(&self, position: usize, hash_revcomp: u64) -> usize {
+    pub fn get_count_full(&self, hash_revcomp: u64) -> usize {
         let reverse_count;
-        if let Some(position_revcomp) = self.get_full_forward(hash_revcomp) {
-            reverse_count = self.get_count_full_forward(position_revcomp);
+        if let Some(entry_revcomp) = self.strobemer_index.get_full_forward(hash_revcomp) {
+            reverse_count = entry_revcomp.get_count_full_forward();
         } else {
             reverse_count = 0;
         }
-        reverse_count + self.get_count_full_forward(position)
+        reverse_count + self.get_count_full_forward()
     }
 
-    pub fn get_count_full_forward(&self, position: usize) -> usize {
-        self.get_count(position, REF_RANDSTROBE_HASH_MASK)
+    pub fn get_count_full_forward(&self) -> usize {
+        self.get_count(REF_RANDSTROBE_HASH_MASK)
     }
 
-    pub fn get_count_partial(&self, position: usize) -> usize {
-        self.get_count(position, self.parameters.randstrobe.main_hash_mask)
+    pub fn get_count_partial(&self) -> usize {
+        self.get_count(self.strobemer_index.parameters.randstrobe.main_hash_mask)
     }
 
-    pub fn get_count(&self, position: usize, hash_mask: u64) -> usize {
+    pub fn get_count(&self, hash_mask: u64) -> usize {
+        let position = self.position;
         const MAX_LINEAR_SEARCH: usize = 8;
-        let key = self.randstrobes[position].hash();
+        let key = self.strobemer_index.randstrobes[position].hash();
         let masked_key = key & hash_mask;
-        let top_n = (key >> (64 - self.bits)) as usize;
-        let position_end = self.randstrobe_start_indices[top_n + 1] as usize;
+        let top_n = (key >> (64 - self.strobemer_index.bits)) as usize;
+        let position_end = self.strobemer_index.randstrobe_start_indices[top_n + 1] as usize;
 
         if position_end - position < MAX_LINEAR_SEARCH {
             let mut count = 1;
             for position_start in position + 1..position_end {
-                if self.randstrobes[position_start].hash() & hash_mask == masked_key {
+                if self.strobemer_index.randstrobes[position_start].hash() & hash_mask == masked_key
+                {
                     count += 1;
                 } else {
                     break;
@@ -234,30 +273,32 @@ impl StrobemerIndex {
             }
             count
         } else {
-            let bucket = &self.randstrobes[position..position_end];
+            let bucket = &self.strobemer_index.randstrobes[position..position_end];
             custom_partition_point(bucket, |h| h.hash() & hash_mask <= masked_key)
         }
     }
 
     /// Return whether the randstrobe at the given position occurs more often than cutoff
-    pub fn is_too_frequent_forward(&self, position: usize, cutoff: usize) -> bool {
-        if position + self.filter_cutoff < self.randstrobes.len() {
-            self.randstrobes[position].hash() == self.randstrobes[position + cutoff].hash()
+    pub fn is_too_frequent_forward(&self, cutoff: usize) -> bool {
+        if self.position + self.strobemer_index.filter_cutoff
+            < self.strobemer_index.randstrobes.len()
+        {
+            self.strobemer_index.randstrobes[self.position].hash()
+                == self.strobemer_index.randstrobes[self.position + cutoff].hash()
         } else {
             false
         }
     }
 
-    pub fn is_too_frequent(&self, position: usize, cutoff: usize, hash_revcomp: u64) -> bool {
-        if self.is_too_frequent_forward(position, cutoff) {
+    pub fn is_too_frequent(&self, cutoff: usize, hash_revcomp: u64) -> bool {
+        if self.is_too_frequent_forward(cutoff) {
             return true;
         }
-        if let Some(position_revcomp) = self.get_full_forward(hash_revcomp) {
-            if self.is_too_frequent_forward(position_revcomp, cutoff) {
+        if let Some(entry_revcomp) = self.strobemer_index.get_full_forward(hash_revcomp) {
+            if entry_revcomp.is_too_frequent_forward(cutoff) {
                 return true;
             }
-            let count = self.get_count_full_forward(position)
-                + self.get_count_full_forward(position_revcomp);
+            let count = self.get_count_full_forward() + entry_revcomp.get_count_full_forward();
 
             return count > cutoff;
         }
@@ -265,18 +306,23 @@ impl StrobemerIndex {
         false
     }
 
-    pub fn is_too_frequent_forward_partial(&self, position: usize, cutoff: usize) -> bool {
-        if position + cutoff < self.randstrobes.len() {
-            self.randstrobes[position].hash() & self.parameters.randstrobe.main_hash_mask
-                == self.randstrobes[position + cutoff].hash()
-                    & self.parameters.randstrobe.main_hash_mask
+    pub fn is_too_frequent_forward_partial(&self, cutoff: usize) -> bool {
+        if self.position + cutoff < self.strobemer_index.randstrobes.len() {
+            self.strobemer_index.randstrobes[self.position].hash()
+                & self.strobemer_index.parameters.randstrobe.main_hash_mask
+                == self.strobemer_index.randstrobes[self.position + cutoff].hash()
+                    & self.strobemer_index.parameters.randstrobe.main_hash_mask
         } else {
             false
         }
     }
 
-    pub fn is_too_frequent_partial(&self, position: usize, cutoff: usize) -> bool {
-        self.is_too_frequent_forward_partial(position, cutoff)
+    pub fn is_too_frequent_partial(&self, cutoff: usize) -> bool {
+        self.is_too_frequent_forward_partial(cutoff)
+    }
+
+    fn k(&self) -> usize {
+        self.strobemer_index.k()
     }
 }
 
@@ -547,11 +593,12 @@ mod tests {
 
             let rev_pos_result = rc_index.get_partial(fwd_hash);
             assert!(rev_pos_result.is_some());
-            let rev_pos = rev_pos_result.unwrap();
+            let rev_entry = rev_pos_result.unwrap();
 
             let rc_partial_query = fwd_index.randstrobes[i].hash()
                 ^ ((1 as u64) << rc_index.parameters.randstrobe.partial_orientation_pos);
-            let rev_pos_forward = rc_index.get_partial_forward_from(rc_partial_query, rev_pos);
+            let rev_pos_forward =
+                rc_index.get_partial_forward_from(rc_partial_query, rev_entry.position);
             assert!(rev_pos_forward.is_some());
         }
     }
