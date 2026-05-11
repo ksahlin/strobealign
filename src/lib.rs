@@ -17,4 +17,5 @@ pub mod piecewisealigner;
 pub mod read;
 pub mod revcomp;
 pub mod seeding;
+pub mod shuffle;
 pub mod ssw;
