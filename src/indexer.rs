@@ -1,4 +1,4 @@
-use crate::index::{BucketIndex, RandstrobeHash, RefRandstrobe, StrobemerIndex};
+use crate::index::{BucketIndex, RandstrobeHash, StrobeHash, StrobePosition, StrobemerIndex, REF_RANDSTROBE_HASH_MASK};
 use crate::io::fasta::RefSequence;
 use crate::seeding::{RandstrobeIterator, SeedingParameters, SyncmerIterator, SyncmerParameters};
 
@@ -12,6 +12,23 @@ use std::time::Instant;
 use log::{debug, trace};
 use rayon;
 use rayon::slice::ParallelSliceMut;
+
+
+///
+struct Randstrobe {
+    hash_offset: u64,
+    position: u32,
+    ref_index: u32,
+}
+
+impl Randstrobe {
+    pub fn new(hash: RandstrobeHash, offset: u8) -> Self {
+
+        let hash_offset = (hash & REF_RANDSTROBE_HASH_MASK) | (offset as u64);
+        Randstrobe { hash_offset, position, ref_index }
+    }
+}
+
 
 /// Create a StrobemerIndex
 pub fn make_index<'a>(
@@ -33,7 +50,8 @@ pub fn make_index<'a>(
     debug!("  Total number of randstrobes: {}", total_randstrobes);
     let total_length: usize = references.iter().map(|refseq| refseq.sequence.len()).sum();
     let memory_bytes: usize = total_length
-        + size_of::<RefRandstrobe>() * total_randstrobes
+        + size_of::<StrobeHash>() * total_randstrobes
+        + size_of::<StrobePosition>() * total_randstrobes
         + size_of::<BucketIndex>() * (1usize << bits);
     debug!(
         "  Estimated total memory usage: {:.1} GB",
@@ -45,7 +63,7 @@ pub fn make_index<'a>(
     }
     let timer = Instant::now();
     debug!("  Generating randstrobes ...");
-    let mut randstrobes =
+    let (mut hashes, mut positions) =
         make_randstrobes_parallel(references, &parameters, &randstrobe_counts, n_threads);
     debug!("  Generating seeds: {:.2} s", timer.elapsed().as_secs_f64());
     // stats.elapsed_generating_seeds = randstrobes_timer.duration();
@@ -160,7 +178,8 @@ pub fn make_index<'a>(
             parameters,
             bits,
             filter_cutoff,
-            randstrobes,
+            hashes,
+            positions,
             randstrobe_start_indices,
         ),
         stats,
@@ -186,8 +205,10 @@ fn make_randstrobes_parallel(
     parameters: &SeedingParameters,
     randstrobe_counts: &[usize],
     n_threads: usize,
-) -> Vec<RefRandstrobe> {
-    let mut randstrobes = vec![RefRandstrobe::default(); randstrobe_counts.iter().sum()];
+) -> (Vec<StrobeHash>, Vec<StrobePosition>) {
+    let n = randstrobe_counts.iter().sum();
+    let mut hashes = vec![StrobeHash::default(); n];
+    let mut positions = vec![StrobePosition::default(); n];
     let mut slices = vec![];
     {
         let mut slice = &mut randstrobes[..];
@@ -213,7 +234,7 @@ fn make_randstrobes_parallel(
         }
     });
 
-    randstrobes
+    (hashes, positions)
 }
 
 /// Compute randstrobes of one reference contig and assign them to the provided slice
@@ -221,7 +242,8 @@ fn assign_randstrobes(
     references: &[RefSequence],
     parameters: &SeedingParameters,
     ref_index: usize,
-    randstrobes: &mut [RefRandstrobe],
+    hashes: &mut [StrobeHash],
+    positions: &mut [StrobePosition],
 ) {
     let seq = &references[ref_index].sequence;
     if seq.len() < parameters.randstrobe.w_max {
