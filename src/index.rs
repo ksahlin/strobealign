@@ -75,15 +75,15 @@ pub struct StrobemerIndex {
     filter_cutoff: usize,
 
     /// The randstrobes vector contains all randstrobes sorted by hash.
-    /// The randstrobe_start_indices vector points to entries in the
-    /// randstrobes vector. `randstrobe_start_indices[x]` is the index of the
+    /// The bucket_starts vector points to entries in the
+    /// randstrobes vector. `bucket_starts[x]` is the index of the
     /// first entry in randstrobes whose top *bits* bits of its hash value are
     /// greater than or equal to x.
     ///
-    /// randstrobe_start_indices has one extra guard entry at the end that
+    /// bucket_starts has one extra guard entry at the end that
     /// is always randstrobes.len().
     randstrobes: Vec<RefRandstrobe>,
-    randstrobe_start_indices: Vec<BucketIndex>,
+    bucket_starts: Vec<BucketIndex>,
 }
 
 pub struct IndexEntry<'a> {
@@ -97,14 +97,14 @@ impl StrobemerIndex {
         bits: u8,
         filter_cutoff: usize,
         randstrobes: Vec<RefRandstrobe>,
-        randstrobe_start_indices: Vec<BucketIndex>,
+        bucket_starts: Vec<BucketIndex>,
     ) -> Self {
         StrobemerIndex {
             parameters,
             bits,
             filter_cutoff,
             randstrobes,
-            randstrobe_start_indices,
+            bucket_starts,
         }
     }
 
@@ -164,9 +164,8 @@ impl StrobemerIndex {
         let masked_hash = hash & hash_mask;
         const MAX_LINEAR_SEARCH: usize = 4;
         let top_n = (hash >> (64 - self.bits)) as usize;
-        let position_start =
-            start_position.unwrap_or(self.randstrobe_start_indices[top_n] as usize);
-        let position_end = self.randstrobe_start_indices[top_n + 1];
+        let position_start = start_position.unwrap_or(self.bucket_starts[top_n] as usize);
+        let position_end = self.bucket_starts[top_n + 1];
         let bucket = &self.randstrobes[position_start as usize..position_end as usize];
         if bucket.is_empty() {
             return None;
@@ -259,7 +258,7 @@ impl<'a> IndexEntry<'a> {
         let key = self.strobemer_index.randstrobes[position].hash();
         let masked_key = key & hash_mask;
         let top_n = (key >> (64 - self.strobemer_index.bits)) as usize;
-        let position_end = self.strobemer_index.randstrobe_start_indices[top_n + 1] as usize;
+        let position_end = self.strobemer_index.bucket_starts[top_n + 1] as usize;
 
         if position_end - position < MAX_LINEAR_SEARCH {
             let mut count = 1;
@@ -387,7 +386,7 @@ impl StrobemerIndex {
         file.write_all(&(rp.main_hash_mask as u64).to_ne_bytes())?;
 
         write_vec(&mut file, &self.randstrobes)?;
-        write_vec(&mut file, &self.randstrobe_start_indices)?;
+        write_vec(&mut file, &self.bucket_starts)?;
 
         Ok(())
     }
@@ -463,9 +462,9 @@ pub fn read_index<'a, P: AsRef<Path>>(
     }
 
     let randstrobes = read_vec(&mut reader)?;
-    let randstrobe_start_indices = read_vec(&mut reader)?;
+    let bucket_starts = read_vec(&mut reader)?;
 
-    if randstrobe_start_indices.len() != (1 << bits) + 1 {
+    if bucket_starts.len() != (1 << bits) + 1 {
         return Err(IndexReadingError::RandstrobeStartIndicesWrongSize);
     }
 
@@ -474,7 +473,7 @@ pub fn read_index<'a, P: AsRef<Path>>(
         bits,
         filter_cutoff,
         randstrobes,
-        randstrobe_start_indices,
+        bucket_starts,
     })
 }
 
