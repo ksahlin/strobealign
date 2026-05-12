@@ -293,18 +293,17 @@ fn add_to_anchors_full(
     entry: IndexEntry,
 ) {
     let mut min_length_diff = usize::MAX;
-    let forward_hash = entry.randstrobe().hash();
+    let forward_hash = entry.hash();
     for i in entry.position..index.len() {
         let entry = index.entry(i);
-        let randstrobe = entry.randstrobe();
-        if randstrobe.hash() != forward_hash {
+        if entry.hash() != forward_hash {
             break;
         }
-        let ref_start = randstrobe.position();
-        let ref_end = ref_start + randstrobe.strobe2_offset() + index.k();
+        let ref_start = entry.position();
+        let ref_end = ref_start + entry.strobe2_offset() + index.k();
         let length_diff = (query_end - query_start).abs_diff(ref_end - ref_start);
         if length_diff <= min_length_diff {
-            let ref_id = randstrobe.reference_index();
+            let ref_id = entry.reference_index();
             anchors.push(Anchor {
                 ref_id,
                 ref_start,
@@ -329,12 +328,11 @@ fn add_to_anchors_partial(
     let forward_hash = entry.get_hash_partial_forward();
     for i in entry.position..index.len() {
         let entry = index.entry(i);
-        let randstrobe = entry.randstrobe();
         // Filter out partial lookups with different orientation
         if entry.get_hash_partial_forward() != forward_hash {
             break;
         }
-        let ref_id = randstrobe.reference_index();
+        let ref_id = entry.reference_index();
         let ref_start = entry.strobe_extent_partial().0;
 
         anchors.push(Anchor {

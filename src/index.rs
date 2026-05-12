@@ -209,8 +209,24 @@ impl StrobemerIndex {
 }
 
 impl<'a> IndexEntry<'a> {
-    pub fn randstrobe(&self) -> &RefRandstrobe {
+    fn randstrobe(&self) -> &RefRandstrobe {
         &self.strobemer_index.randstrobes[self.position]
+    }
+
+    pub fn hash(&self) -> RandstrobeHash {
+        self.randstrobe().hash()
+    }
+
+    pub fn position(&self) -> usize {
+        self.randstrobe().position()
+    }
+
+    pub fn strobe2_offset(&self) -> usize {
+        self.randstrobe().strobe2_offset()
+    }
+
+    pub fn reference_index(&self) -> usize {
+        self.randstrobe().reference_index()
     }
 
     pub fn get_hash_partial(&self) -> RandstrobeHash {
