@@ -1,4 +1,7 @@
-use crate::index::{BucketIndex, RandstrobeHash, RefRandstrobe, StrobemerIndex};
+use crate::index::{
+    BucketIndex, REF_RANDSTROBE_HASH_MASK, RandstrobeHash, STROBE2_OFFSET_MASK, StrobeHash,
+    StrobePosition, StrobemerIndex,
+};
 use crate::io::fasta::RefSequence;
 use crate::packed_seq::PackedSeq;
 use crate::seeding::{RandstrobeIterator, SeedingParameters, SyncmerIterator, SyncmerParameters};
@@ -13,6 +16,33 @@ use std::time::Instant;
 use log::{debug, trace};
 use rayon;
 use rayon::slice::ParallelSliceMut;
+
+#[derive(Debug, Default, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[repr(C)]
+struct RefRandstrobe {
+    hash_offset: u64,
+    position: u32,
+    ref_index: u32,
+}
+
+impl RefRandstrobe {
+    pub fn new(hash: RandstrobeHash, ref_index: u32, position: u32, offset: u8) -> Self {
+        let hash_offset = (hash & REF_RANDSTROBE_HASH_MASK) | (offset as u64);
+        RefRandstrobe {
+            hash_offset,
+            position,
+            ref_index,
+        }
+    }
+
+    fn hash(&self) -> RandstrobeHash {
+        self.hash_offset & REF_RANDSTROBE_HASH_MASK
+    }
+
+    fn strobe2_offset(&self) -> usize {
+        (self.hash_offset & STROBE2_OFFSET_MASK) as usize
+    }
+}
 
 /// Create a StrobemerIndex
 pub fn make_index<'a>(
@@ -46,6 +76,7 @@ pub fn make_index<'a>(
     }
     let timer = Instant::now();
     debug!("  Generating randstrobes ...");
+
     let mut randstrobes =
         make_randstrobes_parallel(references, &parameters, &randstrobe_counts, n_threads);
     debug!("  Generating seeds: {:.2} s", timer.elapsed().as_secs_f64());
@@ -156,12 +187,17 @@ pub fn make_index<'a>(
     debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
     stats.distinct_strobemers = unique_mers;
 
+    debug!("    Transposing ...");
+
+    let (hashes, positions) = transpose_randstrobes(randstrobes);
+
     (
         StrobemerIndex::new(
             parameters,
             bits,
             filter_cutoff,
-            randstrobes,
+            hashes,
+            positions,
             randstrobe_start_indices,
         ),
         stats,
@@ -189,6 +225,7 @@ fn make_randstrobes_parallel(
     n_threads: usize,
 ) -> Vec<RefRandstrobe> {
     let mut randstrobes = vec![RefRandstrobe::default(); randstrobe_counts.iter().sum()];
+
     let mut slices = vec![];
     {
         let mut slice = &mut randstrobes[..];
@@ -286,6 +323,26 @@ fn count_randstrobes(seq: &PackedSeq, parameters: &SeedingParameters) -> usize {
         parameters.syncmer.t,
     )
     .count()
+}
+
+fn transpose_randstrobes(
+    randstrobes: Vec<RefRandstrobe>,
+) -> (Vec<StrobeHash>, Vec<StrobePosition>) {
+    let mut hashes = Vec::with_capacity(randstrobes.len());
+    let mut positions = Vec::with_capacity(randstrobes.len());
+
+    for randstrobe in randstrobes {
+        hashes.push(StrobeHash::new(
+            randstrobe.hash(),
+            randstrobe.strobe2_offset() as u8,
+        ));
+        positions.push(StrobePosition::new(
+            randstrobe.ref_index,
+            randstrobe.position,
+        ));
+    }
+
+    (hashes, positions)
 }
 
 impl SyncmerParameters {
@@ -389,5 +446,12 @@ mod test {
         let bits = parameters.syncmer.pick_bits(&references);
         let (_index2, stats) = make_index(&references, parameters, bits, 0.1, 1);
         assert_eq!(stats.distinct_strobemers, 0);
+    }
+
+    #[test]
+    fn transpose() {
+        // hash: RandstrobeHash, ref_index: u32, position: u32, offset: u8) -> Self {
+        // let randstrobes = vec![
+        //     RefRandstrobe::new(
     }
 }
