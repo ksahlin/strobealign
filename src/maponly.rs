@@ -34,21 +34,80 @@ pub fn map_single_end_read(
     nam_details.time_sort_nams = sort_nams(&mut nams, rng);
 
     if nams.is_empty() {
-        (vec![], nam_details.into())
-    } else {
-        let mapq = mapping_quality(&nams);
-        (
-            vec![paf_record_from_nam(
-                &nams[0],
+        return (vec![], nam_details.into());
+    }
+
+    let (primary, secondary) = get_primary_chains(nams, record.len());
+
+    // the mapping quality should be chosen by comparing the primary to the best secondary chain
+    let mapq_nams = [primary.first(), secondary.first()]
+        .into_iter()
+        .flatten()
+        .cloned()
+        .collect::<Vec<_>>();
+    let mapq = mapping_quality(&mapq_nams);
+
+    let records = primary
+        .iter()
+        .map(|p| {
+            paf_record_from_nam(
+                p,
                 &record.name,
                 references,
                 record.sequence.len(),
                 Some(mapq),
                 End::None,
-            )],
-            nam_details.into(),
-        )
+            )
+        })
+        .collect();
+    (records, nam_details.into())
+}
+
+/// Returns the forward-strand query coordinates for a NAM,
+/// translating reverse-complement NAMs so all coordinates share
+/// the same reference frame.
+fn forward_query_coords(nam: &Nam, read_length: usize) -> (usize, usize) {
+    if nam.is_revcomp {
+        (read_length - nam.query_end, read_length - nam.query_start)
+    } else {
+        (nam.query_start, nam.query_end)
     }
+}
+
+/// Computes the normalized query overlap between two NAMs.
+pub fn query_overlap(a: &Nam, b: &Nam, read_length: usize) -> f32 {
+    let (a_start, a_end) = forward_query_coords(a, read_length);
+    let (b_start, b_end) = forward_query_coords(b, read_length);
+    let start = a_start.max(b_start);
+    let end = a_end.min(b_end);
+    let overlap = end.saturating_sub(start);
+    if overlap == 0 {
+        return 0.0;
+    }
+    let len_a = a.query_span();
+    let len_b = b.query_span();
+    let min_len = len_a.min(len_b);
+    overlap as f32 / min_len as f32
+}
+
+/// Returns the set of NAMs that compose the primary mapping location.
+///
+/// This function assumes that the NAMs are sorted by score.
+fn get_primary_chains(candidates: Vec<Nam>, read_length: usize) -> (Vec<Nam>, Vec<Nam>) {
+    let mut primary = vec![];
+    let mut secondary = vec![];
+    for nam in candidates {
+        if !primary
+            .iter()
+            .any(|p| query_overlap(&nam, p, read_length) > 0.01)
+            && nam.anchors.len() >= 3
+        {
+            primary.push(nam);
+        } else {
+            secondary.push(nam);
+        }
+    }
+    (primary, secondary)
 }
 
 /// Map a single-end read to the reference and estimate abundances

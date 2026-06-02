@@ -23,7 +23,6 @@ pub struct ChainingParameters {
     pub max_lookback: usize,
     pub diag_diff_penalty: f32,
     pub gap_length_penalty: f32,
-    pub valid_score_threshold: f32,
     pub max_ref_gap: usize,
     pub matches_weight: f32,
 }
@@ -34,7 +33,6 @@ impl Default for ChainingParameters {
             max_lookback: 50,
             diag_diff_penalty: 0.1,
             gap_length_penalty: 0.05,
-            valid_score_threshold: 0.7,
             max_ref_gap: 1000,
             matches_weight: 0.01,
         }
@@ -369,11 +367,11 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
 impl ChainingResult {
     fn extract_chains(&self, k: usize, is_revcomp: bool, chains: &mut Vec<Nam>) {
         let n = self.anchors.len();
-        let valid_score = self.best_score * self.parameters.valid_score_threshold;
+        let valid_score = k as f32;
 
         let mut candidates = vec![];
         for i in 0..n {
-            if self.dp[i] >= valid_score {
+            if self.dp[i] > valid_score {
                 candidates.push((i, self.dp[i]));
             }
         }

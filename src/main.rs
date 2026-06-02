@@ -223,10 +223,6 @@ struct Args {
     #[arg(long = "gl", default_value_t = ChainingParameters::default().gap_length_penalty, help_heading = "Collinear chaining")]
     gap_length_penalty: f32,
 
-    /// Collinear chaining best chain score threshold
-    #[arg(long = "vp", default_value_t = ChainingParameters::default().valid_score_threshold, help_heading = "Collinear chaining")]
-    valid_score_threshold: f32,
-
     /// Collinear chaining skip distance, how far on the reference do we allow anchors to chain
     #[arg(long = "sg", default_value_t = ChainingParameters::default().max_ref_gap, help_heading = "Collinear chaining")]
     max_ref_gap: usize,
@@ -520,7 +516,6 @@ fn run() -> Result<(), CliError> {
         max_lookback: args.max_lookback,
         diag_diff_penalty: args.diag_diff_penalty,
         gap_length_penalty: args.gap_length_penalty,
-        valid_score_threshold: args.valid_score_threshold,
         max_ref_gap: args.max_ref_gap,
         matches_weight: args.matches_weight,
     };
