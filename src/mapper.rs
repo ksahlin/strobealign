@@ -76,6 +76,12 @@ impl Alignment {
     }
 }
 
+#[derive(Debug, PartialEq)]
+enum PairStatus {
+    Proper,
+    NotProper,
+}
+
 /// Conversion of an Alignment into a SamRecord
 #[derive(Default)]
 pub struct SamOutput {
@@ -225,7 +231,6 @@ impl SamOutput {
         sam_records
     }
 
-    // alignment: &Alignment, references: &[RefSequence], record: &SequenceRecord, mut mapq: u8, is_primary: bool, details: Details) -> SamRecord {
     fn make_paired_records(
         &self,
         alignments: [Option<&Alignment>; 2],
@@ -234,7 +239,7 @@ impl SamOutput {
         mapq: [u8; 2],
         details: &[Details; 2],
         is_primary: bool,
-        is_proper: bool,
+        pair_status: PairStatus,
     ) -> [SamRecord; 2] {
         // Create single-end records
         let mut sam_records = [
@@ -262,7 +267,7 @@ impl SamOutput {
         for i in 0..2 {
             // Flags
             sam_records[i].flags |= PAIRED;
-            if is_proper {
+            if pair_status == PairStatus::Proper {
                 sam_records[i].flags |= PROPER_PAIR;
             }
             if let Some(mate) = alignments[1 - i] {
@@ -634,13 +639,13 @@ pub fn align_paired_end_read(
         // Typical case: both reads map uniquely and form a proper pair.
         // Then the mapping quality is computed based on the NAMs.
         AlignedPairs::Proper((alignment1, alignment2)) => {
-            let is_proper = is_proper_pair(
+            let pair_status = is_proper_pair(
                 &alignment1,
                 &alignment2,
                 insert_size_distribution.mu,
                 insert_size_distribution.sigma,
             );
-            if is_proper
+            if pair_status == PairStatus::Proper
                 && insert_size_distribution.sample_size < 400
                 && alignment1.edit_distance + alignment2.edit_distance < 3
             {
@@ -662,7 +667,7 @@ pub fn align_paired_end_read(
                 [mapq1, mapq2],
                 &details,
                 is_primary,
-                is_proper,
+                pair_status,
             ));
         }
         AlignedPairs::WithScores(mut alignment_pairs) => {
@@ -1104,25 +1109,30 @@ fn is_proper_pair_opt(
     alignment2: Option<&Alignment>,
     mu: f32,
     sigma: f32,
-) -> bool {
+) -> PairStatus {
     match (alignment1, alignment2) {
-        (None, None) => false,
-        (Some(_), None) => false,
-        (None, Some(_)) => false,
+        (None, None) => PairStatus::NotProper,
+        (Some(_), None) => PairStatus::NotProper,
+        (None, Some(_)) => PairStatus::NotProper,
         (Some(a1), Some(a2)) => is_proper_pair(a1, a2, mu, sigma),
     }
 }
 
 /// Return true if the two alignments form a proper pair:
 /// on the same reference, in opposite orientations, within the expected insert size.
-fn is_proper_pair(a1: &Alignment, a2: &Alignment, mu: f32, sigma: f32) -> bool {
+fn is_proper_pair(a1: &Alignment, a2: &Alignment, mu: f32, sigma: f32) -> PairStatus {
     let dist = a2.ref_start as isize - a1.ref_start as isize;
     let same_reference = a1.reference_id == a2.reference_id;
     let r1_r2 = !a1.is_revcomp && a2.is_revcomp && dist >= 0; // r1 ---> <---- r2
     let r2_r1 = !a2.is_revcomp && a1.is_revcomp && dist <= 0; // r2 ---> <---- r1
     let rel_orientation_good = r1_r2 || r2_r1;
     let insert_good = dist.unsigned_abs() <= (mu + sigma * 6.0) as usize;
-    same_reference && insert_good && rel_orientation_good
+
+    if same_reference && insert_good && rel_orientation_good {
+        PairStatus::Proper
+    } else {
+        PairStatus::NotProper
+    }
 }
 
 pub fn is_proper_nam_pair(nam1: &Nam, nam2: &Nam, mu: f32, sigma: f32) -> bool {
@@ -1325,7 +1335,7 @@ fn aligned_pairs_to_sam(
         let alignment1 = &best_aln_pair.alignment1;
         let alignment2 = &best_aln_pair.alignment2;
 
-        let is_proper = is_proper_pair_opt(alignment1.as_ref(), alignment2.as_ref(), mu, sigma);
+        let pair_status = is_proper_pair_opt(alignment1.as_ref(), alignment2.as_ref(), mu, sigma);
         let is_primary = true;
         records.extend(sam_output.make_paired_records(
             [alignment1.as_ref(), alignment2.as_ref()],
@@ -1334,7 +1344,7 @@ fn aligned_pairs_to_sam(
             [mapq, mapq],
             details,
             is_primary,
-            is_proper,
+            pair_status,
         ));
     } else {
         let mut is_primary = true;
@@ -1344,7 +1354,7 @@ fn aligned_pairs_to_sam(
             let alignment2 = &aln_pair.alignment2;
             let s_score = aln_pair.score;
             if s_max - s_score < secondary_dropoff {
-                let is_proper =
+                let pair_status =
                     is_proper_pair_opt(alignment1.as_ref(), alignment2.as_ref(), mu, sigma);
                 let mapq = if is_primary { mapq } else { 0 };
                 records.extend(sam_output.make_paired_records(
@@ -1354,7 +1364,7 @@ fn aligned_pairs_to_sam(
                     [mapq, mapq],
                     details,
                     is_primary,
-                    is_proper,
+                    pair_status,
                 ));
             } else {
                 break;
@@ -1526,7 +1536,7 @@ mod tests {
         let sigma = 50.0_f32;
         let a1 = make_alignment(0, 100, 40, false);
         let a2 = make_alignment(0, 350, 40, true);
-        assert!(is_proper_pair(&a1, &a2, mu, sigma));
+        assert_eq!(is_proper_pair(&a1, &a2, mu, sigma), PairStatus::Proper);
     }
 
     #[test]
@@ -1535,7 +1545,7 @@ mod tests {
         let sigma = 50.0_f32;
         let a1 = make_alignment(0, 350, 40, true);
         let a2 = make_alignment(0, 100, 40, false);
-        assert!(is_proper_pair(&a1, &a2, mu, sigma));
+        assert_eq!(is_proper_pair(&a1, &a2, mu, sigma), PairStatus::Proper);
     }
 
     #[test]
@@ -1544,7 +1554,7 @@ mod tests {
         let sigma = 50.0_f32;
         let a1 = make_alignment(0, 100, 40, false);
         let a2 = make_alignment(0, 350, 40, false);
-        assert!(!is_proper_pair(&a1, &a2, mu, sigma));
+        assert_eq!(is_proper_pair(&a1, &a2, mu, sigma), PairStatus::NotProper);
     }
 
     #[test]
@@ -1553,6 +1563,6 @@ mod tests {
         let sigma = 50.0_f32;
         let a1 = make_alignment(0, 100, 40, false);
         let a2 = make_alignment(0, 10_000, 40, true);
-        assert!(!is_proper_pair(&a1, &a2, mu, sigma));
+        assert_eq!(is_proper_pair(&a1, &a2, mu, sigma), PairStatus::NotProper);
     }
 }
