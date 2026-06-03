@@ -76,10 +76,16 @@ impl Alignment {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum PairStatus {
     Proper,
     NotProper,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum AlignmentStatus {
+    Primary,
+    Secondary,
 }
 
 /// Conversion of an Alignment into a SamRecord
@@ -112,7 +118,7 @@ impl SamOutput {
         references: &[RefSequence],
         record: &SequenceRecord,
         mapq: u8,
-        is_primary: bool,
+        alignment_status: AlignmentStatus,
         details: Details,
     ) -> SamRecord {
         match alignment {
@@ -121,7 +127,7 @@ impl SamOutput {
                 references,
                 record,
                 mapq,
-                is_primary,
+                alignment_status,
                 details.clone(),
             ),
             None => self.make_unmapped_record(record, details.clone()),
@@ -135,7 +141,7 @@ impl SamOutput {
         references: &[RefSequence],
         record: &SequenceRecord,
         mut mapq: u8,
-        is_primary: bool,
+        alignment_status: AlignmentStatus,
         details: Details,
     ) -> SamRecord {
         let mut flags = 0;
@@ -143,7 +149,7 @@ impl SamOutput {
         if alignment.is_revcomp {
             flags |= REVERSE;
         }
-        if !is_primary {
+        if alignment_status == AlignmentStatus::Secondary {
             mapq = 0;
             flags |= SECONDARY;
         }
@@ -238,7 +244,7 @@ impl SamOutput {
         records: [&SequenceRecord; 2],
         mapq: [u8; 2],
         details: &[Details; 2],
-        is_primary: bool,
+        alignment_status: AlignmentStatus,
         pair_status: PairStatus,
     ) -> [SamRecord; 2] {
         // Create single-end records
@@ -248,7 +254,7 @@ impl SamOutput {
                 references,
                 records[0],
                 mapq[0],
-                is_primary,
+                alignment_status,
                 details[0].clone(),
             ),
             self.make_record(
@@ -256,7 +262,7 @@ impl SamOutput {
                 references,
                 records[1],
                 mapq[1],
-                is_primary,
+                alignment_status,
                 details[1].clone(),
             ),
         ];
@@ -464,13 +470,12 @@ pub fn align_single_end_read(
     let mapq = (60 * (best_score - second_best_score)).div_ceil(best_score) as u8;
 
     let best_alignment = best_alignment.unwrap();
-    let mut is_primary = true;
     sam_records.push(sam_output.make_mapped_record(
         &best_alignment,
         references,
         record,
         mapq,
-        is_primary,
+        AlignmentStatus::Primary,
         details.clone(),
     ));
 
@@ -490,14 +495,13 @@ pub fn align_single_end_read(
             {
                 break;
             }
-            is_primary = false;
             // TODO .clone()
             sam_records.push(sam_output.make_mapped_record(
                 alignment,
                 references,
                 record,
                 mapq,
-                is_primary,
+                AlignmentStatus::Secondary,
                 details.clone(),
             ));
         }
@@ -658,7 +662,6 @@ pub fn align_paired_end_read(
 
             details[0].best_alignments = 1;
             details[1].best_alignments = 1;
-            let is_primary = true;
 
             sam_records.extend(sam_output.make_paired_records(
                 [Some(&alignment1), Some(&alignment2)],
@@ -666,7 +669,7 @@ pub fn align_paired_end_read(
                 [r1, r2],
                 [mapq1, mapq2],
                 &details,
-                is_primary,
+                AlignmentStatus::Primary,
                 pair_status,
             ));
         }
@@ -1336,18 +1339,17 @@ fn aligned_pairs_to_sam(
         let alignment2 = &best_aln_pair.alignment2;
 
         let pair_status = is_proper_pair_opt(alignment1.as_ref(), alignment2.as_ref(), mu, sigma);
-        let is_primary = true;
         records.extend(sam_output.make_paired_records(
             [alignment1.as_ref(), alignment2.as_ref()],
             references,
             [record1, record2],
             [mapq, mapq],
             details,
-            is_primary,
+            AlignmentStatus::Primary,
             pair_status,
         ));
     } else {
-        let mut is_primary = true;
+        let mut alignment_status = AlignmentStatus::Primary;
         let s_max = best_aln_pair.score;
         for aln_pair in high_scores.iter().take(max_secondary) {
             let alignment1 = &aln_pair.alignment1;
@@ -1356,20 +1358,24 @@ fn aligned_pairs_to_sam(
             if s_max - s_score < secondary_dropoff {
                 let pair_status =
                     is_proper_pair_opt(alignment1.as_ref(), alignment2.as_ref(), mu, sigma);
-                let mapq = if is_primary { mapq } else { 0 };
+                let mapq = if alignment_status == AlignmentStatus::Primary {
+                    mapq
+                } else {
+                    0
+                };
                 records.extend(sam_output.make_paired_records(
                     [alignment1.as_ref(), alignment2.as_ref()],
                     references,
                     [record1, record2],
                     [mapq, mapq],
                     details,
-                    is_primary,
+                    alignment_status,
                     pair_status,
                 ));
             } else {
                 break;
             }
-            is_primary = false;
+            alignment_status = AlignmentStatus::Secondary;
         }
     }
 
