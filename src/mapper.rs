@@ -1161,12 +1161,7 @@ pub fn is_proper_nam_pair(nam1: &Nam, nam2: &Nam, mu: f32, sigma: f32) -> bool {
 /// Find high-scoring NAMs and NAM pairs. Proper pairs are preferred, but also
 /// high-scoring NAMs that could not be paired up are returned (these are paired
 /// with None in the returned vector).
-pub fn get_best_scoring_nam_pairs(
-    nams1: &[Nam],
-    nams2: &[Nam],
-    mu: f32,
-    sigma: f32,
-) -> Vec<NamPair> {
+fn get_best_scoring_nam_pairs(nams1: &[Nam], nams2: &[Nam], mu: f32, sigma: f32) -> Vec<NamPair> {
     let mut nam_pairs = vec![];
     if nams1.is_empty() && nams2.is_empty() {
         return nam_pairs;
@@ -1258,14 +1253,14 @@ pub fn mapping_quality(nams: &[Nam]) -> u8 {
 }
 
 #[derive(Debug)]
-pub struct NamPair {
+struct NamPair {
     pub score: f32,
     pub nam1: Option<Nam>,
     pub nam2: Option<Nam>,
 }
 
 #[derive(Debug, Clone)]
-pub struct ScoredAlignmentPair {
+struct ScoredAlignmentPair {
     score: f64,
     alignment1: Option<Alignment>,
     alignment2: Option<Alignment>,
