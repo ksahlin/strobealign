@@ -9,6 +9,7 @@ Record identity is based on reference name and reference start position
 (RNAME, POS) only. Differences in the other SAM fields (flags, MAPQ, CIGAR,
 RNEXT, PNEXT, TLEN) are ignored.
 """
+
 import sys
 from argparse import ArgumentParser
 from contextlib import ExitStack
@@ -35,6 +36,8 @@ def main():
     with ExitStack() as stack:
         before = stack.enter_context(AlignmentFile(args.before))
         after = stack.enter_context(AlignmentFile(args.after))
+        before = skip_secondary(before)
+        after = skip_secondary(after)
         if has_truth:
             truth = stack.enter_context(AlignmentFile(args.truth))
         else:
@@ -162,6 +165,13 @@ def main():
 
     if unmapped_same + identical < single_total or single_total == 0:
         sys.exit(1)
+
+
+def skip_secondary(records):
+    for record in records:
+        if record.is_secondary:
+            continue
+        yield record
 
 
 def print_comparison(b: AlignedSegment, a: AlignedSegment):
