@@ -60,9 +60,9 @@ def main():
                 break
             if b is None or a is None:
                 sys.exit("Input files have different lengths")
-            assert b.query_name[:-2] == a.query_name[:-2]
+            assert b.query_name == a.query_name, (b, a)
             if has_truth:
-                assert a.query_name[:-2] == t.query_name
+                assert a.query_name == t.query_name
             single_total += 1
 
             if b.is_unmapped and a.is_unmapped:
@@ -165,8 +165,8 @@ def main():
 
 
 def print_comparison(b: AlignedSegment, a: AlignedSegment):
-    assert b.query_name[:-2] == a.query_name[:-2]
     print(b.query_name)
+    assert b.query_name == a.query_name, (b, a)
 
     def compare(name, before, after):
         if before == after:
