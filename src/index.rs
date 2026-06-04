@@ -15,18 +15,18 @@ pub type BucketIndex = u64;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Default, Clone)]
 #[repr(C)]
 pub struct RefRandstrobe {
-    /// Packed representation of the hash and the strobe offset.  
+    /// Packed representation of the hash and the strobe offset.
     /// Has the following layout
     /// `<strobe1 hash><strobe1 orientation bit><strobe2 hash><strobe2 orientation bit><strobe2 offset from strobe1>`
     ///
-    /// [`RandstrobeParameters::partial_orientation_pos`] specifies the position of strobe1 orientation bit in the layout  
-    /// [`RandstrobeParameters::forward_main_hash_mask`] is the mask for strobe1 hash (without the orientation bit)  
-    /// [`RandstrobeParameters::main_hash_mask`] is the mask for strobe1 hash which includes the orientation bit  
-    /// [`REF_RANDSTROBE_HASH_MASK`] is the mask for strobe1 and strobe2 hashes (including their orientations)  
-    /// The [`STROBE2_OFFSET_BITS`] constant specifies the number of bits reserved for the offset  
+    /// [`RandstrobeParameters::partial_orientation_pos`] specifies the position of strobe1 orientation bit in the layout
+    /// [`RandstrobeParameters::forward_main_hash_mask`] is the mask for strobe1 hash (without the orientation bit)
+    /// [`RandstrobeParameters::main_hash_mask`] is the mask for strobe1 hash which includes the orientation bit
+    /// [`REF_RANDSTROBE_HASH_MASK`] is the mask for strobe1 and strobe2 hashes (including their orientations)
+    /// The [`STROBE2_OFFSET_BITS`] constant specifies the number of bits reserved for the offset
     hash_offset: u64,
-    position: u32,
     ref_index: u32,
+    position: u32,
 }
 
 /// Mask for the part of the randstrobe hash that includes individual strobe hashes and orientations
@@ -120,6 +120,10 @@ impl StrobemerIndex {
             strobemer_index: self,
             position,
         }
+    }
+
+    pub fn set_filter_cutoff(&mut self, cutoff: usize) {
+        self.filter_cutoff = cutoff;
     }
 
     // Find the first entry that matches the forwald full hash (including orientation bits)
@@ -341,7 +345,7 @@ impl<'a> IndexEntry<'a> {
     }
 }
 
-const STI_FILE_FORMAT_VERSION: u32 = 7;
+const STI_FILE_FORMAT_VERSION: u32 = 8;
 
 #[derive(Error, Debug)]
 pub enum IndexReadingError {

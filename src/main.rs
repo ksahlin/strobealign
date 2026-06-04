@@ -197,6 +197,10 @@ struct Args {
     #[arg(short, default_value_t = 0.0002, help_heading = "Search parameters")]
     filter_fraction: f64,
 
+    /// Directly override filter_cutoff (bypasses the [30,100] clamp; 0 = use default)
+    #[arg(long, default_value_t = 0, help_heading = "Search parameters")]
+    filter_cutoff: usize,
+
     /// Try candidate sites with mapping score at least S of maximum mapping score
     #[arg(short = 'S', default_value_t = 0.5, help_heading = "Search parameters")]
     dropoff_threshold: f32,
@@ -453,7 +457,7 @@ fn run() -> Result<(), CliError> {
         .unwrap_or_else(|| parameters.syncmer.pick_bits(&references));
     info!("Bits used to index buckets: {}", bits);
 
-    let index = if args.use_index {
+    let mut index = if args.use_index {
         // Read the index from a file
         assert!(!args.create_index);
         let read_index_timer = Instant::now();
@@ -490,6 +494,9 @@ fn run() -> Result<(), CliError> {
 
         index
     };
+    if args.filter_cutoff > 0 {
+        index.set_filter_cutoff(args.filter_cutoff);
+    }
     debug!("Filtered cutoff count: {}", index.filter_cutoff());
 
     if args.create_index {

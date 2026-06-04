@@ -205,6 +205,7 @@ impl Chainer {
         for &is_revcomp in &orientations {
             let hits_timer = Instant::now();
             let mut anchors = hits_to_anchors(&hits[is_revcomp], index);
+            add_repetitive_via_sweep(&mut anchors, &hits[is_revcomp], index);
             time_find_hits += hits_timer.elapsed().as_secs_f64();
             n_anchors += anchors.len();
             let chaining_timer = Instant::now();
@@ -340,6 +341,87 @@ fn add_to_anchors_partial(
             ref_start,
             query_start,
         });
+    }
+}
+
+/// For each filtered (repetitive) hit, add its reference positions that land on
+/// the same diagonal as an existing anchor (within `k` bp tolerance).
+///
+/// This lets repetitive seeds contribute to chaining without the N×R candidate
+/// explosion: only positions co-linear with at least one non-repetitive anchor
+/// are admitted.
+///
+/// # Sort-order note
+/// `RefRandstrobe` is now sorted by `(hash, ref_index, position)`, so within a
+/// hash group entries are grouped by chromosome and then sorted by position.
+/// `anchor_diags` is sorted by `(ref_id, diagonal)`.  Both sequences increase
+/// in the same (ref_id, value) order, enabling a single two-pointer sweep with
+/// no per-ref_id bookkeeping.
+fn add_repetitive_via_sweep(anchors: &mut Vec<Anchor>, hits: &[Hit], index: &StrobemerIndex) {
+    if anchors.is_empty() {
+        return;
+    }
+    // Fast path: nothing to do if no filtered non-partial hits exist.
+    if !hits.iter().any(|h| h.is_filtered && !h.is_partial) {
+        return;
+    }
+
+    // Build (ref_id, diagonal) sorted by (ref_id, diagonal).
+    // diagonal = ref_start - query_start; co-linear hits share the same value.
+    let mut anchor_diags: Vec<(usize, isize)> = anchors
+        .iter()
+        .map(|a| (a.ref_id, a.ref_start as isize - a.query_start as isize))
+        .collect();
+    anchor_diags.sort_unstable();
+    anchor_diags.dedup();
+
+    let tolerance = index.k() as isize;
+
+    for hit in hits {
+        if !hit.is_filtered || hit.is_partial {
+            continue;
+        }
+        let q = hit.query_start as isize;
+        let entry = index.entry(hit.position);
+        let forward_hash = entry.hash();
+
+        // Single anchor pointer — never goes backwards because:
+        // - index positions are now sorted by (ref_id, ref_start) within a hash group
+        // - anchor_diags is sorted by (ref_id, diagonal)
+        // - both sequences increase in the same (ref_id, value) direction
+        let mut ptr_anc = 0usize;
+
+        for pos in entry.position..index.len() {
+            let entry = index.entry(pos);
+            if entry.hash() != forward_hash {
+                break;
+            }
+            let ref_id = entry.reference_index();
+            let ref_start = entry.position();
+            let diag = ref_start as isize - q;
+            let lo = (ref_id, diag - tolerance);
+            let hi = (ref_id, diag + tolerance);
+
+            // Advance past anchor entries that are before the window.
+            // Tuple comparison handles both ref_id changes and diagonal range.
+            while ptr_anc < anchor_diags.len() && anchor_diags[ptr_anc] < lo {
+                ptr_anc += 1;
+            }
+
+            if ptr_anc < anchor_diags.len() && anchor_diags[ptr_anc] <= hi {
+                let ref_end = ref_start + entry.strobe2_offset() + index.k();
+                anchors.push(Anchor {
+                    ref_id,
+                    ref_start,
+                    query_start: hit.query_start,
+                });
+                anchors.push(Anchor {
+                    ref_id,
+                    ref_start: ref_end - index.k(),
+                    query_start: hit.query_end - index.k(),
+                });
+            }
+        }
     }
 }
 
