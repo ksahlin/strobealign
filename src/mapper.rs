@@ -1353,8 +1353,8 @@ fn aligned_pairs_to_sam(
                     [record1, record2],
                     [mapq, mapq],
                     details,
-                    is_proper,
                     is_primary,
+                    is_proper,
                 ));
             } else {
                 break;
