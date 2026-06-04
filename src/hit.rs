@@ -94,10 +94,11 @@ fn rescue_least_frequent(
     // Index and hit count
     let mut hit_counts = vec![];
     for i in start..end {
+        let entry = index.entry(hits[i].position);
         let cnt = if hits[i].is_partial {
-            index.get_count_partial(hits[i].position)
+            entry.get_count_partial()
         } else {
-            index.get_count_full(hits[i].position, hits[i].hash_revcomp)
+            entry.get_count_full(hits[i].hash_revcomp)
         };
         if rescue_threshold.is_none() || cnt <= rescue_threshold.unwrap() {
             hit_counts.push((i, cnt));
@@ -129,16 +130,15 @@ fn find_all_hits(
 
     if mcs_strategy != McsStrategy::FirstStrobe {
         for randstrobe in query_randstrobes {
-            if let Some(position) = index.get_full_forward(randstrobe.hash) {
-                let is_filtered =
-                    index.is_too_frequent(position, filter_cutoff, randstrobe.hash_revcomp);
+            if let Some(entry) = index.get_full_forward(randstrobe.hash) {
+                let is_filtered = entry.is_too_frequent(filter_cutoff, randstrobe.hash_revcomp);
                 if is_filtered {
                     hits_details.full_filtered += 1;
                 } else {
                     hits_details.full_found += 1;
                 }
                 let hit = Hit {
-                    position,
+                    position: entry.position,
                     query_start: randstrobe.start,
                     query_end: randstrobe.end,
                     is_partial: false,
@@ -151,16 +151,15 @@ fn find_all_hits(
                 hits_details.full_not_found += 1;
                 if mcs_strategy == McsStrategy::Always {
                     // Perform partial lookup in both directions for later use in rescue
-                    if let Some(undirected_pos) = index.get_partial(randstrobe.hash) {
-                        let is_filtered =
-                            index.is_too_frequent_partial(undirected_pos, filter_cutoff);
+                    if let Some(undirected_entry) = index.get_partial(randstrobe.hash) {
+                        let is_filtered = undirected_entry.is_too_frequent_partial(filter_cutoff);
                         if is_filtered {
                             hits_details.partial_filtered += 1;
                         } else {
                             hits_details.partial_found += 1;
                         }
                         let hit = Hit {
-                            position: undirected_pos,
+                            position: undirected_entry.position,
                             query_start: randstrobe.start,
                             query_end: randstrobe.start + index.k(),
                             is_partial: true,
@@ -192,15 +191,15 @@ fn find_all_hits(
     {
         for randstrobe in query_randstrobes {
             // Perform partial lookup in both directions for later use in rescue
-            if let Some(undirected_pos) = index.get_partial(randstrobe.hash) {
-                let is_filtered = index.is_too_frequent_partial(undirected_pos, filter_cutoff);
+            if let Some(undirected_entry) = index.get_partial(randstrobe.hash) {
+                let is_filtered = undirected_entry.is_too_frequent_partial(filter_cutoff);
                 if is_filtered {
                     hits_details.partial_filtered += 1;
                 } else {
                     hits_details.partial_found += 1;
                 }
                 let hit = Hit {
-                    position: undirected_pos,
+                    position: undirected_entry.position,
                     query_start: randstrobe.start,
                     query_end: randstrobe.start + index.k(),
                     is_partial: true,
@@ -299,10 +298,11 @@ pub fn find_hits(
         );
         trace!("querypos count (p=partial, F=filtered)");
         for hit in &hits {
+            let entry = index.entry(hit.position);
             let cnt = if hit.is_partial {
-                index.get_count_partial(hit.position)
+                entry.get_count_partial()
             } else {
-                index.get_count_full(hit.position, hit.hash_revcomp)
+                entry.get_count_full(hit.hash_revcomp)
             };
             trace!(
                 "{:6} {}{:6} {}",

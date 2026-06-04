@@ -4,7 +4,7 @@ use log::trace;
 
 use crate::details::NamDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
-use crate::index::StrobemerIndex;
+use crate::index::{IndexEntry, StrobemerIndex};
 use crate::mcsstrategy::McsStrategy;
 use crate::nam::Nam;
 use crate::seeding::QueryRandstrobe;
@@ -290,11 +290,13 @@ fn add_to_anchors_full(
     query_start: usize,
     query_end: usize,
     index: &StrobemerIndex,
-    position: usize,
+    entry: IndexEntry,
 ) {
     let mut min_length_diff = usize::MAX;
-    let forward_hash = index.randstrobes[position].hash();
-    for randstrobe in &index.randstrobes[position..] {
+    let forward_hash = entry.randstrobe().hash();
+    for i in entry.position..index.len() {
+        let entry = index.entry(i);
+        let randstrobe = entry.randstrobe();
         if randstrobe.hash() != forward_hash {
             break;
         }
@@ -322,17 +324,18 @@ fn add_to_anchors_partial(
     anchors: &mut Vec<Anchor>,
     query_start: usize,
     index: &StrobemerIndex,
-    position: usize,
+    entry: IndexEntry,
 ) {
-    let forward_hash = index.get_hash_partial_forward(position);
-    for pos in position..index.randstrobes.len() {
+    let forward_hash = entry.get_hash_partial_forward();
+    for i in entry.position..index.len() {
+        let entry = index.entry(i);
+        let randstrobe = entry.randstrobe();
         // Filter out partial lookups with different orientation
-        if index.get_hash_partial_forward(pos) != forward_hash {
+        if entry.get_hash_partial_forward() != forward_hash {
             break;
         }
-        let randstrobe = &index.randstrobes[pos];
         let ref_id = randstrobe.reference_index();
-        let ref_start = index.strobe_extent_partial(pos).0;
+        let ref_start = entry.strobe_extent_partial().0;
 
         anchors.push(Anchor {
             ref_id,
@@ -349,8 +352,8 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
             continue;
         }
         if hit.is_partial {
-            if let Some(forward_position) = index.get_partial_forward_from(hit.hash, hit.position) {
-                add_to_anchors_partial(&mut anchors, hit.query_start, index, forward_position);
+            if let Some(forward_entry) = index.get_partial_forward_from(hit.hash, hit.position) {
+                add_to_anchors_partial(&mut anchors, hit.query_start, index, forward_entry);
             }
         } else {
             add_to_anchors_full(
@@ -358,7 +361,7 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
                 hit.query_start,
                 hit.query_end,
                 index,
-                hit.position,
+                index.entry(hit.position),
             );
         }
     }
