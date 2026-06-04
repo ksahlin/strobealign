@@ -385,6 +385,11 @@ fn add_repetitive_via_sweep(anchors: &mut Vec<Anchor>, hits: &[Hit], index: &Str
         let entry = index.entry(hit.position);
         let forward_hash = entry.hash();
 
+        // Skip seeds so repetitive that even co-linear filtering would flood the chainer.
+        if entry.get_count_full_forward() > 10_000 {
+            continue;
+        }
+
         // Single anchor pointer — never goes backwards because:
         // - index positions are now sorted by (ref_id, ref_start) within a hash group
         // - anchor_diags is sorted by (ref_id, diagonal)
