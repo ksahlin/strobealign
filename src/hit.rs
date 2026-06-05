@@ -8,6 +8,9 @@ use crate::index::StrobemerIndex;
 use crate::mcsstrategy::McsStrategy;
 use crate::seeding::QueryRandstrobe;
 
+/// Number of hits to rescue globally if we have too few nonrepetitive hits
+const GLOBAL_RESCUE_COUNT: usize = 5;
+
 #[derive(Debug)]
 pub struct Hit {
     pub query_start: usize,
@@ -279,10 +282,11 @@ pub fn find_hits(
 
     // rescue distance 0 disables both global and local rescue
     if rescue_distance > 0 {
-        if nonrepetitive_fraction < 0.7 {
+        if nonrepetitive_fraction < 0.7 && nonrepetitive_hits < GLOBAL_RESCUE_COUNT {
             // "global" rescue
             let n = hits.len();
-            details.rescued += rescue_least_frequent(index, &mut hits, 0, n, 5, Some(1000));
+            details.rescued +=
+                rescue_least_frequent(index, &mut hits, 0, n, GLOBAL_RESCUE_COUNT, Some(1000));
         }
         // "local" rescue
         details.rescued += rescue_all_least_frequent(index, &mut hits, rescue_distance);
