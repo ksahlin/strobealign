@@ -237,6 +237,11 @@ impl SamOutput {
         sam_records
     }
 
+    /// Create two SAM records, one for each end of a paired-end read.
+    /// At least one of the reads must have an `Alignment`
+    /// (use `make_unmapped_pair` otherwise).
+    /// No unmapped secondary alignments are returned (this is the only case
+    /// for which the returned vector can have one element).
     fn make_paired_records(
         &self,
         alignments: [Option<&Alignment>; 2],
@@ -246,9 +251,10 @@ impl SamOutput {
         details: &[Details; 2],
         alignment_status: AlignmentStatus,
         pair_status: PairStatus,
-    ) -> [SamRecord; 2] {
-        // Create single-end records
-        let mut sam_records = [
+    ) -> Vec<SamRecord> {
+        assert!(alignments[0].is_some() || alignments[1].is_some());
+        // Create single-end records ...
+        let mut sam_records = vec![
             self.make_record(
                 alignments[0],
                 references,
@@ -266,7 +272,7 @@ impl SamOutput {
                 details[1].clone(),
             ),
         ];
-        // Then make them paired
+        // ... then make them paired
         sam_records[0].flags |= READ1;
         sam_records[1].flags |= READ2;
 
@@ -323,6 +329,15 @@ impl SamOutput {
                     sam_records[i].mate_reference_name = Some("=".to_string());
                     sam_records[i].mate_pos = Some(this.ref_start as u32);
                 }
+            }
+        }
+
+        // Avoid unmapped secondary alignments
+        if alignment_status == AlignmentStatus::Secondary {
+            if !sam_records[1].is_mapped() {
+                sam_records.pop();
+            } else if !sam_records[0].is_mapped() {
+                sam_records.swap_remove(0);
             }
         }
 
@@ -1161,12 +1176,7 @@ pub fn is_proper_nam_pair(nam1: &Nam, nam2: &Nam, mu: f32, sigma: f32) -> bool {
 /// Find high-scoring NAMs and NAM pairs. Proper pairs are preferred, but also
 /// high-scoring NAMs that could not be paired up are returned (these are paired
 /// with None in the returned vector).
-pub fn get_best_scoring_nam_pairs(
-    nams1: &[Nam],
-    nams2: &[Nam],
-    mu: f32,
-    sigma: f32,
-) -> Vec<NamPair> {
+fn get_best_scoring_nam_pairs(nams1: &[Nam], nams2: &[Nam], mu: f32, sigma: f32) -> Vec<NamPair> {
     let mut nam_pairs = vec![];
     if nams1.is_empty() && nams2.is_empty() {
         return nam_pairs;
@@ -1258,14 +1268,14 @@ pub fn mapping_quality(nams: &[Nam]) -> u8 {
 }
 
 #[derive(Debug)]
-pub struct NamPair {
+struct NamPair {
     pub score: f32,
     pub nam1: Option<Nam>,
     pub nam2: Option<Nam>,
 }
 
 #[derive(Debug, Clone)]
-pub struct ScoredAlignmentPair {
+struct ScoredAlignmentPair {
     score: f64,
     alignment1: Option<Alignment>,
     alignment2: Option<Alignment>,

@@ -83,9 +83,10 @@ jobs:
         run: tests/compare-baseline.sh
       - name: Validate with Picard
         run: |
-          PicardCommandLine ValidateSamFile IGNORE=RECORD_MISSING_READ_GROUP IGNORE=MISSING_READ_GROUP I=head.bam
+          # IGNORE=QUALITY_NOT_STORED because Picard incorrectly warns about missing qualities for secondary alignments
+          PicardCommandLine ValidateSamFile IGNORE=RECORD_MISSING_READ_GROUP IGNORE=MISSING_READ_GROUP IGNORE=QUALITY_NOT_STORED I=head.bam
       - name: Compare to baseline (single-end)
         run: tests/compare-baseline.sh -s
       - name: Validate with Picard
         run: |
-          PicardCommandLine ValidateSamFile IGNORE=RECORD_MISSING_READ_GROUP IGNORE=MISSING_READ_GROUP I=head.bam
+          PicardCommandLine ValidateSamFile IGNORE=RECORD_MISSING_READ_GROUP IGNORE=MISSING_READ_GROUP IGNORE=QUALITY_NOT_STORED I=head.bam

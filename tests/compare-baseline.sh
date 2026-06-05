@@ -61,14 +61,14 @@ if ! test -f ${baseline_bam}; then
     mv ${srcdir}/target/release/strobealign ${baseline_binary}
     rm -rf "${srcdir}"
   fi
-  ${baseline_binary} -v -t ${threads} ${ref} ${reads[@]} | samtools view -o ${baseline_bam}.tmp.bam
+  ${baseline_binary} -N 2 -v -t ${threads} ${ref} ${reads[@]} | samtools view -o ${baseline_bam}.tmp.bam
   mv ${baseline_bam}.tmp.bam ${baseline_bam}
 fi
 
 # Build and run strobealign
 cargo build --release
 set -x
-target/release/strobealign -v -t ${threads} ${ref} ${reads[@]} | samtools view -o head.bam
+target/release/strobealign -N 2 -v -t ${threads} ${ref} ${reads[@]} | samtools view -o head.bam
 
 # Do the actual comparison
 tests/samdiff.py ${baseline_bam} head.bam
