@@ -366,6 +366,63 @@ fn add_repetitive_via_sweep(anchors: &mut Vec<Anchor>, hits: &[Hit], index: &Str
         return;
     }
 
+    // Select a minimum-cost non-overlapping tiling of filtered hits via
+    // Weighted Interval Scheduling (WIS) where weight = −count.
+    // Minimising total count (= maximising sum of −count) favours the least
+    // repetitive seeds while still covering distinct parts of the query.
+    // Two hits may overlap by at most OVERLAP_THRESHOLD bp on the query.
+    //
+    // DP (O(n log n)):
+    //   Sort by query_end.  For each hit i, p[i] = number of hits whose
+    //   query_end ≤ query_start[i] + OVERLAP_THRESHOLD (the compatible
+    //   prefix).  Then:
+    //     dp[i] = max(dp[i−1],  weight[i] + dp[p[i]])
+    //   where dp[0] = 0 and weight[i] = CAP − count[i] + 1 > 0.
+    let mut candidates: Vec<(&Hit, usize)> = hits
+        .iter()
+        .filter(|h| h.is_filtered && !h.is_partial)
+        .map(|h| (h, index.get_count_full_forward(h.position)))
+        .collect();
+    // Sort by query_end for the WIS DP; ties broken by count.
+    candidates.sort_unstable_by_key(|&(h, count)| (h.query_end, count));
+
+    const OVERLAP_THRESHOLD: usize = 10;
+    let n = candidates.len();
+
+    // p[i] = number of hits compatible with (i.e. not overlapping) hit i.
+    let p: Vec<usize> = (0..n)
+        .map(|i| {
+            let cutoff = candidates[i].0.query_start + OVERLAP_THRESHOLD;
+            candidates[..i].partition_point(|&(h, _)| h.query_end <= cutoff)
+        })
+        .collect();
+
+    // weight[i] = CAP - count[i] + 1: positive for all hits (count ≤ CAP),
+    // higher for less-repetitive seeds.  Ensures the DP always selects
+    // at least one hit (empty set has value 0 < any single hit's weight),
+    // while two non-overlapping low-count hits beat one high-count hit
+    // when their combined weight exceeds it.
+    const CAP: usize = 10_000;
+    let weight = |i: usize| (CAP + 1 - candidates[i].1.min(CAP)) as isize;
+
+    // dp[i] = maximum total weight over a valid tiling of hits 0..i.
+    let mut dp = vec![0isize; n + 1];
+    for i in 1..=n {
+        dp[i] = dp[i - 1].max(weight(i - 1) + dp[p[i - 1]]);
+    }
+
+    // Traceback to recover selected hits.
+    let mut selected: Vec<&Hit> = Vec::new();
+    let mut i = n;
+    while i > 0 {
+        if weight(i - 1) + dp[p[i - 1]] >= dp[i - 1] {
+            selected.push(candidates[i - 1].0);
+            i = p[i - 1];
+        } else {
+            i -= 1;
+        }
+    }
+
     // Build (ref_id, diagonal) sorted by (ref_id, diagonal).
     // diagonal = ref_start - query_start; co-linear hits share the same value.
     let mut anchor_diags: Vec<(usize, isize)> = anchors
@@ -377,10 +434,7 @@ fn add_repetitive_via_sweep(anchors: &mut Vec<Anchor>, hits: &[Hit], index: &Str
 
     let tolerance = index.k() as isize;
 
-    for hit in hits {
-        if !hit.is_filtered || hit.is_partial {
-            continue;
-        }
+    for hit in &selected {
         let q = hit.query_start as isize;
         let entry = index.entry(hit.position);
         let forward_hash = entry.hash();
