@@ -202,10 +202,12 @@ impl Chainer {
         let mut n_anchors = 0;
         let mut time_chaining = 0.0;
         let mut chains = vec![];
+        // Allocate once and reuse across both orientations to avoid per-call heap alloc.
+        let mut anchor_diags: Vec<(usize, isize)> = Vec::new();
         for &is_revcomp in &orientations {
             let hits_timer = Instant::now();
             let mut anchors = hits_to_anchors(&hits[is_revcomp], index);
-            add_repetitive_via_sweep(&mut anchors, &hits[is_revcomp], index);
+            add_repetitive_via_sweep(&mut anchors, &hits[is_revcomp], index, &mut anchor_diags);
             time_find_hits += hits_timer.elapsed().as_secs_f64();
             n_anchors += anchors.len();
             let chaining_timer = Instant::now();
@@ -357,20 +359,21 @@ fn add_to_anchors_partial(
 /// `anchor_diags` is sorted by `(ref_id, diagonal)`.  Both sequences increase
 /// in the same (ref_id, value) order, enabling a single two-pointer sweep with
 /// no per-ref_id bookkeeping.
-fn add_repetitive_via_sweep(anchors: &mut Vec<Anchor>, hits: &[Hit], index: &StrobemerIndex) {
+fn add_repetitive_via_sweep(
+    anchors: &mut Vec<Anchor>,
+    hits: &[Hit],
+    index: &StrobemerIndex,
+    anchor_diags: &mut Vec<(usize, isize)>,
+) {
     if anchors.is_empty() {
-        return;
-    }
-    // Fast path: nothing to do if no filtered non-partial hits exist.
-    if !hits.iter().any(|h| h.is_filtered && !h.is_partial) {
         return;
     }
 
     // Select a minimum-cost non-overlapping tiling of filtered hits via
-    // Weighted Interval Scheduling (WIS) where weight = −count.
-    // Minimising total count (= maximising sum of −count) favours the least
-    // repetitive seeds while still covering distinct parts of the query.
+    // Weighted Interval Scheduling (WIS) where weight = CAP − count + 1.
     // Two hits may overlap by at most OVERLAP_THRESHOLD bp on the query.
+    // The cap is applied here — hits above it are excluded before WIS,
+    // avoiding a redundant get_count_full_forward call in the sweep loop.
     //
     // DP (O(n log n)):
     //   Sort by query_end.  For each hit i, p[i] = number of hits whose
@@ -378,11 +381,20 @@ fn add_repetitive_via_sweep(anchors: &mut Vec<Anchor>, hits: &[Hit], index: &Str
     //   prefix).  Then:
     //     dp[i] = max(dp[i−1],  weight[i] + dp[p[i]])
     //   where dp[0] = 0 and weight[i] = CAP − count[i] + 1 > 0.
+    const CAP: usize = 10_000;
     let mut candidates: Vec<(&Hit, usize)> = hits
         .iter()
         .filter(|h| h.is_filtered && !h.is_partial)
-        .map(|h| (h, index.get_count_full_forward(h.position)))
+        .filter_map(|h| {
+            let count = index.entry(h.position).get_count_full_forward();
+            if count <= CAP { Some((h, count)) } else { None }
+        })
         .collect();
+
+    // Fast path: nothing to do if no eligible filtered hits remain.
+    if candidates.is_empty() {
+        return;
+    }
     // Sort by query_end for the WIS DP; ties broken by count.
     candidates.sort_unstable_by_key(|&(h, count)| (h.query_end, count));
 
@@ -402,7 +414,6 @@ fn add_repetitive_via_sweep(anchors: &mut Vec<Anchor>, hits: &[Hit], index: &Str
     // at least one hit (empty set has value 0 < any single hit's weight),
     // while two non-overlapping low-count hits beat one high-count hit
     // when their combined weight exceeds it.
-    const CAP: usize = 10_000;
     let weight = |i: usize| (CAP + 1 - candidates[i].1.min(CAP)) as isize;
 
     // dp[i] = maximum total weight over a valid tiling of hits 0..i.
@@ -425,10 +436,13 @@ fn add_repetitive_via_sweep(anchors: &mut Vec<Anchor>, hits: &[Hit], index: &Str
 
     // Build (ref_id, diagonal) sorted by (ref_id, diagonal).
     // diagonal = ref_start - query_start; co-linear hits share the same value.
-    let mut anchor_diags: Vec<(usize, isize)> = anchors
-        .iter()
-        .map(|a| (a.ref_id, a.ref_start as isize - a.query_start as isize))
-        .collect();
+    // Reuse the caller-provided buffer to avoid per-call heap allocation.
+    anchor_diags.clear();
+    anchor_diags.extend(
+        anchors
+            .iter()
+            .map(|a| (a.ref_id, a.ref_start as isize - a.query_start as isize)),
+    );
     anchor_diags.sort_unstable();
     anchor_diags.dedup();
 
