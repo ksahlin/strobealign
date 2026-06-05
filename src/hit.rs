@@ -280,16 +280,12 @@ pub fn find_hits(
         1.0
     };
 
-    // rescue distance 0 disables both global and local rescue
-    if rescue_distance > 0 {
-        if nonrepetitive_fraction < 0.7 && nonrepetitive_hits < GLOBAL_RESCUE_COUNT {
-            // "global" rescue
-            let n = hits.len();
-            details.rescued +=
-                rescue_least_frequent(index, &mut hits, 0, n, GLOBAL_RESCUE_COUNT, Some(1000));
-        }
-        // "local" rescue
-        details.rescued += rescue_all_least_frequent(index, &mut hits, rescue_distance);
+    // Repetitive seeds will be "rescued" during sweep
+    if nonrepetitive_hits < GLOBAL_RESCUE_COUNT {
+        // "global" rescue
+        let n = hits.len();
+        details.rescued +=
+            rescue_least_frequent(index, &mut hits, 0, n, GLOBAL_RESCUE_COUNT, Some(1000));
     }
 
     if log::log_enabled!(Level::Trace) {
