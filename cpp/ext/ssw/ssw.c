@@ -80,6 +80,10 @@
 #endif
 
 
+#ifdef SSW_AVX2
+#include "ssw_avx2.h"
+#endif
+
 #ifdef __GNUC__
 #define LIKELY(x) __builtin_expect((x),1)
 #define UNLIKELY(x) __builtin_expect((x),0)
@@ -115,6 +119,10 @@ typedef struct {
 struct _profile{
 	__m128i* profile_byte;	// 0: none
 	__m128i* profile_word;	// 0: none
+#ifdef SSW_AVX2
+	void* profile_byte_avx2;	// __m256i*, 0: none
+	void* profile_word_avx2;	// __m256i*, 0: none
+#endif
 	const int8_t* read;
 	const int8_t* mat;
 	int32_t readLen;
@@ -790,6 +798,10 @@ s_profile* ssw_init (const int8_t* read, const int32_t readLen, const int8_t* ma
 	s_profile* p = (s_profile*)calloc(1, sizeof(struct _profile));
 	p->profile_byte = 0;
 	p->profile_word = 0;
+#ifdef SSW_AVX2
+	p->profile_byte_avx2 = 0;
+	p->profile_word_avx2 = 0;
+#endif
 	p->bias = 0;
 
 	if (score_size == 0 || score_size == 2) {
@@ -799,9 +811,17 @@ s_profile* ssw_init (const int8_t* read, const int32_t readLen, const int8_t* ma
 		bias = abs(bias);
 
 		p->bias = bias;
+#ifdef SSW_AVX2
+		p->profile_byte_avx2 = qP_avx2_byte(read, mat, readLen, n, bias);
+#endif
 		p->profile_byte = qP_byte (read, mat, readLen, n, bias);
 	}
-	if (score_size == 1 || score_size == 2) p->profile_word = qP_word (read, mat, readLen, n);
+	if (score_size == 1 || score_size == 2) {
+#ifdef SSW_AVX2
+		p->profile_word_avx2 = qP_avx2_word(read, mat, readLen, n);
+#endif
+		p->profile_word = qP_word (read, mat, readLen, n);
+	}
 	p->read = read;
 	p->mat = mat;
 	p->readLen = readLen;
@@ -812,6 +832,10 @@ s_profile* ssw_init (const int8_t* read, const int32_t readLen, const int8_t* ma
 void init_destroy (s_profile* p) {
 	free(p->profile_byte);
 	free(p->profile_word);
+#ifdef SSW_AVX2
+	free(p->profile_byte_avx2);
+	free(p->profile_word_avx2);
+#endif
 	free(p);
 }
 
@@ -841,6 +865,40 @@ s_align* ssw_align (const s_profile* prof,
 	}
 
 	// Find the alignment scores and ending positions
+#ifdef SSW_AVX2
+	if (prof->profile_byte_avx2) {
+		alignment_end_avx2* bests_avx2 = sw_avx2_byte(ref, 0, refLen, readLen, weight_gapO, weight_gapE, (const __m256i*)prof->profile_byte_avx2, -1, prof->bias, maskLen);
+		if (prof->profile_word_avx2 && bests_avx2[0].score == 255) {
+			free(bests_avx2);
+			bests_avx2 = sw_avx2_word(ref, 0, refLen, readLen, weight_gapO, weight_gapE, (const __m256i*)prof->profile_word_avx2, -1, maskLen);
+			word = 1;
+		} else if (bests_avx2[0].score == 255) {
+			fprintf(stderr, "Please set 2 to the score_size parameter of the function ssw_init, otherwise the alignment results will be incorrect.\n");
+			free(r);
+			return NULL;
+		}
+		/* Copy AVX2 results into the alignment_end format expected below */
+		bests = (alignment_end*)calloc(2, sizeof(alignment_end));
+		bests[0].score = bests_avx2[0].score;
+		bests[0].ref = bests_avx2[0].ref;
+		bests[0].read = bests_avx2[0].read;
+		bests[1].score = bests_avx2[1].score;
+		bests[1].ref = bests_avx2[1].ref;
+		bests[1].read = bests_avx2[1].read;
+		free(bests_avx2);
+	} else if (prof->profile_word_avx2) {
+		alignment_end_avx2* bests_avx2 = sw_avx2_word(ref, 0, refLen, readLen, weight_gapO, weight_gapE, (const __m256i*)prof->profile_word_avx2, -1, maskLen);
+		bests = (alignment_end*)calloc(2, sizeof(alignment_end));
+		bests[0].score = bests_avx2[0].score;
+		bests[0].ref = bests_avx2[0].ref;
+		bests[0].read = bests_avx2[0].read;
+		bests[1].score = bests_avx2[1].score;
+		bests[1].ref = bests_avx2[1].ref;
+		bests[1].read = bests_avx2[1].read;
+		free(bests_avx2);
+		word = 1;
+	} else
+#endif
 	if (prof->profile_byte) {
 		bests = sw_sse2_byte(ref, 0, refLen, readLen, weight_gapO, weight_gapE, prof->profile_byte, -1, prof->bias, maskLen);
 		if (prof->profile_word && bests[0].score == 255) {
@@ -875,23 +933,48 @@ s_align* ssw_align (const s_profile* prof,
 
 	// Find the beginning position of the best alignment.
 	read_reverse = seq_reverse(prof->read, r->read_end1);
-	if (word == 0) {
-		vP = qP_byte(read_reverse, prof->mat, r->read_end1 + 1, prof->n, prof->bias);
-		bests_reverse = sw_sse2_byte(ref, 1, r->ref_end1 + 1, r->read_end1 + 1, weight_gapO, weight_gapE, vP, r->score1, prof->bias, maskLen);
-	} else {
-		vP = qP_word(read_reverse, prof->mat, r->read_end1 + 1, prof->n);
-		bests_reverse = sw_sse2_word(ref, 1, r->ref_end1 + 1, r->read_end1 + 1, weight_gapO, weight_gapE, vP, r->score1, maskLen);
-	}
-	free(vP);
-	free(read_reverse);
-	r->ref_begin1 = bests_reverse[0].ref;
-	r->read_begin1 = r->read_end1 - bests_reverse[0].read;
+#ifdef SSW_AVX2
+	if (prof->profile_byte_avx2 || prof->profile_word_avx2) {
+		alignment_end_avx2* bests_reverse_avx2;
+		if (word == 0) {
+			__m256i* vP_avx2 = qP_avx2_byte(read_reverse, prof->mat, r->read_end1 + 1, prof->n, prof->bias);
+			bests_reverse_avx2 = sw_avx2_byte(ref, 1, r->ref_end1 + 1, r->read_end1 + 1, weight_gapO, weight_gapE, vP_avx2, r->score1, prof->bias, maskLen);
+			free(vP_avx2);
+		} else {
+			__m256i* vP_avx2 = qP_avx2_word(read_reverse, prof->mat, r->read_end1 + 1, prof->n);
+			bests_reverse_avx2 = sw_avx2_word(ref, 1, r->ref_end1 + 1, r->read_end1 + 1, weight_gapO, weight_gapE, vP_avx2, r->score1, maskLen);
+			free(vP_avx2);
+		}
+		free(read_reverse);
+		r->ref_begin1 = bests_reverse_avx2[0].ref;
+		r->read_begin1 = r->read_end1 - bests_reverse_avx2[0].read;
 
-    if (UNLIKELY(r->score1 > bests_reverse[0].score)) { // banded_sw result will miss a small part
-		fprintf(stderr, "Warning: The alignment path of one pair of sequences may miss a small part. [ssw.c ssw_align]\n");
-        r->flag = 2;  
-    }
-    free(bests_reverse);
+		if (UNLIKELY(r->score1 > bests_reverse_avx2[0].score)) {
+			fprintf(stderr, "Warning: The alignment path of one pair of sequences may miss a small part. [ssw.c ssw_align]\n");
+			r->flag = 2;
+		}
+		free(bests_reverse_avx2);
+	} else
+#endif
+	{
+		if (word == 0) {
+			vP = qP_byte(read_reverse, prof->mat, r->read_end1 + 1, prof->n, prof->bias);
+			bests_reverse = sw_sse2_byte(ref, 1, r->ref_end1 + 1, r->read_end1 + 1, weight_gapO, weight_gapE, vP, r->score1, prof->bias, maskLen);
+		} else {
+			vP = qP_word(read_reverse, prof->mat, r->read_end1 + 1, prof->n);
+			bests_reverse = sw_sse2_word(ref, 1, r->ref_end1 + 1, r->read_end1 + 1, weight_gapO, weight_gapE, vP, r->score1, maskLen);
+		}
+		free(vP);
+		free(read_reverse);
+		r->ref_begin1 = bests_reverse[0].ref;
+		r->read_begin1 = r->read_end1 - bests_reverse[0].read;
+
+		if (UNLIKELY(r->score1 > bests_reverse[0].score)) {
+			fprintf(stderr, "Warning: The alignment path of one pair of sequences may miss a small part. [ssw.c ssw_align]\n");
+			r->flag = 2;
+		}
+		free(bests_reverse);
+	}
 
 	if ((7&flag) == 0 || ((2&flag) != 0 && r->score1 < filters) || ((4&flag) != 0 && (r->ref_end1 - r->ref_begin1 > filterd || r->read_end1 - r->read_begin1 > filterd))) goto end;
 

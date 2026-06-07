@@ -136,6 +136,26 @@ private:
 
 std::ostream& operator<<(std::ostream& os, const Syncmer& syncmer);
 
+/* Fixed-capacity circular buffer for s-mer hashes in SyncmerIterator.
+ * Replaces std::deque for better cache locality (all data inline, no heap).
+ * Capacity 32 covers worst case: k < 32, so k - s + 1 <= 31. */
+class SmerBuffer {
+public:
+    SmerBuffer() = default;
+    void push_back(uint64_t val) { m_data[(m_start + m_size++) & MASK] = val; }
+    uint64_t front() const { return m_data[m_start]; }
+    void pop_front() { m_start = (m_start + 1) & MASK; m_size--; }
+    uint64_t operator[](size_t i) const { return m_data[(m_start + i) & MASK]; }
+    size_t size() const { return m_size; }
+    void clear() { m_start = 0; m_size = 0; }
+private:
+    static constexpr size_t CAP = 32;  // power of 2; must be >= k - s + 1 (max 31)
+    static constexpr size_t MASK = CAP - 1;
+    uint64_t m_data[CAP] = {};
+    size_t m_start = 0;
+    size_t m_size = 0;
+};
+
 class SyncmerIterator {
 public:
     SyncmerIterator(const std::string_view seq, SyncmerParameters parameters)
@@ -151,7 +171,7 @@ private:
     const uint64_t smask = (1ULL << 2*parameters.s) - 1;
     const uint64_t kshift = (parameters.k - 1) * 2;
     const uint64_t sshift = (parameters.s - 1) * 2;
-    std::deque<uint64_t> qs;  // s-mer hashes
+    SmerBuffer qs;  // s-mer hashes (circular buffer, capacity 8)
     uint64_t qs_min_val = UINT64_MAX;
     size_t l = 0;
     uint64_t xk[2] = {0, 0};
