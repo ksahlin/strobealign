@@ -1,4 +1,5 @@
 pub mod aligner;
+pub mod packed_seq;
 pub mod chainer;
 pub mod cigar;
 pub mod details;

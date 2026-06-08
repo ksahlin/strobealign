@@ -1,5 +1,6 @@
 use crate::index::{BucketIndex, RandstrobeHash, RefRandstrobe, StrobemerIndex};
 use crate::io::fasta::RefSequence;
+use crate::packed_seq::PackedSeq;
 use crate::seeding::{RandstrobeIterator, SeedingParameters, SyncmerIterator, SyncmerParameters};
 
 use std::cmp::Reverse;
@@ -223,7 +224,7 @@ fn assign_randstrobes(
     ref_index: usize,
     randstrobes: &mut [RefRandstrobe],
 ) {
-    let seq = &references[ref_index].sequence;
+    let seq: &PackedSeq = &references[ref_index].sequence;
     if seq.len() < parameters.randstrobe.w_max {
         return;
     }
@@ -276,16 +277,15 @@ fn count_all_randstrobes(
     mutex.into_inner().unwrap()
 }
 
-/// Count randstrobes by counting syncmers
-fn count_randstrobes(seq: &[u8], parameters: &SeedingParameters) -> usize {
-    let syncmer_iterator = SyncmerIterator::new(
+/// Count randstrobes by counting syncmers (operates directly on PackedSeq)
+fn count_randstrobes(seq: &PackedSeq, parameters: &SeedingParameters) -> usize {
+    SyncmerIterator::new(
         seq,
         parameters.syncmer.k,
         parameters.syncmer.s,
         parameters.syncmer.t,
-    );
-
-    syncmer_iterator.count()
+    )
+    .count()
 }
 
 impl SyncmerParameters {
@@ -359,6 +359,7 @@ impl Display for IndexCreationStatistics {
 #[cfg(test)]
 mod test {
     use crate::io::fasta::read_ref;
+    use crate::packed_seq::PackedSeq;
 
     use super::*;
 
@@ -382,7 +383,7 @@ mod test {
     fn test_index_empty_reference() {
         let references = vec![RefSequence {
             name: "name".to_string(),
-            sequence: vec![],
+            sequence: PackedSeq::new(),
         }];
         let parameters = SeedingParameters::new(150);
         let bits = parameters.syncmer.pick_bits(&references);
