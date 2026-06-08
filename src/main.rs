@@ -209,12 +209,6 @@ struct Args {
     #[arg(short = 'M', default_value_t = MappingParameters::default().max_tries, help_heading = "Search parameters")]
     max_tries: usize,
 
-    /// Maximum distance (in nucleotides) that filtered seeds may span.
-    /// The lower the value, the more seeds are rescued.
-    /// Use 0 to disable rescue.
-    #[arg(short = 'R', default_value_t = MappingParameters::default().rescue_distance, help_heading = "Search parameters")]
-    rescue_distance: usize,
-
     /// Collinear chaining look back heuristic
     #[arg(short = 'H', default_value_t = ChainingParameters::default().max_lookback, value_name = "N", help_heading = "Collinear chaining")]
     max_lookback: usize,
@@ -517,7 +511,6 @@ fn run() -> Result<(), CliError> {
         max_secondary: args.max_secondary,
         max_tries: args.max_tries,
         dropoff_threshold: args.dropoff_threshold,
-        rescue_distance: args.rescue_distance,
         output_unmapped: !args.only_mapped,
         mcs_strategy: args.mcs_strategy,
         use_ssw: args.use_ssw,
@@ -936,7 +929,6 @@ impl Mapper<'_> {
                             &r2,
                             self.index,
                             self.references,
-                            self.mapping_parameters.rescue_distance,
                             &mut isizedist,
                             self.mapping_parameters.mcs_strategy,
                             &self.chainer,
@@ -947,7 +939,6 @@ impl Mapper<'_> {
                             &r1,
                             self.index,
                             self.references,
-                            self.mapping_parameters.rescue_distance,
                             self.mapping_parameters.mcs_strategy,
                             &self.chainer,
                             &mut rng,
@@ -965,7 +956,6 @@ impl Mapper<'_> {
                             &r2,
                             self.index,
                             &mut self.abundances,
-                            self.mapping_parameters.rescue_distance,
                             &mut isizedist,
                             self.mapping_parameters.mcs_strategy,
                             &self.chainer,
@@ -976,7 +966,6 @@ impl Mapper<'_> {
                             &r1,
                             self.index,
                             &mut self.abundances,
-                            self.mapping_parameters.rescue_distance,
                             self.mapping_parameters.mcs_strategy,
                             &self.chainer,
                             &mut rng,

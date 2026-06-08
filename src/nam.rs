@@ -131,7 +131,6 @@ pub fn get_nams_by_chaining(
     sequence: &[u8],
     index: &StrobemerIndex,
     chainer: &Chainer,
-    rescue_distance: usize,
     mcs_strategy: McsStrategy,
 ) -> (NamDetails, Vec<Nam>) {
     let timer = Instant::now();
@@ -144,8 +143,7 @@ pub fn get_nams_by_chaining(
         query_randstrobes[1].len()
     );
 
-    let (mut nam_details, nams) =
-        chainer.get_chains(&query_randstrobes, index, rescue_distance, mcs_strategy);
+    let (mut nam_details, nams) = chainer.get_chains(&query_randstrobes, index, mcs_strategy);
 
     nam_details.time_randstrobes = time_randstrobes;
 

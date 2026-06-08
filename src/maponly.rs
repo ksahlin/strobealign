@@ -19,18 +19,12 @@ pub fn map_single_end_read(
     record: &SequenceRecord,
     index: &StrobemerIndex,
     references: &[RefSequence],
-    rescue_distance: usize,
     mcs_strategy: McsStrategy,
     chainer: &Chainer,
     rng: &mut Rng,
 ) -> (Vec<PafRecord>, Details) {
-    let (mut nam_details, mut nams) = get_nams_by_chaining(
-        &record.sequence,
-        index,
-        chainer,
-        rescue_distance,
-        mcs_strategy,
-    );
+    let (mut nam_details, mut nams) =
+        get_nams_by_chaining(&record.sequence, index, chainer, mcs_strategy);
     nam_details.time_sort_nams = sort_nams(&mut nams, rng);
 
     if nams.is_empty() {
@@ -58,18 +52,11 @@ pub fn abundances_single_end_read(
     record: &SequenceRecord,
     index: &StrobemerIndex,
     abundances: &mut [f64],
-    rescue_distance: usize,
     mcs_strategy: McsStrategy,
     chainer: &Chainer,
     rng: &mut Rng,
 ) {
-    let (_, mut nams) = get_nams_by_chaining(
-        &record.sequence,
-        index,
-        chainer,
-        rescue_distance,
-        mcs_strategy,
-    );
+    let (_, mut nams) = get_nams_by_chaining(&record.sequence, index, chainer, mcs_strategy);
     sort_nams(&mut nams, rng);
 
     let n_best = nams
@@ -116,16 +103,15 @@ pub fn map_paired_end_read(
     r2: &SequenceRecord,
     index: &StrobemerIndex,
     references: &[RefSequence],
-    rescue_distance: usize,
     insert_size_distribution: &mut InsertSizeDistribution,
     mcs_strategy: McsStrategy,
     chainer: &Chainer,
     rng: &mut Rng,
 ) -> (Vec<PafRecord>, Details) {
     let (mut nam_details1, mut nams1) =
-        get_nams_by_chaining(&r1.sequence, index, chainer, rescue_distance, mcs_strategy);
+        get_nams_by_chaining(&r1.sequence, index, chainer, mcs_strategy);
     let (mut nam_details2, mut nams2) =
-        get_nams_by_chaining(&r2.sequence, index, chainer, rescue_distance, mcs_strategy);
+        get_nams_by_chaining(&r2.sequence, index, chainer, mcs_strategy);
 
     if nams1.is_empty() && nams2.is_empty() {
         nam_details1 += nam_details2;
@@ -200,16 +186,15 @@ pub fn abundances_paired_end_read(
     r2: &SequenceRecord,
     index: &StrobemerIndex,
     abundances: &mut [f64],
-    rescue_distance: usize,
     insert_size_distribution: &mut InsertSizeDistribution,
     mcs_strategy: McsStrategy,
     chainer: &Chainer,
     rng: &mut Rng,
 ) {
     let (nam_details1, mut nams1) =
-        get_nams_by_chaining(&r1.sequence, index, chainer, rescue_distance, mcs_strategy);
+        get_nams_by_chaining(&r1.sequence, index, chainer, mcs_strategy);
     let (nam_details2, mut nams2) =
-        get_nams_by_chaining(&r2.sequence, index, chainer, rescue_distance, mcs_strategy);
+        get_nams_by_chaining(&r2.sequence, index, chainer, mcs_strategy);
 
     if nams1.is_empty() && nams2.is_empty() {
         return;

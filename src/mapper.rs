@@ -33,7 +33,6 @@ const MAX_PAIR_NAMS: usize = 1000;
 pub struct MappingParameters {
     pub max_secondary: usize,
     pub dropoff_threshold: f32,
-    pub rescue_distance: usize,
     pub max_tries: usize,
     pub mcs_strategy: McsStrategy,
     pub output_unmapped: bool,
@@ -45,7 +44,6 @@ impl Default for MappingParameters {
         MappingParameters {
             max_secondary: 0,
             dropoff_threshold: 0.5,
-            rescue_distance: 100,
             max_tries: 20,
             mcs_strategy: McsStrategy::default(),
             output_unmapped: true,
@@ -360,7 +358,6 @@ pub fn align_single_end_read(
         &record.sequence,
         index,
         chainer,
-        mapping_parameters.rescue_distance,
         mapping_parameters.mcs_strategy,
     );
     nam_details.time_sort_nams = sort_nams(&mut nams, rng);
@@ -628,7 +625,6 @@ pub fn align_paired_end_read(
             &record.sequence,
             index,
             chainer,
-            mapping_parameters.rescue_distance,
             mapping_parameters.mcs_strategy,
         );
         nam_details.time_sort_nams = sort_nams(&mut nams, rng);

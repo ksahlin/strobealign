@@ -168,7 +168,6 @@ impl Chainer {
         &self,
         query_randstrobes: &[Vec<QueryRandstrobe>; 2],
         index: &StrobemerIndex,
-        rescue_distance: usize,
         mcs_strategy: McsStrategy,
     ) -> (NamDetails, Vec<Nam>) {
         let hits_timer = Instant::now();
@@ -181,7 +180,6 @@ impl Chainer {
                 index,
                 mcs_strategy,
                 index.filter_cutoff(),
-                rescue_distance,
             );
         }
         let mut time_find_hits = hits_timer.elapsed().as_secs_f64();
