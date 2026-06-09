@@ -717,6 +717,35 @@ pub fn align_paired_end_read(
                 alignment_pairs.swap(0, random_index);
             }
 
+            // Compute per-read MAPQ.
+            // When a single non-proper pair survives (the a_indv_max fallback used
+            // when the two reads map to different chromosomes), the joint
+            // alignment_quality(len=1) would return 60 even for reads with hundreds
+            // of equally-good alternative NAMs.  Use NAM-based per-read quality
+            // instead, exactly as the Proper fast path already does.
+            let mapqs = {
+                let joint = alignment_quality(&alignment_pairs, |ap| ap.score as f32);
+                if alignment_pairs.len() == 1 {
+                    let p = &alignment_pairs[0];
+                    let proper = is_proper_pair_opt(
+                        p.alignment1.as_ref(),
+                        p.alignment2.as_ref(),
+                        insert_size_distribution.mu,
+                        insert_size_distribution.sigma,
+                    ) == PairStatus::Proper;
+                    if !proper {
+                        [
+                            mapping_quality(&nams_pair[0]),
+                            mapping_quality(&nams_pair[1]),
+                        ]
+                    } else {
+                        [joint, joint]
+                    }
+                } else {
+                    [joint, joint]
+                }
+            };
+
             let secondary_dropoff = 2 * aligner.scores.mismatch + aligner.scores.gap_open;
             sam_records.extend(aligned_pairs_to_sam(
                 &alignment_pairs,
@@ -729,6 +758,7 @@ pub fn align_paired_end_read(
                 insert_size_distribution.mu,
                 insert_size_distribution.sigma,
                 &details,
+                mapqs,
             ));
         }
     }
@@ -1352,6 +1382,7 @@ fn aligned_pairs_to_sam(
     mu: f32,
     sigma: f32,
     details: &[Details; 2],
+    mapqs: [u8; 2],
 ) -> Vec<SamRecord> {
     let mut records = vec![];
     if high_scores.is_empty() {
@@ -1359,7 +1390,6 @@ fn aligned_pairs_to_sam(
         return records;
     }
 
-    let mapq = alignment_quality(high_scores, |ap| ap.score as f32);
     let best_aln_pair = &high_scores[0];
 
     if max_secondary == 0 {
@@ -1371,7 +1401,7 @@ fn aligned_pairs_to_sam(
             [alignment1.as_ref(), alignment2.as_ref()],
             references,
             [record1, record2],
-            [mapq, mapq],
+            mapqs,
             details,
             AlignmentStatus::Primary,
             pair_status,
@@ -1386,16 +1416,16 @@ fn aligned_pairs_to_sam(
             if s_max - s_score < secondary_dropoff {
                 let pair_status =
                     is_proper_pair_opt(alignment1.as_ref(), alignment2.as_ref(), mu, sigma);
-                let mapq = if alignment_status == AlignmentStatus::Primary {
-                    mapq
+                let effective_mapqs = if alignment_status == AlignmentStatus::Primary {
+                    mapqs
                 } else {
-                    0
+                    [0, 0]
                 };
                 records.extend(sam_output.make_paired_records(
                     [alignment1.as_ref(), alignment2.as_ref()],
                     references,
                     [record1, record2],
-                    [mapq, mapq],
+                    effective_mapqs,
                     details,
                     alignment_status,
                     pair_status,
