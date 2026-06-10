@@ -96,11 +96,13 @@ pub fn query_overlap(a: &Nam, b: &Nam, read_length: usize) -> f32 {
 fn get_primary_chains(candidates: Vec<Nam>, read_length: usize) -> (Vec<Nam>, Vec<Nam>) {
     let mut primary = vec![];
     let mut secondary = vec![];
+    let valid_score = candidates.first().map_or(0.0, |nam| nam.score * 0.1);
     for nam in candidates {
         if !primary
             .iter()
             .any(|p| query_overlap(&nam, p, read_length) > 0.01)
             && nam.anchors.len() >= 3
+            && nam.score > valid_score
         {
             primary.push(nam);
         } else {
