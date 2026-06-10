@@ -398,7 +398,13 @@ pub fn align_single_end_read(
         {
             break;
         }
-        let consistent_chain = chain.is_consistent(&read, refseq, k);
+        let consistent_chain = chain.is_consistent(
+            &read,
+            refseq,
+            k,
+            index.parameters.adna_mode,
+            index.parameters.ry_len,
+        );
         if !consistent_chain {
             details.inconsistent_chains += 1;
             continue;
@@ -664,6 +670,8 @@ pub fn align_paired_end_read(
         mapping_parameters.dropoff_threshold,
         insert_size_distribution,
         mapping_parameters.max_tries,
+        seeding_parameters.adna_mode,
+        seeding_parameters.ry_len,
     );
 
     let mut sam_records = Vec::new();
@@ -784,6 +792,8 @@ fn extend_paired_seeds(
     dropoff: f32,
     insert_size_distribution: &InsertSizeDistribution,
     max_tries: usize,
+    adna_mode: bool,
+    ry_len: usize,
 ) -> AlignedPairs {
     let mu = insert_size_distribution.mu;
     let sigma = insert_size_distribution.sigma;
@@ -807,6 +817,8 @@ fn extend_paired_seeds(
             k,
             mu,
             sigma,
+            adna_mode,
+            ry_len,
         ));
     }
 
@@ -825,6 +837,8 @@ fn extend_paired_seeds(
             k,
             mu,
             sigma,
+            adna_mode,
+            ry_len,
         );
         details.swap(0, 1);
         for pair in &mut pairs {
@@ -845,9 +859,9 @@ fn extend_paired_seeds(
         let mut ch_max1 = chains[0][0].clone();
         let mut ch_max2 = chains[1][0].clone();
 
-        let consistent_chain1 = ch_max1.is_consistent(read1, refseq, k);
+        let consistent_chain1 = ch_max1.is_consistent(read1, refseq, k, adna_mode, ry_len);
         details[0].inconsistent_chains += !consistent_chain1 as usize;
-        let consistent_chain2 = ch_max2.is_consistent(read2, refseq, k);
+        let consistent_chain2 = ch_max2.is_consistent(read2, refseq, k, adna_mode, ry_len);
         details[1].inconsistent_chains += !consistent_chain2 as usize;
 
         let alignment1 = extend_seed(
@@ -891,7 +905,8 @@ fn extend_paired_seeds(
     // the paired-end read as two single-end reads.
     let mut a_indv_max = [None, None];
     for i in 0..2 {
-        let consistent_chain = reverse_chain_if_needed(&mut chains[i][0], reads[i], refseq, k);
+        let consistent_chain =
+            reverse_chain_if_needed(&mut chains[i][0], reads[i], refseq, k, adna_mode, ry_len);
         details[i].inconsistent_chains += !consistent_chain as usize;
         a_indv_max[i] = extend_seed(
             aligner,
@@ -928,8 +943,14 @@ fn extend_paired_seeds(
             let alignment;
             if let Some(mut this_chain) = chainsp[i].clone() {
                 if let Entry::Vacant(e) = alignment_cache[i].entry(this_chain.id) {
-                    let consistent_chain =
-                        reverse_chain_if_needed(&mut this_chain, reads[i], refseq, k);
+                    let consistent_chain = reverse_chain_if_needed(
+                        &mut this_chain,
+                        reads[i],
+                        refseq,
+                        k,
+                        adna_mode,
+                        ry_len,
+                    );
                     details[i].inconsistent_chains += !consistent_chain as usize;
                     alignment = extend_seed(
                         aligner,
@@ -947,8 +968,14 @@ fn extend_paired_seeds(
                 }
             } else {
                 let mut other_chain = chainsp[1 - i].clone().unwrap();
-                details[1 - i].inconsistent_chains +=
-                    !reverse_chain_if_needed(&mut other_chain, reads[1 - i], refseq, k) as usize;
+                details[1 - i].inconsistent_chains += !reverse_chain_if_needed(
+                    &mut other_chain,
+                    reads[1 - i],
+                    refseq,
+                    k,
+                    adna_mode,
+                    ry_len,
+                ) as usize;
                 alignment = rescue_align(aligner, &other_chain, refseq, reads[i], mu, sigma, k);
                 if alignment.is_some() {
                     details[i].mate_rescue += 1;
@@ -1025,6 +1052,8 @@ fn rescue_read(
     k: usize,
     mu: f32,
     sigma: f32,
+    adna_mode: bool,
+    ry_len: usize,
 ) -> Vec<ScoredAlignmentPair> {
     let max_score1 = chains1[0].score;
 
@@ -1037,7 +1066,7 @@ fn rescue_read(
         if score_dropoff1 < dropoff {
             break;
         }
-        let consistent_chain = reverse_chain_if_needed(chain, read1, refseq, k);
+        let consistent_chain = reverse_chain_if_needed(chain, read1, refseq, k, adna_mode, ry_len);
         details[0].inconsistent_chains += !consistent_chain as usize;
         if let Some(alignment) = extend_seed(aligner, chain, refseq, read1, consistent_chain, true)
         {

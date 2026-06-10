@@ -13,6 +13,7 @@ use crate::mcsstrategy::McsStrategy;
 use crate::read::Read;
 use crate::refseq::RefSequence;
 use crate::seeding::randstrobes_query;
+use crate::seeding::ry_equal;
 use crate::shuffle::shuffle_best;
 
 /// A list of anchors
@@ -45,8 +46,17 @@ impl Chain {
 
     /// Returns whether a chain represents a consistent match between read and
     /// reference by comparing the nucleotide sequences of the first and last
-    /// strobe (taking orientation into account).
-    pub fn is_consistent(&self, read: &Read, refseq: &RefSequence, k: usize) -> bool {
+    /// strobe (taking orientation into account). In aDNA mode, the first
+    /// `ry_len` positions of each k-mer are compared by RY class and the
+    /// remaining positions require exact nucleotide equality.
+    pub fn is_consistent(
+        &self,
+        read: &Read,
+        refseq: &RefSequence,
+        k: usize,
+        adna_mode: bool,
+        ry_len: usize,
+    ) -> bool {
         let ref_start_kmer = refseq
             .contig(self.ref_id)
             .decode(self.ref_start, self.ref_start + k);
@@ -62,7 +72,14 @@ impl Chain {
         let read_start_kmer = &seq[self.query_start..self.query_start + k];
         let read_end_kmer = &seq[self.query_end - k..self.query_end];
 
-        ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer
+        let kmers_match = |a: &[u8], b: &[u8]| -> bool {
+            if adna_mode {
+                ry_equal(a, b, ry_len)
+            } else {
+                a == b
+            }
+        };
+        kmers_match(&ref_start_kmer, read_start_kmer) && kmers_match(&ref_end_kmer, read_end_kmer)
     }
 }
 
@@ -96,6 +113,8 @@ pub fn reverse_chain_if_needed(
     read: &Read,
     refseq: &RefSequence,
     k: usize,
+    adna_mode: bool,
+    ry_len: usize,
 ) -> bool {
     let ref_start_kmer = refseq
         .contig(chain.ref_id)
@@ -104,6 +123,14 @@ pub fn reverse_chain_if_needed(
         .contig(chain.ref_id)
         .decode(chain.ref_end - k, chain.ref_end);
 
+    let kmers_match = |a: &[u8], b: &[u8]| -> bool {
+        if adna_mode {
+            ry_equal(a, b, ry_len)
+        } else {
+            a == b
+        }
+    };
+
     let (seq, seq_rc) = if chain.is_revcomp {
         (read.rc(), read.seq())
     } else {
@@ -111,7 +138,7 @@ pub fn reverse_chain_if_needed(
     };
     let read_start_kmer = &seq[chain.query_start..chain.query_start + k];
     let read_end_kmer = &seq[chain.query_end - k..chain.query_end];
-    if ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer {
+    if kmers_match(&ref_start_kmer, read_start_kmer) && kmers_match(&ref_end_kmer, read_end_kmer) {
         return true;
     }
 
@@ -124,7 +151,7 @@ pub fn reverse_chain_if_needed(
     // false reverse match, change coordinates in chain to forward
     let read_start_kmer = &seq_rc[q_start_tmp..q_start_tmp + k];
     let read_end_kmer = &seq_rc[q_end_tmp - k..q_end_tmp];
-    if ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer {
+    if kmers_match(&ref_start_kmer, read_start_kmer) && kmers_match(&ref_end_kmer, read_end_kmer) {
         chain.is_revcomp = !chain.is_revcomp;
         chain.query_start = q_start_tmp;
         chain.query_end = q_end_tmp;
