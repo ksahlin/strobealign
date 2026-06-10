@@ -180,8 +180,8 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
 mod test {
     use super::*;
     use crate::io::fasta::{RefSequence, read_ref};
+    use crate::seeding::KmerSyncmerIterator;
     use crate::seeding::SeedingParameters;
-    use crate::seeding::SyncmerIterator;
 
     fn read_phix() -> RefSequence {
         read_ref("tests/phix.fasta")
@@ -195,7 +195,7 @@ mod test {
     fn test_randstrobe_iterator() {
         let refseq = read_phix().sequence;
         let parameters = SeedingParameters::new(300);
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             &refseq,
             parameters.syncmer.k,
             parameters.syncmer.s,
@@ -217,7 +217,7 @@ mod test {
     fn test_syncmer_and_randstrobe_iterator_same_count() {
         let refseq = read_phix().sequence;
         let parameters = SeedingParameters::new(100);
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             &refseq,
             parameters.syncmer.k,
             parameters.syncmer.s,
@@ -225,7 +225,7 @@ mod test {
         );
         let syncmer_count = syncmer_iter.count();
 
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             &refseq,
             parameters.syncmer.k,
             parameters.syncmer.s,

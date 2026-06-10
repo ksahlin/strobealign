@@ -1,5 +1,6 @@
 use std::cmp::min;
 use std::collections::VecDeque;
+use std::marker::PhantomData;
 
 use super::InvalidSeedingParameter;
 use super::hash::xxh64;
@@ -22,6 +23,133 @@ impl Syncmer {
 
     pub fn toggle_orientation(&mut self) {
         self.is_forward = !self.is_forward;
+    }
+}
+
+/// Encoding strategy for the [`SyncmerIterator`]. An implementation defines how
+/// nucleotides are accumulated into k-mer and s-mer values, how the canonical
+/// (forward vs. reverse) orientation is chosen, and how a finished syncmer is
+/// produced. [`KmerEncoding`] is the standard nucleotide encoding; further
+/// encodings (e.g. for aDNA) plug in by implementing this trait.
+pub trait SyncmerEncoding {
+    type Syncmer: Copy;
+    type KmerValue: Copy + Default;
+    type SmerValue: Copy + Default;
+
+    fn encode_nucleotide(ch: u8) -> Option<u8>;
+    fn kmer_mask(k: usize) -> Self::KmerValue;
+    fn kmer_shift(k: usize) -> usize;
+    fn smer_mask(s: usize) -> Self::SmerValue;
+    fn smer_shift(s: usize) -> usize;
+    fn update_kmer_forward(
+        current: Self::KmerValue,
+        encoded: u8,
+        mask: Self::KmerValue,
+    ) -> Self::KmerValue;
+    fn update_kmer_reverse(current: Self::KmerValue, encoded: u8, shift: usize) -> Self::KmerValue;
+    fn update_smer_forward(
+        current: Self::SmerValue,
+        encoded: u8,
+        mask: Self::SmerValue,
+    ) -> Self::SmerValue;
+    fn update_smer_reverse(current: Self::SmerValue, encoded: u8, shift: usize) -> Self::SmerValue;
+    fn canonical_smer(forward: Self::SmerValue, reverse: Self::SmerValue) -> Self::SmerValue;
+    /// Returns `(canonical_value, is_forward)` where `is_forward = (forward <= reverse)`.
+    fn canonical_kmer(
+        forward: Self::KmerValue,
+        reverse: Self::KmerValue,
+    ) -> (Self::KmerValue, bool);
+    fn hash_smer(value: Self::SmerValue) -> u64;
+    fn make_syncmer(
+        kmer: Self::KmerValue,
+        position: usize,
+        k: usize,
+        ry_len: usize,
+        is_forward: bool,
+    ) -> Self::Syncmer;
+}
+
+pub struct KmerEncoding;
+
+impl SyncmerEncoding for KmerEncoding {
+    type Syncmer = Syncmer;
+    type KmerValue = u64;
+    type SmerValue = u64;
+
+    #[inline]
+    fn encode_nucleotide(ch: u8) -> Option<u8> {
+        let c = NUCLEOTIDES[ch as usize];
+        if c < 4 { Some(c) } else { None }
+    }
+
+    #[inline]
+    fn kmer_mask(k: usize) -> u64 {
+        (1u64 << (2 * k)) - 1
+    }
+
+    #[inline]
+    fn kmer_shift(k: usize) -> usize {
+        (k - 1) * 2
+    }
+
+    #[inline]
+    fn smer_mask(s: usize) -> u64 {
+        (1u64 << (2 * s)) - 1
+    }
+
+    #[inline]
+    fn smer_shift(s: usize) -> usize {
+        (s - 1) * 2
+    }
+
+    #[inline]
+    fn update_kmer_forward(current: u64, encoded: u8, mask: u64) -> u64 {
+        ((current << 2) | (encoded as u64)) & mask
+    }
+
+    #[inline]
+    fn update_kmer_reverse(current: u64, encoded: u8, shift: usize) -> u64 {
+        (current >> 2) | (((3 - encoded) as u64) << shift)
+    }
+
+    #[inline]
+    fn update_smer_forward(current: u64, encoded: u8, mask: u64) -> u64 {
+        ((current << 2) | (encoded as u64)) & mask
+    }
+
+    #[inline]
+    fn update_smer_reverse(current: u64, encoded: u8, shift: usize) -> u64 {
+        (current >> 2) | (((3 - encoded) as u64) << shift)
+    }
+
+    #[inline]
+    fn canonical_smer(forward: u64, reverse: u64) -> u64 {
+        min(forward, reverse)
+    }
+
+    #[inline]
+    fn canonical_kmer(forward: u64, reverse: u64) -> (u64, bool) {
+        (min(forward, reverse), forward <= reverse)
+    }
+
+    #[inline]
+    fn hash_smer(value: u64) -> u64 {
+        xxh64(value)
+    }
+
+    #[inline]
+    fn make_syncmer(
+        kmer: u64,
+        position: usize,
+        _k: usize,
+        _ry_len: usize,
+        is_forward: bool,
+    ) -> Syncmer {
+        Syncmer {
+            hash: xxh64(kmer),
+            is_forward,
+            position,
+        }
     }
 }
 
@@ -57,45 +185,55 @@ impl SyncmerParameters {
     }
 }
 
-pub struct SyncmerIterator<'a> {
+pub struct SyncmerIterator<'a, E: SyncmerEncoding> {
     seq: &'a [u8],
     k: usize,
     s: usize,
     t: usize,
-    kmask: u64,
-    smask: u64,
+    ry_len: usize,
+    kmask: E::KmerValue,
+    smask: E::SmerValue,
     kshift: usize,
     sshift: usize,
     qs: VecDeque<u64>, // s-mer hashes
     qs_min_val: u64,
     l: usize,
-    xk: [u64; 2],
-    xs: [u64; 2],
+    xk: [E::KmerValue; 2],
+    xs: [E::SmerValue; 2],
     i: usize,
     exhausted: bool,
+    _phantom: PhantomData<E>,
 }
 
-impl<'a> SyncmerIterator<'a> {
-    pub fn new(seq: &'a [u8], k: usize, s: usize, t: usize) -> SyncmerIterator<'a> {
+impl<'a, E: SyncmerEncoding> SyncmerIterator<'a, E> {
+    pub fn new(seq: &'a [u8], k: usize, s: usize, t: usize) -> Self {
+        Self::with_ry_len(seq, k, s, t, k)
+    }
+
+    pub fn with_ry_len(seq: &'a [u8], k: usize, s: usize, t: usize, ry_len: usize) -> Self {
         SyncmerIterator {
             seq,
             k,
             s,
             t,
-            kmask: (1 << (2 * k)) - 1,
-            smask: (1 << (2 * s)) - 1,
-            kshift: (k - 1) * 2,
-            sshift: (s - 1) * 2,
+            ry_len,
+            kmask: E::kmer_mask(k),
+            smask: E::smer_mask(s),
+            kshift: E::kmer_shift(k),
+            sshift: E::smer_shift(s),
             qs: VecDeque::new(),
             qs_min_val: u64::MAX,
             l: 0,
-            xk: [0, 0],
-            xs: [0, 0],
+            xk: [E::KmerValue::default(), E::KmerValue::default()],
+            xs: [E::SmerValue::default(), E::SmerValue::default()],
             i: 0,
             exhausted: false,
+            _phantom: PhantomData,
         }
     }
 }
+
+pub type KmerSyncmerIterator<'a> = SyncmerIterator<'a, KmerEncoding>;
 
 // a, A -> 0
 // c, C -> 1
@@ -121,16 +259,8 @@ static NUCLEOTIDES: [u8; 256] = [
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
 ];
 
-fn syncmer_kmer_hash(value: u64) -> u64 {
-    xxh64(value)
-}
-
-fn syncmer_smer_hash(value: u64) -> u64 {
-    xxh64(value)
-}
-
-impl Iterator for SyncmerIterator<'_> {
-    type Item = Syncmer;
+impl<E: SyncmerEncoding> Iterator for SyncmerIterator<'_, E> {
+    type Item = E::Syncmer;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.exhausted {
@@ -138,20 +268,19 @@ impl Iterator for SyncmerIterator<'_> {
         }
         for i in self.i..self.seq.len() {
             let ch = self.seq[i];
-            let c = NUCLEOTIDES[ch as usize];
-            if c < 4 {
+            if let Some(c) = E::encode_nucleotide(ch) {
                 // not an "N" base
-                self.xk[0] = ((self.xk[0] << 2) | (c as u64)) & self.kmask; // forward strand
-                self.xk[1] = (self.xk[1] >> 2) | (((3 - c) as u64) << self.kshift); // reverse strand
-                self.xs[0] = ((self.xs[0] << 2) | (c as u64)) & self.smask; // forward strand
-                self.xs[1] = (self.xs[1] >> 2) | (((3 - c) as u64) << self.sshift); // reverse strand
+                self.xk[0] = E::update_kmer_forward(self.xk[0], c, self.kmask); // forward strand
+                self.xk[1] = E::update_kmer_reverse(self.xk[1], c, self.kshift); // reverse strand
+                self.xs[0] = E::update_smer_forward(self.xs[0], c, self.smask); // forward strand
+                self.xs[1] = E::update_smer_reverse(self.xs[1], c, self.sshift); // reverse strand
                 self.l += 1;
                 if self.l < self.s {
                     continue;
                 }
                 // we find an s-mer
-                let ys = min(self.xs[0], self.xs[1]);
-                let hash_s = syncmer_smer_hash(ys);
+                let ys = E::canonical_smer(self.xs[0], self.xs[1]);
+                let hash_s = E::hash_smer(ys);
                 self.qs.push_back(hash_s);
                 // not enough hashes in the queue, yet
                 if self.qs.len() < self.k - self.s + 1 {
@@ -178,12 +307,9 @@ impl Iterator for SyncmerIterator<'_> {
                 }
                 if self.qs[self.t - 1] == self.qs_min_val {
                     // occurs at t:th position in k-mer
-                    let yk = min(self.xk[0], self.xk[1]);
-                    let syncmer = Syncmer {
-                        hash: syncmer_kmer_hash(yk),
-                        is_forward: self.xk[0] <= self.xk[1],
-                        position: i + 1 - self.k,
-                    };
+                    let (yk, is_forward) = E::canonical_kmer(self.xk[0], self.xk[1]);
+                    let syncmer =
+                        E::make_syncmer(yk, i + 1 - self.k, self.k, self.ry_len, is_forward);
                     self.i = i + 1;
                     return Some(syncmer);
                 }
@@ -191,8 +317,8 @@ impl Iterator for SyncmerIterator<'_> {
                 // if there is an "N", restart
                 self.qs_min_val = u64::MAX;
                 self.l = 0;
-                self.xs = [0, 0];
-                self.xk = [0, 0];
+                self.xs = [E::SmerValue::default(), E::SmerValue::default()];
+                self.xk = [E::KmerValue::default(), E::KmerValue::default()];
                 self.qs.clear();
             }
         }
@@ -228,13 +354,13 @@ mod test {
         assert_eq!(parameters.t, 3);
 
         let mut iterator =
-            SyncmerIterator::new(seq.as_bytes(), parameters.k, parameters.s, parameters.t);
+            KmerSyncmerIterator::new(seq.as_bytes(), parameters.k, parameters.s, parameters.t);
         let syncmer = iterator.next().unwrap();
         assert_eq!(syncmer.position, 0);
     }
 
     fn syncmers_of(seq: &[u8], parameters: &SyncmerParameters) -> Vec<Syncmer> {
-        SyncmerIterator::new(seq, parameters.k, parameters.s, parameters.t).collect()
+        KmerSyncmerIterator::new(seq, parameters.k, parameters.s, parameters.t).collect()
     }
 
     #[test]

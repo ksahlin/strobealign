@@ -1,6 +1,8 @@
 use crate::index::{BucketIndex, RandstrobeHash, RefRandstrobe, StrobemerIndex};
 use crate::io::fasta::RefSequence;
-use crate::seeding::{RandstrobeIterator, SeedingParameters, SyncmerIterator, SyncmerParameters};
+use crate::seeding::{
+    KmerSyncmerIterator, RandstrobeIterator, SeedingParameters, SyncmerParameters,
+};
 
 use std::cmp::Reverse;
 use std::fmt::{Display, Formatter};
@@ -227,7 +229,7 @@ fn assign_randstrobes(
     if seq.len() < parameters.randstrobe.w_max {
         return;
     }
-    let syncmer_iter = SyncmerIterator::new(
+    let syncmer_iter = KmerSyncmerIterator::new(
         seq,
         parameters.syncmer.k,
         parameters.syncmer.s,
@@ -278,7 +280,7 @@ fn count_all_randstrobes(
 
 /// Count randstrobes by counting syncmers
 fn count_randstrobes(seq: &[u8], parameters: &SeedingParameters) -> usize {
-    let syncmer_iterator = SyncmerIterator::new(
+    let syncmer_iterator = KmerSyncmerIterator::new(
         seq,
         parameters.syncmer.k,
         parameters.syncmer.s,
