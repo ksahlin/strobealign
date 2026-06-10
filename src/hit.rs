@@ -124,6 +124,30 @@ fn rescue_least_frequent(
     rescued
 }
 
+/// Whether the first-strobe k-mer `[start, start + k)` lies within `window` of
+/// either end of a `query_len`-long read.
+fn seed_in_read_end_window(start: usize, k: usize, window: usize, query_len: usize) -> bool {
+    start < window || query_len.saturating_sub(start + k) < window
+}
+
+/// In aDNA mode, only partial seeds anchored near a read start/end are eligible for a
+/// partial lookup. A seed qualifies if its first-strobe k-mer
+/// starts within the first `ry_len` positions or ends within the last `ry_len`
+/// positions of the read. Outside aDNA mode all seeds are allowed.
+fn partial_lookup_allowed(
+    randstrobe: &QueryRandstrobe,
+    index: &StrobemerIndex,
+    query_len: usize,
+) -> bool {
+    !index.parameters.adna_mode
+        || seed_in_read_end_window(
+            randstrobe.start,
+            index.k(),
+            index.parameters.ry_len,
+            query_len,
+        )
+}
+
 /// Find all hits for a query, using the requested MCS strategy.
 /// Repetitive hits are included. `is_filtered` is set to false for all hits.
 fn find_all_hits(
@@ -131,6 +155,7 @@ fn find_all_hits(
     index: &StrobemerIndex,
     filter_cutoff: usize,
     mcs_strategy: McsStrategy,
+    query_len: usize,
 ) -> (HitsDetails, Vec<Hit>) {
     let mut hits = Vec::with_capacity(query_randstrobes.len());
     let mut hits_details = HitsDetails::default();
@@ -156,7 +181,9 @@ fn find_all_hits(
                 hits.push(hit);
             } else {
                 hits_details.full_not_found += 1;
-                if mcs_strategy == McsStrategy::Always {
+                if mcs_strategy == McsStrategy::Always
+                    && partial_lookup_allowed(randstrobe, index, query_len)
+                {
                     // Perform partial lookup in both directions for later use in rescue
                     if let Some(undirected_entry) = index.get_partial(randstrobe.hash) {
                         let is_filtered = undirected_entry.is_too_frequent_partial(filter_cutoff);
@@ -182,7 +209,9 @@ fn find_all_hits(
             }
         }
     }
-    if mcs_strategy == McsStrategy::Always {
+    if mcs_strategy == McsStrategy::Always && !index.parameters.adna_mode {
+        // In aDNA mode some partial lookups are skipped by partial_lookup_allowed,
+        // so this one-to-one correspondence no longer holds.
         debug_assert!(
             hits_details.full_not_found
                 == hits_details.partial_not_found
@@ -197,6 +226,9 @@ fn find_all_hits(
             && hits_details.full_filtered + hits_details.full_found == 0)
     {
         for randstrobe in query_randstrobes {
+            if !partial_lookup_allowed(randstrobe, index, query_len) {
+                continue;
+            }
             // Perform partial lookup in both directions for later use in rescue
             if let Some(undirected_entry) = index.get_partial(randstrobe.hash) {
                 let is_filtered = undirected_entry.is_too_frequent_partial(filter_cutoff);
@@ -273,9 +305,15 @@ pub fn find_hits(
     mcs_strategy: McsStrategy,
     filter_cutoff: usize,
     rescue_distance: usize,
+    query_len: usize,
 ) -> (HitsDetails, Vec<Hit>) {
-    let (mut details, mut hits) =
-        find_all_hits(query_randstrobes, index, filter_cutoff, mcs_strategy);
+    let (mut details, mut hits) = find_all_hits(
+        query_randstrobes,
+        index,
+        filter_cutoff,
+        mcs_strategy,
+        query_len,
+    );
 
     let total_hits = details.total_hits();
     let nonrepetitive_hits = details.total_found();
@@ -330,4 +368,32 @@ pub fn find_hits(
     }
 
     (details, hits)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::seed_in_read_end_window;
+
+    #[test]
+    fn seed_in_read_end_window_boundaries() {
+        let k = 17;
+        let window = 8;
+        let query_len = 40;
+
+        // Start within the first `window` positions.
+        assert!(seed_in_read_end_window(0, k, window, query_len));
+        assert!(seed_in_read_end_window(7, k, window, query_len));
+
+        // End (start + k) within the last `window` positions: start + 17 > 32,
+        // i.e. start > 15.
+        assert!(seed_in_read_end_window(16, k, window, query_len));
+        assert!(seed_in_read_end_window(query_len - k, k, window, query_len));
+
+        // Mid-read seed: neither end is within the window.
+        assert!(!seed_in_read_end_window(8, k, window, query_len));
+        assert!(!seed_in_read_end_window(15, k, window, query_len));
+
+        // A seed extending past the read end never underflows.
+        assert!(seed_in_read_end_window(30, k, window, query_len));
+    }
 }

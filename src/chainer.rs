@@ -200,6 +200,7 @@ impl Chainer {
                 mcs_strategy,
                 index.filter_cutoff(),
                 rescue_distance,
+                read_len,
             );
         }
         let mut time_find_hits = hits_timer.elapsed().as_secs_f64();
