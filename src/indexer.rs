@@ -1,7 +1,9 @@
 use crate::index::{BucketIndex, RandstrobeHash, RefRandstrobe, StrobemerIndex};
 use crate::refseq::RefSequence;
 use crate::seeding::syncmers::SeqAccess;
-use crate::seeding::{RandstrobeIterator, SeedingParameters, SyncmerIterator, SyncmerParameters};
+use crate::seeding::{
+    KmerSyncmerIterator, RandstrobeIterator, SeedingParameters, SyncmerParameters,
+};
 
 use std::fmt::{Display, Formatter};
 use std::mem::MaybeUninit;
@@ -314,8 +316,8 @@ fn make_randstrobes_parallel(
 fn make_randstrobe_iter<S: SeqAccess>(
     seq: S,
     parameters: &SeedingParameters,
-) -> RandstrobeIterator<SyncmerIterator<S>> {
-    let syncmer_iter = SyncmerIterator::new(
+) -> RandstrobeIterator<KmerSyncmerIterator<S>> {
+    let syncmer_iter = KmerSyncmerIterator::new(
         seq,
         parameters.syncmer.k,
         parameters.syncmer.s,

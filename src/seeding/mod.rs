@@ -5,7 +5,7 @@ pub mod syncmers;
 
 pub use parameters::{InvalidSeedingParameter, Profile, SeedingParameters};
 pub use strobes::{DEFAULT_AUX_LEN, RandstrobeIterator, RandstrobeParameters};
-pub use syncmers::{Syncmer, SyncmerIterator, SyncmerParameters};
+pub use syncmers::{KmerSyncmerIterator, Syncmer, SyncmerIterator, SyncmerParameters};
 
 #[derive(Debug)]
 pub struct QueryRandstrobe {
@@ -23,7 +23,7 @@ pub fn randstrobes_query(seq: &[u8], parameters: &SeedingParameters) -> [Vec<Que
     let expected = seq.len() / (parameters.syncmer.k - parameters.syncmer.s + 1);
 
     // Generate syncmers for the forward sequence
-    let syncmer_iter = SyncmerIterator::new(
+    let syncmer_iter = KmerSyncmerIterator::new(
         seq,
         parameters.syncmer.k,
         parameters.syncmer.s,

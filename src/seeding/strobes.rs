@@ -194,7 +194,7 @@ mod test {
 
     use crate::io::fasta::read_ref;
     use crate::packed_seq::PackedSeq;
-    use crate::seeding::{SeedingParameters, SyncmerIterator};
+    use crate::seeding::{KmerSyncmerIterator, SeedingParameters};
 
     fn read_phix() -> PackedSeq {
         read_ref("tests/phix.fasta").unwrap().contig(0).to_owned()
@@ -204,7 +204,7 @@ mod test {
     fn randstrobe_iterator() {
         let seq = read_phix();
         let parameters = SeedingParameters::new(300);
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             &seq,
             parameters.syncmer.k,
             parameters.syncmer.s,
@@ -226,7 +226,7 @@ mod test {
     fn syncmer_and_randstrobe_iterator_same_count() {
         let seq = read_phix();
         let parameters = SeedingParameters::new(100);
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             &seq,
             parameters.syncmer.k,
             parameters.syncmer.s,
@@ -234,7 +234,7 @@ mod test {
         );
         let syncmer_count = syncmer_iter.count();
 
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             &seq,
             parameters.syncmer.k,
             parameters.syncmer.s,
