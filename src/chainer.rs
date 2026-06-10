@@ -404,7 +404,11 @@ fn add_to_anchors_full(
         let length_diff = (query_end - query_start).abs_diff(ref_end - ref_start);
         if length_diff <= min_length_diff {
             anchors.push(Anchor::new(ref_start, query_start));
-            anchors.push(Anchor::new(ref_end - index.k(), query_end - index.k()));
+            // For a short randstrobe (max_seed_length == k) both strobes coincide;
+            // avoid adding a second, identical anchor. This matters in aDNA mode.
+            if ref_start != ref_end - index.k() {
+                anchors.push(Anchor::new(ref_end - index.k(), query_end - index.k()));
+            }
             min_length_diff = length_diff;
         }
     }
