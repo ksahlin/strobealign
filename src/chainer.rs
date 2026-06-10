@@ -170,6 +170,7 @@ impl Chainer {
         index: &StrobemerIndex,
         rescue_distance: usize,
         mcs_strategy: McsStrategy,
+        query_len: usize,
     ) -> (NamDetails, Vec<Nam>) {
         let hits_timer = Instant::now();
 
@@ -182,6 +183,7 @@ impl Chainer {
                 mcs_strategy,
                 index.filter_cutoff(),
                 rescue_distance,
+                query_len,
             );
         }
         let mut time_find_hits = hits_timer.elapsed().as_secs_f64();
