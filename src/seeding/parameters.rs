@@ -166,6 +166,10 @@ pub struct SeedingParameters {
     pub profile: Profile,
     pub syncmer: SyncmerParameters,
     pub randstrobe: RandstrobeParameters,
+    /// Whether ancient-DNA (rymer) seeding is enabled.
+    pub adna_mode: bool,
+    /// Number of leading k-mer positions hashed by RY class in aDNA mode (0 when disabled).
+    pub ry_len: usize,
 }
 
 #[derive(Error, Debug)]
@@ -188,6 +192,8 @@ impl SeedingParameters {
                 profile,
                 syncmer: SyncmerParameters::try_new(16, 12).unwrap(),
                 randstrobe: RandstrobeParameters::try_new(2, 2, q, 84, DEFAULT_AUX_LEN).unwrap(),
+                adna_mode: false,
+                ry_len: 0,
             },
             profile => {
                 let read_length = profile.length().unwrap();
@@ -214,6 +220,8 @@ impl SeedingParameters {
                         DEFAULT_AUX_LEN,
                     )
                     .unwrap(),
+                    adna_mode: false,
+                    ry_len: 0,
                 }
             }
         }
@@ -300,6 +308,36 @@ impl SeedingParameters {
         self.randstrobe.q = 2u64.pow(bitcount) - 1;
 
         Ok(self)
+    }
+
+    /// Enables or disables ancient-DNA (rymer) seeding.
+    ///
+    /// When enabled, `ry_len` defaults to `k` if not given, and the auxiliary
+    /// hash length is clamped to at most `ry_len + 1` (the randstrobe hash masks are
+    /// recomputed accordingly). Call this after `with_aux_len`.
+    ///
+    /// The auxiliary part of a hybrid rymer hash holds the SW projection of
+    /// the first `ry_len` nucleotides, which has `ry_len` bits. One more bit
+    /// is needed because the topmost auxiliary bit stores the orientation.
+    pub fn with_adna(mut self, adna_mode: bool, ry_len: Option<usize>) -> Self {
+        self.adna_mode = adna_mode;
+        if !adna_mode {
+            self.ry_len = 0;
+            return self;
+        }
+
+        let ry_len = ry_len.unwrap_or(self.syncmer.k);
+        self.ry_len = ry_len;
+
+        let aux_len = (self.randstrobe.main_hash_mask.trailing_zeros() - 9) as usize;
+        let clamped_aux_len = aux_len.min(ry_len + 1) as u32;
+        let main_hash_mask = !0u64 << (9 + clamped_aux_len);
+        let partial_orientation_pos = main_hash_mask.trailing_zeros() - 1;
+        self.randstrobe.main_hash_mask = main_hash_mask;
+        self.randstrobe.partial_orientation_pos = partial_orientation_pos;
+        self.randstrobe.forward_main_hash_mask = main_hash_mask | (1u64 << partial_orientation_pos);
+
+        self
     }
 
     /// Returns whether the settings differ from the base profile (that was given at
