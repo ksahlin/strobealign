@@ -317,21 +317,17 @@ impl SeedingParameters {
         Ok(self)
     }
 
-    /// Enables or disables ancient-DNA (rymer) seeding.
+    /// Enables or disables rymer seeding.
     ///
-    /// When enabled, `ry_len` defaults to `k` if not given, and the auxiliary
-    /// hash length is clamped to at most `ry_len` (the randstrobe hash masks are
-    /// recomputed accordingly). Call this after `with_aux_len`.
-    pub fn with_adna(mut self, adna_mode: bool, ry_len: Option<usize>) -> Self {
+    /// When enabled, the auxiliary hash length is clamped to at most `ry_len`. Call this after `with_aux_len`.
+    pub fn with_adna(mut self, adna_mode: bool, ry_len: usize) -> Self {
         self.adna_mode = adna_mode;
         if !adna_mode {
             self.ry_len = 0;
             return self;
         }
 
-        let ry_len = ry_len.unwrap_or(self.syncmer.k);
         self.ry_len = ry_len;
-
         let aux_len = (self.randstrobe.main_hash_mask.trailing_zeros() - 9) as usize;
         let clamped_aux_len = aux_len.min(ry_len) as u32;
         let main_hash_mask = !0u64 << (9 + clamped_aux_len);

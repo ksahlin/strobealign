@@ -194,9 +194,9 @@ struct Args {
     #[arg(long, help_heading = "Seeding")]
     adna: bool,
 
-    /// In aDNA mode, number of leading k-mer positions hashed by RY class. Default: k
-    #[arg(long = "ry-len", help_heading = "Seeding")]
-    ry_len: Option<usize>,
+    /// In aDNA mode, number of leading k-mer positions hashed by RY class. Default: 8
+    #[arg(long = "ry-len", default_value_t = 8, help_heading = "Seeding")]
+    ry_len: usize,
 
     /// Multi-context seed strategy for finding hits
     #[arg(long = "mcs", value_enum, default_value_t = McsStrategy::default(), help_heading = "Search parameters")]

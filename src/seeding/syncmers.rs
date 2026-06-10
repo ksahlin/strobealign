@@ -50,8 +50,9 @@ impl RymerSyncmer {
 /// Encoding strategy for the [`SyncmerIterator`]. An implementation defines how
 /// nucleotides are accumulated into k-mer and s-mer values, how the canonical
 /// (forward vs. reverse) orientation is chosen, and how a finished syncmer is
-/// produced. [`KmerEncoding`] is the standard nucleotide encoding; further
-/// encodings (e.g. for aDNA) plug in by implementing this trait.
+/// produced. [`KmerEncoding`] is the standard nucleotide encoding.
+/// [`RymerEncoding`] keeps track of two binary sequences, one rymer in [A/G | C/T] alphabet,
+/// the other rymer-complementary in [A/C | G/T] alphabet.
 pub trait SyncmerEncoding {
     type Syncmer: Copy;
     type KmerValue: Copy + Default;

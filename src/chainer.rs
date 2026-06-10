@@ -309,8 +309,7 @@ fn add_to_anchors_full(
                 ref_start,
                 query_start,
             });
-            // For a short randstrobe (max_seed_length == k) both strobes coincide;
-            // avoid adding a second, identical anchor. This matters in aDNA mode.
+            // Avoid adding a second, identical anchor (important in aDNA mode).
             if ref_start != ref_end - index.k() {
                 anchors.push(Anchor {
                     ref_id,
