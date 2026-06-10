@@ -189,6 +189,15 @@ struct Args {
     #[arg(long, default_value_t = DEFAULT_AUX_LEN, value_name = "N", help_heading = "Seeding")]
     aux_len: u8,
 
+    /// Enable ancient-DNA mode: use rymer syncmers that tolerate deamination-induced
+    /// C->T / G->A substitutions when seeding
+    #[arg(long, help_heading = "Seeding")]
+    adna: bool,
+
+    /// In aDNA mode, number of leading k-mer positions hashed by RY class. Default: k
+    #[arg(long = "ry-len", help_heading = "Seeding")]
+    ry_len: Option<usize>,
+
     /// Multi-context seed strategy for finding hits
     #[arg(long = "mcs", value_enum, default_value_t = McsStrategy::default(), help_heading = "Search parameters")]
     mcs_strategy: McsStrategy,
@@ -379,6 +388,13 @@ fn run() -> Result<(), CliError> {
     }
     if let Some(bitcount) = args.c {
         parameters = parameters.with_bitcount(bitcount)?;
+    }
+    parameters = parameters.with_adna(args.adna, args.ry_len);
+    if parameters.adna_mode {
+        info!(
+            "Ancient DNA mode enabled (using rymer syncmers, ry_len={})",
+            parameters.ry_len
+        );
     }
     info!(
         "Read profile: {} {}",

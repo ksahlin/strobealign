@@ -341,7 +341,7 @@ impl<'a> IndexEntry<'a> {
     }
 }
 
-const STI_FILE_FORMAT_VERSION: u32 = 7;
+const STI_FILE_FORMAT_VERSION: u32 = 8;
 
 #[derive(Error, Debug)]
 pub enum IndexReadingError {
@@ -400,6 +400,8 @@ impl StrobemerIndex {
             file.write_all(&val.to_ne_bytes())?;
         }
         file.write_all(&(rp.main_hash_mask as u64).to_ne_bytes())?;
+        file.write_all(&(self.parameters.adna_mode as u32).to_ne_bytes())?;
+        file.write_all(&(self.parameters.ry_len as u32).to_ne_bytes())?;
 
         write_vec(&mut file, &self.randstrobes)?;
         write_vec(&mut file, &self.bucket_starts)?;
@@ -455,6 +457,8 @@ pub fn read_index<'a, P: AsRef<Path>>(
     let q = read_u32(&mut reader)? as u64;
     let max_dist = read_u32(&mut reader)? as u8;
     let main_hash_mask = read_u64(&mut reader)?;
+    let adna_mode = read_u32(&mut reader)? != 0;
+    let ry_len = read_u32(&mut reader)? as usize;
 
     let syncmer_parameters = SyncmerParameters::try_new(k, s)?;
     let partial_orientation_pos = main_hash_mask.trailing_zeros() - 1;
@@ -471,6 +475,8 @@ pub fn read_index<'a, P: AsRef<Path>>(
         profile,
         syncmer: syncmer_parameters,
         randstrobe: randstrobe_parameters,
+        adna_mode,
+        ry_len,
     };
 
     if parameters != sti_parameters {
