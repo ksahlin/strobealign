@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use std::marker::PhantomData;
 
 use super::InvalidSeedingParameter;
-use super::hash::xxh64;
+use super::hash::{xxh32, xxh64};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Syncmer {
@@ -17,6 +17,27 @@ impl Syncmer {
         self.hash
     }
 
+    pub fn is_forward(&self) -> bool {
+        self.is_forward
+    }
+
+    pub fn toggle_orientation(&mut self) {
+        self.is_forward = !self.is_forward;
+    }
+}
+
+/// A syncmer produced by [`RymerEncoding`]. Unlike [`Syncmer`], a rymer carries
+/// two hashes: `hash1` over the purine/pyrimidine (RY) projection of the k-mer
+/// and `hash2` over the complementary (strong/weak) projection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RymerSyncmer {
+    pub hash1: u64,
+    pub hash2: u64,
+    is_forward: bool,
+    pub position: usize,
+}
+
+impl RymerSyncmer {
     pub fn is_forward(&self) -> bool {
         self.is_forward
     }
@@ -153,6 +174,238 @@ impl SyncmerEncoding for KmerEncoding {
     }
 }
 
+/// Collision check for aDNA NAM consistency: the first `ry_len` positions use
+/// RY-class equality (A/G vs C/T), the remaining positions require exact
+/// nucleotide equality. The comparison is tried from both ends and succeeds if
+/// either orientation matches.
+pub fn ry_equal(a: &[u8], b: &[u8], ry_len: usize) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let k = a.len();
+    let mut forward_ok = true;
+    let mut reverse_ok = true;
+    for (i, (&x, &y)) in a.iter().zip(b.iter()).enumerate() {
+        if !forward_ok && !reverse_ok {
+            return false;
+        }
+        let exact = x == y;
+        let ry = {
+            let sx = RYMER_S1[x as usize];
+            let sy = RYMER_S1[y as usize];
+            sx < 4 && sx == sy
+        };
+        if forward_ok {
+            let ok = if i < ry_len { ry } else { exact };
+            if !ok {
+                forward_ok = false;
+            }
+        }
+        if reverse_ok {
+            let ok = if i + ry_len >= k { ry } else { exact };
+            if !ok {
+                reverse_ok = false;
+            }
+        }
+    }
+    forward_ok || reverse_ok
+}
+
+// S1: a, A -> 0; c, C -> 1; g, G -> 0; t, T, u, U -> 1
+#[rustfmt::skip]
+static RYMER_S1: [u8; 256] = [
+        0, 1, 0, 1,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 0, 4, 1,  4, 4, 4, 0,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  1, 1, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 0, 4, 1,  4, 4, 4, 0,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  1, 1, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+];
+
+// S2: a, A -> 0; c, C -> 0; g, G -> 1; t, T, u, U -> 1
+#[rustfmt::skip]
+static RYMER_S2: [u8; 256] = [
+        0, 0, 1, 1,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 0, 4, 0,  4, 4, 4, 1,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  1, 1, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 0, 4, 0,  4, 4, 4, 1,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  1, 1, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+        4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+];
+
+pub struct RymerEncoding;
+
+impl SyncmerEncoding for RymerEncoding {
+    type Syncmer = RymerSyncmer;
+    type KmerValue = (u64, u32, u32);
+    type SmerValue = (u32, u32);
+
+    #[inline]
+    fn encode_nucleotide(ch: u8) -> Option<u8> {
+        let nuc = NUCLEOTIDES[ch as usize];
+        let s1 = RYMER_S1[ch as usize];
+        if nuc >= 4 || s1 >= 4 {
+            return None;
+        }
+        let s2 = RYMER_S2[ch as usize];
+        Some(nuc | (s1 << 2) | (s2 << 3))
+    }
+
+    #[inline]
+    fn kmer_mask(k: usize) -> (u64, u32, u32) {
+        let nuc_mask = (1u64 << (2 * k)) - 1;
+        let ry_mask = (1u32 << k) - 1;
+        (nuc_mask, ry_mask, ry_mask)
+    }
+
+    #[inline]
+    fn kmer_shift(k: usize) -> usize {
+        (k - 1) * 2
+    }
+
+    #[inline]
+    fn smer_mask(s: usize) -> (u32, u32) {
+        let mask = (1u32 << s) - 1;
+        (mask, mask)
+    }
+
+    #[inline]
+    fn smer_shift(s: usize) -> usize {
+        s - 1
+    }
+
+    #[inline]
+    fn update_kmer_forward(
+        current: (u64, u32, u32),
+        encoded: u8,
+        mask: (u64, u32, u32),
+    ) -> (u64, u32, u32) {
+        let nuc = (encoded & 3) as u64;
+        let s1 = ((encoded >> 2) & 1) as u32;
+        let s2 = ((encoded >> 3) & 1) as u32;
+        (
+            ((current.0 << 2) | nuc) & mask.0,
+            ((current.1 << 1) | s1) & mask.1,
+            ((current.2 << 1) | s2) & mask.2,
+        )
+    }
+
+    #[inline]
+    fn update_kmer_reverse(current: (u64, u32, u32), encoded: u8, shift: usize) -> (u64, u32, u32) {
+        let nuc = (encoded & 3) as u64;
+        let s1 = ((encoded >> 2) & 1) as u32;
+        let s2 = ((encoded >> 3) & 1) as u32;
+        let ry_shift = shift / 2;
+        (
+            (current.0 >> 2) | ((3 - nuc) << shift),
+            (current.1 >> 1) | ((1 - s1) << ry_shift),
+            (current.2 >> 1) | ((1 - s2) << ry_shift),
+        )
+    }
+
+    #[inline]
+    fn update_smer_forward(current: (u32, u32), encoded: u8, mask: (u32, u32)) -> (u32, u32) {
+        let s1 = ((encoded >> 2) & 1) as u32;
+        let s2 = ((encoded >> 3) & 1) as u32;
+        (
+            ((current.0 << 1) | s1) & mask.0,
+            ((current.1 << 1) | s2) & mask.1,
+        )
+    }
+
+    #[inline]
+    fn update_smer_reverse(current: (u32, u32), encoded: u8, shift: usize) -> (u32, u32) {
+        let s1 = ((encoded >> 2) & 1) as u32;
+        let s2 = ((encoded >> 3) & 1) as u32;
+        (
+            (current.0 >> 1) | ((1 - s1) << shift),
+            (current.1 >> 1) | ((1 - s2) << shift),
+        )
+    }
+
+    #[inline]
+    fn canonical_smer(forward: (u32, u32), reverse: (u32, u32)) -> (u32, u32) {
+        let fwd_combined = ((forward.0 as u64) << 32) | (forward.1 as u64);
+        let rev_combined = ((reverse.0 as u64) << 32) | (reverse.1 as u64);
+        if fwd_combined <= rev_combined {
+            forward
+        } else {
+            reverse
+        }
+    }
+
+    #[inline]
+    fn canonical_kmer(
+        forward: (u64, u32, u32),
+        reverse: (u64, u32, u32),
+    ) -> ((u64, u32, u32), bool) {
+        let fwd_ry = ((forward.1 as u64) << 32) | (forward.2 as u64);
+        let rev_ry = ((reverse.1 as u64) << 32) | (reverse.2 as u64);
+        if fwd_ry <= rev_ry {
+            (forward, true)
+        } else {
+            (reverse, false)
+        }
+    }
+
+    #[inline]
+    fn hash_smer(value: (u32, u32)) -> u64 {
+        xxh32(value.0) as u64
+    }
+
+    #[inline]
+    fn make_syncmer(
+        kmer: (u64, u32, u32),
+        position: usize,
+        k: usize,
+        ry_len: usize,
+        is_forward: bool,
+    ) -> RymerSyncmer {
+        if ry_len == k {
+            RymerSyncmer {
+                hash1: xxh64(kmer.1 as u64),
+                hash2: xxh64(kmer.2 as u64),
+                is_forward,
+                position,
+            }
+        } else {
+            let kmer_len = k - ry_len;
+            let ry_s1 = (kmer.1 >> kmer_len) as u64;
+            let ry_s2 = (kmer.2 >> kmer_len) as u64;
+            let kmer_tail_bits = kmer_len * 2;
+            let kmer_tail_mask = (1u64 << kmer_tail_bits) - 1;
+            let kmer_tail = kmer.0 & kmer_tail_mask;
+            let combined = (ry_s1 << kmer_tail_bits) | kmer_tail;
+            RymerSyncmer {
+                hash1: xxh64(combined),
+                hash2: xxh64(ry_s2),
+                is_forward,
+                position,
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyncmerParameters {
     pub k: usize,
@@ -234,6 +487,7 @@ impl<'a, E: SyncmerEncoding> SyncmerIterator<'a, E> {
 }
 
 pub type KmerSyncmerIterator<'a> = SyncmerIterator<'a, KmerEncoding>;
+pub type RymerSyncmerIterator<'a> = SyncmerIterator<'a, RymerEncoding>;
 
 // a, A -> 0
 // c, C -> 1
@@ -387,5 +641,147 @@ mod test {
                 assert_ne!(sf.is_forward(), sr.is_forward());
             }
         }
+    }
+
+    #[test]
+    fn test_kmer_update() {
+        let k = 5;
+        let s = 3;
+        let kmask = KmerEncoding::kmer_mask(k);
+        let kshift = KmerEncoding::kmer_shift(k);
+        let smask = KmerEncoding::smer_mask(s);
+        let sshift = KmerEncoding::smer_shift(s);
+        let mut xk: [u64; 2] = [0, 0];
+        let mut xs: [u64; 2] = [0, 0];
+        let seq = "TACGTCAA";
+        for ch in seq.chars() {
+            if let Some(c) = KmerEncoding::encode_nucleotide(ch as u8) {
+                xk[0] = KmerEncoding::update_kmer_forward(xk[0], c, kmask);
+                xk[1] = KmerEncoding::update_kmer_reverse(xk[1], c, kshift);
+                xs[0] = KmerEncoding::update_smer_forward(xs[0], c, smask);
+                xs[1] = KmerEncoding::update_smer_reverse(xs[1], c, sshift);
+            }
+        }
+        assert_eq!(xk[0], 0b1011010000);
+        assert_eq!(xk[1], 0b1111100001);
+        assert_eq!(xs[0], 0b010000);
+        assert_eq!(xs[1], 0b111110);
+    }
+
+    #[test]
+    fn test_rymer_update() {
+        let k = 5;
+        let s = 3;
+        let kmask = RymerEncoding::kmer_mask(k);
+        let kshift = RymerEncoding::kmer_shift(k);
+        let smask = RymerEncoding::smer_mask(s);
+        let sshift = RymerEncoding::smer_shift(s);
+        let mut xk: [(u64, u32, u32); 2] = [(0, 0, 0), (0, 0, 0)];
+        let mut xs: [(u32, u32); 2] = [(0, 0), (0, 0)];
+        let seq = "TACGTCAA";
+        for ch in seq.chars() {
+            if let Some(c) = RymerEncoding::encode_nucleotide(ch as u8) {
+                xk[0] = RymerEncoding::update_kmer_forward(xk[0], c, kmask);
+                xk[1] = RymerEncoding::update_kmer_reverse(xk[1], c, kshift);
+                xs[0] = RymerEncoding::update_smer_forward(xs[0], c, smask);
+                xs[1] = RymerEncoding::update_smer_reverse(xs[1], c, sshift);
+            }
+        }
+        assert_eq!(xk[0].0, 0b1011010000);
+        assert_eq!(xk[0].1, 0b01100);
+        assert_eq!(xk[0].2, 0b11000);
+        assert_eq!(xs[0], (0b100, 0b000));
+        assert_eq!(xs[1], (0b110, 0b111));
+    }
+
+    #[test]
+    fn test_rymer_encoding_tables() {
+        assert_eq!(RYMER_S1[b'A' as usize], 0);
+        assert_eq!(RYMER_S2[b'A' as usize], 0);
+        assert_eq!(RYMER_S1[b'C' as usize], 1);
+        assert_eq!(RYMER_S2[b'C' as usize], 0);
+        assert_eq!(RYMER_S1[b'G' as usize], 0);
+        assert_eq!(RYMER_S2[b'G' as usize], 1);
+        assert_eq!(RYMER_S1[b'T' as usize], 1);
+        assert_eq!(RYMER_S2[b'T' as usize], 1);
+        assert_eq!(RYMER_S1[b'N' as usize], 4);
+        assert_eq!(RYMER_S2[b'N' as usize], 4);
+    }
+
+    #[test]
+    fn test_rymer_syncmer_iterator() {
+        let seq = "ACGTACGTACGTACGTACGT";
+        let parameters = SyncmerParameters::try_new(8, 4).unwrap();
+
+        let mut iterator: RymerSyncmerIterator =
+            SyncmerIterator::new(seq.as_bytes(), parameters.k, parameters.s, parameters.t);
+        assert!(iterator.next().is_some());
+    }
+
+    #[test]
+    fn test_rymer_same_positions_different_ry_len() {
+        let seq = "ACGTACGTACGTACGTACGT";
+        let parameters = SyncmerParameters::try_new(8, 4).unwrap();
+
+        let positions_full: Vec<usize> = RymerSyncmerIterator::with_ry_len(
+            seq.as_bytes(),
+            parameters.k,
+            parameters.s,
+            parameters.t,
+            parameters.k,
+        )
+        .map(|s| s.position)
+        .collect();
+
+        let positions_half: Vec<usize> = RymerSyncmerIterator::with_ry_len(
+            seq.as_bytes(),
+            parameters.k,
+            parameters.s,
+            parameters.t,
+            parameters.k / 2,
+        )
+        .map(|s| s.position)
+        .collect();
+
+        let positions_zero: Vec<usize> = RymerSyncmerIterator::with_ry_len(
+            seq.as_bytes(),
+            parameters.k,
+            parameters.s,
+            parameters.t,
+            0,
+        )
+        .map(|s| s.position)
+        .collect();
+
+        assert_eq!(positions_full, positions_half);
+        assert_eq!(positions_full, positions_zero);
+    }
+
+    #[test]
+    fn test_mixed_rymer_different_hashes_for_different_ry_len() {
+        let seq = "ACGTACGTACGTACGTACGT";
+        let parameters = SyncmerParameters::try_new(8, 4).unwrap();
+
+        let hashes_full: Vec<_> = RymerSyncmerIterator::with_ry_len(
+            seq.as_bytes(),
+            parameters.k,
+            parameters.s,
+            parameters.t,
+            parameters.k,
+        )
+        .map(|s| (s.hash1, s.hash2))
+        .collect();
+
+        let hashes_half: Vec<_> = RymerSyncmerIterator::with_ry_len(
+            seq.as_bytes(),
+            parameters.k,
+            parameters.s,
+            parameters.t,
+            parameters.k / 2,
+        )
+        .map(|s| (s.hash1, s.hash2))
+        .collect();
+
+        assert_ne!(hashes_full, hashes_half);
     }
 }
