@@ -1,7 +1,9 @@
 use crate::index::{BucketIndex, RandstrobeHash, RefRandstrobe, StrobemerIndex};
 use crate::io::fasta::RefSequence;
+use crate::seeding::strobes::Randstrobe;
 use crate::seeding::{
-    KmerSyncmerIterator, RandstrobeIterator, SeedingParameters, SyncmerParameters,
+    KmerSyncmerIterator, RandstrobeIterator, RymerIterator, RymerSyncmerIterator,
+    SeedingParameters, SyncmerParameters,
 };
 
 use std::cmp::Reverse;
@@ -229,15 +231,34 @@ fn assign_randstrobes(
     if seq.len() < parameters.randstrobe.w_max {
         return;
     }
-    let syncmer_iter = KmerSyncmerIterator::new(
-        seq,
-        parameters.syncmer.k,
-        parameters.syncmer.s,
-        parameters.syncmer.t,
-    );
 
-    let randstrobe_iter = RandstrobeIterator::new(syncmer_iter, parameters.randstrobe.clone());
+    if parameters.adna_mode {
+        let syncmer_iter = RymerSyncmerIterator::with_ry_len(
+            seq,
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+            parameters.ry_len,
+        );
+        let randstrobe_iter = RymerIterator::new(syncmer_iter, parameters.randstrobe.clone());
+        fill_randstrobes(randstrobes, randstrobe_iter, ref_index);
+    } else {
+        let syncmer_iter = KmerSyncmerIterator::new(
+            seq,
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+        );
+        let randstrobe_iter = RandstrobeIterator::new(syncmer_iter, parameters.randstrobe.clone());
+        fill_randstrobes(randstrobes, randstrobe_iter, ref_index);
+    }
+}
 
+fn fill_randstrobes(
+    randstrobes: &mut [RefRandstrobe],
+    randstrobe_iter: impl Iterator<Item = Randstrobe>,
+    ref_index: usize,
+) {
     let mut n = 0;
     for (i, randstrobe) in randstrobe_iter.enumerate() {
         n += 1;
@@ -280,14 +301,24 @@ fn count_all_randstrobes(
 
 /// Count randstrobes by counting syncmers
 fn count_randstrobes(seq: &[u8], parameters: &SeedingParameters) -> usize {
-    let syncmer_iterator = KmerSyncmerIterator::new(
-        seq,
-        parameters.syncmer.k,
-        parameters.syncmer.s,
-        parameters.syncmer.t,
-    );
-
-    syncmer_iterator.count()
+    if parameters.adna_mode {
+        RymerSyncmerIterator::with_ry_len(
+            seq,
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+            parameters.ry_len,
+        )
+        .count()
+    } else {
+        KmerSyncmerIterator::new(
+            seq,
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+        )
+        .count()
+    }
 }
 
 impl SyncmerParameters {

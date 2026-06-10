@@ -5,6 +5,8 @@ pub mod syncmers;
 
 pub use parameters::{InvalidSeedingParameter, Profile, SeedingParameters};
 pub use strobes::{DEFAULT_AUX_LEN, RandstrobeIterator, RandstrobeParameters, RymerIterator};
+
+use strobes::Randstrobe;
 pub use syncmers::{
     KmerSyncmerIterator, RymerSyncmer, RymerSyncmerIterator, Syncmer, SyncmerIterator,
     SyncmerParameters, ry_equal,
@@ -28,51 +30,68 @@ pub fn randstrobes_query(seq: &[u8], parameters: &SeedingParameters) -> [Vec<Que
         return randstrobes;
     }
 
-    // Generate syncmers for the forward sequence
-    let syncmer_iter = KmerSyncmerIterator::new(
-        seq,
-        parameters.syncmer.k,
-        parameters.syncmer.s,
-        parameters.syncmer.t,
-    );
-    let mut syncmers: Vec<_> = syncmer_iter.collect();
-
-    // Generate randstrobes for the forward sequence
-    let randstrobe_iter =
-        RandstrobeIterator::new(syncmers.iter().cloned(), parameters.randstrobe.clone());
-
-    for randstrobe in randstrobe_iter {
-        randstrobes[0].push(QueryRandstrobe {
-            hash: randstrobe.hash,
-            hash_revcomp: randstrobe.hash_revcomp,
-            start: randstrobe.strobe1_pos,
-            end: randstrobe.strobe2_pos + parameters.syncmer.k,
-        });
-    }
-
-    // For the reverse complement, we can re-use the syncmers of the forward
-    // sequence because canonical syncmers are invariant under reverse
-    // complementing. Only the coordinates need to be adjusted.
-    syncmers.reverse();
-    for i in 0..syncmers.len() {
-        syncmers[i].position = seq.len() - syncmers[i].position - parameters.syncmer.k;
-        syncmers[i].toggle_orientation();
-    }
-
-    // Randstrobes cannot be re-used for the reverse complement:
-    // If in the forward direction, syncmer[i] and syncmer[j] were paired up, it
-    // is not necessarily the case that syncmer[j] is going to be paired with
-    // syncmer[i] in the reverse direction because i is fixed in the forward
-    // direction and j is fixed in the reverse direction.
-    let rc_randstrobe_iter =
-        RandstrobeIterator::new(syncmers.into_iter(), parameters.randstrobe.clone());
-    for randstrobe in rc_randstrobe_iter {
-        randstrobes[1].push(QueryRandstrobe {
-            hash: randstrobe.hash,
-            hash_revcomp: randstrobe.hash_revcomp,
-            start: randstrobe.strobe1_pos,
-            end: randstrobe.strobe2_pos + parameters.syncmer.k,
-        });
+    // Forward and reverse-complement randstrobes. The forward syncmers are
+    // re-used for the reverse complement, because canonical/rymer syncmers are
+    // invariant under reverse complementing; only the coordinates and
+    // orientation need to be adjusted.
+    //
+    // Note that the randstrobes themselves cannot be re-used: if syncmer[i] and
+    // syncmer[j] were paired up in the forward direction, syncmer[j] is not
+    // necessarily paired with syncmer[i] in the reverse direction because i is
+    // fixed in the forward direction and j is fixed in the reverse direction.
+    let sp = &parameters.syncmer;
+    let rp = &parameters.randstrobe;
+    if parameters.adna_mode {
+        let mut syncmers: Vec<_> =
+            RymerSyncmerIterator::with_ry_len(seq, sp.k, sp.s, sp.t, parameters.ry_len).collect();
+        push_query_randstrobes(
+            RymerIterator::new(syncmers.iter().copied(), rp.clone()),
+            sp.k,
+            &mut randstrobes[0],
+        );
+        syncmers.reverse();
+        for syncmer in &mut syncmers {
+            syncmer.position = seq.len() - syncmer.position - sp.k;
+            syncmer.toggle_orientation();
+        }
+        push_query_randstrobes(
+            RymerIterator::new(syncmers.into_iter(), rp.clone()),
+            sp.k,
+            &mut randstrobes[1],
+        );
+    } else {
+        let mut syncmers: Vec<_> = KmerSyncmerIterator::new(seq, sp.k, sp.s, sp.t).collect();
+        push_query_randstrobes(
+            RandstrobeIterator::new(syncmers.iter().copied(), rp.clone()),
+            sp.k,
+            &mut randstrobes[0],
+        );
+        syncmers.reverse();
+        for syncmer in &mut syncmers {
+            syncmer.position = seq.len() - syncmer.position - sp.k;
+            syncmer.toggle_orientation();
+        }
+        push_query_randstrobes(
+            RandstrobeIterator::new(syncmers.into_iter(), rp.clone()),
+            sp.k,
+            &mut randstrobes[1],
+        );
     }
     randstrobes
+}
+
+/// Drain a randstrobe iterator into a query randstrobe vector.
+fn push_query_randstrobes(
+    randstrobes: impl Iterator<Item = Randstrobe>,
+    k: usize,
+    out: &mut Vec<QueryRandstrobe>,
+) {
+    for randstrobe in randstrobes {
+        out.push(QueryRandstrobe {
+            hash: randstrobe.hash,
+            hash_revcomp: randstrobe.hash_revcomp,
+            start: randstrobe.strobe1_pos,
+            end: randstrobe.strobe2_pos + k,
+        });
+    }
 }
