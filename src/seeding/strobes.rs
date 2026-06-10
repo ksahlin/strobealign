@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use super::syncmers::RymerSyncmer;
 use super::{InvalidSeedingParameter, Syncmer};
 use crate::index::{REF_RANDSTROBE_HASH_MASK, STROBE2_OFFSET_BITS};
 
@@ -122,6 +123,26 @@ impl Randstrobe {
             | (is_forward2 << STROBE2_OFFSET_BITS))
             & (REF_RANDSTROBE_HASH_MASK << 1)
     }
+
+    /// Build a randstrobe from a single rymer syncmer (used in aDNA mode). The
+    /// rymer's two hashes act as the main and auxiliary hashes; the strobe2
+    /// orientation bit is unused and only the partial orientation bit carries
+    /// the rymer's orientation.
+    pub fn from_rymers(syncmer: RymerSyncmer, parameters: &RandstrobeParameters) -> Self {
+        let is_forward = syncmer.is_forward() as u64;
+        Randstrobe {
+            hash: Randstrobe::hash(syncmer.hash1, syncmer.hash2, is_forward, 0, parameters),
+            hash_revcomp: Randstrobe::hash(
+                syncmer.hash1,
+                syncmer.hash2,
+                is_forward ^ 1,
+                0,
+                parameters,
+            ),
+            strobe1_pos: syncmer.position,
+            strobe2_pos: syncmer.position,
+        }
+    }
 }
 
 pub struct RandstrobeIterator<I: Iterator<Item = Syncmer>> {
@@ -173,6 +194,31 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
         self.syncmers.pop_front();
 
         Some(Randstrobe::from_strobes(strobe1, strobe2, &self.parameters))
+    }
+}
+
+/// Turns each rymer syncmer directly into a randstrobe (no second strobe is
+/// chosen; the rymer carries both hashes itself).
+pub struct RymerIterator<I: Iterator<Item = RymerSyncmer>> {
+    parameters: RandstrobeParameters,
+    syncmer_iterator: I,
+}
+
+impl<I: Iterator<Item = RymerSyncmer>> RymerIterator<I> {
+    pub fn new(syncmer_iterator: I, parameters: RandstrobeParameters) -> RymerIterator<I> {
+        RymerIterator {
+            parameters,
+            syncmer_iterator,
+        }
+    }
+}
+
+impl<I: Iterator<Item = RymerSyncmer>> Iterator for RymerIterator<I> {
+    type Item = Randstrobe;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let syncmer = self.syncmer_iterator.next()?;
+        Some(Randstrobe::from_rymers(syncmer, &self.parameters))
     }
 }
 

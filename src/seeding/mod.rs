@@ -4,8 +4,11 @@ pub mod strobes;
 pub mod syncmers;
 
 pub use parameters::{InvalidSeedingParameter, Profile, SeedingParameters};
-pub use strobes::{DEFAULT_AUX_LEN, RandstrobeIterator, RandstrobeParameters};
-pub use syncmers::{KmerSyncmerIterator, Syncmer, SyncmerIterator, SyncmerParameters};
+pub use strobes::{DEFAULT_AUX_LEN, RandstrobeIterator, RandstrobeParameters, RymerIterator};
+pub use syncmers::{
+    KmerSyncmerIterator, RymerSyncmer, RymerSyncmerIterator, Syncmer, SyncmerIterator,
+    SyncmerParameters, ry_equal,
+};
 
 #[derive(Debug)]
 pub struct QueryRandstrobe {
