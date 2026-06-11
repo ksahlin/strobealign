@@ -392,8 +392,11 @@ pub fn align_single_end_read(
     {
         let score_dropoff = nam.anchors.len() as f32 / nam_max.anchors.len() as f32;
 
-        if (tries > 1 && best_edit_distance == 0)
-            || score_dropoff < mapping_parameters.dropoff_threshold
+        // Always extend at least the top-2 NAMs so that second_best_score is
+        // meaningful when computing MAPQ score.
+        if tries > 1
+            && (best_edit_distance == 0
+                || score_dropoff < mapping_parameters.dropoff_threshold)
         {
             break;
         }
