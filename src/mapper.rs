@@ -718,30 +718,27 @@ pub fn align_paired_end_read(
             }
 
             // Compute per-read MAPQ.
-            // When a single non-proper pair survives (the a_indv_max fallback used
-            // when the two reads map to different chromosomes), the joint
-            // alignment_quality(len=1) would return 60 even for reads with hundreds
-            // of equally-good alternative NAMs.  Use NAM-based per-read quality
-            // instead, exactly as the Proper fast path already does.
             let mapqs = {
-                let joint = alignment_quality(&alignment_pairs, |ap| ap.score as f32);
-                if alignment_pairs.len() == 1 {
-                    let p = &alignment_pairs[0];
-                    let proper = is_proper_pair_opt(
-                        p.alignment1.as_ref(),
-                        p.alignment2.as_ref(),
+                // When a single non-proper pair survives (the a_indv_max fallback used
+                // when the two reads map to different chromosomes), the joint
+                // alignment_quality would return 60 even for reads with
+                // multiple equally-good alternative chains. Use chain-based quality
+                // instead, exactly as the Proper fast path already does.
+                if alignment_pairs.len() == 1
+                    && is_proper_pair_opt(
+                        alignment_pairs[0].alignment1.as_ref(),
+                        alignment_pairs[0].alignment2.as_ref(),
                         insert_size_distribution.mu,
                         insert_size_distribution.sigma,
-                    ) == PairStatus::Proper;
-                    if !proper {
-                        [
-                            mapping_quality(&nams_pair[0]),
-                            mapping_quality(&nams_pair[1]),
-                        ]
-                    } else {
-                        [joint, joint]
-                    }
+                    ) == PairStatus::NotProper
+                {
+                    [
+                        mapping_quality(&nams_pair[0]),
+                        mapping_quality(&nams_pair[1]),
+                    ]
                 } else {
+                    let joint = alignment_quality(&alignment_pairs, |ap| ap.score as f32);
+
                     [joint, joint]
                 }
             };
