@@ -197,6 +197,10 @@ struct Args {
     #[arg(short, default_value_t = 0.0002, help_heading = "Search parameters")]
     filter_fraction: f64,
 
+    /// Directly override filter_cutoff (bypasses the [30,100] clamp; 0 = use default)
+    #[arg(long, default_value_t = 0, help_heading = "Search parameters")]
+    filter_cutoff: usize,
+
     /// Try candidate sites with mapping score at least S of maximum mapping score
     #[arg(short = 'S', default_value_t = 0.5, help_heading = "Search parameters")]
     dropoff_threshold: f32,
@@ -204,12 +208,6 @@ struct Args {
     /// Maximum number of mapping sites to try
     #[arg(short = 'M', default_value_t = MappingParameters::default().max_tries, help_heading = "Search parameters")]
     max_tries: usize,
-
-    /// Maximum distance (in nucleotides) that filtered seeds may span.
-    /// The lower the value, the more seeds are rescued.
-    /// Use 0 to disable rescue.
-    #[arg(short = 'R', default_value_t = MappingParameters::default().rescue_distance, help_heading = "Search parameters")]
-    rescue_distance: usize,
 
     /// Collinear chaining look back heuristic
     #[arg(short = 'H', default_value_t = ChainingParameters::default().max_lookback, value_name = "N", help_heading = "Collinear chaining")]
@@ -453,7 +451,7 @@ fn run() -> Result<(), CliError> {
         .unwrap_or_else(|| parameters.syncmer.pick_bits(&references));
     info!("Bits used to index buckets: {}", bits);
 
-    let index = if args.use_index {
+    let mut index = if args.use_index {
         // Read the index from a file
         assert!(!args.create_index);
         let read_index_timer = Instant::now();
@@ -490,6 +488,9 @@ fn run() -> Result<(), CliError> {
 
         index
     };
+    if args.filter_cutoff > 0 {
+        index.set_filter_cutoff(args.filter_cutoff);
+    }
     debug!("Filtered cutoff count: {}", index.filter_cutoff());
 
     if args.create_index {
@@ -510,7 +511,6 @@ fn run() -> Result<(), CliError> {
         max_secondary: args.max_secondary,
         max_tries: args.max_tries,
         dropoff_threshold: args.dropoff_threshold,
-        rescue_distance: args.rescue_distance,
         output_unmapped: !args.only_mapped,
         mcs_strategy: args.mcs_strategy,
         use_ssw: args.use_ssw,
@@ -929,7 +929,6 @@ impl Mapper<'_> {
                             &r2,
                             self.index,
                             self.references,
-                            self.mapping_parameters.rescue_distance,
                             &mut isizedist,
                             self.mapping_parameters.mcs_strategy,
                             &self.chainer,
@@ -940,7 +939,6 @@ impl Mapper<'_> {
                             &r1,
                             self.index,
                             self.references,
-                            self.mapping_parameters.rescue_distance,
                             self.mapping_parameters.mcs_strategy,
                             &self.chainer,
                             &mut rng,
@@ -958,7 +956,6 @@ impl Mapper<'_> {
                             &r2,
                             self.index,
                             &mut self.abundances,
-                            self.mapping_parameters.rescue_distance,
                             &mut isizedist,
                             self.mapping_parameters.mcs_strategy,
                             &self.chainer,
@@ -969,7 +966,6 @@ impl Mapper<'_> {
                             &r1,
                             self.index,
                             &mut self.abundances,
-                            self.mapping_parameters.rescue_distance,
                             self.mapping_parameters.mcs_strategy,
                             &self.chainer,
                             &mut rng,

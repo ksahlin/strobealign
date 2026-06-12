@@ -168,7 +168,6 @@ impl Chainer {
         &self,
         query_randstrobes: &[Vec<QueryRandstrobe>; 2],
         index: &StrobemerIndex,
-        rescue_distance: usize,
         mcs_strategy: McsStrategy,
     ) -> (NamDetails, Vec<Nam>) {
         let hits_timer = Instant::now();
@@ -181,7 +180,6 @@ impl Chainer {
                 index,
                 mcs_strategy,
                 index.filter_cutoff(),
-                rescue_distance,
             );
         }
         let mut time_find_hits = hits_timer.elapsed().as_secs_f64();
@@ -202,9 +200,12 @@ impl Chainer {
         let mut n_anchors = 0;
         let mut time_chaining = 0.0;
         let mut chains = vec![];
+        // Allocate once and reuse across both orientations to avoid per-call heap alloc.
+        let mut anchor_diags: Vec<(usize, isize)> = Vec::new();
         for &is_revcomp in &orientations {
             let hits_timer = Instant::now();
             let mut anchors = hits_to_anchors(&hits[is_revcomp], index);
+            add_repetitive_via_sweep(&mut anchors, &hits[is_revcomp], index, &mut anchor_diags);
             time_find_hits += hits_timer.elapsed().as_secs_f64();
             n_anchors += anchors.len();
             let chaining_timer = Instant::now();
@@ -340,6 +341,158 @@ fn add_to_anchors_partial(
             ref_start,
             query_start,
         });
+    }
+}
+
+/// For each filtered (repetitive) hit, add its reference positions that land on
+/// the same diagonal as an existing anchor (within `k` bp tolerance).
+///
+/// This lets repetitive seeds contribute to chaining without the N×R candidate
+/// explosion: only positions co-linear with at least one non-repetitive anchor
+/// are admitted.
+///
+/// # Sort-order note
+/// `RefRandstrobe` is now sorted by `(hash, ref_index, position)`, so within a
+/// hash group entries are grouped by chromosome and then sorted by position.
+/// `anchor_diags` is sorted by `(ref_id, diagonal)`.  Both sequences increase
+/// in the same (ref_id, value) order, enabling a single two-pointer sweep with
+/// no per-ref_id bookkeeping.
+fn add_repetitive_via_sweep(
+    anchors: &mut Vec<Anchor>,
+    hits: &[Hit],
+    index: &StrobemerIndex,
+    anchor_diags: &mut Vec<(usize, isize)>,
+) {
+    if anchors.is_empty() {
+        return;
+    }
+
+    // Select a minimum-cost non-overlapping tiling of filtered hits via
+    // Weighted Interval Scheduling (WIS) where weight = CAP − count + 1.
+    // Two hits may overlap by at most OVERLAP_THRESHOLD bp on the query.
+    // The cap is applied here — hits above it are excluded before WIS,
+    // avoiding a redundant get_count_full_forward call in the sweep loop.
+    //
+    // DP (O(n log n)):
+    //   Sort by query_end.  For each hit i, p[i] = number of hits whose
+    //   query_end ≤ query_start[i] + OVERLAP_THRESHOLD (the compatible
+    //   prefix).  Then:
+    //     dp[i] = max(dp[i−1],  weight[i] + dp[p[i]])
+    //   where dp[0] = 0 and weight[i] = CAP − count[i] + 1 > 0.
+    const CAP: usize = 10_000;
+    let mut candidates: Vec<(&Hit, usize)> = hits
+        .iter()
+        .filter(|h| h.is_filtered && !h.is_partial)
+        .filter_map(|h| {
+            let count = index.entry(h.position).get_count_full_forward();
+            if count <= CAP { Some((h, count)) } else { None }
+        })
+        .collect();
+
+    // Fast path: nothing to do if no eligible filtered hits remain.
+    if candidates.is_empty() {
+        return;
+    }
+    // Sort by query_end for the WIS DP; ties broken by count.
+    candidates.sort_unstable_by_key(|&(h, count)| (h.query_end, count));
+
+    const OVERLAP_THRESHOLD: usize = 10;
+    let n = candidates.len();
+
+    // p[i] = number of hits compatible with (i.e. not overlapping) hit i.
+    let p: Vec<usize> = (0..n)
+        .map(|i| {
+            let cutoff = candidates[i].0.query_start + OVERLAP_THRESHOLD;
+            candidates[..i].partition_point(|&(h, _)| h.query_end <= cutoff)
+        })
+        .collect();
+
+    // weight[i] = CAP - count[i] + 1: positive for all hits (count ≤ CAP),
+    // higher for less-repetitive seeds.  Ensures the DP always selects
+    // at least one hit (empty set has value 0 < any single hit's weight),
+    // while two non-overlapping low-count hits beat one high-count hit
+    // when their combined weight exceeds it.
+    let weight = |i: usize| (CAP + 1 - candidates[i].1.min(CAP)) as isize;
+
+    // dp[i] = maximum total weight over a valid tiling of hits 0..i.
+    let mut dp = vec![0isize; n + 1];
+    for i in 1..=n {
+        dp[i] = dp[i - 1].max(weight(i - 1) + dp[p[i - 1]]);
+    }
+
+    // Traceback to recover selected hits.
+    let mut selected: Vec<&Hit> = Vec::new();
+    let mut i = n;
+    while i > 0 {
+        if weight(i - 1) + dp[p[i - 1]] >= dp[i - 1] {
+            selected.push(candidates[i - 1].0);
+            i = p[i - 1];
+        } else {
+            i -= 1;
+        }
+    }
+
+    // Build (ref_id, diagonal) sorted by (ref_id, diagonal).
+    // diagonal = ref_start - query_start; co-linear hits share the same value.
+    // Reuse the caller-provided buffer to avoid per-call heap allocation.
+    anchor_diags.clear();
+    anchor_diags.extend(
+        anchors
+            .iter()
+            .map(|a| (a.ref_id, a.ref_start as isize - a.query_start as isize)),
+    );
+    anchor_diags.sort_unstable();
+    anchor_diags.dedup();
+
+    let tolerance = index.k() as isize;
+
+    for hit in &selected {
+        let q = hit.query_start as isize;
+        let entry = index.entry(hit.position);
+        let forward_hash = entry.hash();
+
+        // Skip seeds so repetitive that even co-linear filtering would flood the chainer.
+        if entry.get_count_full_forward() > 10_000 {
+            continue;
+        }
+
+        // Single anchor pointer — never goes backwards because:
+        // - index positions are now sorted by (ref_id, ref_start) within a hash group
+        // - anchor_diags is sorted by (ref_id, diagonal)
+        // - both sequences increase in the same (ref_id, value) direction
+        let mut ptr_anc = 0usize;
+
+        for pos in entry.position..index.len() {
+            let entry = index.entry(pos);
+            if entry.hash() != forward_hash {
+                break;
+            }
+            let ref_id = entry.reference_index();
+            let ref_start = entry.position();
+            let diag = ref_start as isize - q;
+            let lo = (ref_id, diag - tolerance);
+            let hi = (ref_id, diag + tolerance);
+
+            // Advance past anchor entries that are before the window.
+            // Tuple comparison handles both ref_id changes and diagonal range.
+            while ptr_anc < anchor_diags.len() && anchor_diags[ptr_anc] < lo {
+                ptr_anc += 1;
+            }
+
+            if ptr_anc < anchor_diags.len() && anchor_diags[ptr_anc] <= hi {
+                let ref_end = ref_start + entry.strobe2_offset() + index.k();
+                anchors.push(Anchor {
+                    ref_id,
+                    ref_start,
+                    query_start: hit.query_start,
+                });
+                anchors.push(Anchor {
+                    ref_id,
+                    ref_start: ref_end - index.k(),
+                    query_start: hit.query_end - index.k(),
+                });
+            }
+        }
     }
 }
 

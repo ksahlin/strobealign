@@ -220,76 +220,24 @@ fn find_all_hits(
     (hits_details, hits)
 }
 
-/// Rescue seeds from filtered regions that have a given minimum length (in
-/// nucleotides)
-///
-/// All stretches of consecutive filtered hits are considered. For any stretch
-/// that is longer than rescue_distance, rescue_least_frequent is called.
-fn rescue_all_least_frequent(
-    index: &StrobemerIndex,
-    hits: &mut [Hit],
-    rescue_distance: usize,
-) -> usize {
-    let mut last_unfiltered_start = 0;
-    let mut first_filtered = 0;
-    let mut intervals = vec![];
-
-    for (i, hit) in hits.iter().enumerate() {
-        if hit.is_filtered {
-            continue;
-        }
-        if hit.query_start > last_unfiltered_start + rescue_distance {
-            let to_rescue = (hit.query_start - last_unfiltered_start) / rescue_distance;
-            intervals.push((first_filtered, i, to_rescue));
-        }
-        last_unfiltered_start = hit.query_start;
-        first_filtered = i + 1;
-    }
-    // Ensure we consider the end as well
-    if let Some(last_hit) = hits.last() {
-        if last_hit.query_start - last_unfiltered_start > rescue_distance {
-            let to_rescue = (last_hit.query_start - last_unfiltered_start) / rescue_distance;
-            intervals.push((first_filtered, hits.len(), to_rescue));
-        }
-    }
-
-    let mut rescued = 0;
-    for (start, end, to_rescue) in intervals {
-        rescued += rescue_least_frequent(index, hits, start, end, to_rescue, None);
-    }
-
-    rescued
-}
-
 /// Find a query’s hits
 pub fn find_hits(
     query_randstrobes: &[QueryRandstrobe],
     index: &StrobemerIndex,
     mcs_strategy: McsStrategy,
     filter_cutoff: usize,
-    rescue_distance: usize,
 ) -> (HitsDetails, Vec<Hit>) {
     let (mut details, mut hits) =
         find_all_hits(query_randstrobes, index, filter_cutoff, mcs_strategy);
 
-    let total_hits = details.total_hits();
     let nonrepetitive_hits = details.total_found();
-    let nonrepetitive_fraction = if total_hits > 0 {
-        nonrepetitive_hits as f32 / total_hits as f32
-    } else {
-        1.0
-    };
 
-    // rescue distance 0 disables both global and local rescue
-    if rescue_distance > 0 {
-        if nonrepetitive_fraction < 0.7 && nonrepetitive_hits < GLOBAL_RESCUE_COUNT {
-            // "global" rescue
-            let n = hits.len();
-            details.rescued +=
-                rescue_least_frequent(index, &mut hits, 0, n, GLOBAL_RESCUE_COUNT, Some(1000));
-        }
-        // "local" rescue
-        details.rescued += rescue_all_least_frequent(index, &mut hits, rescue_distance);
+    // Repetitive seeds will be "rescued" during sweep
+    if nonrepetitive_hits < GLOBAL_RESCUE_COUNT {
+        // "global" rescue
+        let n = hits.len();
+        details.rescued +=
+            rescue_least_frequent(index, &mut hits, 0, n, GLOBAL_RESCUE_COUNT, Some(1000));
     }
 
     if log::log_enabled!(Level::Trace) {
