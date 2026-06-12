@@ -390,7 +390,8 @@ pub fn align_single_end_read(
         .take(mapping_parameters.max_tries)
         .enumerate()
     {
-        let score_dropoff = nam.anchors.len() as f32 / nam_max.anchors.len() as f32;
+        // Use score-based dropoff: NAMs are sorted by score.
+        let score_dropoff = nam.score / nam_max.score;
 
         if (tries > 1 && best_edit_distance == 0)
             || score_dropoff < mapping_parameters.dropoff_threshold
@@ -1000,12 +1001,13 @@ fn rescue_read(
     mu: f32,
     sigma: f32,
 ) -> Vec<ScoredAlignmentPair> {
-    let n_max1_hits = nams1[0].anchors.len();
+    let max_score1 = nams1[0].score;
 
     let mut alignments1 = vec![];
     let mut alignments2 = vec![];
     for nam in nams1.iter_mut().take(max_tries) {
-        let score_dropoff1 = nam.anchors.len() as f32 / n_max1_hits as f32;
+        // Use score-based dropoff for consistency with the sort key (NAMs are sorted by score).
+        let score_dropoff1 = nam.score / max_score1;
         // only consider top hits (as minimap2 does) and break if below dropoff cutoff.
         if score_dropoff1 < dropoff {
             break;
