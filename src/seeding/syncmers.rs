@@ -3,6 +3,41 @@ use std::collections::VecDeque;
 
 use super::InvalidSeedingParameter;
 use super::hash::xxh64;
+use crate::packed_seq::PackedSeq;
+
+/// Trait for types that can serve as a sequence source for `SyncmerIterator`.
+///
+/// `nucleotide_bits` returns the nucleotide as a 2-bit value (0=A, 1=C, 2=G, 3=T,
+/// 4=N/ambiguous). This is what the syncmer hash machinery needs directly,
+/// so implementations should avoid going through ASCII as an intermediate.
+pub trait SeqAccess {
+    fn nucleotide_bits(&self, i: usize) -> u8;
+    fn len(&self) -> usize;
+}
+
+impl SeqAccess for &[u8] {
+    /// ASCII byte → 2-bit (0-3) or 4 for N.
+    fn nucleotide_bits(&self, i: usize) -> u8 {
+        NUCLEOTIDES[self[i] as usize]
+    }
+
+    fn len(&self) -> usize {
+        (**self).len()
+    }
+}
+
+impl SeqAccess for &PackedSeq {
+    /// Direct 2-bit extract - no table lookups, never returns 4.
+    /// `**self` reaches `PackedSeq` so Rust resolves the inherent method,
+    /// not this trait method (no recursion).
+    fn nucleotide_bits(&self, i: usize) -> u8 {
+        (**self).nucleotide_bits(i)
+    }
+
+    fn len(&self) -> usize {
+        (**self).len()
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Syncmer {
@@ -57,8 +92,8 @@ impl SyncmerParameters {
     }
 }
 
-pub struct SyncmerIterator<'a> {
-    seq: &'a [u8],
+pub struct SyncmerIterator<S: SeqAccess> {
+    seq: S,
     k: usize,
     s: usize,
     t: usize,
@@ -75,8 +110,8 @@ pub struct SyncmerIterator<'a> {
     exhausted: bool,
 }
 
-impl<'a> SyncmerIterator<'a> {
-    pub fn new(seq: &'a [u8], k: usize, s: usize, t: usize) -> SyncmerIterator<'a> {
+impl<S: SeqAccess> SyncmerIterator<S> {
+    pub fn new(seq: S, k: usize, s: usize, t: usize) -> SyncmerIterator<S> {
         SyncmerIterator {
             seq,
             k,
@@ -129,7 +164,7 @@ fn syncmer_smer_hash(value: u64) -> u64 {
     xxh64(value)
 }
 
-impl Iterator for SyncmerIterator<'_> {
+impl<S: SeqAccess> Iterator for SyncmerIterator<S> {
     type Item = Syncmer;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -137,8 +172,7 @@ impl Iterator for SyncmerIterator<'_> {
             return None;
         }
         for i in self.i..self.seq.len() {
-            let ch = self.seq[i];
-            let c = NUCLEOTIDES[ch as usize];
+            let c = self.seq.nucleotide_bits(i);
             if c < 4 {
                 // not an "N" base
                 self.xk[0] = ((self.xk[0] << 2) | (c as u64)) & self.kmask; // forward strand
@@ -240,12 +274,13 @@ mod test {
     #[test]
     fn test_canonical_syncmers() {
         let parameters = SyncmerParameters::try_new(20, 16).unwrap();
-        let seq = read_ref("tests/phix.fasta")
+        let seq: Vec<u8> = read_ref("tests/phix.fasta")
             .unwrap()
             .pop()
             .unwrap()
-            .sequence;
-        let sequences = ["AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".into(), seq];
+            .sequence
+            .decode_all();
+        let sequences: [Vec<u8>; 2] = [b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_vec(), seq];
         for s in sequences {
             let seq_revcomp = reverse_complement(&s);
             let syncmers_forward = syncmers_of(&s, &parameters);

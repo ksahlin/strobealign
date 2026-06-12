@@ -4,11 +4,12 @@ use std::path::Path;
 
 use crate::io::record::{End, SequenceRecord};
 use crate::io::{SequenceIOError, split_header};
+use crate::packed_seq::PackedSeq;
 
 #[derive(Debug, Clone)]
 pub struct RefSequence {
     pub name: String,
-    pub sequence: Vec<u8>,
+    pub sequence: PackedSeq,
 }
 
 /// Check whether a name is fine to use in SAM output.
@@ -113,18 +114,48 @@ impl<B: BufRead> Iterator for FastaReader<B> {
 }
 
 pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, SequenceIOError> {
-    let fasta_reader = FastaReader::new(reader);
-    let records = fasta_reader
-        .map(|result| {
-            result.map(|record| RefSequence {
-                name: record.name,
-                sequence: record.sequence,
-            })
-        })
-        .collect::<Result<Vec<RefSequence>, SequenceIOError>>()?;
+    let mut records: Vec<RefSequence> = Vec::new();
+    let mut current_name: Option<String> = None;
+    let mut current_seq = PackedSeq::new();
+    let mut line = String::new();
+
+    loop {
+        line.clear();
+        match reader.read_line(&mut line) {
+            Ok(0) => break,
+            Ok(_) => {
+                if line.starts_with('>') {
+                    if let Some(name) = current_name.take() {
+                        records.push(RefSequence {
+                            name,
+                            sequence: current_seq,
+                        });
+                        current_seq = PackedSeq::new();
+                    }
+                    let (name, _comment) = split_header(&line[1..]);
+                    current_name = Some(name.to_string());
+                } else if current_name.is_some() {
+                    for c in line.trim_ascii_end().bytes() {
+                        current_seq.push(c);
+                    }
+                } else if !line.trim_ascii().is_empty() {
+                    return Err(SequenceIOError::Fasta(
+                        "FASTA file must start with '>'".to_string(),
+                    ));
+                }
+            }
+            Err(e) => return Err(SequenceIOError::IO(e)),
+        }
+    }
+    if let Some(name) = current_name {
+        records.push(RefSequence {
+            name,
+            sequence: current_seq,
+        });
+    }
 
     for record in &records {
-        if !is_valid_name(&record.name.as_bytes()) {
+        if !is_valid_name(record.name.as_bytes()) {
             return Err(SequenceIOError::Name);
         }
     }
@@ -152,7 +183,7 @@ mod tests {
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].name, "NC_001422.1");
         assert_eq!(records[0].sequence.len(), 5386);
-        assert_eq!(&records[0].sequence[..5], b"GAGTT");
+        assert_eq!(records[0].sequence.decode(0, 5), b"GAGTT");
     }
 
     #[test]
@@ -220,13 +251,13 @@ mod tests {
         let records = read_ref(tmp.path()).unwrap();
         assert_eq!(records.len(), 4);
         assert_eq!(records[0].name, "ref1");
-        assert_eq!(records[0].sequence, b"ACGT");
+        assert_eq!(records[0].sequence.decode_all(), b"ACGT");
         assert_eq!(records[1].name, "ref2");
-        assert_eq!(records[1].sequence, b"AACCGGTT");
+        assert_eq!(records[1].sequence.decode_all(), b"AACCGGTT");
         assert_eq!(records[2].name, "empty");
-        assert_eq!(records[2].sequence, b"");
+        assert_eq!(records[2].sequence.decode_all(), b"");
         assert_eq!(records[3].name, "empty_at_end_of_file");
-        assert_eq!(records[3].sequence, b"");
+        assert_eq!(records[3].sequence.decode_all(), b"");
     }
 
     #[test]

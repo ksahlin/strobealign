@@ -542,6 +542,7 @@ mod tests {
 
     use crate::indexer::make_index;
     use crate::io::fasta::{RefSequence, read_ref};
+    use crate::packed_seq::PackedSeq;
     use crate::revcomp::reverse_complement;
 
     #[test]
@@ -586,11 +587,11 @@ mod tests {
     #[test]
     fn test_partial_orientation() {
         let references = read_ref("tests/phix.fasta").unwrap();
-        let seq = &references[0].sequence;
-        let rc_seq = reverse_complement(seq);
+        let seq_decoded = references[0].sequence.decode_all();
+        let rc_seq = reverse_complement(&seq_decoded);
         let rc_references = vec![RefSequence {
             name: "phix_rc".to_string(),
-            sequence: rc_seq,
+            sequence: PackedSeq::from_slice(&rc_seq),
         }];
 
         let parameters = SeedingParameters::new(300);

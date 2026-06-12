@@ -9,7 +9,7 @@ use memchr::memmem;
 
 use crate::aligner::Aligner;
 use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
-use crate::chainer::Chainer;
+use crate::chainer::{Anchor, Chainer};
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
 use crate::index::StrobemerIndex;
@@ -559,13 +559,13 @@ fn extend_seed(
     let mut result_ref_start = 0;
     let mut gapped = true;
     if projected_ref_start + query.len() == projected_ref_end && consistent_nam {
-        let ref_segm_ham = &refseq[projected_ref_start..projected_ref_end];
-        if let Some(hamming_dist) = hamming_distance(query, ref_segm_ham) {
+        let ref_segm_ham = refseq.decode(projected_ref_start, projected_ref_end);
+        if let Some(hamming_dist) = hamming_distance(query, &ref_segm_ham) {
             if (hamming_dist as f32 / query.len() as f32) < 0.05 {
                 // ungapped worked fine, no need to do gapped alignment
                 info = hamming_align(
                     query,
-                    ref_segm_ham,
+                    &ref_segm_ham,
                     aligner.scores.match_,
                     aligner.scores.mismatch,
                     aligner.scores.end_bonus,
@@ -581,13 +581,27 @@ fn extend_seed(
         if use_ssw {
             let ref_start = projected_ref_start.saturating_sub(padding);
             let ref_end = min(projected_ref_end + padding, refseq.len());
-            let segment = &refseq[ref_start..ref_end];
-            info = aligner.align(query, segment)?;
+            let segment = refseq.decode(ref_start, ref_end);
+            info = aligner.align(query, &segment)?;
             result_ref_start = ref_start + info.ref_start;
         } else {
             remove_spurious_anchors(&mut nam.anchors);
-            info = aligner.align_piecewise(query, refseq, &nam.anchors, padding)?;
-            result_ref_start = info.ref_start;
+            // Decode the reference region needed by the piecewise aligner.
+            // Use a generous range so all anchor-relative slices stay in bounds.
+            let decode_start = nam.ref_start.saturating_sub(query.len() + padding);
+            let decode_end = (nam.ref_end + query.len() + padding).min(refseq.len());
+            let decoded_ref = refseq.decode(decode_start, decode_end);
+            let adjusted_anchors: Vec<Anchor> = nam
+                .anchors
+                .iter()
+                .map(|a| Anchor {
+                    ref_id: a.ref_id,
+                    ref_start: a.ref_start - decode_start,
+                    query_start: a.query_start,
+                })
+                .collect();
+            info = aligner.align_piecewise(query, &decoded_ref, &adjusted_anchors, padding)?;
+            result_ref_start = info.ref_start + decode_start;
         }
     }
     Some(Alignment {
@@ -1083,12 +1097,14 @@ fn rescue_align(
         //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return None;
     }
-    let ref_segm = &references[mate_nam.ref_id].sequence[ref_start..ref_end];
+    let ref_segm = references[mate_nam.ref_id]
+        .sequence
+        .decode(ref_start, ref_end);
 
-    if !has_shared_substring(r_tmp, ref_segm, k) {
+    if !has_shared_substring(r_tmp, &ref_segm, k) {
         return None;
     }
-    let info = aligner.align(r_tmp, ref_segm);
+    let info = aligner.align(r_tmp, &ref_segm);
     if let Some(info) = info {
         Some(Alignment {
             reference_id: mate_nam.ref_id,
