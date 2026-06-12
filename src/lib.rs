@@ -1,5 +1,4 @@
 pub mod aligner;
-pub mod packed_seq;
 pub mod chainer;
 pub mod cigar;
 pub mod details;
@@ -13,6 +12,7 @@ pub mod mapper;
 pub mod math;
 pub mod mcsstrategy;
 pub mod nam;
+pub mod packed_seq;
 pub mod partition;
 pub mod piecewisealigner;
 pub mod read;

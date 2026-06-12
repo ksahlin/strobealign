@@ -591,11 +591,15 @@ fn extend_seed(
             let decode_start = nam.ref_start.saturating_sub(query.len() + padding);
             let decode_end = (nam.ref_end + query.len() + padding).min(refseq.len());
             let decoded_ref = refseq.decode(decode_start, decode_end);
-            let adjusted_anchors: Vec<Anchor> = nam.anchors.iter().map(|a| Anchor {
-                ref_id: a.ref_id,
-                ref_start: a.ref_start - decode_start,
-                query_start: a.query_start,
-            }).collect();
+            let adjusted_anchors: Vec<Anchor> = nam
+                .anchors
+                .iter()
+                .map(|a| Anchor {
+                    ref_id: a.ref_id,
+                    ref_start: a.ref_start - decode_start,
+                    query_start: a.query_start,
+                })
+                .collect();
             info = aligner.align_piecewise(query, &decoded_ref, &adjusted_anchors, padding)?;
             result_ref_start = info.ref_start + decode_start;
         }
@@ -1093,7 +1097,9 @@ fn rescue_align(
         //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return None;
     }
-    let ref_segm = references[mate_nam.ref_id].sequence.decode(ref_start, ref_end);
+    let ref_segm = references[mate_nam.ref_id]
+        .sequence
+        .decode(ref_start, ref_end);
 
     if !has_shared_substring(r_tmp, &ref_segm, k) {
         return None;

@@ -126,7 +126,10 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, Sequen
             Ok(_) => {
                 if line.starts_with('>') {
                     if let Some(name) = current_name.take() {
-                        records.push(RefSequence { name, sequence: current_seq });
+                        records.push(RefSequence {
+                            name,
+                            sequence: current_seq,
+                        });
                         current_seq = PackedSeq::new();
                     }
                     let (name, _comment) = split_header(&line[1..]);
@@ -145,7 +148,10 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, Sequen
         }
     }
     if let Some(name) = current_name {
-        records.push(RefSequence { name, sequence: current_seq });
+        records.push(RefSequence {
+            name,
+            sequence: current_seq,
+        });
     }
 
     for record in &records {

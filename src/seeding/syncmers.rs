@@ -7,26 +7,36 @@ use crate::packed_seq::PackedSeq;
 
 /// Trait for types that can serve as a sequence source for `SyncmerIterator`.
 ///
-/// `base_bits` returns the nucleotide as a 2-bit value (0=A, 1=C, 2=G, 3=T,
+/// `nucleotide_bits` returns the nucleotide as a 2-bit value (0=A, 1=C, 2=G, 3=T,
 /// 4=N/ambiguous). This is what the syncmer hash machinery needs directly,
 /// so implementations should avoid going through ASCII as an intermediate.
 pub trait SeqAccess {
-    fn base_bits(&self, i: usize) -> u8;
-    fn seq_len(&self) -> usize;
+    fn nucleotide_bits(&self, i: usize) -> u8;
+    fn len(&self) -> usize;
 }
 
 impl SeqAccess for &[u8] {
     /// ASCII byte → 2-bit (0-3) or 4 for N.
-    fn base_bits(&self, i: usize) -> u8 { NUCLEOTIDES[self[i] as usize] }
-    fn seq_len(&self) -> usize { self.len() }
+    fn nucleotide_bits(&self, i: usize) -> u8 {
+        NUCLEOTIDES[self[i] as usize]
+    }
+
+    fn len(&self) -> usize {
+        (**self).len()
+    }
 }
 
 impl SeqAccess for &PackedSeq {
-    /// Direct 2-bit extract — no table lookups, never returns 4.
+    /// Direct 2-bit extract - no table lookups, never returns 4.
     /// `**self` reaches `PackedSeq` so Rust resolves the inherent method,
     /// not this trait method (no recursion).
-    fn base_bits(&self, i: usize) -> u8 { (**self).base_bits(i) }
-    fn seq_len(&self) -> usize { (**self).len() }
+    fn nucleotide_bits(&self, i: usize) -> u8 {
+        (**self).nucleotide_bits(i)
+    }
+
+    fn len(&self) -> usize {
+        (**self).len()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -91,7 +101,7 @@ pub struct SyncmerIterator<S: SeqAccess> {
     smask: u64,
     kshift: usize,
     sshift: usize,
-    qs: VecDeque<u64>,
+    qs: VecDeque<u64>, // s-mer hashes
     qs_min_val: u64,
     l: usize,
     xk: [u64; 2],
@@ -161,8 +171,8 @@ impl<S: SeqAccess> Iterator for SyncmerIterator<S> {
         if self.exhausted {
             return None;
         }
-        for i in self.i..self.seq.seq_len() {
-            let c = self.seq.base_bits(i);
+        for i in self.i..self.seq.len() {
+            let c = self.seq.nucleotide_bits(i);
             if c < 4 {
                 // not an "N" base
                 self.xk[0] = ((self.xk[0] << 2) | (c as u64)) & self.kmask; // forward strand

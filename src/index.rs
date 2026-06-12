@@ -542,6 +542,7 @@ mod tests {
 
     use crate::indexer::make_index;
     use crate::io::fasta::{RefSequence, read_ref};
+    use crate::packed_seq::PackedSeq;
     use crate::revcomp::reverse_complement;
 
     #[test]
@@ -590,7 +591,7 @@ mod tests {
         let rc_seq = reverse_complement(&seq_decoded);
         let rc_references = vec![RefSequence {
             name: "phix_rc".to_string(),
-            sequence: crate::packed_seq::PackedSeq::from_slice(&rc_seq),
+            sequence: PackedSeq::from_slice(&rc_seq),
         }];
 
         let parameters = SeedingParameters::new(300);
