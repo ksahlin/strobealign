@@ -1433,10 +1433,10 @@ where
 /// compute dropoff of the first (top) NAM
 fn top_dropoff(nams: &[Nam]) -> f32 {
     let n_max = &nams[0];
-    if n_max.anchors.len() <= 2 {
+    if n_max.score <= 0.0 {
         1.0
     } else if nams.len() > 1 {
-        nams[1].anchors.len() as f32 / n_max.anchors.len() as f32
+        nams[1].score / n_max.score
     } else {
         0.0
     }
