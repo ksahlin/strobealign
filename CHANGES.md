@@ -19,6 +19,8 @@
   select it. This is equivalent to `-k 16 -s 12 -l 2 -u 2 -m 100`.
   We found these settings to increase accuracy on error-prone reads at the cost
   of runtime.
+* #596: Fix not properly paired reads getting MAPQ 60 even if there were
+  alternative equally good mapping locations.
 
 ## v0.17.0 (2025-12-18)
 
