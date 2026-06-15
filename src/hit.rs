@@ -11,6 +11,10 @@ use crate::seeding::QueryRandstrobe;
 /// Number of hits to rescue globally if we have too few nonrepetitive hits
 const GLOBAL_RESCUE_COUNT: usize = 5;
 
+/// Hits with a count above this are always ignored (and never rescued)
+const LOCAL_RESCUE_THRESHOLD: usize = 10000;
+const GLOBAL_RESCUE_THRESHOLD: usize = 1000;
+
 #[derive(Debug)]
 pub struct Hit {
     pub query_start: usize,
@@ -80,8 +84,7 @@ impl HitsDetails {
 /// Finds least frequent hits in a portion of the hits vector and set their
 /// 'is_filtered' attribute to false (thus "rescuing" them).
 ///
-/// If `threshold` is set to a nonzero value, hits with a larger count are
-/// ignored.
+/// Hits with a count larger than `rescue_threshold` are never rescued.
 ///
 /// Returns the number of hits that were rescued.
 fn rescue_least_frequent(
@@ -90,7 +93,7 @@ fn rescue_least_frequent(
     start: usize,
     end: usize,
     to_rescue: usize,
-    rescue_threshold: Option<usize>,
+    rescue_threshold: usize,
 ) -> usize {
     let mut rescued = 0;
 
@@ -103,7 +106,7 @@ fn rescue_least_frequent(
         } else {
             entry.get_count_full(hits[i].hash_revcomp)
         };
-        if rescue_threshold.is_none() || cnt <= rescue_threshold.unwrap() {
+        if cnt <= rescue_threshold {
             hit_counts.push((i, cnt));
         }
     }
@@ -255,7 +258,8 @@ fn rescue_all_least_frequent(
 
     let mut rescued = 0;
     for (start, end, to_rescue) in intervals {
-        rescued += rescue_least_frequent(index, hits, start, end, to_rescue, None);
+        rescued +=
+            rescue_least_frequent(index, hits, start, end, to_rescue, LOCAL_RESCUE_THRESHOLD);
     }
 
     rescued
@@ -285,8 +289,14 @@ pub fn find_hits(
         if nonrepetitive_fraction < 0.7 && nonrepetitive_hits < GLOBAL_RESCUE_COUNT {
             // "global" rescue
             let n = hits.len();
-            details.rescued +=
-                rescue_least_frequent(index, &mut hits, 0, n, GLOBAL_RESCUE_COUNT, Some(1000));
+            details.rescued += rescue_least_frequent(
+                index,
+                &mut hits,
+                0,
+                n,
+                GLOBAL_RESCUE_COUNT,
+                GLOBAL_RESCUE_THRESHOLD,
+            );
         }
         // "local" rescue
         details.rescued += rescue_all_least_frequent(index, &mut hits, rescue_distance);
