@@ -56,7 +56,6 @@ impl Default for MappingParameters {
 
 #[derive(Debug, Clone)]
 struct Alignment {
-    reference_id: usize,
     ref_start: usize,
     cigar: Cigar,
     edit_distance: usize,
@@ -173,7 +172,9 @@ impl SamOutput {
         cigar.push(CigarOperation::Softclip, alignment.soft_clip_left);
         cigar.extend(&alignment.cigar);
         cigar.push(CigarOperation::Softclip, alignment.soft_clip_right);
-        let reference_name = Some(refseq.names[alignment.reference_id].clone());
+        let (reference_id, reference_start) = refseq.unflatten(alignment.ref_start);
+        let reference_name = Some(refseq.names[reference_id].clone());
+        let pos = Some(reference_start); // TODO
         let details = if self.details { Some(details) } else { None };
         let cigar = if self.cigar_eqx {
             Some(cigar)
@@ -189,7 +190,7 @@ impl SamOutput {
             query_name: record.name.clone(),
             flags,
             reference_name,
-            pos: Some(alignment.ref_start as u32),
+            pos,
             mapq,
             cigar,
             query_sequence: Some(query_sequence),
@@ -286,15 +287,22 @@ impl SamOutput {
                 if mate.is_revcomp {
                     sam_records[i].flags |= MREVERSE;
                 }
+
+                // TODO This second lookup could be avoided because the two
+                // SamRecords contain the unflattened coordinates
+                let (mate_reference_id, mate_ref_start) = refseq.unflatten(mate.ref_start);
+
                 // PNEXT (position of mate)
-                sam_records[i].mate_pos = Some(mate.ref_start as u32);
+                sam_records[i].mate_pos = Some(mate_ref_start);
 
                 // RNEXT (reference name of mate)
-                sam_records[i].mate_reference_name = Some(refseq.names[mate.reference_id].clone());
+                sam_records[i].mate_reference_name = Some(refseq.names[mate_reference_id].clone());
                 if let Some(this) = alignments[i] {
                     // both aligned
 
-                    if this.reference_id == mate.reference_id {
+                    // TODO see comment above: this lookup could be avoided
+                    let this_reference_id = refseq.unflatten(this.ref_start).0;
+                    if this_reference_id == mate_reference_id {
                         // aligned to same reference
                         sam_records[i].mate_reference_name = Some("=".to_string());
 
@@ -315,8 +323,8 @@ impl SamOutput {
                     // mate-pair read whose mate is mapped, the unmapped read should have
                     // RNAME and POS identical to its mate."
                     sam_records[i].mate_reference_name = Some("=".to_string());
-                    sam_records[i].reference_name = Some(refseq.names[mate.reference_id].clone());
-                    sam_records[i].pos = Some(mate.ref_start as u32);
+                    sam_records[i].reference_name = Some(refseq.names[mate_reference_id].clone());
+                    sam_records[i].pos = Some(mate_ref_start);
                 }
             } else {
                 // mate unmapped
@@ -325,7 +333,8 @@ impl SamOutput {
                 // Set RNAME and POS identical to mate
                 if let Some(this) = alignments[i] {
                     sam_records[i].mate_reference_name = Some("=".to_string());
-                    sam_records[i].mate_pos = Some(this.ref_start as u32);
+                    let this_reference_start = refseq.unflatten(this.ref_start).1;
+                    sam_records[i].mate_pos = Some(this_reference_start);
                 }
             }
         }
@@ -540,7 +549,7 @@ fn extend_seed(
     } else {
         read.seq()
     };
-    let seq = &refseq.contig(nam.ref_id);
+    let seq = &refseq.sequence();
 
     let projected_ref_start = nam.ref_start.saturating_sub(nam.query_start);
     let projected_ref_end = min(nam.ref_end + query.len() - nam.query_end, seq.len());
@@ -594,7 +603,6 @@ fn extend_seed(
                 .anchors
                 .iter()
                 .map(|a| Anchor {
-                    ref_id: a.ref_id,
                     ref_start: a.ref_start - decode_start,
                     query_start: a.query_start,
                 })
@@ -612,7 +620,6 @@ fn extend_seed(
         ref_start: result_ref_start,
         length: info.ref_span(),
         is_revcomp: nam.is_revcomp,
-        reference_id: nam.ref_id,
         gapped,
     })
 }
@@ -1114,7 +1121,7 @@ fn rescue_align(
         )
     };
 
-    let ref_len = refseq.contig_len(mate_nam.ref_id);
+    let ref_len = refseq.total_length();
     let ref_start = ref_start.min(ref_len);
     let ref_end = ref_end.min(ref_len);
 
@@ -1122,7 +1129,7 @@ fn rescue_align(
         //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return None;
     }
-    let ref_segm = refseq.contig(mate_nam.ref_id).decode(ref_start, ref_end);
+    let ref_segm = refseq.decode(ref_start, ref_end);
 
     if !has_shared_substring(r_tmp, &ref_segm, k) {
         return None;
@@ -1130,7 +1137,6 @@ fn rescue_align(
     let info = aligner.align(r_tmp, &ref_segm);
     if let Some(info) = info {
         Some(Alignment {
-            reference_id: mate_nam.ref_id,
             ref_start: ref_start + info.ref_start,
             edit_distance: info.edit_distance,
             soft_clip_left: info.query_start,
@@ -1179,7 +1185,7 @@ fn is_proper_pair_opt(
 /// on the same reference, in opposite orientations, within the expected insert size.
 fn is_proper_pair(a1: &Alignment, a2: &Alignment, mu: f32, sigma: f32) -> PairStatus {
     let dist = a2.ref_start as isize - a1.ref_start as isize;
-    let same_reference = a1.reference_id == a2.reference_id;
+    let same_reference = true; // TODO a1.reference_id == a2.reference_id;
     let r1_r2 = !a1.is_revcomp && a2.is_revcomp && dist >= 0; // r1 ---> <---- r2
     let r2_r1 = !a2.is_revcomp && a1.is_revcomp && dist <= 0; // r2 ---> <---- r1
     let rel_orientation_good = r1_r2 || r2_r1;
@@ -1193,7 +1199,7 @@ fn is_proper_pair(a1: &Alignment, a2: &Alignment, mu: f32, sigma: f32) -> PairSt
 }
 
 pub fn is_proper_nam_pair(nam1: &Nam, nam2: &Nam, mu: f32, sigma: f32) -> bool {
-    if nam1.ref_id != nam2.ref_id || nam1.is_revcomp == nam2.is_revcomp {
+    if nam1.is_revcomp == nam2.is_revcomp {
         return false;
     }
     let r1_ref_start = nam1.projected_ref_start();
@@ -1332,9 +1338,7 @@ fn deduplicate_scored_pairs(pairs: &mut Vec<ScoredAlignmentPair>) {
             (None, Some(_)) => false,
             (Some(_), None) => false,
             (None, None) => true,
-            (Some(a1), Some(a2)) => {
-                a1.ref_start == a2.ref_start && a1.reference_id == a2.reference_id
-            }
+            (Some(a1), Some(a2)) => a1.ref_start == a2.ref_start,
         }
     }
     let mut k = 0;
@@ -1468,14 +1472,8 @@ mod tests {
     use super::*;
     use crate::cigar::Cigar;
 
-    pub fn make_alignment(
-        reference_id: usize,
-        ref_start: usize,
-        score: u32,
-        is_revcomp: bool,
-    ) -> Alignment {
+    pub fn make_alignment(ref_start: usize, score: u32, is_revcomp: bool) -> Alignment {
         Alignment {
-            reference_id,
             ref_start,
             score,
             is_revcomp,
@@ -1490,7 +1488,6 @@ mod tests {
 
     fn dummy_alignment() -> Alignment {
         Alignment {
-            reference_id: 0,
             ref_start: 0,
             cigar: Cigar::default(),
             edit_distance: 0,
@@ -1531,12 +1528,10 @@ mod tests {
     #[test]
     fn deduplicate_scored_pairs_works() {
         let a1 = Some(Alignment {
-            reference_id: 0,
             ref_start: 1906,
             ..dummy_alignment()
         });
         let a2 = Some(Alignment {
-            reference_id: 0,
             ref_start: 123,
             ..dummy_alignment()
         });
@@ -1589,8 +1584,8 @@ mod tests {
     fn is_proper_pair_within_distance() {
         let mu = 300.0_f32;
         let sigma = 50.0_f32;
-        let a1 = make_alignment(0, 100, 40, false);
-        let a2 = make_alignment(0, 350, 40, true);
+        let a1 = make_alignment(100, 40, false);
+        let a2 = make_alignment(350, 40, true);
         assert_eq!(is_proper_pair(&a1, &a2, mu, sigma), PairStatus::Proper);
     }
 
@@ -1598,8 +1593,8 @@ mod tests {
     fn is_proper_pair_rev_within_distance() {
         let mu = 300.0_f32;
         let sigma = 50.0_f32;
-        let a1 = make_alignment(0, 350, 40, true);
-        let a2 = make_alignment(0, 100, 40, false);
+        let a1 = make_alignment(350, 40, true);
+        let a2 = make_alignment(100, 40, false);
         assert_eq!(is_proper_pair(&a1, &a2, mu, sigma), PairStatus::Proper);
     }
 
@@ -1607,8 +1602,8 @@ mod tests {
     fn is_proper_pair_incompatible() {
         let mu = 300.0_f32;
         let sigma = 50.0_f32;
-        let a1 = make_alignment(0, 100, 40, false);
-        let a2 = make_alignment(0, 350, 40, false);
+        let a1 = make_alignment(100, 40, false);
+        let a2 = make_alignment(350, 40, false);
         assert_eq!(is_proper_pair(&a1, &a2, mu, sigma), PairStatus::NotProper);
     }
 
@@ -1616,8 +1611,8 @@ mod tests {
     fn is_proper_pair_too_far() {
         let mu = 300.0_f32;
         let sigma = 50.0_f32;
-        let a1 = make_alignment(0, 100, 40, false);
-        let a2 = make_alignment(0, 10_000, 40, true);
+        let a1 = make_alignment(100, 40, false);
+        let a2 = make_alignment(10_000, 40, true);
         assert_eq!(is_proper_pair(&a1, &a2, mu, sigma), PairStatus::NotProper);
     }
 }

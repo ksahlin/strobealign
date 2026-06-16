@@ -38,14 +38,16 @@ pub fn map_single_end_read(
     } else {
         let mapq = mapping_quality(&nams);
         (
-            vec![paf_record_from_nam(
+            paf_record_from_nam(
                 &nams[0],
                 &record.name,
                 refseq,
                 record.sequence.len(),
                 Some(mapq),
                 End::None,
-            )],
+            )
+            .into_iter()
+            .collect::<Vec<_>>(),
             nam_details.into(),
         )
     }
@@ -56,6 +58,7 @@ pub fn map_single_end_read(
 /// This implements abundance estimation mode (`--aemb`)
 pub fn abundances_single_end_read(
     record: &SequenceRecord,
+    refseq: &RefSequence,
     index: &StrobemerIndex,
     abundances: &mut [f64],
     rescue_distance: usize,
@@ -78,7 +81,8 @@ pub fn abundances_single_end_read(
         .count();
     let weight = record.sequence.len() as f64 / n_best as f64;
     for nam in &nams[0..n_best] {
-        abundances[nam.ref_id] += weight;
+        let reference_id = refseq.unflatten(nam.ref_start).0;
+        abundances[reference_id] += weight;
     }
 }
 
@@ -90,22 +94,28 @@ fn paf_record_from_nam(
     query_length: usize,
     mapq: Option<u8>,
     end: End,
-) -> PafRecord {
-    PafRecord {
+) -> Option<PafRecord> {
+    let (reference_id, target_start) = refseq.unflatten(nam.ref_start);
+    let (end_reference_id, target_end) = refseq.unflatten(nam.ref_end);
+    if reference_id != end_reference_id {
+        return None;
+    }
+
+    Some(PafRecord {
         query_name: name.into(),
         end,
         query_length: query_length as u64,
         query_start: nam.query_start as u64,
         query_end: nam.query_end as u64,
         is_revcomp: nam.is_revcomp,
-        target_name: refseq.names[nam.ref_id].clone(),
-        target_length: refseq.contig_len(nam.ref_id) as u64,
-        target_start: nam.ref_start as u64,
-        target_end: nam.ref_end as u64,
+        target_name: refseq.names[reference_id].clone(),
+        target_length: refseq.contig(reference_id).len() as u64,
+        target_start,
+        target_end,
         matching_bases: nam.matching_bases as u64,
         alignment_length: (nam.ref_end - nam.ref_start) as u64,
         mapping_quality: mapq,
-    }
+    })
 }
 
 /// Map a paired-end read pair to the reference and return PAF records
@@ -148,7 +158,7 @@ pub fn map_paired_end_read(
     match get_best_paired_mapping_location(&nam_pairs, &nams1, &nams2, insert_size_distribution) {
         MappedNams::Individual(best1, best2) => {
             if let Some(nam1) = best1 {
-                records.push(paf_record_from_nam(
+                records.extend(paf_record_from_nam(
                     nam1,
                     &r1.name,
                     refseq,
@@ -158,7 +168,7 @@ pub fn map_paired_end_read(
                 ));
             }
             if let Some(nam2) = best2 {
-                records.push(paf_record_from_nam(
+                records.extend(paf_record_from_nam(
                     nam2,
                     &r2.name,
                     refseq,
@@ -169,7 +179,7 @@ pub fn map_paired_end_read(
             }
         }
         MappedNams::Pair(nam1, nam2, _) => {
-            records.push(paf_record_from_nam(
+            records.extend(paf_record_from_nam(
                 nam1,
                 &r1.name,
                 refseq,
@@ -177,7 +187,7 @@ pub fn map_paired_end_read(
                 None,
                 End::One,
             ));
-            records.push(paf_record_from_nam(
+            records.extend(paf_record_from_nam(
                 nam2,
                 &r2.name,
                 refseq,
@@ -189,6 +199,7 @@ pub fn map_paired_end_read(
     }
 
     nam_details1 += nam_details2;
+
     (records, nam_details1.into())
 }
 
@@ -199,6 +210,7 @@ pub fn abundances_paired_end_read(
     r1: &SequenceRecord,
     r2: &SequenceRecord,
     index: &StrobemerIndex,
+    refseq: &RefSequence,
     abundances: &mut [f64],
     rescue_distance: usize,
     insert_size_distribution: &mut InsertSizeDistribution,
@@ -236,7 +248,8 @@ pub fn abundances_paired_end_read(
                     .count();
                 let weight = read_len as f64 / n_best as f64;
                 for nam in &nams[0..n_best] {
-                    abundances[nam.ref_id] += weight;
+                    let reference_id = refseq.unflatten(nam.ref_start).0;
+                    abundances[reference_id] += weight;
                 }
             }
         }
@@ -253,8 +266,8 @@ pub fn abundances_paired_end_read(
                 score: _,
             } in &nam_pairs[..n_best]
             {
-                abundances[nam1.ref_id] += weight_r1;
-                abundances[nam2.ref_id] += weight_r2;
+                abundances[refseq.unflatten(nam1.ref_start).0] += weight_r1;
+                abundances[refseq.unflatten(nam2.ref_start).0] += weight_r2;
             }
         }
     }
@@ -330,13 +343,13 @@ fn get_nam_pairs(
         split_nams_by_orientation_checked(nams2, details2.both_orientations);
 
     if !fwd1.is_empty() && !rev2.is_empty() {
-        fwd1.sort_unstable_by_key(|nam| (nam.ref_id, nam.projected_ref_start()));
-        rev2.sort_unstable_by_key(|nam| (nam.ref_id, nam.projected_ref_start()));
+        fwd1.sort_unstable_by_key(|nam| nam.projected_ref_start());
+        rev2.sort_unstable_by_key(|nam| nam.projected_ref_start());
         nam_pairs.extend(find_pairs(fwd1, rev2, mu, sigma, false));
     }
     if !fwd2.is_empty() && !rev1.is_empty() {
-        fwd2.sort_unstable_by_key(|nam| (nam.ref_id, nam.projected_ref_start()));
-        rev1.sort_unstable_by_key(|nam| (nam.ref_id, nam.projected_ref_start()));
+        fwd2.sort_unstable_by_key(|nam| nam.projected_ref_start());
+        rev1.sort_unstable_by_key(|nam| nam.projected_ref_start());
         nam_pairs.extend(find_pairs(fwd2, rev1, mu, sigma, true));
     }
 
@@ -376,7 +389,7 @@ fn split_nams_by_orientation(nams: &mut [Nam]) -> (&mut [Nam], &mut [Nam]) {
 }
 
 /// Find most forward/revcomp pairs using a two-pointer scan.
-/// Assumes both slices are sorted by (ref_id, projected_ref_start).
+/// Assumes both slices are sorted by projected_ref_start.
 fn find_pairs(fwd: &[Nam], rev: &[Nam], mu: f32, sigma: f32, swap_order: bool) -> Vec<NamPair> {
     let mut out = Vec::new();
     let max_dist = (mu + 10.0 * sigma).ceil() as usize; // distance cutoff from insert size distribution
@@ -385,25 +398,28 @@ fn find_pairs(fwd: &[Nam], rev: &[Nam], mu: f32, sigma: f32, swap_order: bool) -
 
     for f in fwd {
         // Advance revcomp pointer to the first possible candidate
-        while rev_ptr < rev.len()
-            && (rev[rev_ptr].ref_id < f.ref_id
-                || rev[rev_ptr].ref_id == f.ref_id
-                    && rev[rev_ptr].projected_ref_start() < f.projected_ref_start())
-        {
+        // TODO this used to be:
+        //     while rev_ptr < rev.len()
+        // && (rev[rev_ptr].ref_id < f.ref_id
+        //     || rev[rev_ptr].ref_id == f.ref_id
+        //         && rev[rev_ptr].projected_ref_start() < f.projected_ref_start())
+
+        while rev_ptr < rev.len() && rev[rev_ptr].projected_ref_start() < f.projected_ref_start() {
             rev_ptr += 1;
         }
         if rev_ptr == rev.len() {
             break;
         }
-        if rev[rev_ptr].ref_id > f.ref_id {
-            continue;
-        }
+        // TODO this used to be uncommented:
+        // if rev[rev_ptr].ref_id > f.ref_id {
+        //     continue;
+        // }
 
         // Scan window of revcomp nams within distance limit.
         let mut best = None;
         let mut i = rev_ptr;
         while i < rev.len()
-            && rev[i].ref_id == f.ref_id
+            // && rev[i].ref_id == f.ref_id  TODO
             && (rev[i].projected_ref_start() - f.projected_ref_start()) <= max_dist
         {
             let r = &rev[i];

@@ -179,12 +179,12 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
 #[cfg(test)]
 mod test {
     use super::*;
+
     use crate::io::fasta::read_ref;
     use crate::packed_seq::PackedSeq;
-    use crate::seeding::SeedingParameters;
-    use crate::seeding::SyncmerIterator;
+    use crate::seeding::{SeedingParameters, SyncmerIterator};
 
-    fn read_phix() -> PackedSeq {
+    fn read_phix<'a>() -> PackedSeq {
         read_ref("tests/phix.fasta").unwrap().contig(0).to_owned()
     }
 

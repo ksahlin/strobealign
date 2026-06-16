@@ -1,5 +1,5 @@
 use crate::index::{BucketIndex, RandstrobeHash, RefRandstrobe, StrobemerIndex};
-use crate::packed_seq::PackedSeq;
+use crate::packed_seq::PackedSeqSlice;
 use crate::refseq::RefSequence;
 use crate::seeding::{RandstrobeIterator, SeedingParameters, SyncmerIterator, SyncmerParameters};
 
@@ -195,7 +195,13 @@ fn make_randstrobes_parallel(
                     if j >= refseq.names.len() {
                         break;
                     }
-                    assign_randstrobes(refseq, parameters, j, *slices[j].lock().unwrap());
+                    let start = refseq.contig_start(j);
+                    assign_randstrobes(
+                        &refseq.contig(j),
+                        parameters,
+                        start,
+                        *slices[j].lock().unwrap(),
+                    );
                 }
             });
         }
@@ -206,12 +212,11 @@ fn make_randstrobes_parallel(
 
 /// Compute randstrobes of one reference contig and assign them to the provided slice
 fn assign_randstrobes(
-    refseq: &RefSequence,
+    seq: &PackedSeqSlice,
     parameters: &SeedingParameters,
-    ref_index: usize,
+    start: usize,
     randstrobes: &mut [RefRandstrobe],
 ) {
-    let seq = refseq.contig(ref_index);
     if seq.len() < parameters.randstrobe.w_max {
         return;
     }
@@ -228,12 +233,8 @@ fn assign_randstrobes(
     for (i, randstrobe) in randstrobe_iter.enumerate() {
         n += 1;
         let offset = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
-        randstrobes[i] = RefRandstrobe::new(
-            randstrobe.hash,
-            ref_index as u32,
-            randstrobe.strobe1_pos as u32,
-            offset as u8,
-        );
+        let strobe1_start = randstrobe.strobe1_pos + start;
+        randstrobes[i] = RefRandstrobe::new(randstrobe.hash, strobe1_start, offset as u8);
     }
     debug_assert_eq!(n, randstrobes.len());
 }
@@ -254,7 +255,7 @@ fn count_all_randstrobes(
                     if j >= refseq.names.len() {
                         break;
                     }
-                    let count = count_randstrobes(refseq.contig(j), parameters);
+                    let count = count_randstrobes(&refseq.contig(j), parameters);
                     mutex.lock().unwrap()[j] = count;
                 }
             });
@@ -265,7 +266,7 @@ fn count_all_randstrobes(
 }
 
 /// Count randstrobes by counting syncmers (operates directly on PackedSeq)
-fn count_randstrobes(seq: &PackedSeq, parameters: &SeedingParameters) -> usize {
+fn count_randstrobes(seq: &PackedSeqSlice, parameters: &SeedingParameters) -> usize {
     SyncmerIterator::new(
         seq,
         parameters.syncmer.k,
@@ -368,8 +369,7 @@ mod test {
 
     #[test]
     fn index_empty_reference() {
-        let mut refseq = RefSequence::new();
-        refseq.push("name".to_string(), PackedSeq::new());
+        let refseq = RefSequence::new(PackedSeq::new(), vec![0], vec!["name".to_string()]);
         let parameters = SeedingParameters::new(150);
         let bits = parameters.syncmer.pick_bits(&refseq);
         let (_index2, stats) = make_index(&refseq, parameters, bits, 0.1, 1);
