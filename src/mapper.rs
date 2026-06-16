@@ -115,7 +115,7 @@ impl SamOutput {
     fn make_record(
         &self,
         alignment: Option<&Alignment>,
-        references: &[RefSequence],
+        refseq: &RefSequence,
         record: &SequenceRecord,
         mapq: u8,
         alignment_status: AlignmentStatus,
@@ -124,7 +124,7 @@ impl SamOutput {
         match alignment {
             Some(alignment) => self.make_mapped_record(
                 alignment,
-                references,
+                refseq,
                 record,
                 mapq,
                 alignment_status,
@@ -138,7 +138,7 @@ impl SamOutput {
     fn make_mapped_record(
         &self,
         alignment: &Alignment,
-        references: &[RefSequence],
+        refseq: &RefSequence,
         record: &SequenceRecord,
         mut mapq: u8,
         alignment_status: AlignmentStatus,
@@ -173,7 +173,7 @@ impl SamOutput {
         cigar.push(CigarOperation::Softclip, alignment.soft_clip_left);
         cigar.extend(&alignment.cigar);
         cigar.push(CigarOperation::Softclip, alignment.soft_clip_right);
-        let reference_name = Some(references[alignment.reference_id].name.clone());
+        let reference_name = Some(refseq.names[alignment.reference_id].clone());
         let details = if self.details { Some(details) } else { None };
         let cigar = if self.cigar_eqx {
             Some(cigar)
@@ -245,7 +245,7 @@ impl SamOutput {
     fn make_paired_records(
         &self,
         alignments: [Option<&Alignment>; 2],
-        references: &[RefSequence],
+        refseq: &RefSequence,
         records: [&SequenceRecord; 2],
         mapq: [u8; 2],
         details: &[Details; 2],
@@ -257,7 +257,7 @@ impl SamOutput {
         let mut sam_records = vec![
             self.make_record(
                 alignments[0],
-                references,
+                refseq,
                 records[0],
                 mapq[0],
                 alignment_status,
@@ -265,7 +265,7 @@ impl SamOutput {
             ),
             self.make_record(
                 alignments[1],
-                references,
+                refseq,
                 records[1],
                 mapq[1],
                 alignment_status,
@@ -290,8 +290,7 @@ impl SamOutput {
                 sam_records[i].mate_pos = Some(mate.ref_start as u32);
 
                 // RNEXT (reference name of mate)
-                sam_records[i].mate_reference_name =
-                    Some(references[mate.reference_id].name.clone());
+                sam_records[i].mate_reference_name = Some(refseq.names[mate.reference_id].clone());
                 if let Some(this) = alignments[i] {
                     // both aligned
 
@@ -316,8 +315,7 @@ impl SamOutput {
                     // mate-pair read whose mate is mapped, the unmapped read should have
                     // RNAME and POS identical to its mate."
                     sam_records[i].mate_reference_name = Some("=".to_string());
-                    sam_records[i].reference_name =
-                        Some(references[mate.reference_id].name.clone());
+                    sam_records[i].reference_name = Some(refseq.names[mate.reference_id].clone());
                     sam_records[i].pos = Some(mate.ref_start as u32);
                 }
             } else {
@@ -349,7 +347,7 @@ impl SamOutput {
 pub fn align_single_end_read(
     record: &SequenceRecord,
     index: &StrobemerIndex,
-    references: &[RefSequence],
+    refseq: &RefSequence,
     mapping_parameters: &MappingParameters,
     sam_output: &SamOutput,
     chainer: &Chainer,
@@ -398,7 +396,7 @@ pub fn align_single_end_read(
         {
             break;
         }
-        let consistent_nam = nam.is_consistent(&read, references, k);
+        let consistent_nam = nam.is_consistent(&read, refseq, k);
         if !consistent_nam {
             details.inconsistent_nams += 1;
             continue;
@@ -406,7 +404,7 @@ pub fn align_single_end_read(
         let Some(alignment) = extend_seed(
             aligner,
             nam,
-            references,
+            refseq,
             &read,
             consistent_nam,
             mapping_parameters.use_ssw,
@@ -488,7 +486,7 @@ pub fn align_single_end_read(
     let best_alignment = best_alignment.unwrap();
     sam_records.push(sam_output.make_mapped_record(
         &best_alignment,
-        references,
+        refseq,
         record,
         mapq,
         AlignmentStatus::Primary,
@@ -514,7 +512,7 @@ pub fn align_single_end_read(
             // TODO .clone()
             sam_records.push(sam_output.make_mapped_record(
                 alignment,
-                references,
+                refseq,
                 record,
                 mapq,
                 AlignmentStatus::Secondary,
@@ -532,7 +530,7 @@ pub fn align_single_end_read(
 fn extend_seed(
     aligner: &Aligner,
     nam: &mut Nam,
-    references: &[RefSequence],
+    refseq: &RefSequence,
     read: &Read,
     consistent_nam: bool,
     use_ssw: bool,
@@ -542,7 +540,7 @@ fn extend_seed(
     } else {
         read.seq()
     };
-    let refseq = &references[nam.ref_id].sequence;
+    let refseq = &refseq.sequences[nam.ref_id];
 
     let projected_ref_start = nam.ref_start.saturating_sub(nam.query_start);
     let projected_ref_end = min(nam.ref_end + query.len() - nam.query_end, refseq.len());
@@ -625,7 +623,7 @@ pub fn align_paired_end_read(
     r1: &SequenceRecord,
     r2: &SequenceRecord,
     index: &StrobemerIndex,
-    references: &[RefSequence],
+    refseq: &RefSequence,
     mapping_parameters: &MappingParameters,
     sam_output: &SamOutput,
     seeding_parameters: &SeedingParameters,
@@ -660,7 +658,7 @@ pub fn align_paired_end_read(
         &read1,
         &read2,
         seeding_parameters.syncmer.k,
-        references,
+        refseq,
         &mut details,
         mapping_parameters.dropoff_threshold,
         insert_size_distribution,
@@ -695,7 +693,7 @@ pub fn align_paired_end_read(
 
             sam_records.extend(sam_output.make_paired_records(
                 [Some(&alignment1), Some(&alignment2)],
-                references,
+                refseq,
                 [r1, r2],
                 [mapq1, mapq2],
                 &details,
@@ -747,7 +745,7 @@ pub fn align_paired_end_read(
             sam_records.extend(aligned_pairs_to_sam(
                 &alignment_pairs,
                 sam_output,
-                references,
+                refseq,
                 mapping_parameters.max_secondary,
                 secondary_dropoff as f64,
                 r1,
@@ -781,7 +779,7 @@ fn extend_paired_seeds(
     read1: &Read,
     read2: &Read,
     k: usize,
-    references: &[RefSequence],
+    refseq: &RefSequence,
     details: &mut [Details; 2],
     dropoff: f32,
     insert_size_distribution: &InsertSizeDistribution,
@@ -801,7 +799,7 @@ fn extend_paired_seeds(
             read2,
             read1,
             aligner,
-            references,
+            refseq,
             &mut nams[0],
             max_tries,
             dropoff,
@@ -819,7 +817,7 @@ fn extend_paired_seeds(
             read1,
             read2,
             aligner,
-            references,
+            refseq,
             &mut nams[1],
             max_tries,
             dropoff,
@@ -847,15 +845,15 @@ fn extend_paired_seeds(
         let mut n_max1 = nams[0][0].clone();
         let mut n_max2 = nams[1][0].clone();
 
-        let consistent_nam1 = n_max1.is_consistent(read1, references, k);
+        let consistent_nam1 = n_max1.is_consistent(read1, refseq, k);
         details[0].inconsistent_nams += !consistent_nam1 as usize;
-        let consistent_nam2 = n_max2.is_consistent(read2, references, k);
+        let consistent_nam2 = n_max2.is_consistent(read2, refseq, k);
         details[1].inconsistent_nams += !consistent_nam2 as usize;
 
         let alignment1 = extend_seed(
             aligner,
             &mut n_max1,
-            references,
+            refseq,
             read1,
             consistent_nam1,
             true, // SSW
@@ -863,7 +861,7 @@ fn extend_paired_seeds(
         let alignment2 = extend_seed(
             aligner,
             &mut n_max2,
-            references,
+            refseq,
             read2,
             consistent_nam2,
             true, // SSW
@@ -893,12 +891,12 @@ fn extend_paired_seeds(
     // the paired-end read as two single-end reads.
     let mut a_indv_max = [None, None];
     for i in 0..2 {
-        let consistent_nam = reverse_nam_if_needed(&mut nams[i][0], reads[i], references, k);
+        let consistent_nam = reverse_nam_if_needed(&mut nams[i][0], reads[i], refseq, k);
         details[i].inconsistent_nams += !consistent_nam as usize;
         a_indv_max[i] = extend_seed(
             aligner,
             &mut nams[i][0],
-            references,
+            refseq,
             reads[i],
             consistent_nam,
             true, // SSW
@@ -930,13 +928,12 @@ fn extend_paired_seeds(
             let alignment;
             if let Some(mut this_nam) = namsp[i].clone() {
                 if let Entry::Vacant(e) = alignment_cache[i].entry(this_nam.nam_id) {
-                    let consistent_nam =
-                        reverse_nam_if_needed(&mut this_nam, reads[i], references, k);
+                    let consistent_nam = reverse_nam_if_needed(&mut this_nam, reads[i], refseq, k);
                     details[i].inconsistent_nams += !consistent_nam as usize;
                     alignment = extend_seed(
                         aligner,
                         &mut this_nam,
-                        references,
+                        refseq,
                         reads[i],
                         consistent_nam,
                         true, // SSW
@@ -950,8 +947,8 @@ fn extend_paired_seeds(
             } else {
                 let mut other_nam = namsp[1 - i].clone().unwrap();
                 details[1 - i].inconsistent_nams +=
-                    !reverse_nam_if_needed(&mut other_nam, reads[1 - i], references, k) as usize;
-                alignment = rescue_align(aligner, &other_nam, references, reads[i], mu, sigma, k);
+                    !reverse_nam_if_needed(&mut other_nam, reads[1 - i], refseq, k) as usize;
+                alignment = rescue_align(aligner, &other_nam, refseq, reads[i], mu, sigma, k);
                 if alignment.is_some() {
                     details[i].mate_rescue += 1;
                     details[i].tried_alignment += 1;
@@ -1019,7 +1016,7 @@ fn rescue_read(
     read2: &Read, // read to be rescued
     read1: &Read, // read that has NAMs
     aligner: &Aligner,
-    references: &[RefSequence],
+    refseq: &RefSequence,
     nams1: &mut [Nam],
     max_tries: usize,
     dropoff: f32,
@@ -1039,15 +1036,14 @@ fn rescue_read(
         if score_dropoff1 < dropoff {
             break;
         }
-        let consistent_nam = reverse_nam_if_needed(nam, read1, references, k);
+        let consistent_nam = reverse_nam_if_needed(nam, read1, refseq, k);
         details[0].inconsistent_nams += !consistent_nam as usize;
-        if let Some(alignment) = extend_seed(aligner, nam, references, read1, consistent_nam, true)
-        {
+        if let Some(alignment) = extend_seed(aligner, nam, refseq, read1, consistent_nam, true) {
             details[0].gapped += alignment.gapped as usize;
             alignments1.push(alignment);
             details[0].tried_alignment += 1;
 
-            let a2 = rescue_align(aligner, nam, references, read2, mu, sigma, k);
+            let a2 = rescue_align(aligner, nam, refseq, read2, mu, sigma, k);
             if a2.is_some() {
                 details[1].mate_rescue += 1;
             }
@@ -1094,7 +1090,7 @@ fn rescue_read(
 fn rescue_align(
     aligner: &Aligner,
     mate_nam: &Nam,
-    references: &[RefSequence],
+    refseq: &RefSequence,
     read: &Read,
     mu: f32,
     sigma: f32,
@@ -1118,7 +1114,7 @@ fn rescue_align(
         )
     };
 
-    let ref_len = references[mate_nam.ref_id].sequence.len();
+    let ref_len = refseq.sequences[mate_nam.ref_id].len();
     let ref_start = ref_start.min(ref_len);
     let ref_end = ref_end.min(ref_len);
 
@@ -1126,9 +1122,7 @@ fn rescue_align(
         //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return None;
     }
-    let ref_segm = references[mate_nam.ref_id]
-        .sequence
-        .decode(ref_start, ref_end);
+    let ref_segm = refseq.sequences[mate_nam.ref_id].decode(ref_start, ref_end);
 
     if !has_shared_substring(r_tmp, &ref_segm, k) {
         return None;
@@ -1371,7 +1365,7 @@ fn count_best_alignment_pairs(pairs: &[ScoredAlignmentPair]) -> usize {
 fn aligned_pairs_to_sam(
     high_scores: &[ScoredAlignmentPair],
     sam_output: &SamOutput,
-    references: &[RefSequence],
+    refseq: &RefSequence,
     max_secondary: usize,
     secondary_dropoff: f64,
     record1: &SequenceRecord,
@@ -1396,7 +1390,7 @@ fn aligned_pairs_to_sam(
         let pair_status = is_proper_pair_opt(alignment1.as_ref(), alignment2.as_ref(), mu, sigma);
         records.extend(sam_output.make_paired_records(
             [alignment1.as_ref(), alignment2.as_ref()],
-            references,
+            refseq,
             [record1, record2],
             mapqs,
             details,
@@ -1420,7 +1414,7 @@ fn aligned_pairs_to_sam(
                 };
                 records.extend(sam_output.make_paired_records(
                     [alignment1.as_ref(), alignment2.as_ref()],
-                    references,
+                    refseq,
                     [record1, record2],
                     effective_mapqs,
                     details,

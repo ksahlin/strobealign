@@ -6,10 +6,24 @@ use crate::io::record::{End, SequenceRecord};
 use crate::io::{SequenceIOError, split_header};
 use crate::packed_seq::PackedSeq;
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct RefSequence {
-    pub name: String,
-    pub sequence: PackedSeq,
+    pub names: Vec<String>,
+    pub sequences: Vec<PackedSeq>,
+}
+
+impl RefSequence {
+    pub fn new() -> Self {
+        RefSequence {
+            names: vec![],
+            sequences: vec![],
+        }
+    }
+
+    pub fn push(&mut self, name: String, seq: PackedSeq) {
+        self.names.push(name);
+        self.sequences.push(seq);
+    }
 }
 
 /// Check whether a name is fine to use in SAM output.
@@ -31,8 +45,8 @@ fn is_valid_name(name: &[u8]) -> bool {
     true
 }
 
-fn check_duplicate_names(records: &[RefSequence]) -> Result<(), SequenceIOError> {
-    let mut names: Vec<_> = records.iter().map(|r| &r.name).collect();
+fn check_duplicate_names(refseq: &RefSequence) -> Result<(), SequenceIOError> {
+    let mut names = refseq.names.clone();
     names.sort();
     for window in names.windows(2) {
         if window[0] == window[1] {
@@ -113,8 +127,8 @@ impl<B: BufRead> Iterator for FastaReader<B> {
     }
 }
 
-pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, SequenceIOError> {
-    let mut records: Vec<RefSequence> = Vec::new();
+pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<RefSequence, SequenceIOError> {
+    let mut refseq = RefSequence::new();
     let mut current_name: Option<String> = None;
     let mut current_seq = PackedSeq::new();
     let mut line = String::new();
@@ -126,10 +140,7 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, Sequen
             Ok(_) => {
                 if let Some(header) = line.strip_prefix('>') {
                     if let Some(name) = current_name.take() {
-                        records.push(RefSequence {
-                            name,
-                            sequence: current_seq,
-                        });
+                        refseq.push(name, current_seq);
                         current_seq = PackedSeq::new();
                     }
                     let (name, _comment) = split_header(header);
@@ -148,23 +159,20 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, Sequen
         }
     }
     if let Some(name) = current_name {
-        records.push(RefSequence {
-            name,
-            sequence: current_seq,
-        });
+        refseq.push(name, current_seq);
     }
 
-    for record in &records {
-        if !is_valid_name(record.name.as_bytes()) {
+    for name in &refseq.names {
+        if !is_valid_name(name.as_bytes()) {
             return Err(SequenceIOError::Name);
         }
     }
-    check_duplicate_names(&records)?;
+    check_duplicate_names(&refseq)?;
 
-    Ok(records)
+    Ok(refseq)
 }
 
-pub fn read_ref<P: AsRef<Path>>(path: P) -> Result<Vec<RefSequence>, SequenceIOError> {
+pub fn read_ref<P: AsRef<Path>>(path: P) -> Result<RefSequence, SequenceIOError> {
     let f = File::open(path).unwrap();
     let mut reader = BufReader::new(f);
 
@@ -179,11 +187,11 @@ mod tests {
 
     #[test]
     fn read_ref_works() {
-        let records = read_ref("tests/phix.fasta").unwrap();
-        assert_eq!(records.len(), 1);
-        assert_eq!(records[0].name, "NC_001422.1");
-        assert_eq!(records[0].sequence.len(), 5386);
-        assert_eq!(records[0].sequence.decode(0, 5), b"GAGTT");
+        let refseq = read_ref("tests/phix.fasta").unwrap();
+        assert_eq!(refseq.names.len(), 1);
+        assert_eq!(refseq.names[0], "NC_001422.1");
+        assert_eq!(refseq.sequences[0].len(), 5386);
+        assert_eq!(refseq.sequences[0].decode(0, 5), b"GAGTT");
     }
 
     #[test]
@@ -248,34 +256,34 @@ mod tests {
         let tmp = temp_file::with_contents(
             b">ref1 a comment\nacgt\n\n>ref2\naacc\ngg\n\ntt\n>empty\n>empty_at_end_of_file",
         );
-        let records = read_ref(tmp.path()).unwrap();
-        assert_eq!(records.len(), 4);
-        assert_eq!(records[0].name, "ref1");
-        assert_eq!(records[0].sequence.decode_all(), b"ACGT");
-        assert_eq!(records[1].name, "ref2");
-        assert_eq!(records[1].sequence.decode_all(), b"AACCGGTT");
-        assert_eq!(records[2].name, "empty");
-        assert_eq!(records[2].sequence.decode_all(), b"");
-        assert_eq!(records[3].name, "empty_at_end_of_file");
-        assert_eq!(records[3].sequence.decode_all(), b"");
+        let refseq = read_ref(tmp.path()).unwrap();
+        assert_eq!(refseq.names.len(), 4);
+        assert_eq!(refseq.names[0], "ref1");
+        assert_eq!(refseq.sequences[0].decode_all(), b"ACGT");
+        assert_eq!(refseq.names[1], "ref2");
+        assert_eq!(refseq.sequences[1].decode_all(), b"AACCGGTT");
+        assert_eq!(refseq.names[2], "empty");
+        assert_eq!(refseq.sequences[2].decode_all(), b"");
+        assert_eq!(refseq.names[3], "empty_at_end_of_file");
+        assert_eq!(refseq.sequences[3].decode_all(), b"");
     }
 
     #[test]
     fn some_special_characters() {
         let mut reader = BufReader::new(b"><>;abc\nAAAA\n>abc\nCCCC\n".as_slice());
-        let records = read_fasta(&mut reader).unwrap();
-        assert_eq!(records.len(), 2);
-        assert_eq!(records[0].name, "<>;abc");
-        assert_eq!(records[1].name, "abc");
+        let refseq = read_fasta(&mut reader).unwrap();
+        assert_eq!(refseq.names.len(), 2);
+        assert_eq!(refseq.names[0], "<>;abc");
+        assert_eq!(refseq.names[1], "abc");
     }
 
     #[test]
     fn whitespace_in_header() {
         let mut reader = BufReader::new(b">ab c\nACGT\n>de\tf\nACGT\n".as_slice());
-        let records = read_fasta(&mut reader).unwrap();
-        assert_eq!(records.len(), 2);
-        assert_eq!(records[0].name, "ab");
-        assert_eq!(records[1].name, "de");
+        let refseq = read_fasta(&mut reader).unwrap();
+        assert_eq!(refseq.names.len(), 2);
+        assert_eq!(refseq.names[0], "ab");
+        assert_eq!(refseq.names[1], "de");
     }
 
     #[test]
