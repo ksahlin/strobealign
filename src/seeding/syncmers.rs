@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 
 use super::InvalidSeedingParameter;
 use super::hash::xxh64;
-use crate::packed_seq::PackedSeq;
+use crate::packed_seq::{PackedSeq, PackedSeqSlice};
 
 /// Trait for types that can serve as a sequence source for `SyncmerIterator`.
 ///
@@ -27,10 +27,20 @@ impl SeqAccess for &[u8] {
     }
 }
 
-impl SeqAccess for &PackedSeq {
+impl<'a> SeqAccess for &'a PackedSeqSlice<'a> {
     /// Direct 2-bit extract - no table lookups, never returns 4.
     /// `**self` reaches `PackedSeq` so Rust resolves the inherent method,
     /// not this trait method (no recursion).
+    fn nucleotide_bits(&self, i: usize) -> u8 {
+        (**self).nucleotide_bits(i)
+    }
+
+    fn len(&self) -> usize {
+        (**self).len()
+    }
+}
+
+impl SeqAccess for &PackedSeq {
     fn nucleotide_bits(&self, i: usize) -> u8 {
         (**self).nucleotide_bits(i)
     }

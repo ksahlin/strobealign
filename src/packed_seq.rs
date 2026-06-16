@@ -14,6 +14,14 @@ pub struct PackedSeq {
     len: usize,
 }
 
+#[derive(Debug)]
+#[allow(clippy::len_without_is_empty)]
+pub struct PackedSeqSlice<'a> {
+    seq: &'a PackedSeq,
+    start: usize,
+    len: usize,
+}
+
 const fn make_encode_table() -> [u8; 256] {
     let mut t = [0u8; 256];
     t[b'C' as usize] = 1;
@@ -91,6 +99,12 @@ impl PackedSeq {
         self.len += 1;
     }
 
+    pub fn extend<I: IntoIterator<Item = u8>>(&mut self, bytes: I) {
+        for b in bytes.into_iter() {
+            self.push(b);
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.len
     }
@@ -122,5 +136,44 @@ impl PackedSeq {
     /// Decode the full sequence as ASCII bytes.
     pub fn decode_all(&self) -> Vec<u8> {
         self.decode(0, self.len)
+    }
+}
+
+impl<'a> PackedSeqSlice<'a> {
+    pub fn new(seq: &'a PackedSeq, start: usize, len: usize) -> Self {
+        PackedSeqSlice { seq, start, len }
+    }
+
+    pub fn nucleotide_bits(&self, i: usize) -> u8 {
+        self.seq.nucleotide_bits(self.start + i)
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Decode bases `start..end` as ASCII bytes.
+    pub fn decode(&self, start: usize, end: usize) -> Vec<u8> {
+        (start..end)
+            .map(|i| self.seq.decode_at(self.start + i))
+            .collect()
+    }
+
+    /// Decode bases `start..end` as ASCII bytes.
+    pub fn decode_all(&self) -> Vec<u8> {
+        (self.start..self.start + self.len)
+            .map(|i| self.seq.decode_at(i))
+            .collect()
+    }
+
+    pub fn to_owned(&self) -> PackedSeq {
+        // This is probably inefficient because it unpacks and then
+        // re-packs the sequence, but it is only used for testing
+        // with tiny references.
+        let mut ps = PackedSeq::new();
+        let decoded = self.decode_all();
+        ps.extend(decoded);
+
+        ps
     }
 }

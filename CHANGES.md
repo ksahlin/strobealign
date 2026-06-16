@@ -10,11 +10,15 @@
   Please report any other regressions!
 
   If you need one of the above features, use version 0.17.0.
-* #550: Introduce piecewise extension for single-end reads. The previous 
+* #550: Introduce piecewise extension alignment for single-end reads. The previous
   SSW extension can be enabled with `--ssw`.
 * #595: The in-memory representation of the reference sequence now uses two bits
   per nucleotide, reducing memory usage of the reference to 25% of its previous
   size. This change does not affect runtime.
+* #607: The reference is now stored as a single concatentade string of all
+  contigs. Reference coordinates now use a single 64-bit value. This means that
+  there are no longer any (relevant) limitations on the number and length of
+  contigs.
 * #539: Add a "noisy" read profile. Use `-P noisy` on the command line to
   select it. This is equivalent to `-k 16 -s 12 -l 2 -u 2 -m 100`.
   We found these settings to increase accuracy on error-prone reads at the cost

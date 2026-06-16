@@ -19,12 +19,13 @@ use crate::shuffle::shuffle_best;
 #[derive(Clone, Debug, Default)]
 pub struct Chain {
     pub id: usize,
+    /// Start coordinate of the contig containing `ref_start`.
+    pub ref_contig_start: usize,
     pub ref_start: usize,
     pub ref_end: usize,
     pub query_start: usize,
     pub query_end: usize,
     pub matching_bases: usize,
-    pub ref_id: usize,
     pub score: f32,
     pub is_revcomp: bool,
     pub anchors: Vec<Anchor>,
@@ -40,19 +41,17 @@ impl Chain {
     }
 
     pub fn projected_ref_start(&self) -> usize {
-        self.ref_start.saturating_sub(self.query_start)
+        self.ref_start
+            .saturating_sub(self.query_start)
+            .max(self.ref_contig_start)
     }
 
     /// Returns whether a chain represents a consistent match between read and
     /// reference by comparing the nucleotide sequences of the first and last
     /// strobe (taking orientation into account).
     pub fn is_consistent(&self, read: &Read, refseq: &RefSequence, k: usize) -> bool {
-        let ref_start_kmer = refseq
-            .contig(self.ref_id)
-            .decode(self.ref_start, self.ref_start + k);
-        let ref_end_kmer = refseq
-            .contig(self.ref_id)
-            .decode(self.ref_end - k, self.ref_end);
+        let ref_start_kmer = refseq.decode(self.ref_start, self.ref_start + k);
+        let ref_end_kmer = refseq.decode(self.ref_end - k, self.ref_end);
 
         let seq = if self.is_revcomp {
             read.rc()
@@ -70,8 +69,7 @@ impl Display for Chain {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Chain(ref_id={}, query: {}..{}, ref: {}..{}, rc={}, score={})",
-            self.ref_id,
+            "Chain(query: {}..{}, ref: {}..{}, rc={}, score={})",
             self.query_start,
             self.query_end,
             self.ref_start,
@@ -97,12 +95,8 @@ pub fn reverse_chain_if_needed(
     refseq: &RefSequence,
     k: usize,
 ) -> bool {
-    let ref_start_kmer = refseq
-        .contig(chain.ref_id)
-        .decode(chain.ref_start, chain.ref_start + k);
-    let ref_end_kmer = refseq
-        .contig(chain.ref_id)
-        .decode(chain.ref_end - k, chain.ref_end);
+    let ref_start_kmer = refseq.decode(chain.ref_start, chain.ref_start + k);
+    let ref_end_kmer = refseq.decode(chain.ref_end - k, chain.ref_end);
 
     let (seq, seq_rc) = if chain.is_revcomp {
         (read.rc(), read.seq())

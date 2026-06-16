@@ -5,6 +5,7 @@ use std::path::Path;
 use thiserror::Error;
 
 use crate::partition::custom_partition_point;
+use crate::refseq::ContigStarts;
 use crate::seeding::{
     InvalidSeedingParameter, RandstrobeParameters, SeedingParameters, SyncmerParameters,
 };
@@ -25,8 +26,7 @@ pub struct RefRandstrobe {
     /// [`REF_RANDSTROBE_HASH_MASK`] is the mask for strobe1 and strobe2 hashes (including their orientations)  
     /// The [`STROBE2_OFFSET_BITS`] constant specifies the number of bits reserved for the offset  
     hash_offset: u64,
-    position: u32,
-    ref_index: u32,
+    ref_start: u64,
 }
 
 /// Mask for the part of the randstrobe hash that includes individual strobe hashes and orientations
@@ -35,15 +35,13 @@ pub const REF_RANDSTROBE_HASH_MASK: u64 = 0xFFFFFFFFFFFFFF00;
 pub const STROBE2_OFFSET_BITS: u32 = 8;
 /// Mask for the part of the randstrobe hash that includes the offset between first and second strobe
 pub const STROBE2_OFFSET_MASK: u64 = (1u64 << STROBE2_OFFSET_BITS) - 1;
-pub const REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES: usize = u32::MAX as usize;
 
 impl RefRandstrobe {
-    pub fn new(hash: RandstrobeHash, ref_index: u32, position: u32, offset: u8) -> Self {
+    pub fn new(hash: RandstrobeHash, ref_start: usize, offset: u8) -> Self {
         let hash_offset = (hash & REF_RANDSTROBE_HASH_MASK) | (offset as u64);
         RefRandstrobe {
             hash_offset,
-            position,
-            ref_index,
+            ref_start: ref_start as u64,
         }
     }
 
@@ -51,12 +49,8 @@ impl RefRandstrobe {
         self.hash_offset & REF_RANDSTROBE_HASH_MASK
     }
 
-    pub fn position(&self) -> usize {
-        self.position as usize
-    }
-
-    pub fn reference_index(&self) -> usize {
-        self.ref_index as usize
+    pub fn ref_start(&self) -> usize {
+        self.ref_start as usize
     }
 
     pub fn strobe2_offset(&self) -> usize {
@@ -84,10 +78,13 @@ pub struct StrobemerIndex {
     /// is always randstrobes.len().
     randstrobes: Vec<RefRandstrobe>,
     bucket_starts: Vec<BucketIndex>,
+    pub contig_starts: ContigStarts,
 }
 
 pub struct IndexEntry<'a> {
     strobemer_index: &'a StrobemerIndex,
+
+    /// An index that points to an item in the randstrobes vector
     pub position: usize,
 }
 
@@ -99,6 +96,7 @@ impl StrobemerIndex {
         filter_cutoff: usize,
         randstrobes: Vec<RefRandstrobe>,
         bucket_starts: Vec<BucketIndex>,
+        contig_starts: ContigStarts,
     ) -> Self {
         StrobemerIndex {
             parameters,
@@ -106,6 +104,7 @@ impl StrobemerIndex {
             filter_cutoff,
             randstrobes,
             bucket_starts,
+            contig_starts,
         }
     }
 
@@ -218,16 +217,12 @@ impl<'a> IndexEntry<'a> {
         self.randstrobe().hash()
     }
 
-    pub fn position(&self) -> usize {
-        self.randstrobe().position()
+    pub fn ref_start(&self) -> usize {
+        self.randstrobe().ref_start()
     }
 
     pub fn strobe2_offset(&self) -> usize {
         self.randstrobe().strobe2_offset()
-    }
-
-    pub fn reference_index(&self) -> usize {
-        self.randstrobe().reference_index()
     }
 
     pub fn get_hash_partial(&self) -> RandstrobeHash {
@@ -245,9 +240,9 @@ impl<'a> IndexEntry<'a> {
     }
 
     pub fn strobe_extent_partial(&self) -> (usize, usize) {
-        let p = self.strobemer_index.randstrobes[self.position].position;
+        let p = self.strobemer_index.randstrobes[self.position].ref_start();
 
-        (p as usize, p as usize + self.k())
+        (p, p + self.k())
     }
 
     /// Count number of hits for the randstrobe *and* its "reverse complement"
@@ -413,6 +408,7 @@ pub fn read_index<P: AsRef<Path>>(
     path: P,
     parameters: SeedingParameters,
     bits: u8,
+    contig_starts: ContigStarts,
 ) -> Result<StrobemerIndex, IndexReadingError> {
     let file = File::open(path)?;
     let mut reader = BufReader::new(file);
@@ -491,6 +487,7 @@ pub fn read_index<P: AsRef<Path>>(
         filter_cutoff,
         randstrobes,
         bucket_starts,
+        contig_starts,
     })
 }
 
@@ -550,14 +547,12 @@ mod tests {
     #[test]
     fn ref_randstrobe() {
         let hash: u64 = 0x1234567890ABCDEFu64 & REF_RANDSTROBE_HASH_MASK;
-        let ref_index: u32 = (REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES - 1) as u32;
+        let ref_start = u64::MAX as usize;
         let offset = 255;
-        let position = !0;
-        let rr = RefRandstrobe::new(hash, ref_index, position, offset);
+        let rr = RefRandstrobe::new(hash, ref_start, offset);
 
         assert_eq!(rr.hash(), hash);
-        assert_eq!(rr.position(), position as usize);
-        assert_eq!(rr.reference_index(), ref_index as usize);
+        assert_eq!(rr.ref_start(), ref_start);
         assert_eq!(rr.strobe2_offset(), offset as usize);
     }
 
@@ -576,7 +571,12 @@ mod tests {
         let sti_path = dir.path().join("index.sti");
         index.write(&sti_path).unwrap();
 
-        let read_index_result = read_index(&sti_path, SeedingParameters::new(50), bits);
+        let read_index_result = read_index(
+            &sti_path,
+            SeedingParameters::new(50),
+            bits,
+            references.starts.clone(),
+        );
 
         match read_index_result {
             Err(IndexReadingError::ParameterMismatch) => {}
@@ -591,9 +591,11 @@ mod tests {
         let refseq = read_ref("tests/phix.fasta").unwrap();
         let seq_decoded = refseq.contig(0).decode_all();
         let rc_seq = reverse_complement(&seq_decoded);
-        let mut rc_refseq = RefSequence::new();
-        rc_refseq.push("phix_rc".to_string(), PackedSeq::from_slice(&rc_seq));
-
+        let rc_refseq = RefSequence::new(
+            PackedSeq::from_slice(&rc_seq),
+            vec![0],
+            vec!["phix_rc".to_string()],
+        );
         let parameters = SeedingParameters::new(300);
         let bits = parameters.syncmer.pick_bits(&refseq);
 
