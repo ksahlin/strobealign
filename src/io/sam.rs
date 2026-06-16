@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::cigar::Cigar;
 use crate::details::Details;
-use crate::io::fasta::RefSequence;
+use crate::refseq::RefSequence;
 
 pub const PAIRED: u16 = 1;
 pub const PROPER_PAIR: u16 = 2;

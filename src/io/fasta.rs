@@ -5,26 +5,7 @@ use std::path::Path;
 use crate::io::record::{End, SequenceRecord};
 use crate::io::{SequenceIOError, split_header};
 use crate::packed_seq::PackedSeq;
-
-#[derive(Default, Debug, Clone)]
-pub struct RefSequence {
-    pub names: Vec<String>,
-    pub sequences: Vec<PackedSeq>,
-}
-
-impl RefSequence {
-    pub fn new() -> Self {
-        RefSequence {
-            names: vec![],
-            sequences: vec![],
-        }
-    }
-
-    pub fn push(&mut self, name: String, seq: PackedSeq) {
-        self.names.push(name);
-        self.sequences.push(seq);
-    }
-}
+use crate::refseq::RefSequence;
 
 /// Check whether a name is fine to use in SAM output.
 /// The SAM specification is quite strict and forbids these

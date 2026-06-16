@@ -1,6 +1,6 @@
 use crate::index::{BucketIndex, RandstrobeHash, RefRandstrobe, StrobemerIndex};
-use crate::io::fasta::RefSequence;
 use crate::packed_seq::PackedSeq;
+use crate::refseq::RefSequence;
 use crate::seeding::{RandstrobeIterator, SeedingParameters, SyncmerIterator, SyncmerParameters};
 
 use std::cmp::Reverse;

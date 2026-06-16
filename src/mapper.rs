@@ -14,7 +14,6 @@ use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
 use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
-use crate::io::fasta::RefSequence;
 use crate::io::record::SequenceRecord;
 use crate::io::sam::{
     MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SamRecord, UNMAP,
@@ -24,6 +23,7 @@ use crate::mcsstrategy::McsStrategy;
 use crate::nam::{Nam, get_nams_by_chaining, reverse_nam_if_needed, sort_nams};
 use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
+use crate::refseq::RefSequence;
 use crate::revcomp::reverse_complement;
 use crate::seeding::SeedingParameters;
 

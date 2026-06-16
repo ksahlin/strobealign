@@ -9,9 +9,9 @@ use crate::chainer::Anchor;
 use crate::chainer::Chainer;
 use crate::details::NamDetails;
 use crate::index::StrobemerIndex;
-use crate::io::fasta::RefSequence;
 use crate::mcsstrategy::McsStrategy;
 use crate::read::Read;
+use crate::refseq::RefSequence;
 use crate::seeding::randstrobes_query;
 use crate::shuffle::shuffle_best;
 
