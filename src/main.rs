@@ -15,6 +15,7 @@ use fastrand::Rng;
 use log::{debug, error, info, trace, warn};
 use mimalloc::MiMalloc;
 use strobealign::indexer::make_index;
+use strobealign::refseq::RefSequence;
 use thiserror::Error;
 
 use strobealign::aligner::{Aligner, Scores};
@@ -26,7 +27,6 @@ use strobealign::index::{
 use strobealign::insertsize::InsertSizeDistribution;
 use strobealign::io::SequenceIOError;
 use strobealign::io::fasta;
-use strobealign::io::fasta::RefSequence;
 use strobealign::io::reads::{
     PeekableSequenceReader, interleaved_record_iterator, open_reads, record_iterator,
 };

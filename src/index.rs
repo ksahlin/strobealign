@@ -542,8 +542,9 @@ mod tests {
     use super::*;
 
     use crate::indexer::make_index;
-    use crate::io::fasta::{RefSequence, read_ref};
+    use crate::io::fasta::read_ref;
     use crate::packed_seq::PackedSeq;
+    use crate::refseq::RefSequence;
     use crate::revcomp::reverse_complement;
 
     #[test]
