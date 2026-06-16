@@ -428,21 +428,16 @@ fn run() -> Result<(), CliError> {
         "Time reading reference: {:.2} s",
         timer.elapsed().as_secs_f64()
     );
-    let total_ref_size = refseq.sequences.iter().map(|seq| seq.len()).sum::<usize>();
-    let max_contig_size = refseq
-        .sequences
-        .iter()
-        .map(|seq| seq.len())
-        .max()
-        .ok_or(CliError::NoReference)?;
+    let total_ref_size = refseq.total_length();
+    let max_contig_size = refseq.max_contig_len().ok_or(CliError::NoReference)?;
     info!(
         "Reference size: {:.2} Mbp ({} contig{}; largest: {:.2} Mbp)",
         total_ref_size as f64 / 1E6,
-        refseq.sequences.len(),
-        if refseq.sequences.len() != 1 { "s" } else { "" },
+        refseq.names.len(),
+        if refseq.names.len() != 1 { "s" } else { "" },
         max_contig_size as f64 / 1E6
     );
-    if refseq.sequences.len() > REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES {
+    if refseq.names.len() > REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES {
         error!(
             "Too many reference sequences. Current maximum is {}.",
             REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES
@@ -614,7 +609,7 @@ fn run() -> Result<(), CliError> {
         aligner,
         include_unmapped: !args.only_mapped,
         mode,
-        abundances: vec![0f64; refseq.sequences.len()],
+        abundances: vec![0f64; refseq.names.len()],
     };
 
     let mode_message = match mode {
@@ -739,7 +734,7 @@ fn run() -> Result<(), CliError> {
     let mut out = Arc::into_inner(out).unwrap().into_inner().unwrap();
 
     if mode == Mode::Abundances {
-        let mut abundances = vec![0f64; refseq.sequences.len()];
+        let mut abundances = vec![0f64; refseq.names.len()];
         for _ in 0..n_threads {
             let worker_abundances = abundances_rx.recv().unwrap();
             for i in 0..abundances.len() {
@@ -995,8 +990,8 @@ pub fn output_abundances<T: Write>(
     out: &mut T,
 ) -> io::Result<()> {
     #[allow(clippy::needless_range_loop)]
-    for i in 0..refseq.sequences.len() {
-        let normalized = abundances[i] / refseq.sequences[i].len() as f64;
+    for i in 0..refseq.names.len() {
+        let normalized = abundances[i] / refseq.contig_len(i) as f64;
         writeln!(out, "{}\t{:.6}", refseq.names[i], normalized)?;
     }
     Ok(())

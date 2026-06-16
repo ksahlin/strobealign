@@ -589,7 +589,7 @@ mod tests {
     #[test]
     fn partial_orientation() {
         let refseq = read_ref("tests/phix.fasta").unwrap();
-        let seq_decoded = refseq.sequences[0].decode_all();
+        let seq_decoded = refseq.contig(0).decode_all();
         let rc_seq = reverse_complement(&seq_decoded);
         let mut rc_refseq = RefSequence::new();
         rc_refseq.push("phix_rc".to_string(), PackedSeq::from_slice(&rc_seq));

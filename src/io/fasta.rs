@@ -171,8 +171,8 @@ mod tests {
         let refseq = read_ref("tests/phix.fasta").unwrap();
         assert_eq!(refseq.names.len(), 1);
         assert_eq!(refseq.names[0], "NC_001422.1");
-        assert_eq!(refseq.sequences[0].len(), 5386);
-        assert_eq!(refseq.sequences[0].decode(0, 5), b"GAGTT");
+        assert_eq!(refseq.contig_len(0), 5386);
+        assert_eq!(refseq.contig(0).decode(0, 5), b"GAGTT");
     }
 
     #[test]
@@ -240,13 +240,13 @@ mod tests {
         let refseq = read_ref(tmp.path()).unwrap();
         assert_eq!(refseq.names.len(), 4);
         assert_eq!(refseq.names[0], "ref1");
-        assert_eq!(refseq.sequences[0].decode_all(), b"ACGT");
+        assert_eq!(refseq.contig(0).decode_all(), b"ACGT");
         assert_eq!(refseq.names[1], "ref2");
-        assert_eq!(refseq.sequences[1].decode_all(), b"AACCGGTT");
+        assert_eq!(refseq.contig(1).decode_all(), b"AACCGGTT");
         assert_eq!(refseq.names[2], "empty");
-        assert_eq!(refseq.sequences[2].decode_all(), b"");
+        assert_eq!(refseq.contig(2).decode_all(), b"");
         assert_eq!(refseq.names[3], "empty_at_end_of_file");
-        assert_eq!(refseq.sequences[3].decode_all(), b"");
+        assert_eq!(refseq.contig(3).decode_all(), b"");
     }
 
     #[test]
