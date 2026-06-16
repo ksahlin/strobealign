@@ -32,7 +32,7 @@ pub fn make_index(
     stats.tot_strobemer_count = total_randstrobes as u64;
 
     debug!("  Total number of randstrobes: {}", total_randstrobes);
-    let total_length: usize = refseq.sequences.iter().map(|seq| seq.len()).sum();
+    let total_length: usize = refseq.total_length();
     let memory_bytes: usize = total_length
         + size_of::<RefRandstrobe>() * total_randstrobes
         + size_of::<BucketIndex>() * (1usize << bits);
@@ -179,7 +179,7 @@ fn make_randstrobes_parallel(
     let mut slices = vec![];
     {
         let mut slice = &mut randstrobes[..];
-        for &mid in randstrobe_counts.iter().take(refseq.sequences.len() - 1) {
+        for &mid in randstrobe_counts.iter().take(refseq.names.len() - 1) {
             let (left, right) = slice.split_at_mut(mid);
             slices.push(Arc::new(Mutex::new(left)));
             slice = right;
@@ -192,7 +192,7 @@ fn make_randstrobes_parallel(
             s.spawn(|| {
                 loop {
                     let j = ref_index.fetch_add(1, Ordering::SeqCst);
-                    if j >= refseq.sequences.len() {
+                    if j >= refseq.names.len() {
                         break;
                     }
                     assign_randstrobes(refseq, parameters, j, *slices[j].lock().unwrap());
@@ -211,7 +211,7 @@ fn assign_randstrobes(
     ref_index: usize,
     randstrobes: &mut [RefRandstrobe],
 ) {
-    let seq: &PackedSeq = &refseq.sequences[ref_index];
+    let seq = refseq.contig(ref_index);
     if seq.len() < parameters.randstrobe.w_max {
         return;
     }
@@ -243,7 +243,7 @@ fn count_all_randstrobes(
     parameters: &SeedingParameters,
     n_threads: usize,
 ) -> Vec<usize> {
-    let counts = vec![0; refseq.sequences.len()];
+    let counts = vec![0; refseq.names.len()];
     let mutex = Mutex::new(counts);
     let ref_index = AtomicUsize::new(0);
     thread::scope(|s| {
@@ -251,10 +251,10 @@ fn count_all_randstrobes(
             s.spawn(|| {
                 loop {
                     let j = ref_index.fetch_add(1, Ordering::SeqCst);
-                    if j >= refseq.sequences.len() {
+                    if j >= refseq.names.len() {
                         break;
                     }
-                    let count = count_randstrobes(&refseq.sequences[j], parameters);
+                    let count = count_randstrobes(refseq.contig(j), parameters);
                     mutex.lock().unwrap()[j] = count;
                 }
             });
@@ -278,7 +278,7 @@ fn count_randstrobes(seq: &PackedSeq, parameters: &SeedingParameters) -> usize {
 impl SyncmerParameters {
     /// Pick a suitable number of bits for indexing randstrobe start indices
     pub fn pick_bits(&self, refseq: &RefSequence) -> u8 {
-        let total_length: usize = refseq.sequences.iter().map(|seq| seq.len()).sum();
+        let total_length: usize = refseq.total_length();
         let estimated_number_of_randstrobes = total_length / (self.k - self.s + 1) + 1;
         // Two randstrobes per bucket on average
         // TOOD checked_ilog2 or ilog2

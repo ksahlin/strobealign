@@ -185,12 +185,7 @@ mod test {
     use crate::seeding::SyncmerIterator;
 
     fn read_phix() -> PackedSeq {
-        read_ref("tests/phix.fasta")
-            .unwrap()
-            .sequences
-            .first()
-            .unwrap()
-            .to_owned()
+        read_ref("tests/phix.fasta").unwrap().contig(0).to_owned()
     }
 
     #[test]

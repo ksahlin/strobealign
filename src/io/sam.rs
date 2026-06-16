@@ -178,12 +178,12 @@ impl Display for SamHeader<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "@HD\tVN:1.6\tSO:unsorted")?;
 
-        for i in 0..self.refseq.sequences.len() {
+        for i in 0..self.refseq.names.len() {
             writeln!(
                 f,
                 "@SQ\tSN:{}\tLN:{}",
                 self.refseq.names[i],
-                self.refseq.sequences[i].len()
+                self.refseq.contig_len(i)
             )?;
         }
         if let Some(read_group) = &self.read_group {

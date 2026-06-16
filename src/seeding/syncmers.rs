@@ -275,12 +275,7 @@ mod test {
     #[test]
     fn canonical_syncmers() {
         let parameters = SyncmerParameters::try_new(20, 16).unwrap();
-        let seq: Vec<u8> = read_ref("tests/phix.fasta")
-            .unwrap()
-            .sequences
-            .first()
-            .unwrap()
-            .decode_all();
+        let seq: Vec<u8> = read_ref("tests/phix.fasta").unwrap().contig(0).decode_all();
         let sequences: [Vec<u8>; 2] = [b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_vec(), seq];
         for s in sequences {
             let seq_revcomp = reverse_complement(&s);

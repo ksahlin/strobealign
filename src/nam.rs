@@ -47,9 +47,12 @@ impl Nam {
     /// reference by comparing the nucleotide sequences of the first and last
     /// strobe (taking orientation into account).
     pub fn is_consistent(&self, read: &Read, refseq: &RefSequence, k: usize) -> bool {
-        let ref_start_kmer =
-            refseq.sequences[self.ref_id].decode(self.ref_start, self.ref_start + k);
-        let ref_end_kmer = refseq.sequences[self.ref_id].decode(self.ref_end - k, self.ref_end);
+        let ref_start_kmer = refseq
+            .contig(self.ref_id)
+            .decode(self.ref_start, self.ref_start + k);
+        let ref_end_kmer = refseq
+            .contig(self.ref_id)
+            .decode(self.ref_end - k, self.ref_end);
 
         let seq = if self.is_revcomp {
             read.rc()
@@ -89,8 +92,12 @@ impl Display for Nam {
 ///   in place and return true.
 /// - If first and last strobe do not match consistently, return false.
 pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, refseq: &RefSequence, k: usize) -> bool {
-    let ref_start_kmer = refseq.sequences[nam.ref_id].decode(nam.ref_start, nam.ref_start + k);
-    let ref_end_kmer = refseq.sequences[nam.ref_id].decode(nam.ref_end - k, nam.ref_end);
+    let ref_start_kmer = refseq
+        .contig(nam.ref_id)
+        .decode(nam.ref_start, nam.ref_start + k);
+    let ref_end_kmer = refseq
+        .contig(nam.ref_id)
+        .decode(nam.ref_end - k, nam.ref_end);
 
     let (seq, seq_rc) = if nam.is_revcomp {
         (read.rc(), read.seq())

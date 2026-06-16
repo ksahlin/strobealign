@@ -540,10 +540,10 @@ fn extend_seed(
     } else {
         read.seq()
     };
-    let refseq = &refseq.sequences[nam.ref_id];
+    let seq = &refseq.contig(nam.ref_id);
 
     let projected_ref_start = nam.ref_start.saturating_sub(nam.query_start);
-    let projected_ref_end = min(nam.ref_end + query.len() - nam.query_end, refseq.len());
+    let projected_ref_end = min(nam.ref_end + query.len() - nam.query_end, seq.len());
 
     // TODO ugly
     let mut info = AlignmentInfo {
@@ -558,7 +558,7 @@ fn extend_seed(
     let mut result_ref_start = 0;
     let mut gapped = true;
     if projected_ref_start + query.len() == projected_ref_end && consistent_nam {
-        let ref_segm_ham = refseq.decode(projected_ref_start, projected_ref_end);
+        let ref_segm_ham = seq.decode(projected_ref_start, projected_ref_end);
         if let Some(hamming_dist) = hamming_distance(query, &ref_segm_ham)
             && (hamming_dist as f32 / query.len() as f32) < 0.05
         {
@@ -579,8 +579,8 @@ fn extend_seed(
         let padding = read.len() / 10;
         if use_ssw {
             let ref_start = projected_ref_start.saturating_sub(padding);
-            let ref_end = min(projected_ref_end + padding, refseq.len());
-            let segment = refseq.decode(ref_start, ref_end);
+            let ref_end = min(projected_ref_end + padding, seq.len());
+            let segment = seq.decode(ref_start, ref_end);
             info = aligner.align(query, &segment)?;
             result_ref_start = ref_start + info.ref_start;
         } else {
@@ -588,8 +588,8 @@ fn extend_seed(
             // Decode the reference region needed by the piecewise aligner.
             // Use a generous range so all anchor-relative slices stay in bounds.
             let decode_start = nam.ref_start.saturating_sub(query.len() + padding);
-            let decode_end = (nam.ref_end + query.len() + padding).min(refseq.len());
-            let decoded_ref = refseq.decode(decode_start, decode_end);
+            let decode_end = (nam.ref_end + query.len() + padding).min(seq.len());
+            let decoded_ref = seq.decode(decode_start, decode_end);
             let adjusted_anchors: Vec<Anchor> = nam
                 .anchors
                 .iter()
@@ -1114,7 +1114,7 @@ fn rescue_align(
         )
     };
 
-    let ref_len = refseq.sequences[mate_nam.ref_id].len();
+    let ref_len = refseq.contig_len(mate_nam.ref_id);
     let ref_start = ref_start.min(ref_len);
     let ref_end = ref_end.min(ref_len);
 
@@ -1122,7 +1122,7 @@ fn rescue_align(
         //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return None;
     }
-    let ref_segm = refseq.sequences[mate_nam.ref_id].decode(ref_start, ref_end);
+    let ref_segm = refseq.contig(mate_nam.ref_id).decode(ref_start, ref_end);
 
     if !has_shared_substring(r_tmp, &ref_segm, k) {
         return None;
