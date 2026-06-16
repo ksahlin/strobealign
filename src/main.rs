@@ -227,13 +227,18 @@ struct Args {
     #[arg(long = "vp", default_value_t = ChainingParameters::default().valid_score_threshold, help_heading = "Collinear chaining")]
     valid_score_threshold: f32,
 
-    /// Collinear chaining skip distance, how far on the reference do we allow anchors to chain
-    #[arg(long = "sg", default_value_t = ChainingParameters::default().max_ref_gap, help_heading = "Collinear chaining")]
-    max_ref_gap: usize,
+    /// Collinear chaining skip distance, how far on the reference do we allow anchors to chain. By
+    /// default will be the size of the read, but can be overriden if need be.
+    #[arg(long = "sg", help_heading = "Collinear chaining")]
+    max_ref_gap: Option<usize>,
 
     /// Weight given to the number of anchors for the final score of chains
     #[arg(long = "mw", default_value_t = ChainingParameters::default().matches_weight, help_heading = "Collinear chaining")]
     matches_weight: f32,
+
+    /// Collinear chaining maximum query/reference gap ratio between anchors
+    #[arg(long = "mr", default_value_t = ChainingParameters::default().max_diagonal_ratio, help_heading = "Collinear chaining")]
+    max_diagonal_ratio: f32,
 
     // Alignment parameters
 
@@ -523,6 +528,7 @@ fn run() -> Result<(), CliError> {
         valid_score_threshold: args.valid_score_threshold,
         max_ref_gap: args.max_ref_gap,
         matches_weight: args.matches_weight,
+        max_diagonal_ratio: args.max_diagonal_ratio,
     };
     let scores = Scores {
         match_: args.match_score,
