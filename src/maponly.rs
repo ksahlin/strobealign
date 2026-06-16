@@ -18,7 +18,7 @@ use crate::nam::{Nam, get_nams_by_chaining, sort_nams};
 pub fn map_single_end_read(
     record: &SequenceRecord,
     index: &StrobemerIndex,
-    references: &[RefSequence],
+    refseq: &RefSequence,
     rescue_distance: usize,
     mcs_strategy: McsStrategy,
     chainer: &Chainer,
@@ -41,7 +41,7 @@ pub fn map_single_end_read(
             vec![paf_record_from_nam(
                 &nams[0],
                 &record.name,
-                references,
+                refseq,
                 record.sequence.len(),
                 Some(mapq),
                 End::None,
@@ -86,7 +86,7 @@ pub fn abundances_single_end_read(
 fn paf_record_from_nam(
     nam: &Nam,
     name: &str,
-    references: &[RefSequence],
+    refseq: &RefSequence,
     query_length: usize,
     mapq: Option<u8>,
     end: End,
@@ -98,8 +98,8 @@ fn paf_record_from_nam(
         query_start: nam.query_start as u64,
         query_end: nam.query_end as u64,
         is_revcomp: nam.is_revcomp,
-        target_name: references[nam.ref_id].name.clone(),
-        target_length: references[nam.ref_id].sequence.len() as u64,
+        target_name: refseq.names[nam.ref_id].clone(),
+        target_length: refseq.sequences[nam.ref_id].len() as u64,
         target_start: nam.ref_start as u64,
         target_end: nam.ref_end as u64,
         matching_bases: nam.matching_bases as u64,
@@ -115,7 +115,7 @@ pub fn map_paired_end_read(
     r1: &SequenceRecord,
     r2: &SequenceRecord,
     index: &StrobemerIndex,
-    references: &[RefSequence],
+    refseq: &RefSequence,
     rescue_distance: usize,
     insert_size_distribution: &mut InsertSizeDistribution,
     mcs_strategy: McsStrategy,
@@ -151,7 +151,7 @@ pub fn map_paired_end_read(
                 records.push(paf_record_from_nam(
                     nam1,
                     &r1.name,
-                    references,
+                    refseq,
                     r1.sequence.len(),
                     None,
                     End::One,
@@ -161,7 +161,7 @@ pub fn map_paired_end_read(
                 records.push(paf_record_from_nam(
                     nam2,
                     &r2.name,
-                    references,
+                    refseq,
                     r2.sequence.len(),
                     None,
                     End::Two,
@@ -172,7 +172,7 @@ pub fn map_paired_end_read(
             records.push(paf_record_from_nam(
                 nam1,
                 &r1.name,
-                references,
+                refseq,
                 r1.sequence.len(),
                 None,
                 End::One,
@@ -180,7 +180,7 @@ pub fn map_paired_end_read(
             records.push(paf_record_from_nam(
                 nam2,
                 &r2.name,
-                references,
+                refseq,
                 r2.sequence.len(),
                 None,
                 End::Two,

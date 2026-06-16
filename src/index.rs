@@ -587,20 +587,18 @@ mod tests {
 
     #[test]
     fn partial_orientation() {
-        let references = read_ref("tests/phix.fasta").unwrap();
-        let seq_decoded = references[0].sequence.decode_all();
+        let refseq = read_ref("tests/phix.fasta").unwrap();
+        let seq_decoded = refseq.sequences[0].decode_all();
         let rc_seq = reverse_complement(&seq_decoded);
-        let rc_references = vec![RefSequence {
-            name: "phix_rc".to_string(),
-            sequence: PackedSeq::from_slice(&rc_seq),
-        }];
+        let mut rc_refseq = RefSequence::new();
+        rc_refseq.push("phix_rc".to_string(), PackedSeq::from_slice(&rc_seq));
 
         let parameters = SeedingParameters::new(300);
-        let bits = parameters.syncmer.pick_bits(&references);
+        let bits = parameters.syncmer.pick_bits(&refseq);
 
-        let (fwd_index, _stats) = make_index(&references, parameters.clone(), bits, 0.0000001, 1);
+        let (fwd_index, _stats) = make_index(&refseq, parameters.clone(), bits, 0.0000001, 1);
 
-        let (rc_index, _stats) = make_index(&rc_references, parameters.clone(), bits, 0.0000001, 1);
+        let (rc_index, _stats) = make_index(&rc_refseq, parameters.clone(), bits, 0.0000001, 1);
 
         assert_eq!(fwd_index.randstrobes.len(), rc_index.randstrobes.len());
 

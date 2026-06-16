@@ -16,14 +16,14 @@ use rayon::slice::ParallelSliceMut;
 
 /// Create a StrobemerIndex
 pub fn make_index(
-    references: &[RefSequence],
+    refseq: &RefSequence,
     parameters: SeedingParameters,
     bits: u8,
     filter_fraction: f64,
     n_threads: usize,
 ) -> (StrobemerIndex, IndexCreationStatistics) {
     let timer = Instant::now();
-    let randstrobe_counts = count_all_randstrobes(references, &parameters, n_threads);
+    let randstrobe_counts = count_all_randstrobes(refseq, &parameters, n_threads);
     debug!("  Counting hashes: {:.2} s", timer.elapsed().as_secs_f64());
     // stats.elapsed_counting_hashes = count_hash.duration();
     let mut stats = IndexCreationStatistics::default();
@@ -32,7 +32,7 @@ pub fn make_index(
     stats.tot_strobemer_count = total_randstrobes as u64;
 
     debug!("  Total number of randstrobes: {}", total_randstrobes);
-    let total_length: usize = references.iter().map(|refseq| refseq.sequence.len()).sum();
+    let total_length: usize = refseq.sequences.iter().map(|seq| seq.len()).sum();
     let memory_bytes: usize = total_length
         + size_of::<RefRandstrobe>() * total_randstrobes
         + size_of::<BucketIndex>() * (1usize << bits);
@@ -47,7 +47,7 @@ pub fn make_index(
     let timer = Instant::now();
     debug!("  Generating randstrobes ...");
     let mut randstrobes =
-        make_randstrobes_parallel(references, &parameters, &randstrobe_counts, n_threads);
+        make_randstrobes_parallel(refseq, &parameters, &randstrobe_counts, n_threads);
     debug!("  Generating seeds: {:.2} s", timer.elapsed().as_secs_f64());
     // stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
@@ -169,22 +169,8 @@ pub fn make_index(
     )
 }
 
-/*
-    fn make_randstrobes(&self, randstrobe_counts: &[usize]) -> Vec<RefRandstrobe> {
-        let mut randstrobes = vec![RefRandstrobe::default(); randstrobe_counts.iter().sum()];
-
-        // Fill randstrobes vector
-        let mut offset = 0;
-        for ref_index in 0..self.references.len() {
-            self.assign_randstrobes(ref_index, &mut randstrobes[offset..offset+randstrobe_counts[ref_index]]);
-            offset += randstrobe_counts[ref_index];
-        }
-        randstrobes
-    }
-*/
-
 fn make_randstrobes_parallel(
-    references: &[RefSequence],
+    refseq: &RefSequence,
     parameters: &SeedingParameters,
     randstrobe_counts: &[usize],
     n_threads: usize,
@@ -193,7 +179,7 @@ fn make_randstrobes_parallel(
     let mut slices = vec![];
     {
         let mut slice = &mut randstrobes[..];
-        for &mid in randstrobe_counts.iter().take(references.len() - 1) {
+        for &mid in randstrobe_counts.iter().take(refseq.sequences.len() - 1) {
             let (left, right) = slice.split_at_mut(mid);
             slices.push(Arc::new(Mutex::new(left)));
             slice = right;
@@ -206,10 +192,10 @@ fn make_randstrobes_parallel(
             s.spawn(|| {
                 loop {
                     let j = ref_index.fetch_add(1, Ordering::SeqCst);
-                    if j >= references.len() {
+                    if j >= refseq.sequences.len() {
                         break;
                     }
-                    assign_randstrobes(references, parameters, j, *slices[j].lock().unwrap());
+                    assign_randstrobes(refseq, parameters, j, *slices[j].lock().unwrap());
                 }
             });
         }
@@ -220,12 +206,12 @@ fn make_randstrobes_parallel(
 
 /// Compute randstrobes of one reference contig and assign them to the provided slice
 fn assign_randstrobes(
-    references: &[RefSequence],
+    refseq: &RefSequence,
     parameters: &SeedingParameters,
     ref_index: usize,
     randstrobes: &mut [RefRandstrobe],
 ) {
-    let seq: &PackedSeq = &references[ref_index].sequence;
+    let seq: &PackedSeq = &refseq.sequences[ref_index];
     if seq.len() < parameters.randstrobe.w_max {
         return;
     }
@@ -253,11 +239,11 @@ fn assign_randstrobes(
 }
 
 fn count_all_randstrobes(
-    references: &[RefSequence],
+    refseq: &RefSequence,
     parameters: &SeedingParameters,
     n_threads: usize,
 ) -> Vec<usize> {
-    let counts = vec![0; references.len()];
+    let counts = vec![0; refseq.sequences.len()];
     let mutex = Mutex::new(counts);
     let ref_index = AtomicUsize::new(0);
     thread::scope(|s| {
@@ -265,10 +251,10 @@ fn count_all_randstrobes(
             s.spawn(|| {
                 loop {
                     let j = ref_index.fetch_add(1, Ordering::SeqCst);
-                    if j >= references.len() {
+                    if j >= refseq.sequences.len() {
                         break;
                     }
-                    let count = count_randstrobes(&references[j].sequence, parameters);
+                    let count = count_randstrobes(&refseq.sequences[j], parameters);
                     mutex.lock().unwrap()[j] = count;
                 }
             });
@@ -291,8 +277,8 @@ fn count_randstrobes(seq: &PackedSeq, parameters: &SeedingParameters) -> usize {
 
 impl SyncmerParameters {
     /// Pick a suitable number of bits for indexing randstrobe start indices
-    pub fn pick_bits(&self, references: &[RefSequence]) -> u8 {
-        let total_length: usize = references.iter().map(|r| r.sequence.len()).sum();
+    pub fn pick_bits(&self, refseq: &RefSequence) -> u8 {
+        let total_length: usize = refseq.sequences.iter().map(|seq| seq.len()).sum();
         let estimated_number_of_randstrobes = total_length / (self.k - self.s + 1) + 1;
         // Two randstrobes per bucket on average
         // TOOD checked_ilog2 or ilog2
@@ -367,28 +353,26 @@ mod test {
     #[test]
     fn pick_bits() {
         let parameters = SyncmerParameters::try_new(20, 16).unwrap();
-        let references = read_ref("tests/phix.fasta").unwrap();
-        assert_eq!(parameters.pick_bits(&references), 9);
+        let refseq = read_ref("tests/phix.fasta").unwrap();
+        assert_eq!(parameters.pick_bits(&refseq), 9);
     }
 
     #[test]
     fn index_phix() {
-        let references = read_ref("tests/phix.fasta").unwrap();
+        let refseq = read_ref("tests/phix.fasta").unwrap();
         let parameters = SeedingParameters::new(150);
-        let bits = parameters.syncmer.pick_bits(&references);
-        let (_index, stats) = make_index(&references, parameters, bits, 0.1, 1);
+        let bits = parameters.syncmer.pick_bits(&refseq);
+        let (_index, stats) = make_index(&refseq, parameters, bits, 0.1, 1);
         assert!(stats.distinct_strobemers > 0);
     }
 
     #[test]
     fn index_empty_reference() {
-        let references = vec![RefSequence {
-            name: "name".to_string(),
-            sequence: PackedSeq::new(),
-        }];
+        let mut refseq = RefSequence::new();
+        refseq.push("name".to_string(), PackedSeq::new());
         let parameters = SeedingParameters::new(150);
-        let bits = parameters.syncmer.pick_bits(&references);
-        let (_index2, stats) = make_index(&references, parameters, bits, 0.1, 1);
+        let bits = parameters.syncmer.pick_bits(&refseq);
+        let (_index2, stats) = make_index(&refseq, parameters, bits, 0.1, 1);
         assert_eq!(stats.distinct_strobemers, 0);
     }
 }

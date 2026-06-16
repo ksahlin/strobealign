@@ -179,24 +179,26 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::io::fasta::{RefSequence, read_ref};
+    use crate::io::fasta::read_ref;
+    use crate::packed_seq::PackedSeq;
     use crate::seeding::SeedingParameters;
     use crate::seeding::SyncmerIterator;
 
-    fn read_phix() -> RefSequence {
+    fn read_phix() -> PackedSeq {
         read_ref("tests/phix.fasta")
             .unwrap()
+            .sequences
             .first()
             .unwrap()
-            .clone()
+            .to_owned()
     }
 
     #[test]
     fn randstrobe_iterator() {
-        let refseq = read_phix().sequence;
+        let seq = read_phix();
         let parameters = SeedingParameters::new(300);
         let syncmer_iter = SyncmerIterator::new(
-            &refseq,
+            &seq,
             parameters.syncmer.k,
             parameters.syncmer.s,
             parameters.syncmer.t,
@@ -206,8 +208,8 @@ mod test {
         for randstrobe in randstrobe_iter {
             assert!(randstrobe.hash > 0);
             assert!(randstrobe.strobe2_pos >= randstrobe.strobe2_pos);
-            assert!(randstrobe.strobe1_pos < refseq.len());
-            assert!(randstrobe.strobe2_pos < refseq.len());
+            assert!(randstrobe.strobe1_pos < seq.len());
+            assert!(randstrobe.strobe2_pos < seq.len());
         }
     }
 
@@ -215,10 +217,10 @@ mod test {
     // items. We need this to hold for `count_randstrobes()`.
     #[test]
     fn syncmer_and_randstrobe_iterator_same_count() {
-        let refseq = read_phix().sequence;
+        let seq = read_phix();
         let parameters = SeedingParameters::new(100);
         let syncmer_iter = SyncmerIterator::new(
-            &refseq,
+            &seq,
             parameters.syncmer.k,
             parameters.syncmer.s,
             parameters.syncmer.t,
@@ -226,7 +228,7 @@ mod test {
         let syncmer_count = syncmer_iter.count();
 
         let syncmer_iter = SyncmerIterator::new(
-            &refseq,
+            &seq,
             parameters.syncmer.k,
             parameters.syncmer.s,
             parameters.syncmer.t,
