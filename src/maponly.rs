@@ -66,7 +66,7 @@ pub fn map_single_end_read(
 /// Returns the forward-strand query coordinates for a NAM,
 /// translating reverse-complement NAMs so all coordinates share
 /// the same reference frame.
-fn forward_query_coords(nam: &Nam, read_length: usize) -> (usize, usize) {
+pub fn forward_query_coords(nam: &Nam, read_length: usize) -> (usize, usize) {
     if nam.is_revcomp {
         (read_length - nam.query_end, read_length - nam.query_start)
     } else {

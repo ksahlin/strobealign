@@ -17,8 +17,10 @@ use crate::insertsize::InsertSizeDistribution;
 use crate::io::fasta::RefSequence;
 use crate::io::record::SequenceRecord;
 use crate::io::sam::{
-    MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SamRecord, UNMAP,
+    MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SUPPLEMENTARY,
+    SamRecord, UNMAP,
 };
+use crate::maponly::{forward_query_coords, query_overlap};
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
 use crate::nam::{Nam, get_nams_by_chaining, reverse_nam_if_needed, sort_nams};
@@ -107,6 +109,7 @@ impl SamOutput {
         record: &SequenceRecord,
         mapq: u8,
         is_primary: bool,
+        is_supplementary: bool,
         details: Details,
     ) -> SamRecord {
         match alignment {
@@ -116,6 +119,7 @@ impl SamOutput {
                 record,
                 mapq,
                 is_primary,
+                is_supplementary,
                 details.clone(),
             ),
             None => self.make_unmapped_record(record, details.clone()),
@@ -130,6 +134,7 @@ impl SamOutput {
         record: &SequenceRecord,
         mut mapq: u8,
         is_primary: bool,
+        is_supplementary: bool,
         details: Details,
     ) -> SamRecord {
         let mut flags = 0;
@@ -140,6 +145,10 @@ impl SamOutput {
         if !is_primary {
             mapq = 0;
             flags |= SECONDARY;
+        }
+        if is_supplementary {
+            mapq = 0;
+            flags |= SUPPLEMENTARY;
         }
 
         let query_sequence = if alignment.is_revcomp {
@@ -244,6 +253,7 @@ impl SamOutput {
                 records[0],
                 mapq[0],
                 is_primary,
+                false,
                 details[0].clone(),
             ),
             self.make_record(
@@ -252,6 +262,7 @@ impl SamOutput {
                 records[1],
                 mapq[1],
                 is_primary,
+                false,
                 details[1].clone(),
             ),
         ];
@@ -456,50 +467,175 @@ pub fn align_single_end_read(
             details,
         );
     }
-    let mapq = (60 * (best_score - second_best_score)).div_ceil(best_score) as u8;
 
     let best_alignment = best_alignment.unwrap();
-    let mut is_primary = true;
-    sam_records.push(sam_output.make_mapped_record(
-        &best_alignment,
+
+    let (primary, secondary) = get_primary_alignments(
+        best_alignment,
+        alignments,
+        nams,
+        record.len(),
+        aligner,
         references,
-        record,
-        mapq,
-        is_primary,
-        details.clone(),
-    ));
+        &read,
+        k,
+        mapping_parameters.use_ssw,
+    );
 
-    // Secondary alignments
-    if mapping_parameters.max_secondary > 0 {
-        // Remove the primary alignment
-        alignments.swap_remove(best_index);
+    // Todo: unique mapq per alignment
+    let best_score = primary.first().map_or(0, |aln| aln.score);
+    let second_best_score = secondary.first().map_or(0, |aln| aln.score);
+    let mapq = (60 * (best_score - second_best_score)).div_ceil(best_score) as u8;
 
-        // Highest score first
-        alignments.sort_by_key(|k| Reverse(k.score));
-
-        // Output secondary alignments
-        //let max_out = min(alignments.len(), mapping_parameters.max_secondary + 1);
-        for alignment in alignments.iter().take(mapping_parameters.max_secondary) {
-            if alignment.score.saturating_sub(best_score)
-                > 2 * aligner.scores.mismatch as u32 + aligner.scores.gap_open as u32
-            {
-                break;
-            }
-            is_primary = false;
-            // TODO .clone()
-            sam_records.push(sam_output.make_mapped_record(
-                alignment,
-                references,
-                record,
-                mapq,
-                is_primary,
-                details.clone(),
-            ));
-        }
+    let mut is_supplementary = false;
+    for aln in primary {
+        sam_records.push(sam_output.make_mapped_record(
+            &aln,
+            references,
+            record,
+            mapq,
+            true,
+            is_supplementary,
+            details.clone(),
+        ));
+        is_supplementary = true;
     }
+    for aln in secondary.iter().take(mapping_parameters.max_secondary) {
+        sam_records.push(sam_output.make_mapped_record(
+            aln,
+            references,
+            record,
+            mapq,
+            false,
+            false,
+            details.clone(),
+        ));
+    }
+
     details.time_extend = timer.elapsed().as_secs_f64();
 
     (sam_records, details)
+}
+
+/// Returns the number of query bases spanned by an alignment, excluding soft clips.
+fn query_span_aln(aln: &Alignment, read_length: usize) -> usize {
+    read_length
+        .saturating_sub(aln.soft_clip_left)
+        .saturating_sub(aln.soft_clip_right)
+}
+
+/// Returns the forward-strand query coordinates for an alignment, using soft clips as boundaries.
+fn forward_query_coords_alignment(aln: &Alignment, read_length: usize) -> (usize, usize) {
+    if aln.is_revcomp {
+        (aln.soft_clip_right, read_length - aln.soft_clip_left)
+    } else {
+        (aln.soft_clip_left, read_length - aln.soft_clip_right)
+    }
+}
+
+/// Computes the normalized query overlap between a NAM and an existing alignment.
+fn query_overlap_nam(a: &Nam, b: &Alignment, read_length: usize) -> f32 {
+    let (a_start, a_end) = forward_query_coords(a, read_length);
+    let (b_start, b_end) = forward_query_coords_alignment(b, read_length);
+
+    let start = a_start.max(b_start);
+    let end = a_end.min(b_end);
+    let overlap = end.saturating_sub(start);
+    if overlap == 0 {
+        return 0.0;
+    }
+    let len_a = a.query_span();
+    let len_b = query_span_aln(b, read_length);
+    let min_len = len_a.min(len_b);
+    overlap as f32 / min_len as f32
+}
+
+/// Computes the normalized query overlap between two alignments.
+fn query_overlap_alignment(a: &Alignment, b: &Alignment, read_length: usize) -> f32 {
+    let (a_start, a_end) = forward_query_coords_alignment(a, read_length);
+    let (b_start, b_end) = forward_query_coords_alignment(b, read_length);
+
+    let start = a_start.max(b_start);
+    let end = a_end.min(b_end);
+    let overlap = end.saturating_sub(start);
+    if overlap == 0 {
+        return 0.0;
+    }
+    let len_a = query_span_aln(a, read_length);
+    let len_b = query_span_aln(b, read_length);
+    let min_len = len_a.min(len_b);
+    overlap as f32 / min_len as f32
+}
+
+/// Partitions alignments and candidate NAMs into primary (with supplementary) and secondary sets.
+///
+/// Already-extended alignments are checked first; remaining NAMs with low query overlap
+/// to primary alignments are extended and added as supplementaries if they pass the overlap threshold.
+fn get_primary_alignments(
+    best_alignment: Alignment,
+    mut alignments: Vec<Alignment>,
+    nams: Vec<Nam>,
+    read_length: usize,
+    aligner: &Aligner,
+    references: &[RefSequence],
+    read: &Read,
+    k: usize,
+    use_ssw: bool,
+) -> (Vec<Alignment>, Vec<Alignment>) {
+    let mut primary = vec![best_alignment];
+    let mut secondary = vec![];
+
+    // sorting the alignments
+    alignments.sort_by_key(|k| Reverse(k.score));
+
+    // find supplementary alignment from already aligned chains
+    for aln in alignments {
+        if !primary
+            .iter()
+            .any(|p| query_overlap_alignment(&aln, p, read_length) > 0.5)
+        {
+            primary.push(aln);
+        } else {
+            secondary.push(aln);
+        }
+    }
+
+    // find candidate chains for alignment
+    let mut candidates = vec![];
+    for nam in nams {
+        if !primary
+            .iter()
+            .any(|p| query_overlap_nam(&nam, p, read_length) > 0.5)
+            && !candidates
+                .iter()
+                .any(|c| query_overlap(&nam, c, read_length) > 0.01)
+            && nam.anchors.len() >= 3
+        {
+            candidates.push(nam);
+        }
+    }
+
+    // align and verify the supplemntary condition for the candidate chains
+    for mut nam in candidates {
+        let consistent_nam = nam.is_consistent(read, references, k);
+        if !consistent_nam {
+            continue;
+        }
+        let aln = extend_seed(aligner, &mut nam, references, read, consistent_nam, use_ssw);
+
+        let Some(aln) = aln else {
+            continue;
+        };
+
+        if !primary
+            .iter()
+            .any(|p| query_overlap_alignment(&aln, p, read_length) > 0.5)
+        {
+            primary.push(aln);
+        }
+    }
+
+    (primary, secondary)
 }
 
 /// Extend a NAM so that it covers the entire read and return the resulting
