@@ -76,6 +76,21 @@ impl Alignment {
     fn global_edit_distance(&self) -> usize {
         self.edit_distance + self.soft_clip_left + self.soft_clip_right
     }
+
+    fn format_sa_entry(&self, references: &[RefSequence], mapq: u8, cigar_eqx: bool) -> String {
+        let rname = &references[self.reference_id].name;
+        let pos = self.ref_start + 1; // 1-based
+        let strand = if self.is_revcomp { '-' } else { '+' };
+
+        let mut cigar = Cigar::new();
+        cigar.push(CigarOperation::Softclip, self.soft_clip_left);
+        cigar.extend(&self.cigar);
+        cigar.push(CigarOperation::Softclip, self.soft_clip_right);
+        let cigar = if cigar_eqx { cigar } else { cigar.with_m() };
+
+        let nm = self.edit_distance;
+        format!("{},{},{},{},{},{};", rname, pos, strand, cigar, mapq, nm)
+    }
 }
 
 /// Conversion of an Alignment into a SamRecord
@@ -110,6 +125,7 @@ impl SamOutput {
         mapq: u8,
         is_primary: bool,
         is_supplementary: bool,
+        sa_tag: Option<String>,
         details: Details,
     ) -> SamRecord {
         match alignment {
@@ -120,6 +136,7 @@ impl SamOutput {
                 mapq,
                 is_primary,
                 is_supplementary,
+                sa_tag,
                 details.clone(),
             ),
             None => self.make_unmapped_record(record, details.clone()),
@@ -135,6 +152,7 @@ impl SamOutput {
         mut mapq: u8,
         is_primary: bool,
         is_supplementary: bool,
+        sa_tag: Option<String>,
         details: Details,
     ) -> SamRecord {
         let mut flags = 0;
@@ -195,6 +213,7 @@ impl SamOutput {
             alignment_score: Some(alignment.score),
             details,
             rg_id: self.rg_id.clone(),
+            sa_tag,
             extra,
             ..SamRecord::default()
         }
@@ -254,6 +273,7 @@ impl SamOutput {
                 mapq[0],
                 is_primary,
                 false,
+                None,
                 details[0].clone(),
             ),
             self.make_record(
@@ -263,6 +283,7 @@ impl SamOutput {
                 mapq[1],
                 is_primary,
                 false,
+                None,
                 details[1].clone(),
             ),
         ];
@@ -487,15 +508,18 @@ pub fn align_single_end_read(
     let second_best_score = secondary.first().map_or(0, |aln| aln.score);
     let mapq = (60 * (best_score - second_best_score)).div_ceil(best_score) as u8;
 
+    let sa_tags = build_sa_tags(&primary, references, mapq, sam_output.cigar_eqx);
+
     let mut is_supplementary = false;
-    for aln in primary {
+    for (aln, sa_tag) in primary.iter().zip(sa_tags) {
         sam_records.push(sam_output.make_mapped_record(
-            &aln,
+            aln,
             references,
             record,
             mapq,
             true,
             is_supplementary,
+            sa_tag,
             details.clone(),
         ));
         is_supplementary = true;
@@ -508,6 +532,7 @@ pub fn align_single_end_read(
             mapq,
             false,
             false,
+            None,
             details.clone(),
         ));
     }
@@ -515,6 +540,33 @@ pub fn align_single_end_read(
     details.time_extend = timer.elapsed().as_secs_f64();
 
     (sam_records, details)
+}
+
+fn build_sa_tags(
+    alignments: &[Alignment],
+    references: &[RefSequence],
+    mapq: u8,
+    cigar_eqx: bool,
+) -> Vec<Option<String>> {
+    if alignments.len() < 2 {
+        return vec![None; alignments.len()];
+    }
+    let entries: Vec<String> = alignments
+        .iter()
+        .map(|aln| aln.format_sa_entry(references, mapq, cigar_eqx))
+        .collect();
+
+    (0..alignments.len())
+        .map(|i| {
+            let sa: String = entries
+                .iter()
+                .enumerate()
+                .filter(|(j, _)| *j != i)
+                .map(|(_, s)| s.as_str())
+                .collect();
+            Some(sa)
+        })
+        .collect()
 }
 
 /// Returns the number of query bases spanned by an alignment, excluding soft clips.
