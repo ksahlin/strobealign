@@ -19,3 +19,4 @@ pub mod revcomp;
 pub mod seeding;
 pub mod shuffle;
 pub mod ssw;
+pub mod supplementary;

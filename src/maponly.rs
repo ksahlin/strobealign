@@ -7,10 +7,10 @@ use crate::insertsize::InsertSizeDistribution;
 use crate::io::fasta::RefSequence;
 use crate::io::paf::PafRecord;
 use crate::io::record::{End, SequenceRecord};
-use crate::mapper::mapping_quality;
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
 use crate::nam::{Nam, get_nams_by_chaining, sort_nams};
+use crate::supplementary::get_primary_chains;
 
 /// Map a single-end read to the reference and return PAF records
 ///
@@ -37,21 +37,13 @@ pub fn map_single_end_read(
         return (vec![], nam_details.into());
     }
 
-    let (primary, secondary) = get_primary_chains(nams, record.len());
-
-    // the mapping quality should be chosen by comparing the primary to the best secondary chain
-    let mapq_nams = [primary.first(), secondary.first()]
-        .into_iter()
-        .flatten()
-        .cloned()
-        .collect::<Vec<_>>();
-    let mapq = mapping_quality(&mapq_nams);
+    let (primary, _secondary) = get_primary_chains(nams, record.len(), rng);
 
     let records = primary
-        .iter()
-        .map(|p| {
+        .into_iter()
+        .map(|(p, mapq)| {
             paf_record_from_nam(
-                p,
+                &p,
                 &record.name,
                 references,
                 record.sequence.len(),
@@ -88,28 +80,6 @@ pub fn query_overlap(a: &Nam, b: &Nam, read_length: usize) -> f32 {
     let len_b = b.query_span();
     let min_len = len_a.min(len_b);
     overlap as f32 / min_len as f32
-}
-
-/// Returns the set of NAMs that compose the primary mapping location.
-///
-/// This function assumes that the NAMs are sorted by score.
-fn get_primary_chains(candidates: Vec<Nam>, read_length: usize) -> (Vec<Nam>, Vec<Nam>) {
-    let mut primary = vec![];
-    let mut secondary = vec![];
-    let valid_score = candidates.first().map_or(0.0, |nam| nam.score * 0.1);
-    for nam in candidates {
-        if !primary
-            .iter()
-            .any(|p| query_overlap(&nam, p, read_length) > 0.01)
-            && nam.anchors.len() >= 3
-            && nam.score > valid_score
-        {
-            primary.push(nam);
-        } else {
-            secondary.push(nam);
-        }
-    }
-    (primary, secondary)
 }
 
 /// Map a single-end read to the reference and estimate abundances
