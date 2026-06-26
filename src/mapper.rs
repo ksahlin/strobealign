@@ -393,8 +393,11 @@ pub fn align_single_end_read(
         // Use score-based dropoff: NAMs are sorted by score.
         let score_dropoff = nam.score / nam_max.score;
 
-        if (tries > 1 && best_edit_distance == 0)
-            || score_dropoff < mapping_parameters.dropoff_threshold
+        // Always extend at least the top-2 NAMs so that second_best_score is
+        // meaningful when computing MAPQ score.
+        if tries > 1
+            && (best_edit_distance == 0
+                || score_dropoff < mapping_parameters.dropoff_threshold)
         {
             break;
         }
