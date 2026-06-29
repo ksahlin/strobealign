@@ -42,7 +42,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_split_header() {
+    fn split_header_works() {
         assert_eq!(
             split_header("id comment"),
             ("id".to_string(), Some("comment".to_string()))

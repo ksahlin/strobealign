@@ -192,7 +192,7 @@ mod test {
     }
 
     #[test]
-    fn test_randstrobe_iterator() {
+    fn randstrobe_iterator() {
         let refseq = read_phix().sequence;
         let parameters = SeedingParameters::new(300);
         let syncmer_iter = SyncmerIterator::new(
@@ -214,7 +214,7 @@ mod test {
     // Ensure SyncmerIterator and RandstrobeIterator return the same number of
     // items. We need this to hold for `count_randstrobes()`.
     #[test]
-    fn test_syncmer_and_randstrobe_iterator_same_count() {
+    fn syncmer_and_randstrobe_iterator_same_count() {
         let refseq = read_phix().sequence;
         let parameters = SeedingParameters::new(100);
         let syncmer_iter = SyncmerIterator::new(

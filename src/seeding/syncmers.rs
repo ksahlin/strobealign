@@ -243,7 +243,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_invalid_parameters() {
+    fn invalid_parameters() {
         // k-s not even
         assert!(SyncmerParameters::try_new(20, 17).is_err());
         // s larger than k
@@ -254,7 +254,7 @@ mod test {
     }
 
     #[test]
-    fn test_syncmer_iterator() {
+    fn syncmer_iterator() {
         let seq = "AAAAAAAAAAAAAAAAAAAA";
         assert_eq!(seq.len(), 20);
 
@@ -272,7 +272,7 @@ mod test {
     }
 
     #[test]
-    fn test_canonical_syncmers() {
+    fn canonical_syncmers() {
         let parameters = SyncmerParameters::try_new(20, 16).unwrap();
         let seq: Vec<u8> = read_ref("tests/phix.fasta")
             .unwrap()

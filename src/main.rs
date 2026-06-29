@@ -1039,7 +1039,7 @@ mod test {
     }
 
     #[test]
-    fn test_estimate_read_length_phix_r1() {
+    fn estimate_read_length_phix_r1() {
         let f = xopen("tests/phix.1.fastq").unwrap();
         let mut reads_reader = PeekableSequenceReader::new(open_reads(f));
         assert_eq!(estimate_read_length(&reads_reader.peek(500).unwrap()), 289);

@@ -333,7 +333,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_seeding_parameters() {
+    fn seeding_parameters() {
         let canonical_read_length = 250;
         let k = 22;
         let s = 18;
@@ -376,7 +376,7 @@ mod test {
     }
 
     #[test]
-    fn test_seeding_parameters_similar_read_length() {
+    fn seeding_parameters_similar_read_length() {
         let sp150 = SeedingParameters::new(150);
         let sp149 = SeedingParameters::new(149);
         let sp151 = SeedingParameters::new(151);
@@ -386,7 +386,7 @@ mod test {
     }
 
     #[test]
-    fn test_seeding_parameters_is_custom() {
+    fn seeding_parameters_is_custom() {
         assert!(!SeedingParameters::new(100).is_custom());
         assert!(
             !SeedingParameters::new(100)

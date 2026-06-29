@@ -33,7 +33,7 @@ mod test {
     use crate::revcomp::reverse_complement;
 
     #[test]
-    fn test_reverse_complement() {
+    fn reverse_complement_works() {
         assert_eq!(reverse_complement(b""), b"");
         assert_eq!(reverse_complement(b""), b"");
         assert_eq!(reverse_complement(b"A"), b"T");

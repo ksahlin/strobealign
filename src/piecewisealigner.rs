@@ -723,7 +723,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_global_perfect_match() {
+    fn global_perfect_match() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -745,7 +745,7 @@ mod tests {
     }
 
     #[test]
-    fn test_global_complete_mismatch() {
+    fn global_complete_mismatch() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -767,7 +767,7 @@ mod tests {
     }
 
     #[test]
-    fn test_global_single_mismatch() {
+    fn global_single_mismatch() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -789,7 +789,7 @@ mod tests {
     }
 
     #[test]
-    fn test_global_gap_in_query() {
+    fn global_gap_in_query() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -811,7 +811,7 @@ mod tests {
     }
 
     #[test]
-    fn test_global_gap_in_reference() {
+    fn global_gap_in_reference() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -833,7 +833,7 @@ mod tests {
     }
 
     #[test]
-    fn test_global_gap_at_query_start() {
+    fn global_gap_at_query_start() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -855,7 +855,7 @@ mod tests {
     }
 
     #[test]
-    fn test_global_gap_at_query_end() {
+    fn global_gap_at_query_end() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -878,7 +878,7 @@ mod tests {
     }
 
     #[test]
-    fn test_global_gap_at_reference_start() {
+    fn global_gap_at_reference_start() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -901,7 +901,7 @@ mod tests {
     }
 
     #[test]
-    fn test_global_gap_at_reference_end() {
+    fn global_gap_at_reference_end() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -924,7 +924,7 @@ mod tests {
     }
 
     #[test]
-    fn test_global_multiple_mismatches() {
+    fn global_multiple_mismatches() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -947,7 +947,7 @@ mod tests {
     }
 
     #[test]
-    fn test_global_complex_alignment() {
+    fn global_complex_alignment() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -969,7 +969,7 @@ mod tests {
     }
 
     #[test]
-    fn test_xdrop_forward_perfect_match() {
+    fn xdrop_forward_perfect_match() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -991,7 +991,7 @@ mod tests {
     }
 
     #[test]
-    fn test_xdrop_forward_with_mismatch() {
+    fn xdrop_forward_with_mismatch() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1013,7 +1013,7 @@ mod tests {
     }
 
     #[test]
-    fn test_xdrop_forward_early_termination() {
+    fn xdrop_forward_early_termination() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1039,7 +1039,7 @@ mod tests {
     }
 
     #[test]
-    fn test_xdrop_forward_end_bonus_extends_alignment() {
+    fn xdrop_forward_end_bonus_extends_alignment() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1062,7 +1062,7 @@ mod tests {
     }
 
     #[test]
-    fn test_xdrop_forward_with_gap() {
+    fn xdrop_forward_with_gap() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1085,7 +1085,7 @@ mod tests {
     }
 
     #[test]
-    fn test_xdrop_forward_gap_in_reference() {
+    fn xdrop_forward_gap_in_reference() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1108,7 +1108,7 @@ mod tests {
     }
 
     #[test]
-    fn test_xdrop_reverse_perfect_match() {
+    fn xdrop_reverse_perfect_match() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1130,7 +1130,7 @@ mod tests {
     }
 
     #[test]
-    fn test_xdrop_reverse_with_mismatch() {
+    fn xdrop_reverse_with_mismatch() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1152,7 +1152,7 @@ mod tests {
     }
 
     #[test]
-    fn test_xdrop_reverse_early_termination() {
+    fn xdrop_reverse_early_termination() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1178,7 +1178,7 @@ mod tests {
     }
 
     #[test]
-    fn test_xdrop_reverse_end_bonus_extends_alignment() {
+    fn xdrop_reverse_end_bonus_extends_alignment() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1201,7 +1201,7 @@ mod tests {
     }
 
     #[test]
-    fn test_xdrop_reverse_with_gap() {
+    fn xdrop_reverse_with_gap() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1224,7 +1224,7 @@ mod tests {
     }
 
     #[test]
-    fn test_xdrop_reverse_gap_in_reference() {
+    fn xdrop_reverse_gap_in_reference() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1247,7 +1247,7 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_spurious_anchors_control() {
+    fn remove_spurious_anchors_control() {
         let expected = vec![
             Anchor {
                 ref_id: 0,
@@ -1311,7 +1311,7 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_spurious_anchors_inside_trim() {
+    fn remove_spurious_anchors_inside_trim() {
         let mut result = vec![
             Anchor {
                 ref_id: 0,
@@ -1411,7 +1411,7 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_spurious_anchors_ends_trim() {
+    fn remove_spurious_anchors_ends_trim() {
         let mut result = vec![
             Anchor {
                 ref_id: 0,
@@ -1511,7 +1511,7 @@ mod tests {
     }
 
     #[test]
-    fn test_extend_piecewise_matching() {
+    fn extend_piecewise_matching() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1560,7 +1560,7 @@ mod tests {
     }
 
     #[test]
-    fn test_extend_piecewise_unmappable() {
+    fn extend_piecewise_unmappable() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1596,7 +1596,7 @@ mod tests {
     }
 
     #[test]
-    fn test_extend_piecewise_overlapping_anchors() {
+    fn extend_piecewise_overlapping_anchors() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -1661,7 +1661,7 @@ mod tests {
     }
 
     #[test]
-    fn test_extend_piecewise_complex() {
+    fn extend_piecewise_complex() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,

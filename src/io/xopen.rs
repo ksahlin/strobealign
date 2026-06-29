@@ -29,7 +29,7 @@ mod test {
     use temp_file::TempFileBuilder;
 
     #[test]
-    fn test_open_multi_block_gzip() -> Result<(), Box<dyn Error>> {
+    fn open_multi_block_gzip() -> Result<(), Box<dyn Error>> {
         // Create a multi-block gzip
         let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
         encoder.write_all(b"abc")?;

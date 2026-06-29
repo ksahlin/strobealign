@@ -364,14 +364,14 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_pick_bits() {
+    fn pick_bits() {
         let parameters = SyncmerParameters::try_new(20, 16).unwrap();
         let references = read_ref("tests/phix.fasta").unwrap();
         assert_eq!(parameters.pick_bits(&references), 9);
     }
 
     #[test]
-    fn test_index_phix() {
+    fn index_phix() {
         let references = read_ref("tests/phix.fasta").unwrap();
         let parameters = SeedingParameters::new(150);
         let bits = parameters.syncmer.pick_bits(&references);
@@ -380,7 +380,7 @@ mod test {
     }
 
     #[test]
-    fn test_index_empty_reference() {
+    fn index_empty_reference() {
         let references = vec![RefSequence {
             name: "name".to_string(),
             sequence: PackedSeq::new(),

@@ -141,7 +141,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_open_reads_fastq() {
+    fn open_reads_fastq() {
         let f = File::open("tests/phix.1.fastq").unwrap();
         let mut reader = open_reads(f);
         let record1 = reader.next().unwrap().unwrap();
@@ -149,7 +149,7 @@ mod test {
     }
 
     #[test]
-    fn test_open_reads_fasta() {
+    fn open_reads_fasta() {
         let f = File::open("tests/phix.fasta").unwrap();
         let mut reader = open_reads(f);
         let record1 = reader.next().unwrap().unwrap();
@@ -157,7 +157,7 @@ mod test {
     }
 
     #[test]
-    fn test_peekable_sequence_reader() {
+    fn peekable_sequence_reader() {
         let f = File::open("tests/phix.1.fastq").unwrap();
         let mut reader = PeekableSequenceReader::new(open_reads(f));
 
@@ -175,7 +175,7 @@ mod test {
     }
 
     #[test]
-    fn test_interleaved_record_iterator() {
+    fn interleaved_record_iterator_works() {
         let f = File::open("tests/interleaved.fq").unwrap();
         let reader = PeekableSequenceReader::new(Box::new(FastqReader::new(BufReader::new(f))));
         let it = interleaved_record_iterator(reader);
@@ -204,7 +204,7 @@ mod test {
     }
 
     #[test]
-    fn test_interleaved_records_with_slash12() {
+    fn interleaved_records_with_slash12() {
         // Record name a/1 followed by a/2 should be recognized as a
         // paired-end read
         let f = Cursor::new(b"@a/1\nAACC\n+\n####\n@a/2\nGGTT\n+n\n####\n");

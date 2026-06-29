@@ -546,7 +546,7 @@ mod tests {
     use crate::revcomp::reverse_complement;
 
     #[test]
-    fn test_ref_randstrobe() {
+    fn ref_randstrobe() {
         let hash: u64 = 0x1234567890ABCDEFu64 & REF_RANDSTROBE_HASH_MASK;
         let ref_index: u32 = (REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES - 1) as u32;
         let offset = 255;
@@ -560,7 +560,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sti_parameters_mismatch() {
+    fn sti_parameters_mismatch() {
         use temp_dir::TempDir;
 
         let dir = TempDir::new().unwrap();
@@ -585,7 +585,7 @@ mod tests {
     }
 
     #[test]
-    fn test_partial_orientation() {
+    fn partial_orientation() {
         let references = read_ref("tests/phix.fasta").unwrap();
         let seq_decoded = references[0].sequence.decode_all();
         let rc_seq = reverse_complement(&seq_decoded);

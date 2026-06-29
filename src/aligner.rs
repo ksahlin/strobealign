@@ -297,7 +297,7 @@ mod test {
     };
 
     #[test]
-    fn test_ssw_align_no_result() {
+    fn ssw_align_no_result() {
         let aligner = Aligner::new(Scores::default(), 0, 0);
         let query = b"TCTCTCCCTCTCTCTCTCTCCCTCCCTCTCTCTCCCTCTCTCTCTCTCTCTCCCTCCCTT";
         let refseq = b"GAGGGAGAGAGAGAGAGGGAGAGAGAGAGAGAG";
@@ -306,7 +306,7 @@ mod test {
     }
 
     #[test]
-    fn test_call_count() {
+    fn call_count() {
         let aligner = Aligner::new(Scores::default(), 0, 0);
         assert_eq!(aligner.call_count(), 0);
         let refseq = b"AAAAAACCCCCGGGGG";
@@ -319,7 +319,7 @@ mod test {
     }
 
     #[test]
-    fn test_highest_scoring_segment() {
+    fn highest_scoring_segment_works() {
         let (start, end, _score) = highest_scoring_segment(b"", b"", 5, 7, 0);
         assert_eq!(start, 0);
         assert_eq!(end, 0);
@@ -350,7 +350,7 @@ mod test {
     }
 
     #[test]
-    fn test_highest_scoring_segment_with_soft_clipping() {
+    fn highest_scoring_segment_with_soft_clipping() {
         assert_eq!(highest_scoring_segment(b"", b"", 2, 4, 5), (0, 0, 10));
         assert_eq!(
             highest_scoring_segment(b"TAAT", b"TAAA", 2, 4, 5),
@@ -375,7 +375,7 @@ mod test {
     }
 
     #[test]
-    fn test_hamming_align_empty_sequences() {
+    fn hamming_align_empty_sequences() {
         let info = hamming_align(b"", b"", 7, 5, 0).unwrap();
         assert!(info.cigar.is_empty());
         assert_eq!(info.edit_distance, 0);
@@ -387,7 +387,7 @@ mod test {
     }
 
     #[test]
-    fn test_hamming_align_one_mismatch() {
+    fn hamming_align_one_mismatch() {
         let info = hamming_align(b"AAXGGG", b"AAYGGG", 1, 1, 0).unwrap();
         assert_eq!(info.cigar.to_string(), "2=1X3=");
         assert_eq!(info.edit_distance, 1);
@@ -399,7 +399,7 @@ mod test {
     }
 
     #[test]
-    fn test_hamming_align_soft_clipped() {
+    fn hamming_align_soft_clipped() {
         let info = hamming_align(b"AXGGG", b"AYGGG", 1, 4, 0).unwrap();
         assert_eq!(info.cigar.to_string(), "3=");
         assert_eq!(info.edit_distance, 0);
@@ -411,7 +411,7 @@ mod test {
     }
 
     #[test]
-    fn test_hamming_align_wildcard() {
+    fn hamming_align_wildcard() {
         let info = hamming_align(b"NAACCG", b"TAACCG", 3, 7, 0).unwrap();
         assert_eq!(info.cigar.to_string(), "5=");
         assert_eq!(info.edit_distance, 0);
@@ -423,7 +423,7 @@ mod test {
     }
 
     #[test]
-    fn test_hamming_align_wildcard_at_end() {
+    fn hamming_align_wildcard_at_end() {
         let info = hamming_align(b"AACCGN", b"AACCGT", 3, 7, 0).unwrap();
         assert_eq!(info.cigar.to_string(), "5=");
         assert_eq!(info.edit_distance, 0);
@@ -435,7 +435,7 @@ mod test {
     }
 
     #[test]
-    fn test_hamming_align_both_ends_soft_clipped() {
+    fn hamming_align_both_ends_soft_clipped() {
         // negative total score, soft clipping on both ends
         let info = hamming_align(b"NAAAAAAAAAAAAAA", b"TAAAATTTTTTTTTT", 3, 7, 0).unwrap();
         assert_eq!(info.cigar.to_string(), "4=");
@@ -448,7 +448,7 @@ mod test {
     }
 
     #[test]
-    fn test_hamming_align_long_soft_clipping() {
+    fn hamming_align_long_soft_clipping() {
         let info = hamming_align(b"NAAAAAAAAAAAAAA", b"TAAAATTTAAAAAAT", 3, 7, 0).unwrap();
         assert_eq!(info.cigar.to_string(), "6=");
         assert_eq!(info.edit_distance, 0);
@@ -460,7 +460,7 @@ mod test {
     }
 
     #[test]
-    fn test_hamming_align_short_soft_clipping() {
+    fn hamming_align_short_soft_clipping() {
         let info = hamming_align(b"AAAAAAAAAAAAAAA", b"TAAAAAATTTAAAAT", 3, 7, 0).unwrap();
         assert_eq!(info.cigar.to_string(), "6=");
         assert_eq!(info.edit_distance, 0);
@@ -472,7 +472,7 @@ mod test {
     }
 
     #[test]
-    fn test_hamming_global_perfect_match() {
+    fn hamming_global_perfect_match() {
         let info = hamming_align_global(b"ACGT", b"ACGT", 3, 7);
         assert_eq!(info.cigar.to_string(), "4=");
         assert_eq!(info.edit_distance, 0);
@@ -484,7 +484,7 @@ mod test {
     }
 
     #[test]
-    fn test_hamming_global_all_mismatches() {
+    fn hamming_global_all_mismatches() {
         let info = hamming_align_global(b"AAAA", b"TTTT", 3, 7);
         assert_eq!(info.cigar.to_string(), "4X");
         assert_eq!(info.edit_distance, 4);
@@ -492,7 +492,7 @@ mod test {
     }
 
     #[test]
-    fn test_hamming_global_mixed_matches_and_mismatches() {
+    fn hamming_global_mixed_matches_and_mismatches() {
         let info = hamming_align_global(b"ACGT", b"AGGT", 3, 7);
         assert_eq!(info.cigar.to_string(), "1=1X2=");
         assert_eq!(info.edit_distance, 1);
@@ -500,7 +500,7 @@ mod test {
     }
 
     #[test]
-    fn test_hamming_global_single_base_mismatch() {
+    fn hamming_global_single_base_mismatch() {
         let info = hamming_align_global(b"A", b"C", 3, 7);
         assert_eq!(info.cigar.to_string(), "1X");
         assert_eq!(info.edit_distance, 1);
@@ -508,7 +508,7 @@ mod test {
     }
 
     #[test]
-    fn test_hamming_global_score_floored_with_mixed_alignment() {
+    fn hamming_global_score_floored_with_mixed_alignment() {
         let info = hamming_align_global(b"ACGT", b"AGGA", 3, 7);
         assert_eq!(info.cigar.to_string(), "1=1X1=1X");
         assert_eq!(info.edit_distance, 2);

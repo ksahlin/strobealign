@@ -101,7 +101,7 @@ mod tests {
     use std::io::Cursor;
 
     #[test]
-    fn test_invalid_record_start() {
+    fn invalid_record_start() {
         let f = Cursor::new(b"@a\nA\n+\n#\n>b");
         let reader = FastqReader::new(f);
         let result = reader.collect::<Result<Vec<SequenceRecord>, SequenceIOError>>();
@@ -110,7 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn test_too_few_quality_values() {
+    fn too_few_quality_values() {
         let f = Cursor::new(b"@a\nA\n+\n#\n>b");
         let reader = FastqReader::new(f);
         let result = reader.collect::<Result<Vec<SequenceRecord>, SequenceIOError>>();

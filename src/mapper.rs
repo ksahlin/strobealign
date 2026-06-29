@@ -1510,7 +1510,7 @@ mod tests {
     }
 
     #[test]
-    fn test_count_best_alignment_pairs() {
+    fn count_best_alignment_pairs_works() {
         let mut pairs = vec![];
         fn add_alignment(pairs: &mut Vec<ScoredAlignmentPair>, score: f64) {
             pairs.push(ScoredAlignmentPair {
@@ -1535,7 +1535,7 @@ mod tests {
     }
 
     #[test]
-    fn test_deduplicate_scored_pairs() {
+    fn deduplicate_scored_pairs_works() {
         let a1 = Some(Alignment {
             reference_id: 0,
             ref_start: 1906,
@@ -1583,7 +1583,7 @@ mod tests {
     }
 
     #[test]
-    fn test_has_shared_substring() {
+    fn has_shared_substring_works() {
         assert!(!has_shared_substring(
             "GGGGGGGGGGGGGGGGG".as_bytes(),
             "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT".as_bytes(),
