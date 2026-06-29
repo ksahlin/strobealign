@@ -375,4 +375,12 @@ mod test {
         let (_index2, stats) = make_index(&refseq, parameters, bits, 0.1, 1);
         assert_eq!(stats.distinct_strobemers, 0);
     }
+
+    #[test]
+    fn count_randstrobes_phix() {
+        let refseq = read_ref("tests/phix.fasta").unwrap();
+        let parameters = SeedingParameters::new(150);
+
+        assert_eq!(count_randstrobes(&refseq.contig(0), &parameters), 1090);
+    }
 }
