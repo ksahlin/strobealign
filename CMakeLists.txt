@@ -29,7 +29,7 @@ set(ISAL "system" CACHE STRING "Where to find ISA-L: system (uses pkg-config), d
 set_property(CACHE ISAL PROPERTY STRINGS "system" "download")
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
-add_compile_options(-Wall -Wextra -Werror=maybe-uninitialized)
+add_compile_options(-Wall -Wextra -Werror=maybe-uninitialized -mpopcnt)
 
 add_subdirectory(cpp/ext/zstr)
 
@@ -114,7 +114,10 @@ endif()
 target_include_directories(salib PUBLIC cpp/ cpp/ext/ ${PROJECT_BINARY_DIR})
 target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr ISAL)
 IF(ENABLE_AVX)
-  target_compile_options(salib PUBLIC "-mavx2")
+  target_sources(salib PRIVATE cpp/ext/ssw/ssw_avx2.c)
+  set_source_files_properties(cpp/ext/ssw/ssw_avx2.c
+    PROPERTIES COMPILE_FLAGS "-mavx2")
+  target_compile_definitions(salib PUBLIC SSW_AVX2)
 ENDIF()
 if (TRACE)
    target_compile_definitions(salib PUBLIC "TRACE")
