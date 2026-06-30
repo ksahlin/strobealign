@@ -561,20 +561,20 @@ fn extend_seed(
     let mut gapped = true;
     if projected_ref_start + query.len() == projected_ref_end && consistent_nam {
         let ref_segm_ham = refseq.decode(projected_ref_start, projected_ref_end);
-        if let Some(hamming_dist) = hamming_distance(query, &ref_segm_ham) {
-            if (hamming_dist as f32 / query.len() as f32) < 0.05 {
-                // ungapped worked fine, no need to do gapped alignment
-                info = hamming_align(
-                    query,
-                    &ref_segm_ham,
-                    aligner.scores.match_,
-                    aligner.scores.mismatch,
-                    aligner.scores.end_bonus,
-                )
-                .expect("hamming_dist was successful, this should be as well");
-                result_ref_start = projected_ref_start + info.ref_start;
-                gapped = false;
-            }
+        if let Some(hamming_dist) = hamming_distance(query, &ref_segm_ham)
+            && (hamming_dist as f32 / query.len() as f32) < 0.05
+        {
+            // ungapped worked fine, no need to do gapped alignment
+            info = hamming_align(
+                query,
+                &ref_segm_ham,
+                aligner.scores.match_,
+                aligner.scores.mismatch,
+                aligner.scores.end_bonus,
+            )
+            .expect("hamming_dist was successful, this should be as well");
+            result_ref_start = projected_ref_start + info.ref_start;
+            gapped = false;
         }
     }
     if gapped {

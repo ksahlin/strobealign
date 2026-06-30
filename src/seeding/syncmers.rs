@@ -10,6 +10,7 @@ use crate::packed_seq::PackedSeq;
 /// `nucleotide_bits` returns the nucleotide as a 2-bit value (0=A, 1=C, 2=G, 3=T,
 /// 4=N/ambiguous). This is what the syncmer hash machinery needs directly,
 /// so implementations should avoid going through ASCII as an intermediate.
+#[allow(clippy::len_without_is_empty)]
 pub trait SeqAccess {
     fn nucleotide_bits(&self, i: usize) -> u8;
     fn len(&self) -> usize;
@@ -69,7 +70,7 @@ pub struct SyncmerParameters {
 
 impl SyncmerParameters {
     pub fn try_new(k: usize, s: usize) -> Result<Self, InvalidSeedingParameter> {
-        if k < 8 || k > 32 {
+        if !(8..=32).contains(&k) {
             return Err(InvalidSeedingParameter::InvalidParameter(
                 "k must be at least 8 and at most 32",
             ));
@@ -79,7 +80,7 @@ impl SyncmerParameters {
                 "s must not be larger than k",
             ));
         }
-        if (k - s) % 2 != 0 {
+        if !(k - s).is_multiple_of(2) {
             return Err(InvalidSeedingParameter::InvalidParameter(
                 "(k - s) must be an even number to create canonical syncmers. Please set s to e.g. k-2, k-4, k-6, ...",
             ));

@@ -48,7 +48,7 @@ fn success_when_printing_help() {
 #[test]
 fn single_end_sam_m_cigar() {
     let mut cmd = cmd();
-    let p = cmd.args(&["tests/phix.fasta", "tests/phix.1.fastq"]);
+    let p = cmd.args(["tests/phix.fasta", "tests/phix.1.fastq"]);
     let a = p.assert().success();
     let stdout = &a.get_output().stdout;
     for line in str::from_utf8(stdout).unwrap().lines() {
@@ -67,7 +67,7 @@ fn single_end_sam() {
     // TODO -v
     let expected = String::from_utf8(read("tests/phix.se.sam").unwrap()).unwrap();
     let mut cmd = cmd();
-    let p = cmd.args(&[
+    let p = cmd.args([
         "--chunk-size=3",
         "--no-PG",
         "--eqx",
@@ -85,7 +85,7 @@ fn single_end_sam() {
 fn paired_end_sam() {
     let expected = String::from_utf8(read("tests/phix.pe.sam").unwrap()).unwrap();
     let mut cmd = cmd();
-    let p = cmd.args(&[
+    let p = cmd.args([
         "--no-PG",
         "--eqx",
         "--rg-id=1",
@@ -111,7 +111,7 @@ fn compressed_reference() -> Result<(), Box<dyn Error>> {
         .build()?
         .with_contents(&compressed_fasta)?;
 
-    cmd.args(&[
+    cmd.args([
         tmp.path().as_os_str().to_str().unwrap(),
         "tests/empty.fastq",
     ])
@@ -125,7 +125,7 @@ fn compressed_reference() -> Result<(), Box<dyn Error>> {
 fn fail_when_create_index_is_used_without_read_length() {
     // Create index requires -r or reads file
     cmd()
-        .args(&["--create-index", "tests/phix.fasta"])
+        .args(["--create-index", "tests/phix.fasta"])
         .assert()
         .failure();
 }

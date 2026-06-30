@@ -35,7 +35,7 @@ impl<B: BufRead> Iterator for FastqReader<B> {
             }
         }
         if !name.starts_with('@') {
-            let start = name.bytes().nth(0).unwrap() as char;
+            let start = name.as_bytes()[0] as char;
             let msg = format!("Record must start with '@', but found '{}'.", start);
             self.err = true;
             return Some(Err(SequenceIOError::Fastq(msg)));

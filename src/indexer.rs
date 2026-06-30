@@ -15,8 +15,8 @@ use rayon;
 use rayon::slice::ParallelSliceMut;
 
 /// Create a StrobemerIndex
-pub fn make_index<'a>(
-    references: &'a [RefSequence],
+pub fn make_index(
+    references: &[RefSequence],
     parameters: SeedingParameters,
     bits: u8,
     filter_fraction: f64,
@@ -92,6 +92,7 @@ pub fn make_index<'a>(
     if !randstrobes.is_empty() {
         randstrobe_start_indices.push(0);
     }
+    #[allow(clippy::needless_range_loop)]
     for position in 1..randstrobes.len() {
         let cur_hash = randstrobes[position].hash();
         if cur_hash == prev_hash {

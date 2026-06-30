@@ -62,6 +62,7 @@ pub struct Chainer {
 impl Chainer {
     pub fn new(k: usize, parameters: ChainingParameters) -> Self {
         let mut precomputed_scores = [0f32; N_PRECOMPUTED];
+        #[allow(clippy::needless_range_loop)]
         for i in 0..N_PRECOMPUTED {
             precomputed_scores[i] = compute_score(i, i, k, &parameters);
         }

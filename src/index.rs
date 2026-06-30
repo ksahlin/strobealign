@@ -91,6 +91,7 @@ pub struct IndexEntry<'a> {
     pub position: usize,
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl StrobemerIndex {
     pub fn new(
         parameters: SeedingParameters,
@@ -165,8 +166,8 @@ impl StrobemerIndex {
         const MAX_LINEAR_SEARCH: usize = 4;
         let top_n = (hash >> (64 - self.bits)) as usize;
         let position_start = start_position.unwrap_or(self.bucket_starts[top_n] as usize);
-        let position_end = self.bucket_starts[top_n + 1];
-        let bucket = &self.randstrobes[position_start as usize..position_end as usize];
+        let position_end = self.bucket_starts[top_n + 1] as usize;
+        let bucket = &self.randstrobes[position_start..position_end];
         if bucket.is_empty() {
             return None;
         } else if bucket.len() < MAX_LINEAR_SEARCH {
@@ -174,7 +175,7 @@ impl StrobemerIndex {
                 if randstrobe.hash() & hash_mask == masked_hash {
                     return Some(IndexEntry {
                         strobemer_index: self,
-                        position: position_start as usize + pos,
+                        position: position_start + pos,
                     });
                 }
                 if randstrobe.hash() & hash_mask > masked_hash {
@@ -188,7 +189,7 @@ impl StrobemerIndex {
         if pos < bucket.len() && bucket[pos].hash() & hash_mask == masked_hash {
             Some(IndexEntry {
                 strobemer_index: self,
-                position: position_start as usize + pos,
+                position: position_start + pos,
             })
         } else {
             None
@@ -383,7 +384,7 @@ impl StrobemerIndex {
         file.write_all(&(self.filter_cutoff as u32).to_ne_bytes())?;
         file.write_all(&(self.bits as u32).to_ne_bytes())?;
 
-        file.write_all(&(self.parameters.profile.clone() as u32).to_ne_bytes())?;
+        file.write_all(&(self.parameters.profile as u32).to_ne_bytes())?;
         let sp = &self.parameters.syncmer;
         for val in [sp.k, sp.s].iter() {
             file.write_all(&(*val as u32).to_ne_bytes())?
@@ -399,7 +400,7 @@ impl StrobemerIndex {
         {
             file.write_all(&val.to_ne_bytes())?;
         }
-        file.write_all(&(rp.main_hash_mask as u64).to_ne_bytes())?;
+        file.write_all(&rp.main_hash_mask.to_ne_bytes())?;
 
         write_vec(&mut file, &self.randstrobes)?;
         write_vec(&mut file, &self.bucket_starts)?;
@@ -408,7 +409,7 @@ impl StrobemerIndex {
     }
 }
 
-pub fn read_index<'a, P: AsRef<Path>>(
+pub fn read_index<P: AsRef<Path>>(
     path: P,
     parameters: SeedingParameters,
     bits: u8,
@@ -530,7 +531,7 @@ fn write_vec<T>(file: &mut File, data: &[T]) -> Result<(), Error> {
     file.write_all(&(data.len().to_ne_bytes()))?;
     // write data
     let data: &[u8] = unsafe {
-        std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * size_of::<T>())
+        std::slice::from_raw_parts(data.as_ptr() as *const u8, std::mem::size_of_val(data))
     };
 
     file.write_all(data)
@@ -612,7 +613,7 @@ mod tests {
             let rev_entry = rev_pos_result.unwrap();
 
             let rc_partial_query = fwd_index.randstrobes[i].hash()
-                ^ ((1 as u64) << rc_index.parameters.randstrobe.partial_orientation_pos);
+                ^ (1u64 << rc_index.parameters.randstrobe.partial_orientation_pos);
             let rev_pos_forward =
                 rc_index.get_partial_forward_from(rc_partial_query, rev_entry.position);
             assert!(rev_pos_forward.is_some());

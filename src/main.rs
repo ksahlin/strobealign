@@ -642,6 +642,7 @@ fn run() -> Result<(), CliError> {
     });
     let chunks_rx = Arc::new(Mutex::new(chunks_rx));
 
+    #[allow(clippy::type_complexity)]
     let (out_tx, out_rx): (
         Sender<(usize, (Vec<u8>, Details))>,
         Receiver<(usize, (Vec<u8>, Details))>,
@@ -892,7 +893,7 @@ impl Mapper<'_> {
                             self.sam_output,
                             self.seeding_parameters,
                             &mut isizedist,
-                            &self.chainer,
+                            self.chainer,
                             &self.aligner,
                             &mut rng,
                         );
@@ -911,7 +912,7 @@ impl Mapper<'_> {
                             self.references,
                             self.mapping_parameters,
                             self.sam_output,
-                            &self.chainer,
+                            self.chainer,
                             &self.aligner,
                             &mut rng,
                         );
@@ -937,7 +938,7 @@ impl Mapper<'_> {
                             self.mapping_parameters.rescue_distance,
                             &mut isizedist,
                             self.mapping_parameters.mcs_strategy,
-                            &self.chainer,
+                            self.chainer,
                             &mut rng,
                         )
                     } else {
@@ -947,7 +948,7 @@ impl Mapper<'_> {
                             self.references,
                             self.mapping_parameters.rescue_distance,
                             self.mapping_parameters.mcs_strategy,
-                            &self.chainer,
+                            self.chainer,
                             &mut rng,
                         )
                     };
@@ -966,7 +967,7 @@ impl Mapper<'_> {
                             self.mapping_parameters.rescue_distance,
                             &mut isizedist,
                             self.mapping_parameters.mcs_strategy,
-                            &self.chainer,
+                            self.chainer,
                             &mut rng,
                         );
                     } else {
@@ -976,7 +977,7 @@ impl Mapper<'_> {
                             &mut self.abundances,
                             self.mapping_parameters.rescue_distance,
                             self.mapping_parameters.mcs_strategy,
-                            &self.chainer,
+                            self.chainer,
                             &mut rng,
                         );
                     }
@@ -1007,19 +1008,18 @@ fn estimate_read_length(records: &[SequenceRecord]) -> usize {
         n += 1;
     }
 
-    if n == 0 { 0 } else { s / n }
+    s.checked_div(n).unwrap_or(0)
 }
 
 fn warn_clocksource() {
     if let Ok(result) =
         std::fs::read("/sys/devices/system/clocksource/clocksource0/current_clocksource")
+        && result == b"hpet\n"
     {
-        if result == b"hpet\n" {
-            warn!(
-                "\nWARNING: This system uses the 'hpet' clocksource, which can \
+        warn!(
+            "\nWARNING: This system uses the 'hpet' clocksource, which can \
                 slow down strobealign significantly. If possible, prefer 'tsc' instead.\n"
-            );
-        }
+        );
     }
 }
 

@@ -350,6 +350,7 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::identity_op)]
     fn highest_scoring_segment_with_soft_clipping() {
         assert_eq!(highest_scoring_segment(b"", b"", 2, 4, 5), (0, 0, 10));
         assert_eq!(

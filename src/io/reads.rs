@@ -118,14 +118,14 @@ pub fn interleaved_record_iterator(
     Box::new(InterleavedIterator::new(reader))
 }
 
-pub fn open_reads<'a, R: Read + Send + 'static>(
+pub fn open_reads<R: Read + Send + 'static>(
     f: R,
 ) -> Box<dyn Iterator<Item = Result<SequenceRecord, SequenceIOError>> + Send> {
     let mut br = BufReader::new(f);
-    if let Ok(_) = br.fill_buf() {
-        if let Some(b'>') = br.buffer().first() {
-            return Box::new(FastaReader::new(br));
-        }
+    if let Ok(_) = br.fill_buf()
+        && let Some(b'>') = br.buffer().first()
+    {
+        return Box::new(FastaReader::new(br));
     }
 
     Box::new(FastqReader::new(br))

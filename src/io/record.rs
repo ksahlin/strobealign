@@ -7,7 +7,7 @@ use std::fmt;
 /// and strip it. To retain the information, it is stored as part of a
 /// SequenceRecord. This is only used when pairing up 'mixed' reads
 /// (readname/1 followed by readname/2 is considered to be a paired-end read).
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub enum End {
     /// First read in a pair
     One,
@@ -16,13 +16,8 @@ pub enum End {
     Two,
 
     /// Read did not have a /1 or /2 suffix in the input file
+    #[default]
     None,
-}
-
-impl Default for End {
-    fn default() -> Self {
-        End::None
-    }
 }
 
 #[derive(Debug, Clone)]

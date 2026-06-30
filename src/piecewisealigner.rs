@@ -1039,6 +1039,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::identity_op)]
     fn xdrop_forward_end_bonus_extends_alignment() {
         let aligner = PiecewiseAligner::new(
             Scores {
@@ -1178,6 +1179,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::identity_op)]
     fn xdrop_reverse_end_bonus_extends_alignment() {
         let aligner = PiecewiseAligner::new(
             Scores {
@@ -1525,7 +1527,7 @@ mod tests {
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-        let mut anchors = vec![
+        let anchors = vec![
             Anchor {
                 ref_id: 0,
                 ref_start: 40,
@@ -1548,7 +1550,7 @@ mod tests {
             },
         ];
         let result = aligner
-            .extend_piecewise(query, refseq, &mut anchors, 5)
+            .extend_piecewise(query, refseq, &anchors, 5)
             .unwrap();
         assert_eq!(result.score, 50 * 2 + 10 * 2);
         assert_eq!(result.edit_distance, 0);
@@ -1574,7 +1576,7 @@ mod tests {
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq = b"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT";
-        let mut anchors = vec![
+        let anchors = vec![
             Anchor {
                 ref_id: 0,
                 ref_start: 30,
@@ -1591,11 +1593,12 @@ mod tests {
                 query_start: 10,
             },
         ];
-        let result = aligner.extend_piecewise(query, refseq, &mut anchors, 5);
+        let result = aligner.extend_piecewise(query, refseq, &anchors, 5);
         assert!(result.is_none());
     }
 
     #[test]
+    #[allow(clippy::identity_op)]
     fn extend_piecewise_overlapping_anchors() {
         let aligner = PiecewiseAligner::new(
             Scores {
@@ -1611,7 +1614,7 @@ mod tests {
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq =
             b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-        let mut anchors = vec![
+        let anchors = vec![
             Anchor {
                 ref_id: 0,
                 ref_start: 40,
@@ -1649,7 +1652,7 @@ mod tests {
             },
         ];
         let result = aligner
-            .extend_piecewise(query, refseq, &mut anchors, 5)
+            .extend_piecewise(query, refseq, &anchors, 5)
             .unwrap();
         assert_eq!(result.score, 50 * 2 + 10 * 2 - 12 - 4 * 1);
         assert_eq!(result.edit_distance, 5);
@@ -1675,7 +1678,7 @@ mod tests {
         );
         let query = b"CTTTTAAAAATTTTAAAAATGGTTTCAAAAATTCCTAAAAATTTTTCCCCC";
         let refseq = b"TTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAA";
-        let mut anchors = vec![
+        let anchors = vec![
             Anchor {
                 ref_id: 0,
                 ref_start: 35,
@@ -1693,7 +1696,7 @@ mod tests {
             },
         ];
         let result = aligner
-            .extend_piecewise(query, refseq, &mut anchors, 5)
+            .extend_piecewise(query, refseq, &anchors, 5)
             .unwrap();
         assert_eq!(
             result.score,
