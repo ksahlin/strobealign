@@ -227,8 +227,7 @@ struct Args {
     #[arg(long = "vp", default_value_t = ChainingParameters::default().valid_score_threshold, help_heading = "Collinear chaining")]
     valid_score_threshold: f32,
 
-    /// Collinear chaining skip distance, how far on the reference do we allow anchors to chain. By
-    /// default will be the size of the read, but can be overriden if need be.
+    /// Collinear chaining skip distance, how far on the reference do we allow anchors to chain [default: same as length of read]
     #[arg(long = "sg", help_heading = "Collinear chaining")]
     max_ref_gap: Option<usize>,
 

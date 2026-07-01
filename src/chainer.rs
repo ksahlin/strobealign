@@ -88,7 +88,7 @@ impl Chainer {
         }
 
         // dynamic maximum allowed ref gap based on read length
-        let max_ref_gap = self.parameters.max_ref_gap.map_or(read_len, |max| max);
+        let max_ref_gap = self.parameters.max_ref_gap.unwrap_or(read_len);
 
         let mut dp = vec![self.k as f32; n];
         let mut predecessors = vec![usize::MAX; n];
@@ -463,7 +463,6 @@ mod test {
         ];
 
         let chaining_result = chainer.collinear_chaining(anchors, 2000);
-        println!("{:?}", chaining_result);
 
         // The best chain has score 42.342842 and uses anchors 0, 1, 3.
         // When using the heuristic that breaks early if the predecessor is on the
