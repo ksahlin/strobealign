@@ -606,7 +606,7 @@ fn extend_seed(
         }
     }
     Some(Alignment {
-        cigar: info.cigar.clone(),
+        cigar: mem::take(&mut info.cigar),
         edit_distance: info.edit_distance,
         soft_clip_left: info.query_start,
         soft_clip_right: query.len() - info.query_end,
