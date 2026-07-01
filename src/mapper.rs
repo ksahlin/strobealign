@@ -561,20 +561,20 @@ fn extend_seed(
     let mut gapped = true;
     if projected_ref_start + query.len() == projected_ref_end && consistent_nam {
         let ref_segm_ham = refseq.decode(projected_ref_start, projected_ref_end);
-        if let Some(hamming_dist) = hamming_distance(query, &ref_segm_ham) {
-            if (hamming_dist as f32 / query.len() as f32) < 0.05 {
-                // ungapped worked fine, no need to do gapped alignment
-                info = hamming_align(
-                    query,
-                    &ref_segm_ham,
-                    aligner.scores.match_,
-                    aligner.scores.mismatch,
-                    aligner.scores.end_bonus,
-                )
-                .expect("hamming_dist was successful, this should be as well");
-                result_ref_start = projected_ref_start + info.ref_start;
-                gapped = false;
-            }
+        if let Some(hamming_dist) = hamming_distance(query, &ref_segm_ham)
+            && (hamming_dist as f32 / query.len() as f32) < 0.05
+        {
+            // ungapped worked fine, no need to do gapped alignment
+            info = hamming_align(
+                query,
+                &ref_segm_ham,
+                aligner.scores.match_,
+                aligner.scores.mismatch,
+                aligner.scores.end_bonus,
+            )
+            .expect("hamming_dist was successful, this should be as well");
+            result_ref_start = projected_ref_start + info.ref_start;
+            gapped = false;
         }
     }
     if gapped {
@@ -1510,7 +1510,7 @@ mod tests {
     }
 
     #[test]
-    fn test_count_best_alignment_pairs() {
+    fn count_best_alignment_pairs_works() {
         let mut pairs = vec![];
         fn add_alignment(pairs: &mut Vec<ScoredAlignmentPair>, score: f64) {
             pairs.push(ScoredAlignmentPair {
@@ -1535,7 +1535,7 @@ mod tests {
     }
 
     #[test]
-    fn test_deduplicate_scored_pairs() {
+    fn deduplicate_scored_pairs_works() {
         let a1 = Some(Alignment {
             reference_id: 0,
             ref_start: 1906,
@@ -1583,7 +1583,7 @@ mod tests {
     }
 
     #[test]
-    fn test_has_shared_substring() {
+    fn has_shared_substring_works() {
         assert!(!has_shared_substring(
             "GGGGGGGGGGGGGGGGG".as_bytes(),
             "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT".as_bytes(),

@@ -44,3 +44,7 @@ lto = true
 [profile.profiling]
 inherits = "release"
 debug = true
+
+[lints.clippy]
+redundant_test_prefix = "deny"
+too_many_arguments = "allow"

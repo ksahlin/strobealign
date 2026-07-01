@@ -62,6 +62,7 @@ pub struct Chainer {
 impl Chainer {
     pub fn new(k: usize, parameters: ChainingParameters) -> Self {
         let mut precomputed_scores = [0f32; N_PRECOMPUTED];
+        #[allow(clippy::needless_range_loop)]
         for i in 0..N_PRECOMPUTED {
             precomputed_scores[i] = compute_score(i, i, k, &parameters);
         }
@@ -452,7 +453,7 @@ mod test {
     use super::{Anchor, Chainer, ChainingParameters};
 
     #[test]
-    fn test_chainer_early_break() {
+    fn chainer_early_break() {
         let chainer = Chainer::new(20, ChainingParameters::default());
         #[rustfmt::skip]
         let anchors = vec![
@@ -472,7 +473,7 @@ mod test {
     }
 
     #[test]
-    fn test_linear_score_adjacent_anchors() {
+    fn linear_score_adjacent_anchors() {
         let chainer = Chainer::new(20, ChainingParameters::default());
         #[rustfmt::skip]
         let anchors = [
@@ -497,7 +498,7 @@ mod test {
     }
 
     #[test]
-    fn test_diagonal_ratio_exceeded() {
+    fn diagonal_ratio_exceeded() {
         let chainer = Chainer::new(20, ChainingParameters::default());
         #[rustfmt::skip]
         let anchors = vec![

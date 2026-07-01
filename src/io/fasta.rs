@@ -124,7 +124,7 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, Sequen
         match reader.read_line(&mut line) {
             Ok(0) => break,
             Ok(_) => {
-                if line.starts_with('>') {
+                if let Some(header) = line.strip_prefix('>') {
                     if let Some(name) = current_name.take() {
                         records.push(RefSequence {
                             name,
@@ -132,7 +132,7 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, Sequen
                         });
                         current_seq = PackedSeq::new();
                     }
-                    let (name, _comment) = split_header(&line[1..]);
+                    let (name, _comment) = split_header(header);
                     current_name = Some(name.to_string());
                 } else if current_name.is_some() {
                     for c in line.trim_ascii_end().bytes() {
@@ -178,7 +178,7 @@ mod tests {
     use std::io::BufReader;
 
     #[test]
-    fn test_read_fasta() {
+    fn read_ref_works() {
         let records = read_ref("tests/phix.fasta").unwrap();
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].name, "NC_001422.1");
@@ -187,7 +187,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fasta_reader_empty_file() {
+    fn fasta_reader_empty_file() {
         let buf = BufReader::new(b"".as_slice());
         let reader = FastaReader::new(buf);
         let records = reader.collect::<Result<Vec<_>, _>>().unwrap();
@@ -196,7 +196,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fasta_reader() {
+    fn fasta_reader() {
         let f = File::open("tests/phix.fasta").unwrap();
         let mut bufreader = BufReader::new(f);
         let reader = FastaReader::new(&mut bufreader);
@@ -210,7 +210,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fasta_reader_only_name() {
+    fn fasta_reader_only_name() {
         let mut buf = BufReader::new(b">name\n".as_slice());
         let records = FastaReader::new(&mut buf)
             .collect::<Result<Vec<_>, _>>()
@@ -222,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fasta_reader_uppercase() {
+    fn fasta_reader_uppercase() {
         let mut buf = BufReader::new(b">name\r\nacgt\n>name2\nTgCa".as_slice());
         let records = FastaReader::new(&mut buf)
             .collect::<Result<Vec<_>, _>>()
@@ -237,14 +237,14 @@ mod tests {
     }
 
     #[test]
-    fn test_fasta_must_start_with_greater_than() {
+    fn fasta_must_start_with_greater_than() {
         let mut buf = BufReader::new(b"bla".as_slice());
         let result = FastaReader::new(&mut buf).next().unwrap();
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_parse() {
+    fn parse() {
         let tmp = temp_file::with_contents(
             b">ref1 a comment\nacgt\n\n>ref2\naacc\ngg\n\ntt\n>empty\n>empty_at_end_of_file",
         );
@@ -261,7 +261,7 @@ mod tests {
     }
 
     #[test]
-    fn test_some_special_characters() {
+    fn some_special_characters() {
         let mut reader = BufReader::new(b"><>;abc\nAAAA\n>abc\nCCCC\n".as_slice());
         let records = read_fasta(&mut reader).unwrap();
         assert_eq!(records.len(), 2);
@@ -270,7 +270,7 @@ mod tests {
     }
 
     #[test]
-    fn test_whitespace_in_header() {
+    fn whitespace_in_header() {
         let mut reader = BufReader::new(b">ab c\nACGT\n>de\tf\nACGT\n".as_slice());
         let records = read_fasta(&mut reader).unwrap();
         assert_eq!(records.len(), 2);
@@ -279,26 +279,26 @@ mod tests {
     }
 
     #[test]
-    fn test_fasta_error_on_fastq() {
+    fn fasta_error_on_fastq() {
         assert!(read_ref("tests/phix.1.fastq").is_err());
     }
 
     #[test]
-    fn test_invalid_contig_name() {
+    fn invalid_contig_name() {
         let mut reader = BufReader::new(b">name\x08\n".as_slice());
         let result = read_fasta(&mut reader);
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_invalid_contig_name2() {
+    fn invalid_contig_name2() {
         let mut reader = BufReader::new(b">\0x80\nACGT\n".as_slice());
         let result = read_fasta(&mut reader);
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_duplicate_contig_names() {
+    fn duplicate_contig_names() {
         let mut reader = BufReader::new(b">abc\nAAAA\n>abc\nCCCC\n".as_slice());
         let result = read_fasta(&mut reader);
         assert!(result.is_err());

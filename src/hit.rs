@@ -99,6 +99,7 @@ fn rescue_least_frequent(
 
     // Index and hit count
     let mut hit_counts = vec![];
+    #[allow(clippy::needless_range_loop)]
     for i in start..end {
         let entry = index.entry(hits[i].position);
         let cnt = if hits[i].is_partial {
@@ -249,11 +250,11 @@ fn rescue_all_least_frequent(
         first_filtered = i + 1;
     }
     // Ensure we consider the end as well
-    if let Some(last_hit) = hits.last() {
-        if last_hit.query_start - last_unfiltered_start > rescue_distance {
-            let to_rescue = (last_hit.query_start - last_unfiltered_start) / rescue_distance;
-            intervals.push((first_filtered, hits.len(), to_rescue));
-        }
+    if let Some(last_hit) = hits.last()
+        && last_hit.query_start - last_unfiltered_start > rescue_distance
+    {
+        let to_rescue = (last_hit.query_start - last_unfiltered_start) / rescue_distance;
+        intervals.push((first_filtered, hits.len(), to_rescue));
     }
 
     let mut rescued = 0;

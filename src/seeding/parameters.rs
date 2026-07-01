@@ -30,7 +30,6 @@ impl From<usize> for Profile {
             .find(|&profile| read_length <= profile.r_threshold)
             .unwrap()
             .profile
-            .clone()
     }
 }
 
@@ -66,7 +65,7 @@ impl TryFrom<u32> for Profile {
     type Error = ();
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        match value as u32 {
+        match value {
             x if x == Profile::Noisy as u32 => Ok(Profile::Noisy),
             x if x == Profile::ReadLength50 as u32 => Ok(Profile::ReadLength50),
             x if x == Profile::ReadLength75 as u32 => Ok(Profile::ReadLength75),
@@ -187,7 +186,7 @@ impl SeedingParameters {
 
         match profile {
             Profile::Noisy => SeedingParameters {
-                profile: profile.clone(),
+                profile,
                 syncmer: SyncmerParameters::try_new(16, 12).unwrap(),
                 randstrobe: RandstrobeParameters::try_new(2, 2, q, 84, main_hash_mask).unwrap(),
             },
@@ -202,7 +201,7 @@ impl SeedingParameters {
                     usize::clamp(read_length.saturating_sub(70), read_length_profile.k, 255) as u8;
 
                 SeedingParameters {
-                    profile: profile.clone(),
+                    profile,
                     syncmer: SyncmerParameters::try_new(
                         read_length_profile.k,
                         read_length_profile.s,
@@ -298,7 +297,7 @@ impl SeedingParameters {
 
     /// Returns parameters with updated q mask, computed from bitcount.
     pub fn with_bitcount(mut self, bitcount: u32) -> Result<Self, InvalidSeedingParameter> {
-        if bitcount < 2 || bitcount > 63 {
+        if !(2..64).contains(&bitcount) {
             return Err(InvalidSeedingParameter::InvalidParameter(
                 "bitcount must be between 2 and 63",
             ));
@@ -333,7 +332,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_seeding_parameters() {
+    fn seeding_parameters() {
         let canonical_read_length = 250;
         let k = 22;
         let s = 18;
@@ -376,7 +375,7 @@ mod test {
     }
 
     #[test]
-    fn test_seeding_parameters_similar_read_length() {
+    fn seeding_parameters_similar_read_length() {
         let sp150 = SeedingParameters::new(150);
         let sp149 = SeedingParameters::new(149);
         let sp151 = SeedingParameters::new(151);
@@ -386,7 +385,7 @@ mod test {
     }
 
     #[test]
-    fn test_seeding_parameters_is_custom() {
+    fn seeding_parameters_is_custom() {
         assert!(!SeedingParameters::new(100).is_custom());
         assert!(
             !SeedingParameters::new(100)

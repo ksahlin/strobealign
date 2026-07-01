@@ -51,9 +51,9 @@ pub fn randstrobes_query(seq: &[u8], parameters: &SeedingParameters) -> [Vec<Que
     // sequence because canonical syncmers are invariant under reverse
     // complementing. Only the coordinates need to be adjusted.
     syncmers.reverse();
-    for i in 0..syncmers.len() {
-        syncmers[i].position = seq.len() - syncmers[i].position - parameters.syncmer.k;
-        syncmers[i].toggle_orientation();
+    for syncmer in &mut syncmers {
+        syncmer.position = seq.len() - syncmer.position - parameters.syncmer.k;
+        syncmer.toggle_orientation();
     }
 
     // Randstrobes cannot be re-used for the reverse complement:

@@ -261,7 +261,7 @@ mod test {
     }
 
     #[test]
-    fn test_construct() {
+    fn construct() {
         let cigar = Cigar::new();
         assert_eq!(cigar.to_string(), "");
 
@@ -332,7 +332,7 @@ mod test {
     }
 
     #[test]
-    fn test_reverse() {
+    fn reverse() {
         let c = Cigar::from_str("3=1X4D5I7=").unwrap();
         assert_eq!(c.reversed(), Cigar::from_str("7=5I4D1X3=").unwrap());
     }

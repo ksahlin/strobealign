@@ -15,8 +15,8 @@ use rayon;
 use rayon::slice::ParallelSliceMut;
 
 /// Create a StrobemerIndex
-pub fn make_index<'a>(
-    references: &'a [RefSequence],
+pub fn make_index(
+    references: &[RefSequence],
     parameters: SeedingParameters,
     bits: u8,
     filter_fraction: f64,
@@ -92,6 +92,7 @@ pub fn make_index<'a>(
     if !randstrobes.is_empty() {
         randstrobe_start_indices.push(0);
     }
+    #[allow(clippy::needless_range_loop)]
     for position in 1..randstrobes.len() {
         let cur_hash = randstrobes[position].hash();
         if cur_hash == prev_hash {
@@ -364,14 +365,14 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_pick_bits() {
+    fn pick_bits() {
         let parameters = SyncmerParameters::try_new(20, 16).unwrap();
         let references = read_ref("tests/phix.fasta").unwrap();
         assert_eq!(parameters.pick_bits(&references), 9);
     }
 
     #[test]
-    fn test_index_phix() {
+    fn index_phix() {
         let references = read_ref("tests/phix.fasta").unwrap();
         let parameters = SeedingParameters::new(150);
         let bits = parameters.syncmer.pick_bits(&references);
@@ -380,7 +381,7 @@ mod test {
     }
 
     #[test]
-    fn test_index_empty_reference() {
+    fn index_empty_reference() {
         let references = vec![RefSequence {
             name: "name".to_string(),
             sequence: PackedSeq::new(),

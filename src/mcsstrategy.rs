@@ -1,9 +1,10 @@
 use std::fmt::{Display, Formatter};
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone, clap::ValueEnum)]
+#[derive(Default, Debug, PartialEq, Eq, Copy, Clone, clap::ValueEnum)]
 pub enum McsStrategy {
     // For each strobemer, do a full lookup. If that did not generate a hit,
     // try a partial lookup.
+    #[default]
     Always,
 
     // For each strobemer, do a full lookup. If after processing the entire
@@ -15,12 +16,6 @@ pub enum McsStrategy {
 
     // Do partial lookups only, that is, use only the first strobe.
     FirstStrobe,
-}
-
-impl Default for McsStrategy {
-    fn default() -> Self {
-        Self::Always
-    }
 }
 
 impl Display for McsStrategy {
