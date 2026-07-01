@@ -24,8 +24,9 @@ pub struct ChainingParameters {
     pub diag_diff_penalty: f32,
     pub gap_length_penalty: f32,
     pub valid_score_threshold: f32,
-    pub max_ref_gap: usize,
+    pub max_ref_gap: Option<usize>,
     pub matches_weight: f32,
+    pub max_diagonal_ratio: f32,
 }
 
 impl Default for ChainingParameters {
@@ -35,8 +36,9 @@ impl Default for ChainingParameters {
             diag_diff_penalty: 0.1,
             gap_length_penalty: 0.05,
             valid_score_threshold: 0.7,
-            max_ref_gap: 1000,
+            max_ref_gap: None,
             matches_weight: 0.01,
+            max_diagonal_ratio: 10.0,
         }
     }
 }
@@ -79,11 +81,14 @@ impl Chainer {
         }
     }
 
-    fn collinear_chaining(&self, anchors: Vec<Anchor>) -> ChainingResult {
+    fn collinear_chaining(&self, anchors: Vec<Anchor>, read_len: usize) -> ChainingResult {
         let n = anchors.len();
         if n == 0 {
             return ChainingResult::default();
         }
+
+        // dynamic maximum allowed ref gap based on read length
+        let max_ref_gap = self.parameters.max_ref_gap.unwrap_or(read_len);
 
         let mut dp = vec![self.k as f32; n];
         let mut predecessors = vec![usize::MAX; n];
@@ -112,8 +117,13 @@ impl Chainer {
 
                 let dr = ai.ref_start - aj.ref_start;
 
-                if dr >= self.parameters.max_ref_gap {
+                if dr >= max_ref_gap {
                     break;
+                }
+
+                let diagonal_ratio = dq.max(dr) as f32 / dq.min(dr) as f32;
+                if diagonal_ratio > self.parameters.max_diagonal_ratio {
+                    continue;
                 }
 
                 let score = self.compute_score_cached(dq, dr);
@@ -138,7 +148,11 @@ impl Chainer {
                     let dq = ai.query_start - aj.query_start;
                     let dr = ai.ref_start - aj.ref_start;
 
-                    if dr < self.parameters.max_ref_gap && dr > 0 {
+                    let diagonal_ratio = dq.max(dr) as f32 / dq.min(dr) as f32;
+                    if dr < max_ref_gap
+                        && dr > 0
+                        && diagonal_ratio <= self.parameters.max_diagonal_ratio
+                    {
                         let score = self.compute_score_cached(dq, dr);
                         let new_score = dp[best_index] + score;
                         if new_score > dp[i] {
@@ -170,6 +184,7 @@ impl Chainer {
         index: &StrobemerIndex,
         rescue_distance: usize,
         mcs_strategy: McsStrategy,
+        read_len: usize,
     ) -> (NamDetails, Vec<Nam>) {
         let hits_timer = Instant::now();
 
@@ -226,7 +241,7 @@ impl Chainer {
             //         .join(",")
             // );
 
-            let chaining_result = self.collinear_chaining(anchors);
+            let chaining_result = self.collinear_chaining(anchors, read_len);
 
             chaining_result.extract_chains(index.k(), is_revcomp == 1, &mut chains);
             time_chaining += chaining_timer.elapsed().as_secs_f64();
@@ -447,7 +462,7 @@ mod test {
             Anchor { ref_id: 0, ref_start: 95, query_start: 35, },
         ];
 
-        let chaining_result = chainer.collinear_chaining(anchors);
+        let chaining_result = chainer.collinear_chaining(anchors, 2000);
 
         // The best chain has score 42.342842 and uses anchors 0, 1, 3.
         // When using the heuristic that breaks early if the predecessor is on the
@@ -465,19 +480,33 @@ mod test {
             Anchor { ref_id: 0, ref_start:  20, query_start: 20, },
             Anchor { ref_id: 0, ref_start:  40, query_start: 40, },
         ];
-        let chaining_result = chainer.collinear_chaining(anchors[0..1].to_vec());
+        let chaining_result = chainer.collinear_chaining(anchors[0..1].to_vec(), 200);
         let score1 = chaining_result.best_score;
         assert_eq!(
             chainer
-                .collinear_chaining(anchors[0..2].to_vec())
+                .collinear_chaining(anchors[0..2].to_vec(), 200)
                 .best_score,
             score1 * 2.0
         );
         assert_eq!(
             chainer
-                .collinear_chaining(anchors[0..3].to_vec())
+                .collinear_chaining(anchors[0..3].to_vec(), 200)
                 .best_score,
             score1 * 3.0
         );
+    }
+
+    #[test]
+    fn test_diagonal_ratio_exceeded() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        #[rustfmt::skip]
+        let anchors = vec![
+            Anchor { ref_id: 0, ref_start:  0, query_start:  0, },
+            Anchor { ref_id: 0, ref_start: 11, query_start:  1, },
+        ];
+        let chaining_result = chainer.collinear_chaining(anchors, 2000);
+        // dr=11, dq=1 gives a diagonal ratio of 11.0, exceeding the default max of 10.
+        // The two anchors cannot be chained, so the best score is that of a single anchor.
+        assert_eq!(chaining_result.best_score, chainer.k as f32);
     }
 }
