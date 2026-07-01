@@ -15,18 +15,16 @@ use fastrand::Rng;
 use log::{debug, error, info, trace, warn};
 use mimalloc::MiMalloc;
 use strobealign::indexer::make_index;
+use strobealign::refseq::RefSequence;
 use thiserror::Error;
 
 use strobealign::aligner::{Aligner, Scores};
 use strobealign::chainer::{Chainer, ChainingParameters};
 use strobealign::details::Details;
-use strobealign::index::{
-    IndexReadingError, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex, read_index,
-};
+use strobealign::index::{IndexReadingError, StrobemerIndex, read_index};
 use strobealign::insertsize::InsertSizeDistribution;
 use strobealign::io::SequenceIOError;
 use strobealign::io::fasta;
-use strobealign::io::fasta::RefSequence;
 use strobealign::io::reads::{
     PeekableSequenceReader, interleaved_record_iterator, open_reads, record_iterator,
 };
@@ -423,38 +421,27 @@ fn run() -> Result<(), CliError> {
         e,
         path: args.ref_path.clone(),
     })?;
-    let references = fasta::read_fasta(&mut BufReader::new(ref_file))?;
+    let refseq = fasta::read_fasta(&mut BufReader::new(ref_file))?;
     info!(
         "Time reading reference: {:.2} s",
         timer.elapsed().as_secs_f64()
     );
-    let total_ref_size = references.iter().map(|r| r.sequence.len()).sum::<usize>();
-    let max_contig_size = references
-        .iter()
-        .map(|r| r.sequence.len())
-        .max()
-        .ok_or(CliError::NoReference)?;
+    let total_ref_size = refseq.total_length();
+    let max_contig_size = refseq.max_contig_len().ok_or(CliError::NoReference)?;
     info!(
         "Reference size: {:.2} Mbp ({} contig{}; largest: {:.2} Mbp)",
         total_ref_size as f64 / 1E6,
-        references.len(),
-        if references.len() != 1 { "s" } else { "" },
+        refseq.names.len(),
+        if refseq.names.len() != 1 { "s" } else { "" },
         max_contig_size as f64 / 1E6
     );
-    if references.len() > REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES {
-        error!(
-            "Too many reference sequences. Current maximum is {}.",
-            REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES
-        );
-        exit(1);
-    }
 
     // Create the index
     debug!("Auxiliary hash length: {}", args.aux_len);
     info!("Multi-context seed strategy: {}", args.mcs_strategy);
     let bits = args
         .bits
-        .unwrap_or_else(|| parameters.syncmer.pick_bits(&references));
+        .unwrap_or_else(|| parameters.syncmer.pick_bits(&refseq));
     info!("Bits used to index buckets: {}", bits);
 
     let index = if args.use_index {
@@ -480,7 +467,7 @@ fn run() -> Result<(), CliError> {
             if indexing_threads == 1 { "" } else { "s" }
         );
         let (index, index_stats) = make_index(
-            &references,
+            &refseq,
             parameters.clone(),
             bits,
             args.filter_fraction,
@@ -553,7 +540,7 @@ fn run() -> Result<(), CliError> {
     let read_group = rg_id.map(|s| ReadGroup::new(&s, args.rg));
 
     let header = SamHeader::new(
-        &references,
+        &refseq,
         if args.no_pg { None } else { Some(&cmd_line) },
         VERSION,
         read_group,
@@ -605,7 +592,7 @@ fn run() -> Result<(), CliError> {
 
     let mapper = Mapper {
         index: &index,
-        references: &references,
+        refseq: &refseq,
         mapping_parameters: &mapping_parameters,
         seeding_parameters: &parameters,
         chainer: &chainer,
@@ -613,7 +600,7 @@ fn run() -> Result<(), CliError> {
         aligner,
         include_unmapped: !args.only_mapped,
         mode,
-        abundances: vec![0f64; references.len()],
+        abundances: vec![0f64; refseq.names.len()],
     };
 
     let mode_message = match mode {
@@ -738,14 +725,14 @@ fn run() -> Result<(), CliError> {
     let mut out = Arc::into_inner(out).unwrap().into_inner().unwrap();
 
     if mode == Mode::Abundances {
-        let mut abundances = vec![0f64; references.len()];
+        let mut abundances = vec![0f64; refseq.names.len()];
         for _ in 0..n_threads {
             let worker_abundances = abundances_rx.recv().unwrap();
             for i in 0..abundances.len() {
                 abundances[i] += worker_abundances[i];
             }
         }
-        output_abundances(&abundances, &references, &mut out)?;
+        output_abundances(&abundances, &refseq, &mut out)?;
     }
 
     debug!("");
@@ -858,7 +845,7 @@ enum Mode {
 #[derive(Clone)]
 struct Mapper<'a> {
     index: &'a StrobemerIndex,
-    references: &'a [RefSequence],
+    refseq: &'a RefSequence,
     mapping_parameters: &'a MappingParameters,
     seeding_parameters: &'a SeedingParameters,
     sam_output: &'a SamOutput,
@@ -888,7 +875,7 @@ impl Mapper<'_> {
                             &r1,
                             &r2,
                             self.index,
-                            self.references,
+                            self.refseq,
                             self.mapping_parameters,
                             self.sam_output,
                             self.seeding_parameters,
@@ -909,7 +896,7 @@ impl Mapper<'_> {
                         let (mut records, details) = align_single_end_read(
                             &r1,
                             self.index,
-                            self.references,
+                            self.refseq,
                             self.mapping_parameters,
                             self.sam_output,
                             self.chainer,
@@ -934,7 +921,7 @@ impl Mapper<'_> {
                             &r1,
                             &r2,
                             self.index,
-                            self.references,
+                            self.refseq,
                             self.mapping_parameters.rescue_distance,
                             &mut isizedist,
                             self.mapping_parameters.mcs_strategy,
@@ -945,7 +932,7 @@ impl Mapper<'_> {
                         map_single_end_read(
                             &r1,
                             self.index,
-                            self.references,
+                            self.refseq,
                             self.mapping_parameters.rescue_distance,
                             self.mapping_parameters.mcs_strategy,
                             self.chainer,
@@ -963,6 +950,7 @@ impl Mapper<'_> {
                             &r1,
                             &r2,
                             self.index,
+                            self.refseq,
                             &mut self.abundances,
                             self.mapping_parameters.rescue_distance,
                             &mut isizedist,
@@ -973,6 +961,7 @@ impl Mapper<'_> {
                     } else {
                         abundances_single_end_read(
                             &r1,
+                            self.refseq,
                             self.index,
                             &mut self.abundances,
                             self.mapping_parameters.rescue_distance,
@@ -990,12 +979,13 @@ impl Mapper<'_> {
 
 pub fn output_abundances<T: Write>(
     abundances: &[f64],
-    references: &[RefSequence],
+    refseq: &RefSequence,
     out: &mut T,
 ) -> io::Result<()> {
-    for i in 0..references.len() {
-        let normalized = abundances[i] / references[i].sequence.len() as f64;
-        writeln!(out, "{}\t{:.6}", references[i].name, normalized)?;
+    #[allow(clippy::needless_range_loop)]
+    for i in 0..refseq.names.len() {
+        let normalized = abundances[i] / refseq.contig(i).len() as f64;
+        writeln!(out, "{}\t{:.6}", refseq.names[i], normalized)?;
     }
     Ok(())
 }

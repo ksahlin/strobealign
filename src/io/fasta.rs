@@ -5,12 +5,7 @@ use std::path::Path;
 use crate::io::record::{End, SequenceRecord};
 use crate::io::{SequenceIOError, split_header};
 use crate::packed_seq::PackedSeq;
-
-#[derive(Debug, Clone)]
-pub struct RefSequence {
-    pub name: String,
-    pub sequence: PackedSeq,
-}
+use crate::refseq::RefSequence;
 
 /// Check whether a name is fine to use in SAM output.
 /// The SAM specification is quite strict and forbids these
@@ -31,8 +26,8 @@ fn is_valid_name(name: &[u8]) -> bool {
     true
 }
 
-fn check_duplicate_names(records: &[RefSequence]) -> Result<(), SequenceIOError> {
-    let mut names: Vec<_> = records.iter().map(|r| &r.name).collect();
+fn check_duplicate_names(names: &[String]) -> Result<(), SequenceIOError> {
+    let mut names: Vec<_> = names.iter().collect();
     names.sort();
     for window in names.windows(2) {
         if window[0] == window[1] {
@@ -113,10 +108,10 @@ impl<B: BufRead> Iterator for FastaReader<B> {
     }
 }
 
-pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, SequenceIOError> {
-    let mut records: Vec<RefSequence> = Vec::new();
-    let mut current_name: Option<String> = None;
-    let mut current_seq = PackedSeq::new();
+pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<RefSequence, SequenceIOError> {
+    let mut names = vec![];
+    let mut starts = vec![];
+    let mut seq = PackedSeq::new();
     let mut line = String::new();
 
     loop {
@@ -125,20 +120,14 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, Sequen
             Ok(0) => break,
             Ok(_) => {
                 if let Some(header) = line.strip_prefix('>') {
-                    if let Some(name) = current_name.take() {
-                        records.push(RefSequence {
-                            name,
-                            sequence: current_seq,
-                        });
-                        current_seq = PackedSeq::new();
-                    }
-                    let (name, _comment) = split_header(header);
-                    current_name = Some(name.to_string());
-                } else if current_name.is_some() {
-                    for c in line.trim_ascii_end().bytes() {
-                        current_seq.push(c);
-                    }
-                } else if !line.trim_ascii().is_empty() {
+                    starts.push(seq.len());
+                    names.push(split_header(header).0);
+                } else if !names.is_empty() {
+                    let line = line.trim_ascii_end();
+                    seq.extend(line.bytes());
+                } else if line.trim_ascii().is_empty() {
+                    // ignore empty lines
+                } else {
                     return Err(SequenceIOError::Fasta(
                         "FASTA file must start with '>'".to_string(),
                     ));
@@ -147,24 +136,19 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<Vec<RefSequence>, Sequen
             Err(e) => return Err(SequenceIOError::IO(e)),
         }
     }
-    if let Some(name) = current_name {
-        records.push(RefSequence {
-            name,
-            sequence: current_seq,
-        });
-    }
 
-    for record in &records {
-        if !is_valid_name(record.name.as_bytes()) {
+    for name in &names {
+        if !is_valid_name(name.as_bytes()) {
             return Err(SequenceIOError::Name);
         }
     }
-    check_duplicate_names(&records)?;
+    check_duplicate_names(&names)?;
+    assert_eq!(names.len(), starts.len());
 
-    Ok(records)
+    Ok(RefSequence::new(seq, starts, names))
 }
 
-pub fn read_ref<P: AsRef<Path>>(path: P) -> Result<Vec<RefSequence>, SequenceIOError> {
+pub fn read_ref<P: AsRef<Path>>(path: P) -> Result<RefSequence, SequenceIOError> {
     let f = File::open(path).unwrap();
     let mut reader = BufReader::new(f);
 
@@ -179,11 +163,11 @@ mod tests {
 
     #[test]
     fn read_ref_works() {
-        let records = read_ref("tests/phix.fasta").unwrap();
-        assert_eq!(records.len(), 1);
-        assert_eq!(records[0].name, "NC_001422.1");
-        assert_eq!(records[0].sequence.len(), 5386);
-        assert_eq!(records[0].sequence.decode(0, 5), b"GAGTT");
+        let refseq = read_ref("tests/phix.fasta").unwrap();
+        assert_eq!(refseq.names.len(), 1);
+        assert_eq!(refseq.names[0], "NC_001422.1");
+        assert_eq!(refseq.contig(0).len(), 5386);
+        assert_eq!(refseq.contig(0).decode(0, 5), b"GAGTT");
     }
 
     #[test]
@@ -248,34 +232,34 @@ mod tests {
         let tmp = temp_file::with_contents(
             b">ref1 a comment\nacgt\n\n>ref2\naacc\ngg\n\ntt\n>empty\n>empty_at_end_of_file",
         );
-        let records = read_ref(tmp.path()).unwrap();
-        assert_eq!(records.len(), 4);
-        assert_eq!(records[0].name, "ref1");
-        assert_eq!(records[0].sequence.decode_all(), b"ACGT");
-        assert_eq!(records[1].name, "ref2");
-        assert_eq!(records[1].sequence.decode_all(), b"AACCGGTT");
-        assert_eq!(records[2].name, "empty");
-        assert_eq!(records[2].sequence.decode_all(), b"");
-        assert_eq!(records[3].name, "empty_at_end_of_file");
-        assert_eq!(records[3].sequence.decode_all(), b"");
+        let refseq = read_ref(tmp.path()).unwrap();
+        assert_eq!(refseq.names.len(), 4);
+        assert_eq!(refseq.names[0], "ref1");
+        assert_eq!(refseq.contig(0).decode_all(), b"ACGT");
+        assert_eq!(refseq.names[1], "ref2");
+        assert_eq!(refseq.contig(1).decode_all(), b"AACCGGTT");
+        assert_eq!(refseq.names[2], "empty");
+        assert_eq!(refseq.contig(2).decode_all(), b"");
+        assert_eq!(refseq.names[3], "empty_at_end_of_file");
+        assert_eq!(refseq.contig(3).decode_all(), b"");
     }
 
     #[test]
     fn some_special_characters() {
         let mut reader = BufReader::new(b"><>;abc\nAAAA\n>abc\nCCCC\n".as_slice());
-        let records = read_fasta(&mut reader).unwrap();
-        assert_eq!(records.len(), 2);
-        assert_eq!(records[0].name, "<>;abc");
-        assert_eq!(records[1].name, "abc");
+        let refseq = read_fasta(&mut reader).unwrap();
+        assert_eq!(refseq.names.len(), 2);
+        assert_eq!(refseq.names[0], "<>;abc");
+        assert_eq!(refseq.names[1], "abc");
     }
 
     #[test]
     fn whitespace_in_header() {
         let mut reader = BufReader::new(b">ab c\nACGT\n>de\tf\nACGT\n".as_slice());
-        let records = read_fasta(&mut reader).unwrap();
-        assert_eq!(records.len(), 2);
-        assert_eq!(records[0].name, "ab");
-        assert_eq!(records[1].name, "de");
+        let refseq = read_fasta(&mut reader).unwrap();
+        assert_eq!(refseq.names.len(), 2);
+        assert_eq!(refseq.names[0], "ab");
+        assert_eq!(refseq.names[1], "de");
     }
 
     #[test]

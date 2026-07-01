@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 
 use super::InvalidSeedingParameter;
 use super::hash::xxh64;
-use crate::packed_seq::PackedSeq;
+use crate::packed_seq::{PackedSeq, PackedSeqSlice};
 
 /// Trait for types that can serve as a sequence source for `SyncmerIterator`.
 ///
@@ -27,10 +27,20 @@ impl SeqAccess for &[u8] {
     }
 }
 
-impl SeqAccess for &PackedSeq {
+impl<'a> SeqAccess for &'a PackedSeqSlice<'a> {
     /// Direct 2-bit extract - no table lookups, never returns 4.
     /// `**self` reaches `PackedSeq` so Rust resolves the inherent method,
     /// not this trait method (no recursion).
+    fn nucleotide_bits(&self, i: usize) -> u8 {
+        (**self).nucleotide_bits(i)
+    }
+
+    fn len(&self) -> usize {
+        (**self).len()
+    }
+}
+
+impl SeqAccess for &PackedSeq {
     fn nucleotide_bits(&self, i: usize) -> u8 {
         (**self).nucleotide_bits(i)
     }
@@ -275,12 +285,7 @@ mod test {
     #[test]
     fn canonical_syncmers() {
         let parameters = SyncmerParameters::try_new(20, 16).unwrap();
-        let seq: Vec<u8> = read_ref("tests/phix.fasta")
-            .unwrap()
-            .pop()
-            .unwrap()
-            .sequence
-            .decode_all();
+        let seq: Vec<u8> = read_ref("tests/phix.fasta").unwrap().contig(0).decode_all();
         let sequences: [Vec<u8>; 2] = [b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_vec(), seq];
         for s in sequences {
             let seq_revcomp = reverse_complement(&s);

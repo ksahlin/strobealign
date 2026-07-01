@@ -1252,57 +1252,46 @@ mod tests {
     fn remove_spurious_anchors_control() {
         let expected = vec![
             Anchor {
-                ref_id: 0,
                 ref_start: 0,
                 query_start: 0,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 10,
                 query_start: 10,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 20,
                 query_start: 20,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 30,
                 query_start: 30,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 40,
                 query_start: 40,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 50,
                 query_start: 50,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 60,
                 query_start: 60,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 70,
                 query_start: 70,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 80,
                 query_start: 80,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 90,
                 query_start: 90,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 100,
                 query_start: 100,
             },
@@ -1316,57 +1305,46 @@ mod tests {
     fn remove_spurious_anchors_inside_trim() {
         let mut result = vec![
             Anchor {
-                ref_id: 0,
                 ref_start: 0,
                 query_start: 0,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 10,
                 query_start: 10,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 20,
                 query_start: 20,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 130,
                 query_start: 30,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 140,
                 query_start: 40,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 150,
                 query_start: 50,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 60,
                 query_start: 60,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 70,
                 query_start: 50,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 80,
                 query_start: 80,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 90,
                 query_start: 90,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 100,
                 query_start: 100,
             },
@@ -1374,37 +1352,30 @@ mod tests {
         remove_spurious_anchors(&mut result);
         let expected = vec![
             Anchor {
-                ref_id: 0,
                 ref_start: 0,
                 query_start: 0,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 10,
                 query_start: 10,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 20,
                 query_start: 20,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 60,
                 query_start: 60,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 80,
                 query_start: 80,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 90,
                 query_start: 90,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 100,
                 query_start: 100,
             },
@@ -1416,57 +1387,46 @@ mod tests {
     fn remove_spurious_anchors_ends_trim() {
         let mut result = vec![
             Anchor {
-                ref_id: 0,
                 ref_start: 5,
                 query_start: 0,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 15,
                 query_start: 10,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 20,
                 query_start: 20,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 30,
                 query_start: 30,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 40,
                 query_start: 40,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 50,
                 query_start: 50,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 60,
                 query_start: 60,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 70,
                 query_start: 70,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 80,
                 query_start: 80,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 90,
                 query_start: 95,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 100,
                 query_start: 105,
             },
@@ -1474,37 +1434,30 @@ mod tests {
         remove_spurious_anchors(&mut result);
         let expected = vec![
             Anchor {
-                ref_id: 0,
                 ref_start: 20,
                 query_start: 20,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 30,
                 query_start: 30,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 40,
                 query_start: 40,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 50,
                 query_start: 50,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 60,
                 query_start: 60,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 70,
                 query_start: 70,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 80,
                 query_start: 80,
             },
@@ -1529,22 +1482,18 @@ mod tests {
         let refseq = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let anchors = vec![
             Anchor {
-                ref_id: 0,
                 ref_start: 40,
                 query_start: 30,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 30,
                 query_start: 20,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 20,
                 query_start: 10,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 10,
                 query_start: 0,
             },
@@ -1578,17 +1527,14 @@ mod tests {
         let refseq = b"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT";
         let anchors = vec![
             Anchor {
-                ref_id: 0,
                 ref_start: 30,
                 query_start: 20,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 20,
                 query_start: 20,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 10,
                 query_start: 10,
             },
@@ -1616,37 +1562,30 @@ mod tests {
             b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let anchors = vec![
             Anchor {
-                ref_id: 0,
                 ref_start: 40,
                 query_start: 30,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 37,
                 query_start: 27,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 35,
                 query_start: 25,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 30,
                 query_start: 20,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 25,
                 query_start: 20,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 20,
                 query_start: 15,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 10,
                 query_start: 5,
             },
@@ -1680,17 +1619,14 @@ mod tests {
         let refseq = b"TTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAA";
         let anchors = vec![
             Anchor {
-                ref_id: 0,
                 ref_start: 35,
                 query_start: 36,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 15,
                 query_start: 14,
             },
             Anchor {
-                ref_id: 0,
                 ref_start: 5,
                 query_start: 5,
             },

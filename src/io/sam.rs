@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::cigar::Cigar;
 use crate::details::Details;
-use crate::io::fasta::RefSequence;
+use crate::refseq::{ContigPosition, RefSequence};
 
 pub const PAIRED: u16 = 1;
 pub const PROPER_PAIR: u16 = 2;
@@ -23,12 +23,11 @@ pub struct SamRecord {
     pub query_name: String,
     pub flags: u16,
     pub reference_name: Option<String>,
-    /// 0-based position, converted to 1-based for output
-    pub pos: Option<u32>,
+    pub pos: Option<ContigPosition>,
     pub mapq: u8,
     pub cigar: Option<Cigar>,
     pub mate_reference_name: Option<String>,
-    pub mate_pos: Option<u32>,
+    pub mate_pos: Option<ContigPosition>,
     pub template_len: Option<i32>,
     pub query_sequence: Option<Vec<u8>>,
     pub query_qualities: Option<Vec<u8>>,
@@ -68,7 +67,7 @@ impl Display for SamRecord {
         // 12 optional fields
 
         let mate_pos = match self.mate_pos {
-            Some(pos) => pos + 1,
+            Some(pos) => pos.0 + 1,
             None => 0,
         };
         let query_sequence = match &self.query_sequence {
@@ -84,7 +83,7 @@ impl Display for SamRecord {
             _ => "*",
         };
         let pos = match self.pos {
-            Some(pos) => pos + 1,
+            Some(pos) => pos.0 + 1,
             None => 0,
         };
         let cigar = match &self.cigar {
@@ -152,7 +151,7 @@ impl ReadGroup {
 }
 
 pub struct SamHeader<'a> {
-    references: &'a [RefSequence],
+    refseq: &'a RefSequence,
     cmd_line: Option<&'a str>,
     version: &'a str,
     read_group: Option<ReadGroup>,
@@ -160,13 +159,13 @@ pub struct SamHeader<'a> {
 
 impl<'a> SamHeader<'a> {
     pub fn new(
-        references: &'a [RefSequence],
+        refseq: &'a RefSequence,
         cmd_line: Option<&'a str>,
         version: &'a str,
         read_group: Option<ReadGroup>,
     ) -> Self {
         SamHeader {
-            references,
+            refseq,
             cmd_line,
             version,
             read_group,
@@ -178,8 +177,13 @@ impl Display for SamHeader<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "@HD\tVN:1.6\tSO:unsorted")?;
 
-        for refseq in self.references {
-            writeln!(f, "@SQ\tSN:{}\tLN:{}", refseq.name, refseq.sequence.len())?;
+        for i in 0..self.refseq.names.len() {
+            writeln!(
+                f,
+                "@SQ\tSN:{}\tLN:{}",
+                self.refseq.names[i],
+                self.refseq.contig(i).len()
+            )?;
         }
         if let Some(read_group) = &self.read_group {
             write!(f, "@RG\tID:{}", read_group.id)?;
