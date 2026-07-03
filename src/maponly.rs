@@ -1,6 +1,6 @@
 use fastrand::Rng;
 
-use crate::chain::{Nam, get_nams_by_chaining, sort_nams};
+use crate::chain::{Chain, get_nams_by_chaining, sort_nams};
 use crate::chainer::Chainer;
 use crate::details::{Details, NamDetails};
 use crate::index::StrobemerIndex;
@@ -84,7 +84,7 @@ pub fn abundances_single_end_read(
 
 /// Convert Nam into PAF record
 fn paf_record_from_nam(
-    nam: &Nam,
+    nam: &Chain,
     name: &str,
     refseq: &RefSequence,
     query_length: usize,
@@ -262,9 +262,9 @@ pub fn abundances_paired_end_read(
 
 enum MappedNams<'a> {
     /// Two independent best NAMs (one per read)
-    Individual(Option<&'a Nam>, Option<&'a Nam>),
+    Individual(Option<&'a Chain>, Option<&'a Chain>),
     /// A proper paired NAMs (nam1, nam2, pairing score)
-    Pair(&'a Nam, &'a Nam, f64),
+    Pair(&'a Chain, &'a Chain, f64),
 }
 
 /// Choose between:
@@ -276,8 +276,8 @@ enum MappedNams<'a> {
 /// For paired-end mapping and abundance estimation modes only
 fn get_best_paired_mapping_location<'a>(
     nam_pairs: &'a [NamPair],
-    nams1: &'a [Nam],
-    nams2: &'a [Nam],
+    nams1: &'a [Chain],
+    nams2: &'a [Chain],
     insert_size_distribution: &mut InsertSizeDistribution,
 ) -> MappedNams<'a> {
     let best_nam1 = nams1.first();
@@ -305,15 +305,15 @@ fn get_best_paired_mapping_location<'a>(
 
 #[derive(Debug)]
 pub struct NamPair {
-    pub nam1: Nam,
-    pub nam2: Nam,
+    pub nam1: Chain,
+    pub nam2: Chain,
     pub score: f64,
 }
 
 /// Build all plausible forward/revcomp mapping pairings
 fn get_nam_pairs(
-    nams1: &mut [Nam],
-    nams2: &mut [Nam],
+    nams1: &mut [Chain],
+    nams2: &mut [Chain],
     mu: f32,
     sigma: f32,
     details1: &NamDetails,
@@ -324,9 +324,9 @@ fn get_nam_pairs(
         return nam_pairs;
     }
 
-    let (fwd1, rev1): (&mut [Nam], &mut [Nam]) =
+    let (fwd1, rev1): (&mut [Chain], &mut [Chain]) =
         split_nams_by_orientation_checked(nams1, details1.both_orientations);
-    let (fwd2, rev2): (&mut [Nam], &mut [Nam]) =
+    let (fwd2, rev2): (&mut [Chain], &mut [Chain]) =
         split_nams_by_orientation_checked(nams2, details2.both_orientations);
 
     if !fwd1.is_empty() && !rev2.is_empty() {
@@ -346,7 +346,10 @@ fn get_nam_pairs(
 
 /// Split nams into (forward, revcomp),
 /// if only 1 orientation exists, returns it and a empty slice
-fn split_nams_by_orientation_checked(nams: &mut [Nam], both: bool) -> (&mut [Nam], &mut [Nam]) {
+fn split_nams_by_orientation_checked(
+    nams: &mut [Chain],
+    both: bool,
+) -> (&mut [Chain], &mut [Chain]) {
     if both {
         split_nams_by_orientation(nams)
     } else if nams[0].is_revcomp {
@@ -359,7 +362,7 @@ fn split_nams_by_orientation_checked(nams: &mut [Nam], both: bool) -> (&mut [Nam
 /// In-place partition of NAMs by orientation:
 /// forward on the left, revcomp on the right.
 /// Returns two slices separating (forward, revcomp)
-fn split_nams_by_orientation(nams: &mut [Nam]) -> (&mut [Nam], &mut [Nam]) {
+fn split_nams_by_orientation(nams: &mut [Chain]) -> (&mut [Chain], &mut [Chain]) {
     let mut left = 0;
     let mut right = nams.len();
 
@@ -377,7 +380,7 @@ fn split_nams_by_orientation(nams: &mut [Nam]) -> (&mut [Nam], &mut [Nam]) {
 
 /// Find most forward/revcomp pairs using a two-pointer scan.
 /// Assumes both slices are sorted by (ref_id, projected_ref_start).
-fn find_pairs(fwd: &[Nam], rev: &[Nam], mu: f32, sigma: f32, swap_order: bool) -> Vec<NamPair> {
+fn find_pairs(fwd: &[Chain], rev: &[Chain], mu: f32, sigma: f32, swap_order: bool) -> Vec<NamPair> {
     let mut out = Vec::new();
     let max_dist = (mu + 10.0 * sigma).ceil() as usize; // distance cutoff from insert size distribution
     let mut rev_ptr = 0;

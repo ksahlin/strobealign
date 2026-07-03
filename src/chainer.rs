@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use log::trace;
 
-use crate::chain::Nam;
+use crate::chain::Chain;
 use crate::details::NamDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::{IndexEntry, StrobemerIndex};
@@ -186,7 +186,7 @@ impl Chainer {
         rescue_distance: usize,
         mcs_strategy: McsStrategy,
         read_len: usize,
-    ) -> (NamDetails, Vec<Nam>) {
+    ) -> (NamDetails, Vec<Chain>) {
         let hits_timer = Instant::now();
 
         let mut hits = [vec![], vec![]];
@@ -384,7 +384,7 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
 }
 
 impl ChainingResult {
-    fn extract_chains(&self, k: usize, is_revcomp: bool, chains: &mut Vec<Nam>) {
+    fn extract_chains(&self, k: usize, is_revcomp: bool, chains: &mut Vec<Chain>) {
         let n = self.anchors.len();
         let valid_score = self.best_score * self.parameters.valid_score_threshold;
 
@@ -432,7 +432,7 @@ impl ChainingResult {
             let first = &self.anchors[j];
             let last = &self.anchors[i];
 
-            chains.push(Nam {
+            chains.push(Chain {
                 nam_id: chains.len(),
                 query_start: first.query_start,
                 query_end: last.query_start + k,

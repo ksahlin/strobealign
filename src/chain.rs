@@ -15,9 +15,9 @@ use crate::refseq::RefSequence;
 use crate::seeding::randstrobes_query;
 use crate::shuffle::shuffle_best;
 
-/// Non-overlapping approximate match
+/// A list of anchors
 #[derive(Clone, Debug, Default)]
-pub struct Nam {
+pub struct Chain {
     pub nam_id: usize,
     pub ref_start: usize,
     pub ref_end: usize,
@@ -30,7 +30,7 @@ pub struct Nam {
     pub anchors: Vec<Anchor>,
 }
 
-impl Nam {
+impl Chain {
     pub fn ref_span(&self) -> usize {
         self.ref_end - self.ref_start
     }
@@ -66,7 +66,7 @@ impl Nam {
     }
 }
 
-impl Display for Nam {
+impl Display for Chain {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -91,7 +91,7 @@ impl Display for Nam {
 /// - If first and last strobe match in reverse orientation, update the NAM
 ///   in place and return true.
 /// - If first and last strobe do not match consistently, return false.
-pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, refseq: &RefSequence, k: usize) -> bool {
+pub fn reverse_nam_if_needed(nam: &mut Chain, read: &Read, refseq: &RefSequence, k: usize) -> bool {
     let ref_start_kmer = refseq
         .contig(nam.ref_id)
         .decode(nam.ref_start, nam.ref_start + k);
@@ -136,7 +136,7 @@ pub fn get_nams_by_chaining(
     chainer: &Chainer,
     rescue_distance: usize,
     mcs_strategy: McsStrategy,
-) -> (NamDetails, Vec<Nam>) {
+) -> (NamDetails, Vec<Chain>) {
     let timer = Instant::now();
     let query_randstrobes = randstrobes_query(sequence, &index.parameters);
     let time_randstrobes = timer.elapsed().as_secs_f64();
@@ -160,7 +160,7 @@ pub fn get_nams_by_chaining(
     (nam_details, nams)
 }
 
-pub fn sort_nams(nams: &mut [Nam], rng: &mut Rng) -> f64 {
+pub fn sort_nams(nams: &mut [Chain], rng: &mut Rng) -> f64 {
     let timer = Instant::now();
     nams.sort_by(|a, b| b.score.total_cmp(&a.score));
     shuffle_best(nams, |nam| nam.score, rng);
