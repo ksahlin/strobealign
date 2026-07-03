@@ -433,7 +433,7 @@ impl ChainingResult {
             let last = &self.anchors[i];
 
             chains.push(Chain {
-                nam_id: chains.len(),
+                id: chains.len(),
                 query_start: first.query_start,
                 query_end: last.query_start + k,
                 ref_start: first.ref_start,

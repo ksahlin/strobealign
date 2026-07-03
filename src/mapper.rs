@@ -903,7 +903,7 @@ fn extend_paired_seeds(
         );
         details[i].tried_alignment += 1;
         details[i].gapped += a_indv_max[i].as_ref().map_or(0, |a| a.gapped as usize);
-        alignment_cache[i].insert(nams[i][0].nam_id, a_indv_max[i].clone());
+        alignment_cache[i].insert(nams[i][0].id, a_indv_max[i].clone());
     }
 
     // Turn pairs of high-scoring NAMs into pairs of alignments
@@ -927,7 +927,7 @@ fn extend_paired_seeds(
         for i in 0..2 {
             let alignment;
             if let Some(mut this_nam) = namsp[i].clone() {
-                if let Entry::Vacant(e) = alignment_cache[i].entry(this_nam.nam_id) {
+                if let Entry::Vacant(e) = alignment_cache[i].entry(this_nam.id) {
                     let consistent_nam = reverse_nam_if_needed(&mut this_nam, reads[i], refseq, k);
                     details[i].inconsistent_nams += !consistent_nam as usize;
                     alignment = extend_seed(
@@ -942,7 +942,7 @@ fn extend_paired_seeds(
                     details[i].gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
                     e.insert(alignment.clone());
                 } else {
-                    alignment = alignment_cache[i].get(&this_nam.nam_id).unwrap().clone();
+                    alignment = alignment_cache[i].get(&this_nam.id).unwrap().clone();
                 }
             } else {
                 let mut other_nam = namsp[1 - i].clone().unwrap();
@@ -1242,8 +1242,8 @@ fn get_best_scoring_nam_pairs(
                     nam1: Some(nam1.clone()),
                     nam2: Some(nam2.clone()),
                 });
-                added_n1.insert(nam1.nam_id);
-                added_n2.insert(nam2.nam_id);
+                added_n1.insert(nam1.id);
+                added_n2.insert(nam2.id);
                 best_joint_matches = joint_matches.max(best_joint_matches);
             }
         }
@@ -1260,7 +1260,7 @@ fn get_best_scoring_nam_pairs(
             if nam1.anchors.len() < best_joint_hits1 / 2 {
                 break;
             }
-            if added_n1.contains(&nam1.nam_id) {
+            if added_n1.contains(&nam1.id) {
                 continue;
             }
             nam_pairs.push(NamPair {
@@ -1282,7 +1282,7 @@ fn get_best_scoring_nam_pairs(
             if nam2.anchors.len() < best_joint_hits2 / 2 {
                 break;
             }
-            if added_n2.contains(&nam2.nam_id) {
+            if added_n2.contains(&nam2.id) {
                 continue;
             }
             nam_pairs.push(NamPair {

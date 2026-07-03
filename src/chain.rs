@@ -18,7 +18,7 @@ use crate::shuffle::shuffle_best;
 /// A list of anchors
 #[derive(Clone, Debug, Default)]
 pub struct Chain {
-    pub nam_id: usize,
+    pub id: usize,
     pub ref_start: usize,
     pub ref_end: usize,
     pub query_start: usize,
