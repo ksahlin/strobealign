@@ -25,7 +25,8 @@ function diff() {
 
 trap 'echo -e "\e[1;31mFailure\e[0m"' ERR
 
-cargo build
+# No --check on purpose, just do it
+cargo fmt
 
 # Unit tests
 cargo test
