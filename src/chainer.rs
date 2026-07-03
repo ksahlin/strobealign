@@ -2,11 +2,11 @@ use std::time::Instant;
 
 use log::trace;
 
+use crate::chain::Nam;
 use crate::details::NamDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::{IndexEntry, StrobemerIndex};
 use crate::mcsstrategy::McsStrategy;
-use crate::nam::Nam;
 use crate::seeding::QueryRandstrobe;
 
 const N_PRECOMPUTED: usize = 1024;

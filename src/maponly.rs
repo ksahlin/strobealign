@@ -1,5 +1,6 @@
 use fastrand::Rng;
 
+use crate::chain::{Nam, get_nams_by_chaining, sort_nams};
 use crate::chainer::Chainer;
 use crate::details::{Details, NamDetails};
 use crate::index::StrobemerIndex;
@@ -9,7 +10,6 @@ use crate::io::record::{End, SequenceRecord};
 use crate::mapper::mapping_quality;
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
-use crate::nam::{Nam, get_nams_by_chaining, sort_nams};
 use crate::refseq::RefSequence;
 
 /// Map a single-end read to the reference and return PAF records

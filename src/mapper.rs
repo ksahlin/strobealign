@@ -9,6 +9,7 @@ use memchr::memmem;
 
 use crate::aligner::Aligner;
 use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
+use crate::chain::{Nam, get_nams_by_chaining, reverse_nam_if_needed, sort_nams};
 use crate::chainer::{Anchor, Chainer};
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
@@ -20,7 +21,6 @@ use crate::io::sam::{
 };
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
-use crate::nam::{Nam, get_nams_by_chaining, reverse_nam_if_needed, sort_nams};
 use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
 use crate::refseq::RefSequence;
