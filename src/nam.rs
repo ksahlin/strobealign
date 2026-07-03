@@ -9,9 +9,9 @@ use crate::chainer::Anchor;
 use crate::chainer::Chainer;
 use crate::details::NamDetails;
 use crate::index::StrobemerIndex;
-use crate::io::fasta::RefSequence;
 use crate::mcsstrategy::McsStrategy;
 use crate::read::Read;
+use crate::refseq::RefSequence;
 use crate::seeding::randstrobes_query;
 use crate::shuffle::shuffle_best;
 
@@ -46,12 +46,12 @@ impl Nam {
     /// Returns whether a NAM represents a consistent match between read and
     /// reference by comparing the nucleotide sequences of the first and last
     /// strobe (taking orientation into account).
-    pub fn is_consistent(&self, read: &Read, references: &[RefSequence], k: usize) -> bool {
-        let ref_start_kmer = references[self.ref_id]
-            .sequence
+    pub fn is_consistent(&self, read: &Read, refseq: &RefSequence, k: usize) -> bool {
+        let ref_start_kmer = refseq
+            .contig(self.ref_id)
             .decode(self.ref_start, self.ref_start + k);
-        let ref_end_kmer = references[self.ref_id]
-            .sequence
+        let ref_end_kmer = refseq
+            .contig(self.ref_id)
             .decode(self.ref_end - k, self.ref_end);
 
         let seq = if self.is_revcomp {
@@ -91,17 +91,12 @@ impl Display for Nam {
 /// - If first and last strobe match in reverse orientation, update the NAM
 ///   in place and return true.
 /// - If first and last strobe do not match consistently, return false.
-pub fn reverse_nam_if_needed(
-    nam: &mut Nam,
-    read: &Read,
-    references: &[RefSequence],
-    k: usize,
-) -> bool {
-    let ref_start_kmer = references[nam.ref_id]
-        .sequence
+pub fn reverse_nam_if_needed(nam: &mut Nam, read: &Read, refseq: &RefSequence, k: usize) -> bool {
+    let ref_start_kmer = refseq
+        .contig(nam.ref_id)
         .decode(nam.ref_start, nam.ref_start + k);
-    let ref_end_kmer = references[nam.ref_id]
-        .sequence
+    let ref_end_kmer = refseq
+        .contig(nam.ref_id)
         .decode(nam.ref_end - k, nam.ref_end);
 
     let (seq, seq_rc) = if nam.is_revcomp {

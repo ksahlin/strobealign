@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::cigar::Cigar;
 use crate::details::Details;
-use crate::io::fasta::RefSequence;
+use crate::refseq::RefSequence;
 
 pub const PAIRED: u16 = 1;
 pub const PROPER_PAIR: u16 = 2;
@@ -152,7 +152,7 @@ impl ReadGroup {
 }
 
 pub struct SamHeader<'a> {
-    references: &'a [RefSequence],
+    refseq: &'a RefSequence,
     cmd_line: Option<&'a str>,
     version: &'a str,
     read_group: Option<ReadGroup>,
@@ -160,13 +160,13 @@ pub struct SamHeader<'a> {
 
 impl<'a> SamHeader<'a> {
     pub fn new(
-        references: &'a [RefSequence],
+        refseq: &'a RefSequence,
         cmd_line: Option<&'a str>,
         version: &'a str,
         read_group: Option<ReadGroup>,
     ) -> Self {
         SamHeader {
-            references,
+            refseq,
             cmd_line,
             version,
             read_group,
@@ -178,8 +178,13 @@ impl Display for SamHeader<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "@HD\tVN:1.6\tSO:unsorted")?;
 
-        for refseq in self.references {
-            writeln!(f, "@SQ\tSN:{}\tLN:{}", refseq.name, refseq.sequence.len())?;
+        for i in 0..self.refseq.names.len() {
+            writeln!(
+                f,
+                "@SQ\tSN:{}\tLN:{}",
+                self.refseq.names[i],
+                self.refseq.contig_len(i)
+            )?;
         }
         if let Some(read_group) = &self.read_group {
             write!(f, "@RG\tID:{}", read_group.id)?;
