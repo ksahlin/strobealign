@@ -9,7 +9,7 @@ use memchr::memmem;
 
 use crate::aligner::Aligner;
 use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
-use crate::chain::{Chain, get_nams_by_chaining, reverse_nam_if_needed, sort_nams};
+use crate::chain::{Chain, get_chains, reverse_chain_if_needed, sort_chains};
 use crate::chainer::{Anchor, Chainer};
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
@@ -354,14 +354,14 @@ pub fn align_single_end_read(
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let (mut nam_details, mut nams) = get_nams_by_chaining(
+    let (mut nam_details, mut nams) = get_chains(
         &record.sequence,
         index,
         chainer,
         mapping_parameters.rescue_distance,
         mapping_parameters.mcs_strategy,
     );
-    nam_details.time_sort_chains = sort_nams(&mut nams, rng);
+    nam_details.time_sort_chains = sort_chains(&mut nams, rng);
     let mut details: Details = nam_details.into();
 
     let timer = Instant::now();
@@ -637,14 +637,14 @@ pub fn align_paired_end_read(
 
     for is_r1 in [0, 1] {
         let record = if is_r1 == 0 { r1 } else { r2 };
-        let (mut nam_details, mut nams) = get_nams_by_chaining(
+        let (mut nam_details, mut nams) = get_chains(
             &record.sequence,
             index,
             chainer,
             mapping_parameters.rescue_distance,
             mapping_parameters.mcs_strategy,
         );
-        nam_details.time_sort_chains = sort_nams(&mut nams, rng);
+        nam_details.time_sort_chains = sort_chains(&mut nams, rng);
         details[is_r1].chain = nam_details;
         nams_pair[is_r1] = nams;
     }
@@ -891,7 +891,7 @@ fn extend_paired_seeds(
     // the paired-end read as two single-end reads.
     let mut a_indv_max = [None, None];
     for i in 0..2 {
-        let consistent_nam = reverse_nam_if_needed(&mut nams[i][0], reads[i], refseq, k);
+        let consistent_nam = reverse_chain_if_needed(&mut nams[i][0], reads[i], refseq, k);
         details[i].inconsistent_chains += !consistent_nam as usize;
         a_indv_max[i] = extend_seed(
             aligner,
@@ -928,7 +928,8 @@ fn extend_paired_seeds(
             let alignment;
             if let Some(mut this_nam) = namsp[i].clone() {
                 if let Entry::Vacant(e) = alignment_cache[i].entry(this_nam.id) {
-                    let consistent_nam = reverse_nam_if_needed(&mut this_nam, reads[i], refseq, k);
+                    let consistent_nam =
+                        reverse_chain_if_needed(&mut this_nam, reads[i], refseq, k);
                     details[i].inconsistent_chains += !consistent_nam as usize;
                     alignment = extend_seed(
                         aligner,
@@ -947,7 +948,7 @@ fn extend_paired_seeds(
             } else {
                 let mut other_nam = namsp[1 - i].clone().unwrap();
                 details[1 - i].inconsistent_chains +=
-                    !reverse_nam_if_needed(&mut other_nam, reads[1 - i], refseq, k) as usize;
+                    !reverse_chain_if_needed(&mut other_nam, reads[1 - i], refseq, k) as usize;
                 alignment = rescue_align(aligner, &other_nam, refseq, reads[i], mu, sigma, k);
                 if alignment.is_some() {
                     details[i].mate_rescue += 1;
@@ -1036,7 +1037,7 @@ fn rescue_read(
         if score_dropoff1 < dropoff {
             break;
         }
-        let consistent_nam = reverse_nam_if_needed(nam, read1, refseq, k);
+        let consistent_nam = reverse_chain_if_needed(nam, read1, refseq, k);
         details[0].inconsistent_chains += !consistent_nam as usize;
         if let Some(alignment) = extend_seed(aligner, nam, refseq, read1, consistent_nam, true) {
             details[0].gapped += alignment.gapped as usize;

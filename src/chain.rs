@@ -43,7 +43,7 @@ impl Chain {
         self.ref_start.saturating_sub(self.query_start)
     }
 
-    /// Returns whether a NAM represents a consistent match between read and
+    /// Returns whether a chain represents a consistent match between read and
     /// reference by comparing the nucleotide sequences of the first and last
     /// strobe (taking orientation into account).
     pub fn is_consistent(&self, read: &Read, refseq: &RefSequence, k: usize) -> bool {
@@ -70,7 +70,7 @@ impl Display for Chain {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Nam(ref_id={}, query: {}..{}, ref: {}..{}, rc={}, score={})",
+            "Chain(ref_id={}, query: {}..{}, ref: {}..{}, rc={}, score={})",
             self.ref_id,
             self.query_start,
             self.query_end,
@@ -83,29 +83,34 @@ impl Display for Chain {
     }
 }
 
-/// Determine whether the NAM represents a match to the forward or
+/// Determine whether the chain represents a match to the forward or
 /// reverse-complemented sequence by checking in which orientation the
-/// first and last strobe in the NAM match
+/// first and last strobe in the chain match
 ///
 /// - If first and last strobe match in forward orientation, return true.
-/// - If first and last strobe match in reverse orientation, update the NAM
+/// - If first and last strobe match in reverse orientation, update the chain
 ///   in place and return true.
 /// - If first and last strobe do not match consistently, return false.
-pub fn reverse_nam_if_needed(nam: &mut Chain, read: &Read, refseq: &RefSequence, k: usize) -> bool {
+pub fn reverse_chain_if_needed(
+    chain: &mut Chain,
+    read: &Read,
+    refseq: &RefSequence,
+    k: usize,
+) -> bool {
     let ref_start_kmer = refseq
-        .contig(nam.ref_id)
-        .decode(nam.ref_start, nam.ref_start + k);
+        .contig(chain.ref_id)
+        .decode(chain.ref_start, chain.ref_start + k);
     let ref_end_kmer = refseq
-        .contig(nam.ref_id)
-        .decode(nam.ref_end - k, nam.ref_end);
+        .contig(chain.ref_id)
+        .decode(chain.ref_end - k, chain.ref_end);
 
-    let (seq, seq_rc) = if nam.is_revcomp {
+    let (seq, seq_rc) = if chain.is_revcomp {
         (read.rc(), read.seq())
     } else {
         (read.seq(), read.rc())
     };
-    let read_start_kmer = &seq[nam.query_start..nam.query_start + k];
-    let read_end_kmer = &seq[nam.query_end - k..nam.query_end];
+    let read_start_kmer = &seq[chain.query_start..chain.query_start + k];
+    let read_end_kmer = &seq[chain.query_end - k..chain.query_end];
     if ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer {
         return true;
     }
@@ -114,23 +119,23 @@ pub fn reverse_nam_if_needed(nam: &mut Chain, read: &Read, refseq: &RefSequence,
     // we need two extra checks for this - hopefully this will remove all the false matches we see
     // (true hash collisions should be very few)
     let read_len = read.len();
-    let q_start_tmp = read_len - nam.query_end;
-    let q_end_tmp = read_len - nam.query_start;
-    // false reverse match, change coordinates in nam to forward
+    let q_start_tmp = read_len - chain.query_end;
+    let q_end_tmp = read_len - chain.query_start;
+    // false reverse match, change coordinates in chain to forward
     let read_start_kmer = &seq_rc[q_start_tmp..q_start_tmp + k];
     let read_end_kmer = &seq_rc[q_end_tmp - k..q_end_tmp];
     if ref_start_kmer == read_start_kmer && ref_end_kmer == read_end_kmer {
-        nam.is_revcomp = !nam.is_revcomp;
-        nam.query_start = q_start_tmp;
-        nam.query_end = q_end_tmp;
+        chain.is_revcomp = !chain.is_revcomp;
+        chain.query_start = q_start_tmp;
+        chain.query_end = q_end_tmp;
         true
     } else {
         false
     }
 }
 
-/// Obtain NAMs for a sequence record, doing rescue if needed.
-pub fn get_nams_by_chaining(
+/// Obtain chains for a sequence record, doing rescue if needed.
+pub fn get_chains(
     sequence: &[u8],
     index: &StrobemerIndex,
     chainer: &Chainer,
@@ -147,7 +152,7 @@ pub fn get_nams_by_chaining(
         query_randstrobes[1].len()
     );
 
-    let (mut nam_details, nams) = chainer.get_chains(
+    let (mut chain_details, chains) = chainer.get_chains(
         &query_randstrobes,
         index,
         rescue_distance,
@@ -155,27 +160,27 @@ pub fn get_nams_by_chaining(
         sequence.len(),
     );
 
-    nam_details.time_randstrobes = time_randstrobes;
+    chain_details.time_randstrobes = time_randstrobes;
 
-    (nam_details, nams)
+    (chain_details, chains)
 }
 
-pub fn sort_nams(nams: &mut [Chain], rng: &mut Rng) -> f64 {
+pub fn sort_chains(chains: &mut [Chain], rng: &mut Rng) -> f64 {
     let timer = Instant::now();
-    nams.sort_by(|a, b| b.score.total_cmp(&a.score));
-    shuffle_best(nams, |nam| nam.score, rng);
+    chains.sort_by(|a, b| b.score.total_cmp(&a.score));
+    shuffle_best(chains, |chain| chain.score, rng);
 
     if log::log_enabled!(Trace) {
-        trace!("Found {} NAMs", nams.len());
+        trace!("Found {} chains", chains.len());
         let mut printed = 0;
-        for nam in nams.iter() {
-            if nam.anchors.len() > 1 || printed < 10 {
-                trace!("- {}", nam);
+        for chain in chains.iter() {
+            if chain.anchors.len() > 1 || printed < 10 {
+                trace!("- {}", chain);
                 printed += 1;
             }
         }
-        if printed < nams.len() {
-            trace!("+ {} single-anchor chains", nams.len() - printed);
+        if printed < chains.len() {
+            trace!("+ {} single-anchor chains", chains.len() - printed);
         }
     }
 
