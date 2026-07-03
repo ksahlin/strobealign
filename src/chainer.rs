@@ -254,12 +254,12 @@ impl Chainer {
             n_reads: 1,
             n_randstrobes: query_randstrobes[0].len() + query_randstrobes[1].len(),
             n_anchors,
-            n_nams: chains.len(),
+            n_chains: chains.len(),
             time_randstrobes: 0.0,
             time_find_hits,
             time_chaining,
             time_rescue: 0.0,
-            time_sort_nams: 0f64,
+            time_sort_chains: 0f64,
             both_orientations: orientations.len() > 1,
         };
 

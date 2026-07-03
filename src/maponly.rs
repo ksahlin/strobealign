@@ -31,7 +31,7 @@ pub fn map_single_end_read(
         rescue_distance,
         mcs_strategy,
     );
-    nam_details.time_sort_nams = sort_nams(&mut nams, rng);
+    nam_details.time_sort_chains = sort_nams(&mut nams, rng);
 
     if nams.is_empty() {
         (vec![], nam_details.into())
@@ -141,8 +141,8 @@ pub fn map_paired_end_read(
         &nam_details2,
     );
 
-    nam_details1.time_sort_nams = sort_nams(&mut nams1, rng);
-    nam_details2.time_sort_nams = sort_nams(&mut nams2, rng);
+    nam_details1.time_sort_chains = sort_nams(&mut nams1, rng);
+    nam_details2.time_sort_chains = sort_nams(&mut nams2, rng);
 
     let mut records = vec![];
     match get_best_paired_mapping_location(&nam_pairs, &nams1, &nams2, insert_size_distribution) {

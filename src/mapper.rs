@@ -361,7 +361,7 @@ pub fn align_single_end_read(
         mapping_parameters.rescue_distance,
         mapping_parameters.mcs_strategy,
     );
-    nam_details.time_sort_nams = sort_nams(&mut nams, rng);
+    nam_details.time_sort_chains = sort_nams(&mut nams, rng);
     let mut details: Details = nam_details.into();
 
     let timer = Instant::now();
@@ -398,7 +398,7 @@ pub fn align_single_end_read(
         }
         let consistent_nam = nam.is_consistent(&read, refseq, k);
         if !consistent_nam {
-            details.inconsistent_nams += 1;
+            details.inconsistent_chains += 1;
             continue;
         }
         let Some(alignment) = extend_seed(
@@ -644,8 +644,8 @@ pub fn align_paired_end_read(
             mapping_parameters.rescue_distance,
             mapping_parameters.mcs_strategy,
         );
-        nam_details.time_sort_nams = sort_nams(&mut nams, rng);
-        details[is_r1].nam = nam_details;
+        nam_details.time_sort_chains = sort_nams(&mut nams, rng);
+        details[is_r1].chain = nam_details;
         nams_pair[is_r1] = nams;
     }
 
@@ -846,9 +846,9 @@ fn extend_paired_seeds(
         let mut n_max2 = nams[1][0].clone();
 
         let consistent_nam1 = n_max1.is_consistent(read1, refseq, k);
-        details[0].inconsistent_nams += !consistent_nam1 as usize;
+        details[0].inconsistent_chains += !consistent_nam1 as usize;
         let consistent_nam2 = n_max2.is_consistent(read2, refseq, k);
-        details[1].inconsistent_nams += !consistent_nam2 as usize;
+        details[1].inconsistent_chains += !consistent_nam2 as usize;
 
         let alignment1 = extend_seed(
             aligner,
@@ -892,7 +892,7 @@ fn extend_paired_seeds(
     let mut a_indv_max = [None, None];
     for i in 0..2 {
         let consistent_nam = reverse_nam_if_needed(&mut nams[i][0], reads[i], refseq, k);
-        details[i].inconsistent_nams += !consistent_nam as usize;
+        details[i].inconsistent_chains += !consistent_nam as usize;
         a_indv_max[i] = extend_seed(
             aligner,
             &mut nams[i][0],
@@ -929,7 +929,7 @@ fn extend_paired_seeds(
             if let Some(mut this_nam) = namsp[i].clone() {
                 if let Entry::Vacant(e) = alignment_cache[i].entry(this_nam.id) {
                     let consistent_nam = reverse_nam_if_needed(&mut this_nam, reads[i], refseq, k);
-                    details[i].inconsistent_nams += !consistent_nam as usize;
+                    details[i].inconsistent_chains += !consistent_nam as usize;
                     alignment = extend_seed(
                         aligner,
                         &mut this_nam,
@@ -946,7 +946,7 @@ fn extend_paired_seeds(
                 }
             } else {
                 let mut other_nam = namsp[1 - i].clone().unwrap();
-                details[1 - i].inconsistent_nams +=
+                details[1 - i].inconsistent_chains +=
                     !reverse_nam_if_needed(&mut other_nam, reads[1 - i], refseq, k) as usize;
                 alignment = rescue_align(aligner, &other_nam, refseq, reads[i], mu, sigma, k);
                 if alignment.is_some() {
@@ -1037,7 +1037,7 @@ fn rescue_read(
             break;
         }
         let consistent_nam = reverse_nam_if_needed(nam, read1, refseq, k);
-        details[0].inconsistent_nams += !consistent_nam as usize;
+        details[0].inconsistent_chains += !consistent_nam as usize;
         if let Some(alignment) = extend_seed(aligner, nam, refseq, read1, consistent_nam, true) {
             details[0].gapped += alignment.gapped as usize;
             alignments1.push(alignment);
