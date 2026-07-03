@@ -2,7 +2,7 @@ use fastrand::Rng;
 
 use crate::chain::{Chain, get_nams_by_chaining, sort_nams};
 use crate::chainer::Chainer;
-use crate::details::{Details, NamDetails};
+use crate::details::{ChainDetails, Details};
 use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
 use crate::io::paf::PafRecord;
@@ -316,8 +316,8 @@ fn get_nam_pairs(
     nams2: &mut [Chain],
     mu: f32,
     sigma: f32,
-    details1: &NamDetails,
-    details2: &NamDetails,
+    details1: &ChainDetails,
+    details2: &ChainDetails,
 ) -> Vec<NamPair> {
     let mut nam_pairs = vec![];
     if nams1.is_empty() || nams2.is_empty() {

@@ -7,7 +7,7 @@ use log::trace;
 
 use crate::chainer::Anchor;
 use crate::chainer::Chainer;
-use crate::details::NamDetails;
+use crate::details::ChainDetails;
 use crate::index::StrobemerIndex;
 use crate::mcsstrategy::McsStrategy;
 use crate::read::Read;
@@ -136,7 +136,7 @@ pub fn get_nams_by_chaining(
     chainer: &Chainer,
     rescue_distance: usize,
     mcs_strategy: McsStrategy,
-) -> (NamDetails, Vec<Chain>) {
+) -> (ChainDetails, Vec<Chain>) {
     let timer = Instant::now();
     let query_randstrobes = randstrobes_query(sequence, &index.parameters);
     let time_randstrobes = timer.elapsed().as_secs_f64();

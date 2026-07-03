@@ -5,7 +5,7 @@ use std::ops;
 use crate::hit::HitsDetails;
 
 #[derive(Default, Debug, Clone)]
-pub struct NamDetails {
+pub struct ChainDetails {
     // TODO should be moved out of here and into Details
     pub hits: HitsDetails,
 
@@ -28,8 +28,8 @@ pub struct NamDetails {
     pub both_orientations: bool,
 }
 
-impl ops::AddAssign<NamDetails> for NamDetails {
-    fn add_assign(&mut self, rhs: NamDetails) {
+impl ops::AddAssign<ChainDetails> for ChainDetails {
+    fn add_assign(&mut self, rhs: ChainDetails) {
         self.hits += rhs.hits;
         self.n_reads += rhs.n_reads;
         self.n_randstrobes += rhs.n_randstrobes;
@@ -46,7 +46,7 @@ impl ops::AddAssign<NamDetails> for NamDetails {
 /// Details about aligning a single read
 #[derive(Default, Debug, Clone)]
 pub struct Details {
-    pub nam: NamDetails,
+    pub nam: ChainDetails,
 
     pub inconsistent_nams: usize,
 
@@ -83,8 +83,8 @@ impl Details {
     }
 }
 
-impl From<NamDetails> for Details {
-    fn from(nam_details: NamDetails) -> Self {
+impl From<ChainDetails> for Details {
+    fn from(nam_details: ChainDetails) -> Self {
         Details {
             nam: nam_details,
             ..Details::default()
