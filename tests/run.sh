@@ -28,6 +28,9 @@ trap 'echo -e "\e[1;31mFailure\e[0m"' ERR
 # No --check on purpose, just do it
 cargo fmt
 
+cargo clippy -- -D warnings
+cargo clippy --tests -- -D warnings
+
 # Unit tests
 cargo test
 
