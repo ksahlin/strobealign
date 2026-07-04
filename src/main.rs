@@ -241,8 +241,6 @@ struct Args {
 
     // Alignment parameters
 
-    //args::Flag nams(parser, "nams", "Use NAMs instead of collinear chaining for alignments", {"nams"});
-
     /// Match score
     #[arg(short = 'A', default_value_t = Scores::default().match_, value_name = "N", help_heading = "Alignment")]
     match_score: u8,
