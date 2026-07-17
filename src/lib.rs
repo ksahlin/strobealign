@@ -20,4 +20,5 @@ pub mod refseq;
 pub mod revcomp;
 pub mod seeding;
 pub mod shuffle;
+pub mod simdaligner;
 pub mod ssw;

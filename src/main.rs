@@ -267,9 +267,10 @@ struct Args {
     #[arg(long = "ssw", help_heading = "Alignment")]
     use_ssw: bool,
 
-    /// X-drop threshold for piecewise extension
-    #[arg(long = "xdrop", default_value_t = 500, value_name = "N", help_heading = "Alignment")]
-    xdrop: i32,
+    /// Bandwidth for the piecewise start/end extensions; extensions against a longer reference are
+    /// confined to this many diagonals off the anchor diagonal, shorter ones are aligned exactly
+    #[arg(long = "bw", default_value_t = 1024, value_name = "N", help_heading = "Alignment")]
+    bandwidth: usize,
 
 
     /// Path to input reference (in FASTA format)
@@ -537,7 +538,7 @@ fn run() -> Result<(), CliError> {
     debug!("{:?}", &scores);
 
     let chainer = Chainer::new(index.k(), chaining_parameters);
-    let aligner = Aligner::new(scores, index.k(), args.xdrop);
+    let aligner = Aligner::new(scores, index.k(), args.bandwidth);
 
     let cmd_line = env::args().skip(1).collect::<Vec<_>>().join(" ");
     let rg_id = match args.rg_id {
