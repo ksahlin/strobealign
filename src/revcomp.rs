@@ -2,6 +2,7 @@
 // c, C -> G
 // g, G -> C
 // t, T, u, U -> A
+#[allow(clippy::byte_char_slices)]
 const REVCOMP_TABLE: [u8; 256] = [
     b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N',
     b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N', b'N',

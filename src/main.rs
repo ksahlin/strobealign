@@ -486,7 +486,7 @@ fn run() -> Result<(), CliError> {
             "Total time indexing: {:.2} s",
             timer.elapsed().as_secs_f64()
         );
-        debug!("{}", &index_stats);
+        debug!("{}", index_stats);
 
         index
     };
@@ -532,9 +532,9 @@ fn run() -> Result<(), CliError> {
         gap_extend: args.gap_extension_penalty,
         end_bonus: args.end_bonus,
     };
-    debug!("{:?}", &mapping_parameters);
-    debug!("{:?}", &chaining_parameters);
-    debug!("{:?}", &scores);
+    debug!("{:?}", mapping_parameters);
+    debug!("{:?}", chaining_parameters);
+    debug!("{:?}", scores);
 
     let chainer = Chainer::new(index.k(), chaining_parameters);
     let aligner = Aligner::new(scores, index.k(), args.xdrop);

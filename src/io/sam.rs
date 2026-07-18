@@ -189,7 +189,7 @@ impl Display for SamHeader<'_> {
         if let Some(read_group) = &self.read_group {
             write!(f, "@RG\tID:{}", read_group.id)?;
             for field in &read_group.fields {
-                write!(f, "\t{}", &field)?;
+                write!(f, "\t{}", field)?;
             }
             f.write_str("\n")?;
         }
@@ -197,7 +197,7 @@ impl Display for SamHeader<'_> {
             writeln!(
                 f,
                 "@PG\tID:strobealign\tPN:strobealign\tVN:{}\tCL:{}",
-                &self.version, &cmd_line
+                self.version, cmd_line
             )?;
         };
 
