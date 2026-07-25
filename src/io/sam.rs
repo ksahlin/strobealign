@@ -38,6 +38,7 @@ pub struct SamRecord {
     pub rg_id: Option<String>,
     /// Copied from FASTQ header
     pub extra: Option<String>,
+    pub output_secondary_seq: bool,
 }
 
 impl SamRecord {
@@ -71,14 +72,13 @@ impl Display for SamRecord {
             Some(pos) => pos + 1,
             None => 0,
         };
+        let emit_seq = !self.is_secondary() || self.output_secondary_seq;
         let query_sequence = match &self.query_sequence {
-            Some(seq) if !self.is_secondary() && !seq.is_empty() => {
-                std::str::from_utf8(seq).unwrap()
-            }
+            Some(seq) if emit_seq && !seq.is_empty() => std::str::from_utf8(seq).unwrap(),
             _ => "*",
         };
         let query_qualities = match &self.query_qualities {
-            Some(query_qualities) if !self.is_secondary() && !query_qualities.is_empty() => {
+            Some(query_qualities) if emit_seq && !query_qualities.is_empty() => {
                 std::str::from_utf8(query_qualities).unwrap()
             }
             _ => "*",

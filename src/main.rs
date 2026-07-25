@@ -159,6 +159,11 @@ struct Args {
     )]
     secondary_threshold: f32,
 
+    /// Output SEQ and QUAL for secondary alignments (default: '*'). Useful for downstream
+    /// tools that need secondary reads' bases/qualities.
+    #[arg(long = "secondary-seq", help_heading = "SAM output")]
+    secondary_seq: bool,
+
     // Seeding arguments
 
     /// Mean read length. Default: estimated from the first 500 records in the input file
@@ -580,7 +585,13 @@ fn run() -> Result<(), CliError> {
         None if !args.rg.is_empty() => Some("1".to_string()),
         None => None,
     };
-    let sam_output = SamOutput::new(args.details, args.eqx, rg_id.clone(), args.fastq_comments);
+    let sam_output = SamOutput::new(
+        args.details,
+        args.eqx,
+        rg_id.clone(),
+        args.fastq_comments,
+        args.secondary_seq,
+    );
     let read_group = rg_id.map(|s| ReadGroup::new(&s, args.rg));
 
     let header = SamHeader::new(
