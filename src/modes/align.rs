@@ -184,6 +184,7 @@ pub struct SamOutput {
     show_details: bool,
     rg_id: Option<String>,
     fastq_comments: bool,
+    secondary_seq: bool,
 }
 
 impl SamOutput {
@@ -192,12 +193,14 @@ impl SamOutput {
         cigar_eqx: bool,
         rg_id: Option<String>,
         fastq_comments: bool,
+        secondary_seq: bool,
     ) -> Self {
         SamOutput {
             cigar_eqx,
             show_details,
             rg_id,
             fastq_comments,
+            secondary_seq,
         }
     }
 
@@ -292,6 +295,7 @@ impl SamOutput {
             details,
             rg_id: self.rg_id.clone(),
             extra,
+            output_secondary_seq: self.secondary_seq,
             ..SamRecord::default()
         }
     }
