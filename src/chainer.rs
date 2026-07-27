@@ -57,19 +57,26 @@ pub struct Chainer {
     k: usize,
     parameters: ChainingParameters,
     precomputed_scores: [f32; N_PRECOMPUTED],
+    precomputed_log2: [f32; N_PRECOMPUTED],
 }
 
 impl Chainer {
     pub fn new(k: usize, parameters: ChainingParameters) -> Self {
+        let mut precomputed_log2 = [0f32; N_PRECOMPUTED];
+        #[allow(clippy::needless_range_loop)]
+        for d in 0..N_PRECOMPUTED {
+            precomputed_log2[d] = (d as f32 + 1f32).log2();
+        }
         let mut precomputed_scores = [0f32; N_PRECOMPUTED];
         #[allow(clippy::needless_range_loop)]
         for i in 0..N_PRECOMPUTED {
-            precomputed_scores[i] = compute_score(i, i, k, &parameters);
+            precomputed_scores[i] = compute_score(i, i, k, &parameters, &precomputed_log2);
         }
         Chainer {
             k,
             parameters,
             precomputed_scores,
+            precomputed_log2,
         }
     }
 
@@ -78,7 +85,7 @@ impl Chainer {
         if dq == dr && dq < N_PRECOMPUTED {
             self.precomputed_scores[dq]
         } else {
-            compute_score(dq, dr, self.k, &self.parameters)
+            compute_score(dq, dr, self.k, &self.parameters, &self.precomputed_log2)
         }
     }
 
@@ -285,7 +292,14 @@ impl Chainer {
 /// - `chaining_params`: Parameters controlling penalties:
 ///   - `diag_diff_penalty`: Multiplier for the absolute difference |dr - dq|, penalizing non-diagonal moves.
 ///   - `gap_length_penalty`: Multiplier for min(dq, dr), penalizing longer gaps.
-fn compute_score(dq: usize, dr: usize, k: usize, parameters: &ChainingParameters) -> f32 {
+/// - `precomputed_log2`: Table whose entry `d` equals `(d as f32 + 1.0).log2()`.
+fn compute_score(
+    dq: usize,
+    dr: usize,
+    k: usize,
+    parameters: &ChainingParameters,
+    precomputed_log2: &[f32; N_PRECOMPUTED],
+) -> f32 {
     let dd = dr.abs_diff(dq);
     let dg = dq.min(dr);
     let mut score = k.min(dg) as f32;
@@ -293,10 +307,11 @@ fn compute_score(dq: usize, dr: usize, k: usize, parameters: &ChainingParameters
 
     let lin_penalty =
         parameters.diag_diff_penalty * dd as f32 + parameters.gap_length_penalty * dg as f32;
-    let log_penalty = if dd >= 1 {
-        (dd as f32 + 1f32).log2()
+
+    let log_penalty = if dd < N_PRECOMPUTED {
+        precomputed_log2[dd]
     } else {
-        0.0
+        (dd as f32 + 1f32).log2()
     };
     score -= lin_penalty + 0.5 * log_penalty;
 
@@ -452,7 +467,7 @@ impl ChainingResult {
 
 #[cfg(test)]
 mod test {
-    use super::{Anchor, Chainer, ChainingParameters};
+    use super::*;
 
     #[test]
     fn chainer_early_break() {
@@ -511,5 +526,32 @@ mod test {
         // dr=11, dq=1 gives a diagonal ratio of 11.0, exceeding the default max of 10.
         // The two anchors cannot be chained, so the best score is that of a single anchor.
         assert_eq!(chaining_result.best_score, chainer.k as f32);
+    }
+
+    #[test]
+    fn precomputed_log2_is_exact() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        for d in 0..N_PRECOMPUTED {
+            assert_eq!(
+                chainer.precomputed_log2[d].to_bits(),
+                (d as f32 + 1f32).log2().to_bits(),
+                "precomputed_log2[{d}] differs from the libm value"
+            );
+        }
+    }
+
+    #[test]
+    fn precomputed_scores_agree_with_computed() {
+        let parameters = ChainingParameters::default();
+        let chainer = Chainer::new(20, parameters.clone());
+        for dq in [0usize, 1, 7, 21, 64, 500, 1023, 1024, 5000] {
+            for dr in [0usize, 1, 7, 21, 64, 500, 1023, 1024, 5000] {
+                assert_eq!(
+                    chainer.compute_score_cached(dq, dr).to_bits(),
+                    compute_score(dq, dr, 20, &parameters, &chainer.precomputed_log2).to_bits(),
+                    "score differs at dq={dq} dr={dr}"
+                );
+            }
+        }
     }
 }
