@@ -21,7 +21,7 @@ use crate::io::sam::{
 };
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
-use crate::piecewisealigner::remove_spurious_anchors;
+use crate::piecewisealigner::{remove_spurious_anchors, retain_verified_anchors};
 use crate::read::Read;
 use crate::refseq::RefSequence;
 use crate::revcomp::reverse_complement;
@@ -399,7 +399,9 @@ pub fn align_single_end_read(
         let consistent_chain = chain.is_consistent(&read, refseq, k);
         if !consistent_chain {
             details.inconsistent_chains += 1;
-            continue;
+            if mapping_parameters.use_ssw {
+                continue;
+            }
         }
         let Some(alignment) = extend_seed(
             aligner,
@@ -408,6 +410,7 @@ pub fn align_single_end_read(
             &read,
             consistent_chain,
             mapping_parameters.use_ssw,
+            k,
         ) else {
             continue;
         };
@@ -534,6 +537,7 @@ fn extend_seed(
     read: &Read,
     consistent_chain: bool,
     use_ssw: bool,
+    k: usize,
 ) -> Option<Alignment> {
     let query = if chain.is_revcomp {
         read.rc()
@@ -590,7 +594,7 @@ fn extend_seed(
             let decode_start = chain.ref_start.saturating_sub(query.len() + padding);
             let decode_end = (chain.ref_end + query.len() + padding).min(seq.len());
             let decoded_ref = seq.decode(decode_start, decode_end);
-            let adjusted_anchors: Vec<Anchor> = chain
+            let mut adjusted_anchors: Vec<Anchor> = chain
                 .anchors
                 .iter()
                 .map(|a| Anchor {
@@ -599,6 +603,10 @@ fn extend_seed(
                     query_start: a.query_start,
                 })
                 .collect();
+            retain_verified_anchors(&mut adjusted_anchors, query, &decoded_ref, k);
+            if adjusted_anchors.is_empty() {
+                return None;
+            }
             info = aligner.align_piecewise(query, &decoded_ref, &adjusted_anchors, padding)?;
             result_ref_start = info.ref_start + decode_start;
         }
@@ -857,6 +865,7 @@ fn extend_paired_seeds(
             read1,
             consistent_chain1,
             true, // SSW
+            k,
         );
         let alignment2 = extend_seed(
             aligner,
@@ -865,6 +874,7 @@ fn extend_paired_seeds(
             read2,
             consistent_chain2,
             true, // SSW
+            k,
         );
         if let (Some(alignment1), Some(alignment2)) = (alignment1, alignment2) {
             details[0].tried_alignment += 1;
@@ -900,6 +910,7 @@ fn extend_paired_seeds(
             reads[i],
             consistent_chain,
             true, // SSW
+            k,
         );
         details[i].tried_alignment += 1;
         details[i].gapped += a_indv_max[i].as_ref().map_or(0, |a| a.gapped as usize);
@@ -938,6 +949,7 @@ fn extend_paired_seeds(
                         reads[i],
                         consistent_chain,
                         true, // SSW
+                        k,
                     );
                     details[i].tried_alignment += 1;
                     details[i].gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
@@ -1039,7 +1051,8 @@ fn rescue_read(
         }
         let consistent_chain = reverse_chain_if_needed(chain, read1, refseq, k);
         details[0].inconsistent_chains += !consistent_chain as usize;
-        if let Some(alignment) = extend_seed(aligner, chain, refseq, read1, consistent_chain, true)
+        if let Some(alignment) =
+            extend_seed(aligner, chain, refseq, read1, consistent_chain, true, k)
         {
             details[0].gapped += alignment.gapped as usize;
             alignments1.push(alignment);

@@ -718,6 +718,14 @@ pub fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
     }
 }
 
+/// Drop anchors whose k-mer is not actually identical between query and reference.
+pub fn retain_verified_anchors(anchors: &mut Vec<Anchor>, query: &[u8], refseq: &[u8], k: usize) {
+    anchors.retain(|a| {
+        let (q, r) = (a.query_start, a.ref_start);
+        q + k <= query.len() && r + k <= refseq.len() && query[q..q + k] == refseq[r..r + k]
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1246,6 +1254,144 @@ mod tests {
         assert_eq!(result.ref_start, 0);
         assert_eq!(result.ref_end, 10);
         assert_eq!(result.cigar.to_string(), "3=2D5=");
+    }
+
+    #[test]
+    fn retain_verified_anchors_drops_a_false_anchor() {
+        let seq = b"ACGTACGTACGTACGTACGTACGTACGTAC";
+        let mut anchors = vec![
+            Anchor {
+                ref_id: 0,
+                ref_start: 20,
+                query_start: 20,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 13,
+                query_start: 10,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 0,
+                query_start: 0,
+            },
+        ];
+
+        retain_verified_anchors(&mut anchors, seq, seq, 5);
+
+        let expected = vec![
+            Anchor {
+                ref_id: 0,
+                ref_start: 20,
+                query_start: 20,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 0,
+                query_start: 0,
+            },
+        ];
+        assert_eq!(expected, anchors);
+    }
+
+    #[test]
+    fn retain_verified_anchors_empties_the_chain_when_nothing_verifies() {
+        let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let refseq = b"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT";
+        let mut anchors = vec![
+            Anchor {
+                ref_id: 0,
+                ref_start: 20,
+                query_start: 20,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 10,
+                query_start: 10,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 0,
+                query_start: 0,
+            },
+        ];
+
+        retain_verified_anchors(&mut anchors, query, refseq, 5);
+
+        assert!(anchors.is_empty());
+    }
+
+    #[test]
+    fn retain_verified_anchors_treats_out_of_bounds_as_false() {
+        let seq = b"ACGTACGTACGTACGTACGTACGTACGTAC";
+        let mut anchors = vec![
+            Anchor {
+                ref_id: 0,
+                ref_start: 28,
+                query_start: 28,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 0,
+                query_start: 0,
+            },
+        ];
+
+        retain_verified_anchors(&mut anchors, seq, seq, 5);
+
+        let expected = vec![Anchor {
+            ref_id: 0,
+            ref_start: 0,
+            query_start: 0,
+        }];
+        assert_eq!(expected, anchors);
+    }
+
+    #[test]
+    fn extend_piecewise_trusts_its_anchors_so_a_false_one_forces_an_indel() {
+        let aligner = PiecewiseAligner::new(
+            Scores {
+                match_: 2,
+                mismatch: 8,
+                gap_open: 12,
+                gap_extend: 1,
+                end_bonus: 10,
+            },
+            5,
+            100,
+        );
+        let seq = b"ACGTACGTACGTACGTACGTACGTACGTAC";
+        // Query 10 and reference 13 are both ACGTA, three bases out of phase in a
+        // period-4 repeat, so the middle anchor is a hash collision.
+        let mut anchors = vec![
+            Anchor {
+                ref_id: 0,
+                ref_start: 20,
+                query_start: 20,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 13,
+                query_start: 10,
+            },
+            Anchor {
+                ref_id: 0,
+                ref_start: 0,
+                query_start: 0,
+            },
+        ];
+
+        let spurious = aligner.extend_piecewise(seq, seq, &anchors, 5).unwrap();
+        assert_eq!(spurious.cigar.to_string(), "10=3D5=3I12=");
+        assert_eq!(spurious.edit_distance, 6);
+        assert_eq!(spurious.score, 46);
+
+        retain_verified_anchors(&mut anchors, seq, seq, 5);
+
+        let verified = aligner.extend_piecewise(seq, seq, &anchors, 5).unwrap();
+        assert_eq!(verified.cigar.to_string(), "30=");
+        assert_eq!(verified.edit_distance, 0);
+        assert_eq!(verified.score, 30 * 2 + 10 * 2);
     }
 
     #[test]
