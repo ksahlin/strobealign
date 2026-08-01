@@ -85,15 +85,13 @@ impl Iterator for InterleavedIterator {
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         let record1 = if let Some(record) = self.next_record.take() {
             record
-        } else if let Some(record) = self.reader.next() {
-            match record {
+        } else {
+            match self.reader.next()? {
                 Ok(record) => record,
                 Err(e) => {
                     return Some(Err(e));
                 }
             }
-        } else {
-            return None;
         };
 
         match self.reader.next() {

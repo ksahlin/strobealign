@@ -45,7 +45,7 @@ const fn make_is_wildcard_table() -> [u8; 256] {
 
 static ENCODE: [u8; 256] = make_encode_table();
 static IS_WILDCARD: [u8; 256] = make_is_wildcard_table();
-static DECODE: [u8; 4] = [b'A', b'C', b'G', b'T'];
+static DECODE: [u8; 4] = *b"ACGT";
 
 /// Deterministic pseudo-random 2-bit value for position `pos`.
 ///
