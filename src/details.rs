@@ -5,7 +5,7 @@ use std::ops;
 use crate::hit::HitsDetails;
 
 #[derive(Default, Debug, Clone)]
-pub struct NamDetails {
+pub struct ChainDetails {
     // TODO should be moved out of here and into Details
     pub hits: HitsDetails,
 
@@ -15,40 +15,40 @@ pub struct NamDetails {
 
     pub n_anchors: usize,
 
-    /// Number of NAMs found
-    pub n_nams: usize,
+    /// Number of chains found
+    pub n_chains: usize,
 
     pub time_randstrobes: f64,
     pub time_find_hits: f64,
     pub time_chaining: f64,
     pub time_rescue: f64,
-    pub time_sort_nams: f64,
+    pub time_sort_chains: f64,
 
     /// Whether both orientations were tested
     pub both_orientations: bool,
 }
 
-impl ops::AddAssign<NamDetails> for NamDetails {
-    fn add_assign(&mut self, rhs: NamDetails) {
+impl ops::AddAssign<ChainDetails> for ChainDetails {
+    fn add_assign(&mut self, rhs: ChainDetails) {
         self.hits += rhs.hits;
         self.n_reads += rhs.n_reads;
         self.n_randstrobes += rhs.n_randstrobes;
         self.n_anchors += rhs.n_anchors;
-        self.n_nams += rhs.n_nams;
+        self.n_chains += rhs.n_chains;
         self.time_randstrobes += rhs.time_randstrobes;
         self.time_find_hits += rhs.time_find_hits;
         self.time_chaining += rhs.time_chaining;
         self.time_rescue += rhs.time_rescue;
-        self.time_sort_nams += rhs.time_sort_nams;
+        self.time_sort_chains += rhs.time_sort_chains;
     }
 }
 
 /// Details about aligning a single read
 #[derive(Default, Debug, Clone)]
 pub struct Details {
-    pub nam: NamDetails,
+    pub chain: ChainDetails,
 
-    pub inconsistent_nams: usize,
+    pub inconsistent_chains: usize,
 
     /// No. of times rescue by local alignment was attempted
     pub mate_rescue: usize,
@@ -67,8 +67,8 @@ pub struct Details {
 
 impl ops::AddAssign<Details> for Details {
     fn add_assign(&mut self, rhs: Details) {
-        self.nam += rhs.nam;
-        self.inconsistent_nams += rhs.inconsistent_nams;
+        self.chain += rhs.chain;
+        self.inconsistent_chains += rhs.inconsistent_chains;
         self.mate_rescue += rhs.mate_rescue;
         self.tried_alignment += rhs.tried_alignment;
         self.gapped += rhs.gapped;
@@ -83,10 +83,10 @@ impl Details {
     }
 }
 
-impl From<NamDetails> for Details {
-    fn from(nam_details: NamDetails) -> Self {
+impl From<ChainDetails> for Details {
+    fn from(chain_details: ChainDetails) -> Self {
         Details {
-            nam: nam_details,
+            chain: chain_details,
             ..Details::default()
         }
     }

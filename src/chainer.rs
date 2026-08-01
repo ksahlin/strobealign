@@ -2,11 +2,11 @@ use std::time::Instant;
 
 use log::trace;
 
-use crate::details::NamDetails;
+use crate::chain::Chain;
+use crate::details::ChainDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::{IndexEntry, StrobemerIndex};
 use crate::mcsstrategy::McsStrategy;
-use crate::nam::Nam;
 use crate::seeding::QueryRandstrobe;
 
 const N_PRECOMPUTED: usize = 1024;
@@ -186,7 +186,7 @@ impl Chainer {
         rescue_distance: usize,
         mcs_strategy: McsStrategy,
         read_len: usize,
-    ) -> (NamDetails, Vec<Nam>) {
+    ) -> (ChainDetails, Vec<Chain>) {
         let hits_timer = Instant::now();
 
         let mut hits = [vec![], vec![]];
@@ -249,17 +249,17 @@ impl Chainer {
         }
         let mut hits_details12 = hits_details[0].clone();
         hits_details12 += hits_details[1].clone();
-        let details = NamDetails {
+        let details = ChainDetails {
             hits: hits_details12,
             n_reads: 1,
             n_randstrobes: query_randstrobes[0].len() + query_randstrobes[1].len(),
             n_anchors,
-            n_nams: chains.len(),
+            n_chains: chains.len(),
             time_randstrobes: 0.0,
             time_find_hits,
             time_chaining,
             time_rescue: 0.0,
-            time_sort_nams: 0f64,
+            time_sort_chains: 0f64,
             both_orientations: orientations.len() > 1,
         };
 
@@ -384,7 +384,7 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
 }
 
 impl ChainingResult {
-    fn extract_chains(&self, k: usize, is_revcomp: bool, chains: &mut Vec<Nam>) {
+    fn extract_chains(&self, k: usize, is_revcomp: bool, chains: &mut Vec<Chain>) {
         let n = self.anchors.len();
         let valid_score = self.best_score * self.parameters.valid_score_threshold;
 
@@ -432,8 +432,8 @@ impl ChainingResult {
             let first = &self.anchors[j];
             let last = &self.anchors[i];
 
-            chains.push(Nam {
-                nam_id: chains.len(),
+            chains.push(Chain {
+                id: chains.len(),
                 query_start: first.query_start,
                 query_end: last.query_start + k,
                 ref_start: first.ref_start,

@@ -1,7 +1,8 @@
 use fastrand::Rng;
 
+use crate::chain::{Chain, get_chains, sort_chains};
 use crate::chainer::Chainer;
-use crate::details::{Details, NamDetails};
+use crate::details::{ChainDetails, Details};
 use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
 use crate::io::paf::PafRecord;
@@ -9,7 +10,6 @@ use crate::io::record::{End, SequenceRecord};
 use crate::mapper::mapping_quality;
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
-use crate::nam::{Nam, get_nams_by_chaining, sort_nams};
 use crate::refseq::RefSequence;
 
 /// Map a single-end read to the reference and return PAF records
@@ -24,29 +24,29 @@ pub fn map_single_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) -> (Vec<PafRecord>, Details) {
-    let (mut nam_details, mut nams) = get_nams_by_chaining(
+    let (mut chain_details, mut chains) = get_chains(
         &record.sequence,
         index,
         chainer,
         rescue_distance,
         mcs_strategy,
     );
-    nam_details.time_sort_nams = sort_nams(&mut nams, rng);
+    chain_details.time_sort_chains = sort_chains(&mut chains, rng);
 
-    if nams.is_empty() {
-        (vec![], nam_details.into())
+    if chains.is_empty() {
+        (vec![], chain_details.into())
     } else {
-        let mapq = mapping_quality(&nams);
+        let mapq = mapping_quality(&chains);
         (
-            vec![paf_record_from_nam(
-                &nams[0],
+            vec![paf_record_from_chain(
+                &chains[0],
                 &record.name,
                 refseq,
                 record.sequence.len(),
                 Some(mapq),
                 End::None,
             )],
-            nam_details.into(),
+            chain_details.into(),
         )
     }
 }
@@ -63,28 +63,28 @@ pub fn abundances_single_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) {
-    let (_, mut nams) = get_nams_by_chaining(
+    let (_, mut chains) = get_chains(
         &record.sequence,
         index,
         chainer,
         rescue_distance,
         mcs_strategy,
     );
-    sort_nams(&mut nams, rng);
+    sort_chains(&mut chains, rng);
 
-    let n_best = nams
+    let n_best = chains
         .iter()
-        .take_while(|nam| nam.score == nams[0].score)
+        .take_while(|chain| chain.score == chains[0].score)
         .count();
     let weight = record.sequence.len() as f64 / n_best as f64;
-    for nam in &nams[0..n_best] {
-        abundances[nam.ref_id] += weight;
+    for chain in &chains[0..n_best] {
+        abundances[chain.ref_id] += weight;
     }
 }
 
-/// Convert Nam into PAF record
-fn paf_record_from_nam(
-    nam: &Nam,
+/// Convert chain into PAF record
+fn paf_record_from_chain(
+    chain: &Chain,
     name: &str,
     refseq: &RefSequence,
     query_length: usize,
@@ -95,15 +95,15 @@ fn paf_record_from_nam(
         query_name: name.into(),
         end,
         query_length: query_length as u64,
-        query_start: nam.query_start as u64,
-        query_end: nam.query_end as u64,
-        is_revcomp: nam.is_revcomp,
-        target_name: refseq.names[nam.ref_id].clone(),
-        target_length: refseq.contig_len(nam.ref_id) as u64,
-        target_start: nam.ref_start as u64,
-        target_end: nam.ref_end as u64,
-        matching_bases: nam.matching_bases as u64,
-        alignment_length: (nam.ref_end - nam.ref_start) as u64,
+        query_start: chain.query_start as u64,
+        query_end: chain.query_end as u64,
+        is_revcomp: chain.is_revcomp,
+        target_name: refseq.names[chain.ref_id].clone(),
+        target_length: refseq.contig_len(chain.ref_id) as u64,
+        target_start: chain.ref_start as u64,
+        target_end: chain.ref_end as u64,
+        matching_bases: chain.matching_bases as u64,
+        alignment_length: (chain.ref_end - chain.ref_start) as u64,
         mapping_quality: mapq,
     }
 }
@@ -122,34 +122,39 @@ pub fn map_paired_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) -> (Vec<PafRecord>, Details) {
-    let (mut nam_details1, mut nams1) =
-        get_nams_by_chaining(&r1.sequence, index, chainer, rescue_distance, mcs_strategy);
-    let (mut nam_details2, mut nams2) =
-        get_nams_by_chaining(&r2.sequence, index, chainer, rescue_distance, mcs_strategy);
+    let (mut chain_details1, mut chains1) =
+        get_chains(&r1.sequence, index, chainer, rescue_distance, mcs_strategy);
+    let (mut chain_details2, mut chains2) =
+        get_chains(&r2.sequence, index, chainer, rescue_distance, mcs_strategy);
 
-    if nams1.is_empty() && nams2.is_empty() {
-        nam_details1 += nam_details2;
-        return (vec![], nam_details1.into());
+    if chains1.is_empty() && chains2.is_empty() {
+        chain_details1 += chain_details2;
+        return (vec![], chain_details1.into());
     }
 
-    let nam_pairs = get_nam_pairs(
-        &mut nams1,
-        &mut nams2,
+    let chain_pairs = get_chain_pairs(
+        &mut chains1,
+        &mut chains2,
         insert_size_distribution.mu,
         insert_size_distribution.sigma,
-        &nam_details1,
-        &nam_details2,
+        &chain_details1,
+        &chain_details2,
     );
 
-    nam_details1.time_sort_nams = sort_nams(&mut nams1, rng);
-    nam_details2.time_sort_nams = sort_nams(&mut nams2, rng);
+    chain_details1.time_sort_chains = sort_chains(&mut chains1, rng);
+    chain_details2.time_sort_chains = sort_chains(&mut chains2, rng);
 
     let mut records = vec![];
-    match get_best_paired_mapping_location(&nam_pairs, &nams1, &nams2, insert_size_distribution) {
-        MappedNams::Individual(best1, best2) => {
-            if let Some(nam1) = best1 {
-                records.push(paf_record_from_nam(
-                    nam1,
+    match get_best_paired_mapping_location(
+        &chain_pairs,
+        &chains1,
+        &chains2,
+        insert_size_distribution,
+    ) {
+        MappedChains::Individual(best1, best2) => {
+            if let Some(chain1) = best1 {
+                records.push(paf_record_from_chain(
+                    chain1,
                     &r1.name,
                     refseq,
                     r1.sequence.len(),
@@ -157,9 +162,9 @@ pub fn map_paired_end_read(
                     End::One,
                 ));
             }
-            if let Some(nam2) = best2 {
-                records.push(paf_record_from_nam(
-                    nam2,
+            if let Some(chain2) = best2 {
+                records.push(paf_record_from_chain(
+                    chain2,
                     &r2.name,
                     refseq,
                     r2.sequence.len(),
@@ -168,17 +173,17 @@ pub fn map_paired_end_read(
                 ));
             }
         }
-        MappedNams::Pair(nam1, nam2, _) => {
-            records.push(paf_record_from_nam(
-                nam1,
+        MappedChains::Pair(chain1, chain2, _) => {
+            records.push(paf_record_from_chain(
+                chain1,
                 &r1.name,
                 refseq,
                 r1.sequence.len(),
                 None,
                 End::One,
             ));
-            records.push(paf_record_from_nam(
-                nam2,
+            records.push(paf_record_from_chain(
+                chain2,
                 &r2.name,
                 refseq,
                 r2.sequence.len(),
@@ -188,8 +193,8 @@ pub fn map_paired_end_read(
         }
     }
 
-    nam_details1 += nam_details2;
-    (records, nam_details1.into())
+    chain_details1 += chain_details2;
+    (records, chain_details1.into())
 }
 
 /// Map a paired-end read pair to the reference and estimate abundances
@@ -206,65 +211,71 @@ pub fn abundances_paired_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) {
-    let (nam_details1, mut nams1) =
-        get_nams_by_chaining(&r1.sequence, index, chainer, rescue_distance, mcs_strategy);
-    let (nam_details2, mut nams2) =
-        get_nams_by_chaining(&r2.sequence, index, chainer, rescue_distance, mcs_strategy);
+    let (chain_details1, mut chains1) =
+        get_chains(&r1.sequence, index, chainer, rescue_distance, mcs_strategy);
+    let (chain_details2, mut chains2) =
+        get_chains(&r2.sequence, index, chainer, rescue_distance, mcs_strategy);
 
-    if nams1.is_empty() && nams2.is_empty() {
+    if chains1.is_empty() && chains2.is_empty() {
         return;
     }
 
-    let nam_pairs = get_nam_pairs(
-        &mut nams1,
-        &mut nams2,
+    let chain_pairs = get_chain_pairs(
+        &mut chains1,
+        &mut chains2,
         insert_size_distribution.mu,
         insert_size_distribution.sigma,
-        &nam_details1,
-        &nam_details2,
+        &chain_details1,
+        &chain_details2,
     );
 
-    sort_nams(&mut nams1, rng);
-    sort_nams(&mut nams2, rng);
+    sort_chains(&mut chains1, rng);
+    sort_chains(&mut chains2, rng);
 
-    match get_best_paired_mapping_location(&nam_pairs, &nams1, &nams2, insert_size_distribution) {
-        MappedNams::Individual(_, _) => {
-            for (nams, read_len) in [(&nams1, r1.sequence.len()), (&nams2, r2.sequence.len())] {
-                let n_best = nams
+    match get_best_paired_mapping_location(
+        &chain_pairs,
+        &chains1,
+        &chains2,
+        insert_size_distribution,
+    ) {
+        MappedChains::Individual(_, _) => {
+            for (chains, read_len) in [(&chains1, r1.sequence.len()), (&chains2, r2.sequence.len())]
+            {
+                let n_best = chains
                     .iter()
-                    .take_while(|nam| nam.score == nams[0].score)
+                    .take_while(|chain| chain.score == chains[0].score)
                     .count();
                 let weight = read_len as f64 / n_best as f64;
-                for nam in &nams[0..n_best] {
-                    abundances[nam.ref_id] += weight;
+                for chain in &chains[0..n_best] {
+                    abundances[chain.ref_id] += weight;
                 }
             }
         }
-        MappedNams::Pair(_, _, joint_score) => {
-            let n_best = nam_pairs
+        MappedChains::Pair(_, _, joint_score) => {
+            let n_best = chain_pairs
                 .iter()
-                .take_while(|nam_pair| nam_pair.score == joint_score)
+                .take_while(|chain_pair| chain_pair.score == joint_score)
                 .count();
             let weight_r1 = r1.sequence.len() as f64 / n_best as f64;
             let weight_r2 = r2.sequence.len() as f64 / n_best as f64;
-            for NamPair {
-                nam1,
-                nam2,
+            for ChainPair {
+                chain1,
+                chain2,
                 score: _,
-            } in &nam_pairs[..n_best]
+            } in &chain_pairs[..n_best]
             {
-                abundances[nam1.ref_id] += weight_r1;
-                abundances[nam2.ref_id] += weight_r2;
+                abundances[chain1.ref_id] += weight_r1;
+                abundances[chain2.ref_id] += weight_r2;
             }
         }
     }
 }
 
-enum MappedNams<'a> {
-    /// Two independent best NAMs (one per read)
-    Individual(Option<&'a Nam>, Option<&'a Nam>),
-    /// A proper paired NAMs (nam1, nam2, pairing score)
-    Pair(&'a Nam, &'a Nam, f64),
+enum MappedChains<'a> {
+    /// Two independent best chains (one per read)
+    Individual(Option<&'a Chain>, Option<&'a Chain>),
+    /// A proper paired chains (chain1, chain2, pairing score)
+    Pair(&'a Chain, &'a Chain, f64),
 }
 
 /// Choose between:
@@ -275,109 +286,122 @@ enum MappedNams<'a> {
 ///
 /// For paired-end mapping and abundance estimation modes only
 fn get_best_paired_mapping_location<'a>(
-    nam_pairs: &'a [NamPair],
-    nams1: &'a [Nam],
-    nams2: &'a [Nam],
+    chain_pairs: &'a [ChainPair],
+    chains1: &'a [Chain],
+    chains2: &'a [Chain],
     insert_size_distribution: &mut InsertSizeDistribution,
-) -> MappedNams<'a> {
-    let best_nam1 = nams1.first();
-    let best_nam2 = nams2.first();
+) -> MappedChains<'a> {
+    let best_chain1 = chains1.first();
+    let best_chain2 = chains2.first();
 
     // Score if reads are treated independently.
-    let individual_score = best_nam1.map_or(0.0, |nam| nam.score as f64)
-        + best_nam2.map_or(0.0, |nam| nam.score as f64);
+    let individual_score = best_chain1.map_or(0.0, |chain| chain.score as f64)
+        + best_chain2.map_or(0.0, |chain| chain.score as f64);
 
     // Prefer a proper pair only if it beats a penalized individual mapping.
     // Divisor 2 is penalty for being mapped individually
-    if let Some(NamPair { nam1, nam2, score }) = nam_pairs.first()
+    if let Some(ChainPair {
+        chain1,
+        chain2,
+        score,
+    }) = chain_pairs.first()
         && *score >= individual_score / 2.0
     {
         // Update insert size using confident proper pairs.
         if insert_size_distribution.sample_size < 400 {
-            insert_size_distribution.update(nam1.ref_start.abs_diff(nam2.ref_start));
+            insert_size_distribution.update(chain1.ref_start.abs_diff(chain2.ref_start));
         }
 
-        MappedNams::Pair(nam1, nam2, *score)
+        MappedChains::Pair(chain1, chain2, *score)
     } else {
-        MappedNams::Individual(best_nam1, best_nam2)
+        MappedChains::Individual(best_chain1, best_chain2)
     }
 }
 
 #[derive(Debug)]
-pub struct NamPair {
-    pub nam1: Nam,
-    pub nam2: Nam,
+pub struct ChainPair {
+    pub chain1: Chain,
+    pub chain2: Chain,
     pub score: f64,
 }
 
 /// Build all plausible forward/revcomp mapping pairings
-fn get_nam_pairs(
-    nams1: &mut [Nam],
-    nams2: &mut [Nam],
+fn get_chain_pairs(
+    chains1: &mut [Chain],
+    chains2: &mut [Chain],
     mu: f32,
     sigma: f32,
-    details1: &NamDetails,
-    details2: &NamDetails,
-) -> Vec<NamPair> {
-    let mut nam_pairs = vec![];
-    if nams1.is_empty() || nams2.is_empty() {
-        return nam_pairs;
+    details1: &ChainDetails,
+    details2: &ChainDetails,
+) -> Vec<ChainPair> {
+    let mut chain_pairs = vec![];
+    if chains1.is_empty() || chains2.is_empty() {
+        return chain_pairs;
     }
 
-    let (fwd1, rev1): (&mut [Nam], &mut [Nam]) =
-        split_nams_by_orientation_checked(nams1, details1.both_orientations);
-    let (fwd2, rev2): (&mut [Nam], &mut [Nam]) =
-        split_nams_by_orientation_checked(nams2, details2.both_orientations);
+    let (fwd1, rev1): (&mut [Chain], &mut [Chain]) =
+        split_chains_by_orientation_checked(chains1, details1.both_orientations);
+    let (fwd2, rev2): (&mut [Chain], &mut [Chain]) =
+        split_chains_by_orientation_checked(chains2, details2.both_orientations);
 
     if !fwd1.is_empty() && !rev2.is_empty() {
-        fwd1.sort_unstable_by_key(|nam| (nam.ref_id, nam.projected_ref_start()));
-        rev2.sort_unstable_by_key(|nam| (nam.ref_id, nam.projected_ref_start()));
-        nam_pairs.extend(find_pairs(fwd1, rev2, mu, sigma, false));
+        fwd1.sort_unstable_by_key(|chain| (chain.ref_id, chain.projected_ref_start()));
+        rev2.sort_unstable_by_key(|chain| (chain.ref_id, chain.projected_ref_start()));
+        chain_pairs.extend(find_pairs(fwd1, rev2, mu, sigma, false));
     }
     if !fwd2.is_empty() && !rev1.is_empty() {
-        fwd2.sort_unstable_by_key(|nam| (nam.ref_id, nam.projected_ref_start()));
-        rev1.sort_unstable_by_key(|nam| (nam.ref_id, nam.projected_ref_start()));
-        nam_pairs.extend(find_pairs(fwd2, rev1, mu, sigma, true));
+        fwd2.sort_unstable_by_key(|chain| (chain.ref_id, chain.projected_ref_start()));
+        rev1.sort_unstable_by_key(|chain| (chain.ref_id, chain.projected_ref_start()));
+        chain_pairs.extend(find_pairs(fwd2, rev1, mu, sigma, true));
     }
 
-    nam_pairs.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
-    nam_pairs
+    chain_pairs.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
+    chain_pairs
 }
 
-/// Split nams into (forward, revcomp),
+/// Split chains into (forward, revcomp),
 /// if only 1 orientation exists, returns it and a empty slice
-fn split_nams_by_orientation_checked(nams: &mut [Nam], both: bool) -> (&mut [Nam], &mut [Nam]) {
+fn split_chains_by_orientation_checked(
+    chains: &mut [Chain],
+    both: bool,
+) -> (&mut [Chain], &mut [Chain]) {
     if both {
-        split_nams_by_orientation(nams)
-    } else if nams[0].is_revcomp {
-        (&mut [], nams)
+        split_chains_by_orientation(chains)
+    } else if chains[0].is_revcomp {
+        (&mut [], chains)
     } else {
-        (nams, &mut [])
+        (chains, &mut [])
     }
 }
 
-/// In-place partition of NAMs by orientation:
+/// In-place partition of chains by orientation:
 /// forward on the left, revcomp on the right.
 /// Returns two slices separating (forward, revcomp)
-fn split_nams_by_orientation(nams: &mut [Nam]) -> (&mut [Nam], &mut [Nam]) {
+fn split_chains_by_orientation(chains: &mut [Chain]) -> (&mut [Chain], &mut [Chain]) {
     let mut left = 0;
-    let mut right = nams.len();
+    let mut right = chains.len();
 
     while left < right {
-        if nams[left].is_revcomp {
+        if chains[left].is_revcomp {
             right -= 1;
-            nams.swap(left, right);
+            chains.swap(left, right);
         } else {
             left += 1;
         }
     }
 
-    nams.split_at_mut(left)
+    chains.split_at_mut(left)
 }
 
 /// Find most forward/revcomp pairs using a two-pointer scan.
 /// Assumes both slices are sorted by (ref_id, projected_ref_start).
-fn find_pairs(fwd: &[Nam], rev: &[Nam], mu: f32, sigma: f32, swap_order: bool) -> Vec<NamPair> {
+fn find_pairs(
+    fwd: &[Chain],
+    rev: &[Chain],
+    mu: f32,
+    sigma: f32,
+    swap_order: bool,
+) -> Vec<ChainPair> {
     let mut out = Vec::new();
     let max_dist = (mu + 10.0 * sigma).ceil() as usize; // distance cutoff from insert size distribution
     let mut rev_ptr = 0;
@@ -399,7 +423,7 @@ fn find_pairs(fwd: &[Nam], rev: &[Nam], mu: f32, sigma: f32, swap_order: bool) -
             continue;
         }
 
-        // Scan window of revcomp nams within distance limit.
+        // Scan window of revcomp chains within distance limit.
         let mut best = None;
         let mut i = rev_ptr;
         while i < rev.len()
@@ -407,7 +431,7 @@ fn find_pairs(fwd: &[Nam], rev: &[Nam], mu: f32, sigma: f32, swap_order: bool) -
             && (rev[i].projected_ref_start() - f.projected_ref_start()) <= max_dist
         {
             let r = &rev[i];
-            // The pairing score gets a bonus based on the reference distance of the two chosen nam
+            // The pairing score gets a bonus based on the reference distance of the two chosen chains
             // paired and from our current knowledge of the reference distance distribution
             let x = f.ref_start.abs_diff(r.ref_start);
             let score = f.score as f64
@@ -426,7 +450,7 @@ fn find_pairs(fwd: &[Nam], rev: &[Nam], mu: f32, sigma: f32, swap_order: bool) -
         };
         let r = &rev[best_id];
 
-        // If the same revcomp nam was paired previously, keep only the better scoring pair.
+        // If the same revcomp chain was paired previously, keep only the better scoring pair.
         if let Some((last_id, prev_score)) = last_paired
             && last_id == best_id
         {
@@ -437,15 +461,15 @@ fn find_pairs(fwd: &[Nam], rev: &[Nam], mu: f32, sigma: f32, swap_order: bool) -
         }
 
         out.push(if swap_order {
-            NamPair {
-                nam1: r.clone(),
-                nam2: f.clone(),
+            ChainPair {
+                chain1: r.clone(),
+                chain2: f.clone(),
                 score,
             }
         } else {
-            NamPair {
-                nam1: f.clone(),
-                nam2: r.clone(),
+            ChainPair {
+                chain1: f.clone(),
+                chain2: r.clone(),
                 score,
             }
         });

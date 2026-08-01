@@ -9,6 +9,7 @@ use memchr::memmem;
 
 use crate::aligner::Aligner;
 use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
+use crate::chain::{Chain, get_chains, reverse_chain_if_needed, sort_chains};
 use crate::chainer::{Anchor, Chainer};
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
@@ -20,14 +21,13 @@ use crate::io::sam::{
 };
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
-use crate::nam::{Nam, get_nams_by_chaining, reverse_nam_if_needed, sort_nams};
 use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
 use crate::refseq::RefSequence;
 use crate::revcomp::reverse_complement;
 use crate::seeding::SeedingParameters;
 
-const MAX_PAIR_NAMS: usize = 1000;
+const MAX_PAIR_CHAINS: usize = 1000;
 
 #[derive(Debug)]
 pub struct MappingParameters {
@@ -354,18 +354,18 @@ pub fn align_single_end_read(
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let (mut nam_details, mut nams) = get_nams_by_chaining(
+    let (mut chain_details, mut chains) = get_chains(
         &record.sequence,
         index,
         chainer,
         mapping_parameters.rescue_distance,
         mapping_parameters.mcs_strategy,
     );
-    nam_details.time_sort_nams = sort_nams(&mut nams, rng);
-    let mut details: Details = nam_details.into();
+    chain_details.time_sort_chains = sort_chains(&mut chains, rng);
+    let mut details: Details = chain_details.into();
 
     let timer = Instant::now();
-    if nams.is_empty() {
+    if chains.is_empty() {
         return (
             vec![sam_output.make_unmapped_record(record, details.clone())],
             details,
@@ -373,7 +373,7 @@ pub fn align_single_end_read(
     }
     let mut sam_records = Vec::new();
     let mut alignments = Vec::new();
-    let nam_max = nams[0].clone();
+    let chain_max = chains[0].clone();
     let mut best_edit_distance = usize::MAX;
     let mut best_score = 0;
     let mut best_index = 0;
@@ -383,30 +383,30 @@ pub fn align_single_end_read(
 
     let k = index.k();
     let read = Read::new(&record.sequence);
-    for (tries, nam) in nams
+    for (tries, chain) in chains
         .iter_mut()
         .take(mapping_parameters.max_tries)
         .enumerate()
     {
-        // Use score-based dropoff: NAMs are sorted by score.
-        let score_dropoff = nam.score / nam_max.score;
+        // Use score-based dropoff: chains are sorted by score.
+        let score_dropoff = chain.score / chain_max.score;
 
         if (tries > 1 && best_edit_distance == 0)
             || score_dropoff < mapping_parameters.dropoff_threshold
         {
             break;
         }
-        let consistent_nam = nam.is_consistent(&read, refseq, k);
-        if !consistent_nam {
-            details.inconsistent_nams += 1;
+        let consistent_chain = chain.is_consistent(&read, refseq, k);
+        if !consistent_chain {
+            details.inconsistent_chains += 1;
             continue;
         }
         let Some(alignment) = extend_seed(
             aligner,
-            nam,
+            chain,
             refseq,
             &read,
-            consistent_nam,
+            consistent_chain,
             mapping_parameters.use_ssw,
         ) else {
             continue;
@@ -416,13 +416,13 @@ pub fn align_single_end_read(
         // if log::log_enabled!(log::Level::Trace) {
         //     let (mut ssw, mut pw) = if !mapping_parameters.use_ssw {
         //         (
-        //             extend_seed(aligner, nam, references, &read, consistent_nam, true).unwrap(),
+        //             extend_seed(aligner, chain, references, &read, consistent_chain, true).unwrap(),
         //             alignment.clone(),
         //         )
         //     } else {
         //         (
         //             alignment.clone(),
-        //             extend_seed(aligner, nam, references, &read, consistent_nam, false).unwrap(),
+        //             extend_seed(aligner, chain, references, &read, consistent_chain, false).unwrap(),
         //         )
         //     };
         //     // manually adds the soft clips
@@ -438,7 +438,7 @@ pub fn align_single_end_read(
         //     cigar.push(CigarOperation::Softclip, ssw.soft_clip_right);
         //     ssw.cigar = cigar;
         //
-        //     trace!("Alignment:[{:?},SSW:{:?},PW:{:?}]", nam.clone(), ssw, pw);
+        //     trace!("Alignment:[{:?},SSW:{:?},PW:{:?}]", chain.clone(), ssw, pw);
         // }
 
         details.tried_alignment += 1;
@@ -525,25 +525,25 @@ pub fn align_single_end_read(
     (sam_records, details)
 }
 
-/// Extend a NAM so that it covers the entire read and return the resulting
+/// Extend a chain so that it covers the entire read and return the resulting
 /// alignment.
 fn extend_seed(
     aligner: &Aligner,
-    nam: &mut Nam,
+    chain: &mut Chain,
     refseq: &RefSequence,
     read: &Read,
-    consistent_nam: bool,
+    consistent_chain: bool,
     use_ssw: bool,
 ) -> Option<Alignment> {
-    let query = if nam.is_revcomp {
+    let query = if chain.is_revcomp {
         read.rc()
     } else {
         read.seq()
     };
-    let seq = &refseq.contig(nam.ref_id);
+    let seq = &refseq.contig(chain.ref_id);
 
-    let projected_ref_start = nam.ref_start.saturating_sub(nam.query_start);
-    let projected_ref_end = min(nam.ref_end + query.len() - nam.query_end, seq.len());
+    let projected_ref_start = chain.ref_start.saturating_sub(chain.query_start);
+    let projected_ref_end = min(chain.ref_end + query.len() - chain.query_end, seq.len());
 
     // TODO ugly
     let mut info = AlignmentInfo {
@@ -557,7 +557,7 @@ fn extend_seed(
     };
     let mut result_ref_start = 0;
     let mut gapped = true;
-    if projected_ref_start + query.len() == projected_ref_end && consistent_nam {
+    if projected_ref_start + query.len() == projected_ref_end && consistent_chain {
         let ref_segm_ham = seq.decode(projected_ref_start, projected_ref_end);
         if let Some(hamming_dist) = hamming_distance(query, &ref_segm_ham)
             && (hamming_dist as f32 / query.len() as f32) < 0.05
@@ -584,13 +584,13 @@ fn extend_seed(
             info = aligner.align(query, &segment)?;
             result_ref_start = ref_start + info.ref_start;
         } else {
-            remove_spurious_anchors(&mut nam.anchors);
+            remove_spurious_anchors(&mut chain.anchors);
             // Decode the reference region needed by the piecewise aligner.
             // Use a generous range so all anchor-relative slices stay in bounds.
-            let decode_start = nam.ref_start.saturating_sub(query.len() + padding);
-            let decode_end = (nam.ref_end + query.len() + padding).min(seq.len());
+            let decode_start = chain.ref_start.saturating_sub(query.len() + padding);
+            let decode_end = (chain.ref_end + query.len() + padding).min(seq.len());
             let decoded_ref = seq.decode(decode_start, decode_end);
-            let adjusted_anchors: Vec<Anchor> = nam
+            let adjusted_anchors: Vec<Anchor> = chain
                 .anchors
                 .iter()
                 .map(|a| Anchor {
@@ -611,8 +611,8 @@ fn extend_seed(
         score: info.score,
         ref_start: result_ref_start,
         length: info.ref_span(),
-        is_revcomp: nam.is_revcomp,
-        reference_id: nam.ref_id,
+        is_revcomp: chain.is_revcomp,
+        reference_id: chain.ref_id,
         gapped,
     })
 }
@@ -633,20 +633,20 @@ pub fn align_paired_end_read(
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
     let mut details = [Details::default(), Details::default()];
-    let mut nams_pair = [vec![], vec![]];
+    let mut chains_pair = [vec![], vec![]];
 
     for is_r1 in [0, 1] {
         let record = if is_r1 == 0 { r1 } else { r2 };
-        let (mut nam_details, mut nams) = get_nams_by_chaining(
+        let (mut chain_details, mut chains) = get_chains(
             &record.sequence,
             index,
             chainer,
             mapping_parameters.rescue_distance,
             mapping_parameters.mcs_strategy,
         );
-        nam_details.time_sort_nams = sort_nams(&mut nams, rng);
-        details[is_r1].nam = nam_details;
-        nams_pair[is_r1] = nams;
+        chain_details.time_sort_chains = sort_chains(&mut chains, rng);
+        details[is_r1].chain = chain_details;
+        chains_pair[is_r1] = chains;
     }
 
     let timer = Instant::now();
@@ -654,7 +654,7 @@ pub fn align_paired_end_read(
     let read2 = Read::new(&r2.sequence);
     let alignment_pairs = extend_paired_seeds(
         aligner,
-        &mut nams_pair,
+        &mut chains_pair,
         &read1,
         &read2,
         seeding_parameters.syncmer.k,
@@ -669,7 +669,7 @@ pub fn align_paired_end_read(
 
     match alignment_pairs {
         // Typical case: both reads map uniquely and form a proper pair.
-        // Then the mapping quality is computed based on the NAMs.
+        // Then the mapping quality is computed based on the chains.
         AlignedPairs::Proper((alignment1, alignment2)) => {
             let pair_status = is_proper_pair(
                 &alignment1,
@@ -685,8 +685,8 @@ pub fn align_paired_end_read(
                     .update(alignment1.ref_start.abs_diff(alignment2.ref_start));
             }
 
-            let mapq1 = mapping_quality(&nams_pair[0]);
-            let mapq2 = mapping_quality(&nams_pair[1]);
+            let mapq1 = mapping_quality(&chains_pair[0]);
+            let mapq2 = mapping_quality(&chains_pair[1]);
 
             details[0].best_alignments = 1;
             details[1].best_alignments = 1;
@@ -731,8 +731,8 @@ pub fn align_paired_end_read(
                     ) == PairStatus::NotProper
                 {
                     [
-                        mapping_quality(&nams_pair[0]),
-                        mapping_quality(&nams_pair[1]),
+                        mapping_quality(&chains_pair[0]),
+                        mapping_quality(&chains_pair[1]),
                     ]
                 } else {
                     let joint = alignment_quality(&alignment_pairs, |ap| ap.score as f32);
@@ -771,11 +771,11 @@ enum AlignedPairs {
     WithScores(Vec<ScoredAlignmentPair>),
 }
 
-/// Given two lists of NAMs for the two reads in a pair, pair them up and
+/// Given two lists of chains for the two reads in a pair, pair them up and
 /// compute base-level alignments
 fn extend_paired_seeds(
     aligner: &Aligner,
-    nams: &mut [Vec<Nam>; 2],
+    chains: &mut [Vec<Chain>; 2],
     read1: &Read,
     read2: &Read,
     k: usize,
@@ -788,19 +788,19 @@ fn extend_paired_seeds(
     let mu = insert_size_distribution.mu;
     let sigma = insert_size_distribution.sigma;
 
-    if nams[0].is_empty() && nams[1].is_empty() {
-        // None of the reads have any NAMs
+    if chains[0].is_empty() && chains[1].is_empty() {
+        // None of the reads have any chains
         return AlignedPairs::WithScores(vec![]);
     }
 
-    if !nams[0].is_empty() && nams[1].is_empty() {
-        // Only read 1 has NAMS: attempt to rescue read 2
+    if !chains[0].is_empty() && chains[1].is_empty() {
+        // Only read 1 has any chains: attempt to rescue read 2
         return AlignedPairs::WithScores(rescue_read(
             read2,
             read1,
             aligner,
             refseq,
-            &mut nams[0],
+            &mut chains[0],
             max_tries,
             dropoff,
             details,
@@ -810,15 +810,15 @@ fn extend_paired_seeds(
         ));
     }
 
-    if nams[0].is_empty() && !nams[1].is_empty() {
-        // Only read 2 has NAMS: attempt to rescue read 1
+    if chains[0].is_empty() && !chains[1].is_empty() {
+        // Only read 2 has any chains: attempt to rescue read 1
         details.swap(0, 1);
         let mut pairs = rescue_read(
             read1,
             read2,
             aligner,
             refseq,
-            &mut nams[1],
+            &mut chains[1],
             max_tries,
             dropoff,
             details,
@@ -834,36 +834,36 @@ fn extend_paired_seeds(
         return AlignedPairs::WithScores(pairs);
     }
 
-    // Both reads have NAMs
-    assert!(!nams[0].is_empty() && !nams[1].is_empty());
+    // Both reads have chains
+    assert!(!chains[0].is_empty() && !chains[1].is_empty());
 
     // Deal with the typical case that both reads map uniquely and form a proper pair
-    if top_dropoff(&nams[0]) < dropoff
-        && top_dropoff(&nams[1]) < dropoff
-        && is_proper_nam_pair(&nams[0][0], &nams[1][0], mu, sigma)
+    if top_dropoff(&chains[0]) < dropoff
+        && top_dropoff(&chains[1]) < dropoff
+        && is_proper_chain_pair(&chains[0][0], &chains[1][0], mu, sigma)
     {
-        let mut n_max1 = nams[0][0].clone();
-        let mut n_max2 = nams[1][0].clone();
+        let mut ch_max1 = chains[0][0].clone();
+        let mut ch_max2 = chains[1][0].clone();
 
-        let consistent_nam1 = n_max1.is_consistent(read1, refseq, k);
-        details[0].inconsistent_nams += !consistent_nam1 as usize;
-        let consistent_nam2 = n_max2.is_consistent(read2, refseq, k);
-        details[1].inconsistent_nams += !consistent_nam2 as usize;
+        let consistent_chain1 = ch_max1.is_consistent(read1, refseq, k);
+        details[0].inconsistent_chains += !consistent_chain1 as usize;
+        let consistent_chain2 = ch_max2.is_consistent(read2, refseq, k);
+        details[1].inconsistent_chains += !consistent_chain2 as usize;
 
         let alignment1 = extend_seed(
             aligner,
-            &mut n_max1,
+            &mut ch_max1,
             refseq,
             read1,
-            consistent_nam1,
+            consistent_chain1,
             true, // SSW
         );
         let alignment2 = extend_seed(
             aligner,
-            &mut n_max2,
+            &mut ch_max2,
             refseq,
             read2,
-            consistent_nam2,
+            consistent_chain2,
             true, // SSW
         );
         if let (Some(alignment1), Some(alignment2)) = (alignment1, alignment2) {
@@ -883,7 +883,7 @@ fn extend_paired_seeds(
     // Then align as long as score dropoff or cnt < 20
 
     let reads = [read1, read2];
-    // Cache for already computed alignments. Maps NAM ids to alignments.
+    // Cache for already computed alignments. Maps chain ids to alignments.
     // TODO rename
     let mut alignment_cache = [HashMap::new(), HashMap::new()];
 
@@ -891,64 +891,65 @@ fn extend_paired_seeds(
     // the paired-end read as two single-end reads.
     let mut a_indv_max = [None, None];
     for i in 0..2 {
-        let consistent_nam = reverse_nam_if_needed(&mut nams[i][0], reads[i], refseq, k);
-        details[i].inconsistent_nams += !consistent_nam as usize;
+        let consistent_chain = reverse_chain_if_needed(&mut chains[i][0], reads[i], refseq, k);
+        details[i].inconsistent_chains += !consistent_chain as usize;
         a_indv_max[i] = extend_seed(
             aligner,
-            &mut nams[i][0],
+            &mut chains[i][0],
             refseq,
             reads[i],
-            consistent_nam,
+            consistent_chain,
             true, // SSW
         );
         details[i].tried_alignment += 1;
         details[i].gapped += a_indv_max[i].as_ref().map_or(0, |a| a.gapped as usize);
-        alignment_cache[i].insert(nams[i][0].nam_id, a_indv_max[i].clone());
+        alignment_cache[i].insert(chains[i][0].id, a_indv_max[i].clone());
     }
 
-    // Turn pairs of high-scoring NAMs into pairs of alignments
-    let nam_pairs = get_best_scoring_nam_pairs(&nams[0], &nams[1], mu, sigma);
+    // Turn pairs of high-scoring chains into pairs of alignments
+    let chain_pairs = get_best_scoring_chain_pairs(&chains[0], &chains[1], mu, sigma);
     let mut alignment_pairs = vec![];
-    let max_score = nam_pairs[0].score;
-    for nam_pair in nam_pairs {
-        let score_ = nam_pair.score;
-        let namsp = [nam_pair.nam1, nam_pair.nam2];
+    let max_score = chain_pairs[0].score;
+    for chain_pair in chain_pairs {
+        let score_ = chain_pair.score;
+        let chainsp = [chain_pair.chain1, chain_pair.chain2];
         let score_dropoff = score_ / max_score;
 
         if alignment_pairs.len() >= max_tries || score_dropoff < dropoff {
             break;
         }
 
-        // Get alignments for the two NAMs, either by computing the alignment,
-        // retrieving it from the cache or by attempting a rescue (if the NAM
+        // Get alignments for the two chains, either by computing the alignment,
+        // retrieving it from the cache or by attempting a rescue (if the chain
         // actually is a dummy, that is, only the partner is available)
 
         let mut alignments = [None, None];
         for i in 0..2 {
             let alignment;
-            if let Some(mut this_nam) = namsp[i].clone() {
-                if let Entry::Vacant(e) = alignment_cache[i].entry(this_nam.nam_id) {
-                    let consistent_nam = reverse_nam_if_needed(&mut this_nam, reads[i], refseq, k);
-                    details[i].inconsistent_nams += !consistent_nam as usize;
+            if let Some(mut this_chain) = chainsp[i].clone() {
+                if let Entry::Vacant(e) = alignment_cache[i].entry(this_chain.id) {
+                    let consistent_chain =
+                        reverse_chain_if_needed(&mut this_chain, reads[i], refseq, k);
+                    details[i].inconsistent_chains += !consistent_chain as usize;
                     alignment = extend_seed(
                         aligner,
-                        &mut this_nam,
+                        &mut this_chain,
                         refseq,
                         reads[i],
-                        consistent_nam,
+                        consistent_chain,
                         true, // SSW
                     );
                     details[i].tried_alignment += 1;
                     details[i].gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
                     e.insert(alignment.clone());
                 } else {
-                    alignment = alignment_cache[i].get(&this_nam.nam_id).unwrap().clone();
+                    alignment = alignment_cache[i].get(&this_chain.id).unwrap().clone();
                 }
             } else {
-                let mut other_nam = namsp[1 - i].clone().unwrap();
-                details[1 - i].inconsistent_nams +=
-                    !reverse_nam_if_needed(&mut other_nam, reads[1 - i], refseq, k) as usize;
-                alignment = rescue_align(aligner, &other_nam, refseq, reads[i], mu, sigma, k);
+                let mut other_chain = chainsp[1 - i].clone().unwrap();
+                details[1 - i].inconsistent_chains +=
+                    !reverse_chain_if_needed(&mut other_chain, reads[1 - i], refseq, k) as usize;
+                alignment = rescue_align(aligner, &other_chain, refseq, reads[i], mu, sigma, k);
                 if alignment.is_some() {
                     details[i].mate_rescue += 1;
                     details[i].tried_alignment += 1;
@@ -1010,14 +1011,14 @@ fn extend_paired_seeds(
     AlignedPairs::WithScores(alignment_pairs)
 }
 
-/// Align a pair of reads for which only one has NAMs. For the other, rescue
+/// Align a pair of reads for which only one has chains. For the other, rescue
 /// is attempted by aligning it locally.
 fn rescue_read(
     read2: &Read, // read to be rescued
-    read1: &Read, // read that has NAMs
+    read1: &Read, // read that has chains
     aligner: &Aligner,
     refseq: &RefSequence,
-    nams1: &mut [Nam],
+    chains1: &mut [Chain],
     max_tries: usize,
     dropoff: f32,
     details: &mut [Details; 2],
@@ -1025,25 +1026,26 @@ fn rescue_read(
     mu: f32,
     sigma: f32,
 ) -> Vec<ScoredAlignmentPair> {
-    let max_score1 = nams1[0].score;
+    let max_score1 = chains1[0].score;
 
     let mut alignments1 = vec![];
     let mut alignments2 = vec![];
-    for nam in nams1.iter_mut().take(max_tries) {
-        // Use score-based dropoff for consistency with the sort key (NAMs are sorted by score).
-        let score_dropoff1 = nam.score / max_score1;
+    for chain in chains1.iter_mut().take(max_tries) {
+        // Use score-based dropoff for consistency with the sort key (chains are sorted by score).
+        let score_dropoff1 = chain.score / max_score1;
         // only consider top hits (as minimap2 does) and break if below dropoff cutoff.
         if score_dropoff1 < dropoff {
             break;
         }
-        let consistent_nam = reverse_nam_if_needed(nam, read1, refseq, k);
-        details[0].inconsistent_nams += !consistent_nam as usize;
-        if let Some(alignment) = extend_seed(aligner, nam, refseq, read1, consistent_nam, true) {
+        let consistent_chain = reverse_chain_if_needed(chain, read1, refseq, k);
+        details[0].inconsistent_chains += !consistent_chain as usize;
+        if let Some(alignment) = extend_seed(aligner, chain, refseq, read1, consistent_chain, true)
+        {
             details[0].gapped += alignment.gapped as usize;
             alignments1.push(alignment);
             details[0].tried_alignment += 1;
 
-            let a2 = rescue_align(aligner, nam, refseq, read2, mu, sigma, k);
+            let a2 = rescue_align(aligner, chain, refseq, read2, mu, sigma, k);
             if a2.is_some() {
                 details[1].mate_rescue += 1;
             }
@@ -1089,7 +1091,7 @@ fn rescue_read(
 /// Align a read to the reference given the mapping location of its mate.
 fn rescue_align(
     aligner: &Aligner,
-    mate_nam: &Nam,
+    mate_chain: &Chain,
     refseq: &RefSequence,
     read: &Read,
     mu: f32,
@@ -1098,23 +1100,23 @@ fn rescue_align(
 ) -> Option<Alignment> {
     let read_len = read.len();
 
-    let (r_tmp, ref_start, ref_end) = if mate_nam.is_revcomp {
+    let (r_tmp, ref_start, ref_end) = if mate_chain.is_revcomp {
         (
             read.seq(),
-            mate_nam
+            mate_chain
                 .projected_ref_start()
                 .saturating_sub((mu + 5.0 * sigma) as usize),
-            mate_nam.projected_ref_start() + read_len / 2, // at most half read overlap
+            mate_chain.projected_ref_start() + read_len / 2, // at most half read overlap
         )
     } else {
         (
             read.rc(), // mate is rc since fr orientation
-            (mate_nam.ref_end + read_len - mate_nam.query_end).saturating_sub(read_len / 2), // at most half read overlap
-            mate_nam.ref_end + read_len - mate_nam.query_end + (mu + 5.0 * sigma) as usize,
+            (mate_chain.ref_end + read_len - mate_chain.query_end).saturating_sub(read_len / 2), // at most half read overlap
+            mate_chain.ref_end + read_len - mate_chain.query_end + (mu + 5.0 * sigma) as usize,
         )
     };
 
-    let ref_len = refseq.contig_len(mate_nam.ref_id);
+    let ref_len = refseq.contig_len(mate_chain.ref_id);
     let ref_start = ref_start.min(ref_len);
     let ref_end = ref_end.min(ref_len);
 
@@ -1122,7 +1124,7 @@ fn rescue_align(
         //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return None;
     }
-    let ref_segm = refseq.contig(mate_nam.ref_id).decode(ref_start, ref_end);
+    let ref_segm = refseq.contig(mate_chain.ref_id).decode(ref_start, ref_end);
 
     if !has_shared_substring(r_tmp, &ref_segm, k) {
         return None;
@@ -1130,7 +1132,7 @@ fn rescue_align(
     let info = aligner.align(r_tmp, &ref_segm);
     if let Some(info) = info {
         Some(Alignment {
-            reference_id: mate_nam.ref_id,
+            reference_id: mate_chain.ref_id,
             ref_start: ref_start + info.ref_start,
             edit_distance: info.edit_distance,
             soft_clip_left: info.query_start,
@@ -1138,7 +1140,7 @@ fn rescue_align(
             score: info.score,
             length: info.ref_span(),
             cigar: info.cigar,
-            is_revcomp: !mate_nam.is_revcomp,
+            is_revcomp: !mate_chain.is_revcomp,
             gapped: true,
         })
     } else {
@@ -1192,125 +1194,130 @@ fn is_proper_pair(a1: &Alignment, a2: &Alignment, mu: f32, sigma: f32) -> PairSt
     }
 }
 
-pub fn is_proper_nam_pair(nam1: &Nam, nam2: &Nam, mu: f32, sigma: f32) -> bool {
-    if nam1.ref_id != nam2.ref_id || nam1.is_revcomp == nam2.is_revcomp {
+pub fn is_proper_chain_pair(chain1: &Chain, chain2: &Chain, mu: f32, sigma: f32) -> bool {
+    if chain1.ref_id != chain2.ref_id || chain1.is_revcomp == chain2.is_revcomp {
         return false;
     }
-    let r1_ref_start = nam1.projected_ref_start();
-    let r2_ref_start = nam2.projected_ref_start();
+    let r1_ref_start = chain1.projected_ref_start();
+    let r2_ref_start = chain2.projected_ref_start();
 
     // r1 ---> <---- r2
-    let r1_r2 = nam2.is_revcomp
+    let r1_r2 = chain2.is_revcomp
         && (r1_ref_start <= r2_ref_start)
         && ((r2_ref_start - r1_ref_start) as f32) < mu + 10.0 * sigma;
 
     // r2 ---> <---- r1
-    let r2_r1 = nam1.is_revcomp
+    let r2_r1 = chain1.is_revcomp
         && (r2_ref_start <= r1_ref_start)
         && ((r1_ref_start - r2_ref_start) as f32) < mu + 10.0 * sigma;
 
     r1_r2 || r2_r1
 }
 
-/// Find high-scoring NAMs and NAM pairs. Proper pairs are preferred, but also
-/// high-scoring NAMs that could not be paired up are returned (these are paired
+/// Find high-scoring chains and chain pairs. Proper pairs are preferred, but also
+/// high-scoring chains that could not be paired up are returned (these are paired
 /// with None in the returned vector).
-fn get_best_scoring_nam_pairs(nams1: &[Nam], nams2: &[Nam], mu: f32, sigma: f32) -> Vec<NamPair> {
-    let mut nam_pairs = vec![];
-    if nams1.is_empty() && nams2.is_empty() {
-        return nam_pairs;
+fn get_best_scoring_chain_pairs(
+    chains1: &[Chain],
+    chains2: &[Chain],
+    mu: f32,
+    sigma: f32,
+) -> Vec<ChainPair> {
+    let mut chain_pairs = vec![];
+    if chains1.is_empty() && chains2.is_empty() {
+        return chain_pairs;
     }
 
-    // Find NAM pairs that appear to be proper pairs
+    // Find chain pairs that appear to be proper pairs
     let mut added_n1 = HashSet::new();
     let mut added_n2 = HashSet::new();
     let mut best_joint_matches = 0;
-    for nam1 in nams1.iter().take(MAX_PAIR_NAMS) {
-        for nam2 in nams2.iter().take(MAX_PAIR_NAMS) {
-            let joint_matches = nam1.anchors.len() + nam2.anchors.len();
+    for chain1 in chains1.iter().take(MAX_PAIR_CHAINS) {
+        for chain2 in chains2.iter().take(MAX_PAIR_CHAINS) {
+            let joint_matches = chain1.anchors.len() + chain2.anchors.len();
             if joint_matches < best_joint_matches / 2 {
                 break;
             }
-            if is_proper_nam_pair(nam1, nam2, mu, sigma) {
-                nam_pairs.push(NamPair {
-                    score: nam1.score + nam2.score,
-                    nam1: Some(nam1.clone()),
-                    nam2: Some(nam2.clone()),
+            if is_proper_chain_pair(chain1, chain2, mu, sigma) {
+                chain_pairs.push(ChainPair {
+                    score: chain1.score + chain2.score,
+                    chain1: Some(chain1.clone()),
+                    chain2: Some(chain2.clone()),
                 });
-                added_n1.insert(nam1.nam_id);
-                added_n2.insert(nam2.nam_id);
+                added_n1.insert(chain1.id);
+                added_n2.insert(chain2.id);
                 best_joint_matches = joint_matches.max(best_joint_matches);
             }
         }
     }
 
-    // Find high-scoring R1 NAMs that are not part of a proper pair
-    if !nams1.is_empty() {
+    // Find high-scoring R1 chains that are not part of a proper pair
+    if !chains1.is_empty() {
         let best_joint_hits1 = if best_joint_matches > 0 {
             best_joint_matches
         } else {
-            nams1[0].anchors.len()
+            chains1[0].anchors.len()
         };
-        for nam1 in nams1 {
-            if nam1.anchors.len() < best_joint_hits1 / 2 {
+        for chain1 in chains1 {
+            if chain1.anchors.len() < best_joint_hits1 / 2 {
                 break;
             }
-            if added_n1.contains(&nam1.nam_id) {
+            if added_n1.contains(&chain1.id) {
                 continue;
             }
-            nam_pairs.push(NamPair {
-                score: nam1.score,
-                nam1: Some(nam1.clone()),
-                nam2: None,
+            chain_pairs.push(ChainPair {
+                score: chain1.score,
+                chain1: Some(chain1.clone()),
+                chain2: None,
             });
         }
     }
 
-    // Find high-scoring R2 NAMs that are not part of a proper pair
-    if !nams2.is_empty() {
+    // Find high-scoring R2 chains that are not part of a proper pair
+    if !chains2.is_empty() {
         let best_joint_hits2 = if best_joint_matches > 0 {
             best_joint_matches
         } else {
-            nams2[0].anchors.len()
+            chains2[0].anchors.len()
         };
-        for nam2 in nams2 {
-            if nam2.anchors.len() < best_joint_hits2 / 2 {
+        for chain2 in chains2 {
+            if chain2.anchors.len() < best_joint_hits2 / 2 {
                 break;
             }
-            if added_n2.contains(&nam2.nam_id) {
+            if added_n2.contains(&chain2.id) {
                 continue;
             }
-            nam_pairs.push(NamPair {
-                score: nam2.score,
-                nam1: None,
-                nam2: Some(nam2.clone()),
+            chain_pairs.push(ChainPair {
+                score: chain2.score,
+                chain1: None,
+                chain2: Some(chain2.clone()),
             });
         }
     }
-    nam_pairs.sort_by(|a, b| b.score.total_cmp(&a.score));
+    chain_pairs.sort_by(|a, b| b.score.total_cmp(&a.score));
 
-    nam_pairs
+    chain_pairs
 }
 
-/// Return mapping quality for the top NAM
-pub fn mapping_quality(nams: &[Nam]) -> u8 {
-    if nams.len() <= 1 {
+/// Return mapping quality for the top chain
+pub fn mapping_quality(chains: &[Chain]) -> u8 {
+    if chains.len() <= 1 {
         return 60;
     }
-    let s1 = nams[0].score;
-    let s2 = nams[1].score;
+    let s1 = chains[0].score;
+    let s2 = chains[1].score;
     // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
-    let min_matches = min(nams[0].anchors.len(), 10) as f32 / 10.0;
+    let min_matches = min(chains[0].anchors.len(), 10) as f32 / 10.0;
     let uncapped_mapq = 40.0 * (1.0 - s2 / s1) * min_matches * s1.ln();
 
     uncapped_mapq.min(60.0) as u8
 }
 
 #[derive(Debug)]
-struct NamPair {
+struct ChainPair {
     pub score: f32,
-    pub nam1: Option<Nam>,
-    pub nam2: Option<Nam>,
+    pub chain1: Option<Chain>,
+    pub chain2: Option<Chain>,
 }
 
 #[derive(Debug, Clone)]
@@ -1451,12 +1458,12 @@ where
     }
 }
 
-/// compute dropoff of the first (top) NAM
-fn top_dropoff(nams: &[Nam]) -> f32 {
-    let n_max = &nams[0];
-    if nams.len() > 1 {
-        debug_assert!(n_max.score > 0.0);
-        nams[1].score / n_max.score
+/// compute dropoff of the first (top) chain
+fn top_dropoff(chains: &[Chain]) -> f32 {
+    let chain_max = &chains[0];
+    if chains.len() > 1 {
+        debug_assert!(chain_max.score > 0.0);
+        chains[1].score / chain_max.score
     } else {
         0.0
     }
