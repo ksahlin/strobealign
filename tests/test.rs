@@ -57,6 +57,19 @@ fn fail_gracefully_on_unusable_scoring_scheme() {
     }
 }
 
+/// The bound belongs to the piecewise kernel, so --ssw must still accept a scheme that only the
+/// kernel cannot represent.
+#[test]
+fn accept_any_scoring_scheme_with_ssw() {
+    let mut cmd = cmd();
+    cmd.args(["--ssw", "-O", "100"])
+        .args(["tests/phix.fasta", "tests/phix.1.fastq"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("Invalid scoring scheme").not())
+        .stderr(predicate::str::contains("panicked").not());
+}
+
 #[test]
 fn success_when_printing_help() {
     let mut cmd = cmd();

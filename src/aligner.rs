@@ -51,22 +51,33 @@ pub struct Aligner {
     pub scores: Scores, // TODO should not be pub?
     call_count: Cell<usize>,
     ssw_aligner: SswAligner,
-    piecewise_aligner: PiecewiseAligner,
+    /// `None` when built by [`Aligner::new_ssw_only`].
+    piecewise_aligner: Option<PiecewiseAligner>,
 }
 
 impl Aligner {
     pub fn new(scores: Scores, k: usize, bandwidth: usize) -> Self {
+        Aligner {
+            piecewise_aligner: Some(PiecewiseAligner::new(scores, k, bandwidth)),
+            ..Aligner::new_ssw_only(scores)
+        }
+    }
+
+    /// An aligner for SSW extension only.
+    ///
+    /// The piecewise aligner is not built, so a scoring scheme that only its kernel rules out is
+    /// accepted here.
+    pub fn new_ssw_only(scores: Scores) -> Self {
         let ssw_aligner = SswAligner::new(
             scores.match_,
             scores.mismatch,
             scores.gap_open,
             scores.gap_extend,
         );
-        let piecewise_aligner = PiecewiseAligner::new(scores, k, bandwidth);
         Aligner {
             scores,
             ssw_aligner,
-            piecewise_aligner,
+            piecewise_aligner: None,
             call_count: Cell::new(0usize),
         }
     }
@@ -159,6 +170,8 @@ impl Aligner {
     ) -> Option<AlignmentInfo> {
         self.call_count.set(self.call_count.get() + 1);
         self.piecewise_aligner
+            .as_ref()
+            .expect("this Aligner was built for SSW extension only")
             .extend_piecewise(query, refseq, chain, padding)
     }
 }

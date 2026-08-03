@@ -357,7 +357,10 @@ fn run() -> Result<(), CliError> {
         gap_extend: args.gap_extension_penalty,
         end_bonus: args.end_bonus,
     };
-    check_scores(scores)?;
+    // Only the piecewise path has a bound on the scheme, and --ssw does not take it.
+    if !args.use_ssw {
+        check_scores(scores)?;
+    }
 
     if cfg!(target_os = "linux") {
         warn_clocksource();
@@ -566,7 +569,11 @@ fn run() -> Result<(), CliError> {
     debug!("{:?}", scores);
 
     let chainer = Chainer::new(index.k(), chaining_parameters);
-    let aligner = Aligner::new(scores, index.k(), args.bandwidth);
+    let aligner = if args.use_ssw {
+        Aligner::new_ssw_only(scores)
+    } else {
+        Aligner::new(scores, index.k(), args.bandwidth)
+    };
 
     let cmd_line = env::args().skip(1).collect::<Vec<_>>().join(" ");
     let rg_id = match args.rg_id {
