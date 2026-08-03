@@ -55,14 +55,14 @@ pub struct Aligner {
 }
 
 impl Aligner {
-    pub fn new(scores: Scores, k: usize, xdrop: i32) -> Self {
+    pub fn new(scores: Scores, k: usize, bandwidth: usize) -> Self {
         let ssw_aligner = SswAligner::new(
             scores.match_,
             scores.mismatch,
             scores.gap_open,
             scores.gap_extend,
         );
-        let piecewise_aligner = PiecewiseAligner::new(scores, k, xdrop);
+        let piecewise_aligner = PiecewiseAligner::new(scores, k, bandwidth);
         Aligner {
             scores,
             ssw_aligner,
