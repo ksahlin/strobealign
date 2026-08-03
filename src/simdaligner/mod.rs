@@ -82,7 +82,7 @@ mod kernel;
 #[cfg(test)]
 mod tests;
 
-pub use aligner::SimdAligner;
+pub use aligner::{InvalidScores, SimdAligner, check_scores};
 
 // Re-exported so the kernel can reach them as `super::Cigar` without a conversion at the
 // boundary.

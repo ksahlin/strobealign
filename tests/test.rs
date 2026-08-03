@@ -37,6 +37,26 @@ fn fail_with_unknown_argument() {
     cmd.arg("-G").assert().failure();
 }
 
+/// A scoring scheme the aligner cannot use must be reported, not panicked on, and must be
+/// rejected before the reference is indexed.
+#[test]
+fn fail_gracefully_on_unusable_scoring_scheme() {
+    for args in [
+        ["-O", "100"].as_slice(),          // exceeds the kernel's 8-bit lanes
+        ["-O", "1", "-E", "5"].as_slice(), // gap open below gap extend
+        ["-L", "3000000000"].as_slice(),   // end bonus past i32
+    ] {
+        let mut cmd = cmd();
+        cmd.args(args)
+            .args(["tests/phix.fasta", "tests/phix.1.fastq"])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("Invalid scoring scheme"))
+            .stderr(predicate::str::contains("panicked").not())
+            .stderr(predicate::str::contains("Total time indexing").not());
+    }
+}
+
 #[test]
 fn success_when_printing_help() {
     let mut cmd = cmd();

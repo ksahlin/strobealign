@@ -40,6 +40,7 @@ use strobealign::mapper::{
 };
 use strobealign::mcsstrategy::McsStrategy;
 use strobealign::seeding::{DEFAULT_AUX_LEN, InvalidSeedingParameter, SeedingParameters};
+use strobealign::simdaligner::{InvalidScores, check_scores};
 
 mod logger;
 
@@ -318,6 +319,9 @@ enum CliError {
     #[error("No sequences found in the reference FASTA")]
     NoReference,
 
+    #[error("Invalid scoring scheme: {0}")]
+    InvalidScores(#[from] InvalidScores),
+
     #[error("When opening '{0}': {1}", .path, .e)]
     IoWithPath { e: io::Error, path: String },
 }
@@ -345,6 +349,16 @@ fn run() -> Result<(), CliError> {
     };
     logger::init(level).unwrap();
     info!("This is {} {}", NAME, VERSION);
+
+    let scores = Scores {
+        match_: args.match_score,
+        mismatch: args.mismatch_score,
+        gap_open: args.gap_open_penalty,
+        gap_extend: args.gap_extension_penalty,
+        end_bonus: args.end_bonus,
+    };
+    check_scores(scores)?;
+
     if cfg!(target_os = "linux") {
         warn_clocksource();
     }
@@ -546,13 +560,6 @@ fn run() -> Result<(), CliError> {
         max_ref_gap: args.max_ref_gap,
         matches_weight: args.matches_weight,
         max_diagonal_ratio: args.max_diagonal_ratio,
-    };
-    let scores = Scores {
-        match_: args.match_score,
-        mismatch: args.mismatch_score,
-        gap_open: args.gap_open_penalty,
-        gap_extend: args.gap_extension_penalty,
-        end_bonus: args.end_bonus,
     };
     debug!("{:?}", mapping_parameters);
     debug!("{:?}", chaining_parameters);

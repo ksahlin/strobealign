@@ -72,25 +72,67 @@ fn warn_scalar_fallback() {
     });
 }
 
-/// The two preconditions the kernel cannot check for itself, asserted once per scheme so the
-/// alignment path carries no validation. Shared by every constructor.
+/// Why a scoring scheme cannot be used with the u8 kernel.
+///
+/// The preconditions the kernel cannot check for itself. Take a scheme from user input through
+/// [`check_scores`]; [`SimdAligner::new`] panics on the same conditions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum InvalidScores {
+    #[error(
+        "gap open penalty ({gap_open}) must be at least the gap extension penalty ({gap_extend})"
+    )]
+    GapOpenBelowExtend { gap_open: u8, gap_extend: u8 },
+
+    #[error(
+        "match score ({match_}) + 3 * gap open penalty ({gap_open}) - gap extension penalty \
+         ({gap_extend}) must be at most 255, but is {}; at match score {match_} the gap open \
+         penalty can be at most {}",
+        *match_ as u32 + 3 * *gap_open as u32 - *gap_extend as u32,
+        (255 + *gap_extend as u32 - *match_ as u32) / 3
+    )]
+    ExceedsLanes {
+        match_: u8,
+        gap_open: u8,
+        gap_extend: u8,
+    },
+
+    #[error("end bonus ({end_bonus}) must be at most {}", i32::MAX)]
+    EndBonusTooLarge { end_bonus: u32 },
+}
+
+/// Whether a scheme can be used, as a `Result` rather than a panic.
+///
+/// The rules live here, not at the call sites, so a front end validating user input and
+/// [`SimdAligner::new`] cannot drift apart.
+pub fn check_scores(scores: Scores) -> Result<(), InvalidScores> {
+    if scores.gap_open < scores.gap_extend {
+        return Err(InvalidScores::GapOpenBelowExtend {
+            gap_open: scores.gap_open,
+            gap_extend: scores.gap_extend,
+        });
+    }
+    if !fits_u8_lanes(scores.match_, scores.gap_open, scores.gap_extend) {
+        return Err(InvalidScores::ExceedsLanes {
+            match_: scores.match_,
+            gap_open: scores.gap_open,
+            gap_extend: scores.gap_extend,
+        });
+    }
+    // The kernel adds the bonus as `i32`; past that it wraps negative and silently suppresses
+    // the end extensions.
+    if scores.end_bonus > i32::MAX as u32 {
+        return Err(InvalidScores::EndBonusTooLarge {
+            end_bonus: scores.end_bonus,
+        });
+    }
+    Ok(())
+}
+
+/// Asserted once per scheme, by every constructor, so the alignment path carries no validation.
 fn validate(scores: Scores) {
-    assert!(
-        scores.gap_open >= scores.gap_extend,
-        "gap_open ({}) must be >= gap_extend ({}): the kernel collapses the open-vs-extend \
-         recurrence on that assumption",
-        scores.gap_open,
-        scores.gap_extend
-    );
-    assert!(
-        fits_u8_lanes(scores.match_, scores.gap_open, scores.gap_extend),
-        "scores do not fit the u8 kernel: match ({}) + 3*gap_open ({}) - gap_extend ({}) \
-         must be <= 255, i.e. gap_open <= ~84 at match=2. Past this an intermediate wraps \
-         and the score comes back better than optimal, silently.",
-        scores.match_,
-        scores.gap_open,
-        scores.gap_extend
-    );
+    if let Err(e) = check_scores(scores) {
+        panic!("invalid scoring scheme for the SIMD aligner: {e}");
+    }
 }
 
 /// Call the same method on whichever kernel was selected.
@@ -137,11 +179,8 @@ impl SimdAligner {
     ///
     /// # Panics
     ///
-    /// - If `scores.gap_open < scores.gap_extend`. The kernel collapses the gap-open and
-    ///   gap-extend cases into a single recurrence on that assumption.
-    /// - If `match_ + 3 * gap_open - gap_extend > 255`, i.e. roughly `gap_open > 84` at
-    ///   `match_ = 2`. Beyond that bound an intermediate value exceeds the kernel's 8-bit
-    ///   lanes.
+    /// On any [`InvalidScores`] condition. Use [`check_scores`] instead if the scheme comes from
+    /// user input and the failure should be reported rather than raised.
     pub fn new(scores: Scores) -> Self {
         validate(scores);
         let workspace = select_backend();
