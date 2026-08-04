@@ -10,6 +10,7 @@ use crate::io::record::{End, SequenceRecord};
 use crate::mapper::mapping_quality;
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
+use crate::read::Read;
 use crate::refseq::{ContigPosition, ContigStarts, RefSequence};
 
 /// Map a single-end read to the reference and return PAF records
@@ -24,13 +25,9 @@ pub fn map_single_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) -> (Vec<PafRecord>, Details) {
-    let (mut chain_details, mut chains) = get_chains(
-        &record.sequence,
-        index,
-        chainer,
-        rescue_distance,
-        mcs_strategy,
-    );
+    let read = Read::new(&record.sequence);
+    let (mut chain_details, mut chains) =
+        get_chains(&read, index, refseq, chainer, rescue_distance, mcs_strategy);
     chain_details.time_sort_chains = sort_chains(&mut chains, rng);
 
     if chains.is_empty() {
@@ -58,21 +55,16 @@ pub fn map_single_end_read(
 /// This implements abundance estimation mode (`--aemb`)
 pub fn abundances_single_end_read(
     record: &SequenceRecord,
-    refseq: &RefSequence,
     index: &StrobemerIndex,
+    refseq: &RefSequence,
     abundances: &mut [f64],
     rescue_distance: usize,
     mcs_strategy: McsStrategy,
     chainer: &Chainer,
     rng: &mut Rng,
 ) {
-    let (_, mut chains) = get_chains(
-        &record.sequence,
-        index,
-        chainer,
-        rescue_distance,
-        mcs_strategy,
-    );
+    let read = Read::new(&record.sequence);
+    let (_, mut chains) = get_chains(&read, index, refseq, chainer, rescue_distance, mcs_strategy);
     sort_chains(&mut chains, rng);
 
     let n_best = chains
@@ -131,10 +123,24 @@ pub fn map_paired_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) -> (Vec<PafRecord>, Details) {
-    let (mut chain_details1, mut chains1) =
-        get_chains(&r1.sequence, index, chainer, rescue_distance, mcs_strategy);
-    let (mut chain_details2, mut chains2) =
-        get_chains(&r2.sequence, index, chainer, rescue_distance, mcs_strategy);
+    let read1 = Read::new(&r1.sequence);
+    let read2 = Read::new(&r2.sequence);
+    let (mut chain_details1, mut chains1) = get_chains(
+        &read1,
+        index,
+        refseq,
+        chainer,
+        rescue_distance,
+        mcs_strategy,
+    );
+    let (mut chain_details2, mut chains2) = get_chains(
+        &read2,
+        index,
+        refseq,
+        chainer,
+        rescue_distance,
+        mcs_strategy,
+    );
 
     if chains1.is_empty() && chains2.is_empty() {
         chain_details1 += chain_details2;
@@ -223,10 +229,24 @@ pub fn abundances_paired_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) {
-    let (chain_details1, mut chains1) =
-        get_chains(&r1.sequence, index, chainer, rescue_distance, mcs_strategy);
-    let (chain_details2, mut chains2) =
-        get_chains(&r2.sequence, index, chainer, rescue_distance, mcs_strategy);
+    let read1 = Read::new(&r1.sequence);
+    let read2 = Read::new(&r2.sequence);
+    let (chain_details1, mut chains1) = get_chains(
+        &read1,
+        index,
+        refseq,
+        chainer,
+        rescue_distance,
+        mcs_strategy,
+    );
+    let (chain_details2, mut chains2) = get_chains(
+        &read2,
+        index,
+        refseq,
+        chainer,
+        rescue_distance,
+        mcs_strategy,
+    );
 
     if chains1.is_empty() && chains2.is_empty() {
         return;

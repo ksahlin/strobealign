@@ -7,7 +7,10 @@ use crate::details::ChainDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::{IndexEntry, StrobemerIndex};
 use crate::mcsstrategy::McsStrategy;
+use crate::packed_seq::PackedSeq;
+use crate::read::Read;
 use crate::refseq::ContigStarts;
+use crate::refseq::RefSequence;
 use crate::seeding::QueryRandstrobe;
 
 const N_PRECOMPUTED: usize = 1024;
@@ -198,8 +201,10 @@ impl Chainer {
         index: &StrobemerIndex,
         rescue_distance: usize,
         mcs_strategy: McsStrategy,
-        read_len: usize,
+        read: &Read,
+        refseq: &RefSequence,
     ) -> (ChainDetails, Vec<Chain>) {
+        let read_len = read.len();
         let hits_timer = Instant::now();
 
         let mut hits = [vec![], vec![]];
@@ -233,7 +238,15 @@ impl Chainer {
         let mut chains = vec![];
         for &is_revcomp in &orientations {
             let hits_timer = Instant::now();
-            let mut anchors = hits_to_anchors(&hits[is_revcomp], index);
+            let query = if is_revcomp == 1 {
+                read.rc()
+            } else {
+                read.seq()
+            };
+            // Packed once per read so each anchor costs one integer comparison
+            // instead of k base comparisons.
+            let query = PackedSeq::from_slice(query);
+            let mut anchors = hits_to_anchors(&hits[is_revcomp], index, &query, refseq);
             time_find_hits += hits_timer.elapsed().as_secs_f64();
             n_anchors += anchors.len();
             let chaining_timer = Instant::now();
@@ -325,6 +338,8 @@ fn add_to_anchors_full(
     query_end: usize,
     index: &StrobemerIndex,
     entry: IndexEntry,
+    query: &PackedSeq,
+    refseq: &RefSequence,
 ) {
     let mut min_length_diff = usize::MAX;
     let forward_hash = entry.hash();
@@ -337,14 +352,20 @@ fn add_to_anchors_full(
         let ref_end = ref_start + entry.strobe2_offset() + index.k();
         let length_diff = (query_end - query_start).abs_diff(ref_end - ref_start);
         if length_diff <= min_length_diff {
-            anchors.push(Anchor {
-                ref_start,
-                query_start,
-            });
-            anchors.push(Anchor {
-                ref_start: ref_end - index.k(),
-                query_start: query_end - index.k(),
-            });
+            let k = index.k();
+
+            if query.kmer_bits(query_start, k) == refseq.kmer_bits(ref_start, k) {
+                anchors.push(Anchor {
+                    ref_start,
+                    query_start,
+                });
+            }
+            if query.kmer_bits(query_end - k, k) == refseq.kmer_bits(ref_end - k, k) {
+                anchors.push(Anchor {
+                    ref_start: ref_end - k,
+                    query_start: query_end - k,
+                });
+            }
             min_length_diff = length_diff;
         }
     }
@@ -355,6 +376,8 @@ fn add_to_anchors_partial(
     query_start: usize,
     index: &StrobemerIndex,
     entry: IndexEntry,
+    query: &PackedSeq,
+    refseq: &RefSequence,
 ) {
     let forward_hash = entry.get_hash_partial_forward();
     for i in entry.position..index.len() {
@@ -364,15 +387,23 @@ fn add_to_anchors_partial(
             break;
         }
         let ref_start = entry.strobe_extent_partial().0;
+        let k = index.k();
 
-        anchors.push(Anchor {
-            ref_start,
-            query_start,
-        });
+        if query.kmer_bits(query_start, k) == refseq.kmer_bits(ref_start, k) {
+            anchors.push(Anchor {
+                ref_start,
+                query_start,
+            });
+        }
     }
 }
 
-fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
+fn hits_to_anchors(
+    hits: &Vec<Hit>,
+    index: &StrobemerIndex,
+    query: &PackedSeq,
+    refseq: &RefSequence,
+) -> Vec<Anchor> {
     let mut anchors = vec![];
     for hit in hits {
         if hit.is_filtered {
@@ -380,7 +411,14 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
         }
         if hit.is_partial {
             if let Some(forward_entry) = index.get_partial_forward_from(hit.hash, hit.position) {
-                add_to_anchors_partial(&mut anchors, hit.query_start, index, forward_entry);
+                add_to_anchors_partial(
+                    &mut anchors,
+                    hit.query_start,
+                    index,
+                    forward_entry,
+                    query,
+                    refseq,
+                );
             }
         } else {
             add_to_anchors_full(
@@ -389,6 +427,8 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
                 hit.query_end,
                 index,
                 index.entry(hit.position),
+                query,
+                refseq,
             );
         }
     }

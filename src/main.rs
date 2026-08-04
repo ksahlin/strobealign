@@ -802,7 +802,6 @@ fn run() -> Result<(), CliError> {
     debug!("## Other");
     debug!("");
     debug!("Total mapping sites tried: {}", details.tried_alignment);
-    debug!("Inconsistent NAM ends: {}", details.inconsistent_chains);
     debug!("Mates rescued by alignment: {}", details.mate_rescue);
 
     info!("Total time mapping: {:.2} s", timer.elapsed().as_secs_f64());
@@ -961,8 +960,8 @@ impl Mapper<'_> {
                     } else {
                         abundances_single_end_read(
                             &r1,
-                            self.refseq,
                             self.index,
+                            self.refseq,
                             &mut self.abundances,
                             self.mapping_parameters.rescue_distance,
                             self.mapping_parameters.mcs_strategy,

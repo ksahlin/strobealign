@@ -128,6 +128,21 @@ impl PackedSeq {
         DECODE[self.nucleotide_bits(i) as usize]
     }
 
+    /// Return bases `i..i + k` as one 2-bit packed integer
+    pub fn kmer_bits(&self, i: usize, k: usize) -> u64 {
+        debug_assert!(k <= 32);
+        debug_assert!(i + k <= self.len);
+
+        let word = i >> 5;
+        let bit = (i & 31) * 2;
+        let mut kmer = self.data[word] >> bit;
+        if bit > 0 && word + 1 < self.data.len() {
+            kmer |= self.data[word + 1] << (64 - bit);
+        }
+
+        kmer & (u64::MAX >> (64 - 2 * k))
+    }
+
     /// Decode bases `start..end` as ASCII bytes.
     pub fn decode(&self, start: usize, end: usize) -> Vec<u8> {
         (start..end).map(|i| self.decode_at(i)).collect()
@@ -175,5 +190,48 @@ impl<'a> PackedSeqSlice<'a> {
         ps.extend(decoded);
 
         ps
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn kmer_bits_packs_two_bits_per_base() {
+        let seq = PackedSeq::from_slice(b"ACGT");
+
+        assert_eq!(seq.kmer_bits(0, 1), 0b00);
+        assert_eq!(seq.kmer_bits(1, 1), 0b01);
+        assert_eq!(seq.kmer_bits(2, 1), 0b10);
+        assert_eq!(seq.kmer_bits(3, 1), 0b11);
+        assert_eq!(seq.kmer_bits(0, 4), 0b11_10_01_00);
+    }
+
+    #[test]
+    fn kmer_bits_crosses_the_word_boundary() {
+        let bases = b"ACGTACGTACGTACGTACGTACGTACGTACGTTTTTGGGG";
+        let seq = PackedSeq::from_slice(bases);
+
+        assert_eq!(
+            seq.kmer_bits(30, 8),
+            PackedSeq::from_slice(&bases[30..38]).kmer_bits(0, 8)
+        );
+        assert_eq!(
+            seq.kmer_bits(8, 32),
+            PackedSeq::from_slice(&bases[8..40]).kmer_bits(0, 32)
+        );
+        assert_eq!(
+            seq.kmer_bits(33, 5),
+            PackedSeq::from_slice(&bases[33..38]).kmer_bits(0, 5)
+        );
+    }
+
+    #[test]
+    fn kmer_bits_differs_for_different_kmers() {
+        let seq = PackedSeq::from_slice(b"ACGTACGTACGTACGTACGTACGTACGTACGT");
+
+        assert_eq!(seq.kmer_bits(4, 20), seq.kmer_bits(8, 20));
+        assert_ne!(seq.kmer_bits(4, 20), seq.kmer_bits(5, 20));
     }
 }

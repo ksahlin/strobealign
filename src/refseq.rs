@@ -90,6 +90,10 @@ impl RefSequence {
         self.sequence.decode(start, end)
     }
 
+    pub fn kmer_bits(&self, i: usize, k: usize) -> u64 {
+        self.sequence.kmer_bits(i, k)
+    }
+
     pub fn contig<'a>(&'a self, index: usize) -> PackedSeqSlice<'a> {
         let start = self.starts.0[index];
         let len = self.starts.0[index + 1] - start;
