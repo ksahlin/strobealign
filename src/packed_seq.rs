@@ -74,6 +74,7 @@ impl PackedSeq {
     /// Build a `PackedSeq` by packing every byte of a slice.
     pub fn from_slice(s: &[u8]) -> Self {
         let mut seq = PackedSeq::new();
+        seq.data.reserve(s.len().div_ceil(32));
         for &c in s {
             seq.push(c);
         }
