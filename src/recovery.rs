@@ -13,9 +13,11 @@ impl Chainer {
         index: &StrobemerIndex,
         read_len: usize,
     ) {
+        let max_dist = index.parameters.randstrobe.max_dist as usize;
         let mut anchors: [Vec<Anchor>; 2] = [vec![], vec![]];
         for is_revcomp in 0..2 {
-            anchors[is_revcomp] = filtered_hits_to_anchors(&hits[is_revcomp], index);
+            let windows = chain_windows(chains, is_revcomp == 1, read_len, max_dist);
+            anchors[is_revcomp] = filtered_hits_to_anchors(&hits[is_revcomp], index, &windows);
             anchors[is_revcomp].sort_unstable_by_key(|a| (a.ref_id, a.ref_start, a.query_start));
             anchors[is_revcomp].dedup();
         }
@@ -107,6 +109,37 @@ impl Chainer {
 
         best
     }
+}
+
+fn chain_windows(
+    chains: &[Chain],
+    is_revcomp: bool,
+    read_len: usize,
+    max_dist: usize,
+) -> Vec<(usize, usize)> {
+    let mut windows = vec![];
+    for chain in chains {
+        if chain.is_revcomp == is_revcomp {
+            windows.push((
+                chain.ref_start.saturating_sub(read_len + max_dist),
+                chain.ref_end + read_len + 1,
+            ));
+        }
+    }
+    windows.sort_unstable();
+
+    let mut last = 0;
+    for i in 1..windows.len() {
+        if windows[i].0 <= windows[last].1 {
+            windows[last].1 = windows[last].1.max(windows[i].1);
+        } else {
+            last += 1;
+            windows[last] = windows[i];
+        }
+    }
+    windows.truncate(last + 1);
+
+    windows
 }
 
 /// Returns the set of filtered anchors that are near the chain

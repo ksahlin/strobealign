@@ -419,24 +419,57 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
     anchors
 }
 
-pub fn filtered_hits_to_anchors(hits: &[Hit], index: &StrobemerIndex) -> Vec<Anchor> {
+/// Turns filtered hits into the anchors that fall inside one of windows
+pub fn filtered_hits_to_anchors(
+    hits: &[Hit],
+    index: &StrobemerIndex,
+    windows: &[(usize, usize)],
+) -> Vec<Anchor> {
+    let k = index.k();
     let mut anchors = vec![];
+    let mut positions = vec![];
     for hit in hits {
         if !hit.is_filtered {
             continue;
         }
+        positions.clear();
+
         if hit.is_partial {
-            if let Some(forward_entry) = index.get_partial_forward_from(hit.hash, hit.position) {
-                add_to_anchors_partial(&mut anchors, hit.query_start, index, forward_entry);
+            let Some(forward_entry) = index.get_partial_forward_from(hit.hash, hit.position) else {
+                continue;
+            };
+            let mask = index.parameters.randstrobe.forward_main_hash_mask;
+            let start = forward_entry.position;
+            let end = start + forward_entry.get_count(mask);
+            index.entries_in_intervals(start, end, windows, &mut positions);
+            for &position in &positions {
+                let entry = index.entry(position);
+                anchors.push(Anchor {
+                    ref_id: entry.reference_index(),
+                    ref_start: entry.position(),
+                    query_start: hit.query_start,
+                });
             }
         } else {
-            add_to_anchors_full(
-                &mut anchors,
-                hit.query_start,
-                hit.query_end,
-                index,
-                index.entry(hit.position),
-            );
+            let start = hit.position;
+            let end = start + index.entry(start).get_count_full_forward();
+            index.entries_in_intervals(start, end, windows, &mut positions);
+            for &position in &positions {
+                let entry = index.entry(position);
+                let ref_id = entry.reference_index();
+                let ref_start = entry.position();
+                let ref_end = ref_start + entry.strobe2_offset() + k;
+                anchors.push(Anchor {
+                    ref_id,
+                    ref_start,
+                    query_start: hit.query_start,
+                });
+                anchors.push(Anchor {
+                    ref_id,
+                    ref_start: ref_end - k,
+                    query_start: hit.query_end - k,
+                });
+            }
         }
     }
 
