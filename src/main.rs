@@ -827,6 +827,10 @@ fn run() -> Result<(), CliError> {
         details.chain.time_rescue
     );
     info!(
+        "Total time recovering anchors: {:.2} s",
+        details.chain.time_recovery
+    );
+    info!(
         "Total time chaining (non-rescue mode): {:.2} s",
         details.chain.time_chaining
     );

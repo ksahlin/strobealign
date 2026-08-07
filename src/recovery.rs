@@ -1,0 +1,473 @@
+use std::mem::swap;
+
+use crate::chain::Chain;
+use crate::chainer::{Anchor, Chainer, filtered_hits_to_anchors};
+use crate::hit::Hit;
+use crate::index::StrobemerIndex;
+
+impl Chainer {
+    pub fn recover_anchors(
+        &self,
+        chains: &mut [Chain],
+        hits: &[Vec<Hit>; 2],
+        index: &StrobemerIndex,
+        read_len: usize,
+    ) {
+        let mut anchors: [Vec<Anchor>; 2] = [vec![], vec![]];
+        for is_revcomp in 0..2 {
+            anchors[is_revcomp] = filtered_hits_to_anchors(&hits[is_revcomp], index);
+            anchors[is_revcomp].sort_unstable_by_key(|a| (a.ref_id, a.ref_start, a.query_start));
+            anchors[is_revcomp].dedup();
+        }
+
+        for chain in chains {
+            let anchors = &anchors[chain.is_revcomp as usize];
+            self.recover_into_chain(chain, anchors, index.k(), read_len);
+        }
+    }
+
+    fn recover_into_chain(&self, chain: &mut Chain, anchors: &[Anchor], k: usize, read_len: usize) {
+        let candidates = anchors_near(anchors, chain, read_len);
+        if candidates.is_empty() {
+            return;
+        }
+
+        let mut recovered = Vec::with_capacity(chain.anchors.len() + candidates.len());
+        let mut filled = Vec::with_capacity(recovered.capacity());
+        let mut gained = 0f32;
+        recovered.extend(chain.anchors.iter().rev());
+
+        loop {
+            let round = self.fill_gaps(&recovered, &mut filled, candidates);
+            if round == 0f32 {
+                break;
+            }
+            gained += round;
+            swap(&mut recovered, &mut filled);
+        }
+
+        if recovered.len() == chain.anchors.len() {
+            return;
+        }
+
+        recovered.reverse();
+        chain.score += gained;
+        chain.matching_bases = matching_bases(&recovered, k);
+        chain.ref_start = recovered.last().unwrap().ref_start;
+        chain.query_start = recovered.last().unwrap().query_start;
+        chain.ref_end = recovered[0].ref_start + k;
+        chain.query_end = recovered[0].query_start + k;
+        chain.anchors = recovered;
+    }
+
+    fn fill_gaps(
+        &self,
+        recovered: &[Anchor],
+        filled: &mut Vec<Anchor>,
+        candidates: &[Anchor],
+    ) -> f32 {
+        filled.clear();
+        let mut gained = 0f32;
+        let mut candidate = 0;
+
+        for (i, next) in recovered.iter().enumerate() {
+            let gap = candidate;
+            while candidate < candidates.len() && candidates[candidate].ref_start < next.ref_start {
+                candidate += 1;
+            }
+            let previous = recovered[..i].last();
+            gained += self.take_best(&candidates[gap..candidate], previous, Some(next), filled);
+            filled.push(*next);
+        }
+        gained += self.take_best(&candidates[candidate..], recovered.last(), None, filled);
+
+        gained
+    }
+
+    fn take_best(
+        &self,
+        gap: &[Anchor],
+        previous: Option<&Anchor>,
+        next: Option<&Anchor>,
+        filled: &mut Vec<Anchor>,
+    ) -> f32 {
+        let mut best = 0f32;
+        let mut chosen = None;
+        for anchor in gap {
+            if !fits_between(previous, anchor, next) {
+                continue;
+            }
+            let score = self.insertion_score(previous, anchor, next);
+            if score > best {
+                best = score;
+                chosen = Some(anchor);
+            }
+        }
+        filled.extend(chosen);
+
+        best
+    }
+}
+
+/// Returns the set of filtered anchors that are near the chain
+fn anchors_near<'a>(anchors: &'a [Anchor], chain: &Chain, read_len: usize) -> &'a [Anchor] {
+    let reach = read_len;
+    let first = chain.ref_start.saturating_sub(reach);
+    let last = chain.ref_end + reach;
+    let start = anchors.partition_point(|a| (a.ref_id, a.ref_start) < (chain.ref_id, first));
+    let end = anchors.partition_point(|a| (a.ref_id, a.ref_start) <= (chain.ref_id, last));
+    &anchors[start..end]
+}
+
+/// Does an anchor fit (keeps collinearity) between 2 potential anchors
+fn fits_between(previous: Option<&Anchor>, anchor: &Anchor, next: Option<&Anchor>) -> bool {
+    if let Some(previous) = previous
+        && (previous.ref_start >= anchor.ref_start || previous.query_start >= anchor.query_start)
+    {
+        return false;
+    }
+    if let Some(next) = next
+        && (anchor.ref_start >= next.ref_start || anchor.query_start >= next.query_start)
+    {
+        return false;
+    }
+
+    true
+}
+
+fn matching_bases(anchors: &[Anchor], k: usize) -> usize {
+    let mut matching_bases = k;
+    let mut ref_coverage = anchors[0].ref_start;
+    for anchor in &anchors[1..] {
+        matching_bases += ref_coverage.saturating_sub(anchor.ref_start).min(k);
+        ref_coverage = anchor.ref_start;
+    }
+
+    matching_bases
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::chainer::ChainingParameters;
+
+    #[test]
+    fn an_anchor_fills_a_gap_in_a_chain() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        #[rustfmt::skip]
+        let mut chain = Chain {
+            id: 3,
+            ref_start: 0,
+            ref_end: 140,
+            query_start: 0,
+            query_end: 140,
+            matching_bases: 20 * 4,
+            ref_id: 0,
+            score: 0.0,
+            is_revcomp: false,
+            anchors: vec![
+                Anchor { ref_id: 0, ref_start: 120, query_start: 120 },
+                Anchor { ref_id: 0, ref_start:  60, query_start:  60 },
+                Anchor { ref_id: 0, ref_start:  30, query_start:  30 },
+                Anchor { ref_id: 0, ref_start:   0, query_start:   0 },
+            ],
+        };
+        #[rustfmt::skip]
+        let missing = [Anchor { ref_id: 0, ref_start: 90, query_start: 90 }];
+
+        chainer.recover_into_chain(&mut chain, &missing, 20, 200);
+
+        #[rustfmt::skip]
+        assert_eq!(chain.anchors, vec![
+            Anchor { ref_id: 0, ref_start: 120, query_start: 120 },
+            Anchor { ref_id: 0, ref_start:  90, query_start:  90 },
+            Anchor { ref_id: 0, ref_start:  60, query_start:  60 },
+            Anchor { ref_id: 0, ref_start:  30, query_start:  30 },
+            Anchor { ref_id: 0, ref_start:   0, query_start:   0 },
+        ]);
+        assert_eq!(chain.matching_bases, 20 * 5);
+        assert_eq!((chain.ref_start, chain.ref_end), (0, 140));
+        assert_eq!((chain.query_start, chain.query_end), (0, 140));
+        assert_eq!(chain.id, 3);
+    }
+
+    #[test]
+    fn each_end_of_a_chain_takes_more_than_one_anchor() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        #[rustfmt::skip]
+        let mut chain = Chain {
+            id: 0,
+            ref_start: 100,
+            ref_end: 150,
+            query_start: 100,
+            query_end: 150,
+            matching_bases: 20 * 2,
+            ref_id: 0,
+            score: 39.52,
+            is_revcomp: false,
+            anchors: vec![
+                Anchor { ref_id: 0, ref_start: 130, query_start: 130 },
+                Anchor { ref_id: 0, ref_start: 100, query_start: 100 },
+            ],
+        };
+
+        #[rustfmt::skip]
+        let outside = [
+            Anchor { ref_id: 0, ref_start:  40, query_start:  40 },
+            Anchor { ref_id: 0, ref_start:  70, query_start:  70 },
+            Anchor { ref_id: 0, ref_start: 160, query_start: 160 },
+            Anchor { ref_id: 0, ref_start: 190, query_start: 190 },
+        ];
+
+        chainer.recover_into_chain(&mut chain, &outside, 20, 200);
+
+        #[rustfmt::skip]
+        assert_eq!(chain.anchors, vec![
+            Anchor { ref_id: 0, ref_start: 190, query_start: 190 },
+            Anchor { ref_id: 0, ref_start: 160, query_start: 160 },
+            Anchor { ref_id: 0, ref_start: 130, query_start: 130 },
+            Anchor { ref_id: 0, ref_start: 100, query_start: 100 },
+            Anchor { ref_id: 0, ref_start:  70, query_start:  70 },
+            Anchor { ref_id: 0, ref_start:  40, query_start:  40 },
+        ]);
+        assert_eq!(chain.matching_bases, 20 * 6);
+        assert_eq!((chain.ref_start, chain.ref_end), (40, 210));
+        assert_eq!((chain.query_start, chain.query_end), (40, 210));
+        assert!((chain.score - (20.0 + 5.0 * 19.5 + 6.0 * 0.01)).abs() < 0.0001);
+    }
+
+    #[test]
+    fn the_best_of_the_candidates_for_a_gap_is_the_one_taken() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        #[rustfmt::skip]
+        let mut chain = Chain {
+            id: 0,
+            ref_start: 0,
+            ref_end: 220,
+            query_start: 0,
+            query_end: 220,
+            matching_bases: 20 * 2,
+            ref_id: 0,
+            score: 31.02,
+            is_revcomp: false,
+            anchors: vec![
+                Anchor { ref_id: 0, ref_start: 200, query_start: 200 },
+                Anchor { ref_id: 0, ref_start:   0, query_start:   0 },
+            ],
+        };
+
+        #[rustfmt::skip]
+        let competing = [
+            Anchor { ref_id: 0, ref_start: 100, query_start: 150 },
+            Anchor { ref_id: 0, ref_start: 110, query_start: 110 },
+        ];
+
+        chainer.recover_into_chain(&mut chain, &competing, 20, 400);
+
+        #[rustfmt::skip]
+        assert_eq!(chain.anchors, vec![
+            Anchor { ref_id: 0, ref_start: 200, query_start: 200 },
+            Anchor { ref_id: 0, ref_start: 110, query_start: 110 },
+            Anchor { ref_id: 0, ref_start:   0, query_start:   0 },
+        ]);
+        assert!((chain.score - (31.02 + 15.5 + 16.5 - 11.0 + 0.01)).abs() < 0.0001);
+    }
+
+    #[test]
+    fn a_gap_takes_every_anchor_that_raises_the_score() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        #[rustfmt::skip]
+        let mut chain = Chain {
+            id: 0,
+            ref_start: 0,
+            ref_end: 220,
+            query_start: 0,
+            query_end: 220,
+            matching_bases: 20 * 2,
+            ref_id: 0,
+            score: 31.02,
+            is_revcomp: false,
+            anchors: vec![
+                Anchor { ref_id: 0, ref_start: 200, query_start: 200 },
+                Anchor { ref_id: 0, ref_start:   0, query_start:   0 },
+            ],
+        };
+
+        #[rustfmt::skip]
+        let missing = [
+            Anchor { ref_id: 0, ref_start:  50, query_start:  50 },
+            Anchor { ref_id: 0, ref_start: 100, query_start: 100 },
+            Anchor { ref_id: 0, ref_start: 150, query_start: 150 },
+        ];
+
+        chainer.recover_into_chain(&mut chain, &missing, 20, 400);
+
+        #[rustfmt::skip]
+        assert_eq!(chain.anchors, vec![
+            Anchor { ref_id: 0, ref_start: 200, query_start: 200 },
+            Anchor { ref_id: 0, ref_start: 150, query_start: 150 },
+            Anchor { ref_id: 0, ref_start: 100, query_start: 100 },
+            Anchor { ref_id: 0, ref_start:  50, query_start:  50 },
+            Anchor { ref_id: 0, ref_start:   0, query_start:   0 },
+        ]);
+        assert_eq!(chain.matching_bases, 20 * 5);
+        assert!((chain.score - (20.0 + 4.0 * 18.5 + 5.0 * 0.01)).abs() < 0.0001);
+    }
+
+    #[test]
+    fn an_anchor_off_the_diagonal_is_left_out() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        #[rustfmt::skip]
+        let mut chain = Chain {
+            id: 0,
+            ref_start: 0,
+            ref_end: 140,
+            query_start: 0,
+            query_end: 140,
+            matching_bases: 20 * 5,
+            ref_id: 0,
+            score: 50.0,
+            is_revcomp: false,
+            anchors: vec![
+                Anchor { ref_id: 0, ref_start: 120, query_start: 120 },
+                Anchor { ref_id: 0, ref_start:  90, query_start:  90 },
+                Anchor { ref_id: 0, ref_start:  60, query_start:  60 },
+                Anchor { ref_id: 0, ref_start:  30, query_start:  30 },
+                Anchor { ref_id: 0, ref_start:   0, query_start:   0 },
+            ],
+        };
+
+        #[rustfmt::skip]
+        let off_diagonal = [Anchor { ref_id: 0, ref_start: 75, query_start: 62 }];
+
+        chainer.recover_into_chain(&mut chain, &off_diagonal, 20, 200);
+
+        assert_eq!(chain.anchors.len(), 5);
+        assert_eq!(chain.matching_bases, 20 * 5);
+        assert_eq!(chain.score, 50.0);
+    }
+
+    #[test]
+    fn an_anchor_going_backwards_in_the_query_is_left_out() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        #[rustfmt::skip]
+        let mut chain = Chain {
+            id: 0,
+            ref_start: 0,
+            ref_end: 80,
+            query_start: 0,
+            query_end: 80,
+            matching_bases: 20 * 3,
+            ref_id: 0,
+            score: 50.0,
+            is_revcomp: false,
+            anchors: vec![
+                Anchor { ref_id: 0, ref_start: 60, query_start: 60 },
+                Anchor { ref_id: 0, ref_start: 30, query_start: 30 },
+                Anchor { ref_id: 0, ref_start:  0, query_start:  0 },
+            ],
+        };
+        #[rustfmt::skip]
+        let backwards = [Anchor { ref_id: 0, ref_start: 45, query_start: 10 }];
+
+        chainer.recover_into_chain(&mut chain, &backwards, 20, 200);
+
+        assert_eq!(chain.anchors.len(), 3);
+        assert_eq!(chain.score, 50.0);
+    }
+
+    #[test]
+    fn an_anchor_the_chain_already_has_is_left_out() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        #[rustfmt::skip]
+        let mut chain = Chain {
+            id: 0,
+            ref_start: 0,
+            ref_end: 80,
+            query_start: 0,
+            query_end: 80,
+            matching_bases: 20 * 3,
+            ref_id: 0,
+            score: 50.0,
+            is_revcomp: false,
+            anchors: vec![
+                Anchor { ref_id: 0, ref_start: 60, query_start: 60 },
+                Anchor { ref_id: 0, ref_start: 30, query_start: 30 },
+                Anchor { ref_id: 0, ref_start:  0, query_start:  0 },
+            ],
+        };
+        #[rustfmt::skip]
+        let known = [
+            Anchor { ref_id: 0, ref_start:  0, query_start:  0 },
+            Anchor { ref_id: 0, ref_start: 30, query_start: 30 },
+            Anchor { ref_id: 0, ref_start: 60, query_start: 60 },
+        ];
+
+        chainer.recover_into_chain(&mut chain, &known, 20, 200);
+
+        assert_eq!(chain.anchors.len(), 3);
+        assert_eq!(chain.matching_bases, 20 * 3);
+        assert_eq!(chain.score, 50.0);
+    }
+
+    #[test]
+    fn an_anchor_on_another_contig_is_left_out() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        #[rustfmt::skip]
+        let mut chain = Chain {
+            id: 0,
+            ref_start: 0,
+            ref_end: 80,
+            query_start: 0,
+            query_end: 80,
+            matching_bases: 20 * 3,
+            ref_id: 1,
+            score: 50.0,
+            is_revcomp: false,
+            anchors: vec![
+                Anchor { ref_id: 1, ref_start: 60, query_start: 60 },
+                Anchor { ref_id: 1, ref_start: 30, query_start: 30 },
+                Anchor { ref_id: 1, ref_start:  0, query_start:  0 },
+            ],
+        };
+        #[rustfmt::skip]
+        let elsewhere = [
+            Anchor { ref_id: 0, ref_start: 90, query_start: 90 },
+            Anchor { ref_id: 2, ref_start: 90, query_start: 90 },
+        ];
+
+        chainer.recover_into_chain(&mut chain, &elsewhere, 20, 200);
+
+        assert_eq!(chain.anchors.len(), 3);
+        assert_eq!(chain.score, 50.0);
+    }
+
+    #[test]
+    fn an_anchor_too_far_from_the_chain_is_left_out() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        #[rustfmt::skip]
+        let mut chain = Chain {
+            id: 0,
+            ref_start: 0,
+            ref_end: 80,
+            query_start: 0,
+            query_end: 80,
+            matching_bases: 20 * 3,
+            ref_id: 0,
+            score: 50.0,
+            is_revcomp: false,
+            anchors: vec![
+                Anchor { ref_id: 0, ref_start: 60, query_start: 60 },
+                Anchor { ref_id: 0, ref_start: 30, query_start: 30 },
+                Anchor { ref_id: 0, ref_start:  0, query_start:  0 },
+            ],
+        };
+        #[rustfmt::skip]
+        let far = [Anchor { ref_id: 0, ref_start: 100000, query_start: 90 }];
+
+        chainer.recover_into_chain(&mut chain, &far, 20, 200);
+
+        assert_eq!(chain.anchors.len(), 3);
+        assert_eq!(chain.score, 50.0);
+    }
+}

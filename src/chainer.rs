@@ -82,6 +82,35 @@ impl Chainer {
         }
     }
 
+    pub fn insertion_score(
+        &self,
+        previous: Option<&Anchor>,
+        anchor: &Anchor,
+        next: Option<&Anchor>,
+    ) -> f32 {
+        let mut score = self.parameters.matches_weight;
+        if let Some(previous) = previous {
+            score += self.compute_score_cached(
+                anchor.query_start - previous.query_start,
+                anchor.ref_start - previous.ref_start,
+            );
+        }
+        if let Some(next) = next {
+            score += self.compute_score_cached(
+                next.query_start - anchor.query_start,
+                next.ref_start - anchor.ref_start,
+            );
+        }
+        if let (Some(previous), Some(next)) = (previous, next) {
+            score -= self.compute_score_cached(
+                next.query_start - previous.query_start,
+                next.ref_start - previous.ref_start,
+            );
+        }
+
+        score
+    }
+
     fn collinear_chaining(&self, anchors: Vec<Anchor>, read_len: usize) -> ChainingResult {
         let n = anchors.len();
         if n == 0 {
@@ -249,6 +278,10 @@ impl Chainer {
             chaining_result.extract_chains(index.k(), is_revcomp == 1, &mut chains);
             time_chaining += chaining_timer.elapsed().as_secs_f64();
         }
+        let recovery_timer = Instant::now();
+        self.recover_anchors(&mut chains, &hits, index, read_len);
+        let time_recovery = recovery_timer.elapsed().as_secs_f64();
+
         let mut hits_details12 = hits_details[0].clone();
         hits_details12 += hits_details[1].clone();
         let details = ChainDetails {
@@ -261,6 +294,7 @@ impl Chainer {
             time_find_hits,
             time_chaining,
             time_rescue: 0.0,
+            time_recovery,
             time_sort_chains: 0f64,
             both_orientations: orientations.len() > 1,
         };
@@ -365,6 +399,30 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
     let mut anchors = vec![];
     for hit in hits {
         if hit.is_filtered {
+            continue;
+        }
+        if hit.is_partial {
+            if let Some(forward_entry) = index.get_partial_forward_from(hit.hash, hit.position) {
+                add_to_anchors_partial(&mut anchors, hit.query_start, index, forward_entry);
+            }
+        } else {
+            add_to_anchors_full(
+                &mut anchors,
+                hit.query_start,
+                hit.query_end,
+                index,
+                index.entry(hit.position),
+            );
+        }
+    }
+
+    anchors
+}
+
+pub fn filtered_hits_to_anchors(hits: &[Hit], index: &StrobemerIndex) -> Vec<Anchor> {
+    let mut anchors = vec![];
+    for hit in hits {
+        if !hit.is_filtered {
             continue;
         }
         if hit.is_partial {

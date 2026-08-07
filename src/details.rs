@@ -22,6 +22,7 @@ pub struct ChainDetails {
     pub time_find_hits: f64,
     pub time_chaining: f64,
     pub time_rescue: f64,
+    pub time_recovery: f64,
     pub time_sort_chains: f64,
 
     /// Whether both orientations were tested
@@ -39,6 +40,7 @@ impl ops::AddAssign<ChainDetails> for ChainDetails {
         self.time_find_hits += rhs.time_find_hits;
         self.time_chaining += rhs.time_chaining;
         self.time_rescue += rhs.time_rescue;
+        self.time_recovery += rhs.time_recovery;
         self.time_sort_chains += rhs.time_sort_chains;
     }
 }
