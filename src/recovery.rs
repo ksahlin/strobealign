@@ -1,5 +1,3 @@
-use std::mem::swap;
-
 use crate::chain::Chain;
 use crate::chainer::{Anchor, Chainer, filtered_hits_to_anchors};
 use crate::hit::Hit;
@@ -35,18 +33,24 @@ impl Chainer {
         }
 
         let mut recovered = Vec::with_capacity(chain.anchors.len() + candidates.len());
-        let mut filled = Vec::with_capacity(recovered.capacity());
+        let mut candidate = 0;
         let mut gained = 0f32;
-        recovered.extend(chain.anchors.iter().rev());
 
-        loop {
-            let round = self.fill_gaps(&recovered, &mut filled, candidates);
-            if round == 0f32 {
-                break;
+        for anchor in chain.anchors.iter().rev() {
+            let gap = candidate;
+            while candidate < candidates.len() && candidates[candidate].ref_start < anchor.ref_start
+            {
+                candidate += 1;
             }
-            gained += round;
-            swap(&mut recovered, &mut filled);
+            gained += self.take_best_run(
+                &candidates[gap..candidate],
+                Some(anchor),
+                &mut recovered,
+                read_len,
+            );
+            recovered.push(*anchor);
         }
+        gained += self.take_best_run(&candidates[candidate..], None, &mut recovered, read_len);
 
         if recovered.len() == chain.anchors.len() {
             return;
@@ -62,52 +66,97 @@ impl Chainer {
         chain.anchors = recovered;
     }
 
-    fn fill_gaps(
-        &self,
-        recovered: &[Anchor],
-        filled: &mut Vec<Anchor>,
-        candidates: &[Anchor],
-    ) -> f32 {
-        filled.clear();
-        let mut gained = 0f32;
-        let mut candidate = 0;
-
-        for (i, next) in recovered.iter().enumerate() {
-            let gap = candidate;
-            while candidate < candidates.len() && candidates[candidate].ref_start < next.ref_start {
-                candidate += 1;
-            }
-            let previous = recovered[..i].last();
-            gained += self.take_best(&candidates[gap..candidate], previous, Some(next), filled);
-            filled.push(*next);
+    fn link_score(&self, from: &Anchor, to: &Anchor, read_len: usize) -> Option<f32> {
+        let dq = to.query_start.checked_sub(from.query_start)?;
+        let dr = to.ref_start.checked_sub(from.ref_start)?;
+        if dq == 0 || dr == 0 || dr >= self.parameters.max_ref_gap.unwrap_or(read_len) {
+            return None;
         }
-        gained += self.take_best(&candidates[candidate..], recovered.last(), None, filled);
+        if dq.max(dr) as f32 / dq.min(dr) as f32 > self.parameters.max_diagonal_ratio {
+            return None;
+        }
 
-        gained
+        Some(self.compute_score_cached(dq, dr))
     }
 
-    fn take_best(
+    fn take_best_run(
         &self,
         gap: &[Anchor],
-        previous: Option<&Anchor>,
         next: Option<&Anchor>,
-        filled: &mut Vec<Anchor>,
+        recovered: &mut Vec<Anchor>,
+        read_len: usize,
     ) -> f32 {
-        let mut best = 0f32;
-        let mut chosen = None;
-        for anchor in gap {
-            if !fits_between(previous, anchor, next) {
-                continue;
-            }
-            let score = self.insertion_score(previous, anchor, next);
-            if score > best {
-                best = score;
-                chosen = Some(anchor);
+        if gap.is_empty() {
+            return 0f32;
+        }
+        const MAX_LOOKBACK: usize = 32;
+        let previous = recovered.last().copied();
+
+        let mut replaced_link = 0f32;
+        if let (Some(previous), Some(next)) = (previous, next) {
+            replaced_link = self.compute_score_cached(
+                next.query_start - previous.query_start,
+                next.ref_start - previous.ref_start,
+            );
+        }
+
+        let mut best_ending_at = vec![f32::NEG_INFINITY; gap.len()];
+        let mut predecessor = vec![usize::MAX; gap.len()];
+        for i in 0..gap.len() {
+            let opening_link = if let Some(previous) = previous {
+                self.link_score(&previous, &gap[i], read_len)
+                    .unwrap_or(f32::NEG_INFINITY)
+            } else {
+                0f32
+            };
+            best_ending_at[i] = opening_link + self.parameters.matches_weight;
+
+            for j in i.saturating_sub(MAX_LOOKBACK)..i {
+                if best_ending_at[j] == f32::NEG_INFINITY {
+                    continue;
+                }
+                let Some(link) = self.link_score(&gap[j], &gap[i], read_len) else {
+                    continue;
+                };
+                let score = best_ending_at[j] + link + self.parameters.matches_weight;
+                if score > best_ending_at[i] {
+                    best_ending_at[i] = score;
+                    predecessor[i] = j;
+                }
             }
         }
-        filled.extend(chosen);
 
-        best
+        let mut best_total = replaced_link;
+        let mut best_end = usize::MAX;
+        for i in 0..gap.len() {
+            if best_ending_at[i] == f32::NEG_INFINITY {
+                continue;
+            }
+            let mut total = best_ending_at[i];
+            if let Some(next) = next {
+                let Some(closing_link) = self.link_score(&gap[i], next, read_len) else {
+                    continue;
+                };
+                total += closing_link;
+            }
+            if total > best_total {
+                best_total = total;
+                best_end = i;
+            }
+        }
+        if best_end == usize::MAX {
+            return 0f32;
+        }
+
+        let start = recovered.len();
+        let mut anchor = best_end;
+        while anchor != usize::MAX {
+            recovered.push(gap[anchor]);
+            anchor = predecessor[anchor];
+        }
+        recovered[start..].reverse();
+
+        best_total - replaced_link
     }
 }
 
@@ -150,22 +199,6 @@ fn anchors_near<'a>(anchors: &'a [Anchor], chain: &Chain, read_len: usize) -> &'
     let start = anchors.partition_point(|a| (a.ref_id, a.ref_start) < (chain.ref_id, first));
     let end = anchors.partition_point(|a| (a.ref_id, a.ref_start) <= (chain.ref_id, last));
     &anchors[start..end]
-}
-
-/// Does an anchor fit (keeps collinearity) between 2 potential anchors
-fn fits_between(previous: Option<&Anchor>, anchor: &Anchor, next: Option<&Anchor>) -> bool {
-    if let Some(previous) = previous
-        && (previous.ref_start >= anchor.ref_start || previous.query_start >= anchor.query_start)
-    {
-        return false;
-    }
-    if let Some(next) = next
-        && (anchor.ref_start >= next.ref_start || anchor.query_start >= next.query_start)
-    {
-        return false;
-    }
-
-    true
 }
 
 fn matching_bases(anchors: &[Anchor], k: usize) -> usize {
@@ -345,6 +378,43 @@ mod test {
         ]);
         assert_eq!(chain.matching_bases, 20 * 5);
         assert!((chain.score - (20.0 + 4.0 * 18.5 + 5.0 * 0.01)).abs() < 0.0001);
+    }
+
+    #[test]
+    fn an_anchor_that_pays_gives_way_to_a_better_one_behind_it() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        #[rustfmt::skip]
+        let mut chain = Chain {
+            id: 0,
+            ref_start: 0,
+            ref_end: 220,
+            query_start: 0,
+            query_end: 220,
+            matching_bases: 20 * 2,
+            ref_id: 0,
+            score: 100.0,
+            is_revcomp: false,
+            anchors: vec![
+                Anchor { ref_id: 0, ref_start: 200, query_start: 200 },
+                Anchor { ref_id: 0, ref_start:   0, query_start:   0 },
+            ],
+        };
+
+        #[rustfmt::skip]
+        let gap = [
+            Anchor { ref_id: 0, ref_start: 20, query_start: 110 },
+            Anchor { ref_id: 0, ref_start: 30, query_start:  30 },
+        ];
+
+        chainer.recover_into_chain(&mut chain, &gap, 20, 400);
+
+        #[rustfmt::skip]
+        assert_eq!(chain.anchors, vec![
+            Anchor { ref_id: 0, ref_start: 200, query_start: 200 },
+            Anchor { ref_id: 0, ref_start:  30, query_start:  30 },
+            Anchor { ref_id: 0, ref_start:   0, query_start:   0 },
+        ]);
+        assert!((chain.score - 121.01).abs() < 0.0001);
     }
 
     #[test]

@@ -55,7 +55,7 @@ pub struct ChainingResult {
 #[derive(Debug)]
 pub struct Chainer {
     k: usize,
-    parameters: ChainingParameters,
+    pub parameters: ChainingParameters,
     precomputed_scores: [f32; N_PRECOMPUTED],
 }
 
@@ -73,42 +73,13 @@ impl Chainer {
         }
     }
 
-    fn compute_score_cached(&self, dq: usize, dr: usize) -> f32 {
+    pub fn compute_score_cached(&self, dq: usize, dr: usize) -> f32 {
         // dq == dr is usually the most common case
         if dq == dr && dq < N_PRECOMPUTED {
             self.precomputed_scores[dq]
         } else {
             compute_score(dq, dr, self.k, &self.parameters)
         }
-    }
-
-    pub fn insertion_score(
-        &self,
-        previous: Option<&Anchor>,
-        anchor: &Anchor,
-        next: Option<&Anchor>,
-    ) -> f32 {
-        let mut score = self.parameters.matches_weight;
-        if let Some(previous) = previous {
-            score += self.compute_score_cached(
-                anchor.query_start - previous.query_start,
-                anchor.ref_start - previous.ref_start,
-            );
-        }
-        if let Some(next) = next {
-            score += self.compute_score_cached(
-                next.query_start - anchor.query_start,
-                next.ref_start - anchor.ref_start,
-            );
-        }
-        if let (Some(previous), Some(next)) = (previous, next) {
-            score -= self.compute_score_cached(
-                next.query_start - previous.query_start,
-                next.ref_start - previous.ref_start,
-            );
-        }
-
-        score
     }
 
     fn collinear_chaining(&self, anchors: Vec<Anchor>, read_len: usize) -> ChainingResult {
