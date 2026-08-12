@@ -3,6 +3,8 @@ use crate::chainer::{Anchor, Chainer, filtered_hits_to_anchors};
 use crate::hit::Hit;
 use crate::index::StrobemerIndex;
 
+const MAX_BAND: usize = 1000;
+
 impl Chainer {
     pub fn recover_anchors(
         &self,
@@ -160,18 +162,24 @@ impl Chainer {
     }
 }
 
+/// Returns the merged reference intervals a chain's candidate anchors can lie in
 fn chain_windows(
     chains: &[Chain],
     is_revcomp: bool,
     read_len: usize,
     max_dist: usize,
 ) -> Vec<(usize, usize)> {
+    let band = (read_len / 2).min(MAX_BAND);
     let mut windows = vec![];
     for chain in chains {
         if chain.is_revcomp == is_revcomp {
+            let start_diagonal = chain.projected_ref_start();
+            let end_diagonal = chain.ref_end.saturating_sub(chain.query_end);
             windows.push((
-                chain.ref_start.saturating_sub(read_len + max_dist),
-                chain.ref_end + read_len + 1,
+                start_diagonal
+                    .min(end_diagonal)
+                    .saturating_sub(band + max_dist),
+                start_diagonal.max(end_diagonal) + read_len + band + 1,
             ));
         }
     }
@@ -191,14 +199,31 @@ fn chain_windows(
     windows
 }
 
-/// Returns the set of filtered anchors that are near the chain
-fn anchors_near<'a>(anchors: &'a [Anchor], chain: &Chain, read_len: usize) -> &'a [Anchor] {
+/// Returns the set of filtered anchors that are near the chain and the
+/// diagonals it spans
+fn anchors_near(anchors: &[Anchor], chain: &Chain, read_len: usize) -> Vec<Anchor> {
     let reach = read_len;
     let first = chain.ref_start.saturating_sub(reach);
     let last = chain.ref_end + reach;
     let start = anchors.partition_point(|a| (a.ref_id, a.ref_start) < (chain.ref_id, first));
     let end = anchors.partition_point(|a| (a.ref_id, a.ref_start) <= (chain.ref_id, last));
-    &anchors[start..end]
+
+    // dynamic diagonal band length
+    let band = (read_len / 2).min(MAX_BAND) as i64;
+    let start_diagonal = chain.ref_start as i64 - chain.query_start as i64;
+    let end_diagonal = chain.ref_end as i64 - chain.query_end as i64;
+    let lowest = start_diagonal.min(end_diagonal) - band;
+    let highest = start_diagonal.max(end_diagonal) + band;
+
+    let mut near = vec![];
+    for anchor in &anchors[start..end] {
+        let diagonal = anchor.ref_start as i64 - anchor.query_start as i64;
+        if diagonal >= lowest && diagonal <= highest {
+            near.push(*anchor);
+        }
+    }
+
+    near
 }
 
 fn matching_bases(anchors: &[Anchor], k: usize) -> usize {
@@ -448,6 +473,47 @@ mod test {
         assert_eq!(chain.anchors.len(), 5);
         assert_eq!(chain.matching_bases, 20 * 5);
         assert_eq!(chain.score, 50.0);
+    }
+
+    #[test]
+    fn a_run_drifting_off_the_diagonal_is_cut_where_it_leaves_the_band() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        #[rustfmt::skip]
+        let mut chain = Chain {
+            id: 0,
+            ref_start: 0,
+            ref_end: 120,
+            query_start: 0,
+            query_end: 120,
+            matching_bases: 20 * 2,
+            ref_id: 0,
+            score: 50.0,
+            is_revcomp: false,
+            anchors: vec![
+                Anchor { ref_id: 0, ref_start: 100, query_start: 100 },
+                Anchor { ref_id: 0, ref_start:   0, query_start:   0 },
+            ],
+        };
+        #[rustfmt::skip]
+        let drifting = [
+            Anchor { ref_id: 0, ref_start: 220, query_start: 120 },
+            Anchor { ref_id: 0, ref_start: 340, query_start: 140 },
+            Anchor { ref_id: 0, ref_start: 460, query_start: 160 },
+            Anchor { ref_id: 0, ref_start: 580, query_start: 180 },
+            Anchor { ref_id: 0, ref_start: 700, query_start: 200 },
+        ];
+
+        chainer.recover_into_chain(&mut chain, &drifting, 20, 600);
+
+        #[rustfmt::skip]
+        assert_eq!(chain.anchors, vec![
+            Anchor { ref_id: 0, ref_start: 460, query_start: 160 },
+            Anchor { ref_id: 0, ref_start: 340, query_start: 140 },
+            Anchor { ref_id: 0, ref_start: 220, query_start: 120 },
+            Anchor { ref_id: 0, ref_start: 100, query_start: 100 },
+            Anchor { ref_id: 0, ref_start:   0, query_start:   0 },
+        ]);
+        assert!((chain.score - 70.0427).abs() < 0.001);
     }
 
     #[test]
