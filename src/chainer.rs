@@ -24,6 +24,7 @@ pub struct ChainingParameters {
     pub diag_diff_penalty: f32,
     pub gap_length_penalty: f32,
     pub valid_score_threshold: f32,
+    pub max_chains: usize,
     pub max_ref_gap: Option<usize>,
     pub matches_weight: f32,
     pub max_diagonal_ratio: f32,
@@ -35,7 +36,8 @@ impl Default for ChainingParameters {
             max_lookback: 50,
             diag_diff_penalty: 0.1,
             gap_length_penalty: 0.05,
-            valid_score_threshold: 0.7,
+            valid_score_threshold: 0.5,
+            max_chains: 200,
             max_ref_gap: None,
             matches_weight: 0.01,
             max_diagonal_ratio: 10.0,
@@ -461,8 +463,12 @@ impl ChainingResult {
 
         candidates.sort_by(|a, b| b.1.total_cmp(&a.1));
 
+        let limit = chains.len() + self.parameters.max_chains;
         let mut used = vec![false; n];
         for (i, score) in candidates {
+            if chains.len() >= limit {
+                break;
+            }
             if used[i] {
                 continue;
             }
