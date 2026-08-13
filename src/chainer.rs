@@ -396,16 +396,19 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
 pub fn filtered_hits_to_anchors(
     hits: &[Hit],
     index: &StrobemerIndex,
-    windows: &[(usize, usize)],
+    bands: &[(i64, i64)],
+    max_dist: usize,
 ) -> Vec<Anchor> {
     let k = index.k();
     let mut anchors = vec![];
     let mut positions = vec![];
+    let mut windows = Vec::with_capacity(bands.len());
     for hit in hits {
         if !hit.is_filtered {
             continue;
         }
         positions.clear();
+        project_bands(bands, hit.query_start, max_dist, &mut windows);
 
         if hit.is_partial {
             let Some(forward_entry) = index.get_partial_forward_from(hit.hash, hit.position) else {
@@ -414,7 +417,7 @@ pub fn filtered_hits_to_anchors(
             let mask = index.parameters.randstrobe.forward_main_hash_mask;
             let start = forward_entry.position;
             let end = start + forward_entry.get_count(mask);
-            index.entries_in_intervals(start, end, windows, &mut positions);
+            index.entries_in_intervals(start, end, &windows, &mut positions);
             for &position in &positions {
                 let entry = index.entry(position);
                 anchors.push(Anchor {
@@ -426,7 +429,7 @@ pub fn filtered_hits_to_anchors(
         } else {
             let start = hit.position;
             let end = start + index.entry(start).get_count_full_forward();
-            index.entries_in_intervals(start, end, windows, &mut positions);
+            index.entries_in_intervals(start, end, &windows, &mut positions);
             for &position in &positions {
                 let entry = index.entry(position);
                 let ref_id = entry.reference_index();
@@ -447,6 +450,29 @@ pub fn filtered_hits_to_anchors(
     }
 
     anchors
+}
+
+/// Projects the chains' diagonal bands to one hit's query position, merging
+/// them into the sorted disjoint intervals its candidate anchors can lie in.
+fn project_bands(
+    bands: &[(i64, i64)],
+    query_start: usize,
+    max_dist: usize,
+    windows: &mut Vec<(usize, usize)>,
+) {
+    windows.clear();
+    let centre = query_start as i64;
+    for &(low, high) in bands {
+        let start = (low + centre - max_dist as i64).max(0) as usize;
+        let end = (high + centre + max_dist as i64).max(0) as usize + 1;
+        if let Some(last) = windows.last_mut()
+            && start <= last.1
+        {
+            last.1 = last.1.max(end);
+            continue;
+        }
+        windows.push((start, end));
+    }
 }
 
 impl ChainingResult {
