@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use log::trace;
 
-use crate::chain::Chain;
+use super::chain::Chain;
 use crate::details::ChainDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::{IndexEntry, StrobemerIndex};

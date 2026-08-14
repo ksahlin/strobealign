@@ -14,13 +14,13 @@ use clap::builder::styling::AnsiColor;
 use fastrand::Rng;
 use log::{debug, error, info, trace, warn};
 use mimalloc::MiMalloc;
-use strobealign::chain::{Chain, get_sorted_chains};
+use strobealign::chaining::chain::{Chain, get_sorted_chains};
 use strobealign::indexer::make_index;
 use strobealign::refseq::RefSequence;
 use thiserror::Error;
 
 use strobealign::aligner::{Aligner, Scores};
-use strobealign::chainer::{Chainer, ChainingParameters};
+use strobealign::chaining::chainer::{Chainer, ChainingParameters};
 use strobealign::details::Details;
 use strobealign::index::{IndexReadingError, StrobemerIndex, read_index};
 use strobealign::insertsize::InsertSizeDistribution;

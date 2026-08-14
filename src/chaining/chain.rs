@@ -5,8 +5,8 @@ use fastrand::Rng;
 use log::Level::Trace;
 use log::trace;
 
-use crate::chainer::Anchor;
-use crate::chainer::Chainer;
+use super::chainer::Anchor;
+use super::chainer::Chainer;
 use crate::details::ChainDetails;
 use crate::index::StrobemerIndex;
 use crate::mcsstrategy::McsStrategy;
