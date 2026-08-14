@@ -13,10 +13,17 @@ impl Chainer {
         index: &StrobemerIndex,
         read_len: usize,
     ) {
+        if chains.is_empty() {
+            return;
+        }
+
         let max_dist = index.parameters.randstrobe.max_dist as usize;
         let mut anchors: [Vec<Anchor>; 2] = [vec![], vec![]];
         for is_revcomp in 0..2 {
             let bands = chain_bands(chains, is_revcomp == 1, read_len);
+            if bands.is_empty() {
+                continue;
+            }
             anchors[is_revcomp] =
                 filtered_hits_to_anchors(&hits[is_revcomp], index, &bands, max_dist);
             anchors[is_revcomp].sort_unstable_by_key(|a| (a.ref_id, a.ref_start, a.query_start));
