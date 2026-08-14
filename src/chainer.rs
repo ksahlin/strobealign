@@ -88,6 +88,8 @@ impl Chainer {
             return ChainingResult::default();
         }
 
+        // dynamic maximum lookback window based on read length
+        let max_lookback = self.parameters.max_lookback.max(read_len / 200);
         // dynamic maximum allowed ref gap based on read length
         let max_ref_gap = self.parameters.max_ref_gap.unwrap_or(read_len);
 
@@ -97,7 +99,7 @@ impl Chainer {
         let mut best_index = usize::MAX;
 
         for i in 0..n {
-            let lookup_end = i.saturating_sub(self.parameters.max_lookback);
+            let lookup_end = i.saturating_sub(max_lookback);
             let ai = &anchors[i];
             for j in (lookup_end..i).rev() {
                 let aj = &anchors[j];
