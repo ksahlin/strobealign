@@ -1,6 +1,6 @@
 use crate::{
     aligner::{AlignmentInfo, Scores, hamming_align_global},
-    chainer::Anchor,
+    chaining::chainer::Anchor,
     cigar::{Cigar, CigarOperation},
 };
 use block_aligner::{

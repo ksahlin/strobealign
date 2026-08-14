@@ -1,6 +1,5 @@
 pub mod aligner;
-pub mod chain;
-pub mod chainer;
+pub mod chaining;
 pub mod cigar;
 pub mod details;
 pub mod hit;

@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use log::trace;
 
-use crate::chain::Chain;
+use super::chain::Chain;
 use crate::details::ChainDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::{IndexEntry, StrobemerIndex};
@@ -24,6 +24,7 @@ pub struct ChainingParameters {
     pub diag_diff_penalty: f32,
     pub gap_length_penalty: f32,
     pub valid_score_threshold: f32,
+    pub max_chains: usize,
     pub max_ref_gap: Option<usize>,
     pub matches_weight: f32,
     pub max_diagonal_ratio: f32,
@@ -35,7 +36,8 @@ impl Default for ChainingParameters {
             max_lookback: 50,
             diag_diff_penalty: 0.1,
             gap_length_penalty: 0.05,
-            valid_score_threshold: 0.7,
+            valid_score_threshold: 0.5,
+            max_chains: 200,
             max_ref_gap: None,
             matches_weight: 0.01,
             max_diagonal_ratio: 10.0,
@@ -55,7 +57,7 @@ pub struct ChainingResult {
 #[derive(Debug)]
 pub struct Chainer {
     k: usize,
-    parameters: ChainingParameters,
+    pub parameters: ChainingParameters,
     precomputed_scores: [f32; N_PRECOMPUTED],
 }
 
@@ -73,7 +75,7 @@ impl Chainer {
         }
     }
 
-    fn compute_score_cached(&self, dq: usize, dr: usize) -> f32 {
+    pub fn compute_score_cached(&self, dq: usize, dr: usize) -> f32 {
         // dq == dr is usually the most common case
         if dq == dr && dq < N_PRECOMPUTED {
             self.precomputed_scores[dq]
@@ -249,6 +251,10 @@ impl Chainer {
             chaining_result.extract_chains(index.k(), is_revcomp == 1, &mut chains);
             time_chaining += chaining_timer.elapsed().as_secs_f64();
         }
+        let recovery_timer = Instant::now();
+        self.recover_anchors(&mut chains, &hits, index, read_len);
+        let time_recovery = recovery_timer.elapsed().as_secs_f64();
+
         let mut hits_details12 = hits_details[0].clone();
         hits_details12 += hits_details[1].clone();
         let details = ChainDetails {
@@ -261,6 +267,7 @@ impl Chainer {
             time_find_hits,
             time_chaining,
             time_rescue: 0.0,
+            time_recovery,
             time_sort_chains: 0f64,
             both_orientations: orientations.len() > 1,
         };
@@ -385,6 +392,89 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
     anchors
 }
 
+/// Turns filtered hits into the anchors that fall inside one of windows
+pub fn filtered_hits_to_anchors(
+    hits: &[Hit],
+    index: &StrobemerIndex,
+    bands: &[(i64, i64)],
+    max_dist: usize,
+) -> Vec<Anchor> {
+    let k = index.k();
+    let mut anchors = vec![];
+    let mut positions = vec![];
+    let mut windows = Vec::with_capacity(bands.len());
+    for hit in hits {
+        if !hit.is_filtered {
+            continue;
+        }
+        positions.clear();
+        project_bands(bands, hit.query_start, max_dist, &mut windows);
+
+        if hit.is_partial {
+            let Some(forward_entry) = index.get_partial_forward_from(hit.hash, hit.position) else {
+                continue;
+            };
+            let mask = index.parameters.randstrobe.forward_main_hash_mask;
+            let start = forward_entry.position;
+            let end = start + forward_entry.get_count(mask);
+            index.entries_in_intervals(start, end, &windows, &mut positions);
+            for &position in &positions {
+                let entry = index.entry(position);
+                anchors.push(Anchor {
+                    ref_id: entry.reference_index(),
+                    ref_start: entry.position(),
+                    query_start: hit.query_start,
+                });
+            }
+        } else {
+            let start = hit.position;
+            let end = start + index.entry(start).get_count_full_forward();
+            index.entries_in_intervals(start, end, &windows, &mut positions);
+            for &position in &positions {
+                let entry = index.entry(position);
+                let ref_id = entry.reference_index();
+                let ref_start = entry.position();
+                let ref_end = ref_start + entry.strobe2_offset() + k;
+                anchors.push(Anchor {
+                    ref_id,
+                    ref_start,
+                    query_start: hit.query_start,
+                });
+                anchors.push(Anchor {
+                    ref_id,
+                    ref_start: ref_end - k,
+                    query_start: hit.query_end - k,
+                });
+            }
+        }
+    }
+
+    anchors
+}
+
+/// Projects the chains' diagonal bands to one hit's query position, merging
+/// them into the sorted disjoint intervals its candidate anchors can lie in.
+fn project_bands(
+    bands: &[(i64, i64)],
+    query_start: usize,
+    max_dist: usize,
+    windows: &mut Vec<(usize, usize)>,
+) {
+    windows.clear();
+    let centre = query_start as i64;
+    for &(low, high) in bands {
+        let start = (low + centre - max_dist as i64).max(0) as usize;
+        let end = (high + centre + max_dist as i64).max(0) as usize + 1;
+        if let Some(last) = windows.last_mut()
+            && start <= last.1
+        {
+            last.1 = last.1.max(end);
+            continue;
+        }
+        windows.push((start, end));
+    }
+}
+
 impl ChainingResult {
     fn extract_chains(&self, k: usize, is_revcomp: bool, chains: &mut Vec<Chain>) {
         let n = self.anchors.len();
@@ -399,8 +489,12 @@ impl ChainingResult {
 
         candidates.sort_by(|a, b| b.1.total_cmp(&a.1));
 
+        let limit = chains.len() + self.parameters.max_chains;
         let mut used = vec![false; n];
         for (i, score) in candidates {
+            if chains.len() >= limit {
+                break;
+            }
             if used[i] {
                 continue;
             }

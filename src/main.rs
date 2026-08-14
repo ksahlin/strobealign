@@ -19,7 +19,7 @@ use strobealign::refseq::RefSequence;
 use thiserror::Error;
 
 use strobealign::aligner::{Aligner, Scores};
-use strobealign::chainer::{Chainer, ChainingParameters};
+use strobealign::chaining::chainer::{Chainer, ChainingParameters};
 use strobealign::details::Details;
 use strobealign::index::{
     IndexReadingError, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex, read_index,
@@ -226,6 +226,10 @@ struct Args {
     /// Collinear chaining best chain score threshold
     #[arg(long = "vp", default_value_t = ChainingParameters::default().valid_score_threshold, help_heading = "Collinear chaining")]
     valid_score_threshold: f32,
+
+    /// Collinear chaining maximum number of chains extracted per orientation
+    #[arg(long = "mc", default_value_t = ChainingParameters::default().max_chains, help_heading = "Collinear chaining")]
+    max_chains: usize,
 
     /// Collinear chaining skip distance, how far on the reference do we allow anchors to chain [default: same as length of read]
     #[arg(long = "sg", help_heading = "Collinear chaining")]
@@ -519,6 +523,7 @@ fn run() -> Result<(), CliError> {
         diag_diff_penalty: args.diag_diff_penalty,
         gap_length_penalty: args.gap_length_penalty,
         valid_score_threshold: args.valid_score_threshold,
+        max_chains: args.max_chains,
         max_ref_gap: args.max_ref_gap,
         matches_weight: args.matches_weight,
         max_diagonal_ratio: args.max_diagonal_ratio,
@@ -825,6 +830,10 @@ fn run() -> Result<(), CliError> {
     info!(
         "Total time finding hits (rescue mode): {:.2} s",
         details.chain.time_rescue
+    );
+    info!(
+        "Total time recovering anchors: {:.2} s",
+        details.chain.time_recovery
     );
     info!(
         "Total time chaining (non-rescue mode): {:.2} s",

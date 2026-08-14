@@ -1,7 +1,7 @@
 use fastrand::Rng;
 
-use crate::chain::{Chain, get_chains, sort_chains};
-use crate::chainer::Chainer;
+use crate::chaining::chain::{Chain, get_chains, sort_chains};
+use crate::chaining::chainer::Chainer;
 use crate::details::{ChainDetails, Details};
 use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;

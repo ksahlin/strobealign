@@ -2,7 +2,7 @@
 
 use std::cell::Cell;
 
-use crate::chainer::Anchor;
+use crate::chaining::chainer::Anchor;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::piecewisealigner::PiecewiseAligner;
 use crate::ssw::SswAligner;
