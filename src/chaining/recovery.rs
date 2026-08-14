@@ -1,5 +1,5 @@
-use crate::chain::Chain;
-use crate::chainer::{Anchor, Chainer, filtered_hits_to_anchors};
+use super::chain::Chain;
+use super::chainer::{Anchor, Chainer, filtered_hits_to_anchors};
 use crate::hit::Hit;
 use crate::index::StrobemerIndex;
 
@@ -230,7 +230,7 @@ fn matching_bases(anchors: &[Anchor], k: usize) -> usize {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::chainer::ChainingParameters;
+    use crate::chaining::chainer::ChainingParameters;
 
     #[test]
     fn an_anchor_fills_a_gap_in_a_chain() {

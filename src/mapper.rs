@@ -9,8 +9,8 @@ use memchr::memmem;
 
 use crate::aligner::Aligner;
 use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
-use crate::chain::{Chain, get_chains, reverse_chain_if_needed, sort_chains};
-use crate::chainer::{Anchor, Chainer};
+use crate::chaining::chain::{Chain, get_chains, reverse_chain_if_needed, sort_chains};
+use crate::chaining::chainer::{Anchor, Chainer};
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
 use crate::index::StrobemerIndex;

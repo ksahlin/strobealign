@@ -19,7 +19,7 @@ use strobealign::refseq::RefSequence;
 use thiserror::Error;
 
 use strobealign::aligner::{Aligner, Scores};
-use strobealign::chainer::{Chainer, ChainingParameters};
+use strobealign::chaining::chainer::{Chainer, ChainingParameters};
 use strobealign::details::Details;
 use strobealign::index::{
     IndexReadingError, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex, read_index,

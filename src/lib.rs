@@ -1,6 +1,5 @@
 pub mod aligner;
-pub mod chain;
-pub mod chainer;
+pub mod chaining;
 pub mod cigar;
 pub mod details;
 pub mod hit;
@@ -16,7 +15,6 @@ pub mod packed_seq;
 pub mod partition;
 pub mod piecewisealigner;
 pub mod read;
-pub mod recovery;
 pub mod refseq;
 pub mod revcomp;
 pub mod seeding;
