@@ -257,7 +257,7 @@ struct Args {
     #[arg(short = 'E', default_value_t = Scores::default().gap_extend, value_name = "N", help_heading = "Alignment")]
     gap_extension_penalty: u8,
 
-    /// Soft-clipping penalty
+    /// Bonus added to the alignment score when no soft-clipping occurs
     #[arg(short = 'L', default_value_t = Scores::default().end_bonus, value_name = "N", help_heading = "Alignment")]
     end_bonus: u32,
 
