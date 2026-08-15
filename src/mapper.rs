@@ -1427,8 +1427,10 @@ fn aligned_pairs_to_sam(
         let s_max = best_aln_pair.score;
         // Expressed as a maximum allowed drop from the best score rather than as
         // `s_score >= secondary_threshold * s_max`, since `s_max` can be negative.
-        let max_drop = (1.0 - secondary_threshold) * s_max.abs();
-        for aln_pair in high_scores.iter().take(max_secondary) {
+        let max_drop = ((1.0 - secondary_threshold) * s_max.abs()).max(0.0);
+        // The primary pair is the first element here, so take one more than the
+        // requested number of secondaries.
+        for aln_pair in high_scores.iter().take(max_secondary.saturating_add(1)) {
             let alignment1 = &aln_pair.alignment1;
             let alignment2 = &aln_pair.alignment2;
             let s_score = aln_pair.score;

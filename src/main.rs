@@ -139,9 +139,15 @@ struct Args {
     #[arg(short = 'C', help_heading = "SAM output")]
     fastq_comments: bool,
 
-    /// Retain at most N secondary alignments (is upper bounded by -M and depends on -S)
-    #[arg(short = 'N', default_value_t = 0, value_name = "N", help_heading = "SAM output")]
-    max_secondary: usize,
+    /// Retain at most N secondary alignments (is upper bounded by -M and depends on -S). Use -1 for no limit
+    #[arg(
+        short = 'N',
+        default_value_t = 0,
+        value_name = "N",
+        allow_negative_numbers = true,
+        help_heading = "SAM output"
+    )]
+    max_secondary: i64,
 
     /// Output secondary alignments with alignment score at least st of primary alignment score
     #[arg(
@@ -507,7 +513,12 @@ fn run() -> Result<(), CliError> {
 
     let timer = Instant::now();
     let mapping_parameters = MappingParameters {
-        max_secondary: args.max_secondary,
+        // Replaced with usize::MAX to turn off the max_secondary threshold
+        max_secondary: if args.max_secondary < 0 {
+            usize::MAX
+        } else {
+            args.max_secondary as usize
+        },
         secondary_threshold: args.secondary_threshold,
         max_tries: args.max_tries,
         dropoff_threshold: args.dropoff_threshold,
