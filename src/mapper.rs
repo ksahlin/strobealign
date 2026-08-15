@@ -32,6 +32,7 @@ const MAX_PAIR_CHAINS: usize = 1000;
 #[derive(Debug)]
 pub struct MappingParameters {
     pub max_secondary: usize,
+    pub secondary_threshold: f32,
     pub dropoff_threshold: f32,
     pub rescue_distance: usize,
     pub max_tries: usize,
@@ -44,6 +45,7 @@ impl Default for MappingParameters {
     fn default() -> Self {
         MappingParameters {
             max_secondary: 0,
+            secondary_threshold: 0.95,
             dropoff_threshold: 0.5,
             rescue_distance: 100,
             max_tries: 20,
@@ -512,10 +514,9 @@ pub fn align_single_end_read(
 
         // Output secondary alignments
         //let max_out = min(alignments.len(), mapping_parameters.max_secondary + 1);
+        let min_secondary_score = mapping_parameters.secondary_threshold * best_score as f32;
         for alignment in alignments.iter().take(mapping_parameters.max_secondary) {
-            if alignment.score.saturating_sub(best_score)
-                > 2 * aligner.scores.mismatch as u32 + aligner.scores.gap_open as u32
-            {
+            if (alignment.score as f32) < min_secondary_score {
                 break;
             }
             // TODO .clone()
@@ -753,13 +754,12 @@ pub fn align_paired_end_read(
                 }
             };
 
-            let secondary_dropoff = 2 * aligner.scores.mismatch + aligner.scores.gap_open;
             sam_records.extend(aligned_pairs_to_sam(
                 &alignment_pairs,
                 sam_output,
                 refseq,
                 mapping_parameters.max_secondary,
-                secondary_dropoff as f64,
+                mapping_parameters.secondary_threshold as f64,
                 r1,
                 r2,
                 insert_size_distribution.mu,
@@ -1392,7 +1392,7 @@ fn aligned_pairs_to_sam(
     sam_output: &SamOutput,
     refseq: &RefSequence,
     max_secondary: usize,
-    secondary_dropoff: f64,
+    secondary_threshold: f64,
     record1: &SequenceRecord,
     record2: &SequenceRecord,
     mu: f32,
@@ -1425,11 +1425,14 @@ fn aligned_pairs_to_sam(
     } else {
         let mut alignment_status = AlignmentStatus::Primary;
         let s_max = best_aln_pair.score;
+        // Expressed as a maximum allowed drop from the best score rather than as
+        // `s_score >= secondary_threshold * s_max`, since `s_max` can be negative.
+        let max_drop = (1.0 - secondary_threshold) * s_max.abs();
         for aln_pair in high_scores.iter().take(max_secondary) {
             let alignment1 = &aln_pair.alignment1;
             let alignment2 = &aln_pair.alignment2;
             let s_score = aln_pair.score;
-            if s_max - s_score < secondary_dropoff {
+            if s_max - s_score <= max_drop {
                 let pair_status =
                     is_proper_pair_opt(alignment1.as_ref(), alignment2.as_ref(), mu, sigma);
                 let effective_mapqs = if alignment_status == AlignmentStatus::Primary {

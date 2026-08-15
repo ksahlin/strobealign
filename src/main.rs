@@ -143,6 +143,15 @@ struct Args {
     #[arg(short = 'N', default_value_t = 0, value_name = "N", help_heading = "SAM output")]
     max_secondary: usize,
 
+    /// Output secondary alignments with alignment score at least st of primary alignment score
+    #[arg(
+        long = "st",
+        default_value_t = MappingParameters::default().secondary_threshold,
+        value_name = "SECONDARY_THRESHOLD",
+        help_heading = "SAM output"
+    )]
+    secondary_threshold: f32,
+
     // Seeding arguments
 
     /// Mean read length. Default: estimated from the first 500 records in the input file
@@ -499,6 +508,7 @@ fn run() -> Result<(), CliError> {
     let timer = Instant::now();
     let mapping_parameters = MappingParameters {
         max_secondary: args.max_secondary,
+        secondary_threshold: args.secondary_threshold,
         max_tries: args.max_tries,
         dropoff_threshold: args.dropoff_threshold,
         rescue_distance: args.rescue_distance,
