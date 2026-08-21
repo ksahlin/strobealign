@@ -23,7 +23,7 @@ use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
 use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
-use crate::refseq::RefSequence;
+use crate::refseq::{ContigPosition, RefSequence};
 use crate::revcomp::reverse_complement;
 use crate::seeding::SeedingParameters;
 
@@ -54,10 +54,17 @@ impl Default for MappingParameters {
     }
 }
 
+/// Representation of how a query was aligned against the reference
+/// (mostly reference coordinate and CIGAR). This is later converted to
+/// SAM format.
+///
+/// This uses contig-relative ("unflattened") coordinates because the
+/// conversion from the flat position needs to be done anyway before aligning
+/// to ensure we don’t align across contigs.
 #[derive(Debug, Clone)]
 struct Alignment {
-    reference_id: usize,
-    ref_start: usize,
+    contig_id: usize,
+    contig_start: usize,
     cigar: Cigar,
     edit_distance: usize,
     soft_clip_left: usize,
@@ -173,7 +180,8 @@ impl SamOutput {
         cigar.push(CigarOperation::Softclip, alignment.soft_clip_left);
         cigar.extend(&alignment.cigar);
         cigar.push(CigarOperation::Softclip, alignment.soft_clip_right);
-        let reference_name = Some(refseq.names[alignment.reference_id].clone());
+        let reference_name = Some(refseq.names[alignment.contig_id].clone());
+        let pos = Some(ContigPosition(alignment.contig_start as u32));
         let details = if self.details { Some(details) } else { None };
         let cigar = if self.cigar_eqx {
             Some(cigar)
@@ -189,7 +197,7 @@ impl SamOutput {
             query_name: record.name.clone(),
             flags,
             reference_name,
-            pos: Some(alignment.ref_start as u32),
+            pos,
             mapq,
             cigar,
             query_sequence: Some(query_sequence),
@@ -286,23 +294,24 @@ impl SamOutput {
                 if mate.is_revcomp {
                     sam_records[i].flags |= MREVERSE;
                 }
+
                 // PNEXT (position of mate)
-                sam_records[i].mate_pos = Some(mate.ref_start as u32);
+                sam_records[i].mate_pos = Some(ContigPosition(mate.contig_start as u32));
 
                 // RNEXT (reference name of mate)
-                sam_records[i].mate_reference_name = Some(refseq.names[mate.reference_id].clone());
+                sam_records[i].mate_reference_name = Some(refseq.names[mate.contig_id].clone());
                 if let Some(this) = alignments[i] {
                     // both aligned
 
-                    if this.reference_id == mate.reference_id {
+                    if this.contig_id == mate.contig_id {
                         // aligned to same reference
                         sam_records[i].mate_reference_name = Some("=".to_string());
 
                         // TLEN
-                        let template_length = if mate.ref_start > this.ref_start {
-                            (mate.ref_start - this.ref_start + mate.length) as isize
-                        } else if this.ref_start > mate.ref_start {
-                            -((this.ref_start - mate.ref_start + this.length) as isize)
+                        let template_length = if mate.contig_start > this.contig_start {
+                            (mate.contig_start - this.contig_start + mate.length) as isize
+                        } else if this.contig_start > mate.contig_start {
+                            -((this.contig_start - mate.contig_start + this.length) as isize)
                         } else if i == 0 {
                             -(mate.length as isize)
                         } else {
@@ -315,8 +324,8 @@ impl SamOutput {
                     // mate-pair read whose mate is mapped, the unmapped read should have
                     // RNAME and POS identical to its mate."
                     sam_records[i].mate_reference_name = Some("=".to_string());
-                    sam_records[i].reference_name = Some(refseq.names[mate.reference_id].clone());
-                    sam_records[i].pos = Some(mate.ref_start as u32);
+                    sam_records[i].reference_name = Some(refseq.names[mate.contig_id].clone());
+                    sam_records[i].pos = Some(ContigPosition(mate.contig_start as u32));
                 }
             } else {
                 // mate unmapped
@@ -325,7 +334,7 @@ impl SamOutput {
                 // Set RNAME and POS identical to mate
                 if let Some(this) = alignments[i] {
                     sam_records[i].mate_reference_name = Some("=".to_string());
-                    sam_records[i].mate_pos = Some(this.ref_start as u32);
+                    sam_records[i].mate_pos = Some(ContigPosition(this.contig_start as u32));
                 }
             }
         }
@@ -540,10 +549,14 @@ fn extend_seed(
     } else {
         read.seq()
     };
-    let seq = &refseq.contig(chain.ref_id);
+    let (contig_id, contig_start) = refseq.unflatten(chain.ref_start);
+    let contig_start = contig_start.0 as usize;
+    let contig_end = contig_start + chain.ref_span();
+    let contig = refseq.contig(contig_id);
+    assert!(contig_end <= contig.len());
 
-    let projected_ref_start = chain.ref_start.saturating_sub(chain.query_start);
-    let projected_ref_end = min(chain.ref_end + query.len() - chain.query_end, seq.len());
+    let projected_start = contig_start.saturating_sub(chain.query_start);
+    let projected_end = min(contig_end + query.len() - chain.query_end, contig.len());
 
     // TODO ugly
     let mut info = AlignmentInfo {
@@ -555,52 +568,51 @@ fn extend_seed(
         query_end: 0,
         score: 0,
     };
-    let mut result_ref_start = 0;
+    let mut result_start = 0;
     let mut gapped = true;
-    if projected_ref_start + query.len() == projected_ref_end && consistent_chain {
-        let ref_segm_ham = seq.decode(projected_ref_start, projected_ref_end);
-        if let Some(hamming_dist) = hamming_distance(query, &ref_segm_ham)
+    if projected_start + query.len() == projected_end && consistent_chain {
+        let segment = contig.decode(projected_start, projected_end);
+        if let Some(hamming_dist) = hamming_distance(query, &segment)
             && (hamming_dist as f32 / query.len() as f32) < 0.05
         {
             // ungapped worked fine, no need to do gapped alignment
             info = hamming_align(
                 query,
-                &ref_segm_ham,
+                &segment,
                 aligner.scores.match_,
                 aligner.scores.mismatch,
                 aligner.scores.end_bonus,
             )
             .expect("hamming_dist was successful, this should be as well");
-            result_ref_start = projected_ref_start + info.ref_start;
+            result_start = projected_start + info.ref_start;
             gapped = false;
         }
     }
     if gapped {
         let padding = read.len() / 10;
         if use_ssw {
-            let ref_start = projected_ref_start.saturating_sub(padding);
-            let ref_end = min(projected_ref_end + padding, seq.len());
-            let segment = seq.decode(ref_start, ref_end);
+            let decode_start = projected_start.saturating_sub(padding);
+            let decode_end = min(projected_end + padding, contig.len());
+            let segment = contig.decode(decode_start, decode_end);
             info = aligner.align(query, &segment)?;
-            result_ref_start = ref_start + info.ref_start;
+            result_start = decode_start + info.ref_start;
         } else {
             remove_spurious_anchors(&mut chain.anchors);
             // Decode the reference region needed by the piecewise aligner.
             // Use a generous range so all anchor-relative slices stay in bounds.
-            let decode_start = chain.ref_start.saturating_sub(query.len() + padding);
-            let decode_end = (chain.ref_end + query.len() + padding).min(seq.len());
-            let decoded_ref = seq.decode(decode_start, decode_end);
+            let decode_start = contig_start.saturating_sub(query.len() + padding);
+            let decode_end = (contig_end + query.len() + padding).min(contig.len());
+            let segment = contig.decode(decode_start, decode_end);
             let adjusted_anchors: Vec<Anchor> = chain
                 .anchors
                 .iter()
                 .map(|a| Anchor {
-                    ref_id: a.ref_id,
-                    ref_start: a.ref_start - decode_start,
+                    ref_start: a.ref_start - decode_start - refseq.starts.0[contig_id],
                     query_start: a.query_start,
                 })
                 .collect();
-            info = aligner.align_piecewise(query, &decoded_ref, &adjusted_anchors, padding)?;
-            result_ref_start = info.ref_start + decode_start;
+            info = aligner.align_piecewise(query, &segment, &adjusted_anchors, padding)?;
+            result_start = info.ref_start + decode_start;
         }
     }
     Some(Alignment {
@@ -609,10 +621,10 @@ fn extend_seed(
         soft_clip_left: info.query_start,
         soft_clip_right: query.len() - info.query_end,
         score: info.score,
-        ref_start: result_ref_start,
+        contig_id,
+        contig_start: result_start,
         length: info.ref_span(),
         is_revcomp: chain.is_revcomp,
-        reference_id: chain.ref_id,
         gapped,
     })
 }
@@ -682,7 +694,7 @@ pub fn align_paired_end_read(
                 && alignment1.edit_distance + alignment2.edit_distance < 3
             {
                 insert_size_distribution
-                    .update(alignment1.ref_start.abs_diff(alignment2.ref_start));
+                    .update(alignment1.contig_start.abs_diff(alignment2.contig_start));
             }
 
             let mapq1 = mapping_quality(&chains_pair[0]);
@@ -970,16 +982,16 @@ fn extend_paired_seeds(
         let a2 = alignments[1].as_ref().unwrap();
         let r1_r2 = a2.is_revcomp
             && !a1.is_revcomp
-            && (a1.ref_start <= a2.ref_start)
-            && ((a2.ref_start - a1.ref_start) < (mu + 10.0 * sigma) as usize); // r1 ---> <---- r2
+            && (a1.contig_start <= a2.contig_start)
+            && ((a2.contig_start - a1.contig_start) < (mu + 10.0 * sigma) as usize); // r1 ---> <---- r2
         let r2_r1 = a1.is_revcomp
             && !a2.is_revcomp
-            && (a2.ref_start <= a1.ref_start)
-            && ((a1.ref_start - a2.ref_start) < (mu + 10.0 * sigma) as usize); // r2 ---> <---- r1
+            && (a2.contig_start <= a1.contig_start)
+            && ((a1.contig_start - a2.contig_start) < (mu + 10.0 * sigma) as usize); // r2 ---> <---- r1
 
         let combined_score = if r1_r2 || r2_r1 {
             // Treat as a pair
-            let x = a1.ref_start.abs_diff(a2.ref_start);
+            let x = a1.contig_start.abs_diff(a2.contig_start);
             a1.score as f64
                 + a2.score as f64
                 + (-20.0f64 + 0.001).max(normal_pdf(x as f32, mu, sigma).ln() as f64)
@@ -1061,7 +1073,7 @@ fn rescue_read(
     for a1 in alignments1 {
         for a2 in &alignments2 {
             if let Some(a2) = a2 {
-                let dist = a1.ref_start.abs_diff(a2.ref_start);
+                let dist = a1.contig_start.abs_diff(a2.contig_start);
                 let mut score = (a1.score + a2.score) as f32;
                 if (a1.is_revcomp ^ a2.is_revcomp) && (dist as f32) < mu + 4.0 * sigma {
                     score += normal_pdf(dist as f32, mu, sigma).ln();
@@ -1100,40 +1112,45 @@ fn rescue_align(
 ) -> Option<Alignment> {
     let read_len = read.len();
 
-    let (r_tmp, ref_start, ref_end) = if mate_chain.is_revcomp {
+    let (contig_id, contig_start) = refseq.unflatten(mate_chain.ref_start);
+    let contig_start = contig_start.0 as usize;
+    let contig_end = contig_start + mate_chain.ref_span();
+    let contig = refseq.contig(contig_id);
+    assert!(contig_end <= contig.len());
+
+    let (read_seq, segment_start, segment_end) = if mate_chain.is_revcomp {
+        let projected_start = contig_start.saturating_sub(mate_chain.query_start);
         (
             read.seq(),
-            mate_chain
-                .projected_ref_start()
-                .saturating_sub((mu + 5.0 * sigma) as usize),
-            mate_chain.projected_ref_start() + read_len / 2, // at most half read overlap
+            projected_start.saturating_sub((mu + 5.0 * sigma) as usize),
+            projected_start + read_len / 2, // at most half read overlap
         )
     } else {
+        let projected_end = contig_end + read_len - mate_chain.query_end;
         (
-            read.rc(), // mate is rc since fr orientation
-            (mate_chain.ref_end + read_len - mate_chain.query_end).saturating_sub(read_len / 2), // at most half read overlap
-            mate_chain.ref_end + read_len - mate_chain.query_end + (mu + 5.0 * sigma) as usize,
+            read.rc(),                                  // mate is rc since fr orientation
+            projected_end.saturating_sub(read_len / 2), // at most half read overlap
+            projected_end + (mu + 5.0 * sigma) as usize,
         )
     };
 
-    let ref_len = refseq.contig_len(mate_chain.ref_id);
-    let ref_start = ref_start.min(ref_len);
-    let ref_end = ref_end.min(ref_len);
+    let segment_start = segment_start.min(contig.len());
+    let segment_end = segment_end.min(contig.len());
 
-    if ref_end < ref_start + k {
+    if segment_end < segment_start + k {
         //        std::cerr << "RESCUE: Caught Bug3! ref start: " << ref_start << " ref end: " << ref_end << " ref len:  " << ref_len << std::endl;
         return None;
     }
-    let ref_segm = refseq.contig(mate_chain.ref_id).decode(ref_start, ref_end);
+    let segment = contig.decode(segment_start, segment_end);
 
-    if !has_shared_substring(r_tmp, &ref_segm, k) {
+    if !has_shared_substring(read_seq, &segment, k) {
         return None;
     }
-    let info = aligner.align(r_tmp, &ref_segm);
+    let info = aligner.align(read_seq, &segment);
     if let Some(info) = info {
         Some(Alignment {
-            reference_id: mate_chain.ref_id,
-            ref_start: ref_start + info.ref_start,
+            contig_id,
+            contig_start: segment_start + info.ref_start,
             edit_distance: info.edit_distance,
             soft_clip_left: info.query_start,
             soft_clip_right: read_len - info.query_end,
@@ -1178,10 +1195,10 @@ fn is_proper_pair_opt(
 }
 
 /// Return true if the two alignments form a proper pair:
-/// on the same reference, in opposite orientations, within the expected insert size.
+/// on the same contig, in opposite orientations, within the expected insert size.
 fn is_proper_pair(a1: &Alignment, a2: &Alignment, mu: f32, sigma: f32) -> PairStatus {
-    let dist = a2.ref_start as isize - a1.ref_start as isize;
-    let same_reference = a1.reference_id == a2.reference_id;
+    let dist = a2.contig_start as isize - a1.contig_start as isize;
+    let same_reference = a1.contig_id == a2.contig_id;
     let r1_r2 = !a1.is_revcomp && a2.is_revcomp && dist >= 0; // r1 ---> <---- r2
     let r2_r1 = !a2.is_revcomp && a1.is_revcomp && dist <= 0; // r2 ---> <---- r1
     let rel_orientation_good = r1_r2 || r2_r1;
@@ -1195,7 +1212,8 @@ fn is_proper_pair(a1: &Alignment, a2: &Alignment, mu: f32, sigma: f32) -> PairSt
 }
 
 pub fn is_proper_chain_pair(chain1: &Chain, chain2: &Chain, mu: f32, sigma: f32) -> bool {
-    if chain1.ref_id != chain2.ref_id || chain1.is_revcomp == chain2.is_revcomp {
+    if chain1.ref_contig_start != chain2.ref_contig_start || chain1.is_revcomp == chain2.is_revcomp
+    {
         return false;
     }
     let r1_ref_start = chain1.projected_ref_start();
@@ -1340,7 +1358,7 @@ fn deduplicate_scored_pairs(pairs: &mut Vec<ScoredAlignmentPair>) {
             (Some(_), None) => false,
             (None, None) => true,
             (Some(a1), Some(a2)) => {
-                a1.ref_start == a2.ref_start && a1.reference_id == a2.reference_id
+                a1.contig_start == a2.contig_start && a1.contig_id == a2.contig_id
             }
         }
     }
@@ -1474,15 +1492,10 @@ mod tests {
     use super::*;
     use crate::cigar::Cigar;
 
-    pub fn make_alignment(
-        reference_id: usize,
-        ref_start: usize,
-        score: u32,
-        is_revcomp: bool,
-    ) -> Alignment {
+    pub fn make_alignment(contig_start: usize, score: u32, is_revcomp: bool) -> Alignment {
         Alignment {
-            reference_id,
-            ref_start,
+            contig_id: 0,
+            contig_start,
             score,
             is_revcomp,
             edit_distance: 0,
@@ -1496,8 +1509,8 @@ mod tests {
 
     fn dummy_alignment() -> Alignment {
         Alignment {
-            reference_id: 0,
-            ref_start: 0,
+            contig_id: 0,
+            contig_start: 0,
             cigar: Cigar::default(),
             edit_distance: 0,
             soft_clip_left: 0,
@@ -1537,13 +1550,11 @@ mod tests {
     #[test]
     fn deduplicate_scored_pairs_works() {
         let a1 = Some(Alignment {
-            reference_id: 0,
-            ref_start: 1906,
+            contig_start: 1906,
             ..dummy_alignment()
         });
         let a2 = Some(Alignment {
-            reference_id: 0,
-            ref_start: 123,
+            contig_start: 123,
             ..dummy_alignment()
         });
         let mut alignment_pairs = vec![
@@ -1595,8 +1606,8 @@ mod tests {
     fn is_proper_pair_within_distance() {
         let mu = 300.0_f32;
         let sigma = 50.0_f32;
-        let a1 = make_alignment(0, 100, 40, false);
-        let a2 = make_alignment(0, 350, 40, true);
+        let a1 = make_alignment(100, 40, false);
+        let a2 = make_alignment(350, 40, true);
         assert_eq!(is_proper_pair(&a1, &a2, mu, sigma), PairStatus::Proper);
     }
 
@@ -1604,8 +1615,8 @@ mod tests {
     fn is_proper_pair_rev_within_distance() {
         let mu = 300.0_f32;
         let sigma = 50.0_f32;
-        let a1 = make_alignment(0, 350, 40, true);
-        let a2 = make_alignment(0, 100, 40, false);
+        let a1 = make_alignment(350, 40, true);
+        let a2 = make_alignment(100, 40, false);
         assert_eq!(is_proper_pair(&a1, &a2, mu, sigma), PairStatus::Proper);
     }
 
@@ -1613,8 +1624,8 @@ mod tests {
     fn is_proper_pair_incompatible() {
         let mu = 300.0_f32;
         let sigma = 50.0_f32;
-        let a1 = make_alignment(0, 100, 40, false);
-        let a2 = make_alignment(0, 350, 40, false);
+        let a1 = make_alignment(100, 40, false);
+        let a2 = make_alignment(350, 40, false);
         assert_eq!(is_proper_pair(&a1, &a2, mu, sigma), PairStatus::NotProper);
     }
 
@@ -1622,8 +1633,8 @@ mod tests {
     fn is_proper_pair_too_far() {
         let mu = 300.0_f32;
         let sigma = 50.0_f32;
-        let a1 = make_alignment(0, 100, 40, false);
-        let a2 = make_alignment(0, 10_000, 40, true);
+        let a1 = make_alignment(100, 40, false);
+        let a2 = make_alignment(10_000, 40, true);
         assert_eq!(is_proper_pair(&a1, &a2, mu, sigma), PairStatus::NotProper);
     }
 }

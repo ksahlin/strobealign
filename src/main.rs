@@ -21,9 +21,7 @@ use thiserror::Error;
 use strobealign::aligner::{Aligner, Scores};
 use strobealign::chainer::{Chainer, ChainingParameters};
 use strobealign::details::Details;
-use strobealign::index::{
-    IndexReadingError, REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES, StrobemerIndex, read_index,
-};
+use strobealign::index::{IndexReadingError, StrobemerIndex, read_index};
 use strobealign::insertsize::InsertSizeDistribution;
 use strobealign::io::SequenceIOError;
 use strobealign::io::fasta;
@@ -50,6 +48,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const NAME: &str = env!("CARGO_PKG_NAME");
+const RUSTFLAGS: Option<&str> = option_env!("RUSTFLAGS");
 const STYLES: Styles = Styles::plain()
     .header(AnsiColor::Blue.on_default())
     .usage(AnsiColor::Blue.on_default())
@@ -332,6 +331,7 @@ fn run() -> Result<(), CliError> {
     if cfg!(target_os = "linux") {
         warn_clocksource();
     }
+    debug!("RUSTFLAGS='{}'", RUSTFLAGS.unwrap_or(""));
 
     // Open R1 FASTQ file and estimate read length if necessary
     let read_length;
@@ -435,13 +435,6 @@ fn run() -> Result<(), CliError> {
         if refseq.names.len() != 1 { "s" } else { "" },
         max_contig_size as f64 / 1E6
     );
-    if refseq.names.len() > REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES {
-        error!(
-            "Too many reference sequences. Current maximum is {}.",
-            REF_RANDSTROBE_MAX_NUMBER_OF_REFERENCES
-        );
-        exit(1);
-    }
 
     // Create the index
     debug!("Auxiliary hash length: {}", args.aux_len);
@@ -458,7 +451,7 @@ fn run() -> Result<(), CliError> {
         let mut sti_path = args.ref_path.clone();
         sti_path.push_str(&parameters.filename_extension());
         info!("Reading index from {}", sti_path);
-        let index = read_index(&sti_path, parameters.clone(), bits)?;
+        let index = read_index(&sti_path, parameters.clone(), bits, refseq.starts.clone())?;
         info!(
             "Total time reading index: {:.2} s",
             read_index_timer.elapsed().as_secs_f64()
@@ -957,6 +950,7 @@ impl Mapper<'_> {
                             &r1,
                             &r2,
                             self.index,
+                            self.refseq,
                             &mut self.abundances,
                             self.mapping_parameters.rescue_distance,
                             &mut isizedist,
@@ -967,6 +961,7 @@ impl Mapper<'_> {
                     } else {
                         abundances_single_end_read(
                             &r1,
+                            self.refseq,
                             self.index,
                             &mut self.abundances,
                             self.mapping_parameters.rescue_distance,
@@ -989,7 +984,7 @@ pub fn output_abundances<T: Write>(
 ) -> io::Result<()> {
     #[allow(clippy::needless_range_loop)]
     for i in 0..refseq.names.len() {
-        let normalized = abundances[i] / refseq.contig_len(i) as f64;
+        let normalized = abundances[i] / refseq.contig(i).len() as f64;
         writeln!(out, "{}\t{:.6}", refseq.names[i], normalized)?;
     }
     Ok(())

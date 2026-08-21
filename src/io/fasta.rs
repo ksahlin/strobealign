@@ -26,8 +26,8 @@ fn is_valid_name(name: &[u8]) -> bool {
     true
 }
 
-fn check_duplicate_names(refseq: &RefSequence) -> Result<(), SequenceIOError> {
-    let mut names = refseq.names.clone();
+fn check_duplicate_names(names: &[String]) -> Result<(), SequenceIOError> {
+    let mut names: Vec<_> = names.iter().collect();
     names.sort();
     for window in names.windows(2) {
         if window[0] == window[1] {
@@ -109,9 +109,9 @@ impl<B: BufRead> Iterator for FastaReader<B> {
 }
 
 pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<RefSequence, SequenceIOError> {
-    let mut refseq = RefSequence::new();
-    let mut current_name: Option<String> = None;
-    let mut current_seq = PackedSeq::new();
+    let mut names = vec![];
+    let mut starts = vec![];
+    let mut seq = PackedSeq::new();
     let mut line = String::new();
 
     loop {
@@ -120,17 +120,14 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<RefSequence, SequenceIOE
             Ok(0) => break,
             Ok(_) => {
                 if let Some(header) = line.strip_prefix('>') {
-                    if let Some(name) = current_name.take() {
-                        refseq.push(name, current_seq);
-                        current_seq = PackedSeq::new();
-                    }
-                    let (name, _comment) = split_header(header);
-                    current_name = Some(name.to_string());
-                } else if current_name.is_some() {
-                    for c in line.trim_ascii_end().bytes() {
-                        current_seq.push(c);
-                    }
-                } else if !line.trim_ascii().is_empty() {
+                    starts.push(seq.len());
+                    names.push(split_header(header).0);
+                } else if !names.is_empty() {
+                    let line = line.trim_ascii_end();
+                    seq.extend(line.bytes());
+                } else if line.trim_ascii().is_empty() {
+                    // ignore empty lines
+                } else {
                     return Err(SequenceIOError::Fasta(
                         "FASTA file must start with '>'".to_string(),
                     ));
@@ -139,18 +136,16 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<RefSequence, SequenceIOE
             Err(e) => return Err(SequenceIOError::IO(e)),
         }
     }
-    if let Some(name) = current_name {
-        refseq.push(name, current_seq);
-    }
 
-    for name in &refseq.names {
+    for name in &names {
         if !is_valid_name(name.as_bytes()) {
             return Err(SequenceIOError::Name);
         }
     }
-    check_duplicate_names(&refseq)?;
+    check_duplicate_names(&names)?;
+    assert_eq!(names.len(), starts.len());
 
-    Ok(refseq)
+    Ok(RefSequence::new(seq, starts, names))
 }
 
 pub fn read_ref<P: AsRef<Path>>(path: P) -> Result<RefSequence, SequenceIOError> {
@@ -171,7 +166,7 @@ mod tests {
         let refseq = read_ref("tests/phix.fasta").unwrap();
         assert_eq!(refseq.names.len(), 1);
         assert_eq!(refseq.names[0], "NC_001422.1");
-        assert_eq!(refseq.contig_len(0), 5386);
+        assert_eq!(refseq.contig(0).len(), 5386);
         assert_eq!(refseq.contig(0).decode(0, 5), b"GAGTT");
     }
 

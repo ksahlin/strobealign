@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::io::record::End;
+use crate::{io::record::End, refseq::ContigPosition};
 
 /* PAF columns (see https://github.com/lh3/miniasm/blob/master/PAF.md):
  * 1 query name
@@ -27,8 +27,8 @@ pub struct PafRecord {
     pub is_revcomp: bool,
     pub target_name: String,
     pub target_length: u64,
-    pub target_start: u64,
-    pub target_end: u64,
+    pub target_start: ContigPosition,
+    pub target_end: ContigPosition,
     pub matching_bases: u64,
     pub alignment_length: u64,
     pub mapping_quality: Option<u8>,
@@ -51,8 +51,8 @@ impl Display for PafRecord {
             if self.is_revcomp { "-" } else { "+" },
             self.target_name,
             self.target_length,
-            self.target_start,
-            self.target_end,
+            self.target_start.0,
+            self.target_end.0,
             self.matching_bases,
             self.alignment_length,
             self.mapping_quality.unwrap_or(255),

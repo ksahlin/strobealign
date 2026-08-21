@@ -10,7 +10,7 @@ use crate::io::record::{End, SequenceRecord};
 use crate::mapper::mapping_quality;
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
-use crate::refseq::RefSequence;
+use crate::refseq::{ContigPosition, ContigStarts, RefSequence};
 
 /// Map a single-end read to the reference and return PAF records
 ///
@@ -38,14 +38,16 @@ pub fn map_single_end_read(
     } else {
         let mapq = mapping_quality(&chains);
         (
-            vec![paf_record_from_chain(
+            paf_record_from_chain(
                 &chains[0],
                 &record.name,
                 refseq,
                 record.sequence.len(),
                 Some(mapq),
                 End::None,
-            )],
+            )
+            .into_iter()
+            .collect::<Vec<_>>(),
             chain_details.into(),
         )
     }
@@ -56,6 +58,7 @@ pub fn map_single_end_read(
 /// This implements abundance estimation mode (`--aemb`)
 pub fn abundances_single_end_read(
     record: &SequenceRecord,
+    refseq: &RefSequence,
     index: &StrobemerIndex,
     abundances: &mut [f64],
     rescue_distance: usize,
@@ -78,7 +81,8 @@ pub fn abundances_single_end_read(
         .count();
     let weight = record.sequence.len() as f64 / n_best as f64;
     for chain in &chains[0..n_best] {
-        abundances[chain.ref_id] += weight;
+        let contig_id = refseq.unflatten(chain.ref_start).0;
+        abundances[contig_id] += weight;
     }
 }
 
@@ -90,22 +94,27 @@ fn paf_record_from_chain(
     query_length: usize,
     mapq: Option<u8>,
     end: End,
-) -> PafRecord {
-    PafRecord {
+) -> Option<PafRecord> {
+    let (contig_id, target_start) = refseq.unflatten(chain.ref_start);
+    let target_end = ContigPosition((target_start.0 as usize + chain.ref_span()) as u32);
+    let contig = refseq.contig(contig_id);
+    assert!(target_end.0 as usize <= contig.len());
+
+    Some(PafRecord {
         query_name: name.into(),
         end,
         query_length: query_length as u64,
         query_start: chain.query_start as u64,
         query_end: chain.query_end as u64,
         is_revcomp: chain.is_revcomp,
-        target_name: refseq.names[chain.ref_id].clone(),
-        target_length: refseq.contig_len(chain.ref_id) as u64,
-        target_start: chain.ref_start as u64,
-        target_end: chain.ref_end as u64,
+        target_name: refseq.names[contig_id].clone(),
+        target_length: contig.len() as u64,
+        target_start,
+        target_end,
         matching_bases: chain.matching_bases as u64,
         alignment_length: (chain.ref_end - chain.ref_start) as u64,
         mapping_quality: mapq,
-    }
+    })
 }
 
 /// Map a paired-end read pair to the reference and return PAF records
@@ -135,6 +144,7 @@ pub fn map_paired_end_read(
     let chain_pairs = get_chain_pairs(
         &mut chains1,
         &mut chains2,
+        &refseq.starts,
         insert_size_distribution.mu,
         insert_size_distribution.sigma,
         &chain_details1,
@@ -153,7 +163,7 @@ pub fn map_paired_end_read(
     ) {
         MappedChains::Individual(best1, best2) => {
             if let Some(chain1) = best1 {
-                records.push(paf_record_from_chain(
+                records.extend(paf_record_from_chain(
                     chain1,
                     &r1.name,
                     refseq,
@@ -163,7 +173,7 @@ pub fn map_paired_end_read(
                 ));
             }
             if let Some(chain2) = best2 {
-                records.push(paf_record_from_chain(
+                records.extend(paf_record_from_chain(
                     chain2,
                     &r2.name,
                     refseq,
@@ -174,7 +184,7 @@ pub fn map_paired_end_read(
             }
         }
         MappedChains::Pair(chain1, chain2, _) => {
-            records.push(paf_record_from_chain(
+            records.extend(paf_record_from_chain(
                 chain1,
                 &r1.name,
                 refseq,
@@ -182,7 +192,7 @@ pub fn map_paired_end_read(
                 None,
                 End::One,
             ));
-            records.push(paf_record_from_chain(
+            records.extend(paf_record_from_chain(
                 chain2,
                 &r2.name,
                 refseq,
@@ -194,6 +204,7 @@ pub fn map_paired_end_read(
     }
 
     chain_details1 += chain_details2;
+
     (records, chain_details1.into())
 }
 
@@ -204,6 +215,7 @@ pub fn abundances_paired_end_read(
     r1: &SequenceRecord,
     r2: &SequenceRecord,
     index: &StrobemerIndex,
+    refseq: &RefSequence,
     abundances: &mut [f64],
     rescue_distance: usize,
     insert_size_distribution: &mut InsertSizeDistribution,
@@ -223,6 +235,7 @@ pub fn abundances_paired_end_read(
     let chain_pairs = get_chain_pairs(
         &mut chains1,
         &mut chains2,
+        &refseq.starts,
         insert_size_distribution.mu,
         insert_size_distribution.sigma,
         &chain_details1,
@@ -247,7 +260,8 @@ pub fn abundances_paired_end_read(
                     .count();
                 let weight = read_len as f64 / n_best as f64;
                 for chain in &chains[0..n_best] {
-                    abundances[chain.ref_id] += weight;
+                    let contig_id = refseq.unflatten(chain.ref_start).0;
+                    abundances[contig_id] += weight;
                 }
             }
         }
@@ -264,8 +278,8 @@ pub fn abundances_paired_end_read(
                 score: _,
             } in &chain_pairs[..n_best]
             {
-                abundances[chain1.ref_id] += weight_r1;
-                abundances[chain2.ref_id] += weight_r2;
+                abundances[refseq.unflatten(chain1.ref_start).0] += weight_r1;
+                abundances[refseq.unflatten(chain2.ref_start).0] += weight_r2;
             }
         }
     }
@@ -329,6 +343,7 @@ pub struct ChainPair {
 fn get_chain_pairs(
     chains1: &mut [Chain],
     chains2: &mut [Chain],
+    contig_starts: &ContigStarts,
     mu: f32,
     sigma: f32,
     details1: &ChainDetails,
@@ -345,14 +360,14 @@ fn get_chain_pairs(
         split_chains_by_orientation_checked(chains2, details2.both_orientations);
 
     if !fwd1.is_empty() && !rev2.is_empty() {
-        fwd1.sort_unstable_by_key(|chain| (chain.ref_id, chain.projected_ref_start()));
-        rev2.sort_unstable_by_key(|chain| (chain.ref_id, chain.projected_ref_start()));
-        chain_pairs.extend(find_pairs(fwd1, rev2, mu, sigma, false));
+        fwd1.sort_unstable_by_key(|chain| chain.projected_ref_start());
+        rev2.sort_unstable_by_key(|chain| chain.projected_ref_start());
+        chain_pairs.extend(find_pairs(fwd1, rev2, contig_starts, mu, sigma, false));
     }
     if !fwd2.is_empty() && !rev1.is_empty() {
-        fwd2.sort_unstable_by_key(|chain| (chain.ref_id, chain.projected_ref_start()));
-        rev1.sort_unstable_by_key(|chain| (chain.ref_id, chain.projected_ref_start()));
-        chain_pairs.extend(find_pairs(fwd2, rev1, mu, sigma, true));
+        fwd2.sort_unstable_by_key(|chain| chain.projected_ref_start());
+        rev1.sort_unstable_by_key(|chain| chain.projected_ref_start());
+        chain_pairs.extend(find_pairs(fwd2, rev1, contig_starts, mu, sigma, true));
     }
 
     chain_pairs.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
@@ -394,10 +409,11 @@ fn split_chains_by_orientation(chains: &mut [Chain]) -> (&mut [Chain], &mut [Cha
 }
 
 /// Find most forward/revcomp pairs using a two-pointer scan.
-/// Assumes both slices are sorted by (ref_id, projected_ref_start).
+/// Assumes both slices are sorted by projected_ref_start.
 fn find_pairs(
     fwd: &[Chain],
     rev: &[Chain],
+    contig_starts: &ContigStarts,
     mu: f32,
     sigma: f32,
     swap_order: bool,
@@ -409,25 +425,20 @@ fn find_pairs(
 
     for f in fwd {
         // Advance revcomp pointer to the first possible candidate
-        while rev_ptr < rev.len()
-            && (rev[rev_ptr].ref_id < f.ref_id
-                || rev[rev_ptr].ref_id == f.ref_id
-                    && rev[rev_ptr].projected_ref_start() < f.projected_ref_start())
-        {
+        while rev_ptr < rev.len() && rev[rev_ptr].projected_ref_start() < f.projected_ref_start() {
             rev_ptr += 1;
         }
         if rev_ptr == rev.len() {
             break;
         }
-        if rev[rev_ptr].ref_id > f.ref_id {
-            continue;
-        }
+        let f_contig_id = contig_starts.index(f.projected_ref_start());
+        let f_contig_range = contig_starts.0[f_contig_id]..contig_starts.0[f_contig_id + 1];
 
         // Scan window of revcomp chains within distance limit.
         let mut best = None;
         let mut i = rev_ptr;
         while i < rev.len()
-            && rev[i].ref_id == f.ref_id
+            && f_contig_range.contains(&rev[i].projected_ref_start())
             && (rev[i].projected_ref_start() - f.projected_ref_start()) <= max_dist
         {
             let r = &rev[i];

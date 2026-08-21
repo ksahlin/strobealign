@@ -7,13 +7,13 @@ use crate::details::ChainDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::{IndexEntry, StrobemerIndex};
 use crate::mcsstrategy::McsStrategy;
+use crate::refseq::ContigStarts;
 use crate::seeding::QueryRandstrobe;
 
 const N_PRECOMPUTED: usize = 1024;
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
 pub struct Anchor {
-    pub ref_id: usize,
     pub ref_start: usize,
     pub query_start: usize,
 }
@@ -82,7 +82,12 @@ impl Chainer {
         }
     }
 
-    fn collinear_chaining(&self, anchors: Vec<Anchor>, read_len: usize) -> ChainingResult {
+    fn collinear_chaining(
+        &self,
+        anchors: Vec<Anchor>,
+        contig_starts: &ContigStarts,
+        read_len: usize,
+    ) -> ChainingResult {
         let n = anchors.len();
         if n == 0 {
             return ChainingResult::default();
@@ -101,10 +106,15 @@ impl Chainer {
         for i in 0..n {
             let lookup_end = i.saturating_sub(max_lookback);
             let ai = &anchors[i];
+
+            // Flat start position of the contig that a[i] is on
+            let ref_contig_start = contig_starts.ref_contig_start(ai.ref_start);
             for j in (lookup_end..i).rev() {
                 let aj = &anchors[j];
 
-                if ai.ref_id != aj.ref_id {
+                // Do not attempt to chain to an anchor on a different contig.
+                // This check works because we go through anchors in reverse.
+                if aj.ref_start < ref_contig_start {
                     break;
                 }
 
@@ -145,9 +155,10 @@ impl Chainer {
             // The above runtime heuristic sometimes skips the anchor that
             // represents the so-far optimal chain and can then give suboptimal
             // results. To mitigate the issue, we explicitly check that anchor.
-            if best_index != usize::MAX && ai.ref_id == anchors[best_index].ref_id {
+            if best_index != usize::MAX {
                 let aj = &anchors[best_index];
-                if ai.query_start > aj.query_start {
+
+                if aj.ref_start >= ref_contig_start && ai.query_start > aj.query_start {
                     let dq = ai.query_start - aj.query_start;
                     let dr = ai.ref_start - aj.ref_start;
 
@@ -227,7 +238,7 @@ impl Chainer {
             n_anchors += anchors.len();
             let chaining_timer = Instant::now();
             trace!("Chaining {} anchors", anchors.len());
-            anchors.sort_unstable_by_key(|a| (a.ref_id, a.ref_start, a.query_start));
+            anchors.sort_unstable_by_key(|a| (a.ref_start, a.query_start));
             anchors.dedup();
 
             // trace!(
@@ -244,9 +255,14 @@ impl Chainer {
             //         .join(",")
             // );
 
-            let chaining_result = self.collinear_chaining(anchors, read_len);
+            let chaining_result = self.collinear_chaining(anchors, &index.contig_starts, read_len);
 
-            chaining_result.extract_chains(index.k(), is_revcomp == 1, &mut chains);
+            chaining_result.extract_chains(
+                index.k(),
+                is_revcomp == 1,
+                &index.contig_starts,
+                &mut chains,
+            );
             time_chaining += chaining_timer.elapsed().as_secs_f64();
         }
         let mut hits_details12 = hits_details[0].clone();
@@ -317,18 +333,15 @@ fn add_to_anchors_full(
         if entry.hash() != forward_hash {
             break;
         }
-        let ref_start = entry.position();
+        let ref_start = entry.ref_start();
         let ref_end = ref_start + entry.strobe2_offset() + index.k();
         let length_diff = (query_end - query_start).abs_diff(ref_end - ref_start);
         if length_diff <= min_length_diff {
-            let ref_id = entry.reference_index();
             anchors.push(Anchor {
-                ref_id,
                 ref_start,
                 query_start,
             });
             anchors.push(Anchor {
-                ref_id,
                 ref_start: ref_end - index.k(),
                 query_start: query_end - index.k(),
             });
@@ -350,11 +363,9 @@ fn add_to_anchors_partial(
         if entry.get_hash_partial_forward() != forward_hash {
             break;
         }
-        let ref_id = entry.reference_index();
         let ref_start = entry.strobe_extent_partial().0;
 
         anchors.push(Anchor {
-            ref_id,
             ref_start,
             query_start,
         });
@@ -386,7 +397,13 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
 }
 
 impl ChainingResult {
-    fn extract_chains(&self, k: usize, is_revcomp: bool, chains: &mut Vec<Chain>) {
+    fn extract_chains(
+        &self,
+        k: usize,
+        is_revcomp: bool,
+        contig_starts: &ContigStarts,
+        chains: &mut Vec<Chain>,
+    ) {
         let n = self.anchors.len();
         let valid_score = self.best_score * self.parameters.valid_score_threshold;
 
@@ -438,10 +455,10 @@ impl ChainingResult {
                 id: chains.len(),
                 query_start: first.query_start,
                 query_end: last.query_start + k,
+                ref_contig_start: contig_starts.ref_contig_start(first.ref_start),
                 ref_start: first.ref_start,
                 ref_end: last.ref_start + k,
                 matching_bases,
-                ref_id: last.ref_id,
                 score: score + chain_anchors.len() as f32 * self.parameters.matches_weight,
                 is_revcomp,
                 anchors: chain_anchors,
@@ -452,6 +469,8 @@ impl ChainingResult {
 
 #[cfg(test)]
 mod test {
+    use crate::refseq::ContigStarts;
+
     use super::{Anchor, Chainer, ChainingParameters};
 
     #[test]
@@ -459,13 +478,13 @@ mod test {
         let chainer = Chainer::new(20, ChainingParameters::default());
         #[rustfmt::skip]
         let anchors = vec![
-            Anchor { ref_id: 0, ref_start:  0, query_start:  0, },
-            Anchor { ref_id: 0, ref_start: 30, query_start: 20, },
-            Anchor { ref_id: 0, ref_start: 60, query_start:  0, },
-            Anchor { ref_id: 0, ref_start: 95, query_start: 35, },
+            Anchor { ref_start:  0, query_start:  0, },
+            Anchor { ref_start: 30, query_start: 20, },
+            Anchor { ref_start: 60, query_start:  0, },
+            Anchor { ref_start: 95, query_start: 35, },
         ];
-
-        let chaining_result = chainer.collinear_chaining(anchors, 2000);
+        let starts = ContigStarts::new(vec![0], 200);
+        let chaining_result = chainer.collinear_chaining(anchors, &starts, 2000);
 
         // The best chain has score 42.342842 and uses anchors 0, 1, 3.
         // When using the heuristic that breaks early if the predecessor is on the
@@ -479,21 +498,22 @@ mod test {
         let chainer = Chainer::new(20, ChainingParameters::default());
         #[rustfmt::skip]
         let anchors = [
-            Anchor { ref_id: 0, ref_start:   0, query_start:  0, },
-            Anchor { ref_id: 0, ref_start:  20, query_start: 20, },
-            Anchor { ref_id: 0, ref_start:  40, query_start: 40, },
+            Anchor { ref_start:   0, query_start:  0, },
+            Anchor { ref_start:  20, query_start: 20, },
+            Anchor { ref_start:  40, query_start: 40, },
         ];
-        let chaining_result = chainer.collinear_chaining(anchors[0..1].to_vec(), 200);
+        let starts = ContigStarts::new(vec![0], 200);
+        let chaining_result = chainer.collinear_chaining(anchors[0..1].to_vec(), &starts, 200);
         let score1 = chaining_result.best_score;
         assert_eq!(
             chainer
-                .collinear_chaining(anchors[0..2].to_vec(), 200)
+                .collinear_chaining(anchors[0..2].to_vec(), &starts, 200)
                 .best_score,
             score1 * 2.0
         );
         assert_eq!(
             chainer
-                .collinear_chaining(anchors[0..3].to_vec(), 200)
+                .collinear_chaining(anchors[0..3].to_vec(), &starts, 200)
                 .best_score,
             score1 * 3.0
         );
@@ -504,10 +524,11 @@ mod test {
         let chainer = Chainer::new(20, ChainingParameters::default());
         #[rustfmt::skip]
         let anchors = vec![
-            Anchor { ref_id: 0, ref_start:  0, query_start:  0, },
-            Anchor { ref_id: 0, ref_start: 11, query_start:  1, },
+            Anchor { ref_start:  0, query_start:  0, },
+            Anchor { ref_start: 11, query_start:  1, },
         ];
-        let chaining_result = chainer.collinear_chaining(anchors, 2000);
+        let starts = ContigStarts::new(vec![0], 200);
+        let chaining_result = chainer.collinear_chaining(anchors, &starts, 2000);
         // dr=11, dq=1 gives a diagonal ratio of 11.0, exceeding the default max of 10.
         // The two anchors cannot be chained, so the best score is that of a single anchor.
         assert_eq!(chaining_result.best_score, chainer.k as f32);
