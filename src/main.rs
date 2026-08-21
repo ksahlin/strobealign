@@ -50,6 +50,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const NAME: &str = env!("CARGO_PKG_NAME");
+const RUSTFLAGS: Option<&str> = option_env!("RUSTFLAGS");
 const STYLES: Styles = Styles::plain()
     .header(AnsiColor::Blue.on_default())
     .usage(AnsiColor::Blue.on_default())
@@ -332,6 +333,7 @@ fn run() -> Result<(), CliError> {
     if cfg!(target_os = "linux") {
         warn_clocksource();
     }
+    debug!("RUSTFLAGS='{}'", RUSTFLAGS.unwrap_or(""));
 
     // Open R1 FASTQ file and estimate read length if necessary
     let read_length;
