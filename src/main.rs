@@ -793,11 +793,36 @@ fn run() -> Result<(), CliError> {
         details.chain.n_anchors,
         details.chain.n_anchors as f64 / details.chain.n_reads as f64
     );
+    debug!("");
+    debug!("## Hash collisions");
+    let collisions = details.chain.collisions;
+    // note that one "full lookup" is actually two (first and second strobe)
     debug!(
-        "Detected hash collisions:                 {:12}               Per read: {:7.1}",
-        details.chain.n_collisions,
-        details.chain.n_collisions as f64 / details.chain.n_reads as f64
+        "Full strobemer lookups:    {:12}",
+        collisions.n_full_lookups
     );
+    debug!(
+        "First strobe collisions:   {:12} {:.3} %",
+        collisions.n_full_collisions_first,
+        collisions.n_full_collisions_first as f64 * 100.0 / collisions.n_full_lookups as f64
+    );
+    debug!(
+        "Second strobe collisions:  {:12} {:.3} %",
+        collisions.n_full_collisions_second,
+        collisions.n_full_collisions_second as f64 * 100.0 / collisions.n_full_lookups as f64
+    );
+    debug!("");
+    debug!(
+        "Partial strobemer lookups: {:12}",
+        collisions.n_partial_lookups
+    );
+    debug!(
+        "Partial collisions:        {:12} {:.3} %",
+        collisions.n_partial_collisions,
+        collisions.n_partial_collisions as f64 * 100.0 / collisions.n_partial_lookups as f64
+    );
+
+    debug!("");
     debug!(
         "Found chains:                             {:12}               Per read: {:7.1}",
         details.chain.n_chains,

@@ -1,3 +1,4 @@
+use std::ops;
 use std::time::Instant;
 
 use log::trace;
@@ -19,6 +20,31 @@ const N_PRECOMPUTED: usize = 1024;
 pub struct Anchor {
     pub ref_start: usize,
     pub query_start: usize,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct CollisionStats {
+    pub n_full_lookups: usize,
+    pub n_full_collisions_first: usize,
+    pub n_full_collisions_second: usize,
+    pub n_partial_lookups: usize,
+    pub n_partial_collisions: usize,
+}
+
+impl CollisionStats {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl ops::AddAssign<CollisionStats> for CollisionStats {
+    fn add_assign(&mut self, rhs: CollisionStats) {
+        self.n_full_lookups += rhs.n_full_lookups;
+        self.n_full_collisions_first += rhs.n_full_collisions_first;
+        self.n_full_collisions_second += rhs.n_full_collisions_second;
+        self.n_partial_lookups += rhs.n_partial_lookups;
+        self.n_partial_collisions += rhs.n_partial_collisions;
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -234,7 +260,7 @@ impl Chainer {
         }
 
         let mut n_anchors = 0;
-        let mut total_collisions = 0;
+        let mut collision_stats = CollisionStats::default();
         let mut time_chaining = 0.0;
         let mut chains = vec![];
         for &is_revcomp in &orientations {
@@ -249,7 +275,7 @@ impl Chainer {
             let query = PackedSeq::from_slice(query);
             let (mut anchors, collisions) =
                 hits_to_anchors(&hits[is_revcomp], index, &query, refseq);
-            total_collisions += collisions;
+            collision_stats += collisions;
             time_find_hits += hits_timer.elapsed().as_secs_f64();
             n_anchors += anchors.len();
             let chaining_timer = Instant::now();
@@ -288,7 +314,7 @@ impl Chainer {
             n_reads: 1,
             n_randstrobes: query_randstrobes[0].len() + query_randstrobes[1].len(),
             n_anchors,
-            n_collisions: total_collisions,
+            collisions: collision_stats,
             n_chains: chains.len(),
             time_randstrobes: 0.0,
             time_find_hits,
@@ -344,8 +370,8 @@ fn add_to_anchors_full(
     entry: IndexEntry,
     query: &PackedSeq,
     refseq: &RefSequence,
-) -> usize {
-    let mut collisions = 0;
+) -> CollisionStats {
+    let mut stats = CollisionStats::default();
     let mut min_length_diff = usize::MAX;
     let forward_hash = entry.hash();
     for i in entry.position..index.len() {
@@ -359,13 +385,14 @@ fn add_to_anchors_full(
         if length_diff <= min_length_diff {
             let k = index.k();
 
+            stats.n_full_lookups += 1;
             if query.kmer_bits(query_start, k) == refseq.kmer_bits(ref_start, k) {
                 anchors.push(Anchor {
                     ref_start,
                     query_start,
                 });
             } else {
-                collisions += 1;
+                stats.n_full_collisions_first += 1;
             }
             if query.kmer_bits(query_end - k, k) == refseq.kmer_bits(ref_end - k, k) {
                 anchors.push(Anchor {
@@ -373,13 +400,13 @@ fn add_to_anchors_full(
                     query_start: query_end - k,
                 });
             } else {
-                collisions += 1;
+                stats.n_full_collisions_second += 1;
             }
             min_length_diff = length_diff;
         }
     }
 
-    collisions
+    stats
 }
 
 fn add_to_anchors_partial(
@@ -389,8 +416,8 @@ fn add_to_anchors_partial(
     entry: IndexEntry,
     query: &PackedSeq,
     refseq: &RefSequence,
-) -> usize {
-    let mut collisions = 0;
+) -> CollisionStats {
+    let mut stats = CollisionStats::default();
     let forward_hash = entry.get_hash_partial_forward();
     for i in entry.position..index.len() {
         let entry = index.entry(i);
@@ -401,17 +428,18 @@ fn add_to_anchors_partial(
         let ref_start = entry.strobe_extent_partial().0;
         let k = index.k();
 
+        stats.n_partial_lookups += 1;
         if query.kmer_bits(query_start, k) == refseq.kmer_bits(ref_start, k) {
             anchors.push(Anchor {
                 ref_start,
                 query_start,
             });
         } else {
-            collisions += 1;
+            stats.n_partial_collisions += 1;
         }
     }
 
-    collisions
+    stats
 }
 
 fn hits_to_anchors(
@@ -419,9 +447,9 @@ fn hits_to_anchors(
     index: &StrobemerIndex,
     query: &PackedSeq,
     refseq: &RefSequence,
-) -> (Vec<Anchor>, usize) {
+) -> (Vec<Anchor>, CollisionStats) {
     let mut anchors = vec![];
-    let mut collisions = 0;
+    let mut collisions = CollisionStats::default();
     for hit in hits {
         if hit.is_filtered {
             continue;
