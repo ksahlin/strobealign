@@ -234,6 +234,7 @@ impl Chainer {
         }
 
         let mut n_anchors = 0;
+        let mut total_collisions = 0;
         let mut time_chaining = 0.0;
         let mut chains = vec![];
         for &is_revcomp in &orientations {
@@ -246,7 +247,9 @@ impl Chainer {
             // Packed once per read so each anchor costs one integer comparison
             // instead of k base comparisons.
             let query = PackedSeq::from_slice(query);
-            let mut anchors = hits_to_anchors(&hits[is_revcomp], index, &query, refseq);
+            let (mut anchors, collisions) =
+                hits_to_anchors(&hits[is_revcomp], index, &query, refseq);
+            total_collisions += collisions;
             time_find_hits += hits_timer.elapsed().as_secs_f64();
             n_anchors += anchors.len();
             let chaining_timer = Instant::now();
@@ -285,6 +288,7 @@ impl Chainer {
             n_reads: 1,
             n_randstrobes: query_randstrobes[0].len() + query_randstrobes[1].len(),
             n_anchors,
+            n_collisions: total_collisions,
             n_chains: chains.len(),
             time_randstrobes: 0.0,
             time_find_hits,
@@ -340,7 +344,8 @@ fn add_to_anchors_full(
     entry: IndexEntry,
     query: &PackedSeq,
     refseq: &RefSequence,
-) {
+) -> usize {
+    let mut collisions = 0;
     let mut min_length_diff = usize::MAX;
     let forward_hash = entry.hash();
     for i in entry.position..index.len() {
@@ -359,16 +364,22 @@ fn add_to_anchors_full(
                     ref_start,
                     query_start,
                 });
+            } else {
+                collisions += 1;
             }
             if query.kmer_bits(query_end - k, k) == refseq.kmer_bits(ref_end - k, k) {
                 anchors.push(Anchor {
                     ref_start: ref_end - k,
                     query_start: query_end - k,
                 });
+            } else {
+                collisions += 1;
             }
             min_length_diff = length_diff;
         }
     }
+
+    collisions
 }
 
 fn add_to_anchors_partial(
@@ -378,7 +389,8 @@ fn add_to_anchors_partial(
     entry: IndexEntry,
     query: &PackedSeq,
     refseq: &RefSequence,
-) {
+) -> usize {
+    let mut collisions = 0;
     let forward_hash = entry.get_hash_partial_forward();
     for i in entry.position..index.len() {
         let entry = index.entry(i);
@@ -394,8 +406,12 @@ fn add_to_anchors_partial(
                 ref_start,
                 query_start,
             });
+        } else {
+            collisions += 1;
         }
     }
+
+    collisions
 }
 
 fn hits_to_anchors(
@@ -403,15 +419,16 @@ fn hits_to_anchors(
     index: &StrobemerIndex,
     query: &PackedSeq,
     refseq: &RefSequence,
-) -> Vec<Anchor> {
+) -> (Vec<Anchor>, usize) {
     let mut anchors = vec![];
+    let mut collisions = 0;
     for hit in hits {
         if hit.is_filtered {
             continue;
         }
         if hit.is_partial {
             if let Some(forward_entry) = index.get_partial_forward_from(hit.hash, hit.position) {
-                add_to_anchors_partial(
+                collisions += add_to_anchors_partial(
                     &mut anchors,
                     hit.query_start,
                     index,
@@ -421,7 +438,7 @@ fn hits_to_anchors(
                 );
             }
         } else {
-            add_to_anchors_full(
+            collisions += add_to_anchors_full(
                 &mut anchors,
                 hit.query_start,
                 hit.query_end,
@@ -433,7 +450,7 @@ fn hits_to_anchors(
         }
     }
 
-    anchors
+    (anchors, collisions)
 }
 
 impl ChainingResult {

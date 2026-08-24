@@ -15,6 +15,10 @@ pub struct ChainDetails {
 
     pub n_anchors: usize,
 
+    /// Number of hash collisions (hits that were not turned into an anchor
+    /// because the query k-mers did not match the reference k-mer)
+    pub n_collisions: usize,
+
     /// Number of chains found
     pub n_chains: usize,
 
@@ -34,6 +38,7 @@ impl ops::AddAssign<ChainDetails> for ChainDetails {
         self.n_reads += rhs.n_reads;
         self.n_randstrobes += rhs.n_randstrobes;
         self.n_anchors += rhs.n_anchors;
+        self.n_collisions += rhs.n_collisions;
         self.n_chains += rhs.n_chains;
         self.time_randstrobes += rhs.time_randstrobes;
         self.time_find_hits += rhs.time_find_hits;

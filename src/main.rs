@@ -794,6 +794,11 @@ fn run() -> Result<(), CliError> {
         details.chain.n_anchors as f64 / details.chain.n_reads as f64
     );
     debug!(
+        "Detected hash collisions:                 {:12}               Per read: {:7.1}",
+        details.chain.n_collisions,
+        details.chain.n_collisions as f64 / details.chain.n_reads as f64
+    );
+    debug!(
         "Found chains:                             {:12}               Per read: {:7.1}",
         details.chain.n_chains,
         details.chain.n_chains as f64 / details.chain.n_reads as f64
