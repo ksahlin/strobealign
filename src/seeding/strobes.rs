@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use super::{InvalidSeedingParameter, Syncmer};
 use crate::index::{REF_RANDSTROBE_HASH_MASK, STROBE2_OFFSET_BITS};
 
-pub const DEFAULT_AUX_LEN: u8 = 17;
+pub const DEFAULT_AUX_LEN: u32 = 17;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RandstrobeParameters {
@@ -28,19 +28,19 @@ impl RandstrobeParameters {
         w_max: usize,
         q: u64,
         max_dist: u8,
-        main_hash_mask: u64,
+        aux_len: u32,
     ) -> Result<Self, InvalidSeedingParameter> {
-        let partial_orientation_pos = main_hash_mask.trailing_zeros() - 1;
         RandstrobeParameters {
             w_min,
             w_max,
             q,
             max_dist,
-            main_hash_mask,
-            forward_main_hash_mask: main_hash_mask | (1u64 << partial_orientation_pos),
-            partial_orientation_pos,
+            main_hash_mask: 0,
+            forward_main_hash_mask: 0,
+            partial_orientation_pos: 0,
         }
-        .with_window(Some(w_min), Some(w_max))
+        .with_window(Some(w_min), Some(w_max))?
+        .with_aux_len(aux_len)
     }
 
     pub fn with_window(
@@ -59,6 +59,20 @@ impl RandstrobeParameters {
 
         self.w_min = new_w_min;
         self.w_max = new_w_max;
+
+        Ok(self)
+    }
+
+    /// Returns parameters with updated main_hash_mask etc., computed from aux_len.
+    pub fn with_aux_len(mut self, aux_len: u32) -> Result<Self, InvalidSeedingParameter> {
+        if aux_len > 63 {
+            return Err(InvalidSeedingParameter::InvalidParameter(
+                "aux length must be less than 64",
+            ));
+        }
+        self.main_hash_mask = !0u64 << (9 + aux_len);
+        self.partial_orientation_pos = 8 + aux_len;
+        self.forward_main_hash_mask = self.main_hash_mask | (1u64 << self.partial_orientation_pos);
 
         Ok(self)
     }
@@ -232,5 +246,17 @@ mod test {
         let randstrobe_count = randstrobe_iter.count();
 
         assert_eq!(randstrobe_count, syncmer_count);
+    }
+
+    #[test]
+    fn randstrobe_parameters_custom_aux_len() {
+        let sp = SeedingParameters::new(150);
+        let rp = sp.randstrobe.clone();
+        assert_ne!(rp.main_hash_mask, rp.forward_main_hash_mask);
+
+        let rp18 = rp.clone().with_aux_len(18).unwrap();
+        assert_ne!(rp18.main_hash_mask, rp18.forward_main_hash_mask);
+        assert_ne!(rp.main_hash_mask, rp18.main_hash_mask);
+        assert_ne!(rp.partial_orientation_pos, rp18.partial_orientation_pos);
     }
 }
