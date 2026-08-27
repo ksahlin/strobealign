@@ -97,3 +97,23 @@ mapped reads.
 `X0`: Number of equally scored best alignments (greater than 1 for multimappers).
  For paired-end reads, the tag is output for both reads, but the value is
  identical and is the number of equally scored best alignment *pairs*.
+
+## Hidden command-line options
+
+The following command-line options are not shown when strobealign is run with
+`--help`. They are typically only useful when developing the program.
+
+* `--ithreads`: Set the number of indexing threads. Default: same as `-t`.
+  This allows one to quickly index the reference as usual,
+  but then map reads with only one thread such that (debugging) output is
+  serial (and not intermixed output from multiple threads).
+* `--chunk-size`: Set the number of nucleotides processed by a worker thread at once.
+  Default: 1 million
+* `--trace`: Highly verbose output; shows lots of details for each read.
+  This also sets `--ithreads 1`.
+* `--max-seed-length`: Set maximum seed length.
+  For reasonable values on `-l` and `-u`, the seed length distribution is
+  usually determined by parameters `l` and `u`,
+  and then this parameter is only active in regions where syncmers are very
+  sparse. Default: read_length - 50
+* `-c`: Bitcount length between 2 and 63. Default: 8.
