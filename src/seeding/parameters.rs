@@ -182,13 +182,12 @@ impl SeedingParameters {
         let profile = t.into();
         let bitcount = 8;
         let q = 2u64.pow(bitcount) - 1;
-        let main_hash_mask = !0u64 << (9 + DEFAULT_AUX_LEN);
 
         match profile {
             Profile::Noisy => SeedingParameters {
                 profile,
                 syncmer: SyncmerParameters::try_new(16, 12).unwrap(),
-                randstrobe: RandstrobeParameters::try_new(2, 2, q, 84, main_hash_mask).unwrap(),
+                randstrobe: RandstrobeParameters::try_new(2, 2, q, 84, DEFAULT_AUX_LEN).unwrap(),
             },
             profile => {
                 let read_length = profile.length().unwrap();
@@ -212,7 +211,7 @@ impl SeedingParameters {
                         read_length_profile.w_max,
                         q,
                         max_dist,
-                        main_hash_mask,
+                        DEFAULT_AUX_LEN,
                     )
                     .unwrap(),
                 }
@@ -284,13 +283,8 @@ impl SeedingParameters {
     }
 
     /// Returns parameters with updated main_hash_mask, computed from aux_len.
-    pub fn with_aux_len(mut self, aux_len: u8) -> Result<Self, InvalidSeedingParameter> {
-        if aux_len > 63 {
-            return Err(InvalidSeedingParameter::InvalidParameter(
-                "aux length must be less than 64",
-            ));
-        }
-        self.randstrobe.main_hash_mask = !0u64 << (9 + aux_len);
+    pub fn with_aux_len(mut self, aux_len: u32) -> Result<Self, InvalidSeedingParameter> {
+        self.randstrobe = self.randstrobe.with_aux_len(aux_len)?;
 
         Ok(self)
     }

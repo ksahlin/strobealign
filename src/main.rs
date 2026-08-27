@@ -186,7 +186,7 @@ struct Args {
 
     /// No. of bits to use from secondary strobe hash
     #[arg(long, default_value_t = DEFAULT_AUX_LEN, value_name = "N", help_heading = "Seeding")]
-    aux_len: u8,
+    aux_len: u32,
 
     /// Multi-context seed strategy for finding hits
     #[arg(long = "mcs", value_enum, default_value_t = McsStrategy::default(), help_heading = "Search parameters")]
