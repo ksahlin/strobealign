@@ -62,7 +62,7 @@ struct Args {
     #[arg(short, default_value_t = 1, value_name = "N")]
     threads: usize,
 
-    /// Number of threads for indexing (default: same as -t)
+    /// Number of threads for indexing [default: same as -t]
     #[arg(long = "ithreads", hide = true)]
     indexing_threads: Option<usize>,
 
@@ -82,7 +82,7 @@ struct Args {
     #[arg(long = "trace", hide = true)]
     trace: bool,
 
-    /// Do not show progress indicator. Default: enable indicator if output is a terminal
+    /// Do not show progress indicator [default: enable indicator if output is a terminal]
     #[arg(long = "no-progress", default_value_t = false, help_heading = "Input/output")]
     no_progress: bool,
 
@@ -100,12 +100,12 @@ struct Args {
 
     // args::ValueFlag<std::string> index_statistics(parser, "PATH", "Print statistics of indexing to PATH", {"index-statistics"});
 
-    /// Do not map reads; only generate the strobemer index and write it to disk.
+    /// Generate the index and write it to disk.
     /// If read files are provided, they are used to estimate read length
     #[arg(short = 'i', long = "create-index", help_heading = "Input/output")]
     create_index: bool,
 
-    /// Use a pre-generated index previously written with --create-index.
+    /// Use an index previously generated with --create-index
     #[arg(long = "use-index", help_heading = "Input/output", conflicts_with = "create_index")]
     use_index: bool,
 
@@ -131,7 +131,7 @@ struct Args {
     #[arg(long, help_heading = "SAM output")]
     rg: Vec<String>,
 
-    /// Add extra details to SAM records (helpful for debugging)
+    /// Add extra details to SAM records (for debugging)
     #[arg(long, help_heading = "SAM output")]
     details: bool,
 
@@ -145,54 +145,54 @@ struct Args {
 
     // Seeding arguments
 
-    /// Mean read length. Default: estimated from the first 500 records in the input file
+    /// Mean read length [default: estimated from the first 500 records]
     #[arg(short, conflicts_with = "profile", help_heading = "Seeding")]
     read_length: Option<usize>,
 
-    /// Read profile (cannot be used together with -r). 'noisy' improves accuracy on error-prone reads but is slower.
+    /// Read profile (cannot be used with -r). 'noisy' improves accuracy on error-prone reads but is slower
     #[arg(short = 'P', value_enum, help_heading = "Seeding")]
     profile: Option<CmdlineProfile>,
 
     /// Maximum seed length.
     /// For reasonable values on -l and -u, the seed length distribution is
     /// usually determined by parameters l and u. Then this parameter is only active in regions
-    /// where syncmers are very sparse. Default: read_length - 50
-    #[arg(short, help_heading = "Seeding")]
+    /// where syncmers are very sparse [default: read_length - 50]
+    #[arg(short, help_heading = "Seeding", hide = true)]
     max_seed_length: Option<usize>,
 
-    /// Syncmer (strobe) length (must be less than 32). Default: chosen based on read length
+    /// Syncmer (strobe) length (must be less than 32) [default: depends on read length]
     #[arg(short, help_heading = "Seeding")]
     k: Option<usize>,
 
-    /// Submer size for creating syncmers. k-s must be even. Default: k-4
+    /// Submer size for creating syncmers. k - s must be even [default: k - 4]
     #[arg(short, help_heading = "Seeding")]
     s: Option<usize>,
 
-    /// Start of sampling window for second syncmer (i.e., second syncmer must be at least l syncmers downstream). Default: 5
+    /// Start of downstream syncmer sampling window [default: depends on read length]
     #[arg(short, help_heading = "Seeding")]
     l: Option<usize>,
 
-    /// End of sampling window for second syncmer (i.e., second syncmer must be at most u syncmers downstream). Default: 11
+    /// End of downstream syncmer sampling window [default: depends on read length]
     #[arg(short, help_heading = "Seeding")]
     u: Option<usize>,
 
-    /// Bitcount length between 2 and 63. Default: 8
-    #[arg(short, help_heading = "Seeding")]
+    /// Bitcount length between 2 and 63 [default: 8]
+    #[arg(short, help_heading = "Seeding", hide = true)]
     c: Option<u32>,
 
-    /// No. of top bits of hash to use as bucket indices (8-31). Default is to determine automatically.
+    /// No. of top bits of hash to use as bucket indices (8-31) [default: inferred automatically]
     #[arg(short, help_heading = "Seeding")]
     bits: Option<u8>,
 
-    /// No. of bits to use from secondary strobe hash
+    /// No. of bits to use for secondary strobe hash
     #[arg(long, default_value_t = DEFAULT_AUX_LEN, value_name = "N", help_heading = "Seeding")]
     aux_len: u32,
 
     /// Multi-context seed strategy for finding hits
-    #[arg(long = "mcs", value_enum, default_value_t = McsStrategy::default(), help_heading = "Search parameters")]
+    #[arg(long = "mcs", value_enum, value_name = "STRATEGY", default_value_t = McsStrategy::default(), help_heading = "Search parameters")]
     mcs_strategy: McsStrategy,
 
-    /// Top fraction of repetitive strobemers to filter out from sampling
+    /// Top fraction of repetitive strobemers to filter out
     #[arg(short, default_value_t = 0.0002, help_heading = "Search parameters")]
     filter_fraction: f64,
 
@@ -204,29 +204,31 @@ struct Args {
     #[arg(short = 'M', default_value_t = MappingParameters::default().max_tries, help_heading = "Search parameters")]
     max_tries: usize,
 
-    /// Maximum distance (in nucleotides) that filtered seeds may span.
+    /// Maximum allowed distance (in nucleotides) between filtered seeds.
     /// The lower the value, the more seeds are rescued.
-    /// Use 0 to disable rescue.
+    /// Use 0 to disable rescue
     #[arg(short = 'R', default_value_t = MappingParameters::default().rescue_distance, help_heading = "Search parameters")]
     rescue_distance: usize,
 
-    /// Collinear chaining look back heuristic
+    // Collinear chaining parameters
+
+    /// Search among up to N predecessor anchors
     #[arg(short = 'H', default_value_t = ChainingParameters::default().max_lookback, value_name = "N", help_heading = "Collinear chaining")]
     max_lookback: usize,
 
-    /// Collinear chaining diagonal gap cost
+    /// Diagonal gap cost
     #[arg(long = "gd", default_value_t = ChainingParameters::default().diag_diff_penalty, help_heading = "Collinear chaining")]
     diag_diff_penalty: f32,
 
-    /// Collinear chaining gap length cost
+    /// Gap length cost
     #[arg(long = "gl", default_value_t = ChainingParameters::default().gap_length_penalty, help_heading = "Collinear chaining")]
     gap_length_penalty: f32,
 
-    /// Collinear chaining best chain score threshold
+    /// Best chain score threshold
     #[arg(long = "vp", default_value_t = ChainingParameters::default().valid_score_threshold, help_heading = "Collinear chaining")]
     valid_score_threshold: f32,
 
-    /// Collinear chaining skip distance, how far on the reference do we allow anchors to chain [default: same as length of read]
+    /// Maximum allowed distance between anchors on the reference [default: same as read length]
     #[arg(long = "sg", help_heading = "Collinear chaining")]
     max_ref_gap: Option<usize>,
 
@@ -234,7 +236,7 @@ struct Args {
     #[arg(long = "mw", default_value_t = ChainingParameters::default().matches_weight, help_heading = "Collinear chaining")]
     matches_weight: f32,
 
-    /// Collinear chaining maximum query/reference gap ratio between anchors
+    /// Maximum query/reference gap ratio between anchors
     #[arg(long = "mr", default_value_t = ChainingParameters::default().max_diagonal_ratio, help_heading = "Collinear chaining")]
     max_diagonal_ratio: f32,
 
