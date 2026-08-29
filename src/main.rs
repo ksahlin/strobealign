@@ -149,11 +149,11 @@ struct Args {
     )]
     max_secondary: i64,
 
-    /// Output secondary alignments with alignment score at least st of primary alignment score
+    /// Secondary threshold. Output only secondary alignments with score at least FRACTION of primary alignment score
     #[arg(
         long = "st",
         default_value_t = MappingParameters::default().secondary_threshold,
-        value_name = "SECONDARY_THRESHOLD",
+        value_name = "FRACTION",
         help_heading = "SAM output"
     )]
     secondary_threshold: f32,
@@ -513,7 +513,7 @@ fn run() -> Result<(), CliError> {
 
     let timer = Instant::now();
     let mapping_parameters = MappingParameters {
-        // Replaced with usize::MAX to turn off the max_secondary threshold
+        // Negative -N argument disables limit
         max_secondary: if args.max_secondary < 0 {
             usize::MAX
         } else {
