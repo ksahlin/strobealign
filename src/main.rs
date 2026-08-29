@@ -348,6 +348,14 @@ fn run() -> Result<(), CliError> {
     }
     debug!("RUSTFLAGS='{}'", RUSTFLAGS.unwrap_or(""));
 
+    if !(0.0..=1.0).contains(&args.secondary_threshold) {
+        error!(
+            "Secondary threshold (--st) must be between 0 and 1, got {}",
+            args.secondary_threshold
+        );
+        exit(1);
+    }
+
     // Open R1 FASTQ file and estimate read length if necessary
     let read_length;
     let reads_reader1;
