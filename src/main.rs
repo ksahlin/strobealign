@@ -139,9 +139,24 @@ struct Args {
     #[arg(short = 'C', help_heading = "SAM output")]
     fastq_comments: bool,
 
-    /// Retain at most N secondary alignments (is upper bounded by -M and depends on -S)
-    #[arg(short = 'N', default_value_t = 0, value_name = "N", help_heading = "SAM output")]
-    max_secondary: usize,
+    /// Retain at most N secondary alignments (is upper bounded by -M and depends on -S). Use -1 for no limit
+    #[arg(
+        short = 'N',
+        default_value_t = 0,
+        value_name = "N",
+        allow_negative_numbers = true,
+        help_heading = "SAM output"
+    )]
+    max_secondary: i64,
+
+    /// Secondary threshold. Output only secondary alignments with score at least FRACTION of primary alignment score
+    #[arg(
+        long = "st",
+        default_value_t = MappingParameters::default().secondary_threshold,
+        value_name = "FRACTION",
+        help_heading = "SAM output"
+    )]
+    secondary_threshold: f32,
 
     // Seeding arguments
 
@@ -335,6 +350,14 @@ fn run() -> Result<(), CliError> {
     }
     debug!("RUSTFLAGS='{}'", RUSTFLAGS.unwrap_or(""));
 
+    if !(0.0..=1.0).contains(&args.secondary_threshold) {
+        error!(
+            "Secondary threshold (--st) must be between 0 and 1, got {}",
+            args.secondary_threshold
+        );
+        exit(2);
+    }
+
     // Open R1 FASTQ file and estimate read length if necessary
     let read_length;
     let reads_reader1;
@@ -357,7 +380,7 @@ fn run() -> Result<(), CliError> {
     } else {
         if !args.create_index {
             error!("FASTQ path is required");
-            exit(1);
+            exit(2);
         }
         if let Some(rl) = args.read_length {
             read_length = rl;
@@ -365,7 +388,7 @@ fn run() -> Result<(), CliError> {
             error!(
                 "With --create-index, either provide a FASTQ path or specify the read length with -r"
             );
-            exit(1);
+            exit(2);
         }
         reads_reader1 = None;
     }
@@ -500,7 +523,13 @@ fn run() -> Result<(), CliError> {
 
     let timer = Instant::now();
     let mapping_parameters = MappingParameters {
-        max_secondary: args.max_secondary,
+        // Negative -N argument disables limit
+        max_secondary: if args.max_secondary < 0 {
+            usize::MAX
+        } else {
+            args.max_secondary as usize
+        },
+        secondary_threshold: args.secondary_threshold,
         max_tries: args.max_tries,
         dropoff_threshold: args.dropoff_threshold,
         rescue_distance: args.rescue_distance,
