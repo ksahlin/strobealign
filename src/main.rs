@@ -353,7 +353,7 @@ fn run() -> Result<(), CliError> {
             "Secondary threshold (--st) must be between 0 and 1, got {}",
             args.secondary_threshold
         );
-        exit(1);
+        exit(2);
     }
 
     // Open R1 FASTQ file and estimate read length if necessary
@@ -378,7 +378,7 @@ fn run() -> Result<(), CliError> {
     } else {
         if !args.create_index {
             error!("FASTQ path is required");
-            exit(1);
+            exit(2);
         }
         if let Some(rl) = args.read_length {
             read_length = rl;
@@ -386,7 +386,7 @@ fn run() -> Result<(), CliError> {
             error!(
                 "With --create-index, either provide a FASTQ path or specify the read length with -r"
             );
-            exit(1);
+            exit(2);
         }
         reads_reader1 = None;
     }
