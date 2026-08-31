@@ -1,28 +1,34 @@
 # Strobealign Changelog
 
-## development version
+## v0.18.0 (2026-09-01)
 
-* Strobealign has been ported to Rust. The Rust version is equivalent to the
-  C++ version in terms of accuracy and runtime, but the following features are
-  currently missing:
-  - Option `--index-statistics` is not implemented.
-  - There are no Python bindings.
-  Please report any other regressions!
+Strobealign has been ported to Rust. The Rust version is at least as fast and
+accurate as the C++ version. There are currently some regressions due to the port:
+- The Rust version cannot saturate more than about 30-35 cores. Please see
+  [issue 561](https://github.com/ksahlin/strobealign/issues/561).
+- Option `--index-statistics` is not implemented (this will likely not come
+  back unless someone requests it).
+- There are no Python bindings. These were used for experimenting with the
+  algorithm, but Rust makes it easier to do these experiments directly in Rust.
 
-  If you need one of the above features, use version 0.17.0.
-* #550: Introduce piecewise extension alignment for single-end reads. The previous
-  SSW extension can be enabled with `--ssw`.
+If you need one of the above features, use version 0.17.0 for now.
+
+In addition, the following functional changes have been made:
+
+* Options `--nams` has been removed.
+* #550: Introduce “piecewise“ extension alignment for single-end reads.
+  The previous SSW extension can be enabled with `--ssw`.
 * #595: The in-memory representation of the reference sequence now uses two bits
   per nucleotide, reducing memory usage of the reference to 25% of its previous
   size. This change does not affect runtime.
-* #607: The reference is now stored as a single concatentade string of all
+* #607: The reference is now stored as a single concatenated string of all
   contigs. Reference coordinates now use a single 64-bit value. This means that
-  there are no longer any (relevant) limitations on the number and length of
+  there are no longer any (relevant) limitations on the number and lengths of
   contigs.
 * #539: Add a "noisy" read profile. Use `-P noisy` on the command line to
   select it. This is equivalent to `-k 16 -s 12 -l 2 -u 2 -m 100`.
-  We found these settings to increase accuracy on error-prone reads at the cost
-  of runtime.
+  We found these settings to increase accuracy on error-prone reads (at the cost
+  of runtime).
 * #596: Fix not properly paired reads getting MAPQ 60 even if there were
   alternative equally good mapping locations.
 * #624: Fix for secondary alignments: Secondary alignments are now output if
