@@ -7,7 +7,7 @@ setup(
     license="MIT",
     version="0.17.0",
     packages=["strobealign"],
-    package_dir={"": "cpp/python"},
-    cmake_install_dir="cpp/python",
+    package_dir={"": "src/python"},
+    cmake_install_dir="src/python",
     cmake_args=["-DPYTHON_BINDINGS=ON"],
 )

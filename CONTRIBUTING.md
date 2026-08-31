@@ -43,7 +43,8 @@ There are additional tests that should be run with `tests/run.sh`.
 ## Building the legacy C++ version of strobealign
 
 Until version 0.17.0, strobealign was written in C++. The code currently still
-exists in the repository. To compile that code, run `cmake -B build`.
+exists in the repository. To configure that code, change to the `cpp` directory
+and run `cmake -B build`.
 You can add specify a build type to set some useful compiler options by adding
 one of these options to the command:
 - Use `-DCMAKE_BUILD_TYPE=Release` when building a release (`-O3 -DNDEBUG`) (this is the default)
@@ -51,6 +52,11 @@ one of these options to the command:
 - Use `-DCMAKE_BUILD_TYPE=RelWithDebInfo` for profiling (`-O3 -g -DNDEBUG`)
 
 `-g` gives you debug symbols and `-DNDEBUG` disables assertions.
+
+Then compile the program:
+```
+cmake --build build
+```
 
 ## Testing
 
@@ -76,7 +82,6 @@ baseline commit does not change.
 
 * Update changelog (adjust section header)
 * Bump version in `Cargo.toml`
-* Bump version in `setup.py`
 * Commit
 * Push and wait for CI to pass
 * Do `git tag ...` and `git push --tags`
