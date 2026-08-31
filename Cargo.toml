@@ -3,7 +3,7 @@ members = ["python"]
 
 [package]
 name = "strobealign"
-version = "0.18.0-alpha"
+version = "0.18.0"
 edition = "2024"
 repository = "https://github.com/ksahlin/strobealign/"
 license = "MIT"
