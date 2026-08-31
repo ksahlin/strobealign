@@ -31,48 +31,48 @@ set_property(CACHE ISAL PROPERTY STRINGS "system" "download")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 add_compile_options(-Wall -Wextra -Werror=maybe-uninitialized)
 
-add_subdirectory(cpp/ext/zstr)
+add_subdirectory(src/ext/zstr)
 
 # Obtain version from Git or fall back to PROJECT_VERSION if not building
 # from a Git repository
 add_custom_target(version
   ${CMAKE_COMMAND}
-  -D CONFIGIN="${PROJECT_SOURCE_DIR}/cpp/version.hpp.in"
+  -D CONFIGIN="${PROJECT_SOURCE_DIR}/src/version.hpp.in"
   -D CONFIGOUT="${PROJECT_BINARY_DIR}/version.hpp"
   -D DEFAULT_VERSION="${PROJECT_VERSION}"
   -P ${CMAKE_SOURCE_DIR}/GitVersion.cmake
 )
 
 configure_file(
-  "${PROJECT_SOURCE_DIR}/cpp/buildconfig.hpp.in"
+  "${PROJECT_SOURCE_DIR}/src/buildconfig.hpp.in"
   "${PROJECT_BINARY_DIR}/buildconfig.hpp"
 )
 
 add_library(salib STATIC ${SOURCES}
-  cpp/refs.cpp
-  cpp/fastq.cpp
-  cpp/cmdline.cpp
-  cpp/mcsstrategy.cpp
-  cpp/index.cpp
-  cpp/indexparameters.cpp
-  cpp/sam.cpp
-  cpp/paf.cpp
-  cpp/pc.cpp
-  cpp/aln.cpp
-  cpp/cigar.cpp
-  cpp/aligner.cpp
-  cpp/hits.cpp
-  cpp/nam.cpp
-  cpp/randstrobes.cpp
-  cpp/readlen.cpp
-  cpp/version.cpp
-  cpp/io.cpp
-  cpp/insertsizedistribution.cpp
-  cpp/iowrap.cpp
-  cpp/chain.cpp
-  cpp/ext/xxhash.c
-  cpp/ext/ssw/ssw_cpp.cpp
-  cpp/ext/ssw/ssw.c
+  src/refs.cpp
+  src/fastq.cpp
+  src/cmdline.cpp
+  src/mcsstrategy.cpp
+  src/index.cpp
+  src/indexparameters.cpp
+  src/sam.cpp
+  src/paf.cpp
+  src/pc.cpp
+  src/aln.cpp
+  src/cigar.cpp
+  src/aligner.cpp
+  src/hits.cpp
+  src/nam.cpp
+  src/randstrobes.cpp
+  src/readlen.cpp
+  src/version.cpp
+  src/io.cpp
+  src/insertsizedistribution.cpp
+  src/iowrap.cpp
+  src/chain.cpp
+  src/ext/xxhash.c
+  src/ext/ssw/ssw_cpp.cpp
+  src/ext/ssw/ssw.c
 )
 if(ISAL STREQUAL "system")
   pkg_check_modules(ISAL IMPORTED_TARGET GLOBAL libisal>=2.30.0)
@@ -111,7 +111,7 @@ elseif(ISAL STREQUAL "download")
 #  message(FATAL_ERROR "Building without ISA-L support is currently not supported")
 endif()
 
-target_include_directories(salib PUBLIC cpp/ cpp/ext/ ${PROJECT_BINARY_DIR})
+target_include_directories(salib PUBLIC src/ src/ext/ ${PROJECT_BINARY_DIR})
 target_link_libraries(salib PUBLIC ZLIB::ZLIB Threads::Threads zstr::zstr ISAL)
 IF(ENABLE_AVX)
   target_compile_options(salib PUBLIC "-mavx2")
@@ -122,28 +122,28 @@ endif()
 
 add_dependencies(salib version)
 
-add_executable(strobealign cpp/main.cpp)
+add_executable(strobealign src/main.cpp)
 target_link_libraries(strobealign PUBLIC salib)
 if(NOT PYTHON_BINDINGS)
   install(TARGETS strobealign DESTINATION bin)
 endif()
 add_executable(test-strobealign
-  cpp/tests/tests.cpp
-  cpp/tests/test_input.cpp
-  cpp/tests/test_refs.cpp
-  cpp/tests/test_sam.cpp
-  cpp/tests/test_aligner.cpp
-  cpp/tests/test_cigar.cpp
-  cpp/tests/test_randstrobes.cpp
-  cpp/tests/test_indexparameters.cpp
+  src/tests/tests.cpp
+  src/tests/test_input.cpp
+  src/tests/test_refs.cpp
+  src/tests/test_sam.cpp
+  src/tests/test_aligner.cpp
+  src/tests/test_cigar.cpp
+  src/tests/test_randstrobes.cpp
+  src/tests/test_indexparameters.cpp
 )
 target_link_libraries(test-strobealign salib)
-target_include_directories(test-strobealign PUBLIC cpp/ cpp/ext/ ${PROJECT_BINARY_DIR})
+target_include_directories(test-strobealign PUBLIC src/ src/ext/ ${PROJECT_BINARY_DIR})
 
-add_executable(dumpstrobes cpp/dumpstrobes.cpp)
+add_executable(dumpstrobes src/dumpstrobes.cpp)
 target_link_libraries(dumpstrobes salib)
-target_include_directories(dumpstrobes PUBLIC cpp/ cpp/ext/ ${PROJECT_BINARY_DIR})
+target_include_directories(dumpstrobes PUBLIC src/ src/ext/ ${PROJECT_BINARY_DIR})
 
 if(PYTHON_BINDINGS)
-  add_subdirectory(cpp/python)
+  add_subdirectory(src/python)
 endif()
