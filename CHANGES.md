@@ -25,6 +25,9 @@
   of runtime.
 * #596: Fix not properly paired reads getting MAPQ 60 even if there were
   alternative equally good mapping locations.
+* #624: Fix for secondary alignments: Secondary alignments are now output if
+  their score is at least 0.95 times the score of the primary alignment.
+  This "secondary threshold" can now be set with command-line option `--st`.
 
 ## v0.17.0 (2025-12-18)
 
