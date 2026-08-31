@@ -5,8 +5,16 @@ members = ["python"]
 name = "strobealign"
 version = "0.18.0-alpha"
 edition = "2024"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+repository = "https://github.com/ksahlin/strobealign/"
+license = "MIT"
+description = """
+align sequencing reads using dynamic seed size with strobemers
+"""
+keywords = ["bioinformatics", "strobemers", "alignment", "read-mapping"]
+categories = [
+    "science::bioinformatics::sequence-analysis",
+    "command-line-utilities",
+]
 
 [build-dependencies]
 cc = "1.0"
