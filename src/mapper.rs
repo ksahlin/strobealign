@@ -406,9 +406,14 @@ pub fn align_single_end_read(
         {
             break;
         }
-        let Some(alignment) =
-            extend_seed(aligner, chain, refseq, &read, mapping_parameters.use_ssw)
-        else {
+        let Some(alignment) = extend_seed(
+            aligner,
+            chain,
+            refseq,
+            &read,
+            mapping_parameters.use_ssw,
+            index.k(),
+        ) else {
             continue;
         };
 
@@ -532,6 +537,7 @@ fn extend_seed(
     refseq: &RefSequence,
     read: &Read,
     use_ssw: bool,
+    k: usize,
 ) -> Option<Alignment> {
     let query = if chain.is_revcomp {
         read.rc()
@@ -595,11 +601,21 @@ fn extend_seed(
             let adjusted_anchors: Vec<Anchor> = chain
                 .anchors
                 .iter()
-                .map(|a| Anchor {
-                    ref_start: a.ref_start - decode_start - refseq.starts.0[contig_id],
-                    query_start: a.query_start,
+                .filter_map(|a| {
+                    let ref_start = a.ref_start - decode_start - refseq.starts.0[contig_id];
+                    // Skip anchors resulting from hash collisions
+                    if query[a.query_start..a.query_start + k] == segment[ref_start..ref_start + k]
+                    {
+                        Some(Anchor {
+                            ref_start,
+                            query_start: a.query_start,
+                        })
+                    } else {
+                        None
+                    }
                 })
                 .collect();
+
             info = aligner.align_piecewise(query, &segment, &adjusted_anchors, padding)?;
             result_start = info.ref_start + decode_start;
         }
@@ -851,6 +867,7 @@ fn extend_paired_seeds(
             refseq,
             read1,
             true, // SSW
+            k,
         );
         let alignment2 = extend_seed(
             aligner,
@@ -858,6 +875,7 @@ fn extend_paired_seeds(
             refseq,
             read2,
             true, // SSW
+            k,
         );
         if let (Some(alignment1), Some(alignment2)) = (alignment1, alignment2) {
             details[0].tried_alignment += 1;
@@ -890,6 +908,7 @@ fn extend_paired_seeds(
             refseq,
             reads[i],
             true, // SSW
+            k,
         );
         details[i].tried_alignment += 1;
         details[i].gapped += a_indv_max[i].as_ref().map_or(0, |a| a.gapped as usize);
@@ -924,6 +943,7 @@ fn extend_paired_seeds(
                         refseq,
                         reads[i],
                         true, // SSW
+                        k,
                     );
                     details[i].tried_alignment += 1;
                     details[i].gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
@@ -1021,7 +1041,7 @@ fn rescue_read(
         if score_dropoff1 < dropoff {
             break;
         }
-        if let Some(alignment) = extend_seed(aligner, chain, refseq, read1, true) {
+        if let Some(alignment) = extend_seed(aligner, chain, refseq, read1, true, k) {
             details[0].gapped += alignment.gapped as usize;
             alignments1.push(alignment);
             details[0].tried_alignment += 1;
