@@ -1,5 +1,11 @@
 # Strobealign Changelog
 
+## development version
+
+* #614: The piecewise extension for single-end reads now uses an in-house SIMD
+  aligner, extension length is controlled by a bandwidth parameter (`--bw`, 
+  default 1024) in place of `--xdrop`.
+  
 ## v0.18.0 (2026-09-01)
 
 Strobealign has been ported to Rust. The Rust version is at least as fast and
@@ -34,9 +40,6 @@ In addition, the following functional changes have been made:
 * #624: Fix for secondary alignments: Secondary alignments are now output if
   their score is at least 0.95 times the score of the primary alignment.
   This "secondary threshold" can now be set with command-line option `--st`.
-* #614: The piecewise extension for single-end reads now uses an in-house SIMD
-  aligner, extension length is controlled by a bandwidth parameter (`--bw`, 
-  default 1024) in place of `--xdrop`.
 
 ## v0.17.0 (2025-12-18)
 
