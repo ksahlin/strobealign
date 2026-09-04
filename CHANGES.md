@@ -2,7 +2,7 @@
 
 ## development version
 
-* #614: The piecewise extension for single-end reads now uses an in-house SIMD
+* #614: The piecewise extension for single-end reads now uses a custom SIMD
   aligner, extension length is controlled by a bandwidth parameter (`--bw`, 
   default 1024) in place of `--xdrop`.
   
