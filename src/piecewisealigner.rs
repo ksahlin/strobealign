@@ -196,10 +196,8 @@ impl PiecewiseAligner {
     ///
     /// # Returns
     ///
-    /// An [`Option<AlignmentInfo>`] containing:
-    /// - `Some(AlignmentInfo)` with the alignment score, CIGAR string, edit distance,
-    ///   and start/end positions in both sequences if the alignment score is positive
-    /// - `None` if the alignment score is <= 0
+    /// The best-scoring stretch of the chain as an [`AlignmentInfo`], or `None` if no
+    /// stretch of it scores above zero.
     pub fn extend_piecewise(
         &self,
         query: &[u8],
@@ -211,11 +209,9 @@ impl PiecewiseAligner {
             mut cigar,
             ref_start,
             query_start,
-            mut score,
             ..
         } = self.align_before_first_anchor(query, refseq, anchors.last()?, padding);
 
-        score += self.k as i32 * self.scores.match_ as i32;
         cigar.push(CigarOperation::Eq, self.k);
 
         for i in (1..anchors.len()).rev() {
@@ -244,10 +240,7 @@ impl PiecewiseAligner {
                             > self.scores.match_ as u32
                                 * ((query_part.len() as f32) * 0.85).ceil() as u32
                     {
-                        score += hamming_aligned.score as i32;
                         cigar.extend(&hamming_aligned.cigar);
-
-                        score += self.k as i32 * self.scores.match_ as i32;
                         cigar.push(CigarOperation::Eq, self.k);
                         continue;
                     }
@@ -258,66 +251,113 @@ impl PiecewiseAligner {
                     .borrow_mut()
                     .global_alignment(query_part, ref_part, None);
 
-                score += aligned.score;
                 cigar.extend(&aligned.cigar);
-
-                score += self.k as i32 * self.scores.match_ as i32;
                 cigar.push(CigarOperation::Eq, self.k);
             } else {
                 // Overlap between anchors, no need to align
                 if ref_diff < query_diff {
                     let inserted_part = (query_diff - ref_diff) as usize;
-
-                    score += -(self.scores.gap_open as i32)
-                        + (inserted_part as i32 - 1) * -(self.scores.gap_extend as i32);
                     cigar.push(CigarOperation::Insertion, inserted_part);
 
                     let matching_part = (self.k as isize + ref_diff) as usize;
-                    score += matching_part as i32 * self.scores.match_ as i32;
                     cigar.push(CigarOperation::Eq, matching_part);
                 } else if ref_diff > query_diff {
                     let deleted_part = (ref_diff - query_diff) as usize;
-                    score += -(self.scores.gap_open as i32)
-                        + (deleted_part as i32 - 1) * -(self.scores.gap_extend as i32);
                     cigar.push(CigarOperation::Deletion, deleted_part);
 
                     let matching_part = (self.k as isize + query_diff) as usize;
-                    score += matching_part as i32 * self.scores.match_ as i32;
                     cigar.push(CigarOperation::Eq, matching_part);
                 } else {
                     let matching_part = (self.k as isize + query_diff) as usize;
-                    score += matching_part as i32 * self.scores.match_ as i32;
                     cigar.push(CigarOperation::Eq, matching_part);
                 }
             }
         }
 
         let AlignmentResult {
-            cigar: end_cigar,
-            ref_end,
-            query_end,
-            score: end_score,
-            ..
+            cigar: end_cigar, ..
         } = self.align_after_last_anchor(query, refseq, anchors.first()?, padding);
 
         cigar.extend(&end_cigar);
-        score += end_score;
-        let edit_distance = cigar.edit_distance();
 
-        if score > 0 {
-            Some(AlignmentInfo {
-                cigar,
-                edit_distance,
-                ref_start,
-                ref_end,
-                query_start,
-                query_end,
-                score: score as u32,
-            })
-        } else {
-            None
+        trimmed_alignment(&cigar, &self.scores, ref_start, query_start, query.len())
+    }
+}
+
+/// Alignment score of one CIGAR operation, `I`/`D` as an affine gap.
+fn op_score(scores: &Scores, op: CigarOperation, len: usize) -> i32 {
+    let len = len as i32;
+    match op {
+        CigarOperation::Eq => scores.match_ as i32 * len,
+        CigarOperation::X => -(scores.mismatch as i32) * len,
+        CigarOperation::Insertion | CigarOperation::Deletion => {
+            -(scores.gap_open as i32 + (len - 1) * scores.gap_extend as i32)
+        }
+        _ => unreachable!(),
+    }
+}
+
+/// Query and reference bases consumed by one CIGAR operation.
+fn query_ref_len(op: CigarOperation, len: usize) -> (usize, usize) {
+    match op {
+        CigarOperation::Eq | CigarOperation::X => (len, len),
+        CigarOperation::Insertion => (len, 0),
+        CigarOperation::Deletion => (0, len),
+        _ => unreachable!(),
+    }
+}
+
+/// Cut a CIGAR down to its maximal-scoring run of operations. (Kadane's algorithm)
+fn trimmed_alignment(
+    cigar: &Cigar,
+    scores: &Scores,
+    ref_start: usize,
+    query_start: usize,
+    query_len: usize,
+) -> Option<AlignmentInfo> {
+    let bonus = scores.end_bonus as i32;
+
+    // Positions are (operation index, query position, reference position).
+    let mut open = if query_start == 0 { bonus } else { 0 };
+    let mut open_at = (0, query_start, ref_start);
+    let (mut best_score, mut best_from, mut best_to) = (0, open_at, open_at);
+    let (mut score, mut query_pos, mut ref_pos) = (0, query_start, ref_start);
+
+    for (idx, (op, len)) in cigar.iter().enumerate() {
+        let (q, r) = query_ref_len(op, len);
+        score += op_score(scores, op, len);
+        query_pos += q;
+        ref_pos += r;
+        let at = (idx + 1, query_pos, ref_pos);
+
+        let end_bonus = if query_pos == query_len { bonus } else { 0 };
+        if open + score + end_bonus > best_score {
+            (best_score, best_from, best_to) = (open + score + end_bonus, open_at, at);
+        }
+
+        let start_bonus = if query_pos == 0 { bonus } else { 0 };
+        if start_bonus - score > open {
+            (open, open_at) = (start_bonus - score, at);
         }
     }
+
+    if best_score <= 0 {
+        return None;
+    }
+
+    let (ops_start, query_start, ref_start) = best_from;
+    let (ops_end, query_end, ref_end) = best_to;
+    let trimmed = cigar.slice(ops_start..ops_end);
+
+    Some(AlignmentInfo {
+        edit_distance: trimmed.edit_distance(),
+        cigar: trimmed,
+        ref_start,
+        ref_end,
+        query_start,
+        query_end,
+        score: best_score as u32,
+    })
 }
 
 /// Removes spurious anchors from a chain of anchor points.
@@ -418,6 +458,94 @@ pub fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn best_segment_trims_flanking_junk_and_offsets_coordinates() {
+        let scores = Scores {
+            match_: 2,
+            mismatch: 8,
+            gap_open: 12,
+            gap_extend: 1,
+            end_bonus: 10,
+        };
+        let cigar = Cigar::from_str("10X100=50D5=").unwrap();
+        let seg = trimmed_alignment(&cigar, &scores, 1000, 7, 122).unwrap();
+        assert_eq!(seg.cigar, Cigar::from_str("100=").unwrap());
+        assert_eq!((seg.query_start, seg.query_end), (17, 117));
+        assert_eq!((seg.ref_start, seg.ref_end), (1010, 1110));
+        assert_eq!(seg.score, 100 * 2);
+        assert_eq!(seg.edit_distance, 0);
+    }
+
+    #[test]
+    fn best_segment_at_the_end_after_a_deletion() {
+        let scores = Scores {
+            match_: 2,
+            mismatch: 8,
+            gap_open: 12,
+            gap_extend: 1,
+            end_bonus: 10,
+        };
+        let cigar = Cigar::from_str("5=100D80=").unwrap();
+        let seg = trimmed_alignment(&cigar, &scores, 0, 0, 85).unwrap();
+        assert_eq!(seg.cigar, Cigar::from_str("80=").unwrap());
+        assert_eq!((seg.query_start, seg.query_end), (5, 85));
+        assert_eq!((seg.ref_start, seg.ref_end), (105, 185));
+        assert_eq!(seg.score, 80 * 2 + 10);
+    }
+
+    #[test]
+    fn best_segment_keeps_small_internal_penalties() {
+        let scores = Scores {
+            match_: 2,
+            mismatch: 8,
+            gap_open: 12,
+            gap_extend: 1,
+            end_bonus: 10,
+        };
+        let cigar = Cigar::from_str("50=2X50=").unwrap();
+        let seg = trimmed_alignment(&cigar, &scores, 0, 0, 102).unwrap();
+        assert_eq!(seg.cigar, Cigar::from_str("50=2X50=").unwrap());
+        assert_eq!((seg.query_start, seg.query_end), (0, 102));
+        assert_eq!(seg.score, 100 * 2 - 2 * 8 + 2 * 10);
+        assert_eq!(seg.edit_distance, 2);
+    }
+
+    #[test]
+    fn best_segment_none_when_nothing_scores_positive() {
+        let scores = Scores {
+            match_: 2,
+            mismatch: 8,
+            gap_open: 12,
+            gap_extend: 1,
+            end_bonus: 10,
+        };
+        let cigar = Cigar::from_str("5X").unwrap();
+        assert!(trimmed_alignment(&cigar, &scores, 0, 0, 5).is_none());
+    }
+
+    #[test]
+    fn best_segment_keeps_a_flank_that_pays_for_its_end_bonus() {
+        let scores = Scores {
+            match_: 2,
+            mismatch: 8,
+            gap_open: 12,
+            gap_extend: 1,
+            end_bonus: 10,
+        };
+        let cigar = Cigar::from_str("1X100=").unwrap();
+        let kept = trimmed_alignment(&cigar, &scores, 0, 0, 200).unwrap();
+        assert_eq!(kept.cigar, Cigar::from_str("1X100=").unwrap());
+        assert_eq!((kept.query_start, kept.query_end), (0, 101));
+        assert_eq!(kept.score, 100 * 2 - 8 + 10);
+
+        let cigar = Cigar::from_str("3X100=").unwrap();
+        let trimmed = trimmed_alignment(&cigar, &scores, 0, 0, 200).unwrap();
+        assert_eq!(trimmed.cigar, Cigar::from_str("100=").unwrap());
+        assert_eq!((trimmed.query_start, trimmed.query_end), (3, 103));
+        assert_eq!(trimmed.score, 100 * 2);
+    }
 
     #[test]
     fn remove_spurious_anchors_control() {
@@ -682,7 +810,7 @@ mod tests {
     }
 
     #[test]
-    fn extend_piecewise_unmappable() {
+    fn extend_piecewise_keeps_the_anchor_only() {
         let aligner = PiecewiseAligner::new(
             Scores {
                 match_: 2,
@@ -710,8 +838,15 @@ mod tests {
                 query_start: 10,
             },
         ];
-        let result = aligner.extend_piecewise(query, refseq, &anchors, 5);
-        assert!(result.is_none());
+        let result = aligner
+            .extend_piecewise(query, refseq, &anchors, 5)
+            .unwrap();
+        assert_eq!(result.cigar.to_string(), "5=");
+        assert_eq!(result.score, 10);
+        assert_eq!(result.query_start, 10);
+        assert_eq!(result.query_end, 15);
+        assert_eq!(result.ref_start, 10);
+        assert_eq!(result.ref_end, 15);
     }
 
     #[test]
