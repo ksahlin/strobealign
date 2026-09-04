@@ -5,7 +5,10 @@
 * #614: The piecewise extension for single-end reads now uses a custom SIMD
   aligner, extension length is controlled by a bandwidth parameter (`--bw`, 
   default 1024) in place of `--xdrop`.
-  
+* #628/#619: Fix some incorrect alignments caused by invalid anchors (which
+  arise due to hash collisions). These anchors are now removed from the chain
+  they are in before computing the alignment.
+
 ## v0.18.0 (2026-09-01)
 
 Strobealign has been ported to Rust. The Rust version is at least as fast and

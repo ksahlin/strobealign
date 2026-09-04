@@ -48,8 +48,6 @@ impl ops::AddAssign<ChainDetails> for ChainDetails {
 pub struct Details {
     pub chain: ChainDetails,
 
-    pub inconsistent_chains: usize,
-
     /// No. of times rescue by local alignment was attempted
     pub mate_rescue: usize,
 
@@ -68,7 +66,6 @@ pub struct Details {
 impl ops::AddAssign<Details> for Details {
     fn add_assign(&mut self, rhs: Details) {
         self.chain += rhs.chain;
-        self.inconsistent_chains += rhs.inconsistent_chains;
         self.mate_rescue += rhs.mate_rescue;
         self.tried_alignment += rhs.tried_alignment;
         self.gapped += rhs.gapped;

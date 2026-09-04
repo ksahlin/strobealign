@@ -9,7 +9,7 @@ use memchr::memmem;
 
 use crate::aligner::Aligner;
 use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
-use crate::chain::{Chain, get_chains, reverse_chain_if_needed, sort_chains};
+use crate::chain::{Chain, get_chains, sort_chains};
 use crate::chainer::{Anchor, Chainer};
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
@@ -392,7 +392,6 @@ pub fn align_single_end_read(
     let mut alignments_with_best_score = 0;
     let mut best_alignment = None;
 
-    let k = index.k();
     let read = Read::new(&record.sequence);
     for (tries, chain) in chains
         .iter_mut()
@@ -407,18 +406,13 @@ pub fn align_single_end_read(
         {
             break;
         }
-        let consistent_chain = chain.is_consistent(&read, refseq, k);
-        if !consistent_chain {
-            details.inconsistent_chains += 1;
-            continue;
-        }
         let Some(alignment) = extend_seed(
             aligner,
             chain,
             refseq,
             &read,
-            consistent_chain,
             mapping_parameters.use_ssw,
+            index.k(),
         ) else {
             continue;
         };
@@ -427,13 +421,13 @@ pub fn align_single_end_read(
         // if log::log_enabled!(log::Level::Trace) {
         //     let (mut ssw, mut pw) = if !mapping_parameters.use_ssw {
         //         (
-        //             extend_seed(aligner, chain, references, &read, consistent_chain, true).unwrap(),
+        //             extend_seed(aligner, chain, references, &read, true).unwrap(),
         //             alignment.clone(),
         //         )
         //     } else {
         //         (
         //             alignment.clone(),
-        //             extend_seed(aligner, chain, references, &read, consistent_chain, false).unwrap(),
+        //             extend_seed(aligner, chain, references, &read, false).unwrap(),
         //         )
         //     };
         //     // manually adds the soft clips
@@ -542,8 +536,8 @@ fn extend_seed(
     chain: &mut Chain,
     refseq: &RefSequence,
     read: &Read,
-    consistent_chain: bool,
     use_ssw: bool,
+    k: usize,
 ) -> Option<Alignment> {
     let query = if chain.is_revcomp {
         read.rc()
@@ -571,7 +565,7 @@ fn extend_seed(
     };
     let mut result_start = 0;
     let mut gapped = true;
-    if projected_start + query.len() == projected_end && consistent_chain {
+    if projected_start + query.len() == projected_end {
         let segment = contig.decode(projected_start, projected_end);
         if let Some(hamming_dist) = hamming_distance(query, &segment)
             && (hamming_dist as f32 / query.len() as f32) < 0.05
@@ -607,11 +601,21 @@ fn extend_seed(
             let adjusted_anchors: Vec<Anchor> = chain
                 .anchors
                 .iter()
-                .map(|a| Anchor {
-                    ref_start: a.ref_start - decode_start - refseq.starts.0[contig_id],
-                    query_start: a.query_start,
+                .filter_map(|a| {
+                    let ref_start = a.ref_start - decode_start - refseq.starts.0[contig_id];
+                    // Skip anchors resulting from hash collisions
+                    if query[a.query_start..a.query_start + k] == segment[ref_start..ref_start + k]
+                    {
+                        Some(Anchor {
+                            ref_start,
+                            query_start: a.query_start,
+                        })
+                    } else {
+                        None
+                    }
                 })
                 .collect();
+
             info = aligner.align_piecewise(query, &segment, &adjusted_anchors, padding)?;
             result_start = info.ref_start + decode_start;
         }
@@ -857,26 +861,21 @@ fn extend_paired_seeds(
         let mut ch_max1 = chains[0][0].clone();
         let mut ch_max2 = chains[1][0].clone();
 
-        let consistent_chain1 = ch_max1.is_consistent(read1, refseq, k);
-        details[0].inconsistent_chains += !consistent_chain1 as usize;
-        let consistent_chain2 = ch_max2.is_consistent(read2, refseq, k);
-        details[1].inconsistent_chains += !consistent_chain2 as usize;
-
         let alignment1 = extend_seed(
             aligner,
             &mut ch_max1,
             refseq,
             read1,
-            consistent_chain1,
             true, // SSW
+            k,
         );
         let alignment2 = extend_seed(
             aligner,
             &mut ch_max2,
             refseq,
             read2,
-            consistent_chain2,
             true, // SSW
+            k,
         );
         if let (Some(alignment1), Some(alignment2)) = (alignment1, alignment2) {
             details[0].tried_alignment += 1;
@@ -903,15 +902,13 @@ fn extend_paired_seeds(
     // the paired-end read as two single-end reads.
     let mut a_indv_max = [None, None];
     for i in 0..2 {
-        let consistent_chain = reverse_chain_if_needed(&mut chains[i][0], reads[i], refseq, k);
-        details[i].inconsistent_chains += !consistent_chain as usize;
         a_indv_max[i] = extend_seed(
             aligner,
             &mut chains[i][0],
             refseq,
             reads[i],
-            consistent_chain,
             true, // SSW
+            k,
         );
         details[i].tried_alignment += 1;
         details[i].gapped += a_indv_max[i].as_ref().map_or(0, |a| a.gapped as usize);
@@ -940,16 +937,13 @@ fn extend_paired_seeds(
             let alignment;
             if let Some(mut this_chain) = chainsp[i].clone() {
                 if let Entry::Vacant(e) = alignment_cache[i].entry(this_chain.id) {
-                    let consistent_chain =
-                        reverse_chain_if_needed(&mut this_chain, reads[i], refseq, k);
-                    details[i].inconsistent_chains += !consistent_chain as usize;
                     alignment = extend_seed(
                         aligner,
                         &mut this_chain,
                         refseq,
                         reads[i],
-                        consistent_chain,
                         true, // SSW
+                        k,
                     );
                     details[i].tried_alignment += 1;
                     details[i].gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
@@ -958,9 +952,7 @@ fn extend_paired_seeds(
                     alignment = alignment_cache[i].get(&this_chain.id).unwrap().clone();
                 }
             } else {
-                let mut other_chain = chainsp[1 - i].clone().unwrap();
-                details[1 - i].inconsistent_chains +=
-                    !reverse_chain_if_needed(&mut other_chain, reads[1 - i], refseq, k) as usize;
+                let other_chain = chainsp[1 - i].clone().unwrap();
                 alignment = rescue_align(aligner, &other_chain, refseq, reads[i], mu, sigma, k);
                 if alignment.is_some() {
                     details[i].mate_rescue += 1;
@@ -1049,10 +1041,7 @@ fn rescue_read(
         if score_dropoff1 < dropoff {
             break;
         }
-        let consistent_chain = reverse_chain_if_needed(chain, read1, refseq, k);
-        details[0].inconsistent_chains += !consistent_chain as usize;
-        if let Some(alignment) = extend_seed(aligner, chain, refseq, read1, consistent_chain, true)
-        {
+        if let Some(alignment) = extend_seed(aligner, chain, refseq, read1, true, k) {
             details[0].gapped += alignment.gapped as usize;
             alignments1.push(alignment);
             details[0].tried_alignment += 1;
