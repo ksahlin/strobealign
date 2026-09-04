@@ -40,6 +40,7 @@ use strobealign::mapper::{
 };
 use strobealign::mcsstrategy::McsStrategy;
 use strobealign::seeding::{DEFAULT_AUX_LEN, InvalidSeedingParameter, SeedingParameters};
+use strobealign::simdaligner::{InvalidScores, check_scores};
 
 mod logger;
 
@@ -281,9 +282,9 @@ struct Args {
     #[arg(long = "ssw", help_heading = "Alignment")]
     use_ssw: bool,
 
-    /// X-drop threshold for piecewise extension
-    #[arg(long = "xdrop", default_value_t = 500, value_name = "N", help_heading = "Alignment")]
-    xdrop: i32,
+    /// Bandwidth of the piecewise start/end extensions, in diagonals
+    #[arg(long = "bw", default_value_t = 1024, value_name = "N", help_heading = "Alignment")]
+    bandwidth: usize,
 
 
     /// Path to input reference (in FASTA format)
@@ -318,6 +319,9 @@ enum CliError {
     #[error("No sequences found in the reference FASTA")]
     NoReference,
 
+    #[error("Invalid scoring scheme: {0}")]
+    InvalidScores(#[from] InvalidScores),
+
     #[error("When opening '{0}': {1}", .path, .e)]
     IoWithPath { e: io::Error, path: String },
 }
@@ -345,6 +349,19 @@ fn run() -> Result<(), CliError> {
     };
     logger::init(level).unwrap();
     info!("This is {} {}", NAME, VERSION);
+
+    let scores = Scores {
+        match_: args.match_score,
+        mismatch: args.mismatch_score,
+        gap_open: args.gap_open_penalty,
+        gap_extend: args.gap_extension_penalty,
+        end_bonus: args.end_bonus,
+    };
+    // Only the piecewise path has a bound on the scheme, and --ssw does not take it.
+    if !args.use_ssw {
+        check_scores(scores)?;
+    }
+
     if cfg!(target_os = "linux") {
         warn_clocksource();
     }
@@ -547,19 +564,16 @@ fn run() -> Result<(), CliError> {
         matches_weight: args.matches_weight,
         max_diagonal_ratio: args.max_diagonal_ratio,
     };
-    let scores = Scores {
-        match_: args.match_score,
-        mismatch: args.mismatch_score,
-        gap_open: args.gap_open_penalty,
-        gap_extend: args.gap_extension_penalty,
-        end_bonus: args.end_bonus,
-    };
     debug!("{:?}", mapping_parameters);
     debug!("{:?}", chaining_parameters);
     debug!("{:?}", scores);
 
     let chainer = Chainer::new(index.k(), chaining_parameters);
-    let aligner = Aligner::new(scores, index.k(), args.xdrop);
+    let aligner = if args.use_ssw {
+        Aligner::new_ssw_only(scores)
+    } else {
+        Aligner::new(scores, index.k(), args.bandwidth)
+    };
 
     let cmd_line = env::args().skip(1).collect::<Vec<_>>().join(" ");
     let rg_id = match args.rg_id {

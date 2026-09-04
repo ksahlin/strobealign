@@ -84,6 +84,12 @@ impl Cigar {
         Cigar { ops: vec![] }
     }
 
+    pub fn with_capacity(hint: usize) -> Self {
+        Cigar {
+            ops: Vec::with_capacity(hint),
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.ops.is_empty()
     }
@@ -122,6 +128,10 @@ impl Cigar {
         Cigar {
             ops: self.ops.iter().copied().rev().collect(),
         }
+    }
+
+    pub fn reverse(&mut self) {
+        self.ops.reverse();
     }
 
     pub fn extend(&mut self, other: &Cigar) {

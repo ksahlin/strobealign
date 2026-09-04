@@ -1,230 +1,31 @@
 use crate::{
     aligner::{AlignmentInfo, Scores, hamming_align_global},
     chainer::Anchor,
-    cigar::{Cigar, CigarOperation},
+    cigar::CigarOperation,
+    simdaligner::{AlignmentResult, SimdAligner},
 };
-use block_aligner::{
-    cigar::{Cigar as BlockCigar, Operation},
-    scan_block::{Block, PaddedBytes},
-    scores::{AAMatrix, AAProfile, Gaps, NucMatrix, Profile},
-};
+use std::cell::RefCell;
 
-// Maximum value for blockaligner's block sizes, higher values might cause a crash
-const MAXIMUM_BLOCK_SIZE: usize = 8192;
-
-#[derive(Clone, Copy)]
-enum XdropMode {
-    GlobalStartLocalEnd,
-    LocalStartGlobalEnd,
-}
-
-#[derive(Clone)]
 pub struct PiecewiseAligner {
     scores: Scores,
     k: usize,
-    gaps: Gaps,
-    matrix: NucMatrix,
-    xdrop: i32,
+    bandwidth: usize,
+    simd_aligner: RefCell<SimdAligner>,
 }
 
-struct AlignmentResult {
-    pub score: i32,
-    pub query_start: usize,
-    pub query_end: usize,
-    pub ref_start: usize,
-    pub ref_end: usize,
-    pub cigar: Cigar,
-}
-
-impl Default for AlignmentResult {
-    fn default() -> Self {
-        AlignmentResult {
-            score: 0,
-            query_start: 0,
-            query_end: 0,
-            ref_start: 0,
-            ref_end: 0,
-            cigar: Cigar::new(),
-        }
+impl Clone for PiecewiseAligner {
+    fn clone(&self) -> Self {
+        PiecewiseAligner::new(self.scores, self.k, self.bandwidth)
     }
 }
 
 impl PiecewiseAligner {
-    pub fn new(scores: Scores, k: usize, xdrop: i32) -> Self {
-        let gaps = Gaps {
-            open: -(scores.gap_open as i8),
-            extend: -(scores.gap_extend as i8),
-        };
-        let matrix = NucMatrix::new_simple(scores.match_ as i8, -(scores.mismatch as i8));
+    pub fn new(scores: Scores, k: usize, bandwidth: usize) -> Self {
         PiecewiseAligner {
             scores,
             k,
-            gaps,
-            matrix,
-            xdrop,
-        }
-    }
-
-    /// Performs a global alignment between two sequences.
-    ///
-    /// The alignment uses the blockaligner crate with block sizes
-    /// determined based on the largest length of the 2 sequences.
-    ///
-    /// # Parameters
-    ///
-    /// * `query` - The query sequence as a byte slice
-    /// * `reference` - The reference sequence as a byte slice
-    ///
-    /// # Returns
-    ///
-    /// An [`AlignmentResult`] containing:
-    /// - The alignment score
-    /// - Start and end positions in both sequences
-    /// - A CIGAR string representing the alignment operations
-    fn global_alignment(&self, query: &[u8], reference: &[u8]) -> AlignmentResult {
-        if query.is_empty() || reference.is_empty() {
-            return AlignmentResult::default();
-        }
-
-        // Blockaligner block ranges, set to maximum values for full global alignment
-        // Must be powers of 2
-        let max_len = query.len().max(reference.len());
-        let block_size = max_len.next_power_of_two().clamp(32, MAXIMUM_BLOCK_SIZE);
-
-        // Create padded sequences
-        let mut q_padded = PaddedBytes::new::<NucMatrix>(query.len(), block_size);
-        q_padded.set_bytes::<NucMatrix>(query, block_size);
-        let mut r_padded = PaddedBytes::new::<NucMatrix>(reference.len(), block_size);
-        r_padded.set_bytes::<NucMatrix>(reference, block_size);
-
-        // Make a global alignment call with traceback
-        let mut block = Block::<true, false>::new(query.len(), reference.len(), block_size);
-        block.align(
-            &q_padded,
-            &r_padded,
-            &self.matrix,
-            self.gaps,
-            block_size..=block_size,
-            0, // 0 x-drop threshold for global alignment
-        );
-        let res = block.res();
-
-        // Retrieve CIGAR
-        let mut cigar = BlockCigar::new(res.query_idx, res.reference_idx);
-        block.trace().cigar_eq(
-            &q_padded,
-            &r_padded,
-            res.query_idx,
-            res.reference_idx,
-            &mut cigar,
-        );
-
-        AlignmentResult {
-            score: res.score,
-            query_start: 0,
-            query_end: res.query_idx,
-            ref_start: 0,
-            ref_end: res.reference_idx,
-            cigar: build_cigar(&cigar),
-        }
-    }
-
-    /// Performs an alignment with one end fixed and the other allowed to terminate
-    /// early based on the x-drop mode.
-    ///
-    /// This method computes a semi-global alignment where one end of the alignment is
-    /// anchored while the other end can terminate early if the alignment score drops
-    /// too far below the maximum observed score (determined by the x-drop value).
-    ///
-    /// The alignment uses the blockaligner crate with block sizes chosen dynamically
-    /// as 20% of the maximum length of the 2 sequences and 50% of the maximum length
-    /// of the 2 sequences.
-    ///
-    /// # Parameters
-    ///
-    /// * `query` - The query sequence as a byte slice
-    /// * `reference` - The reference sequence as a byte slice
-    /// * `mode` - Controls which end is fixed:
-    ///   - [`XdropMode::GlobalStartLocalEnd`]: Alignment must start at position 0 of
-    ///     both sequences but may end before the last position
-    ///   - [`XdropMode::LocalStartGlobalEnd`]: Alignment must end at the last position
-    ///     of both sequences but may start after position 0. This is implemented by
-    ///     reversing both sequences, aligning them, and transforming the result back
-    ///     to forward coordinates.
-    ///
-    /// # Returns
-    ///
-    /// An [`AlignmentResult`] containing:
-    /// - The alignment score
-    /// - Start and end positions in both sequences
-    /// - A CIGAR string representing the alignment operations
-    fn xdrop_alignment(&self, query: &[u8], reference: &[u8], mode: XdropMode) -> AlignmentResult {
-        if query.is_empty() || reference.is_empty() {
-            return AlignmentResult::default();
-        }
-
-        // Blockaligner block ranges, set to 20% and 50% of longest sequence
-        // Must be powers of 2
-        let max_len = query.len().max(reference.len());
-        let min_size = (max_len / 5)
-            .next_power_of_two()
-            .clamp(32, MAXIMUM_BLOCK_SIZE);
-        let max_size = (max_len / 2)
-            .next_power_of_two()
-            .clamp(128, MAXIMUM_BLOCK_SIZE);
-
-        // Create padded sequences
-        // blockaligner only has a AA profile, no nucleotide profile, so we have to use AA matrix
-        let mut q_padded = PaddedBytes::new::<AAMatrix>(query.len(), max_size);
-        let mut r_padded = PaddedBytes::new::<AAMatrix>(reference.len(), max_size);
-
-        match mode {
-            XdropMode::GlobalStartLocalEnd => {
-                q_padded.set_bytes::<AAMatrix>(query, max_size);
-                r_padded.set_bytes::<AAMatrix>(reference, max_size);
-            }
-            XdropMode::LocalStartGlobalEnd => {
-                q_padded.set_bytes_rev::<AAMatrix>(query, max_size);
-                r_padded.set_bytes_rev::<AAMatrix>(reference, max_size);
-            }
-        }
-
-        // Create profile to align the reference on the query with end bonus
-        // We need to build a position-specific scoring matrix
-        // blockaligner only has a AA profile, no nucleotide profile
-        let profile = make_aa_profile(query, &self.scores, max_size, mode);
-
-        // Make an x-drop alignment call with traceback
-        let mut block = Block::<true, true>::new(reference.len(), query.len(), max_size);
-        block.align_profile(&r_padded, &profile, min_size..=max_size, self.xdrop);
-        let res = block.res();
-
-        // Retrieve CIGAR
-        let mut cigar = BlockCigar::new(res.query_idx, res.reference_idx);
-        block.trace().cigar_eq(
-            &r_padded,
-            &q_padded,
-            res.query_idx,
-            res.reference_idx,
-            &mut cigar,
-        );
-        match mode {
-            XdropMode::GlobalStartLocalEnd => AlignmentResult {
-                score: res.score,
-                query_start: 0,
-                query_end: res.reference_idx,
-                ref_start: 0,
-                ref_end: res.query_idx,
-                cigar: build_cigar_swap_indel(&cigar),
-            },
-            XdropMode::LocalStartGlobalEnd => AlignmentResult {
-                score: res.score,
-                query_start: query.len() - res.reference_idx,
-                query_end: query.len(),
-                ref_start: reference.len() - res.query_idx,
-                ref_end: reference.len(),
-                cigar: build_cigar_reverse_swap_indel(&cigar),
-            },
+            bandwidth,
+            simd_aligner: RefCell::new(SimdAligner::new(scores)),
         }
     }
 
@@ -267,8 +68,11 @@ impl PiecewiseAligner {
                 .saturating_sub(query_part.len() + padding);
             let ref_part = &refseq[ref_start..first_anchor.ref_start];
 
-            let mut pre_align =
-                self.xdrop_alignment(query_part, ref_part, XdropMode::LocalStartGlobalEnd);
+            let mut pre_align = self.simd_aligner.borrow_mut().local_start_alignment(
+                query_part,
+                ref_part,
+                Some(self.bandwidth),
+            );
 
             if pre_align.score == 0 {
                 AlignmentResult {
@@ -335,8 +139,11 @@ impl PiecewiseAligner {
                 .min(last_anchor_ref_end + query_part.len() + padding);
             let ref_part = &refseq[last_anchor_ref_end..ref_end];
 
-            let mut post_align =
-                self.xdrop_alignment(query_part, ref_part, XdropMode::GlobalStartLocalEnd);
+            let mut post_align = self.simd_aligner.borrow_mut().local_end_alignment(
+                query_part,
+                ref_part,
+                Some(self.bandwidth),
+            );
 
             if post_align.score == 0 {
                 AlignmentResult {
@@ -446,7 +253,10 @@ impl PiecewiseAligner {
                     }
                 }
 
-                let aligned = self.global_alignment(query_part, ref_part);
+                let aligned = self
+                    .simd_aligner
+                    .borrow_mut()
+                    .global_alignment(query_part, ref_part, None);
 
                 score += aligned.score;
                 cigar.extend(&aligned.cigar);
@@ -508,119 +318,6 @@ impl PiecewiseAligner {
             None
         }
     }
-}
-
-/// Converts a blockaligner CIGAR string to our internal CIGAR format.
-fn build_cigar(block_cigar: &BlockCigar) -> Cigar {
-    let mut result = Cigar::new();
-
-    for i in 0..block_cigar.len() {
-        let oplen = block_cigar.get(i);
-        let op_code = match oplen.op {
-            Operation::M => CigarOperation::Match,
-            Operation::Eq => CigarOperation::Eq,
-            Operation::X => CigarOperation::X,
-            Operation::I => CigarOperation::Insertion,
-            Operation::D => CigarOperation::Deletion,
-            _ => continue,
-        };
-        result.push(op_code, oplen.len);
-    }
-
-    result
-}
-
-/// Converts a blockaligner CIGAR string to our internal CIGAR format with
-/// insertions and deletions swapped.
-fn build_cigar_swap_indel(block_cigar: &BlockCigar) -> Cigar {
-    let mut result = Cigar::new();
-
-    for i in 0..block_cigar.len() {
-        let oplen = block_cigar.get(i);
-        let op_code = match oplen.op {
-            Operation::M => CigarOperation::Match,
-            Operation::Eq => CigarOperation::Eq,
-            Operation::X => CigarOperation::X,
-            Operation::I => CigarOperation::Deletion, // Swapped
-            Operation::D => CigarOperation::Insertion, // Swapped
-            _ => continue,
-        };
-        result.push(op_code, oplen.len);
-    }
-
-    result
-}
-
-/// Converts a blockaligner CIGAR string to our internal CIGAR format in reverse
-/// order with insertions and deletions swapped.
-fn build_cigar_reverse_swap_indel(block_cigar: &BlockCigar) -> Cigar {
-    let mut result = Cigar::new();
-
-    for i in (0..block_cigar.len()).rev() {
-        let oplen = block_cigar.get(i);
-        let op_code = match oplen.op {
-            Operation::M => CigarOperation::Match,
-            Operation::Eq => CigarOperation::Eq,
-            Operation::X => CigarOperation::X,
-            Operation::I => CigarOperation::Deletion, // Swapped
-            Operation::D => CigarOperation::Insertion, // Swapped
-            _ => continue,
-        };
-        result.push(op_code, oplen.len);
-    }
-
-    result
-}
-
-/// Creates a position-specific scoring matrix (profile) for aligning the reference
-/// against the query with end bonuses.
-///
-/// # Parameters
-///
-/// * `query` - The query sequence to build the profile from
-/// * `scores` - Scoring parameters
-/// * `max_size` - Maximum block size for alignment
-/// * `mode` - Alignment mode determining sequence traversal direction
-///
-/// # Returns
-///
-/// An [`AAProfile`] configured with position-specific scores for each nucleotide
-/// pairing and appropriate end bonuses based on the alignment mode.
-fn make_aa_profile(query: &[u8], scores: &Scores, max_size: usize, mode: XdropMode) -> AAProfile {
-    let mut profile = AAProfile::new(query.len(), max_size, -(scores.gap_extend as i8));
-
-    // Set scores for each nucleotide combination
-    for i in 1..=query.len() {
-        // Select the query character at this position depending on the alignment mode.
-        // `GlobalStartLocalEnd`: traverse the query from start to end (forward).
-        // `LocalStartGlobalEnd`: traverse the query from end to start (reversed).
-        let query_char = match mode {
-            XdropMode::GlobalStartLocalEnd => query[i - 1],
-            XdropMode::LocalStartGlobalEnd => query[query.len() - i],
-        };
-
-        for &c in b"ACGTN" {
-            if c == query_char {
-                profile.set(i, c, scores.match_ as i8);
-            } else {
-                profile.set(i, c, -(scores.mismatch as i8));
-            };
-        }
-    }
-
-    // Set gap costs
-    profile.set_all_gap_open_C(-(scores.gap_open as i8) - -(scores.gap_extend as i8));
-    profile.set_all_gap_close_C(0);
-    profile.set_all_gap_open_R(-(scores.gap_open as i8) - -(scores.gap_extend as i8));
-
-    // Give a bonus score to the end
-    let bonus_pos = query.len();
-    for &c in b"ACGTN" {
-        let current_score = profile.get(bonus_pos, c);
-        profile.set(bonus_pos, c, current_score + scores.end_bonus as i8);
-    }
-
-    profile
 }
 
 /// Removes spurious anchors from a chain of anchor points.
@@ -686,7 +383,7 @@ pub fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
 
     // Second pruning:
     // We remove anchors of the ends of the chain if they create any indel.
-    // If they were part of the best scoring path, they should be retireved by the x-drop alignment.
+    // If they were part of the best scoring path, they should be retrieved by the local end/start alignment.
     // the idea is that spurious anchors are much more difficult to detect on the ends of the chain,
     // so we look at a small ratio of anchors and remove any anchors creating deviations.
 
@@ -721,532 +418,6 @@ pub fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn global_perfect_match() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            0,
-        );
-        let result = aligner.global_alignment(b"AAATTT", b"AAATTT");
-        assert_eq!(result.score, 6 * 2);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 6);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 6);
-        assert_eq!(result.cigar.to_string(), "6=");
-    }
-
-    #[test]
-    fn global_complete_mismatch() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            0,
-        );
-        let result = aligner.global_alignment(b"AAA", b"TTT");
-        assert_eq!(result.score, 3 * -8);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 3);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 3);
-        assert_eq!(result.cigar.to_string(), "3X");
-    }
-
-    #[test]
-    fn global_single_mismatch() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            0,
-        );
-        let result = aligner.global_alignment(b"AAATAA", b"AAAAAA");
-        assert_eq!(result.score, 5 * 2 - 8);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 6);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 6);
-        assert_eq!(result.cigar.to_string(), "3=1X2=");
-    }
-
-    #[test]
-    fn global_gap_in_query() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            0,
-        );
-        let result = aligner.global_alignment(b"AAATTT", b"AAAATTTT");
-        assert_eq!(result.score, 6 * 2 - 12 - 1);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 6);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 8);
-        assert_eq!(result.cigar.to_string(), "3=2D3=");
-    }
-
-    #[test]
-    fn global_gap_in_reference() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            0,
-        );
-        let result = aligner.global_alignment(b"AAAATTTT", b"AAATTT");
-        assert_eq!(result.score, 6 * 2 - 12 - 1,);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 8);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 6);
-        assert_eq!(result.cigar.to_string(), "3=2I3=");
-    }
-
-    #[test]
-    fn global_gap_at_query_start() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            0,
-        );
-        let result = aligner.global_alignment(b"AAATTT", b"TTAAATTT");
-        assert_eq!(result.score, 6 * 2 - 12 - 1);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 6);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 8);
-        assert_eq!(result.cigar.to_string(), "2D6=");
-    }
-
-    #[test]
-    fn global_gap_at_query_end() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            0,
-        );
-        let result = aligner.global_alignment(b"AAATTT", b"AAATTTAA");
-
-        assert_eq!(result.score, 6 * 2 - 12 - 1);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 6);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 8);
-        assert_eq!(result.cigar.to_string(), "6=2D");
-    }
-
-    #[test]
-    fn global_gap_at_reference_start() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            0,
-        );
-        let result = aligner.global_alignment(b"TTAAATTT", b"AAATTT");
-
-        assert_eq!(result.score, 6 * 2 - 12 - 1);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 8);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 6);
-        assert_eq!(result.cigar.to_string(), "2I6=");
-    }
-
-    #[test]
-    fn global_gap_at_reference_end() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            0,
-        );
-        let result = aligner.global_alignment(b"AAATTTAA", b"AAATTT");
-
-        assert_eq!(result.score, 6 * 2 - 12 - 1);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 8);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 6);
-        assert_eq!(result.cigar.to_string(), "6=2I");
-    }
-
-    #[test]
-    fn global_multiple_mismatches() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            0,
-        );
-        let result = aligner.global_alignment(b"ATATATATAT", b"AAAAAAAAAA");
-
-        assert_eq!(result.score, 5 * 2 - 5 * 8);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 10);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 10);
-        assert_eq!(result.cigar.to_string(), "1=1X1=1X1=1X1=1X1=1X");
-    }
-
-    #[test]
-    fn global_complex_alignment() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            0,
-        );
-        let result = aligner.global_alignment(b"AAACTTAAACCTT", b"AAAATTGAAATT");
-        assert_eq!(result.score, 10 * 2 - 8 - 2 * 12 - 1);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 13);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 12);
-        assert_eq!(result.cigar.to_string(), "3=1X2=1D3=2I2=");
-    }
-
-    #[test]
-    fn xdrop_forward_perfect_match() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            100,
-        );
-        let result = aligner.xdrop_alignment(b"AAATTT", b"AAATTT", XdropMode::GlobalStartLocalEnd);
-        assert_eq!(result.score, 6 * 2 + 10);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 6);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 6);
-        assert_eq!(result.cigar.to_string(), "6=");
-    }
-
-    #[test]
-    fn xdrop_forward_with_mismatch() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            100,
-        );
-        let result = aligner.xdrop_alignment(b"AAATAA", b"AAAAAA", XdropMode::GlobalStartLocalEnd);
-        assert_eq!(result.score, 5 * 2 - 8 + 10);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 6);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 6);
-        assert_eq!(result.cigar.to_string(), "3=1X2=");
-    }
-
-    #[test]
-    fn xdrop_forward_early_termination() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            100,
-        );
-        let result = aligner.xdrop_alignment(
-            b"AAAAAAATTTTTTT",
-            b"AAAAAAACCCCCCC",
-            XdropMode::GlobalStartLocalEnd,
-        );
-        assert_eq!(result.score, 7 * 2);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.query_end, 7);
-        assert_eq!(result.ref_end, 7);
-        assert_eq!(result.cigar.to_string(), "7=");
-    }
-
-    #[test]
-    #[allow(clippy::identity_op)]
-    fn xdrop_forward_end_bonus_extends_alignment() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 50,
-            },
-            0,
-            100,
-        );
-        let result =
-            aligner.xdrop_alignment(b"AAAAAAAATT", b"AAAAAAAAAA", XdropMode::GlobalStartLocalEnd);
-        assert_eq!(result.score, 8 * 2 - 8 * 2 + 50);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 10);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 10);
-        assert_eq!(result.cigar.to_string(), "8=2X");
-    }
-
-    #[test]
-    fn xdrop_forward_with_gap() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            100,
-        );
-        let result =
-            aligner.xdrop_alignment(b"AAAAACCTTT", b"AAAAATTT", XdropMode::GlobalStartLocalEnd);
-        assert_eq!(result.score, 8 * 2 - 12 - 1 + 10);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 10);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 8);
-        assert_eq!(result.cigar.to_string(), "5=2I3=");
-    }
-
-    #[test]
-    fn xdrop_forward_gap_in_reference() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            100,
-        );
-        let result =
-            aligner.xdrop_alignment(b"AAAAATTT", b"AAAAACCTTT", XdropMode::GlobalStartLocalEnd);
-        assert_eq!(result.score, 8 * 2 - 12 - 1 + 10);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 8);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 10);
-        assert_eq!(result.cigar.to_string(), "5=2D3=");
-    }
-
-    #[test]
-    fn xdrop_reverse_perfect_match() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            100,
-        );
-        let result = aligner.xdrop_alignment(b"AAATTT", b"AAATTT", XdropMode::LocalStartGlobalEnd);
-        assert_eq!(result.score, 6 * 2 + 10);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 6);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 6);
-        assert_eq!(result.cigar.to_string(), "6=");
-    }
-
-    #[test]
-    fn xdrop_reverse_with_mismatch() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            100,
-        );
-        let result = aligner.xdrop_alignment(b"AATAAA", b"AAAAAA", XdropMode::LocalStartGlobalEnd);
-        assert_eq!(result.score, 5 * 2 - 8 + 10);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 6);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 6);
-        assert_eq!(result.cigar.to_string(), "2=1X3=");
-    }
-
-    #[test]
-    fn xdrop_reverse_early_termination() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            100,
-        );
-        let result = aligner.xdrop_alignment(
-            b"TTTTTTTAAAAAAA",
-            b"CCCCCCCAAAAAAA",
-            XdropMode::LocalStartGlobalEnd,
-        );
-        assert_eq!(result.score, 7 * 2);
-        assert_eq!(result.query_start, 7);
-        assert_eq!(result.query_end, 14);
-        assert_eq!(result.ref_start, 7);
-        assert_eq!(result.ref_end, 14);
-        assert_eq!(result.cigar.to_string(), "7=");
-    }
-
-    #[test]
-    #[allow(clippy::identity_op)]
-    fn xdrop_reverse_end_bonus_extends_alignment() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 50,
-            },
-            0,
-            100,
-        );
-        let result =
-            aligner.xdrop_alignment(b"TTAAAAAAAA", b"AAAAAAAAAA", XdropMode::LocalStartGlobalEnd);
-        assert_eq!(result.score, 8 * 2 - 8 * 2 + 50);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 10);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 10);
-        assert_eq!(result.cigar.to_string(), "2X8=");
-    }
-
-    #[test]
-    fn xdrop_reverse_with_gap() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            100,
-        );
-        let result =
-            aligner.xdrop_alignment(b"TTTCCAAAAA", b"TTTAAAAA", XdropMode::LocalStartGlobalEnd);
-        assert_eq!(result.score, 8 * 2 - 12 - 1 + 10);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 10);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 8);
-        assert_eq!(result.cigar.to_string(), "3=2I5=");
-    }
-
-    #[test]
-    fn xdrop_reverse_gap_in_reference() {
-        let aligner = PiecewiseAligner::new(
-            Scores {
-                match_: 2,
-                mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
-                end_bonus: 10,
-            },
-            0,
-            100,
-        );
-        let result =
-            aligner.xdrop_alignment(b"TTTAAAAA", b"TTTCCAAAAA", XdropMode::LocalStartGlobalEnd);
-        assert_eq!(result.score, 8 * 2 - 12 - 1 + 10);
-        assert_eq!(result.query_start, 0);
-        assert_eq!(result.query_end, 8);
-        assert_eq!(result.ref_start, 0);
-        assert_eq!(result.ref_end, 10);
-        assert_eq!(result.cigar.to_string(), "3=2D5=");
-    }
 
     #[test]
     fn remove_spurious_anchors_control() {
@@ -1476,7 +647,7 @@ mod tests {
                 end_bonus: 10,
             },
             5,
-            100,
+            1024,
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
@@ -1521,7 +692,7 @@ mod tests {
                 end_bonus: 10,
             },
             5,
-            100,
+            1024,
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq = b"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT";
@@ -1555,7 +726,7 @@ mod tests {
                 end_bonus: 10,
             },
             5,
-            100,
+            1024,
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq =
@@ -1613,7 +784,7 @@ mod tests {
                 end_bonus: 10,
             },
             5,
-            100,
+            1024,
         );
         let query = b"CTTTTAAAAATTTTAAAAATGGTTTCAAAAATTCCTAAAAATTTTTCCCCC";
         let refseq = b"TTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAA";
@@ -1643,6 +814,6 @@ mod tests {
         assert_eq!(result.query_end, 46);
         assert_eq!(result.ref_start, 0);
         assert_eq!(result.ref_end, 45);
-        assert_eq!(result.cigar.to_string(), "1X13=1D6=2I3=1X7=2X11=");
+        assert_eq!(result.cigar.to_string(), "1X9=1D10=2I3=1X7=2X11=");
     }
 }
