@@ -56,9 +56,9 @@ if ! test -f ${baseline_bam}; then
     git clone . ${srcdir}
     pushd ${srcdir}
     git checkout -d ${baseline_commit}
-    cargo build --release
+    cargo build
     popd
-    mv ${srcdir}/target/release/strobealign ${baseline_binary}
+    mv ${srcdir}/target/debug/strobealign ${baseline_binary}
     rm -rf "${srcdir}"
   fi
   ${baseline_binary} -N 2 -v -t ${threads} ${ref} ${reads[@]} | samtools view -o ${baseline_bam}.tmp.bam
@@ -66,9 +66,9 @@ if ! test -f ${baseline_bam}; then
 fi
 
 # Build and run strobealign
-cargo build --release
+cargo build
 set -x
-target/release/strobealign -N 2 -v -t ${threads} ${ref} ${reads[@]} | samtools view -o head.bam
+RUST_BACKTRACE=1 target/debug/strobealign -N 2 -v -t ${threads} ${ref} ${reads[@]} | samtools view -o head.bam
 
 # Do the actual comparison
 tests/samdiff.py ${baseline_bam} head.bam
