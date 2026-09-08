@@ -122,7 +122,6 @@ impl Randstrobe {
     /// the main hash and the bottom bits to the bits of the auxiliary
     /// hash. Since entries in the index are sorted by randstrobe hash, this allows
     /// us to search for the main syncmer by masking out the lower bits.
-    /// The orientation bit position (between main and aux) is left as zero.
     pub fn hash(
         hash1: u64,
         hash2: u64,
@@ -130,11 +129,10 @@ impl Randstrobe {
         is_forward2: u64,
         parameters: &RandstrobeParameters,
     ) -> u64 {
-        ((hash1 & parameters.main_hash_mask)
-            | (hash2 & !parameters.forward_main_hash_mask)
+        (hash1 & parameters.main_hash_mask)
+            | (hash2 & !parameters.forward_main_hash_mask & (REF_RANDSTROBE_HASH_MASK << 1))
             | (is_forward1 << parameters.partial_orientation_pos)
-            | (is_forward2 << STROBE2_OFFSET_BITS))
-            & (REF_RANDSTROBE_HASH_MASK << 1)
+            | (is_forward2 << STROBE2_OFFSET_BITS)
     }
 }
 
