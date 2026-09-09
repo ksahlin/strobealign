@@ -363,10 +363,9 @@ fn add_to_anchors_partial(
         if entry.get_hash_partial_forward() != forward_hash {
             break;
         }
-        let ref_start = entry.strobe_extent_partial().0;
 
         anchors.push(Anchor {
-            ref_start,
+            ref_start: entry.ref_start(),
             query_start,
         });
     }

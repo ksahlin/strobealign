@@ -234,12 +234,6 @@ impl<'a> IndexEntry<'a> {
                 .forward_main_hash_mask
     }
 
-    pub fn strobe_extent_partial(&self) -> (usize, usize) {
-        let p = self.strobemer_index.randstrobes[self.position].ref_start();
-
-        (p, p + self.k())
-    }
-
     /// Count number of hits for the randstrobe *and* its "reverse complement"
     pub fn get_count_full(&self, hash_revcomp: u64) -> usize {
         let reverse_count;
@@ -325,10 +319,6 @@ impl<'a> IndexEntry<'a> {
 
     pub fn is_too_frequent_partial(&self, cutoff: usize) -> bool {
         self.is_too_frequent_forward_partial(cutoff)
-    }
-
-    fn k(&self) -> usize {
-        self.strobemer_index.k()
     }
 }
 
