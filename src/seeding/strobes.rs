@@ -70,8 +70,8 @@ impl RandstrobeParameters {
                 "aux length must be less than 64",
             ));
         }
-        self.main_hash_mask = !0u64 << (9 + aux_len);
-        self.partial_orientation_pos = 8 + aux_len;
+        self.main_hash_mask = !0u64 << (STROBE2_OFFSET_BITS + 1 + aux_len);
+        self.partial_orientation_pos = STROBE2_OFFSET_BITS + aux_len;
         self.forward_main_hash_mask = self.main_hash_mask | (1u64 << self.partial_orientation_pos);
 
         Ok(self)
