@@ -132,11 +132,6 @@ impl StrobemerIndex {
         self.get_masked(hash, self.parameters.randstrobe.main_hash_mask)
     }
 
-    /// Find the first entry matching the forward main hash
-    pub fn get_partial_forward(&'_ self, hash: RandstrobeHash) -> Option<IndexEntry<'_>> {
-        self.get_masked(hash, self.parameters.randstrobe.forward_main_hash_mask)
-    }
-
     /// Find the first entry matching the forward main hash, starting from
     /// the undirected main position
     pub fn get_partial_forward_from(
@@ -155,7 +150,7 @@ impl StrobemerIndex {
     /// hash value masked by the `hash_mask`.
     /// If `start_position` is provided, search starts from there instead of
     /// the bucket start.
-    pub fn get_masked_from(
+    fn get_masked_from(
         &'_ self,
         hash: RandstrobeHash,
         hash_mask: RandstrobeHash,

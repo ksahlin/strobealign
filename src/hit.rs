@@ -125,7 +125,7 @@ fn rescue_least_frequent(
 }
 
 /// Find all hits for a query, using the requested MCS strategy.
-/// Repetitive hits are included. `is_filtered` is set to false for all hits.
+/// Repetitive hits are included.
 fn find_all_hits(
     query_randstrobes: &[QueryRandstrobe],
     index: &StrobemerIndex,
