@@ -1,6 +1,6 @@
 use fastrand::Rng;
 
-use crate::chain::{Chain, get_chains, sort_chains};
+use crate::chain::{Chain, get_sorted_chains};
 use crate::chainer::Chainer;
 use crate::details::{ChainDetails, Details};
 use crate::index::StrobemerIndex;
@@ -24,14 +24,14 @@ pub fn map_single_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) -> (Vec<PafRecord>, Details) {
-    let (mut chain_details, mut chains) = get_chains(
+    let (chain_details, chains) = get_sorted_chains(
         &record.sequence,
         index,
         chainer,
         rescue_distance,
         mcs_strategy,
+        rng,
     );
-    chain_details.time_sort_chains = sort_chains(&mut chains, rng);
 
     if chains.is_empty() {
         (vec![], chain_details.into())
@@ -66,14 +66,14 @@ pub fn abundances_single_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) {
-    let (_, mut chains) = get_chains(
+    let (_, chains) = get_sorted_chains(
         &record.sequence,
         index,
         chainer,
         rescue_distance,
         mcs_strategy,
+        rng,
     );
-    sort_chains(&mut chains, rng);
 
     let n_best = chains
         .iter()
@@ -131,10 +131,22 @@ pub fn map_paired_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) -> (Vec<PafRecord>, Details) {
-    let (mut chain_details1, mut chains1) =
-        get_chains(&r1.sequence, index, chainer, rescue_distance, mcs_strategy);
-    let (mut chain_details2, mut chains2) =
-        get_chains(&r2.sequence, index, chainer, rescue_distance, mcs_strategy);
+    let (mut chain_details1, mut chains1) = get_sorted_chains(
+        &r1.sequence,
+        index,
+        chainer,
+        rescue_distance,
+        mcs_strategy,
+        rng,
+    );
+    let (chain_details2, mut chains2) = get_sorted_chains(
+        &r2.sequence,
+        index,
+        chainer,
+        rescue_distance,
+        mcs_strategy,
+        rng,
+    );
 
     if chains1.is_empty() && chains2.is_empty() {
         chain_details1 += chain_details2;
@@ -150,9 +162,6 @@ pub fn map_paired_end_read(
         &chain_details1,
         &chain_details2,
     );
-
-    chain_details1.time_sort_chains = sort_chains(&mut chains1, rng);
-    chain_details2.time_sort_chains = sort_chains(&mut chains2, rng);
 
     let mut records = vec![];
     match get_best_paired_mapping_location(
@@ -223,10 +232,22 @@ pub fn abundances_paired_end_read(
     chainer: &Chainer,
     rng: &mut Rng,
 ) {
-    let (chain_details1, mut chains1) =
-        get_chains(&r1.sequence, index, chainer, rescue_distance, mcs_strategy);
-    let (chain_details2, mut chains2) =
-        get_chains(&r2.sequence, index, chainer, rescue_distance, mcs_strategy);
+    let (chain_details1, mut chains1) = get_sorted_chains(
+        &r1.sequence,
+        index,
+        chainer,
+        rescue_distance,
+        mcs_strategy,
+        rng,
+    );
+    let (chain_details2, mut chains2) = get_sorted_chains(
+        &r2.sequence,
+        index,
+        chainer,
+        rescue_distance,
+        mcs_strategy,
+        rng,
+    );
 
     if chains1.is_empty() && chains2.is_empty() {
         return;
@@ -241,9 +262,6 @@ pub fn abundances_paired_end_read(
         &chain_details1,
         &chain_details2,
     );
-
-    sort_chains(&mut chains1, rng);
-    sort_chains(&mut chains2, rng);
 
     match get_best_paired_mapping_location(
         &chain_pairs,

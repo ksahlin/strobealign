@@ -9,7 +9,7 @@ use memchr::memmem;
 
 use crate::aligner::Aligner;
 use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
-use crate::chain::{Chain, get_chains, sort_chains};
+use crate::chain::{Chain, get_sorted_chains};
 use crate::chainer::{Anchor, Chainer};
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
@@ -365,14 +365,14 @@ pub fn align_single_end_read(
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let (mut chain_details, mut chains) = get_chains(
+    let (chain_details, mut chains) = get_sorted_chains(
         &record.sequence,
         index,
         chainer,
         mapping_parameters.rescue_distance,
         mapping_parameters.mcs_strategy,
+        rng,
     );
-    chain_details.time_sort_chains = sort_chains(&mut chains, rng);
     let mut details: Details = chain_details.into();
 
     let timer = Instant::now();
@@ -654,14 +654,14 @@ pub fn align_paired_end_read(
 
     for is_r1 in [0, 1] {
         let record = if is_r1 == 0 { r1 } else { r2 };
-        let (mut chain_details, mut chains) = get_chains(
+        let (chain_details, chains) = get_sorted_chains(
             &record.sequence,
             index,
             chainer,
             mapping_parameters.rescue_distance,
             mapping_parameters.mcs_strategy,
+            rng,
         );
-        chain_details.time_sort_chains = sort_chains(&mut chains, rng);
         details[is_r1].chain = chain_details;
         chains_pair[is_r1] = chains;
     }
