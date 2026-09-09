@@ -11,7 +11,7 @@ use crate::seeding::{
 };
 
 pub type RandstrobeHash = u64;
-pub type BucketIndex = u64;
+pub type BucketIndex = usize;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Default, Clone)]
 #[repr(C)]
@@ -159,8 +159,8 @@ impl StrobemerIndex {
         let masked_hash = hash & hash_mask;
         const MAX_LINEAR_SEARCH: usize = 4;
         let top_n = (hash >> (64 - self.bits)) as usize;
-        let position_start = start_position.unwrap_or(self.bucket_starts[top_n] as usize);
-        let position_end = self.bucket_starts[top_n + 1] as usize;
+        let position_start = start_position.unwrap_or(self.bucket_starts[top_n]);
+        let position_end = self.bucket_starts[top_n + 1];
         let bucket = &self.randstrobes[position_start..position_end];
         if bucket.is_empty() {
             return None;
@@ -265,7 +265,7 @@ impl<'a> IndexEntry<'a> {
         let key = self.strobemer_index.randstrobes[position].hash();
         let masked_key = key & hash_mask;
         let top_n = (key >> (64 - self.strobemer_index.bits)) as usize;
-        let position_end = self.strobemer_index.bucket_starts[top_n + 1] as usize;
+        let position_end = self.strobemer_index.bucket_starts[top_n + 1];
 
         if position_end - position < MAX_LINEAR_SEARCH {
             let mut count = 1;
