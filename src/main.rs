@@ -14,6 +14,7 @@ use clap::builder::styling::AnsiColor;
 use fastrand::Rng;
 use log::{debug, error, info, trace, warn};
 use mimalloc::MiMalloc;
+use strobealign::chain::get_sorted_chains;
 use strobealign::indexer::make_index;
 use strobealign::refseq::RefSequence;
 use thiserror::Error;
@@ -914,20 +915,39 @@ impl Mapper<'_> {
             trace!("\nQuery: {}\nlength={}", r1.name, r1.len());
             match self.mode {
                 Mode::Sam => {
+                    let (chain_details1, chains1) = get_sorted_chains(
+                        &r1.sequence,
+                        self.index,
+                        self.chainer,
+                        self.mapping_parameters.rescue_distance,
+                        self.mapping_parameters.mcs_strategy,
+                        &mut rng,
+                    );
+
                     let (sam_records, details) = if let Some(r2) = r2 {
-                        let (mut records, details) = align_paired_end_read(
+                        let (chain_details2, chains2) = get_sorted_chains(
+                            &r2.sequence,
+                            self.index,
+                            self.chainer,
+                            self.mapping_parameters.rescue_distance,
+                            self.mapping_parameters.mcs_strategy,
+                            &mut rng,
+                        );
+
+                        let (mut records, mut details) = align_paired_end_read(
                             &r1,
                             &r2,
-                            self.index,
                             self.refseq,
                             self.mapping_parameters,
                             self.sam_output,
                             self.seeding_parameters,
                             &mut isizedist,
-                            self.chainer,
+                            &mut [chains1, chains2],
                             &self.aligner,
                             &mut rng,
                         );
+                        details.chain = chain_details1;
+                        details.chain += chain_details2;
                         if !self.include_unmapped
                             && !records[0].is_mapped()
                             && !records[1].is_mapped()
