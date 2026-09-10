@@ -14,7 +14,7 @@ use clap::builder::styling::AnsiColor;
 use fastrand::Rng;
 use log::{debug, error, info, trace, warn};
 use mimalloc::MiMalloc;
-use strobealign::chain::get_sorted_chains;
+use strobealign::chain::{Chain, get_sorted_chains};
 use strobealign::indexer::make_index;
 use strobealign::refseq::RefSequence;
 use thiserror::Error;
@@ -913,131 +913,184 @@ impl Mapper<'_> {
         for record in chunk {
             let (r1, r2) = record?;
             trace!("\nQuery: {}\nlength={}", r1.name, r1.len());
-            match self.mode {
-                Mode::Sam => {
-                    let (chain_details1, chains1) = get_sorted_chains(
-                        &r1.sequence,
-                        self.index,
-                        self.chainer,
-                        self.mapping_parameters.rescue_distance,
-                        self.mapping_parameters.mcs_strategy,
-                        &mut rng,
-                    );
 
-                    let (sam_records, details) = if let Some(r2) = r2 {
-                        let (chain_details2, chains2) = get_sorted_chains(
-                            &r2.sequence,
-                            self.index,
-                            self.chainer,
-                            self.mapping_parameters.rescue_distance,
-                            self.mapping_parameters.mcs_strategy,
-                            &mut rng,
-                        );
+            let (chain_details1, mut chains1) = get_sorted_chains(
+                &r1.sequence,
+                self.index,
+                self.chainer,
+                self.mapping_parameters.rescue_distance,
+                self.mapping_parameters.mcs_strategy,
+                &mut rng,
+            );
+            let both_orientations1 = chain_details1.both_orientations;
+            cumulative_details.chain += chain_details1;
 
-                        let (mut records, mut details) = align_paired_end_read(
+            if let Some(r2) = r2 {
+                // paired-end
+                let (chain_details2, chains2) = get_sorted_chains(
+                    &r2.sequence,
+                    self.index,
+                    self.chainer,
+                    self.mapping_parameters.rescue_distance,
+                    self.mapping_parameters.mcs_strategy,
+                    &mut rng,
+                );
+                let both_orientations = [both_orientations1, chain_details2.both_orientations];
+                cumulative_details.chain += chain_details2;
+                let mut chains_pair = [chains1, chains2];
+                match self.mode {
+                    Mode::Sam => {
+                        cumulative_details += self.handle_sam_paired(
+                            &mut out,
                             &r1,
                             &r2,
-                            self.refseq,
-                            self.mapping_parameters,
-                            self.sam_output,
-                            self.seeding_parameters,
+                            &mut chains_pair,
                             &mut isizedist,
-                            &mut [chains1, chains2],
-                            &self.aligner,
                             &mut rng,
-                        );
-                        details.chain = chain_details1;
-                        details.chain += chain_details2;
-                        if !self.include_unmapped
-                            && !records[0].is_mapped()
-                            && !records[1].is_mapped()
-                        {
-                            records = vec![];
-                        }
-
-                        (records, details)
-                    } else {
-                        let (mut records, details) = align_single_end_read(
-                            &r1,
-                            self.index,
-                            self.refseq,
-                            self.mapping_parameters,
-                            self.sam_output,
-                            self.chainer,
-                            &self.aligner,
-                            &mut rng,
-                        );
-                        if !self.include_unmapped && !records[0].is_mapped() {
-                            records = vec![];
-                        }
-
-                        (records, details)
-                    };
-
-                    for sam_record in sam_records {
-                        writeln!(out, "{}", sam_record)?;
+                        )?;
                     }
-                    cumulative_details += details;
-                }
-                Mode::Paf => {
-                    let (paf_records, details) = if let Some(r2) = r2 {
-                        map_paired_end_read(
+                    Mode::Paf => {
+                        self.handle_paf_paired(
+                            &mut out,
                             &r1,
                             &r2,
-                            self.index,
-                            self.refseq,
-                            self.mapping_parameters.rescue_distance,
                             &mut isizedist,
-                            self.mapping_parameters.mcs_strategy,
-                            self.chainer,
-                            &mut rng,
-                        )
-                    } else {
-                        map_single_end_read(
-                            &r1,
-                            self.index,
-                            self.refseq,
-                            self.mapping_parameters.rescue_distance,
-                            self.mapping_parameters.mcs_strategy,
-                            self.chainer,
-                            &mut rng,
-                        )
-                    };
-                    for paf_record in paf_records {
-                        writeln!(out, "{}", paf_record)?;
+                            &mut chains_pair,
+                            both_orientations,
+                        )?;
                     }
-                    cumulative_details += details;
-                }
-                Mode::Abundances => {
-                    if let Some(r2) = r2 {
+                    Mode::Abundances => {
                         abundances_paired_end_read(
                             &r1,
                             &r2,
-                            self.index,
                             self.refseq,
                             &mut self.abundances,
-                            self.mapping_parameters.rescue_distance,
                             &mut isizedist,
-                            self.mapping_parameters.mcs_strategy,
-                            self.chainer,
-                            &mut rng,
+                            &mut chains_pair,
+                            both_orientations,
                         );
-                    } else {
+                    }
+                }
+            } else {
+                // single-end
+                match self.mode {
+                    Mode::Sam => {
+                        cumulative_details +=
+                            self.handle_sam_single(&mut out, &r1, &mut chains1, &mut rng)?;
+                    }
+                    Mode::Paf => {
+                        self.handle_paf_single(&mut out, &r1, &mut chains1)?;
+                    }
+                    Mode::Abundances => {
                         abundances_single_end_read(
                             &r1,
                             self.refseq,
-                            self.index,
                             &mut self.abundances,
-                            self.mapping_parameters.rescue_distance,
-                            self.mapping_parameters.mcs_strategy,
-                            self.chainer,
-                            &mut rng,
+                            &chains1,
                         );
                     }
                 }
             }
         }
         Ok((out, cumulative_details))
+    }
+
+    fn handle_sam_paired(
+        &self,
+        out: &mut Vec<u8>,
+        r1: &SequenceRecord,
+        r2: &SequenceRecord,
+        chains_pair: &mut [Vec<Chain>; 2],
+        isizedist: &mut InsertSizeDistribution,
+        rng: &mut Rng,
+    ) -> Result<Details, std::io::Error> {
+        let (mut sam_records, details) = align_paired_end_read(
+            r1,
+            r2,
+            self.refseq,
+            self.mapping_parameters,
+            self.sam_output,
+            self.seeding_parameters,
+            isizedist,
+            chains_pair,
+            &self.aligner,
+            rng,
+        );
+        if !self.include_unmapped && !sam_records[0].is_mapped() && !sam_records[1].is_mapped() {
+            sam_records = vec![];
+        }
+
+        for sam_record in sam_records {
+            writeln!(out, "{}", sam_record)?;
+        }
+
+        Ok(details)
+    }
+
+    fn handle_paf_paired(
+        &self,
+        out: &mut Vec<u8>,
+        r1: &SequenceRecord,
+        r2: &SequenceRecord,
+        isizedist: &mut InsertSizeDistribution,
+        chains_pair: &mut [Vec<Chain>; 2],
+        both_orientations: [bool; 2],
+    ) -> std::io::Result<()> {
+        let paf_records = map_paired_end_read(
+            r1,
+            r2,
+            self.refseq,
+            isizedist,
+            chains_pair,
+            both_orientations,
+        );
+        for paf_record in paf_records {
+            writeln!(out, "{}", paf_record)?;
+        }
+
+        Ok(())
+    }
+
+    fn handle_sam_single(
+        &self,
+        out: &mut Vec<u8>,
+        r1: &SequenceRecord,
+        chains: &mut [Chain],
+        rng: &mut Rng,
+    ) -> Result<Details, std::io::Error> {
+        let (mut records, details) = align_single_end_read(
+            r1,
+            self.index,
+            self.refseq,
+            self.mapping_parameters,
+            self.sam_output,
+            chains,
+            &self.aligner,
+            rng,
+        );
+        if !self.include_unmapped && !records[0].is_mapped() {
+            records = vec![];
+        }
+
+        for record in records {
+            writeln!(out, "{}", record)?;
+        }
+
+        Ok(details)
+    }
+
+    fn handle_paf_single(
+        &self,
+        out: &mut Vec<u8>,
+        r1: &SequenceRecord,
+        chains: &mut [Chain],
+    ) -> Result<(), std::io::Error> {
+        let paf_records = map_single_end_read(r1, self.refseq, chains);
+        for paf_record in paf_records {
+            writeln!(out, "{}", paf_record)?;
+        }
+
+        Ok(())
     }
 }
 

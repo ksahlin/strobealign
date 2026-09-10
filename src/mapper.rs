@@ -9,8 +9,8 @@ use memchr::memmem;
 
 use crate::aligner::Aligner;
 use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
-use crate::chain::{Chain, get_sorted_chains};
-use crate::chainer::{Anchor, Chainer};
+use crate::chain::Chain;
+use crate::chainer::Anchor;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
 use crate::index::StrobemerIndex;
@@ -361,19 +361,11 @@ pub fn align_single_end_read(
     refseq: &RefSequence,
     mapping_parameters: &MappingParameters,
     sam_output: &SamOutput,
-    chainer: &Chainer,
+    chains: &mut [Chain],
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let (chain_details, mut chains) = get_sorted_chains(
-        &record.sequence,
-        index,
-        chainer,
-        mapping_parameters.rescue_distance,
-        mapping_parameters.mcs_strategy,
-        rng,
-    );
-    let mut details: Details = chain_details.into();
+    let mut details = Details::new();
 
     let timer = Instant::now();
     if chains.is_empty() {
@@ -649,21 +641,6 @@ pub fn align_paired_end_read(
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
     let mut details = [Details::default(), Details::default()];
-
-    /*for is_r1 in [0, 1] {
-        let record = if is_r1 == 0 { r1 } else { r2 };
-        let (chain_details, chains) = get_sorted_chains(
-            &record.sequence,
-            index,
-            chainer,
-            mapping_parameters.rescue_distance,
-            mapping_parameters.mcs_strategy,
-            rng,
-        );
-        details[is_r1].chain = chain_details;
-        chains_pair[is_r1] = chains;
-    }*/
-
     let timer = Instant::now();
     let read1 = Read::new(&r1.sequence); // TODO pass r1, r2 to extend_paired_seeds instead
     let read2 = Read::new(&r2.sequence);
