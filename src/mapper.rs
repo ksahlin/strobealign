@@ -680,6 +680,7 @@ pub fn align_paired_end_read(
         mapping_parameters.dropoff_threshold,
         insert_size_distribution,
         mapping_parameters.max_tries,
+        mapping_parameters.use_ssw,
     );
 
     let mut sam_records = Vec::new();
@@ -800,6 +801,7 @@ fn extend_paired_seeds(
     dropoff: f32,
     insert_size_distribution: &InsertSizeDistribution,
     max_tries: usize,
+    use_ssw: bool,
 ) -> AlignedPairs {
     let mu = insert_size_distribution.mu;
     let sigma = insert_size_distribution.sigma;
@@ -823,6 +825,7 @@ fn extend_paired_seeds(
             k,
             mu,
             sigma,
+            use_ssw,
         ));
     }
 
@@ -841,6 +844,7 @@ fn extend_paired_seeds(
             k,
             mu,
             sigma,
+            use_ssw,
         );
         details.swap(0, 1);
         for pair in &mut pairs {
@@ -861,22 +865,8 @@ fn extend_paired_seeds(
         let mut ch_max1 = chains[0][0].clone();
         let mut ch_max2 = chains[1][0].clone();
 
-        let alignment1 = extend_seed(
-            aligner,
-            &mut ch_max1,
-            refseq,
-            read1,
-            true, // SSW
-            k,
-        );
-        let alignment2 = extend_seed(
-            aligner,
-            &mut ch_max2,
-            refseq,
-            read2,
-            true, // SSW
-            k,
-        );
+        let alignment1 = extend_seed(aligner, &mut ch_max1, refseq, read1, use_ssw, k);
+        let alignment2 = extend_seed(aligner, &mut ch_max2, refseq, read2, use_ssw, k);
         if let (Some(alignment1), Some(alignment2)) = (alignment1, alignment2) {
             details[0].tried_alignment += 1;
             details[0].gapped += alignment1.gapped as usize;
@@ -902,14 +892,7 @@ fn extend_paired_seeds(
     // the paired-end read as two single-end reads.
     let mut a_indv_max = [None, None];
     for i in 0..2 {
-        a_indv_max[i] = extend_seed(
-            aligner,
-            &mut chains[i][0],
-            refseq,
-            reads[i],
-            true, // SSW
-            k,
-        );
+        a_indv_max[i] = extend_seed(aligner, &mut chains[i][0], refseq, reads[i], use_ssw, k);
         details[i].tried_alignment += 1;
         details[i].gapped += a_indv_max[i].as_ref().map_or(0, |a| a.gapped as usize);
         alignment_cache[i].insert(chains[i][0].id, a_indv_max[i].clone());
@@ -937,14 +920,7 @@ fn extend_paired_seeds(
             let alignment;
             if let Some(mut this_chain) = chainsp[i].clone() {
                 if let Entry::Vacant(e) = alignment_cache[i].entry(this_chain.id) {
-                    alignment = extend_seed(
-                        aligner,
-                        &mut this_chain,
-                        refseq,
-                        reads[i],
-                        true, // SSW
-                        k,
-                    );
+                    alignment = extend_seed(aligner, &mut this_chain, refseq, reads[i], use_ssw, k);
                     details[i].tried_alignment += 1;
                     details[i].gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
                     e.insert(alignment.clone());
@@ -1029,6 +1005,7 @@ fn rescue_read(
     k: usize,
     mu: f32,
     sigma: f32,
+    use_ssw: bool,
 ) -> Vec<ScoredAlignmentPair> {
     let max_score1 = chains1[0].score;
 
@@ -1041,7 +1018,7 @@ fn rescue_read(
         if score_dropoff1 < dropoff {
             break;
         }
-        if let Some(alignment) = extend_seed(aligner, chain, refseq, read1, true, k) {
+        if let Some(alignment) = extend_seed(aligner, chain, refseq, read1, use_ssw, k) {
             details[0].gapped += alignment.gapped as usize;
             alignments1.push(alignment);
             details[0].tried_alignment += 1;

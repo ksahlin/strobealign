@@ -278,7 +278,7 @@ struct Args {
     #[arg(short = 'L', default_value_t = Scores::default().end_bonus, value_name = "N", help_heading = "Alignment")]
     end_bonus: u32,
 
-    /// Use SSW extension instead of piecewise for single-ends alignments
+    /// Use SSW extension instead of piecewise
     #[arg(long = "ssw", help_heading = "Alignment")]
     use_ssw: bool,
 
