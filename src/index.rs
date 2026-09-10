@@ -29,12 +29,12 @@ pub struct RefRandstrobe {
     ref_start: u64,
 }
 
-/// Mask for the part of the randstrobe hash that includes individual strobe hashes and orientations
-pub const REF_RANDSTROBE_HASH_MASK: u64 = 0xFFFFFFFFFFFFFF00;
 /// Number of bits reserved for offset between first and second strobe
 pub const STROBE2_OFFSET_BITS: u32 = 8;
+/// Mask for the part of the randstrobe hash that includes individual strobe hashes and orientations
+pub const REF_RANDSTROBE_HASH_MASK: u64 = !0u64 << STROBE2_OFFSET_BITS;
 /// Mask for the part of the randstrobe hash that includes the offset between first and second strobe
-pub const STROBE2_OFFSET_MASK: u64 = (1u64 << STROBE2_OFFSET_BITS) - 1;
+pub const STROBE2_OFFSET_MASK: u64 = !REF_RANDSTROBE_HASH_MASK;
 
 impl RefRandstrobe {
     pub fn new(hash: RandstrobeHash, ref_start: usize, offset: u8) -> Self {
