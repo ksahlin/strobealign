@@ -922,7 +922,6 @@ impl Mapper<'_> {
                 self.mapping_parameters.mcs_strategy,
                 &mut rng,
             );
-            let both_orientations1 = chain_details1.both_orientations;
             cumulative_details.chain += chain_details1;
 
             if let Some(r2) = r2 {
@@ -935,7 +934,6 @@ impl Mapper<'_> {
                     self.mapping_parameters.mcs_strategy,
                     &mut rng,
                 );
-                let both_orientations = [both_orientations1, chain_details2.both_orientations];
                 cumulative_details.chain += chain_details2;
                 let mut chains_pair = [chains1, chains2];
                 match self.mode {
@@ -956,7 +954,6 @@ impl Mapper<'_> {
                             &r2,
                             &mut isizedist,
                             &mut chains_pair,
-                            both_orientations,
                         )?;
                     }
                     Mode::Abundances => {
@@ -967,7 +964,6 @@ impl Mapper<'_> {
                             &mut self.abundances,
                             &mut isizedist,
                             &mut chains_pair,
-                            both_orientations,
                         );
                     }
                 }
@@ -1034,16 +1030,8 @@ impl Mapper<'_> {
         r2: &SequenceRecord,
         isizedist: &mut InsertSizeDistribution,
         chains_pair: &mut [Vec<Chain>; 2],
-        both_orientations: [bool; 2],
     ) -> std::io::Result<()> {
-        let paf_records = map_paired_end_read(
-            r1,
-            r2,
-            self.refseq,
-            isizedist,
-            chains_pair,
-            both_orientations,
-        );
+        let paf_records = map_paired_end_read(r1, r2, self.refseq, isizedist, chains_pair);
         for paf_record in paf_records {
             writeln!(out, "{}", paf_record)?;
         }

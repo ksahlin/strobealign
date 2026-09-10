@@ -278,7 +278,6 @@ impl Chainer {
             time_chaining,
             time_rescue: 0.0,
             time_sort_chains: 0f64,
-            both_orientations: orientations.len() > 1,
         };
 
         (details, chains)

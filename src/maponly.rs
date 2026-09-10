@@ -92,7 +92,6 @@ pub fn map_paired_end_read(
     refseq: &RefSequence,
     insert_size_distribution: &mut InsertSizeDistribution,
     chains_pair: &mut [Vec<Chain>; 2],
-    both_orientations: [bool; 2],
 ) -> Vec<PafRecord> {
     let [chains1, chains2] = chains_pair;
 
@@ -106,8 +105,6 @@ pub fn map_paired_end_read(
         &refseq.starts,
         insert_size_distribution.mu,
         insert_size_distribution.sigma,
-        both_orientations[0],
-        both_orientations[1],
     );
 
     let mut records = vec![];
@@ -168,7 +165,6 @@ pub fn abundances_paired_end_read(
     abundances: &mut [f64],
     insert_size_distribution: &mut InsertSizeDistribution,
     chains_pair: &mut [Vec<Chain>; 2],
-    both_orientations: [bool; 2],
 ) {
     let [chains1, chains2] = chains_pair;
     if chains1.is_empty() && chains2.is_empty() {
@@ -181,8 +177,6 @@ pub fn abundances_paired_end_read(
         &refseq.starts,
         insert_size_distribution.mu,
         insert_size_distribution.sigma,
-        both_orientations[0],
-        both_orientations[1],
     );
 
     match get_best_paired_mapping_location(&chain_pairs, chains1, chains2, insert_size_distribution)
@@ -282,18 +276,14 @@ fn get_chain_pairs(
     contig_starts: &ContigStarts,
     mu: f32,
     sigma: f32,
-    both_orientations1: bool,
-    both_orientations2: bool,
 ) -> Vec<ChainPair> {
     let mut chain_pairs = vec![];
     if chains1.is_empty() || chains2.is_empty() {
         return chain_pairs;
     }
 
-    let (fwd1, rev1): (&mut [Chain], &mut [Chain]) =
-        split_chains_by_orientation_checked(chains1, both_orientations1);
-    let (fwd2, rev2): (&mut [Chain], &mut [Chain]) =
-        split_chains_by_orientation_checked(chains2, both_orientations2);
+    let (fwd1, rev1): (&mut [Chain], &mut [Chain]) = split_chains_by_orientation(chains1);
+    let (fwd2, rev2): (&mut [Chain], &mut [Chain]) = split_chains_by_orientation(chains2);
 
     if !fwd1.is_empty() && !rev2.is_empty() {
         fwd1.sort_unstable_by_key(|chain| chain.projected_ref_start());
@@ -308,21 +298,6 @@ fn get_chain_pairs(
 
     chain_pairs.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
     chain_pairs
-}
-
-/// Split chains into (forward, revcomp),
-/// if only 1 orientation exists, returns it and a empty slice
-fn split_chains_by_orientation_checked(
-    chains: &mut [Chain],
-    both: bool,
-) -> (&mut [Chain], &mut [Chain]) {
-    if both {
-        split_chains_by_orientation(chains)
-    } else if chains[0].is_revcomp {
-        (&mut [], chains)
-    } else {
-        (chains, &mut [])
-    }
 }
 
 /// In-place partition of chains by orientation:
