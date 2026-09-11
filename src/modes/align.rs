@@ -1,3 +1,7 @@
+//! Extension alignment mode
+//!
+//! This is enabled when neither `-x` nor `--aemb` are used.
+
 use std::cmp::{Reverse, min};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
@@ -21,6 +25,7 @@ use crate::io::sam::{
 };
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
+use crate::modes::mapping_quality;
 use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
 use crate::refseq::{ContigPosition, RefSequence};
@@ -1175,7 +1180,7 @@ fn is_proper_pair(a1: &Alignment, a2: &Alignment, mu: f32, sigma: f32) -> PairSt
     }
 }
 
-pub fn is_proper_chain_pair(chain1: &Chain, chain2: &Chain, mu: f32, sigma: f32) -> bool {
+fn is_proper_chain_pair(chain1: &Chain, chain2: &Chain, mu: f32, sigma: f32) -> bool {
     if chain1.ref_contig_start != chain2.ref_contig_start || chain1.is_revcomp == chain2.is_revcomp
     {
         return false;
@@ -1279,20 +1284,6 @@ fn get_best_scoring_chain_pairs(
     chain_pairs.sort_by(|a, b| b.score.total_cmp(&a.score));
 
     chain_pairs
-}
-
-/// Return mapping quality for the top chain
-pub fn mapping_quality(chains: &[Chain]) -> u8 {
-    if chains.len() <= 1 {
-        return 60;
-    }
-    let s1 = chains[0].score;
-    let s2 = chains[1].score;
-    // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
-    let min_matches = min(chains[0].anchors.len(), 10) as f32 / 10.0;
-    let uncapped_mapq = 40.0 * (1.0 - s2 / s1) * min_matches * s1.ln();
-
-    uncapped_mapq.min(60.0) as u8
 }
 
 #[derive(Debug)]

@@ -32,13 +32,12 @@ use strobealign::io::reads::{
 use strobealign::io::record::{RecordPair, SequenceRecord};
 use strobealign::io::sam::{ReadGroup, SamHeader};
 use strobealign::io::xopen::xopen;
-use strobealign::maponly::{
-    abundances_paired_end_read, abundances_single_end_read, map_paired_end_read,
-    map_single_end_read,
-};
-use strobealign::mapper::{
+use strobealign::modes::abundance::{abundances_paired_end_read, abundances_single_end_read};
+use strobealign::modes::align::{
     MappingParameters, SamOutput, align_paired_end_read, align_single_end_read,
 };
+use strobealign::modes::map::{map_paired_end_read, map_single_end_read};
+
 use strobealign::mcsstrategy::McsStrategy;
 use strobealign::seeding::{DEFAULT_AUX_LEN, InvalidSeedingParameter, SeedingParameters};
 use strobealign::simdaligner::{InvalidScores, check_scores};
