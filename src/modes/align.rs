@@ -1,3 +1,7 @@
+//! Extension alignment mode
+//!
+//! This is enabled when neither `-x` nor `--aemb` are used.
+
 use std::cmp::{Reverse, min};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
@@ -9,8 +13,8 @@ use memchr::memmem;
 
 use crate::aligner::Aligner;
 use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
-use crate::chain::{Chain, get_chains, sort_chains};
-use crate::chainer::{Anchor, Chainer};
+use crate::chain::Chain;
+use crate::chainer::Anchor;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
 use crate::index::StrobemerIndex;
@@ -21,6 +25,7 @@ use crate::io::sam::{
 };
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
+use crate::modes::mapping_quality;
 use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
 use crate::refseq::{ContigPosition, RefSequence};
@@ -361,19 +366,11 @@ pub fn align_single_end_read(
     refseq: &RefSequence,
     mapping_parameters: &MappingParameters,
     sam_output: &SamOutput,
-    chainer: &Chainer,
+    chains: &mut [Chain],
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let (mut chain_details, mut chains) = get_chains(
-        &record.sequence,
-        index,
-        chainer,
-        mapping_parameters.rescue_distance,
-        mapping_parameters.mcs_strategy,
-    );
-    chain_details.time_sort_chains = sort_chains(&mut chains, rng);
-    let mut details: Details = chain_details.into();
+    let mut details = Details::new();
 
     let timer = Instant::now();
     if chains.is_empty() {
@@ -639,39 +636,22 @@ fn extend_seed(
 pub fn align_paired_end_read(
     r1: &SequenceRecord,
     r2: &SequenceRecord,
-    index: &StrobemerIndex,
     refseq: &RefSequence,
     mapping_parameters: &MappingParameters,
     sam_output: &SamOutput,
     seeding_parameters: &SeedingParameters,
     insert_size_distribution: &mut InsertSizeDistribution,
-    chainer: &Chainer,
+    chains_pair: &mut [Vec<Chain>; 2],
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
     let mut details = [Details::default(), Details::default()];
-    let mut chains_pair = [vec![], vec![]];
-
-    for is_r1 in [0, 1] {
-        let record = if is_r1 == 0 { r1 } else { r2 };
-        let (mut chain_details, mut chains) = get_chains(
-            &record.sequence,
-            index,
-            chainer,
-            mapping_parameters.rescue_distance,
-            mapping_parameters.mcs_strategy,
-        );
-        chain_details.time_sort_chains = sort_chains(&mut chains, rng);
-        details[is_r1].chain = chain_details;
-        chains_pair[is_r1] = chains;
-    }
-
     let timer = Instant::now();
     let read1 = Read::new(&r1.sequence); // TODO pass r1, r2 to extend_paired_seeds instead
     let read2 = Read::new(&r2.sequence);
     let alignment_pairs = extend_paired_seeds(
         aligner,
-        &mut chains_pair,
+        chains_pair,
         &read1,
         &read2,
         seeding_parameters.syncmer.k,
@@ -1200,7 +1180,7 @@ fn is_proper_pair(a1: &Alignment, a2: &Alignment, mu: f32, sigma: f32) -> PairSt
     }
 }
 
-pub fn is_proper_chain_pair(chain1: &Chain, chain2: &Chain, mu: f32, sigma: f32) -> bool {
+fn is_proper_chain_pair(chain1: &Chain, chain2: &Chain, mu: f32, sigma: f32) -> bool {
     if chain1.ref_contig_start != chain2.ref_contig_start || chain1.is_revcomp == chain2.is_revcomp
     {
         return false;
@@ -1304,20 +1284,6 @@ fn get_best_scoring_chain_pairs(
     chain_pairs.sort_by(|a, b| b.score.total_cmp(&a.score));
 
     chain_pairs
-}
-
-/// Return mapping quality for the top chain
-pub fn mapping_quality(chains: &[Chain]) -> u8 {
-    if chains.len() <= 1 {
-        return 60;
-    }
-    let s1 = chains[0].score;
-    let s2 = chains[1].score;
-    // from minimap2: MAPQ = 40(1−s2/s1) ·min{1,|M|/10} · log s1
-    let min_matches = min(chains[0].anchors.len(), 10) as f32 / 10.0;
-    let uncapped_mapq = 40.0 * (1.0 - s2 / s1) * min_matches * s1.ln();
-
-    uncapped_mapq.min(60.0) as u8
 }
 
 #[derive(Debug)]

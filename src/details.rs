@@ -23,9 +23,6 @@ pub struct ChainDetails {
     pub time_chaining: f64,
     pub time_rescue: f64,
     pub time_sort_chains: f64,
-
-    /// Whether both orientations were tested
-    pub both_orientations: bool,
 }
 
 impl ops::AddAssign<ChainDetails> for ChainDetails {
