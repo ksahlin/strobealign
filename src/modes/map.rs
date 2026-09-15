@@ -1,15 +1,9 @@
-use fastrand::Rng;
-
-use crate::chain::{Chain, get_chains, sort_chains};
-use crate::chainer::Chainer;
-use crate::details::{ChainDetails, Details};
-use crate::index::StrobemerIndex;
+use crate::chain::Chain;
 use crate::insertsize::InsertSizeDistribution;
 use crate::io::paf::PafRecord;
 use crate::io::record::{End, SequenceRecord};
-use crate::mapper::mapping_quality;
 use crate::math::normal_pdf;
-use crate::mcsstrategy::McsStrategy;
+use crate::modes::mapping_quality;
 use crate::refseq::{ContigPosition, ContigStarts, RefSequence};
 
 /// Map a single-end read to the reference and return PAF records
@@ -17,75 +11,26 @@ use crate::refseq::{ContigPosition, ContigStarts, RefSequence};
 /// This implements "mapping-only" mode in which no base-level alignments are computed
 pub fn map_single_end_read(
     record: &SequenceRecord,
-    index: &StrobemerIndex,
     refseq: &RefSequence,
-    rescue_distance: usize,
-    mcs_strategy: McsStrategy,
-    chainer: &Chainer,
-    rng: &mut Rng,
-) -> (Vec<PafRecord>, Details) {
-    let (mut chain_details, mut chains) = get_chains(
-        &record.sequence,
-        index,
-        chainer,
-        rescue_distance,
-        mcs_strategy,
-    );
-    chain_details.time_sort_chains = sort_chains(&mut chains, rng);
-
+    chains: &[Chain],
+) -> Vec<PafRecord> {
     if chains.is_empty() {
-        (vec![], chain_details.into())
+        vec![]
     } else {
-        let mapq = mapping_quality(&chains);
-        (
-            paf_record_from_chain(
-                &chains[0],
-                &record.name,
-                refseq,
-                record.sequence.len(),
-                Some(mapq),
-                End::None,
-            )
-            .into_iter()
-            .collect::<Vec<_>>(),
-            chain_details.into(),
+        let mapq = mapping_quality(chains);
+
+        paf_record_from_chain(
+            &chains[0],
+            &record.name,
+            refseq,
+            record.sequence.len(),
+            Some(mapq),
+            End::None,
         )
+        .into_iter()
+        .collect::<Vec<_>>()
     }
 }
-
-/// Map a single-end read to the reference and estimate abundances
-///
-/// This implements abundance estimation mode (`--aemb`)
-pub fn abundances_single_end_read(
-    record: &SequenceRecord,
-    refseq: &RefSequence,
-    index: &StrobemerIndex,
-    abundances: &mut [f64],
-    rescue_distance: usize,
-    mcs_strategy: McsStrategy,
-    chainer: &Chainer,
-    rng: &mut Rng,
-) {
-    let (_, mut chains) = get_chains(
-        &record.sequence,
-        index,
-        chainer,
-        rescue_distance,
-        mcs_strategy,
-    );
-    sort_chains(&mut chains, rng);
-
-    let n_best = chains
-        .iter()
-        .take_while(|chain| chain.score == chains[0].score)
-        .count();
-    let weight = record.sequence.len() as f64 / n_best as f64;
-    for chain in &chains[0..n_best] {
-        let contig_id = refseq.unflatten(chain.ref_start).0;
-        abundances[contig_id] += weight;
-    }
-}
-
 /// Convert chain into PAF record
 fn paf_record_from_chain(
     chain: &Chain,
@@ -123,44 +68,27 @@ fn paf_record_from_chain(
 pub fn map_paired_end_read(
     r1: &SequenceRecord,
     r2: &SequenceRecord,
-    index: &StrobemerIndex,
     refseq: &RefSequence,
-    rescue_distance: usize,
     insert_size_distribution: &mut InsertSizeDistribution,
-    mcs_strategy: McsStrategy,
-    chainer: &Chainer,
-    rng: &mut Rng,
-) -> (Vec<PafRecord>, Details) {
-    let (mut chain_details1, mut chains1) =
-        get_chains(&r1.sequence, index, chainer, rescue_distance, mcs_strategy);
-    let (mut chain_details2, mut chains2) =
-        get_chains(&r2.sequence, index, chainer, rescue_distance, mcs_strategy);
+    chains_pair: &mut [Vec<Chain>; 2],
+) -> Vec<PafRecord> {
+    let [chains1, chains2] = chains_pair;
 
     if chains1.is_empty() && chains2.is_empty() {
-        chain_details1 += chain_details2;
-        return (vec![], chain_details1.into());
+        return vec![];
     }
 
     let chain_pairs = get_chain_pairs(
-        &mut chains1,
-        &mut chains2,
+        chains1,
+        chains2,
         &refseq.starts,
         insert_size_distribution.mu,
         insert_size_distribution.sigma,
-        &chain_details1,
-        &chain_details2,
     );
 
-    chain_details1.time_sort_chains = sort_chains(&mut chains1, rng);
-    chain_details2.time_sort_chains = sort_chains(&mut chains2, rng);
-
     let mut records = vec![];
-    match get_best_paired_mapping_location(
-        &chain_pairs,
-        &chains1,
-        &chains2,
-        insert_size_distribution,
-    ) {
+    match get_best_paired_mapping_location(&chain_pairs, chains1, chains2, insert_size_distribution)
+    {
         MappedChains::Individual(best1, best2) => {
             if let Some(chain1) = best1 {
                 records.extend(paf_record_from_chain(
@@ -203,89 +131,10 @@ pub fn map_paired_end_read(
         }
     }
 
-    chain_details1 += chain_details2;
-
-    (records, chain_details1.into())
+    records
 }
 
-/// Map a paired-end read pair to the reference and estimate abundances
-///
-/// This implements abundance estimation mode (`--aemb`)
-pub fn abundances_paired_end_read(
-    r1: &SequenceRecord,
-    r2: &SequenceRecord,
-    index: &StrobemerIndex,
-    refseq: &RefSequence,
-    abundances: &mut [f64],
-    rescue_distance: usize,
-    insert_size_distribution: &mut InsertSizeDistribution,
-    mcs_strategy: McsStrategy,
-    chainer: &Chainer,
-    rng: &mut Rng,
-) {
-    let (chain_details1, mut chains1) =
-        get_chains(&r1.sequence, index, chainer, rescue_distance, mcs_strategy);
-    let (chain_details2, mut chains2) =
-        get_chains(&r2.sequence, index, chainer, rescue_distance, mcs_strategy);
-
-    if chains1.is_empty() && chains2.is_empty() {
-        return;
-    }
-
-    let chain_pairs = get_chain_pairs(
-        &mut chains1,
-        &mut chains2,
-        &refseq.starts,
-        insert_size_distribution.mu,
-        insert_size_distribution.sigma,
-        &chain_details1,
-        &chain_details2,
-    );
-
-    sort_chains(&mut chains1, rng);
-    sort_chains(&mut chains2, rng);
-
-    match get_best_paired_mapping_location(
-        &chain_pairs,
-        &chains1,
-        &chains2,
-        insert_size_distribution,
-    ) {
-        MappedChains::Individual(_, _) => {
-            for (chains, read_len) in [(&chains1, r1.sequence.len()), (&chains2, r2.sequence.len())]
-            {
-                let n_best = chains
-                    .iter()
-                    .take_while(|chain| chain.score == chains[0].score)
-                    .count();
-                let weight = read_len as f64 / n_best as f64;
-                for chain in &chains[0..n_best] {
-                    let contig_id = refseq.unflatten(chain.ref_start).0;
-                    abundances[contig_id] += weight;
-                }
-            }
-        }
-        MappedChains::Pair(_, _, joint_score) => {
-            let n_best = chain_pairs
-                .iter()
-                .take_while(|chain_pair| chain_pair.score == joint_score)
-                .count();
-            let weight_r1 = r1.sequence.len() as f64 / n_best as f64;
-            let weight_r2 = r2.sequence.len() as f64 / n_best as f64;
-            for ChainPair {
-                chain1,
-                chain2,
-                score: _,
-            } in &chain_pairs[..n_best]
-            {
-                abundances[refseq.unflatten(chain1.ref_start).0] += weight_r1;
-                abundances[refseq.unflatten(chain2.ref_start).0] += weight_r2;
-            }
-        }
-    }
-}
-
-enum MappedChains<'a> {
+pub(super) enum MappedChains<'a> {
     /// Two independent best chains (one per read)
     Individual(Option<&'a Chain>, Option<&'a Chain>),
     /// A proper paired chains (chain1, chain2, pairing score)
@@ -299,7 +148,7 @@ enum MappedChains<'a> {
 /// Also updates the insert size distribution using confident pairs.
 ///
 /// For paired-end mapping and abundance estimation modes only
-fn get_best_paired_mapping_location<'a>(
+pub(super) fn get_best_paired_mapping_location<'a>(
     chain_pairs: &'a [ChainPair],
     chains1: &'a [Chain],
     chains2: &'a [Chain],
@@ -340,24 +189,20 @@ pub struct ChainPair {
 }
 
 /// Build all plausible forward/revcomp mapping pairings
-fn get_chain_pairs(
+pub(super) fn get_chain_pairs(
     chains1: &mut [Chain],
     chains2: &mut [Chain],
     contig_starts: &ContigStarts,
     mu: f32,
     sigma: f32,
-    details1: &ChainDetails,
-    details2: &ChainDetails,
 ) -> Vec<ChainPair> {
     let mut chain_pairs = vec![];
     if chains1.is_empty() || chains2.is_empty() {
         return chain_pairs;
     }
 
-    let (fwd1, rev1): (&mut [Chain], &mut [Chain]) =
-        split_chains_by_orientation_checked(chains1, details1.both_orientations);
-    let (fwd2, rev2): (&mut [Chain], &mut [Chain]) =
-        split_chains_by_orientation_checked(chains2, details2.both_orientations);
+    let (fwd1, rev1): (&mut [Chain], &mut [Chain]) = split_chains_by_orientation(chains1);
+    let (fwd2, rev2): (&mut [Chain], &mut [Chain]) = split_chains_by_orientation(chains2);
 
     if !fwd1.is_empty() && !rev2.is_empty() {
         fwd1.sort_unstable_by_key(|chain| chain.projected_ref_start());
@@ -371,22 +216,8 @@ fn get_chain_pairs(
     }
 
     chain_pairs.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
-    chain_pairs
-}
 
-/// Split chains into (forward, revcomp),
-/// if only 1 orientation exists, returns it and a empty slice
-fn split_chains_by_orientation_checked(
-    chains: &mut [Chain],
-    both: bool,
-) -> (&mut [Chain], &mut [Chain]) {
-    if both {
-        split_chains_by_orientation(chains)
-    } else if chains[0].is_revcomp {
-        (&mut [], chains)
-    } else {
-        (chains, &mut [])
-    }
+    chain_pairs
 }
 
 /// In-place partition of chains by orientation:

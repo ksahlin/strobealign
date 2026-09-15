@@ -62,12 +62,13 @@ impl Display for Chain {
 }
 
 /// Obtain chains for a sequence record, doing rescue if needed.
-pub fn get_chains(
+pub fn get_sorted_chains(
     sequence: &[u8],
     index: &StrobemerIndex,
     chainer: &Chainer,
     rescue_distance: usize,
     mcs_strategy: McsStrategy,
+    rng: &mut Rng,
 ) -> (ChainDetails, Vec<Chain>) {
     let timer = Instant::now();
     let query_randstrobes = randstrobes_query(sequence, &index.parameters);
@@ -79,7 +80,7 @@ pub fn get_chains(
         query_randstrobes[1].len()
     );
 
-    let (mut chain_details, chains) = chainer.get_chains(
+    let (mut chain_details, mut chains) = chainer.get_chains(
         &query_randstrobes,
         index,
         rescue_distance,
@@ -88,11 +89,12 @@ pub fn get_chains(
     );
 
     chain_details.time_randstrobes = time_randstrobes;
+    chain_details.time_sort_chains = sort_chains(&mut chains, rng);
 
     (chain_details, chains)
 }
 
-pub fn sort_chains(chains: &mut [Chain], rng: &mut Rng) -> f64 {
+fn sort_chains(chains: &mut [Chain], rng: &mut Rng) -> f64 {
     let timer = Instant::now();
     chains.sort_by(|a, b| b.score.total_cmp(&a.score));
     shuffle_best(chains, |chain| chain.score, rng);

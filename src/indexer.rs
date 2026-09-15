@@ -41,9 +41,6 @@ pub fn make_index(
         memory_bytes as f64 / 1E9
     );
 
-    if total_randstrobes > BucketIndex::MAX as usize {
-        panic!("Too many randstrobes");
-    }
     let timer = Instant::now();
     debug!("  Generating randstrobes ...");
     let mut randstrobes =

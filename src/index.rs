@@ -11,7 +11,7 @@ use crate::seeding::{
 };
 
 pub type RandstrobeHash = u64;
-pub type BucketIndex = u64;
+pub type BucketIndex = usize;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Default, Clone)]
 #[repr(C)]
@@ -132,11 +132,6 @@ impl StrobemerIndex {
         self.get_masked(hash, self.parameters.randstrobe.main_hash_mask)
     }
 
-    /// Find the first entry matching the forward main hash
-    pub fn get_partial_forward(&'_ self, hash: RandstrobeHash) -> Option<IndexEntry<'_>> {
-        self.get_masked(hash, self.parameters.randstrobe.forward_main_hash_mask)
-    }
-
     /// Find the first entry matching the forward main hash, starting from
     /// the undirected main position
     pub fn get_partial_forward_from(
@@ -155,7 +150,7 @@ impl StrobemerIndex {
     /// hash value masked by the `hash_mask`.
     /// If `start_position` is provided, search starts from there instead of
     /// the bucket start.
-    pub fn get_masked_from(
+    fn get_masked_from(
         &'_ self,
         hash: RandstrobeHash,
         hash_mask: RandstrobeHash,
@@ -164,8 +159,8 @@ impl StrobemerIndex {
         let masked_hash = hash & hash_mask;
         const MAX_LINEAR_SEARCH: usize = 4;
         let top_n = (hash >> (64 - self.bits)) as usize;
-        let position_start = start_position.unwrap_or(self.bucket_starts[top_n] as usize);
-        let position_end = self.bucket_starts[top_n + 1] as usize;
+        let position_start = start_position.unwrap_or(self.bucket_starts[top_n]);
+        let position_end = self.bucket_starts[top_n + 1];
         let bucket = &self.randstrobes[position_start..position_end];
         if bucket.is_empty() {
             return None;
@@ -239,12 +234,6 @@ impl<'a> IndexEntry<'a> {
                 .forward_main_hash_mask
     }
 
-    pub fn strobe_extent_partial(&self) -> (usize, usize) {
-        let p = self.strobemer_index.randstrobes[self.position].ref_start();
-
-        (p, p + self.k())
-    }
-
     /// Count number of hits for the randstrobe *and* its "reverse complement"
     pub fn get_count_full(&self, hash_revcomp: u64) -> usize {
         let reverse_count;
@@ -270,7 +259,7 @@ impl<'a> IndexEntry<'a> {
         let key = self.strobemer_index.randstrobes[position].hash();
         let masked_key = key & hash_mask;
         let top_n = (key >> (64 - self.strobemer_index.bits)) as usize;
-        let position_end = self.strobemer_index.bucket_starts[top_n + 1] as usize;
+        let position_end = self.strobemer_index.bucket_starts[top_n + 1];
 
         if position_end - position < MAX_LINEAR_SEARCH {
             let mut count = 1;
@@ -330,10 +319,6 @@ impl<'a> IndexEntry<'a> {
 
     pub fn is_too_frequent_partial(&self, cutoff: usize) -> bool {
         self.is_too_frequent_forward_partial(cutoff)
-    }
-
-    fn k(&self) -> usize {
-        self.strobemer_index.k()
     }
 }
 

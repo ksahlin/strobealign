@@ -278,7 +278,6 @@ impl Chainer {
             time_chaining,
             time_rescue: 0.0,
             time_sort_chains: 0f64,
-            both_orientations: orientations.len() > 1,
         };
 
         (details, chains)
@@ -363,10 +362,9 @@ fn add_to_anchors_partial(
         if entry.get_hash_partial_forward() != forward_hash {
             break;
         }
-        let ref_start = entry.strobe_extent_partial().0;
 
         anchors.push(Anchor {
-            ref_start,
+            ref_start: entry.ref_start(),
             query_start,
         });
     }
