@@ -224,7 +224,7 @@ impl Chainer {
         (chain_details, chains)
     }
 
-    fn get_chains_from_hits(
+    pub fn get_chains_from_hits(
         &self,
         index: &StrobemerIndex,
         read_len: usize,
@@ -287,7 +287,7 @@ impl Chainer {
         let details = ChainDetails {
             hits: hits_details12,
             n_reads: 1,
-            n_randstrobes: 0,
+            n_randstrobes: 0, // Needs to be set ouside of this function.
             n_anchors,
             n_chains: chains.len(),
             time_randstrobes: 0.0,
