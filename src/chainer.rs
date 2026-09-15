@@ -213,8 +213,24 @@ impl Chainer {
                 rescue_distance,
             );
         }
-        let mut time_find_hits = hits_timer.elapsed().as_secs_f64();
+        let time_find_hits = hits_timer.elapsed().as_secs_f64();
 
+        let (mut chain_details, chains) =
+            self.get_chains_from_hits(index, read_len, hits, hits_details);
+
+        chain_details.n_anchors = query_randstrobes[0].len() + query_randstrobes[1].len();
+        chain_details.time_find_hits += time_find_hits; //Anton: Why is this part of chain_details instead of hit details?
+
+        (chain_details, chains)
+    }
+
+    fn get_chains_from_hits(
+        &self,
+        index: &StrobemerIndex,
+        read_len: usize,
+        hits: [Vec<Hit>; 2],
+        hits_details: [HitsDetails; 2],
+    ) -> (ChainDetails, Vec<Chain>) {
         // Runtime heuristic: If one orientation appears to have many more hits
         // than the other, we assume it is the correct one and do not check the
         // other.
@@ -231,10 +247,11 @@ impl Chainer {
         let mut n_anchors = 0;
         let mut time_chaining = 0.0;
         let mut chains = vec![];
+        let mut time_find_anchors = 0.0;
         for &is_revcomp in &orientations {
             let hits_timer = Instant::now();
             let mut anchors = hits_to_anchors(&hits[is_revcomp], index);
-            time_find_hits += hits_timer.elapsed().as_secs_f64();
+            time_find_anchors += hits_timer.elapsed().as_secs_f64();
             n_anchors += anchors.len();
             let chaining_timer = Instant::now();
             trace!("Chaining {} anchors", anchors.len());
@@ -270,11 +287,11 @@ impl Chainer {
         let details = ChainDetails {
             hits: hits_details12,
             n_reads: 1,
-            n_randstrobes: query_randstrobes[0].len() + query_randstrobes[1].len(),
+            n_randstrobes: 0,
             n_anchors,
             n_chains: chains.len(),
             time_randstrobes: 0.0,
-            time_find_hits,
+            time_find_hits: time_find_anchors,
             time_chaining,
             time_rescue: 0.0,
             time_sort_chains: 0f64,
