@@ -8,6 +8,7 @@
 * #628/#619: Fix some incorrect alignments caused by invalid anchors (which
   arise due to hash collisions). These anchors are now removed from the chain
   they are in before computing the alignment.
+* #636: Reduce RAM usage for large, repetitive genomes
 
 ## v0.18.0 (2026-09-01)
 

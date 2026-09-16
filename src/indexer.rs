@@ -3,7 +3,6 @@ use crate::packed_seq::PackedSeqSlice;
 use crate::refseq::RefSequence;
 use crate::seeding::{RandstrobeIterator, SeedingParameters, SyncmerIterator, SyncmerParameters};
 
-use std::cmp::Reverse;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -73,11 +72,10 @@ pub fn make_index(
 
     let mut tot_high_ab = 0;
     let mut tot_mid_ab = 0;
-    let mut strobemer_counts = Vec::<usize>::new();
 
     stats.tot_occur_once = 0;
     let mut randstrobe_start_indices = Vec::with_capacity((1usize << bits) + 1);
-    let mut unique_mers = u64::from(!randstrobes.is_empty());
+    let mut unique_mers = usize::from(!randstrobes.is_empty());
 
     let mut prev_hash: RandstrobeHash = if randstrobes.is_empty() {
         0
@@ -89,6 +87,11 @@ pub fn make_index(
     if !randstrobes.is_empty() {
         randstrobe_start_indices.push(0);
     }
+
+    // strobemer_counts[i] is how many strobemers occur i times,
+    // except that `strobemer_counts[1000]` is how many strobemers occur
+    // 1000 times *or more*.
+    let mut strobemer_counts = [0usize; 1001];
     #[allow(clippy::needless_range_loop)]
     for position in 1..randstrobes.len() {
         let cur_hash = randstrobes[position].hash();
@@ -106,7 +109,7 @@ pub fn make_index(
             } else {
                 tot_mid_ab += 1;
             }
-            strobemer_counts.push(count);
+            strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
         }
         count = 1;
         let cur_hash_n = cur_hash >> (64 - bits);
@@ -124,23 +127,28 @@ pub fn make_index(
         } else {
             tot_mid_ab += 1;
         }
-        strobemer_counts.push(count);
+        strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
     }
+    strobemer_counts[1] = unique_mers;
     while randstrobe_start_indices.len() < ((1usize << bits) + 1) {
         randstrobe_start_indices.push(randstrobes.len() as BucketIndex);
     }
     stats.tot_high_ab = tot_high_ab;
     stats.tot_mid_ab = tot_mid_ab;
 
-    strobemer_counts.sort_unstable_by_key(|k| Reverse(*k));
-
     let index_cutoff = (unique_mers as f64 * filter_fraction) as usize;
     stats.index_cutoff = index_cutoff;
-    let filter_cutoff = if index_cutoff < strobemer_counts.len() {
-        strobemer_counts[index_cutoff]
-    } else {
-        *strobemer_counts.last().unwrap_or(&30)
-    };
+
+    let mut total = 0;
+    let mut filter_cutoff = 1;
+    for i in (1..strobemer_counts.len()).rev() {
+        total += strobemer_counts[i];
+        if total >= index_cutoff {
+            filter_cutoff = i;
+            break;
+        }
+    }
+
     trace!(
         "Filter cutoff before clamping to [30, 100]: {}",
         filter_cutoff
@@ -152,7 +160,7 @@ pub fn make_index(
     );
     //stats.elapsed_hash_index = hash_index_timer.duration();
     debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
-    stats.distinct_strobemers = unique_mers;
+    stats.distinct_strobemers = unique_mers as u64;
 
     (
         StrobemerIndex::new(
