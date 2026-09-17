@@ -83,11 +83,26 @@ struct Alignment {
     /// Whether a gapped alignment function was used to obtain this alignment
     /// (even if true, the alignment can still be without gaps)
     gapped: bool,
+
+    /// Number of anchors used
+    anchors: usize,
+
+    /// Number of anchors removed because of hash collison
+    collisions: usize,
 }
 
 impl Alignment {
     fn global_edit_distance(&self) -> usize {
         self.edit_distance + self.soft_clip_left + self.soft_clip_right
+    }
+}
+
+impl Details {
+    fn add_alignment(&mut self, alignment: &Alignment) {
+        self.tried_alignment += 1;
+        self.gapped += alignment.gapped as usize;
+        self.collisions += alignment.collisions;
+        self.anchors += alignment.anchors;
     }
 }
 
@@ -417,8 +432,7 @@ pub fn align_single_end_read(
 
         // trace_log(mapping_parameters, aligner, &alignment, chain, refseq, &read, index.k());
 
-        details.tried_alignment += 1;
-        details.gapped += alignment.gapped as usize;
+        details.add_alignment(&alignment);
 
         if alignment.score >= best_score {
             second_best_score = best_score;
@@ -517,13 +531,13 @@ fn trace_log(
 
     let (mut ssw, mut pw) = if !mapping_parameters.use_ssw {
         (
-            extend_seed(aligner, chain, refseq, &read, true, k).unwrap(),
+            extend_seed(aligner, chain, refseq, read, true, k).unwrap(),
             alignment.clone(),
         )
     } else {
         (
             alignment.clone(),
-            extend_seed(aligner, chain, refseq, &read, false, k).unwrap(),
+            extend_seed(aligner, chain, refseq, read, false, k).unwrap(),
         )
     };
     // manually adds the soft clips
@@ -596,6 +610,8 @@ fn extend_seed(
             gapped = false;
         }
     }
+    let mut collisions = 0;
+    let mut n_anchors = 0;
     if gapped {
         let padding = read.len() / 10;
         if use_ssw {
@@ -624,11 +640,13 @@ fn extend_seed(
                             query_start: a.query_start,
                         })
                     } else {
+                        collisions += 1;
+
                         None
                     }
                 })
                 .collect();
-
+            n_anchors = adjusted_anchors.len();
             info = aligner.align_piecewise(query, &segment, &adjusted_anchors, padding)?;
             result_start = info.ref_start + decode_start;
         }
@@ -644,6 +662,8 @@ fn extend_seed(
         length: info.ref_span(),
         is_revcomp: chain.is_revcomp,
         gapped,
+        collisions,
+        anchors: n_anchors,
     })
 }
 
@@ -864,10 +884,8 @@ fn extend_paired_seeds(
         let alignment1 = extend_seed(aligner, &mut ch_max1, refseq, read1, use_ssw, k);
         let alignment2 = extend_seed(aligner, &mut ch_max2, refseq, read2, use_ssw, k);
         if let (Some(alignment1), Some(alignment2)) = (alignment1, alignment2) {
-            details[0].tried_alignment += 1;
-            details[0].gapped += alignment1.gapped as usize;
-            details[1].tried_alignment += 1;
-            details[1].gapped += alignment2.gapped as usize;
+            details[0].add_alignment(&alignment1);
+            details[1].add_alignment(&alignment2);
 
             return AlignedPairs::Proper((alignment1, alignment2));
         }
@@ -1015,9 +1033,8 @@ fn rescue_read(
             break;
         }
         if let Some(alignment) = extend_seed(aligner, chain, refseq, read1, use_ssw, k) {
-            details[0].gapped += alignment.gapped as usize;
+            details[0].add_alignment(&alignment);
             alignments1.push(alignment);
-            details[0].tried_alignment += 1;
 
             let a2 = rescue_align(aligner, chain, refseq, read2, mu, sigma, k);
             if a2.is_some() {
@@ -1121,6 +1138,8 @@ fn rescue_align(
             cigar: info.cigar,
             is_revcomp: !mate_chain.is_revcomp,
             gapped: true,
+            collisions: 0,
+            anchors: 0,
         })
     } else {
         None
@@ -1457,6 +1476,8 @@ mod tests {
             length: 50,
             cigar: Default::default(),
             gapped: false,
+            collisions: 0,
+            anchors: 0,
         }
     }
 
@@ -1472,6 +1493,8 @@ mod tests {
             length: 0,
             is_revcomp: false,
             gapped: false,
+            collisions: 0,
+            anchors: 0,
         }
     }
 

@@ -844,11 +844,29 @@ fn run() -> Result<(), CliError> {
         details.chain.n_chains as f64 / details.chain.n_reads as f64
     );
     debug!("");
-    debug!("## Other");
+    debug!("## Alignments");
     debug!("");
-    debug!("Total mapping sites tried: {}", details.tried_alignment);
-    debug!("Mates rescued by alignment: {}", details.mate_rescue);
-
+    debug!(
+        "Number of computed alignments:            {:12}               Per read: {:7.1}",
+        details.tried_alignment,
+        details.tried_alignment as f64 / details.chain.n_reads as f64
+    );
+    debug!(
+        "Anchors used in piecewise alignments:     {:12}               Per read: {:7.1}",
+        details.anchors,
+        details.anchors as f64 / details.chain.n_reads as f64
+    );
+    debug!(
+        "Anchors discarded due to hash collisions: {:12}",
+        details.collisions
+    );
+    debug!(
+        "Mates rescued by alignment:               {:12}",
+        details.mate_rescue
+    );
+    debug!("");
+    debug!("## Runtimes");
+    debug!("");
     info!("Total time mapping: {:.2} s", timer.elapsed().as_secs_f64());
     //info!("Total time reading read-file(s): {:.2} s", );
     info!(
