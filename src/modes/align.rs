@@ -9,6 +9,7 @@ use std::mem;
 use std::time::Instant;
 
 use fastrand::Rng;
+use log::trace;
 use memchr::memmem;
 
 use crate::aligner::Aligner;
@@ -414,34 +415,7 @@ pub fn align_single_end_read(
             continue;
         };
 
-        // outputting Piecewise vs SSW alignments for debugging
-        // if log::log_enabled!(log::Level::Trace) {
-        //     let (mut ssw, mut pw) = if !mapping_parameters.use_ssw {
-        //         (
-        //             extend_seed(aligner, chain, references, &read, true).unwrap(),
-        //             alignment.clone(),
-        //         )
-        //     } else {
-        //         (
-        //             alignment.clone(),
-        //             extend_seed(aligner, chain, references, &read, false).unwrap(),
-        //         )
-        //     };
-        //     // manually adds the soft clips
-        //     let mut cigar = Cigar::new();
-        //     cigar.push(CigarOperation::Softclip, pw.soft_clip_left);
-        //     cigar.extend(&pw.cigar);
-        //     cigar.push(CigarOperation::Softclip, pw.soft_clip_right);
-        //     pw.cigar = cigar;
-        //
-        //     let mut cigar = Cigar::new();
-        //     cigar.push(CigarOperation::Softclip, ssw.soft_clip_left);
-        //     cigar.extend(&ssw.cigar);
-        //     cigar.push(CigarOperation::Softclip, ssw.soft_clip_right);
-        //     ssw.cigar = cigar;
-        //
-        //     trace!("Alignment:[{:?},SSW:{:?},PW:{:?}]", chain.clone(), ssw, pw);
-        // }
+        // trace_log(mapping_parameters, aligner, &alignment, chain, refseq, &read, index.k());
 
         details.tried_alignment += 1;
         details.gapped += alignment.gapped as usize;
@@ -524,6 +498,48 @@ pub fn align_single_end_read(
     details.time_extend = timer.elapsed().as_secs_f64();
 
     (sam_records, details)
+}
+
+// output piecewise vs SSW alignments for debugging
+#[allow(unused)]
+fn trace_log(
+    mapping_parameters: &MappingParameters,
+    aligner: &Aligner,
+    alignment: &Alignment,
+    chain: &mut Chain,
+    refseq: &RefSequence,
+    read: &Read,
+    k: usize,
+) {
+    if !log::log_enabled!(log::Level::Trace) {
+        return;
+    }
+
+    let (mut ssw, mut pw) = if !mapping_parameters.use_ssw {
+        (
+            extend_seed(aligner, chain, refseq, &read, true, k).unwrap(),
+            alignment.clone(),
+        )
+    } else {
+        (
+            alignment.clone(),
+            extend_seed(aligner, chain, refseq, &read, false, k).unwrap(),
+        )
+    };
+    // manually adds the soft clips
+    let mut cigar = Cigar::new();
+    cigar.push(CigarOperation::Softclip, pw.soft_clip_left);
+    cigar.extend(&pw.cigar);
+    cigar.push(CigarOperation::Softclip, pw.soft_clip_right);
+    pw.cigar = cigar;
+
+    let mut cigar = Cigar::new();
+    cigar.push(CigarOperation::Softclip, ssw.soft_clip_left);
+    cigar.extend(&ssw.cigar);
+    cigar.push(CigarOperation::Softclip, ssw.soft_clip_right);
+    ssw.cigar = cigar;
+
+    trace!("Alignment:[{:?},SSW:{:?},PW:{:?}]", chain.clone(), ssw, pw);
 }
 
 /// Extend a chain so that it covers the entire read and return the resulting
