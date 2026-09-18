@@ -290,6 +290,10 @@ struct Args {
     #[arg(long = "dl", default_value_t =  MappingParameters::default().min_duplication_length, value_name = "N", help_heading = "Duplications")]
     min_duplication_length: usize,
 
+    /// Minimum fraction of matches for a valid duplication
+    #[arg(long = "dm", default_value_t = MappingParameters::default().min_duplication_matches, help_heading = "Duplications")]
+    min_duplication_matches: f32,
+
     /// Bandwidth of the two arms of a duplication split
     #[arg(long = "dw", default_value_t = MappingParameters::default().duplication_band, value_name = "N", help_heading = "Duplications")]
     duplication_band: usize,
@@ -562,6 +566,7 @@ fn run() -> Result<(), CliError> {
         mcs_strategy: args.mcs_strategy,
         use_ssw: args.use_ssw,
         min_duplication_length: args.min_duplication_length,
+        min_duplication_matches: args.min_duplication_matches,
         duplication_band: args.duplication_band,
     };
 

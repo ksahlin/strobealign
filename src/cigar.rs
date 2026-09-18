@@ -155,6 +155,15 @@ impl Cigar {
         dist
     }
 
+    /// Bases matched exactly, which is zero for a CIGAR written with `M`.
+    pub fn matches(&self) -> usize {
+        self.ops
+            .iter()
+            .filter(|op_len| op_len.op == CigarOperation::Eq)
+            .map(|op_len| op_len.len)
+            .sum()
+    }
+
     /// Iterate over the operations as `(operation, length)` pairs.
     pub fn iter(&self) -> impl ExactSizeIterator<Item = (CigarOperation, usize)> + '_ {
         self.ops.iter().map(|oplen| (oplen.op, oplen.len))

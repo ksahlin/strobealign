@@ -49,6 +49,7 @@ pub struct MappingParameters {
     pub output_unmapped: bool,
     pub use_ssw: bool,
     pub min_duplication_length: usize,
+    pub min_duplication_matches: f32,
     pub duplication_band: usize,
 }
 
@@ -64,6 +65,7 @@ impl Default for MappingParameters {
             output_unmapped: true,
             use_ssw: false,
             min_duplication_length: 50,
+            min_duplication_matches: 0.80,
             duplication_band: 20,
         }
     }
@@ -186,8 +188,8 @@ fn query_ref_len(op: CigarOperation, len: usize) -> (usize, usize) {
 }
 
 /// Where the second copy starts on the contig and how the read jumps into it, for the
-/// insertion of `len` bases sitting at `ref_pos`. `None` when the jump does not beat leaving
-/// the insertion alone, or when the copy it finds is shorter than `min_length`.
+/// insertion of `len` bases sitting at `ref_pos`. `None` if the duplication did not match enough of
+/// the original sequence, or is smaller than `min_length`.
 fn find_duplication(
     aligner: &Aligner,
     contig: &PackedSeqSlice,
@@ -196,6 +198,7 @@ fn find_duplication(
     query_pos: usize,
     len: usize,
     min_length: usize,
+    min_matches: f32,
     band: usize,
 ) -> Option<(usize, SplitReferenceAlignment)> {
     let padding = len + band;
@@ -207,12 +210,11 @@ fn find_duplication(
 
     let split = aligner.realign_insertion(inserted, &left_reference, &right_reference, band)?;
 
-    let insertion_penalty =
-        aligner.scores.gap_open as i32 + (len as i32 - 1) * aligner.scores.gap_extend as i32;
+    let matched = split.left.cigar.matches() + split.right.cigar.matches();
     let copy_len =
         (split.right.ref_end - split.right.ref_start) + (split.left.ref_end - split.left.ref_start);
 
-    if split.score <= -insertion_penalty || copy_len < min_length {
+    if (matched as f32) < min_matches * len as f32 || copy_len < min_length {
         return None;
     }
 
@@ -227,6 +229,7 @@ fn resolve_duplications(
     refseq: &RefSequence,
     read: &Read,
     min_length: usize,
+    min_matches: f32,
     band: usize,
 ) -> Vec<Alignment> {
     if !alignment
@@ -255,7 +258,15 @@ fn resolve_duplications(
         if op == CigarOperation::Insertion
             && len >= min_length
             && let Some((copy_start, split)) = find_duplication(
-                aligner, &contig, query, ref_pos, query_pos, len, min_length, band,
+                aligner,
+                &contig,
+                query,
+                ref_pos,
+                query_pos,
+                len,
+                min_length,
+                min_matches,
+                band,
             )
         {
             // The right arm carries the segment being built on past the insertion point, and
@@ -715,6 +726,7 @@ pub fn align_single_end_read(
         refseq,
         &read,
         mapping_parameters.min_duplication_length,
+        mapping_parameters.min_duplication_matches,
         mapping_parameters.duplication_band,
     );
     details.duplications += segments.len() - 1;
@@ -1794,7 +1806,8 @@ mod tests {
             collisions: 0,
         };
 
-        let segments = resolve_duplications(&aligner, alignment.clone(), &refseq, &read, 40, 20);
+        let segments =
+            resolve_duplications(&aligner, alignment.clone(), &refseq, &read, 40, 0.80, 20);
 
         assert_eq!(segments.len(), 2);
         assert_eq!(segments[0].contig_start, 0);
@@ -1808,9 +1821,9 @@ mod tests {
         assert_eq!(segments[1].soft_clip_right, 0);
         assert_eq!(segments[1].score, 120 * 2 + 10);
 
-        let below = resolve_duplications(&aligner, alignment.clone(), &refseq, &read, 61, 20);
+        let below = resolve_duplications(&aligner, alignment.clone(), &refseq, &read, 61, 0.80, 20);
         assert_eq!(below.len(), 1);
-        let no_minimum = resolve_duplications(&aligner, alignment, &refseq, &read, 0, 20);
+        let no_minimum = resolve_duplications(&aligner, alignment, &refseq, &read, 0, 0.80, 20);
         assert_eq!(no_minimum.len(), 2);
     }
 
@@ -1850,11 +1863,51 @@ mod tests {
             &refseq,
             &Read::new(&seq),
             30,
+            0.80,
             20,
         );
 
         assert_eq!(segments.len(), 1);
         assert_eq!(segments[0].cigar.to_string(), "49=30I40=");
+    }
+
+    #[test]
+    fn resolve_duplications_rejects_a_copy_that_matches_too_little() {
+        let reference = b"AACGTCCGGCATGTTACACATCTACAAACGTGATGGTTGTACCGCATACCACCCTGGGGT\
+                          ACCCTAAGCAATGGGTTGCAACCGCTAGTAAATGGCAACGACGGATTGAGGCCTTTCGGG\
+                          AGGTAAGGTGTGAACATATGAGGAATTATGAAGCTTCAATAGTGCACCCGTCTGCTGGCA\
+                          GATCAATGCCCGACAGAGCA";
+        let mut seq = reference[0..80].to_vec();
+        seq.extend_from_slice(b"ACTAGAAAGGTGCTGGATGTCCCGGATAGCACGCTGTGGTCCCCAAAGGAATTGGTAGCA");
+        seq.extend_from_slice(&reference[80..140]);
+        let refseq = RefSequence::new(
+            PackedSeq::from_slice(reference),
+            vec![0],
+            vec!["chr1".to_string()],
+        )
+        .unwrap();
+        let aligner = Aligner::new(Scores::default(), 20, 15);
+        let alignment = Alignment {
+            contig_id: 0,
+            contig_start: 0,
+            cigar: Cigar::from_str("80=60I60=").unwrap(),
+            edit_distance: 60,
+            soft_clip_left: 0,
+            soft_clip_right: 0,
+            score: 0,
+            length: 140,
+            is_revcomp: false,
+            gapped: true,
+            anchors: 0,
+            collisions: 0,
+        };
+        let read = Read::new(&seq);
+
+        let segments =
+            resolve_duplications(&aligner, alignment.clone(), &refseq, &read, 40, 0.75, 20);
+        assert_eq!(segments.len(), 2);
+        let segments = resolve_duplications(&aligner, alignment, &refseq, &read, 40, 0.80, 20);
+        assert_eq!(segments.len(), 1);
     }
 
     #[test]
