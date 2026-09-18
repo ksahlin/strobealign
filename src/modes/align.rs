@@ -49,6 +49,7 @@ pub struct MappingParameters {
     pub output_unmapped: bool,
     pub use_ssw: bool,
     pub min_duplication_length: usize,
+    pub duplication_band: usize,
 }
 
 impl Default for MappingParameters {
@@ -63,6 +64,7 @@ impl Default for MappingParameters {
             output_unmapped: true,
             use_ssw: false,
             min_duplication_length: 50,
+            duplication_band: 20,
         }
     }
 }
@@ -194,15 +196,16 @@ fn find_duplication(
     query_pos: usize,
     len: usize,
     min_length: usize,
+    band: usize,
 ) -> Option<(usize, SplitReferenceAlignment)> {
-    let padding = len / 2;
+    let padding = len + band;
     let left_start = ref_pos.saturating_sub(len + padding);
     let right_end = (ref_pos + len + padding).min(contig.len());
     let left_reference = contig.decode(left_start, ref_pos);
     let right_reference = contig.decode(ref_pos, right_end);
     let inserted = &query[query_pos..query_pos + len];
 
-    let split = aligner.realign_insertion(inserted, &left_reference, &right_reference)?;
+    let split = aligner.realign_insertion(inserted, &left_reference, &right_reference, band)?;
 
     let insertion_penalty =
         aligner.scores.gap_open as i32 + (len as i32 - 1) * aligner.scores.gap_extend as i32;
@@ -224,6 +227,7 @@ fn resolve_duplications(
     refseq: &RefSequence,
     read: &Read,
     min_length: usize,
+    band: usize,
 ) -> Vec<Alignment> {
     if !alignment
         .cigar
@@ -250,8 +254,9 @@ fn resolve_duplications(
     for (op, len) in alignment.cigar.iter() {
         if op == CigarOperation::Insertion
             && len >= min_length
-            && let Some((copy_start, split)) =
-                find_duplication(aligner, &contig, query, ref_pos, query_pos, len, min_length)
+            && let Some((copy_start, split)) = find_duplication(
+                aligner, &contig, query, ref_pos, query_pos, len, min_length, band,
+            )
         {
             // The right arm carries the segment being built on past the insertion point, and
             // the left arm opens the next one at the second copy.
@@ -710,6 +715,7 @@ pub fn align_single_end_read(
         refseq,
         &read,
         mapping_parameters.min_duplication_length,
+        mapping_parameters.duplication_band,
     );
     details.duplications += segments.len() - 1;
 
@@ -1788,7 +1794,7 @@ mod tests {
             collisions: 0,
         };
 
-        let segments = resolve_duplications(&aligner, alignment.clone(), &refseq, &read, 40);
+        let segments = resolve_duplications(&aligner, alignment.clone(), &refseq, &read, 40, 20);
 
         assert_eq!(segments.len(), 2);
         assert_eq!(segments[0].contig_start, 0);
@@ -1802,9 +1808,9 @@ mod tests {
         assert_eq!(segments[1].soft_clip_right, 0);
         assert_eq!(segments[1].score, 120 * 2 + 10);
 
-        let below = resolve_duplications(&aligner, alignment.clone(), &refseq, &read, 61);
+        let below = resolve_duplications(&aligner, alignment.clone(), &refseq, &read, 61, 20);
         assert_eq!(below.len(), 1);
-        let no_minimum = resolve_duplications(&aligner, alignment, &refseq, &read, 0);
+        let no_minimum = resolve_duplications(&aligner, alignment, &refseq, &read, 0, 20);
         assert_eq!(no_minimum.len(), 2);
     }
 
@@ -1844,6 +1850,7 @@ mod tests {
             &refseq,
             &Read::new(&seq),
             30,
+            20,
         );
 
         assert_eq!(segments.len(), 1);

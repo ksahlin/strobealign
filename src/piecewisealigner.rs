@@ -327,12 +327,13 @@ impl PiecewiseAligner {
         inserted: &[u8],
         left_reference: &[u8],
         right_reference: &[u8],
+        band: usize,
     ) -> SplitReferenceAlignment {
         self.simd_aligner.borrow_mut().split_reference_alignment(
             inserted,
             left_reference,
             right_reference,
-            None,
+            Some(band),
         )
     }
 }

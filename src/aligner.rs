@@ -198,11 +198,13 @@ impl Aligner {
         inserted: &[u8],
         left_reference: &[u8],
         right_reference: &[u8],
+        band: usize,
     ) -> Option<SplitReferenceAlignment> {
         Some(self.piecewise_aligner.as_ref()?.realign_insertion(
             inserted,
             left_reference,
             right_reference,
+            band,
         ))
     }
 }

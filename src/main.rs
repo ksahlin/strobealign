@@ -290,6 +290,10 @@ struct Args {
     #[arg(long = "dl", default_value_t =  MappingParameters::default().min_duplication_length, value_name = "N", help_heading = "Duplications")]
     min_duplication_length: usize,
 
+    /// Bandwidth of the two arms of a duplication split
+    #[arg(long = "dw", default_value_t = MappingParameters::default().duplication_band, value_name = "N", help_heading = "Duplications")]
+    duplication_band: usize,
+
 
     /// Path to input reference (in FASTA format)
     ref_path: String,
@@ -558,6 +562,7 @@ fn run() -> Result<(), CliError> {
         mcs_strategy: args.mcs_strategy,
         use_ssw: args.use_ssw,
         min_duplication_length: args.min_duplication_length,
+        duplication_band: args.duplication_band,
     };
 
     let chaining_parameters = ChainingParameters {
