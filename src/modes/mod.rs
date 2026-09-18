@@ -6,7 +6,7 @@
 
 use std::cmp::min;
 
-use crate::chain::Chain;
+use crate::chaining::chain::Chain;
 
 pub mod abundance;
 pub mod align;

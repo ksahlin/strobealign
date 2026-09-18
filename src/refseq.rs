@@ -41,6 +41,12 @@ impl ContigStarts {
         self.0[self.index(start)]
     }
 
+    /// Returns the end position (exclusive) of the contig that contains the
+    /// given position.
+    pub fn contig_end(&self, start: usize) -> usize {
+        self.0[self.index(start) + 1]
+    }
+
     /// Returns (contig_index, contig_start)
     pub fn unflatten(&self, start: usize) -> (usize, ContigPosition) {
         let ref_index = self.index(start);

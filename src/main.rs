@@ -14,13 +14,13 @@ use clap::builder::styling::AnsiColor;
 use fastrand::Rng;
 use log::{debug, error, info, trace, warn};
 use mimalloc::MiMalloc;
-use strobealign::chain::{Chain, get_sorted_chains};
+use strobealign::chaining::chain::{Chain, get_sorted_chains};
 use strobealign::indexer::make_index;
 use strobealign::refseq::RefSequence;
 use thiserror::Error;
 
 use strobealign::aligner::{Aligner, Scores};
-use strobealign::chainer::{Chainer, ChainingParameters};
+use strobealign::chaining::chainer::{Chainer, ChainingParameters};
 use strobealign::details::Details;
 use strobealign::index::{IndexReadingError, StrobemerIndex, read_index};
 use strobealign::insertsize::InsertSizeDistribution;
@@ -243,6 +243,10 @@ struct Args {
     /// Best chain score threshold
     #[arg(long = "vp", default_value_t = ChainingParameters::default().valid_score_threshold, help_heading = "Collinear chaining")]
     valid_score_threshold: f32,
+
+    /// Maximum number of chains extracted per orientation
+    #[arg(long = "mc", default_value_t = ChainingParameters::default().max_chains, help_heading = "Collinear chaining")]
+    max_chains: usize,
 
     /// Maximum allowed distance between anchors on the reference [default: same as read length]
     #[arg(long = "sg", help_heading = "Collinear chaining")]
@@ -560,6 +564,7 @@ fn run() -> Result<(), CliError> {
         diag_diff_penalty: args.diag_diff_penalty,
         gap_length_penalty: args.gap_length_penalty,
         valid_score_threshold: args.valid_score_threshold,
+        max_chains: args.max_chains,
         max_ref_gap: args.max_ref_gap,
         matches_weight: args.matches_weight,
         max_diagonal_ratio: args.max_diagonal_ratio,
@@ -880,6 +885,10 @@ fn run() -> Result<(), CliError> {
     info!(
         "Total time finding hits (rescue mode): {:.2} s",
         details.chain.time_rescue
+    );
+    info!(
+        "Total time recovering anchors: {:.2} s",
+        details.chain.time_recovery
     );
     info!(
         "Total time chaining (non-rescue mode): {:.2} s",

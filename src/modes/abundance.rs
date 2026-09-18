@@ -1,7 +1,7 @@
 //! Abundance estimation mode (`--aemb`)
 
 use crate::{
-    chain::Chain,
+    chaining::chain::Chain,
     insertsize::InsertSizeDistribution,
     io::record::SequenceRecord,
     modes::map::{ChainPair, MappedChains, get_best_paired_mapping_location, get_chain_pairs},

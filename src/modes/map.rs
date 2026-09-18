@@ -1,4 +1,4 @@
-use crate::chain::Chain;
+use crate::chaining::chain::Chain;
 use crate::insertsize::InsertSizeDistribution;
 use crate::io::paf::PafRecord;
 use crate::io::record::{End, SequenceRecord};

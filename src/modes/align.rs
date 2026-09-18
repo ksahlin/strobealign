@@ -14,8 +14,8 @@ use memchr::memmem;
 
 use crate::aligner::Aligner;
 use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
-use crate::chain::Chain;
-use crate::chainer::Anchor;
+use crate::chaining::chain::Chain;
+use crate::chaining::chainer::Anchor;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::Details;
 use crate::index::StrobemerIndex;
