@@ -13,7 +13,7 @@ use log::trace;
 use memchr::memmem;
 
 use crate::aligner::Aligner;
-use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
+use crate::aligner::{AlignmentInfo, Scores, hamming_align, hamming_distance};
 use crate::chain::Chain;
 use crate::chainer::Anchor;
 use crate::cigar::{Cigar, CigarOperation};
@@ -22,16 +22,19 @@ use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
 use crate::io::record::SequenceRecord;
 use crate::io::sam::{
-    MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SamRecord, UNMAP,
+    MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SUPPLEMENTARY,
+    SamRecord, UNMAP,
 };
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
 use crate::modes::mapping_quality;
+use crate::packed_seq::PackedSeqSlice;
 use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
 use crate::refseq::{ContigPosition, RefSequence};
 use crate::revcomp::reverse_complement;
 use crate::seeding::SeedingParameters;
+use crate::simdaligner::SplitReferenceAlignment;
 
 const MAX_PAIR_CHAINS: usize = 1000;
 
@@ -45,6 +48,7 @@ pub struct MappingParameters {
     pub mcs_strategy: McsStrategy,
     pub output_unmapped: bool,
     pub use_ssw: bool,
+    pub min_duplication_length: usize,
 }
 
 impl Default for MappingParameters {
@@ -58,6 +62,7 @@ impl Default for MappingParameters {
             mcs_strategy: McsStrategy::default(),
             output_unmapped: true,
             use_ssw: false,
+            min_duplication_length: 50,
         }
     }
 }
@@ -95,6 +100,232 @@ impl Alignment {
     fn global_edit_distance(&self) -> usize {
         self.edit_distance + self.soft_clip_left + self.soft_clip_right
     }
+
+    /// The CIGAR as SAM writes it: soft clips restored, and `M` unless `=`/`X` was asked for.
+    fn sam_cigar(&self, cigar_eqx: bool) -> Cigar {
+        let mut cigar = Cigar::new();
+        cigar.push(CigarOperation::Softclip, self.soft_clip_left);
+        cigar.extend(&self.cigar);
+        cigar.push(CigarOperation::Softclip, self.soft_clip_right);
+        if cigar_eqx { cigar } else { cigar.with_m() }
+    }
+
+    /// One `rname,pos,strand,CIGAR,mapQ,NM;` entry for another record's SA:Z tag.
+    fn sa_entry(&self, refseq: &RefSequence, mapq: u8, cigar_eqx: bool) -> String {
+        format!(
+            "{},{},{},{},{},{};",
+            refseq.names[self.contig_id],
+            self.contig_start + 1,
+            if self.is_revcomp { '-' } else { '+' },
+            self.sam_cigar(cigar_eqx),
+            mapq,
+            self.edit_distance,
+        )
+    }
+}
+
+/// One piece of a split alignment: `cigar` at `ref_start`, with the query either side of it
+/// clipped off. Everything else is carried over from the alignment being cut up. `None` when
+/// the piece scores below zero.
+fn make_segment(
+    source: &Alignment,
+    cigar: Cigar,
+    ref_start: usize,
+    soft_clip_left: usize,
+    read_len: usize,
+    scores: &Scores,
+) -> Option<Alignment> {
+    let (query_span, ref_span) = query_ref_span(&cigar);
+    let soft_clip_right = read_len - (soft_clip_left + query_span);
+    let unclipped_ends = (soft_clip_left == 0) as u32 + (soft_clip_right == 0) as u32;
+    let score = scores.score(&cigar) + (unclipped_ends * scores.end_bonus) as i32;
+    if score < 0 {
+        return None;
+    }
+
+    Some(Alignment {
+        contig_id: source.contig_id,
+        is_revcomp: source.is_revcomp,
+        contig_start: ref_start,
+        length: ref_span,
+        soft_clip_left,
+        soft_clip_right,
+        edit_distance: cigar.edit_distance(),
+        score: score as u32,
+        cigar,
+        gapped: source.gapped,
+        anchors: source.anchors,
+        collisions: source.collisions,
+    })
+}
+
+/// Query and reference bases a whole CIGAR spans, in that order.
+fn query_ref_span(cigar: &Cigar) -> (usize, usize) {
+    let mut query = 0;
+    let mut reference = 0;
+
+    for (op, len) in cigar.iter() {
+        let (q, r) = query_ref_len(op, len);
+        query += q;
+        reference += r;
+    }
+
+    (query, reference)
+}
+
+/// Query and reference bases one CIGAR operation consumes.
+fn query_ref_len(op: CigarOperation, len: usize) -> (usize, usize) {
+    match op {
+        CigarOperation::Match | CigarOperation::Eq | CigarOperation::X => (len, len),
+        CigarOperation::Insertion | CigarOperation::Softclip => (len, 0),
+        CigarOperation::Deletion | CigarOperation::Skip => (0, len),
+        CigarOperation::Hardclip | CigarOperation::Pad => (0, 0),
+    }
+}
+
+/// Where the second copy starts on the contig and how the read jumps into it, for the
+/// insertion of `len` bases sitting at `ref_pos`. `None` when the jump does not beat leaving
+/// the insertion alone, or when the copy it finds is shorter than `min_length`.
+fn find_duplication(
+    aligner: &Aligner,
+    contig: &PackedSeqSlice,
+    query: &[u8],
+    ref_pos: usize,
+    query_pos: usize,
+    len: usize,
+    min_length: usize,
+) -> Option<(usize, SplitReferenceAlignment)> {
+    let padding = len / 2;
+    let left_start = ref_pos.saturating_sub(len + padding);
+    let right_end = (ref_pos + len + padding).min(contig.len());
+    let left_reference = contig.decode(left_start, ref_pos);
+    let right_reference = contig.decode(ref_pos, right_end);
+    let inserted = &query[query_pos..query_pos + len];
+
+    let split = aligner.realign_insertion(inserted, &left_reference, &right_reference)?;
+
+    let insertion_penalty =
+        aligner.scores.gap_open as i32 + (len as i32 - 1) * aligner.scores.gap_extend as i32;
+    let copy_len =
+        (split.right.ref_end - split.right.ref_start) + (split.left.ref_end - split.left.ref_start);
+
+    if split.score <= -insertion_penalty || copy_len < min_length {
+        return None;
+    }
+
+    Some((left_start + split.left.ref_start, split))
+}
+
+/// Re-interpret the long insertions of an alignment as tandem duplications, cutting it into
+/// one segment per copy.
+fn resolve_duplications(
+    aligner: &Aligner,
+    alignment: Alignment,
+    refseq: &RefSequence,
+    read: &Read,
+    min_length: usize,
+) -> Vec<Alignment> {
+    if !alignment
+        .cigar
+        .iter()
+        .any(|(op, len)| op == CigarOperation::Insertion && len >= min_length)
+    {
+        return vec![alignment];
+    }
+
+    let query = if alignment.is_revcomp {
+        read.rc()
+    } else {
+        read.seq()
+    };
+    let contig = refseq.contig(alignment.contig_id);
+
+    let mut segments = Vec::new();
+    let mut segment_cigar = Cigar::new();
+    let mut segment_start = alignment.contig_start;
+    let mut segment_clip_left = alignment.soft_clip_left;
+    let mut ref_pos = alignment.contig_start;
+    let mut query_pos = alignment.soft_clip_left;
+
+    for (op, len) in alignment.cigar.iter() {
+        if op == CigarOperation::Insertion
+            && len >= min_length
+            && let Some((copy_start, split)) =
+                find_duplication(aligner, &contig, query, ref_pos, query_pos, len, min_length)
+        {
+            // The right arm carries the segment being built on past the insertion point, and
+            // the left arm opens the next one at the second copy.
+            let mut upstream = segment_cigar.clone();
+            upstream.extend(&split.right.cigar);
+
+            if let Some(segment) = make_segment(
+                &alignment,
+                upstream,
+                segment_start,
+                segment_clip_left,
+                query.len(),
+                &aligner.scores,
+            ) {
+                segments.push(segment);
+                segment_cigar = split.left.cigar;
+                segment_start = copy_start;
+                segment_clip_left = query_pos + split.left.query_start;
+                query_pos += len;
+                continue;
+            }
+        }
+
+        segment_cigar.push(op, len);
+        let (query_len, ref_len) = query_ref_len(op, len);
+        query_pos += query_len;
+        ref_pos += ref_len;
+    }
+
+    if segments.is_empty() {
+        return vec![alignment];
+    }
+
+    let Some(tail) = make_segment(
+        &alignment,
+        segment_cigar,
+        segment_start,
+        segment_clip_left,
+        query.len(),
+        &aligner.scores,
+    ) else {
+        return vec![alignment];
+    };
+    segments.push(tail);
+
+    segments
+}
+
+/// SA:Z tag for each segment of a split alignment, listing all the *other* segments.
+fn build_sa_tags(
+    segments: &[Alignment],
+    mapq: u8,
+    refseq: &RefSequence,
+    cigar_eqx: bool,
+) -> Vec<Option<String>> {
+    if segments.len() < 2 {
+        return vec![None; segments.len()];
+    }
+    let entries: Vec<String> = segments
+        .iter()
+        .map(|segment| segment.sa_entry(refseq, mapq, cigar_eqx))
+        .collect();
+
+    (0..segments.len())
+        .map(|i| {
+            Some(
+                entries[..i]
+                    .iter()
+                    .chain(&entries[i + 1..])
+                    .map(String::as_str)
+                    .collect(),
+            )
+        })
+        .collect()
 }
 
 impl Details {
@@ -116,6 +347,7 @@ enum PairStatus {
 enum AlignmentStatus {
     Primary,
     Secondary,
+    Supplementary,
 }
 
 /// Conversion of an Alignment into a SamRecord
@@ -159,6 +391,7 @@ impl SamOutput {
                 mapq,
                 alignment_status,
                 details.clone(),
+                None,
             ),
             None => self.make_unmapped_record(record, details.clone()),
         }
@@ -173,15 +406,20 @@ impl SamOutput {
         mut mapq: u8,
         alignment_status: AlignmentStatus,
         details: Details,
+        sa_tag: Option<String>,
     ) -> SamRecord {
         let mut flags = 0;
 
         if alignment.is_revcomp {
             flags |= REVERSE;
         }
-        if alignment_status == AlignmentStatus::Secondary {
-            mapq = 0;
-            flags |= SECONDARY;
+        match alignment_status {
+            AlignmentStatus::Primary => {}
+            AlignmentStatus::Secondary => {
+                mapq = 0;
+                flags |= SECONDARY;
+            }
+            AlignmentStatus::Supplementary => flags |= SUPPLEMENTARY,
         }
 
         let query_sequence = if alignment.is_revcomp {
@@ -199,18 +437,10 @@ impl SamOutput {
         } else {
             record.qualities.clone()
         };
-        let mut cigar = Cigar::new();
-        cigar.push(CigarOperation::Softclip, alignment.soft_clip_left);
-        cigar.extend(&alignment.cigar);
-        cigar.push(CigarOperation::Softclip, alignment.soft_clip_right);
         let reference_name = Some(refseq.names[alignment.contig_id].clone());
         let pos = Some(ContigPosition(alignment.contig_start as u32));
         let details = if self.details { Some(details) } else { None };
-        let cigar = if self.cigar_eqx {
-            Some(cigar)
-        } else {
-            Some(cigar.with_m())
-        };
+        let cigar = Some(alignment.sam_cigar(self.cigar_eqx));
         let extra = if self.fastq_comments {
             record.comment.clone()
         } else {
@@ -227,6 +457,7 @@ impl SamOutput {
             query_qualities,
             edit_distance: Some(alignment.edit_distance as u32),
             alignment_score: Some(alignment.score),
+            sa_tag,
             details,
             rg_id: self.rg_id.clone(),
             extra,
@@ -465,23 +696,49 @@ pub fn align_single_end_read(
             alignments.push(alignment);
         }
     }
-    if best_alignment.is_none() {
+    let Some(best_alignment) = best_alignment else {
         return (
             vec![sam_output.make_unmapped_record(record, details.clone())],
             details,
         );
-    }
+    };
     let mapq = (60 * (best_score - second_best_score)).div_ceil(best_score) as u8;
 
-    let best_alignment = best_alignment.unwrap();
+    let mut segments = resolve_duplications(
+        aligner,
+        best_alignment,
+        refseq,
+        &read,
+        mapping_parameters.min_duplication_length,
+    );
+    details.duplications += segments.len() - 1;
+
+    // The best scoring segment becomes the primary and the rest supplementary
+    segments.sort_by_key(|segment| Reverse(segment.score));
+    let sa_tags = build_sa_tags(&segments, mapq, refseq, sam_output.cigar_eqx);
+
+    let mut tagged_segments = segments.iter().zip(sa_tags);
+    let (primary, sa_tag) = tagged_segments.next().unwrap();
     sam_records.push(sam_output.make_mapped_record(
-        &best_alignment,
+        primary,
         refseq,
         record,
         mapq,
         AlignmentStatus::Primary,
         details.clone(),
+        sa_tag,
     ));
+    for (supplementary, sa_tag) in tagged_segments {
+        sam_records.push(sam_output.make_mapped_record(
+            supplementary,
+            refseq,
+            record,
+            mapq,
+            AlignmentStatus::Supplementary,
+            details.clone(),
+            sa_tag,
+        ));
+    }
 
     // Secondary alignments
     if mapping_parameters.max_secondary > 0 {
@@ -506,6 +763,7 @@ pub fn align_single_end_read(
                 mapq,
                 AlignmentStatus::Secondary,
                 details.clone(),
+                None,
             ));
         }
     }
@@ -1461,6 +1719,8 @@ fn top_dropoff(chains: &[Chain]) -> f32 {
 mod tests {
     use super::*;
     use crate::cigar::Cigar;
+    use crate::packed_seq::PackedSeq;
+    use std::str::FromStr;
 
     pub fn make_alignment(contig_start: usize, score: u32, is_revcomp: bool) -> Alignment {
         Alignment {
@@ -1494,6 +1754,168 @@ mod tests {
             collisions: 0,
             anchors: 0,
         }
+    }
+
+    #[test]
+    fn resolve_duplications_splits_a_tandem_duplication() {
+        let reference = b"AACGTCCGGCATGTTACACATCTACAAACGTGATGGTTGTACCGCATACCACCCTGGGGT\
+                          ACCCTAAGCAATGGGTTGCAACCGCTAGTAAATGGCAACGACGGATTGAGGCCTTTCGGG\
+                          AGGTAAGGTGTGAACATATGAGGAATTATGAAGCTTCAATAGTGCACCCGTCTGCTGGCA\
+                          GATCAATGCCCGACAGAGCA";
+        let mut seq = reference[0..80].to_vec();
+        seq.extend_from_slice(&reference[20..80]);
+        seq.extend_from_slice(&reference[80..140]);
+        let read = Read::new(&seq);
+        let refseq = RefSequence::new(
+            PackedSeq::from_slice(reference),
+            vec![0],
+            vec!["chr1".to_string()],
+        )
+        .unwrap();
+        let aligner = Aligner::new(Scores::default(), 20, 15);
+        let alignment = Alignment {
+            contig_id: 0,
+            contig_start: 0,
+            cigar: Cigar::from_str("80=60I60=").unwrap(),
+            edit_distance: 60,
+            soft_clip_left: 0,
+            soft_clip_right: 0,
+            score: 0,
+            length: 140,
+            is_revcomp: false,
+            gapped: true,
+            anchors: 0,
+            collisions: 0,
+        };
+
+        let segments = resolve_duplications(&aligner, alignment.clone(), &refseq, &read, 40);
+
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].contig_start, 0);
+        assert_eq!(segments[0].cigar.to_string(), "80=");
+        assert_eq!(segments[0].soft_clip_left, 0);
+        assert_eq!(segments[0].soft_clip_right, 120);
+        assert_eq!(segments[0].score, 80 * 2 + 10);
+        assert_eq!(segments[1].contig_start, 20);
+        assert_eq!(segments[1].cigar.to_string(), "120=");
+        assert_eq!(segments[1].soft_clip_left, 80);
+        assert_eq!(segments[1].soft_clip_right, 0);
+        assert_eq!(segments[1].score, 120 * 2 + 10);
+
+        let below = resolve_duplications(&aligner, alignment.clone(), &refseq, &read, 61);
+        assert_eq!(below.len(), 1);
+        let no_minimum = resolve_duplications(&aligner, alignment, &refseq, &read, 0);
+        assert_eq!(no_minimum.len(), 2);
+    }
+
+    #[test]
+    fn resolve_duplications_keeps_insertion() {
+        let reference = b"AACGTCCGGCATGTTACACATCTACAAACGTGATGGTTGTACCGCATACCACCCTGGGGT\
+                          ACCCTAAGCAATGGGTTGCAACCGCTAGTAAATGGCAACGACGGATTGAGGCCTTTCGGG\
+                          AGGTAAGGTGTGAACATATGAGGAATTATGAAGCTTCAATAGTGCACCCGTCTGCTGGCA\
+                          GATCAATGCCCGACAGAGCA";
+        let mut seq = reference[0..49].to_vec();
+        seq.extend_from_slice(b"TTTTTTTTTTAAAAAAAAAACCCCCCCCCC");
+        seq.extend_from_slice(&reference[49..89]);
+        let refseq = RefSequence::new(
+            PackedSeq::from_slice(reference),
+            vec![0],
+            vec!["chr1".to_string()],
+        )
+        .unwrap();
+        let alignment = Alignment {
+            contig_id: 0,
+            contig_start: 0,
+            cigar: Cigar::from_str("49=30I40=").unwrap(),
+            edit_distance: 30,
+            soft_clip_left: 0,
+            soft_clip_right: 0,
+            score: 0,
+            length: 89,
+            is_revcomp: false,
+            gapped: true,
+            anchors: 0,
+            collisions: 0,
+        };
+
+        let segments = resolve_duplications(
+            &Aligner::new(Scores::default(), 20, 15),
+            alignment,
+            &refseq,
+            &Read::new(&seq),
+            30,
+        );
+
+        assert_eq!(segments.len(), 1);
+        assert_eq!(segments[0].cigar.to_string(), "49=30I40=");
+    }
+
+    #[test]
+    fn make_segment_refuses_a_piece_that_scores_below_zero() {
+        let source = Alignment {
+            contig_id: 0,
+            contig_start: 100,
+            cigar: Cigar::default(),
+            edit_distance: 0,
+            soft_clip_left: 0,
+            soft_clip_right: 0,
+            score: 0,
+            length: 50,
+            is_revcomp: false,
+            gapped: false,
+            anchors: 0,
+            collisions: 0,
+        };
+        let scores = Scores::default();
+        let mismatches = Cigar::from_str("50X").unwrap();
+        let matches = Cigar::from_str("50=").unwrap();
+
+        assert!(make_segment(&source, mismatches, 100, 10, 100, &scores).is_none());
+        assert!(make_segment(&source, matches, 100, 10, 100, &scores).is_some());
+    }
+
+    #[test]
+    fn sa_tags_cross_reference_the_other_segments() {
+        let refseq = RefSequence::new(
+            PackedSeq::from_slice(b"ACGTACGTACGT"),
+            vec![0],
+            vec!["chr1".to_string()],
+        )
+        .unwrap();
+        let first = Alignment {
+            contig_id: 0,
+            contig_start: 100,
+            cigar: Cigar::from_str("40=").unwrap(),
+            edit_distance: 0,
+            soft_clip_left: 0,
+            soft_clip_right: 70,
+            score: 60,
+            length: 40,
+            is_revcomp: false,
+            gapped: false,
+            anchors: 0,
+            collisions: 0,
+        };
+        let second = Alignment {
+            contig_id: 0,
+            contig_start: 10,
+            cigar: Cigar::from_str("70=").unwrap(),
+            edit_distance: 0,
+            soft_clip_left: 40,
+            soft_clip_right: 0,
+            score: 55,
+            length: 70,
+            is_revcomp: true,
+            gapped: false,
+            anchors: 0,
+            collisions: 0,
+        };
+
+        let tags = build_sa_tags(&[first.clone(), second], 60, &refseq, true);
+        assert_eq!(tags[0].as_deref(), Some("chr1,11,-,40S70=,60,0;"));
+        assert_eq!(tags[1].as_deref(), Some("chr1,101,+,40=70S,60,0;"));
+
+        assert_eq!(build_sa_tags(&[first], 60, &refseq, true), vec![None]);
     }
 
     #[test]

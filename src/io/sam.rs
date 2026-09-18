@@ -35,6 +35,8 @@ pub struct SamRecord {
     pub alignment_score: Option<u32>,
     pub details: Option<Details>,
     pub rg_id: Option<String>,
+    /// SA:Z, the other alignments of a read split across several reference locations
+    pub sa_tag: Option<String>,
     /// Copied from FASTQ header
     pub extra: Option<String>,
 }
@@ -116,11 +118,12 @@ impl Display for SamRecord {
         if let Some(details) = &self.details {
             write!(
                 f,
-                "\tna:i:{}\tal:i:{}\tga:i:{}\tX0:i:{}",
+                "\tna:i:{}\tal:i:{}\tga:i:{}\tX0:i:{}\tdu:i:{}",
                 details.chain.n_chains,
                 details.tried_alignment,
                 details.gapped,
                 details.best_alignments,
+                details.duplications,
             )?;
             if self.flags & PAIRED != 0 {
                 write!(f, "\tmr:i:{}", details.mate_rescue)?;
@@ -128,6 +131,9 @@ impl Display for SamRecord {
         }
         if let Some(rg_id) = &self.rg_id {
             write!(f, "\tRG:Z:{}", rg_id)?;
+        }
+        if let Some(sa_tag) = &self.sa_tag {
+            write!(f, "\tSA:Z:{}", sa_tag)?;
         }
         if let Some(extra) = &self.extra {
             write!(f, "\t{}", extra)?;

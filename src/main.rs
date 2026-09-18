@@ -286,6 +286,10 @@ struct Args {
     #[arg(long = "bw", default_value_t = 1024, value_name = "N", help_heading = "Alignment")]
     bandwidth: usize,
 
+    /// Minimum size for reported tandem duplications
+    #[arg(long = "dl", default_value_t =  MappingParameters::default().min_duplication_length, value_name = "N", help_heading = "Duplications")]
+    min_duplication_length: usize,
+
 
     /// Path to input reference (in FASTA format)
     ref_path: String,
@@ -553,6 +557,7 @@ fn run() -> Result<(), CliError> {
         output_unmapped: !args.only_mapped,
         mcs_strategy: args.mcs_strategy,
         use_ssw: args.use_ssw,
+        min_duplication_length: args.min_duplication_length,
     };
 
     let chaining_parameters = ChainingParameters {

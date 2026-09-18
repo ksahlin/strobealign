@@ -155,6 +155,11 @@ impl Cigar {
         dist
     }
 
+    /// Iterate over the operations as `(operation, length)` pairs.
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (CigarOperation, usize)> + '_ {
+        self.ops.iter().map(|oplen| (oplen.op, oplen.len))
+    }
+
     /// Return a new Cigar that uses = and X operations instead of M
     pub fn with_eqx(&self, query: &[u8], refseq: &[u8]) -> Cigar {
         let mut cigar = Cigar::new();
@@ -268,6 +273,20 @@ mod test {
         let mut cigar = Cigar::new();
         cigar.push(CigarOperation::Eq, 1);
         assert!(!cigar.is_empty());
+    }
+
+    #[test]
+    fn iter_yields_operations_and_lengths() {
+        let cigar = Cigar::from_str("10=2X3D5=").unwrap();
+        assert_eq!(
+            cigar.iter().collect::<Vec<_>>(),
+            vec![
+                (CigarOperation::Eq, 10),
+                (CigarOperation::X, 2),
+                (CigarOperation::Deletion, 3),
+                (CigarOperation::Eq, 5),
+            ]
+        );
     }
 
     #[test]
