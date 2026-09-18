@@ -54,6 +54,12 @@ pub struct Details {
     /// No. of gapped alignments computed (in get_alignment)
     pub gapped: usize,
 
+    /// No. of anchors used in the alignment
+    pub anchors: usize,
+
+    /// No. of hash collisions
+    pub collisions: usize,
+
     /// No. of best alignments with same score
     pub best_alignments: usize,
 
@@ -66,6 +72,8 @@ impl ops::AddAssign<Details> for Details {
         self.mate_rescue += rhs.mate_rescue;
         self.tried_alignment += rhs.tried_alignment;
         self.gapped += rhs.gapped;
+        self.anchors += rhs.anchors;
+        self.collisions += rhs.collisions;
         self.best_alignments += rhs.best_alignments;
         self.time_extend += rhs.time_extend;
     }
