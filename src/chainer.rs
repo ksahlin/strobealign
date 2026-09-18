@@ -18,6 +18,15 @@ pub struct Anchor {
     pub query_start: usize,
 }
 
+impl Anchor {
+    pub fn new(ref_start: usize, query_start: usize) -> Self {
+        Anchor {
+            ref_start,
+            query_start,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ChainingParameters {
     pub max_lookback: usize,
@@ -466,20 +475,32 @@ impl ChainingResult {
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use crate::refseq::ContigStarts;
 
-    use super::{Anchor, Chainer, ChainingParameters};
+    use super::{Chainer, ChainingParameters};
+
+    /// A Vec of Anchors
+    #[macro_export]
+    macro_rules! anchors {
+        ( $( ($ref_start:expr, $query_start:expr) ),* $(,)?) => {
+            {
+                vec![
+                    $( $crate::chainer::Anchor::new($ref_start, $query_start), )*
+                ]
+            }
+        };
+    }
 
     #[test]
     fn chainer_early_break() {
         let chainer = Chainer::new(20, ChainingParameters::default());
         #[rustfmt::skip]
-        let anchors = vec![
-            Anchor { ref_start:  0, query_start:  0, },
-            Anchor { ref_start: 30, query_start: 20, },
-            Anchor { ref_start: 60, query_start:  0, },
-            Anchor { ref_start: 95, query_start: 35, },
+        let anchors = anchors![
+            (0, 0),
+            (30, 20),
+            (60, 0),
+            (95, 35),
         ];
         let starts = ContigStarts::new(vec![0], 200);
         let chaining_result = chainer.collinear_chaining(anchors, &starts, 2000);
@@ -495,10 +516,10 @@ mod test {
     fn linear_score_adjacent_anchors() {
         let chainer = Chainer::new(20, ChainingParameters::default());
         #[rustfmt::skip]
-        let anchors = [
-            Anchor { ref_start:   0, query_start:  0, },
-            Anchor { ref_start:  20, query_start: 20, },
-            Anchor { ref_start:  40, query_start: 40, },
+        let anchors = anchors![
+            (0,0),
+            (20,20),
+            (40, 40),
         ];
         let starts = ContigStarts::new(vec![0], 200);
         let chaining_result = chainer.collinear_chaining(anchors[0..1].to_vec(), &starts, 200);
@@ -521,9 +542,8 @@ mod test {
     fn diagonal_ratio_exceeded() {
         let chainer = Chainer::new(20, ChainingParameters::default());
         #[rustfmt::skip]
-        let anchors = vec![
-            Anchor { ref_start:  0, query_start:  0, },
-            Anchor { ref_start: 11, query_start:  1, },
+        let anchors = anchors![
+            (0,0), (11,1)
         ];
         let starts = ContigStarts::new(vec![0], 200);
         let chaining_result = chainer.collinear_chaining(anchors, &starts, 2000);
