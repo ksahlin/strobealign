@@ -22,6 +22,226 @@ pub fn make_index(
     n_threads: usize,
 ) -> (StrobemerIndex, IndexCreationStatistics) {
     let timer = Instant::now();
+
+    let buckets = 1usize << bits;
+    let mut bucket_starts = vec![0; buckets + 1];
+
+    for j in 0..refseq.names.len() {
+        for syncmer in SyncmerIterator::new(
+            &refseq.contig(j),
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+        ) {
+            let bucket = (syncmer.hash() >> (64 - bits)) as usize;
+            bucket_starts[bucket] += 1;
+        }
+    }
+
+    let mut sum = 0;
+    for i in 0..bucket_starts.len() {
+        let tmp = bucket_starts[i];
+        bucket_starts[i] = sum;
+        sum += tmp;
+    }
+    let total_randstrobes = sum;
+
+    debug!("  Counting hashes: {:.2} s", timer.elapsed().as_secs_f64());
+    let mut stats = IndexCreationStatistics::default();
+
+    stats.tot_strobemer_count = total_randstrobes as u64;
+
+    debug!("  Total number of randstrobes: {}", total_randstrobes);
+    let memory_bytes: usize = refseq.total_length()
+        + size_of::<RefRandstrobe>() * total_randstrobes
+        + size_of::<BucketIndex>() * (1usize << bits);
+    debug!(
+        "  Estimated total memory usage: {:.1} GB",
+        memory_bytes as f64 / 1E9
+    );
+
+    let timer = Instant::now();
+    debug!("  Generating randstrobes ...");
+
+
+    let mut randstrobes = vec![RefRandstrobe::default(); total_randstrobes];
+
+    for j in 0..refseq.names.len() {
+        let seq = refseq.contig(j);
+        let start = refseq.contig_start(j);
+
+        let syncmer_iter = SyncmerIterator::new(
+            &seq,
+            parameters.syncmer.k,
+            parameters.syncmer.s,
+            parameters.syncmer.t,
+        );
+
+        let randstrobe_iter = RandstrobeIterator::new(syncmer_iter, parameters.randstrobe.clone());
+
+        for randstrobe in randstrobe_iter {
+            let offset = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
+            let strobe1_start = randstrobe.strobe1_pos + start;
+
+            let bucket = (randstrobe.hash >> (64 - bits)) as usize;
+
+            randstrobes[bucket_starts[bucket]] = RefRandstrobe::new(randstrobe.hash, strobe1_start, offset as u8);
+            bucket_starts[bucket] += 1;
+        }
+    }
+
+    debug!("  Generating seeds: {:.2} s", timer.elapsed().as_secs_f64());
+    // stats.elapsed_generating_seeds = randstrobes_timer.duration();
+
+    let timer = Instant::now();
+    debug!("  Sorting ...");
+    // TODO
+    // ensure comparison function is branchless
+    // Comment from C++ code:
+    // Compare both hash and position to ensure that the order of the
+    // RefRandstrobes in the index is reproducible no matter which sorting
+    // function is used. This branchless comparison is faster than the
+    // equivalent one using std::tie.
+    // __uint128_t lhs = (static_cast<__uint128_t>(m_hash_offset_flag) << 64) | ((static_cast<uint64_t>(m_position) << 32) | m_ref_index);
+    // __uint128_t rhs = (static_cast<__uint128_t>(other.m_hash_offset_flag) << 64) | ((static_cast<uint64_t>(other.m_position) << 32) | m_ref_index);
+    /*
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(n_threads)
+        .build()
+        .unwrap();
+    pool.install(|| randstrobes.par_sort_unstable());
+*/
+
+    // Fix bucket starts
+    for i in 0..bucket_starts.len() - 1 {
+        bucket_starts[i] = bucket_starts[i+1];
+    }
+    for i in 0..bucket_starts.len() - 1 {
+        let start = bucket_starts[i];
+        let end = bucket_starts[i+1];
+        randstrobes[start..end].sort_unstable();
+    }
+
+    debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
+    // stats.elapsed_sorting_seeds = sorting_timer.duration();
+
+    let timer = Instant::now();
+    debug!("  Generating hash table index ...");
+
+    let mut tot_high_ab = 0;
+    let mut tot_mid_ab = 0;
+
+    stats.tot_occur_once = 0;
+    let mut randstrobe_start_indices = Vec::with_capacity((1usize << bits) + 1);
+    let mut unique_mers = usize::from(!randstrobes.is_empty());
+
+    let mut prev_hash: RandstrobeHash = if randstrobes.is_empty() {
+        0
+    } else {
+        randstrobes[0].hash()
+    };
+    let mut count = 1;
+
+    if !randstrobes.is_empty() {
+        randstrobe_start_indices.push(0);
+    }
+
+    // strobemer_counts[i] is how many strobemers occur i times,
+    // except that `strobemer_counts[1000]` is how many strobemers occur
+    // 1000 times *or more*.
+    let mut strobemer_counts = [0usize; 1001];
+    #[allow(clippy::needless_range_loop)]
+    for position in 1..randstrobes.len() {
+        let cur_hash = randstrobes[position].hash();
+        if cur_hash == prev_hash {
+            count += 1;
+            continue;
+        }
+        unique_mers += 1;
+
+        if count == 1 {
+            stats.tot_occur_once += 1;
+        } else {
+            if count > 100 {
+                tot_high_ab += 1;
+            } else {
+                tot_mid_ab += 1;
+            }
+            strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
+        }
+        count = 1;
+        let cur_hash_n = cur_hash >> (64 - bits);
+        while randstrobe_start_indices.len() <= cur_hash_n as usize {
+            randstrobe_start_indices.push(position as BucketIndex);
+        }
+        prev_hash = cur_hash;
+    }
+    // wrap up last entry
+    if count == 1 {
+        stats.tot_occur_once += 1;
+    } else {
+        if count > 100 {
+            tot_high_ab += 1;
+        } else {
+            tot_mid_ab += 1;
+        }
+        strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
+    }
+    strobemer_counts[1] = unique_mers;
+    while randstrobe_start_indices.len() < ((1usize << bits) + 1) {
+        randstrobe_start_indices.push(randstrobes.len() as BucketIndex);
+    }
+    stats.tot_high_ab = tot_high_ab;
+    stats.tot_mid_ab = tot_mid_ab;
+
+    let index_cutoff = (unique_mers as f64 * filter_fraction) as usize;
+    stats.index_cutoff = index_cutoff;
+
+    let mut total = 0;
+    let mut filter_cutoff = 1;
+    for i in (1..strobemer_counts.len()).rev() {
+        total += strobemer_counts[i];
+        if total >= index_cutoff {
+            filter_cutoff = i;
+            break;
+        }
+    }
+
+    trace!(
+        "Filter cutoff before clamping to [30, 100]: {}",
+        filter_cutoff
+    );
+    let filter_cutoff = usize::clamp(
+        filter_cutoff,
+        30, // cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
+        100, // limit upper cutoff for normal NAM finding - use rescue mode instead
+    );
+    //stats.elapsed_hash_index = hash_index_timer.duration();
+    debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
+    stats.distinct_strobemers = unique_mers as u64;
+
+    (
+        StrobemerIndex::new(
+            parameters,
+            bits,
+            filter_cutoff,
+            randstrobes,
+            randstrobe_start_indices,
+            refseq.starts.clone(),
+        ),
+        stats,
+    )
+}
+
+/// Create a StrobemerIndex
+pub fn make_index_old(
+    refseq: &RefSequence,
+    parameters: SeedingParameters,
+    bits: u8,
+    filter_fraction: f64,
+    n_threads: usize,
+) -> (StrobemerIndex, IndexCreationStatistics) {
+    let timer = Instant::now();
     let randstrobe_counts = count_all_randstrobes(refseq, &parameters, n_threads);
     debug!("  Counting hashes: {:.2} s", timer.elapsed().as_secs_f64());
     // stats.elapsed_counting_hashes = count_hash.duration();
