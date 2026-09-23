@@ -247,7 +247,7 @@ impl Chainer {
             n_anchors += anchors.len();
             let chaining_timer = Instant::now();
             trace!("Chaining {} anchors", anchors.len());
-            anchors.sort_unstable_by_key(|a| (a.ref_start, a.query_start));
+            sort_anchors(&mut anchors, read_len);
             anchors.dedup();
 
             // trace!(
@@ -377,6 +377,26 @@ fn add_to_anchors_partial(
             query_start,
         });
     }
+}
+
+/// Number of bits used for the query start when packing.
+const ANCHOR_QUERY_BITS: u32 = 20;
+
+/// Sort anchors by comparing a single u64 instead of a
+/// tuple (ref_start, query_start). It's faster
+fn sort_anchors(anchors: &mut [Anchor], read_len: usize) {
+    debug_assert!(
+        read_len < (1 << ANCHOR_QUERY_BITS),
+        "query positions must fit in ANCHOR_QUERY_BITS bits"
+    );
+    anchors.sort_unstable_by_key(|a| {
+        ((a.ref_start as u64) << ANCHOR_QUERY_BITS) | a.query_start as u64
+    });
+    debug_assert!(
+        anchors
+            .iter()
+            .all(|a| a.ref_start < (1 << (64 - ANCHOR_QUERY_BITS)))
+    );
 }
 
 fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
