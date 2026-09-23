@@ -13,7 +13,7 @@ use crate::seeding::{
 pub type RandstrobeHash = u64;
 pub type BucketIndex = usize;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Default, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Default, Clone, Copy)]
 #[repr(C)]
 pub struct RefRandstrobe {
     /// Packed representation of the hash and the strobe offset.  
