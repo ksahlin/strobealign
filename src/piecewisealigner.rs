@@ -418,54 +418,22 @@ pub fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::anchors;
 
     #[test]
     fn remove_spurious_anchors_control() {
-        let expected = vec![
-            Anchor {
-                ref_start: 0,
-                query_start: 0,
-            },
-            Anchor {
-                ref_start: 10,
-                query_start: 10,
-            },
-            Anchor {
-                ref_start: 20,
-                query_start: 20,
-            },
-            Anchor {
-                ref_start: 30,
-                query_start: 30,
-            },
-            Anchor {
-                ref_start: 40,
-                query_start: 40,
-            },
-            Anchor {
-                ref_start: 50,
-                query_start: 50,
-            },
-            Anchor {
-                ref_start: 60,
-                query_start: 60,
-            },
-            Anchor {
-                ref_start: 70,
-                query_start: 70,
-            },
-            Anchor {
-                ref_start: 80,
-                query_start: 80,
-            },
-            Anchor {
-                ref_start: 90,
-                query_start: 90,
-            },
-            Anchor {
-                ref_start: 100,
-                query_start: 100,
-            },
+        let expected = anchors![
+            (0, 0),
+            (10, 10),
+            (20, 20),
+            (30, 30),
+            (40, 40),
+            (50, 50),
+            (60, 60),
+            (70, 70),
+            (80, 80),
+            (90, 90),
+            (100, 100),
         ];
         let mut result = expected.clone();
         remove_spurious_anchors(&mut result);
@@ -474,164 +442,56 @@ mod tests {
 
     #[test]
     fn remove_spurious_anchors_inside_trim() {
-        let mut result = vec![
-            Anchor {
-                ref_start: 0,
-                query_start: 0,
-            },
-            Anchor {
-                ref_start: 10,
-                query_start: 10,
-            },
-            Anchor {
-                ref_start: 20,
-                query_start: 20,
-            },
-            Anchor {
-                ref_start: 130,
-                query_start: 30,
-            },
-            Anchor {
-                ref_start: 140,
-                query_start: 40,
-            },
-            Anchor {
-                ref_start: 150,
-                query_start: 50,
-            },
-            Anchor {
-                ref_start: 60,
-                query_start: 60,
-            },
-            Anchor {
-                ref_start: 70,
-                query_start: 50,
-            },
-            Anchor {
-                ref_start: 80,
-                query_start: 80,
-            },
-            Anchor {
-                ref_start: 90,
-                query_start: 90,
-            },
-            Anchor {
-                ref_start: 100,
-                query_start: 100,
-            },
+        let mut result = anchors![
+            (0, 0),
+            (10, 10),
+            (20, 20),
+            (130, 30),
+            (140, 40),
+            (150, 50),
+            (60, 60),
+            (70, 50),
+            (80, 80),
+            (90, 90),
+            (100, 100),
         ];
         remove_spurious_anchors(&mut result);
-        let expected = vec![
-            Anchor {
-                ref_start: 0,
-                query_start: 0,
-            },
-            Anchor {
-                ref_start: 10,
-                query_start: 10,
-            },
-            Anchor {
-                ref_start: 20,
-                query_start: 20,
-            },
-            Anchor {
-                ref_start: 60,
-                query_start: 60,
-            },
-            Anchor {
-                ref_start: 80,
-                query_start: 80,
-            },
-            Anchor {
-                ref_start: 90,
-                query_start: 90,
-            },
-            Anchor {
-                ref_start: 100,
-                query_start: 100,
-            },
+        let expected = anchors![
+            (0, 0),
+            (10, 10),
+            (20, 20),
+            (60, 60),
+            (80, 80),
+            (90, 90),
+            (100, 100),
         ];
         assert_eq!(expected, result);
     }
 
     #[test]
     fn remove_spurious_anchors_ends_trim() {
-        let mut result = vec![
-            Anchor {
-                ref_start: 5,
-                query_start: 0,
-            },
-            Anchor {
-                ref_start: 15,
-                query_start: 10,
-            },
-            Anchor {
-                ref_start: 20,
-                query_start: 20,
-            },
-            Anchor {
-                ref_start: 30,
-                query_start: 30,
-            },
-            Anchor {
-                ref_start: 40,
-                query_start: 40,
-            },
-            Anchor {
-                ref_start: 50,
-                query_start: 50,
-            },
-            Anchor {
-                ref_start: 60,
-                query_start: 60,
-            },
-            Anchor {
-                ref_start: 70,
-                query_start: 70,
-            },
-            Anchor {
-                ref_start: 80,
-                query_start: 80,
-            },
-            Anchor {
-                ref_start: 90,
-                query_start: 95,
-            },
-            Anchor {
-                ref_start: 100,
-                query_start: 105,
-            },
+        let mut result = anchors![
+            (5, 0),
+            (15, 10),
+            (20, 20),
+            (30, 30),
+            (40, 40),
+            (50, 50),
+            (60, 60),
+            (70, 70),
+            (80, 80),
+            (90, 95),
+            (100, 105),
         ];
         remove_spurious_anchors(&mut result);
-        let expected = vec![
-            Anchor {
-                ref_start: 20,
-                query_start: 20,
-            },
-            Anchor {
-                ref_start: 30,
-                query_start: 30,
-            },
-            Anchor {
-                ref_start: 40,
-                query_start: 40,
-            },
-            Anchor {
-                ref_start: 50,
-                query_start: 50,
-            },
-            Anchor {
-                ref_start: 60,
-                query_start: 60,
-            },
-            Anchor {
-                ref_start: 70,
-                query_start: 70,
-            },
-            Anchor {
-                ref_start: 80,
-                query_start: 80,
-            },
+        let expected = anchors![
+            (20, 20),
+            (30, 30),
+            (40, 40),
+            (50, 50),
+            (60, 60),
+            (70, 70),
+            (80, 80),
         ];
         assert_eq!(expected, result);
     }
@@ -651,24 +511,7 @@ mod tests {
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-        let anchors = vec![
-            Anchor {
-                ref_start: 40,
-                query_start: 30,
-            },
-            Anchor {
-                ref_start: 30,
-                query_start: 20,
-            },
-            Anchor {
-                ref_start: 20,
-                query_start: 10,
-            },
-            Anchor {
-                ref_start: 10,
-                query_start: 0,
-            },
-        ];
+        let anchors = anchors![(40, 30), (30, 20), (20, 10), (10, 0)];
         let result = aligner
             .extend_piecewise(query, refseq, &anchors, 5)
             .unwrap();
@@ -696,20 +539,7 @@ mod tests {
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq = b"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT";
-        let anchors = vec![
-            Anchor {
-                ref_start: 30,
-                query_start: 20,
-            },
-            Anchor {
-                ref_start: 20,
-                query_start: 20,
-            },
-            Anchor {
-                ref_start: 10,
-                query_start: 10,
-            },
-        ];
+        let anchors = anchors![(30, 20), (20, 20), (10, 10),];
         let result = aligner.extend_piecewise(query, refseq, &anchors, 5);
         assert!(result.is_none());
     }
@@ -731,35 +561,14 @@ mod tests {
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq =
             b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-        let anchors = vec![
-            Anchor {
-                ref_start: 40,
-                query_start: 30,
-            },
-            Anchor {
-                ref_start: 37,
-                query_start: 27,
-            },
-            Anchor {
-                ref_start: 35,
-                query_start: 25,
-            },
-            Anchor {
-                ref_start: 30,
-                query_start: 20,
-            },
-            Anchor {
-                ref_start: 25,
-                query_start: 20,
-            },
-            Anchor {
-                ref_start: 20,
-                query_start: 15,
-            },
-            Anchor {
-                ref_start: 10,
-                query_start: 5,
-            },
+        let anchors = anchors![
+            (40, 30),
+            (37, 27),
+            (35, 25),
+            (30, 20),
+            (25, 20),
+            (20, 15),
+            (10, 5),
         ];
         let result = aligner
             .extend_piecewise(query, refseq, &anchors, 5)
@@ -788,20 +597,7 @@ mod tests {
         );
         let query = b"CTTTTAAAAATTTTAAAAATGGTTTCAAAAATTCCTAAAAATTTTTCCCCC";
         let refseq = b"TTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAA";
-        let anchors = vec![
-            Anchor {
-                ref_start: 35,
-                query_start: 36,
-            },
-            Anchor {
-                ref_start: 15,
-                query_start: 14,
-            },
-            Anchor {
-                ref_start: 5,
-                query_start: 5,
-            },
-        ];
+        let anchors = anchors![(35, 36), (15, 14), (5, 5),];
         let result = aligner
             .extend_piecewise(query, refseq, &anchors, 5)
             .unwrap();
