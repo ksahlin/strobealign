@@ -11,7 +11,8 @@ use std::time::Instant;
 
 use log::{debug, trace};
 use rayon;
-use rayon::slice::ParallelSliceMut;
+
+use crate::radixsort::radix_sort_by_key;
 
 /// Create a StrobemerIndex
 pub fn make_index(
@@ -49,20 +50,14 @@ pub fn make_index(
 
     let timer = Instant::now();
     debug!("  Sorting ...");
-    // TODO
-    // ensure comparison function is branchless
-    // Comment from C++ code:
-    // Compare both hash and position to ensure that the order of the
-    // RefRandstrobes in the index is reproducible no matter which sorting
-    // function is used. This branchless comparison is faster than the
-    // equivalent one using std::tie.
-    // __uint128_t lhs = (static_cast<__uint128_t>(m_hash_offset_flag) << 64) | ((static_cast<uint64_t>(m_position) << 32) | m_ref_index);
-    // __uint128_t rhs = (static_cast<__uint128_t>(other.m_hash_offset_flag) << 64) | ((static_cast<uint64_t>(other.m_position) << 32) | m_ref_index);
+    // Sort by hash and then by position so that the order of the
+    // RefRandstrobes in the index is reproducible. The high bits of the hash
+    // are uniformly distributed, which makes radix sort a good fit.
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_threads)
         .build()
         .unwrap();
-    pool.install(|| randstrobes.par_sort_unstable());
+    pool.install(|| radix_sort_by_key(&mut randstrobes, |r| r.hash()));
 
     debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
     // stats.elapsed_sorting_seeds = sorting_timer.duration();
