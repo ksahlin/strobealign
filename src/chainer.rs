@@ -18,6 +18,47 @@ pub struct Anchor {
     pub query_start: usize,
 }
 
+/// Number of low bits used for the query start in a PackedAnchor. The
+/// remaining 44 bits hold the reference start.
+const ANCHOR_QUERY_BITS: u32 = 20;
+const ANCHOR_QUERY_MASK: u64 = (1 << ANCHOR_QUERY_BITS) - 1;
+
+/// An anchor packed into a single u64 as `ref_start << 20 | query_start`.
+///
+/// Anchors are created in this form so that sorting (by reference start and
+/// then query start), deduplication and chaining work on 8-byte integers.
+/// Only anchors that end up in a chain are converted to an [`Anchor`].
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
+struct PackedAnchor(u64);
+
+impl PackedAnchor {
+    #[inline]
+    fn new(ref_start: usize, query_start: usize) -> Self {
+        debug_assert!(query_start < (1 << ANCHOR_QUERY_BITS));
+        debug_assert!(ref_start < (1 << (64 - ANCHOR_QUERY_BITS)));
+        PackedAnchor(((ref_start as u64) << ANCHOR_QUERY_BITS) | query_start as u64)
+    }
+
+    #[inline]
+    fn ref_start(self) -> usize {
+        (self.0 >> ANCHOR_QUERY_BITS) as usize
+    }
+
+    #[inline]
+    fn query_start(self) -> usize {
+        (self.0 & ANCHOR_QUERY_MASK) as usize
+    }
+}
+
+impl From<PackedAnchor> for Anchor {
+    fn from(anchor: PackedAnchor) -> Self {
+        Anchor {
+            ref_start: anchor.ref_start(),
+            query_start: anchor.query_start(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ChainingParameters {
     pub max_lookback: usize,
@@ -48,7 +89,7 @@ pub struct ChainingResult {
     best_score: f32,
     dp: Vec<f32>,
     predecessors: Vec<usize>,
-    anchors: Vec<Anchor>,
+    anchors: Vec<PackedAnchor>,
     parameters: ChainingParameters,
 }
 
@@ -84,7 +125,7 @@ impl Chainer {
 
     fn collinear_chaining(
         &self,
-        anchors: Vec<Anchor>,
+        anchors: Vec<PackedAnchor>,
         contig_starts: &ContigStarts,
         read_len: usize,
     ) -> ChainingResult {
@@ -105,12 +146,12 @@ impl Chainer {
 
         for i in 0..n {
             let lookup_end = i.saturating_sub(max_lookback);
-            let ai = &anchors[i];
+            let ai = Anchor::from(anchors[i]);
 
             // Flat start position of the contig that a[i] is on
             let ref_contig_start = contig_starts.ref_contig_start(ai.ref_start);
             for j in (lookup_end..i).rev() {
-                let aj = &anchors[j];
+                let aj = Anchor::from(anchors[j]);
 
                 // Do not attempt to chain to an anchor on a different contig.
                 // This check works because we go through anchors in reverse.
@@ -156,7 +197,7 @@ impl Chainer {
             // represents the so-far optimal chain and can then give suboptimal
             // results. To mitigate the issue, we explicitly check that anchor.
             if best_index != usize::MAX {
-                let aj = &anchors[best_index];
+                let aj = Anchor::from(anchors[best_index]);
 
                 if aj.ref_start >= ref_contig_start && ai.query_start > aj.query_start {
                     let dq = ai.query_start - aj.query_start;
@@ -238,7 +279,11 @@ impl Chainer {
             n_anchors += anchors.len();
             let chaining_timer = Instant::now();
             trace!("Chaining {} anchors", anchors.len());
-            sort_anchors(&mut anchors, read_len);
+            debug_assert!(
+                read_len < (1 << ANCHOR_QUERY_BITS),
+                "query positions must fit in ANCHOR_QUERY_BITS bits"
+            );
+            anchors.sort_unstable();
             anchors.dedup();
 
             // trace!(
@@ -319,7 +364,7 @@ fn compute_score(dq: usize, dr: usize, k: usize, parameters: &ChainingParameters
 }
 
 fn add_to_anchors_full(
-    anchors: &mut Vec<Anchor>,
+    anchors: &mut Vec<PackedAnchor>,
     query_start: usize,
     query_end: usize,
     index: &StrobemerIndex,
@@ -336,21 +381,18 @@ fn add_to_anchors_full(
         let ref_end = ref_start + entry.strobe2_offset() + index.k();
         let length_diff = (query_end - query_start).abs_diff(ref_end - ref_start);
         if length_diff <= min_length_diff {
-            anchors.push(Anchor {
-                ref_start,
-                query_start,
-            });
-            anchors.push(Anchor {
-                ref_start: ref_end - index.k(),
-                query_start: query_end - index.k(),
-            });
+            anchors.push(PackedAnchor::new(ref_start, query_start));
+            anchors.push(PackedAnchor::new(
+                ref_end - index.k(),
+                query_end - index.k(),
+            ));
             min_length_diff = length_diff;
         }
     }
 }
 
 fn add_to_anchors_partial(
-    anchors: &mut Vec<Anchor>,
+    anchors: &mut Vec<PackedAnchor>,
     query_start: usize,
     index: &StrobemerIndex,
     entry: IndexEntry,
@@ -363,34 +405,11 @@ fn add_to_anchors_partial(
             break;
         }
 
-        anchors.push(Anchor {
-            ref_start: entry.ref_start(),
-            query_start,
-        });
+        anchors.push(PackedAnchor::new(entry.ref_start(), query_start));
     }
 }
 
-/// Number of bits used for the query start when packing.
-const ANCHOR_QUERY_BITS: u32 = 20;
-
-/// Sort anchors by comparing a single u64 instead of a
-/// tuple (ref_start, query_start). It's faster
-fn sort_anchors(anchors: &mut [Anchor], read_len: usize) {
-    debug_assert!(
-        read_len < (1 << ANCHOR_QUERY_BITS),
-        "query positions must fit in ANCHOR_QUERY_BITS bits"
-    );
-    anchors.sort_unstable_by_key(|a| {
-        ((a.ref_start as u64) << ANCHOR_QUERY_BITS) | a.query_start as u64
-    });
-    debug_assert!(
-        anchors
-            .iter()
-            .all(|a| a.ref_start < (1 << (64 - ANCHOR_QUERY_BITS)))
-    );
-}
-
-fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
+fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<PackedAnchor> {
     let mut anchors = vec![];
     for hit in hits {
         if hit.is_filtered {
@@ -442,10 +461,10 @@ impl ChainingResult {
 
             let mut j = i;
             let mut overlaps = false;
-            let mut chain_anchors = vec![self.anchors[i]];
+            let mut chain_anchors = vec![Anchor::from(self.anchors[i])];
 
             let mut matching_bases = k;
-            let mut ref_coverage = self.anchors[i].ref_start;
+            let mut ref_coverage = self.anchors[i].ref_start();
 
             while self.predecessors[j] != usize::MAX {
                 j = self.predecessors[j];
@@ -453,21 +472,21 @@ impl ChainingResult {
                     overlaps = true;
                     break;
                 }
-                chain_anchors.push(self.anchors[j]);
+                chain_anchors.push(Anchor::from(self.anchors[j]));
                 used[j] = true;
 
                 matching_bases += ref_coverage
-                    .saturating_sub(self.anchors[j].ref_start)
+                    .saturating_sub(self.anchors[j].ref_start())
                     .min(k);
-                ref_coverage = self.anchors[j].ref_start;
+                ref_coverage = self.anchors[j].ref_start();
             }
 
             if overlaps {
                 continue;
             }
 
-            let first = &self.anchors[j];
-            let last = &self.anchors[i];
+            let first = Anchor::from(self.anchors[j]);
+            let last = Anchor::from(self.anchors[i]);
 
             chains.push(Chain {
                 id: chains.len(),
@@ -489,7 +508,45 @@ impl ChainingResult {
 mod test {
     use crate::refseq::ContigStarts;
 
-    use super::{Anchor, Chainer, ChainingParameters};
+    use super::{Anchor, Chainer, ChainingParameters, PackedAnchor};
+
+    fn packed(anchors: &[Anchor]) -> Vec<PackedAnchor> {
+        anchors
+            .iter()
+            .map(|a| PackedAnchor::new(a.ref_start, a.query_start))
+            .collect()
+    }
+
+    #[test]
+    fn packed_anchor_roundtrip_and_order() {
+        let mut anchors = vec![
+            Anchor {
+                ref_start: 3_100_000_000,
+                query_start: 99_999,
+            },
+            Anchor {
+                ref_start: 5,
+                query_start: 7,
+            },
+            Anchor {
+                ref_start: 5,
+                query_start: 2,
+            },
+            Anchor {
+                ref_start: 0,
+                query_start: (1 << 20) - 1,
+            },
+            Anchor {
+                ref_start: 1,
+                query_start: 0,
+            },
+        ];
+        let mut p = packed(&anchors);
+        p.sort_unstable();
+        anchors.sort();
+        let unpacked: Vec<Anchor> = p.into_iter().map(Anchor::from).collect();
+        assert_eq!(unpacked, anchors);
+    }
 
     #[test]
     fn chainer_early_break() {
@@ -502,7 +559,7 @@ mod test {
             Anchor { ref_start: 95, query_start: 35, },
         ];
         let starts = ContigStarts::new(vec![0], 200);
-        let chaining_result = chainer.collinear_chaining(anchors, &starts, 2000);
+        let chaining_result = chainer.collinear_chaining(packed(&anchors), &starts, 2000);
 
         // The best chain has score 42.342842 and uses anchors 0, 1, 3.
         // When using the heuristic that breaks early if the predecessor is on the
@@ -521,17 +578,17 @@ mod test {
             Anchor { ref_start:  40, query_start: 40, },
         ];
         let starts = ContigStarts::new(vec![0], 200);
-        let chaining_result = chainer.collinear_chaining(anchors[0..1].to_vec(), &starts, 200);
+        let chaining_result = chainer.collinear_chaining(packed(&anchors[0..1]), &starts, 200);
         let score1 = chaining_result.best_score;
         assert_eq!(
             chainer
-                .collinear_chaining(anchors[0..2].to_vec(), &starts, 200)
+                .collinear_chaining(packed(&anchors[0..2]), &starts, 200)
                 .best_score,
             score1 * 2.0
         );
         assert_eq!(
             chainer
-                .collinear_chaining(anchors[0..3].to_vec(), &starts, 200)
+                .collinear_chaining(packed(&anchors[0..3]), &starts, 200)
                 .best_score,
             score1 * 3.0
         );
@@ -546,7 +603,7 @@ mod test {
             Anchor { ref_start: 11, query_start:  1, },
         ];
         let starts = ContigStarts::new(vec![0], 200);
-        let chaining_result = chainer.collinear_chaining(anchors, &starts, 2000);
+        let chaining_result = chainer.collinear_chaining(packed(&anchors), &starts, 2000);
         // dr=11, dq=1 gives a diagonal ratio of 11.0, exceeding the default max of 10.
         // The two anchors cannot be chained, so the best score is that of a single anchor.
         assert_eq!(chaining_result.best_score, chainer.k as f32);
