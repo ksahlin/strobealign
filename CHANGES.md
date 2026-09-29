@@ -12,6 +12,8 @@
 * #639: Speed up chaining by bit-packing anchors into a single 64-bit value.
   With this, the maximum reference size is now 17 Tbp and the maximum read
   length is 1 Mbp.
+* #648: Speed up indexing by about 20% by eliminating a pass over the
+  reference.
 * #636: Reduce RAM usage for large, repetitive genomes
 
 ## v0.18.0 (2026-09-01)
