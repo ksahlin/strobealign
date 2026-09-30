@@ -61,12 +61,12 @@ impl PiecewiseAligner {
         first_anchor: &Anchor,
         padding: usize,
     ) -> AlignmentResult {
-        if first_anchor.query_start > 0 && first_anchor.ref_start > 0 {
-            let query_part = &query[..first_anchor.query_start];
+        if first_anchor.query_start() > 0 && first_anchor.ref_start() > 0 {
+            let query_part = &query[..first_anchor.query_start()];
             let ref_start = first_anchor
-                .ref_start
+                .ref_start()
                 .saturating_sub(query_part.len() + padding);
-            let ref_part = &refseq[ref_start..first_anchor.ref_start];
+            let ref_part = &refseq[ref_start..first_anchor.ref_start()];
 
             let mut pre_align = self.simd_aligner.borrow_mut().local_start_alignment(
                 query_part,
@@ -76,8 +76,8 @@ impl PiecewiseAligner {
 
             if pre_align.score == 0 {
                 AlignmentResult {
-                    query_start: first_anchor.query_start,
-                    ref_start: first_anchor.ref_start,
+                    query_start: first_anchor.query_start(),
+                    ref_start: first_anchor.ref_start(),
                     ..Default::default()
                 }
             } else {
@@ -86,9 +86,9 @@ impl PiecewiseAligner {
             }
         } else {
             AlignmentResult {
-                query_start: first_anchor.query_start,
-                ref_start: first_anchor.ref_start,
-                score: if first_anchor.query_start == 0 {
+                query_start: first_anchor.query_start(),
+                ref_start: first_anchor.ref_start(),
+                score: if first_anchor.query_start() == 0 {
                     self.scores.end_bonus as i32
                 } else {
                     0
@@ -129,8 +129,8 @@ impl PiecewiseAligner {
         last_anchor: &Anchor,
         padding: usize,
     ) -> AlignmentResult {
-        let last_anchor_query_end = last_anchor.query_start + self.k;
-        let last_anchor_ref_end = last_anchor.ref_start + self.k;
+        let last_anchor_query_end = last_anchor.query_start() + self.k;
+        let last_anchor_ref_end = last_anchor.ref_start() + self.k;
 
         if last_anchor_query_end < query.len() && last_anchor_ref_end < refseq.len() {
             let query_part = &query[last_anchor_query_end..];
@@ -219,10 +219,10 @@ impl PiecewiseAligner {
         cigar.push(CigarOperation::Eq, self.k);
 
         for i in (1..anchors.len()).rev() {
-            let curr_query_start = anchors[i - 1].query_start;
-            let curr_ref_start = anchors[i - 1].ref_start;
-            let prev_query_end = anchors[i].query_start + self.k;
-            let prev_ref_end = anchors[i].ref_start + self.k;
+            let curr_query_start = anchors[i - 1].query_start();
+            let curr_ref_start = anchors[i - 1].ref_start();
+            let prev_query_end = anchors[i].query_start() + self.k;
+            let prev_ref_end = anchors[i].ref_start() + self.k;
 
             let query_diff = curr_query_start as isize - prev_query_end as isize;
             let ref_diff = curr_ref_start as isize - prev_ref_end as isize;
@@ -356,8 +356,9 @@ pub fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
 
     let mut i = 1;
     while i < anchors.len() {
-        let query_diff = (anchors[i - 1].query_start as isize) - (anchors[i].query_start as isize);
-        let ref_diff = (anchors[i - 1].ref_start as isize) - (anchors[i].ref_start as isize);
+        let query_diff =
+            (anchors[i - 1].query_start() as isize) - (anchors[i].query_start() as isize);
+        let ref_diff = (anchors[i - 1].ref_start() as isize) - (anchors[i].ref_start() as isize);
 
         let indel = query_diff - ref_diff;
 
@@ -391,8 +392,9 @@ pub fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
     let max_prune_count = ((anchors.len() as f32) * edge_prune_ratio).ceil() as usize;
 
     for i in 1..anchors.len().min(max_prune_count) {
-        let query_diff = (anchors[i].query_start as isize) - (anchors[i - 1].query_start as isize);
-        let ref_diff = (anchors[i].ref_start as isize) - (anchors[i - 1].ref_start as isize);
+        let query_diff =
+            (anchors[i].query_start() as isize) - (anchors[i - 1].query_start() as isize);
+        let ref_diff = (anchors[i].ref_start() as isize) - (anchors[i - 1].ref_start() as isize);
 
         let indel = query_diff - ref_diff;
 
@@ -403,8 +405,9 @@ pub fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
     }
 
     for i in (anchors.len().saturating_sub(max_prune_count) + 1..anchors.len()).rev() {
-        let query_diff = (anchors[i].query_start as isize) - (anchors[i - 1].query_start as isize);
-        let ref_diff = (anchors[i].ref_start as isize) - (anchors[i - 1].ref_start as isize);
+        let query_diff =
+            (anchors[i].query_start() as isize) - (anchors[i - 1].query_start() as isize);
+        let ref_diff = (anchors[i].ref_start() as isize) - (anchors[i - 1].ref_start() as isize);
 
         let indel = query_diff - ref_diff;
 
