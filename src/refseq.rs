@@ -3,9 +3,8 @@ use thiserror::Error;
 use crate::packed_seq::{PackedSeq, PackedSeqSlice};
 
 /// Number of bits used to represent reference positions.
-///
 pub const REFERENCE_BITS: u32 = 44;
-const MAXIMUM_REFERENCE_LENGTH: usize = 1 << REFERENCE_BITS;
+pub const MAXIMUM_REFERENCE_LENGTH: usize = 1 << REFERENCE_BITS;
 
 /// A position on a contig. This separate type is here to prevent confusion
 /// with "flat" reference coordinates, which are used everywhere else.

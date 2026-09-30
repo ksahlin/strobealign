@@ -16,6 +16,7 @@ const N_PRECOMPUTED: usize = 1024;
 /// remaining 44 bits hold the reference start.
 const ANCHOR_QUERY_BITS: u32 = 64 - REFERENCE_BITS;
 const ANCHOR_QUERY_MASK: u64 = (1 << ANCHOR_QUERY_BITS) - 1;
+pub const MAXIMUM_QUERY_LENGTH: usize = 1 << ANCHOR_QUERY_BITS;
 
 /// An anchor is represented by the start coordinate on the reference and
 /// query (`ref_start` and `query_start`).
@@ -491,7 +492,10 @@ impl ChainingResult {
 
 #[cfg(test)]
 pub mod test {
-    use crate::refseq::ContigStarts;
+    use crate::{
+        chainer::{Anchor, MAXIMUM_QUERY_LENGTH},
+        refseq::{ContigStarts, MAXIMUM_REFERENCE_LENGTH},
+    };
 
     use super::{Chainer, ChainingParameters};
 
@@ -507,21 +511,21 @@ pub mod test {
         };
     }
 
-    /*#[test]
-    fn packed_anchor_roundtrip_and_order() {
-        let mut anchors = anchors![
+    #[test]
+    fn anchor_packing() {
+        for (ref_start, query_start) in [
             (3_100_000_000, 99_999),
             (5, 7),
             (5, 2),
             (0, (1 << 20) - 1),
             (1, 0),
-        ];
-        let mut p = packed(&anchors);
-        p.sort_unstable();
-        anchors.sort();
-        let unpacked: Vec<Anchor> = p.into_iter().map(Anchor::from).collect();
-        assert_eq!(unpacked, anchors);
-    }*/
+            (MAXIMUM_REFERENCE_LENGTH - 1, MAXIMUM_QUERY_LENGTH - 1),
+        ] {
+            let anchor = Anchor::new(ref_start, query_start);
+            assert_eq!(anchor.ref_start(), ref_start);
+            assert_eq!(anchor.query_start(), query_start);
+        }
+    }
 
     #[test]
     fn chainer_early_break() {
