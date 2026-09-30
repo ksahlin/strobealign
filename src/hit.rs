@@ -15,6 +15,16 @@ const GLOBAL_RESCUE_COUNT: usize = 5;
 const LOCAL_RESCUE_THRESHOLD: usize = 10000;
 const GLOBAL_RESCUE_THRESHOLD: usize = 1000;
 
+/// Index lookups in find_all_hits are software-pipelined in two stages to
+/// hide memory latency. Stage 1 prefetches the bucket_starts entry of the
+/// randstrobe this many positions ahead. Stage 2 needs that entry to find the
+/// bucket, so it runs for a closer randstrobe, whose entry is then in cache.
+const PREFETCH_STAGE1_DISTANCE: usize = 16;
+
+/// Stage 2 of the lookup pipeline prefetches the bucket of the randstrobe this
+/// many positions ahead
+const PREFETCH_STAGE2_DISTANCE: usize = 8;
+
 #[derive(Debug)]
 pub struct Hit {
     pub query_start: usize,
@@ -136,7 +146,28 @@ fn find_all_hits(
     let mut hits_details = HitsDetails::default();
 
     if mcs_strategy != McsStrategy::FirstStrobe {
-        for randstrobe in query_randstrobes {
+        let prefetch_bucket_starts = |randstrobe: &QueryRandstrobe| {
+            index.prefetch_bucket_start(randstrobe.hash);
+            index.prefetch_bucket_start(randstrobe.hash_revcomp);
+        };
+        let prefetch_buckets = |randstrobe: &QueryRandstrobe| {
+            index.prefetch_bucket(randstrobe.hash);
+            index.prefetch_bucket(randstrobe.hash_revcomp);
+        };
+        // Fill the prefetch pipeline for the first randstrobes
+        for randstrobe in query_randstrobes.iter().take(PREFETCH_STAGE1_DISTANCE) {
+            prefetch_bucket_starts(randstrobe);
+        }
+        for randstrobe in query_randstrobes.iter().take(PREFETCH_STAGE2_DISTANCE) {
+            prefetch_buckets(randstrobe);
+        }
+        for (i, randstrobe) in query_randstrobes.iter().enumerate() {
+            if let Some(ahead) = query_randstrobes.get(i + PREFETCH_STAGE1_DISTANCE) {
+                prefetch_bucket_starts(ahead);
+            }
+            if let Some(ahead) = query_randstrobes.get(i + PREFETCH_STAGE2_DISTANCE) {
+                prefetch_buckets(ahead);
+            }
             if let Some(entry) = index.get_full_forward(randstrobe.hash) {
                 let is_filtered = entry.is_too_frequent(filter_cutoff, randstrobe.hash_revcomp);
                 if is_filtered {
