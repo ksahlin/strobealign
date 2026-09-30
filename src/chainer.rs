@@ -7,14 +7,14 @@ use crate::details::ChainDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::{IndexEntry, StrobemerIndex};
 use crate::mcsstrategy::McsStrategy;
-use crate::refseq::ContigStarts;
+use crate::refseq::{ContigStarts, REFERENCE_BITS};
 use crate::seeding::QueryRandstrobe;
 
 const N_PRECOMPUTED: usize = 1024;
 
 /// Number of low bits used for the query start in an Anchor. The
 /// remaining 44 bits hold the reference start.
-const ANCHOR_QUERY_BITS: u32 = 20;
+const ANCHOR_QUERY_BITS: u32 = 64 - REFERENCE_BITS;
 const ANCHOR_QUERY_MASK: u64 = (1 << ANCHOR_QUERY_BITS) - 1;
 
 /// An anchor is represented by the start coordinate on the reference and
@@ -22,8 +22,8 @@ const ANCHOR_QUERY_MASK: u64 = (1 << ANCHOR_QUERY_BITS) - 1;
 ///
 /// Anchors are packed into a single u64 so that sorting, deduplication and
 /// chaining can use a single machine word.
-/// `query_start` is packed into the lower `ANCHOR_QUERY_BITS` bits,
-/// `ref_start` into the remaining pper bits, so that sorting by the u64 value
+/// `query_start` is packed into the lower `ANCHOR_QUERY_BITS` bits and
+/// `ref_start` into the remaining upper bits so that sorting by the u64 value
 /// implicitly sorts by (`ref_start`, `query_start`).
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
 pub struct Anchor(u64);

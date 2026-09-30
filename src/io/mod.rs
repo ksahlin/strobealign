@@ -10,6 +10,8 @@ use std::io;
 
 use thiserror::Error;
 
+use crate::refseq::RefSequenceError;
+
 #[derive(Error, Debug)]
 pub enum SequenceIOError {
     #[error("IO")]
@@ -26,6 +28,9 @@ pub enum SequenceIOError {
 
     #[error("Duplicate record name {0}")]
     DuplicateName(String),
+
+    #[error("Reference sequence too long")]
+    ReferenceTooLong(#[from] RefSequenceError),
 }
 
 /// Split header into name and comment
