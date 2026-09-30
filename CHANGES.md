@@ -1,5 +1,9 @@
 # Strobealign Changelog
 
+## development version
+
+* #646: Speed up chaining slightly by avoiding some computations.
+
 ## v0.19.0 (2026-10-08)
 
 This release improves mapping speed, in particular when mapping paired-end

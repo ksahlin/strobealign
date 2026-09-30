@@ -171,9 +171,17 @@ impl Chainer {
 
                 let dr = ai.ref_start() - aj.ref_start();
 
-                let diagonal_ratio = dq.max(dr) as f32 / dq.min(dr) as f32;
-                if diagonal_ratio > self.parameters.max_diagonal_ratio {
-                    continue;
+                if dq == dr {
+                    // Same diagonal (the most common case): Avoid the division since the
+                    // ratio is 1 (or NaN if dq == dr == 0, which never exceeds the maximum)
+                    if dq > 0 && self.parameters.max_diagonal_ratio < 1.0 {
+                        continue;
+                    }
+                } else {
+                    let diagonal_ratio = dq.max(dr) as f32 / dq.min(dr) as f32;
+                    if diagonal_ratio > self.parameters.max_diagonal_ratio {
+                        continue;
+                    }
                 }
 
                 let score = self.compute_score_cached(dq, dr);
