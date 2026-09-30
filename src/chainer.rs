@@ -436,7 +436,7 @@ impl ChainingResult {
         let n = self.anchors.len();
         let valid_score = self.best_score * self.parameters.valid_score_threshold;
 
-        let mut candidates = vec![];
+        let mut candidates = Vec::with_capacity(n);
         for i in 0..n {
             if self.dp[i] >= valid_score {
                 candidates.push((i, self.dp[i]));
@@ -446,6 +446,8 @@ impl ChainingResult {
         candidates.sort_by(|a, b| b.1.total_cmp(&a.1));
 
         let mut used = vec![false; n];
+        // Each candidate yields at most one chain
+        chains.reserve(candidates.len());
         for (i, score) in candidates {
             if used[i] {
                 continue;
@@ -453,7 +455,7 @@ impl ChainingResult {
 
             let mut j = i;
             let mut overlaps = false;
-            let mut chain_anchors = vec![self.anchors[i]];
+            let mut n_chain_anchors = 1;
 
             let mut matching_bases = k;
             let mut ref_coverage = self.anchors[i].ref_start();
@@ -464,7 +466,7 @@ impl ChainingResult {
                     overlaps = true;
                     break;
                 }
-                chain_anchors.push(self.anchors[j]);
+                n_chain_anchors += 1;
                 used[j] = true;
 
                 matching_bases += ref_coverage
@@ -475,6 +477,15 @@ impl ChainingResult {
 
             if overlaps {
                 continue;
+            }
+
+            // Walk the chain again to collect its anchors (from last to first)
+            // into a Vec of exact size
+            let mut chain_anchors = Vec::with_capacity(n_chain_anchors);
+            let mut current = i;
+            for _ in 0..n_chain_anchors {
+                chain_anchors.push(self.anchors[current]);
+                current = self.predecessors[current];
             }
 
             let first = &self.anchors[j];
