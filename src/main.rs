@@ -20,7 +20,7 @@ use strobealign::refseq::RefSequence;
 use thiserror::Error;
 
 use strobealign::aligner::{Aligner, Scores};
-use strobealign::chainer::{Chainer, ChainingParameters};
+use strobealign::chainer::{Chainer, ChainingParameters, MAXIMUM_QUERY_LENGTH};
 use strobealign::details::Details;
 use strobealign::index::{IndexReadingError, StrobemerIndex, read_index};
 use strobealign::insertsize::InsertSizeDistribution;
@@ -624,9 +624,13 @@ fn run() -> Result<(), CliError> {
         let mut nucleotides = 0;
         let mut chunk = vec![];
         for record in record_iter.by_ref() {
-            nucleotides += record
+            let r1_len = record.as_ref().map_or(0, |r| r.0.len());
+            let r2_len = record
                 .as_ref()
-                .map_or(0, |r| r.0.len() + r.1.as_ref().map_or(0, |r2| r2.len()));
+                .map_or(0, |r| r.1.as_ref().map_or(0, |r2| r2.len()));
+            assert!(r1_len <= MAXIMUM_QUERY_LENGTH, "Read too long");
+            assert!(r2_len <= MAXIMUM_QUERY_LENGTH, "Read too long");
+            nucleotides += r1_len + r2_len;
             chunk.push(record);
             if nucleotides > args.chunk_size {
                 break;

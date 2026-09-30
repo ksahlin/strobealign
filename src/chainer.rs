@@ -7,23 +7,44 @@ use crate::details::ChainDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::{IndexEntry, StrobemerIndex};
 use crate::mcsstrategy::McsStrategy;
-use crate::refseq::ContigStarts;
+use crate::refseq::{ContigStarts, REFERENCE_BITS};
 use crate::seeding::QueryRandstrobe;
 
 const N_PRECOMPUTED: usize = 1024;
 
+/// Number of low bits used for the query start in an Anchor. The
+/// remaining 44 bits hold the reference start.
+const ANCHOR_QUERY_BITS: u32 = 64 - REFERENCE_BITS;
+const ANCHOR_QUERY_MASK: u64 = (1 << ANCHOR_QUERY_BITS) - 1;
+pub const MAXIMUM_QUERY_LENGTH: usize = 1 << ANCHOR_QUERY_BITS;
+
+/// An anchor is represented by the start coordinate on the reference and
+/// query (`ref_start` and `query_start`).
+///
+/// Anchors are packed into a single u64 so that sorting, deduplication and
+/// chaining can use a single machine word.
+/// `query_start` is packed into the lower `ANCHOR_QUERY_BITS` bits and
+/// `ref_start` into the remaining upper bits so that sorting by the u64 value
+/// implicitly sorts by (`ref_start`, `query_start`).
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
-pub struct Anchor {
-    pub ref_start: usize,
-    pub query_start: usize,
-}
+pub struct Anchor(u64);
 
 impl Anchor {
+    #[inline]
     pub fn new(ref_start: usize, query_start: usize) -> Self {
-        Anchor {
-            ref_start,
-            query_start,
-        }
+        debug_assert!(query_start < (1 << ANCHOR_QUERY_BITS));
+        debug_assert!(ref_start < (1 << (64 - ANCHOR_QUERY_BITS)));
+        Anchor(((ref_start as u64) << ANCHOR_QUERY_BITS) | query_start as u64)
+    }
+
+    #[inline]
+    pub fn ref_start(self) -> usize {
+        (self.0 >> ANCHOR_QUERY_BITS) as usize
+    }
+
+    #[inline]
+    pub fn query_start(self) -> usize {
+        (self.0 & ANCHOR_QUERY_MASK) as usize
     }
 }
 
@@ -114,30 +135,30 @@ impl Chainer {
 
         for i in 0..n {
             let lookup_end = i.saturating_sub(max_lookback);
-            let ai = &anchors[i];
+            let ai = anchors[i];
 
             // Flat start position of the contig that a[i] is on
-            let ref_contig_start = contig_starts.ref_contig_start(ai.ref_start);
+            let ref_contig_start = contig_starts.ref_contig_start(ai.ref_start());
             for j in (lookup_end..i).rev() {
-                let aj = &anchors[j];
+                let aj = anchors[j];
 
                 // Do not attempt to chain to an anchor on a different contig.
                 // This check works because we go through anchors in reverse.
-                if aj.ref_start < ref_contig_start {
+                if aj.ref_start() < ref_contig_start {
                     break;
                 }
 
-                let Some(dq) = ai.query_start.checked_sub(aj.query_start) else {
+                let Some(dq) = ai.query_start().checked_sub(aj.query_start()) else {
                     // Not collinear
                     continue;
                 };
 
                 debug_assert!(
-                    ai.ref_start >= aj.ref_start,
+                    ai.ref_start() >= aj.ref_start(),
                     "anchors must be sorted by reference start position"
                 );
 
-                let dr = ai.ref_start - aj.ref_start;
+                let dr = ai.ref_start() - aj.ref_start();
 
                 if dr >= max_ref_gap {
                     break;
@@ -165,11 +186,11 @@ impl Chainer {
             // represents the so-far optimal chain and can then give suboptimal
             // results. To mitigate the issue, we explicitly check that anchor.
             if best_index != usize::MAX {
-                let aj = &anchors[best_index];
+                let aj = anchors[best_index];
 
-                if aj.ref_start >= ref_contig_start && ai.query_start > aj.query_start {
-                    let dq = ai.query_start - aj.query_start;
-                    let dr = ai.ref_start - aj.ref_start;
+                if aj.ref_start() >= ref_contig_start && ai.query_start() > aj.query_start() {
+                    let dq = ai.query_start() - aj.query_start();
+                    let dr = ai.ref_start() - aj.ref_start();
 
                     let diagonal_ratio = dq.max(dr) as f32 / dq.min(dr) as f32;
                     if dr < max_ref_gap
@@ -247,7 +268,11 @@ impl Chainer {
             n_anchors += anchors.len();
             let chaining_timer = Instant::now();
             trace!("Chaining {} anchors", anchors.len());
-            anchors.sort_unstable_by_key(|a| (a.ref_start, a.query_start));
+            debug_assert!(
+                read_len < (1 << ANCHOR_QUERY_BITS),
+                "query positions must fit in ANCHOR_QUERY_BITS bits"
+            );
+            anchors.sort_unstable();
             anchors.dedup();
 
             // trace!(
@@ -345,14 +370,8 @@ fn add_to_anchors_full(
         let ref_end = ref_start + entry.strobe2_offset() + index.k();
         let length_diff = (query_end - query_start).abs_diff(ref_end - ref_start);
         if length_diff <= min_length_diff {
-            anchors.push(Anchor {
-                ref_start,
-                query_start,
-            });
-            anchors.push(Anchor {
-                ref_start: ref_end - index.k(),
-                query_start: query_end - index.k(),
-            });
+            anchors.push(Anchor::new(ref_start, query_start));
+            anchors.push(Anchor::new(ref_end - index.k(), query_end - index.k()));
             min_length_diff = length_diff;
         }
     }
@@ -372,10 +391,7 @@ fn add_to_anchors_partial(
             break;
         }
 
-        anchors.push(Anchor {
-            ref_start: entry.ref_start(),
-            query_start,
-        });
+        anchors.push(Anchor::new(entry.ref_start(), query_start));
     }
 }
 
@@ -434,7 +450,7 @@ impl ChainingResult {
             let mut chain_anchors = vec![self.anchors[i]];
 
             let mut matching_bases = k;
-            let mut ref_coverage = self.anchors[i].ref_start;
+            let mut ref_coverage = self.anchors[i].ref_start();
 
             while self.predecessors[j] != usize::MAX {
                 j = self.predecessors[j];
@@ -446,9 +462,9 @@ impl ChainingResult {
                 used[j] = true;
 
                 matching_bases += ref_coverage
-                    .saturating_sub(self.anchors[j].ref_start)
+                    .saturating_sub(self.anchors[j].ref_start())
                     .min(k);
-                ref_coverage = self.anchors[j].ref_start;
+                ref_coverage = self.anchors[j].ref_start();
             }
 
             if overlaps {
@@ -460,11 +476,11 @@ impl ChainingResult {
 
             chains.push(Chain {
                 id: chains.len(),
-                query_start: first.query_start,
-                query_end: last.query_start + k,
-                ref_contig_start: contig_starts.ref_contig_start(first.ref_start),
-                ref_start: first.ref_start,
-                ref_end: last.ref_start + k,
+                query_start: first.query_start(),
+                query_end: last.query_start() + k,
+                ref_contig_start: contig_starts.ref_contig_start(first.ref_start()),
+                ref_start: first.ref_start(),
+                ref_end: last.ref_start() + k,
                 matching_bases,
                 score: score + chain_anchors.len() as f32 * self.parameters.matches_weight,
                 is_revcomp,
@@ -476,7 +492,10 @@ impl ChainingResult {
 
 #[cfg(test)]
 pub mod test {
-    use crate::refseq::ContigStarts;
+    use crate::{
+        chainer::{Anchor, MAXIMUM_QUERY_LENGTH},
+        refseq::{ContigStarts, MAXIMUM_REFERENCE_LENGTH},
+    };
 
     use super::{Chainer, ChainingParameters};
 
@@ -490,6 +509,22 @@ pub mod test {
                 ]
             }
         };
+    }
+
+    #[test]
+    fn anchor_packing() {
+        for (ref_start, query_start) in [
+            (3_100_000_000, 99_999),
+            (5, 7),
+            (5, 2),
+            (0, (1 << 20) - 1),
+            (1, 0),
+            (MAXIMUM_REFERENCE_LENGTH - 1, MAXIMUM_QUERY_LENGTH - 1),
+        ] {
+            let anchor = Anchor::new(ref_start, query_start);
+            assert_eq!(anchor.ref_start(), ref_start);
+            assert_eq!(anchor.query_start(), query_start);
+        }
     }
 
     #[test]

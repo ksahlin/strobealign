@@ -631,14 +631,12 @@ fn extend_seed(
                 .anchors
                 .iter()
                 .filter_map(|a| {
-                    let ref_start = a.ref_start - decode_start - refseq.starts.0[contig_id];
+                    let ref_start = a.ref_start() - decode_start - refseq.starts.0[contig_id];
                     // Skip anchors resulting from hash collisions
-                    if query[a.query_start..a.query_start + k] == segment[ref_start..ref_start + k]
+                    if query[a.query_start()..a.query_start() + k]
+                        == segment[ref_start..ref_start + k]
                     {
-                        Some(Anchor {
-                            ref_start,
-                            query_start: a.query_start,
-                        })
+                        Some(Anchor::new(ref_start, a.query_start()))
                     } else {
                         collisions += 1;
 

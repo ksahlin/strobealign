@@ -145,7 +145,7 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<RefSequence, SequenceIOE
     check_duplicate_names(&names)?;
     assert_eq!(names.len(), starts.len());
 
-    Ok(RefSequence::new(seq, starts, names))
+    Ok(RefSequence::new(seq, starts, names)?)
 }
 
 pub fn read_ref<P: AsRef<Path>>(path: P) -> Result<RefSequence, SequenceIOError> {
