@@ -145,12 +145,17 @@ impl Chainer {
                 contig_index += 1;
             }
             let ref_contig_start = starts[contig_index];
+            // Smallest ref_start of an anchor that is on the same contig as a[i]
+            // and less than max_ref_gap away from it
+            let min_ref_start =
+                ref_contig_start.max((ai.ref_start() + 1).saturating_sub(max_ref_gap));
             for j in (lookup_end..i).rev() {
                 let aj = anchors[j];
 
-                // Do not attempt to chain to an anchor on a different contig.
-                // This check works because we go through anchors in reverse.
-                if aj.ref_start() < ref_contig_start {
+                // Do not attempt to chain to an anchor on a different contig or
+                // too far away. This check works because we go through anchors
+                // in reverse, so all remaining anchors are even further away.
+                if aj.ref_start() < min_ref_start {
                     break;
                 }
 
@@ -165,10 +170,6 @@ impl Chainer {
                 );
 
                 let dr = ai.ref_start() - aj.ref_start();
-
-                if dr >= max_ref_gap {
-                    break;
-                }
 
                 let diagonal_ratio = dq.max(dr) as f32 / dq.min(dr) as f32;
                 if diagonal_ratio > self.parameters.max_diagonal_ratio {
@@ -194,15 +195,12 @@ impl Chainer {
             if best_index != usize::MAX {
                 let aj = anchors[best_index];
 
-                if aj.ref_start() >= ref_contig_start && ai.query_start() > aj.query_start() {
+                if aj.ref_start() >= min_ref_start && ai.query_start() > aj.query_start() {
                     let dq = ai.query_start() - aj.query_start();
                     let dr = ai.ref_start() - aj.ref_start();
 
                     let diagonal_ratio = dq.max(dr) as f32 / dq.min(dr) as f32;
-                    if dr < max_ref_gap
-                        && dr > 0
-                        && diagonal_ratio <= self.parameters.max_diagonal_ratio
-                    {
+                    if dr > 0 && diagonal_ratio <= self.parameters.max_diagonal_ratio {
                         let score = self.compute_score_cached(dq, dr);
                         let new_score = dp[best_index] + score;
                         if new_score > dp[i] {
@@ -555,12 +553,21 @@ pub mod test {
             (95, 35),
         ];
         let starts = ContigStarts::new(vec![0], 200);
-        let chaining_result = chainer.collinear_chaining(anchors, &starts, 2000);
+        let chaining_result = chainer.collinear_chaining(anchors.clone(), &starts, 2000);
 
         // The best chain has score 42.342842 and uses anchors 0, 1, 3.
         // When using the heuristic that breaks early if the predecessor is on the
         // same diagonal, a suboptimal chain is found that has score 38.2 and
         // consists of anchors 2 and 3.
+        assert!(chaining_result.best_score > 42.0);
+
+        // Anchors 1 and 3 are 65 apart on the reference, just within max_ref_gap
+        let parameters = ChainingParameters {
+            max_ref_gap: Some(66),
+            ..ChainingParameters::default()
+        };
+        let chainer = Chainer::new(20, parameters);
+        let chaining_result = chainer.collinear_chaining(anchors, &starts, 2000);
         assert!(chaining_result.best_score > 42.0);
     }
 
