@@ -133,12 +133,18 @@ impl Chainer {
         let mut best_score = 0.0;
         let mut best_index = usize::MAX;
 
+        // Anchors are sorted by ref_start, so the contig index only moves forward
+        let starts = &contig_starts.0;
+        let mut contig_index = contig_starts.index(anchors[0].ref_start());
         for i in 0..n {
             let lookup_end = i.saturating_sub(max_lookback);
             let ai = anchors[i];
 
             // Flat start position of the contig that a[i] is on
-            let ref_contig_start = contig_starts.ref_contig_start(ai.ref_start());
+            while ai.ref_start() >= starts[contig_index + 1] {
+                contig_index += 1;
+            }
+            let ref_contig_start = starts[contig_index];
             for j in (lookup_end..i).rev() {
                 let aj = anchors[j];
 
