@@ -32,7 +32,7 @@ pub fn make_index(
 
     debug!("  Total number of randstrobes: {}", total_randstrobes);
     let total_length: usize = refseq.total_length();
-    let memory_bytes: usize = total_length
+    let memory_bytes: usize = total_length / 4  // 2 bits per nucleotide
         + size_of::<RefRandstrobe>() * total_randstrobes
         + size_of::<BucketIndex>() * (1usize << bits);
     debug!(
