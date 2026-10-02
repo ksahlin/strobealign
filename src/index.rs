@@ -45,6 +45,13 @@ impl RefRandstrobe {
         }
     }
 
+    pub fn sentinel() -> Self {
+        RefRandstrobe {
+            hash_offset: u64::MAX,
+            ref_start: u64::MAX,
+        }
+    }
+
     pub fn hash(&self) -> RandstrobeHash {
         self.hash_offset & REF_RANDSTROBE_HASH_MASK
     }

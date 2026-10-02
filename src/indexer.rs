@@ -1,9 +1,10 @@
 use crate::index::{BucketIndex, RandstrobeHash, RefRandstrobe, StrobemerIndex};
-use crate::packed_seq::PackedSeqSlice;
 use crate::refseq::RefSequence;
+use crate::seeding::syncmers::SeqAccess;
 use crate::seeding::{RandstrobeIterator, SeedingParameters, SyncmerIterator, SyncmerParameters};
 
 use std::fmt::{Display, Formatter};
+use std::mem::MaybeUninit;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -21,19 +22,11 @@ pub fn make_index(
     filter_fraction: f64,
     n_threads: usize,
 ) -> (StrobemerIndex, IndexCreationStatistics) {
-    let timer = Instant::now();
-    let randstrobe_counts = count_all_randstrobes(refseq, &parameters, n_threads);
-    debug!("  Counting hashes: {:.2} s", timer.elapsed().as_secs_f64());
-    // stats.elapsed_counting_hashes = count_hash.duration();
     let mut stats = IndexCreationStatistics::default();
-
-    let total_randstrobes: usize = randstrobe_counts.iter().sum();
-    stats.tot_strobemer_count = total_randstrobes as u64;
-
-    debug!("  Total number of randstrobes: {}", total_randstrobes);
+    let estimated_number_of_randstrobes = parameters.syncmer.estimate_number_of_syncmers(refseq);
     let total_length: usize = refseq.total_length();
     let memory_bytes: usize = total_length / 4  // 2 bits per nucleotide
-        + size_of::<RefRandstrobe>() * total_randstrobes
+        + size_of::<RefRandstrobe>() * estimated_number_of_randstrobes
         + size_of::<BucketIndex>() * (1usize << bits);
     debug!(
         "  Estimated total memory usage: {:.1} GB",
@@ -42,8 +35,13 @@ pub fn make_index(
 
     let timer = Instant::now();
     debug!("  Generating randstrobes ...");
-    let mut randstrobes =
-        make_randstrobes_parallel(refseq, &parameters, &randstrobe_counts, n_threads);
+    let mut randstrobes = make_randstrobes_parallel(
+        refseq,
+        &parameters,
+        estimated_number_of_randstrobes,
+        n_threads,
+    );
+
     debug!("  Generating seeds: {:.2} s", timer.elapsed().as_secs_f64());
     // stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
@@ -65,6 +63,21 @@ pub fn make_index(
     pool.install(|| randstrobes.par_sort_unstable());
 
     debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
+
+    // Remove the sentinels from the end
+    while randstrobes
+        .pop_if(|r| *r == RefRandstrobe::sentinel())
+        .is_some()
+    {}
+    randstrobes.shrink_to_fit();
+    let total_randstrobes = randstrobes.len();
+    stats.tot_strobemer_count = total_randstrobes as u64;
+
+    trace!(
+        "  Estimated number of randstrobes vs actual: {:.6}",
+        estimated_number_of_randstrobes as f64 / total_randstrobes as f64
+    );
+
     // stats.elapsed_sorting_seeds = sorting_timer.duration();
 
     let timer = Instant::now();
@@ -178,54 +191,118 @@ pub fn make_index(
 fn make_randstrobes_parallel(
     refseq: &RefSequence,
     parameters: &SeedingParameters,
-    randstrobe_counts: &[usize],
+    estimated_number_of_randstrobes: usize,
     n_threads: usize,
 ) -> Vec<RefRandstrobe> {
-    let mut randstrobes = vec![RefRandstrobe::default(); randstrobe_counts.iter().sum()];
+    // Reserve slightly more memory than we estimate we need
+    let n = (estimated_number_of_randstrobes as f64 * 1.01) as usize;
+    let mut randstrobes = Vec::with_capacity(n);
+
+    const SLICE_LENGTH: usize = 10000;
+    let output_slice_index = AtomicUsize::new(0);
+
+    let uninit = randstrobes.spare_capacity_mut();
     let mut slices = vec![];
     {
-        let mut slice = &mut randstrobes[..];
-        for &mid in randstrobe_counts.iter().take(refseq.names.len() - 1) {
-            let (left, right) = slice.split_at_mut(mid);
+        let mut slice = uninit;
+        while slice.len() > SLICE_LENGTH {
+            let (left, right) = slice.split_at_mut(SLICE_LENGTH);
             slices.push(Arc::new(Mutex::new(left)));
             slice = right;
         }
-        slices.push(Arc::new(Mutex::new(slice)));
+        if !slice.is_empty() {
+            slices.push(Arc::new(Mutex::new(slice)));
+        }
     }
-    let ref_index = AtomicUsize::new(0);
+
+    let contig_index = AtomicUsize::new(0);
+    // If we did not allocate a large enough randstrobes vector,
+    // additional randstrobes are stored here.
+    let overflow = Arc::new(Mutex::new(Vec::new()));
+
     thread::scope(|s| {
         for _ in 0..n_threads {
             s.spawn(|| {
+                let index = output_slice_index.fetch_add(1, Ordering::SeqCst);
+                if index >= slices.len() {
+                    return;
+                }
+                let mut output_slice = slices[index].lock().unwrap();
+
+                let mut i = 0;
+                let mut is_overflowing = false;
                 loop {
-                    let j = ref_index.fetch_add(1, Ordering::SeqCst);
+                    // Get index of a contig to work on
+                    let j = contig_index.fetch_add(1, Ordering::SeqCst);
                     if j >= refseq.names.len() {
                         break;
                     }
                     let start = refseq.contig_start(j);
-                    assign_randstrobes(
-                        &refseq.contig(j),
-                        parameters,
-                        start,
-                        *slices[j].lock().unwrap(),
-                    );
+                    let seq = &refseq.contig(j);
+
+                    let mut iter = make_randstrobe_iter(seq, parameters);
+                    if !is_overflowing {
+                        for randstrobe in iter.by_ref() {
+                            let pos = randstrobe.strobe1_pos + start;
+                            let offset = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
+                            let randstrobe = RefRandstrobe::new(randstrobe.hash, pos, offset as u8);
+                            output_slice[i].write(randstrobe);
+                            i += 1;
+                            if i == output_slice.len() {
+                                let index = output_slice_index.fetch_add(1, Ordering::SeqCst);
+                                if index >= slices.len() {
+                                    is_overflowing = true;
+                                    break;
+                                }
+
+                                output_slice = slices[index].lock().unwrap();
+                                i = 0;
+                            }
+                        }
+                    }
+                    // Since the estimated number of randstrobes is usually quite
+                    // close to the actual number and because we overallocated
+                    // a little bit, we should in practice very rarely end up
+                    // in this path where randstrobes are pushed one by one
+                    // onto a shared Vec, which is very slow.
+                    if is_overflowing {
+                        for randstrobe in iter {
+                            let pos = randstrobe.strobe1_pos + start;
+                            let offset = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
+                            let randstrobe = RefRandstrobe::new(randstrobe.hash, pos, offset as u8);
+
+                            overflow.lock().unwrap().push(randstrobe);
+                        }
+                    }
                 }
+
+                // Since we work with uninitialized memory,
+                // we need to fill the rest of the slice with something.
+                // We use sentinels that will end up at the end of the
+                // randstrobes Vec after sorting.
+                output_slice[i..].fill_with(|| MaybeUninit::new(RefRandstrobe::sentinel()));
             });
         }
     });
 
+    let index = output_slice_index.fetch_add(1, Ordering::SeqCst);
+    let capacity = randstrobes.capacity();
+    unsafe {
+        randstrobes.set_len((index * SLICE_LENGTH).min(capacity));
+    }
+    trace!(
+        "Pre-allocated randstrobes vector was too short by {} randstrobes",
+        overflow.lock().unwrap().len()
+    );
+    randstrobes.extend_from_slice(&overflow.lock().unwrap());
+
     randstrobes
 }
 
-/// Compute randstrobes of one reference contig and assign them to the provided slice
-fn assign_randstrobes(
-    seq: &PackedSeqSlice,
+fn make_randstrobe_iter<S: SeqAccess>(
+    seq: S,
     parameters: &SeedingParameters,
-    start: usize,
-    randstrobes: &mut [RefRandstrobe],
-) {
-    if seq.len() < parameters.randstrobe.w_max {
-        return;
-    }
+) -> RandstrobeIterator<SyncmerIterator<S>> {
     let syncmer_iter = SyncmerIterator::new(
         seq,
         parameters.syncmer.k,
@@ -233,63 +310,21 @@ fn assign_randstrobes(
         parameters.syncmer.t,
     );
 
-    let randstrobe_iter = RandstrobeIterator::new(syncmer_iter, parameters.randstrobe.clone());
-
-    let mut n = 0;
-    for (i, randstrobe) in randstrobe_iter.enumerate() {
-        n += 1;
-        let offset = randstrobe.strobe2_pos - randstrobe.strobe1_pos;
-        let strobe1_start = randstrobe.strobe1_pos + start;
-        randstrobes[i] = RefRandstrobe::new(randstrobe.hash, strobe1_start, offset as u8);
-    }
-    debug_assert_eq!(n, randstrobes.len());
-}
-
-fn count_all_randstrobes(
-    refseq: &RefSequence,
-    parameters: &SeedingParameters,
-    n_threads: usize,
-) -> Vec<usize> {
-    let counts = vec![0; refseq.names.len()];
-    let mutex = Mutex::new(counts);
-    let ref_index = AtomicUsize::new(0);
-    thread::scope(|s| {
-        for _ in 0..n_threads {
-            s.spawn(|| {
-                loop {
-                    let j = ref_index.fetch_add(1, Ordering::SeqCst);
-                    if j >= refseq.names.len() {
-                        break;
-                    }
-                    let count = count_randstrobes(&refseq.contig(j), parameters);
-                    mutex.lock().unwrap()[j] = count;
-                }
-            });
-        }
-    });
-
-    mutex.into_inner().unwrap()
-}
-
-/// Count randstrobes by counting syncmers (operates directly on PackedSeq)
-fn count_randstrobes(seq: &PackedSeqSlice, parameters: &SeedingParameters) -> usize {
-    SyncmerIterator::new(
-        seq,
-        parameters.syncmer.k,
-        parameters.syncmer.s,
-        parameters.syncmer.t,
-    )
-    .count()
+    RandstrobeIterator::new(syncmer_iter, parameters.randstrobe.clone())
 }
 
 impl SyncmerParameters {
     /// Pick a suitable number of bits for indexing randstrobe start indices
     pub fn pick_bits(&self, refseq: &RefSequence) -> u8 {
-        let total_length: usize = refseq.total_length();
-        let estimated_number_of_randstrobes = total_length / (self.k - self.s + 1) + 1;
         // Two randstrobes per bucket on average
         // TOOD checked_ilog2 or ilog2
-        ((estimated_number_of_randstrobes as f64).log2() as u32).clamp(9, 32) as u8 - 1
+        ((self.estimate_number_of_syncmers(refseq) as f64).log2() as u32).clamp(9, 32) as u8 - 1
+    }
+
+    pub fn estimate_number_of_syncmers(&self, refseq: &RefSequence) -> usize {
+        let total_length: usize = refseq.total_length();
+
+        total_length / (self.k - self.s + 1) + 1
     }
 }
 
@@ -371,6 +406,7 @@ mod test {
         let bits = parameters.syncmer.pick_bits(&refseq);
         let (_index, stats) = make_index(&refseq, parameters, bits, 0.1, 1);
         assert!(stats.distinct_strobemers > 0);
+        assert_eq!(stats.tot_strobemer_count, 1090);
     }
 
     #[test]
@@ -380,13 +416,5 @@ mod test {
         let bits = parameters.syncmer.pick_bits(&refseq);
         let (_index2, stats) = make_index(&refseq, parameters, bits, 0.1, 1);
         assert_eq!(stats.distinct_strobemers, 0);
-    }
-
-    #[test]
-    fn count_randstrobes_phix() {
-        let refseq = read_ref("tests/phix.fasta").unwrap();
-        let parameters = SeedingParameters::new(150);
-
-        assert_eq!(count_randstrobes(&refseq.contig(0), &parameters), 1090);
     }
 }
