@@ -80,7 +80,6 @@ pub fn make_index(
     let timer = Instant::now();
     debug!("  Generating hash table index ...");
 
-    stats.tot_occur_once = 0;
     let mut bucket_starts = Vec::with_capacity((1usize << bits) + 1);
     let mut unique_mers = usize::from(!randstrobes.is_empty());
 
@@ -107,12 +106,7 @@ pub fn make_index(
             continue;
         }
         unique_mers += 1;
-
-        if count == 1 {
-            stats.tot_occur_once += 1;
-        } else {
-            strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
-        }
+        strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
         count = 1;
         let cur_hash_n = cur_hash >> (64 - bits);
         while bucket_starts.len() <= cur_hash_n as usize {
@@ -121,15 +115,12 @@ pub fn make_index(
         prev_hash = cur_hash;
     }
     // wrap up last entry
-    if count == 1 {
-        stats.tot_occur_once += 1;
-    } else {
-        strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
-    }
-    strobemer_counts[1] = stats.tot_occur_once as usize;
+    strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
     while bucket_starts.len() < ((1usize << bits) + 1) {
         bucket_starts.push(randstrobes.len() as BucketIndex);
     }
+
+    stats.tot_occur_once = strobemer_counts[1] as u64;
     stats.tot_mid_ab = strobemer_counts[2..=100].iter().sum::<usize>() as u64;
     stats.tot_high_ab = strobemer_counts[101..].iter().sum::<usize>() as u64;
 
