@@ -260,6 +260,17 @@ impl<'a> IndexEntry<'a> {
         self.get_count(self.strobemer_index.parameters.randstrobe.main_hash_mask)
     }
 
+    /// Return the number of consecutive entries in this bucket, starting at
+    /// this one, whose hash masked by `hash_mask` equals the masked hash of
+    /// this entry.
+    ///
+    /// Callers typically need only small counts, but the rest of the bucket
+    /// can be very large for repetitive seeds. A galloping (exponential)
+    /// search is therefore used, which needs O(log count) steps and only
+    /// touches entries close to this one.
+    ///
+    /// This requires that masked hashes are non-decreasing within a bucket,
+    /// which holds because all lookup masks keep a contiguous run of top bits.
     pub fn get_count(&self, hash_mask: u64) -> usize {
         let position = self.position;
         const MAX_LINEAR_SEARCH: usize = 8;
@@ -280,8 +291,20 @@ impl<'a> IndexEntry<'a> {
             }
             count
         } else {
-            let bucket = &self.strobemer_index.randstrobes[position..position_end];
-            custom_partition_point(bucket, |h| h.hash() & hash_mask <= masked_key)
+            // Probe offsets 1, 2, 4, ... until an entry does not match or the
+            // end of the bucket is reached, then binary search between the
+            // last two probes
+            let rest = &self.strobemer_index.randstrobes[position..position_end];
+            let matches = |h: &RefRandstrobe| h.hash() & hash_mask == masked_key;
+            let mut lo = 0;
+            let mut hi = 1;
+            while hi < rest.len() && matches(&rest[hi]) {
+                lo = hi;
+                hi *= 2;
+            }
+            // rest[lo] matches and rest[hi] (if it exists) does not
+            let hi = hi.min(rest.len());
+            lo + 1 + custom_partition_point(&rest[lo + 1..hi], matches)
         }
     }
 
@@ -611,6 +634,70 @@ mod tests {
             let rev_pos_forward =
                 rc_index.get_partial_forward_from(rc_partial_query, rev_entry.position);
             assert!(rev_pos_forward.is_some());
+        }
+    }
+
+    /// get_count as it was implemented before galloping search was introduced
+    fn get_count_reference(index: &StrobemerIndex, position: usize, hash_mask: u64) -> usize {
+        let key = index.randstrobes[position].hash();
+        let masked_key = key & hash_mask;
+        let top_n = (key >> (64 - index.bits)) as usize;
+        let rest = &index.randstrobes[position..index.bucket_starts[top_n + 1]];
+        if rest.len() < 8 {
+            rest.iter()
+                .take_while(|h| h.hash() & hash_mask == masked_key)
+                .count()
+        } else {
+            custom_partition_point(rest, |h| h.hash() & hash_mask <= masked_key)
+        }
+    }
+
+    #[test]
+    fn get_count_matches_reference() {
+        let parameters = SeedingParameters::new(150);
+        let rp = parameters.randstrobe.clone();
+        let bits = 6;
+        let mut rng = fastrand::Rng::with_seed(1);
+        let mut randstrobes = vec![];
+        let mut bucket_starts = vec![0];
+        for bucket in 0..1u64 << bits {
+            // Main hash, orientation and auxiliary hash are each drawn from at
+            // most n values, creating runs for all masks (n = 1 fills the
+            // bucket with a single key). Every combination of bucket size and
+            // n occurs at least once.
+            let size = [0, 1, 2, 7, 8, 9, 17, 100, 3000][bucket as usize % 9];
+            let n = [1, 2, 4, 1 << 16][bucket as usize / 9 % 4];
+            for _ in 0..size {
+                let hash = (bucket << (64 - bits))
+                    | (rng.u64(..n) << (rp.partial_orientation_pos + 1))
+                    | (rng.u64(..n.min(2)) << rp.partial_orientation_pos)
+                    | (rng.u64(..n) << STROBE2_OFFSET_BITS);
+                randstrobes.push(RefRandstrobe::new(hash, rng.usize(..1000), rng.u8(..)));
+            }
+            bucket_starts.push(randstrobes.len());
+        }
+        randstrobes.sort();
+        let index = StrobemerIndex::new(
+            parameters,
+            bits,
+            1000,
+            randstrobes,
+            bucket_starts,
+            ContigStarts::default(),
+        );
+
+        for hash_mask in [
+            REF_RANDSTROBE_HASH_MASK,
+            rp.forward_main_hash_mask,
+            rp.main_hash_mask,
+        ] {
+            for position in 0..index.len() {
+                assert_eq!(
+                    index.entry(position).get_count(hash_mask),
+                    get_count_reference(&index, position, hash_mask),
+                    "position {position}, hash_mask {hash_mask:#x}"
+                );
+            }
         }
     }
 }
