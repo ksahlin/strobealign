@@ -43,7 +43,6 @@ pub fn make_index(
     );
 
     debug!("  Generating seeds: {:.2} s", timer.elapsed().as_secs_f64());
-    // stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     let timer = Instant::now();
     debug!("  Sorting ...");
@@ -77,8 +76,6 @@ pub fn make_index(
         "  Estimated number of randstrobes vs actual: {:.6}",
         estimated_number_of_randstrobes as f64 / total_randstrobes as f64
     );
-
-    // stats.elapsed_sorting_seeds = sorting_timer.duration();
 
     let timer = Instant::now();
     debug!("  Generating hash table index ...");
@@ -171,7 +168,6 @@ pub fn make_index(
         30, // cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
         100, // limit upper cutoff for normal NAM finding - use rescue mode instead
     );
-    //stats.elapsed_hash_index = hash_index_timer.duration();
     debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
     stats.distinct_strobemers = unique_mers as u64;
 
