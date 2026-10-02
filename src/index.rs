@@ -88,6 +88,32 @@ pub struct StrobemerIndex {
     pub contig_starts: ContigStarts,
 }
 
+/// Cache line size in bytes assumed when prefetching (128 on Apple silicon)
+#[cfg(target_arch = "aarch64")]
+const CACHE_LINE: usize = 128;
+#[cfg(not(target_arch = "aarch64"))]
+const CACHE_LINE: usize = 64;
+
+/// Hint to the CPU that the memory at `ptr` will be read soon.
+///
+/// Prefetch instructions are hints that never fault, so `ptr` does not need
+/// to point to valid memory. This is why addresses passed to this function
+/// are computed with `wrapping_add`.
+#[inline(always)]
+fn prefetch<T>(ptr: *const T) {
+    #[cfg(target_arch = "aarch64")]
+    unsafe {
+        std::arch::asm!("prfm pldl1keep, [{0}]", in(reg) ptr, options(nostack, readonly, preserves_flags));
+    }
+    #[cfg(target_arch = "x86_64")]
+    unsafe {
+        use std::arch::x86_64::{_MM_HINT_T0, _mm_prefetch};
+        _mm_prefetch(ptr.cast::<i8>(), _MM_HINT_T0);
+    }
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    let _ = ptr;
+}
+
 pub struct IndexEntry<'a> {
     strobemer_index: &'a StrobemerIndex,
 
@@ -203,6 +229,56 @@ impl StrobemerIndex {
         hash_mask: RandstrobeHash,
     ) -> Option<IndexEntry<'_>> {
         self.get_masked_from(hash, hash_mask, None)
+    }
+
+    /// Prefetch the bucket_starts entry that a lookup of `hash` reads
+    #[inline]
+    pub fn prefetch_bucket_start(&self, hash: RandstrobeHash) {
+        let top_n = (hash >> (64 - self.bits)) as usize;
+        prefetch(self.bucket_starts.as_ptr().wrapping_add(top_n));
+    }
+
+    /// Prefetch the randstrobes that a lookup of `hash` reads. This reads the
+    /// bucket_starts entry, which should have been prefetched with
+    /// prefetch_bucket_start() some time before.
+    ///
+    /// Buckets that span at most 16 cache lines are prefetched completely.
+    /// For larger buckets, the first and last entry and approximately the
+    /// entries probed in the first three steps of the binary search are
+    /// prefetched.
+    #[inline]
+    pub fn prefetch_bucket(&self, hash: RandstrobeHash) {
+        const MAX_FULL_LINES: usize = 16;
+        let top_n = (hash >> (64 - self.bits)) as usize;
+        let (Some(&start), Some(&end)) = (
+            self.bucket_starts.get(top_n),
+            self.bucket_starts.get(top_n + 1),
+        ) else {
+            return;
+        };
+        let Some(bucket) = self.randstrobes.get(start..end) else {
+            return;
+        };
+        if bucket.is_empty() {
+            return;
+        }
+        let range = bucket.as_ptr_range();
+        let first_line = range.start as usize / CACHE_LINE;
+        let last_line = (range.end as usize - 1) / CACHE_LINE;
+        let n_lines = last_line - first_line + 1;
+        if n_lines <= MAX_FULL_LINES {
+            let first = range.start.cast::<u8>();
+            for i in 0..n_lines {
+                prefetch(first.wrapping_add(i * CACHE_LINE));
+            }
+        } else {
+            let len = bucket.len();
+            prefetch(range.start);
+            prefetch(range.start.wrapping_add(len - 1));
+            for j in 1..8 {
+                prefetch(range.start.wrapping_add(len * j / 8));
+            }
+        }
     }
 
     pub fn k(&self) -> usize {
@@ -611,6 +687,22 @@ mod tests {
             let rev_pos_forward =
                 rc_index.get_partial_forward_from(rc_partial_query, rev_entry.position);
             assert!(rev_pos_forward.is_some());
+        }
+    }
+
+    #[test]
+    fn prefetch_phix() {
+        let refseq = read_ref("tests/phix.fasta").unwrap();
+        let parameters = SeedingParameters::new(150);
+
+        // Few bits give large buckets that are only partially prefetched
+        for bits in [parameters.syncmer.pick_bits(&refseq), 1] {
+            let (index, _stats) = make_index(&refseq, parameters.clone(), bits, 0.0002, 1);
+            let hashes = index.randstrobes.iter().map(|randstrobe| randstrobe.hash());
+            for hash in hashes.chain([0, u64::MAX]) {
+                index.prefetch_bucket_start(hash);
+                index.prefetch_bucket(hash);
+            }
         }
     }
 }
