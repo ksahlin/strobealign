@@ -81,7 +81,6 @@ pub fn make_index(
     debug!("  Generating hash table index ...");
 
     let mut bucket_starts = Vec::with_capacity((1usize << bits) + 1);
-    let mut unique_mers = usize::from(!randstrobes.is_empty());
 
     let mut prev_hash: RandstrobeHash = if randstrobes.is_empty() {
         0
@@ -105,7 +104,6 @@ pub fn make_index(
             count += 1;
             continue;
         }
-        unique_mers += 1;
         strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
         count = 1;
         let cur_hash_n = cur_hash >> (64 - bits);
@@ -115,7 +113,9 @@ pub fn make_index(
         prev_hash = cur_hash;
     }
     // wrap up last entry
-    strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
+    if !randstrobes.is_empty() {
+        strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
+    }
     while bucket_starts.len() < ((1usize << bits) + 1) {
         bucket_starts.push(randstrobes.len() as BucketIndex);
     }
@@ -124,6 +124,7 @@ pub fn make_index(
     stats.tot_mid_ab = strobemer_counts[2..=100].iter().sum::<usize>() as u64;
     stats.tot_high_ab = strobemer_counts[101..].iter().sum::<usize>() as u64;
 
+    let unique_mers = strobemer_counts.iter().sum::<usize>();
     let index_cutoff = (unique_mers as f64 * filter_fraction) as usize;
     stats.index_cutoff = index_cutoff;
 
