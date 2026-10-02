@@ -87,7 +87,7 @@ pub fn make_index(
     let mut tot_mid_ab = 0;
 
     stats.tot_occur_once = 0;
-    let mut randstrobe_start_indices = Vec::with_capacity((1usize << bits) + 1);
+    let mut bucket_starts = Vec::with_capacity((1usize << bits) + 1);
     let mut unique_mers = usize::from(!randstrobes.is_empty());
 
     let mut prev_hash: RandstrobeHash = if randstrobes.is_empty() {
@@ -98,7 +98,7 @@ pub fn make_index(
     let mut count = 1;
 
     if !randstrobes.is_empty() {
-        randstrobe_start_indices.push(0);
+        bucket_starts.push(0);
     }
 
     // strobemer_counts[i] is how many strobemers occur i times,
@@ -126,8 +126,8 @@ pub fn make_index(
         }
         count = 1;
         let cur_hash_n = cur_hash >> (64 - bits);
-        while randstrobe_start_indices.len() <= cur_hash_n as usize {
-            randstrobe_start_indices.push(position as BucketIndex);
+        while bucket_starts.len() <= cur_hash_n as usize {
+            bucket_starts.push(position as BucketIndex);
         }
         prev_hash = cur_hash;
     }
@@ -143,8 +143,8 @@ pub fn make_index(
         strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
     }
     strobemer_counts[1] = unique_mers;
-    while randstrobe_start_indices.len() < ((1usize << bits) + 1) {
-        randstrobe_start_indices.push(randstrobes.len() as BucketIndex);
+    while bucket_starts.len() < ((1usize << bits) + 1) {
+        bucket_starts.push(randstrobes.len() as BucketIndex);
     }
     stats.tot_high_ab = tot_high_ab;
     stats.tot_mid_ab = tot_mid_ab;
@@ -181,7 +181,7 @@ pub fn make_index(
             bits,
             filter_cutoff,
             randstrobes,
-            randstrobe_start_indices,
+            bucket_starts,
             refseq.starts.clone(),
         ),
         stats,
