@@ -436,7 +436,7 @@ impl ChainingResult {
         let n = self.anchors.len();
         let valid_score = self.best_score * self.parameters.valid_score_threshold;
 
-        let mut candidates = Vec::with_capacity(n);
+        let mut candidates = vec![];
         for i in 0..n {
             if self.dp[i] >= valid_score {
                 candidates.push((i, self.dp[i]));
