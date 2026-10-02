@@ -139,7 +139,7 @@ pub fn make_index(
         }
         strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
     }
-    strobemer_counts[1] = unique_mers;
+    strobemer_counts[1] = stats.tot_occur_once as usize;
     while bucket_starts.len() < ((1usize << bits) + 1) {
         bucket_starts.push(randstrobes.len() as BucketIndex);
     }
