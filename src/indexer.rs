@@ -174,22 +174,13 @@ fn make_randstrobes_parallel(
     let mut randstrobes = Vec::with_capacity(n);
 
     const SLICE_LENGTH: usize = 10000;
+    let slices = randstrobes
+        .spare_capacity_mut()
+        .chunks_mut(SLICE_LENGTH)
+        .map(|s| Arc::new(Mutex::new(s)))
+        .collect::<Vec<_>>();
+
     let output_slice_index = AtomicUsize::new(0);
-
-    let uninit = randstrobes.spare_capacity_mut();
-    let mut slices = vec![];
-    {
-        let mut slice = uninit;
-        while slice.len() > SLICE_LENGTH {
-            let (left, right) = slice.split_at_mut(SLICE_LENGTH);
-            slices.push(Arc::new(Mutex::new(left)));
-            slice = right;
-        }
-        if !slice.is_empty() {
-            slices.push(Arc::new(Mutex::new(slice)));
-        }
-    }
-
     let contig_index = AtomicUsize::new(0);
     // If we did not allocate a large enough randstrobes vector,
     // additional randstrobes are stored here.
