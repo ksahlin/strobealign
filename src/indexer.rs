@@ -80,45 +80,22 @@ pub fn make_index(
     let timer = Instant::now();
     debug!("  Generating hash table index ...");
 
-    let mut bucket_starts = Vec::with_capacity((1usize << bits) + 1);
+    //let (bucket_starts, strobemer_counts) = make_bucket_starts(bits, &randstrobes);
+    let (bucket_starts, strobemer_counts) = make_bucket_starts_parallel(bits, n_threads, &randstrobes);
 
-    let mut prev_hash: RandstrobeHash = if randstrobes.is_empty() {
-        0
-    } else {
-        randstrobes[0].hash()
-    };
-    let mut count = 1;
-
-    if !randstrobes.is_empty() {
-        bucket_starts.push(0);
+    for (i, r) in randstrobes[..15].iter().enumerate() {
+        println!(
+            "{:3} {:x} {:x} {}",
+            i,
+            r.hash() >> (64 - bits),
+            r.hash(),
+            r.ref_start()
+        );
     }
-
-    // strobemer_counts[i] is how many strobemers occur i times,
-    // except that `strobemer_counts[1000]` is how many strobemers occur
-    // 1000 times *or more*.
-    let mut strobemer_counts = [0usize; 1001];
-    #[allow(clippy::needless_range_loop)]
-    for position in 1..randstrobes.len() {
-        let cur_hash = randstrobes[position].hash();
-        if cur_hash == prev_hash {
-            count += 1;
-            continue;
-        }
-        strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
-        count = 1;
-        let cur_hash_n = cur_hash >> (64 - bits);
-        while bucket_starts.len() <= cur_hash_n as usize {
-            bucket_starts.push(position as BucketIndex);
-        }
-        prev_hash = cur_hash;
-    }
-    // wrap up last entry
-    if !randstrobes.is_empty() {
-        strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
-    }
-    while bucket_starts.len() < ((1usize << bits) + 1) {
-        bucket_starts.push(randstrobes.len() as BucketIndex);
-    }
+    /*if bucket_starts != bucket_startsp {
+        panic!("");
+    }*/
+    //assert_eq!(strobemer_counts,  strobemer_countsp);
 
     stats.tot_occur_once = strobemer_counts[1] as u64;
     stats.tot_mid_ab = strobemer_counts[2..=100].iter().sum::<usize>() as u64;
@@ -277,6 +254,156 @@ fn make_randstrobe_iter<S: SeqAccess>(
     );
 
     RandstrobeIterator::new(syncmer_iter, parameters.randstrobe.clone())
+}
+
+fn make_bucket_starts(bits: u8, randstrobes: &[RefRandstrobe]) -> (Vec<usize>, [usize; 1001]) {
+    let mut bucket_starts = Vec::with_capacity((1usize << bits) + 1);
+
+    let mut prev_hash: RandstrobeHash = if randstrobes.is_empty() {
+        0
+    } else {
+        randstrobes[0].hash()
+    };
+    let mut count = 1;
+
+    if !randstrobes.is_empty() {
+        bucket_starts.push(0);
+    }
+
+    // strobemer_counts[i] is how many strobemers occur i times,
+    // except that `strobemer_counts[1000]` is how many strobemers occur
+    // 1000 times *or more*.
+    let mut strobemer_counts = [0usize; 1001];
+    #[allow(clippy::needless_range_loop)]
+    for position in 1..randstrobes.len() {
+        let cur_hash = randstrobes[position].hash();
+        if cur_hash == prev_hash {
+            count += 1;
+            continue;
+        }
+        strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
+        count = 1;
+        let cur_hash_n = cur_hash >> (64 - bits);
+        while bucket_starts.len() <= cur_hash_n as usize {
+            bucket_starts.push(position as BucketIndex);
+        }
+        prev_hash = cur_hash;
+    }
+    // wrap up last entry
+    if !randstrobes.is_empty() {
+        strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
+    }
+    while bucket_starts.len() < ((1usize << bits) + 1) {
+        bucket_starts.push(randstrobes.len() as BucketIndex);
+    }
+
+    (bucket_starts, strobemer_counts)
+}
+
+fn check_bucket_starts(bits: u8, bucket_starts: &[usize], randstrobes: &[RefRandstrobe]) {
+    assert_eq!(bucket_starts.len(), (1 << bits) + 1);
+
+    for i in 0..(1<<bits) {
+        let start = bucket_starts[i];
+        let end = bucket_starts[i+1];
+        for j in start..end {
+            assert_eq!(randstrobes[j].hash() >> (64 - bits), i as u64);
+        }
+    }
+    assert_eq!(*bucket_starts.last().unwrap(), randstrobes.len());
+}
+
+fn make_bucket_starts_parallel(
+    bits: u8,
+    n_threads: usize,
+    randstrobes: &[RefRandstrobe],
+) -> (Vec<usize>, [usize; 1001]) {
+    let mut bucket_starts = vec![0usize; (1 << bits) + 1];
+    let output_slice_index = AtomicUsize::new(0);
+
+    const SLICE_LENGTH: usize = 1 << 20;
+    let slices = bucket_starts[0..(1 << bits)]
+        .chunks_mut(SLICE_LENGTH)
+        .map(|s| Arc::new(Mutex::new(s)))
+        .collect::<Vec<_>>();
+
+    let strobemer_counts = thread::scope(|s| {
+        let mut handles = vec![];
+        for _ in 0..n_threads {
+            let handle = s.spawn(|| {
+                let mut thread_strobemer_counts = [0usize; 1001];
+                loop {
+                    let index = output_slice_index.fetch_add(1, Ordering::SeqCst);
+                    if index >= slices.len() {
+                        break;
+                    }
+                    // Obtain the slice that we need to fill
+                    let bucket_starts_slice = &mut slices[index].lock().unwrap();
+                    let start_prefix = index * SLICE_LENGTH;
+
+                    // Binary search for the first randstrobe that has the
+                    // desired hash
+                    let start_pos = randstrobes
+                        .partition_point(|rs| (rs.hash() >> (64 - bits)) < start_prefix as u64);
+
+                    // Then fill in the rest linearly
+                    let mut pos = start_pos;
+                    for b in 0..bucket_starts_slice.len() {
+                        let hash_prefix = (b + start_prefix) as u64;
+                        while pos < randstrobes.len()
+                            && randstrobes[pos].hash() >> (64 - bits) < hash_prefix
+                        {
+                            pos += 1;
+                        }
+                        bucket_starts_slice[b] = pos;
+                    }
+
+                    // Find the end of the last bucket
+                    let hash_prefix = (bucket_starts_slice.len() + start_prefix) as u64;
+                    while pos < randstrobes.len() && randstrobes[pos].hash() >> (64 - bits) < hash_prefix { pos += 1; }
+                    let end_pos = pos;
+
+                    // Compute strobemer counts
+                    let mut prev_hash = randstrobes[start_pos].hash();
+                    let mut count = 1;
+                    let mut cur_hash;
+                    for pos in start_pos+1..end_pos {
+                        cur_hash = randstrobes[pos].hash();
+                        if cur_hash == prev_hash {
+                            count += 1;
+                            continue;
+                        }
+                        thread_strobemer_counts[count.min(thread_strobemer_counts.len() - 1)] += 1;
+                        count = 1;
+                        prev_hash = cur_hash;
+                    }
+                    thread_strobemer_counts[count.min(thread_strobemer_counts.len() - 1)] += 1
+                }
+
+                thread_strobemer_counts
+            });
+            handles.push(handle);
+        }
+
+        let mut strobemer_counts = [0usize; 1001];
+
+        for handle in handles {
+            add_counts(&mut strobemer_counts, &handle.join().unwrap());
+        }
+
+        strobemer_counts
+    });
+    *bucket_starts.last_mut().unwrap() = randstrobes.len();
+
+    check_bucket_starts(bits, &bucket_starts, randstrobes);
+
+    (bucket_starts, strobemer_counts)
+}
+
+fn add_counts(s: &mut [usize], t: &[usize]) {
+    for i in 0..s.len() {
+        s[i] += t[i];
+    }
 }
 
 impl SyncmerParameters {
