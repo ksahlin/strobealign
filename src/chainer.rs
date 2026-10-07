@@ -255,7 +255,7 @@ impl Chainer {
             self.get_chains_from_hits(index, read_len, hits, hits_details);
 
         chain_details.n_anchors = query_randstrobes[0].len() + query_randstrobes[1].len();
-        chain_details.time_find_hits += time_find_hits; //Anton: Why is this part of chain_details instead of hit details?
+        chain_details.time_find_hits += time_find_hits;
 
         (chain_details, chains)
     }
