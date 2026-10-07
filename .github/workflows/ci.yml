@@ -77,20 +77,24 @@ jobs:
       - name: Find baseline commit
         run: |
           echo "ci_baseline_commit=$(git --no-pager log -n1 --pretty=format:%H --grep='^Is-new-baseline: yes')" >> "$GITHUB_ENV"
-      - name: Cache baseline BAM
-        id: cache-baseline-bam
+      - name: Cache baseline BAM/PAF
+        id: cache-baseline
         uses: actions/cache@v4
         with:
-          key: baseline-bam-${{ env.ci_baseline_commit }}
-          path: baseline/bam/
-      - name: Compare to baseline (paired-end)
+          key: baseline-bampaf-${{ env.ci_baseline_commit }}
+          path: baseline/bampaf/
+      - name: Compare to baseline (single-end BAM)
+        run: tests/compare-baseline.sh -s
+      - name: Validate with Picard
+        run: |
+          PicardCommandLine ValidateSamFile IGNORE=RECORD_MISSING_READ_GROUP IGNORE=MISSING_READ_GROUP IGNORE=QUALITY_NOT_STORED I=head.bam
+      - name: Compare to baseline (paired-end BAM)
         run: tests/compare-baseline.sh
       - name: Validate with Picard
         run: |
           # IGNORE=QUALITY_NOT_STORED because Picard incorrectly warns about missing qualities for secondary alignments
           PicardCommandLine ValidateSamFile IGNORE=RECORD_MISSING_READ_GROUP IGNORE=MISSING_READ_GROUP IGNORE=QUALITY_NOT_STORED I=head.bam
-      - name: Compare to baseline (single-end)
-        run: tests/compare-baseline.sh -s
-      - name: Validate with Picard
-        run: |
-          PicardCommandLine ValidateSamFile IGNORE=RECORD_MISSING_READ_GROUP IGNORE=MISSING_READ_GROUP IGNORE=QUALITY_NOT_STORED I=head.bam
+      - name: Compare to baseline (single-end PAF)
+        run: tests/compare-baseline.sh -m -s
+      - name: Compare to baseline (paired-end PAF)
+        run: tests/compare-baseline.sh -m
