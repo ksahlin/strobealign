@@ -230,7 +230,7 @@ pub fn find_hit_partial_strobe(
             hash: randstrobe.hash,
             hash_revcomp: randstrobe.hash_revcomp,
         };
-        
+
         Some(hit)
     } else {
         hits_details.partial_not_found += 1;
