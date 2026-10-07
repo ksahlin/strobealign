@@ -78,6 +78,9 @@ pub fn map_paired_end_read(
         return vec![];
     }
 
+    let best_chain1 = chains1.first().cloned();
+    let best_chain2 = chains2.first().cloned();
+
     let chain_pairs = get_chain_pairs(
         chains1,
         chains2,
@@ -87,12 +90,16 @@ pub fn map_paired_end_read(
     );
 
     let mut records = vec![];
-    match get_best_paired_mapping_location(&chain_pairs, chains1, chains2, insert_size_distribution)
-    {
+    match get_best_paired_mapping_location(
+        &chain_pairs,
+        best_chain1,
+        best_chain2,
+        insert_size_distribution,
+    ) {
         MappedChains::Individual(best1, best2) => {
             if let Some(chain1) = best1 {
                 records.extend(paf_record_from_chain(
-                    chain1,
+                    &chain1,
                     &r1.name,
                     refseq,
                     r1.sequence.len(),
@@ -102,7 +109,7 @@ pub fn map_paired_end_read(
             }
             if let Some(chain2) = best2 {
                 records.extend(paf_record_from_chain(
-                    chain2,
+                    &chain2,
                     &r2.name,
                     refseq,
                     r2.sequence.len(),
@@ -136,12 +143,12 @@ pub fn map_paired_end_read(
 
 pub(super) enum MappedChains<'a> {
     /// Two independent best chains (one per read)
-    Individual(Option<&'a Chain>, Option<&'a Chain>),
-    /// A proper paired chains (chain1, chain2, pairing score)
+    Individual(Option<Chain>, Option<Chain>),
+    /// A proper pair of chains (chain1, chain2, pairing score)
     Pair(&'a Chain, &'a Chain, f64),
 }
 
-/// Choose between:
+/// Chooses between:
 /// - the best proper pair of mappings
 /// - the best individual mappings
 ///
@@ -150,16 +157,13 @@ pub(super) enum MappedChains<'a> {
 /// For paired-end mapping and abundance estimation modes only
 pub(super) fn get_best_paired_mapping_location<'a>(
     chain_pairs: &'a [ChainPair],
-    chains1: &'a [Chain],
-    chains2: &'a [Chain],
+    best_chain1: Option<Chain>,
+    best_chain2: Option<Chain>,
     insert_size_distribution: &mut InsertSizeDistribution,
 ) -> MappedChains<'a> {
-    let best_chain1 = chains1.first();
-    let best_chain2 = chains2.first();
-
     // Score if reads are treated independently.
-    let individual_score = best_chain1.map_or(0.0, |chain| chain.score as f64)
-        + best_chain2.map_or(0.0, |chain| chain.score as f64);
+    let individual_score = best_chain1.as_ref().map_or(0.0, |chain| chain.score as f64)
+        + best_chain2.as_ref().map_or(0.0, |chain| chain.score as f64);
 
     // Prefer a proper pair only if it beats a penalized individual mapping.
     // Divisor 2 is penalty for being mapped individually

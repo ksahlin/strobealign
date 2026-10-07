@@ -44,6 +44,9 @@ pub fn abundances_paired_end_read(
         return;
     }
 
+    let best_chain1 = chains1.first().cloned();
+    let best_chain2 = chains2.first().cloned();
+
     let chain_pairs = get_chain_pairs(
         chains1,
         chains2,
@@ -52,8 +55,12 @@ pub fn abundances_paired_end_read(
         insert_size_distribution.sigma,
     );
 
-    match get_best_paired_mapping_location(&chain_pairs, chains1, chains2, insert_size_distribution)
-    {
+    match get_best_paired_mapping_location(
+        &chain_pairs,
+        best_chain1,
+        best_chain2,
+        insert_size_distribution,
+    ) {
         MappedChains::Individual(_, _) => {
             for (chains, read_len) in [(&chains1, r1.sequence.len()), (&chains2, r2.sequence.len())]
             {
