@@ -7,13 +7,13 @@ use crate::cigar::{Cigar, CigarOperation};
 use crate::piecewisealigner::PiecewiseAligner;
 use crate::ssw::SswAligner;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Scores {
     // match is a score, the others are penalties
     pub match_: u8,
     pub mismatch: u8,
-    pub gap_open: u8,
-    pub gap_extend: u8,
+    pub gap_open: [u8; 2],
+    pub gap_extend: [u8; 2],
     pub end_bonus: u32,
 }
 
@@ -22,10 +22,27 @@ impl Default for Scores {
         Scores {
             match_: 2,
             mismatch: 8,
-            gap_open: 12,
-            gap_extend: 1,
+            gap_open: [12, 36],
+            gap_extend: [2, 1],
             end_bonus: 10,
         }
+    }
+}
+
+impl Scores {
+    pub fn is_two_piece(&self) -> bool {
+        self.gap_open[0] != self.gap_open[1] || self.gap_extend[0] != self.gap_extend[1]
+    }
+
+    /// Cost of a gap of `k` bases: `gap_open[i] + (k-1) * gap_extend[i]` at the cheaper level.
+    pub fn gap_cost(&self, k: usize) -> i32 {
+        if k == 0 {
+            return 0;
+        }
+        let extended = k as i32 - 1;
+        let short = self.gap_open[0] as i32 + extended * self.gap_extend[0] as i32;
+        let long = self.gap_open[1] as i32 + extended * self.gap_extend[1] as i32;
+        short.min(long)
     }
 }
 
@@ -71,8 +88,8 @@ impl Aligner {
         let ssw_aligner = SswAligner::new(
             scores.match_,
             scores.mismatch,
-            scores.gap_open,
-            scores.gap_extend,
+            scores.gap_open[0],
+            scores.gap_extend[0],
         );
         Aligner {
             scores,
@@ -308,6 +325,22 @@ mod test {
     use crate::aligner::{
         Aligner, Scores, hamming_align, hamming_align_global, highest_scoring_segment,
     };
+
+    #[test]
+    fn two_levels_take_the_cheaper() {
+        let s = Scores {
+            gap_open: [12, 36],
+            gap_extend: [2, 1],
+            ..Default::default()
+        };
+        assert_eq!(s.gap_cost(0), 0);
+        assert_eq!(s.gap_cost(1), 12);
+        assert_eq!(s.gap_cost(10), 30);
+        // The levels cross at 25.
+        assert_eq!(s.gap_cost(25), 60);
+        assert_eq!(s.gap_cost(100), 135);
+        assert!(s.is_two_piece());
+    }
 
     #[test]
     fn ssw_align_no_result() {

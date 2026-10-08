@@ -19,6 +19,10 @@ Accuracy remains mostly unchanged.
 * #648: Speed up indexing by about 20% by eliminating a pass over the
   reference.
 * #636: Reduce RAM usage for large, repetitive genomes
+* The SIMD aligner now uses a two-piece affine gap cost by default (`-O 12,36
+  -E 2,1`): a gap of length `k` costs `min(O1 + (k-1)*E1, O2 + (k-1)*E2)`, which
+  keeps a long indel from being split around a few matching bases. Pass one
+  value to `-O` and `-E` for a plain affine cost.
 
 ## v0.18.0 (2026-09-01)
 

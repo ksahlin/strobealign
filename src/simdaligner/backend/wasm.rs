@@ -21,6 +21,7 @@
 use std::arch::wasm32::*;
 
 use super::Backend;
+use crate::simdaligner::Scores;
 use crate::simdaligner::kernel::U8Probe;
 
 /// 16 `u8` lanes on wasm simd128.
@@ -161,26 +162,23 @@ unsafe impl Backend for Simd128 {
         const TRACK_ROW_MAX: bool,
         const ARG_LARGEST: bool,
         const BANDED: bool,
+        const TWO_PIECE: bool,
     >(
         probe: &mut U8Probe<Self>,
         qlen: usize,
         rlen: usize,
-        match_score: u8,
-        mismatch: u8,
-        gap_open: u8,
-        gap_extend: u8,
+        scores: Scores,
         w: usize,
     ) -> (i32, usize) {
         unsafe {
-            probe.fill_generic::<TRACE, TRACK_LAST_ROW, TRACK_ROW_MAX, ARG_LARGEST, BANDED>(
-                qlen,
-                rlen,
-                match_score,
-                mismatch,
-                gap_open,
-                gap_extend,
-                w,
-            )
+            probe.fill_generic::<
+                TRACE,
+                TRACK_LAST_ROW,
+                TRACK_ROW_MAX,
+                ARG_LARGEST,
+                BANDED,
+                TWO_PIECE,
+            >(qlen, rlen, scores, w)
         }
     }
 }

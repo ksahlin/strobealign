@@ -47,6 +47,27 @@
 //! **zero** lower bound is what permits `u8` lanes with `max_epu8`, leaves the kernel needing no
 //! sentinel, and makes the plain wrapping `B::sub8` safe.
 //!
+//! # The two-piece cost
+//!
+//! A gap of `k` costs `min(q1 + (k-1)*e1, q2 + (k-1)*e2)` with `q1 <= q2`, which is the same DP
+//! with two more gap layers: `A_G = max(s_G, ΔE1'_G, ΔE2'_G, ΔF1'_G, ΔF2'_G)`.
+//!
+//! The constant `C = 2*o` folded into every stored value is **one** constant, and a level whose
+//! open is not `o` leaves a residue, so `ΔE'_G` generalises to
+//!
+//! ```text
+//! ΔEk'_G[i,j] = max( A_G[i,j] + (o - q_k), ΔEk'_G[i-1,j] + (o - e_k) ) - ΔH_G[i,j-1]
+//! ```
+//!
+//! Taking `o = q2`, the **larger** open, makes the long level exactly the single-piece
+//! recurrence and leaves the short level one `B::add8` of `q2 - q1`. The other choice would need
+//! a *subtract* there, which can underflow a lane, so it is not symmetric. The bounds survive:
+//! `ΔH_G, ΔV_G >= o - q1 >= 0` and `ΔEk'_G >= -q1 - q_k + 2o >= 0`, with `match + 2*o` above as
+//! before.
+//!
+//! The boundary cells stop being one constant, though: `S[0,j] - S[0,j-1]` is `-e1` before the
+//! crossover and `-e2` after, so the fill reads it off [`Scores::gap_cost`] per anti-diagonal.
+//!
 //! # Why anti-diagonals, and why there are no shifts
 //!
 //! `ΔE'_G[i,j]` depends on `ΔE'_G[i-1,j]` (same column, previous row), so a column-vectorised
@@ -80,9 +101,10 @@
 use std::marker::PhantomData;
 
 use super::backend::{AssertLaneRatio, Backend};
-use super::{AlignmentResult, Cigar, CigarOperation, SplitReferenceAlignment};
+use super::{AlignmentResult, Cigar, CigarOperation, Scores, SplitReferenceAlignment};
 
-/// Traceback flag words per chunk: `from_diag`, `from_e`, `e_open`, `f_open`.
+/// Traceback flag words per chunk: `from_diag`, `from_e`, `e_open`, `f_open`, and under a
+/// two-piece cost four more.
 ///
 /// **The alignment state is already in the deltas.** `A_G = max(s_G, ΔE'_G[i-1,j], ΔF'_G[i,j-1])`,
 /// so *which operand achieved the max* is the traceback direction; likewise which operand won
@@ -104,7 +126,14 @@ use super::{AlignmentResult, Cigar, CigarOperation, SplitReferenceAlignment};
 /// inferable from the other; both stay.)
 ///
 /// `from_diag` cannot be `cmpeq(A_G, s_G)` on its own; see [`TB_FROM_DIAG`].
-const TB_WORDS: usize = 4;
+///
+/// Under a two-piece cost `A_G` has five operands and there are four gap states, so it is **8
+/// bits per cell**: one more stored direction and two more open/extend bits. The single-piece
+/// layout is the first four words of it, so only the stride moves.
+#[inline(always)]
+const fn tb_words<const TWO_PIECE: bool>() -> usize {
+    if TWO_PIECE { 8 } else { 4 }
+}
 
 /// One `u32` of "this cell took its row's max" per chunk: a bit per lane, in the same
 /// `(p, chunk)` coordinates as the traceback flags, so `tb_base[p]` indexes both. See
@@ -114,6 +143,12 @@ const NM_WORDS: usize = 1;
 const TB_FROM_E: usize = 0;
 const TB_E_OPEN: usize = 1;
 const TB_F_OPEN: usize = 2;
+/// Two-piece only: the long level's three bits, plus `from_f` for the *short* level, which stops
+/// being the fallthrough once `F2` exists. `from_f2` is the inferred direction instead.
+const TB_FROM_E2: usize = 4;
+const TB_FROM_F: usize = 5;
+const TB_E2_OPEN: usize = 6;
+const TB_F2_OPEN: usize = 7;
 /// Did the **diagonal** achieve `A_G`'s max?
 ///
 /// `cmpeq(A_G, s_G)` is the obvious answer and it is **wrong for a clamped `s_G`**. Any scheme
@@ -125,10 +160,11 @@ const TB_F_OPEN: usize = 2;
 /// than the fill reported: a wrong CIGAR under a right score, which only a test that re-scores
 /// the CIGAR can catch.
 ///
-/// The fix: on a clamped scheme the diagonal is masked off at **mismatch cells**, which is
-/// exactly where the clamp bites, using the `q == r` mask the blend already computed. Masking
-/// discards nothing: where `s_G` clamps, the true diagonal is negative while `ΔE'_G`/`ΔF'_G`
-/// are `>= 0`, so at a mismatch cell it provably never wins.
+/// The fix: on a clamped scheme the *comparison* blends in `u8::MAX` at mismatch cells instead
+/// of the clamped zero, which no cell can hold (everything is `<= upper`, and `fits_u8_lanes`
+/// keeps `upper` below 255 for this). The flag then falls out of one `eq8` with no per-cell
+/// mask. It discards nothing: where `s_G` clamps the true diagonal is negative while
+/// `ΔE'_G`/`ΔF'_G` are `>= 0`, so at a mismatch cell it provably never wins.
 const TB_FROM_DIAG: usize = 3;
 
 /// The interior row range of anti-diagonal `p`, band included.
@@ -208,24 +244,31 @@ fn ref_span<const REVERSED: bool>(rlen: usize, consumed: usize) -> (usize, usize
 
 /// Does this scoring scheme survive `u8` lanes?
 ///
-/// The bound is `M + 3*gap_open - gap_extend`, **not** the `M + 2*gap_open` that bounds the
-/// stored values. The looser rule is a trap: `ΔE'_G`'s recurrence forms `ΔE'_G[i-1,j] + go`
-/// **before** subtracting, and that intermediate is not a stored value, so it is not covered.
-/// It reaches `upper + go`.
+/// The bound is `M + 3*O - E` (at least `M + 2*O + 1`), **not** the `M + 2*O` that bounds the
+/// stored values, where `O` and `E` are level 1's open and extend. The looser
+/// rule is a trap: `ΔE'_G`'s recurrence forms `ΔE'_G[i-1,j] + go` **before** subtracting, and
+/// that intermediate is not a stored value, so it is not covered. It reaches `upper + go`.
 ///
 /// Saturating instead of rejecting does not help: a saturating add clamping to 255 makes the
 /// following `max` pick the wrong operand, a wrong answer rather than a caught one.
 ///
+/// The short level's `A_G + (o - q1)` reaches `M + 3*O - q1`, which the same bound covers
+/// whenever `q1 >= E`, which `prepare`'s `gap_open >= gap_extend` gives.
+///
 /// Note this takes **no lengths**: the bound depends on the scoring scheme alone, so no sequence
-/// is ever too long for it. At default scores it is `2 + 36 - 1 = 37` against a ceiling of 255,
-/// and it holds out to `gap_open ~ 84`.
-pub fn fits_u8_lanes(match_score: u8, gap_open: u8, gap_extend: u8) -> bool {
-    let upper = match_score as i64 + 2 * gap_open as i64;
-    let go = gap_open as i64 - gap_extend as i64;
-    upper + go <= u8::MAX as i64
+/// is ever too long for it. At the default it is `2 + 108 - 1 = 109` against a ceiling of 255,
+/// and it holds out to `O ~ 84`.
+pub fn fits_u8_lanes(scores: Scores) -> bool {
+    let o = scores.gap_open[1] as i64;
+    let upper = scores.match_ as i64 + 2 * o;
+    let go = o - scores.gap_extend[1] as i64;
+    // `go.max(1)`, not `go`: the traceback needs one byte value no cell can hold, so `upper`
+    // must stay below 255 too. See `diag_mismatch_vec`.
+    upper + go.max(1) <= u8::MAX as i64
 }
 
-/// One anti-diagonal's four difference vectors, indexed by row `i`.
+/// One anti-diagonal's difference vectors, indexed by row `i`: four, and six under a two-piece
+/// cost.
 ///
 /// Grow-only, and padded by `B::LANES` so the partial last chunk can store all `B::LANES` lanes
 /// without a bounds check.
@@ -235,13 +278,27 @@ struct Deltas {
     dv: Vec<u8>,
     de: Vec<u8>,
     df: Vec<u8>,
+    /// The long level's two layers, sized only when `grow`'s `two_piece` says so. Left
+    /// unallocated rather than grown and unused on purpose: `as_mut_ptr` then hands the fill a
+    /// dangling pointer, so a read that escaped its `if TWO_PIECE` gate faults on the spot,
+    /// where a zero-filled buffer would feed `A_G`'s max a legal-looking `ΔE2'_G = 0` and return
+    /// a wrong CIGAR under a believable score.
+    de2: Vec<u8>,
+    df2: Vec<u8>,
 }
 
 impl Deltas {
-    fn grow(&mut self, rows: usize) {
+    fn grow(&mut self, rows: usize, two_piece: bool) {
         for b in [&mut self.dh, &mut self.dv, &mut self.de, &mut self.df] {
             if b.len() < rows {
                 b.resize(rows, 0);
+            }
+        }
+        if two_piece {
+            for b in [&mut self.de2, &mut self.df2] {
+                if b.len() < rows {
+                    b.resize(rows, 0);
+                }
             }
         }
     }
@@ -256,8 +313,8 @@ pub struct U8Probe<B: Backend> {
     r_rev: Vec<u8>,
     prev: Deltas,
     cur: Deltas,
-    /// Traceback flags, `TB_WORDS` `u32`s per chunk: **4 bits per cell**, laid out in
-    /// `(p, lane)` coordinates rather than `(i, j)`.
+    /// Traceback flags, [`tb_words`] `u32`s per chunk: **4 bits per cell**, 8 under a
+    /// two-piece cost, laid out in `(p, lane)` coordinates rather than `(i, j)`.
     ///
     /// Under a band this stores only the cells actually visited, not the full matrix.
     tb: Vec<u32>,
@@ -501,19 +558,28 @@ impl<B: Backend> U8Probe<B> {
     ///
     /// Assumes both sequences are non-empty: a zero-length side is one pure gap and never
     /// reaches the kernel.
-    fn prepare<const REVERSED: bool>(
+    fn prepare<const REVERSED: bool, const TWO_PIECE: bool>(
         &mut self,
         query: &[u8],
         refseq: &[u8],
-        match_score: u8,
-        gap_open: u8,
-        gap_extend: u8,
+        scores: Scores,
     ) {
-        assert!(
-            fits_u8_lanes(match_score, gap_open, gap_extend),
-            "scores do not fit u8 lanes"
+        assert!(fits_u8_lanes(scores), "scores do not fit u8 lanes");
+        for i in 0..2 {
+            assert!(
+                scores.gap_open[i] >= scores.gap_extend[i],
+                "gap_open must be >= gap_extend"
+            );
+        }
+        assert_eq!(
+            TWO_PIECE,
+            scores.is_two_piece(),
+            "TWO_PIECE sizes the long-gap layers and the flag stride, so it has to agree"
         );
-        assert!(gap_open >= gap_extend, "gap_open must be >= gap_extend");
+        assert!(
+            scores.gap_open[0] <= scores.gap_open[1],
+            "level 1's open is the offset, so it must be the larger"
+        );
         // No instruction-set check here: `U8Probe::new` asserted it at construction.
 
         let (qlen, rlen) = (query.len(), refseq.len());
@@ -561,8 +627,8 @@ impl<B: Backend> U8Probe<B> {
         self.r_rev[rlen..rlen + B::LANES].fill(5);
 
         let rows = qlen + 1 + B::LANES;
-        self.prev.grow(rows);
-        self.cur.grow(rows);
+        self.prev.grow(rows, TWO_PIECE);
+        self.cur.grow(rows, TWO_PIECE);
         // Each buffer gets its OWN check. Gating all three on `abs.len()` looks equivalent and
         // is not: `split_reference` swaps `row_max` with its `_b` twin between its two passes,
         // so `abs` can already be grown while the row buffers are the empty ones; the check
@@ -576,24 +642,20 @@ impl<B: Backend> U8Probe<B> {
     }
 
     /// Global alignment: both sequences spanned end to end.
-    #[allow(clippy::too_many_arguments)] // a kernel entry point: the scheme plus the bandwidth
-    pub fn global_alignment(
+    pub fn global_alignment<const TWO_PIECE: bool>(
         &mut self,
         query: &[u8],
         refseq: &[u8],
-        m: u8,
-        mm: u8,
-        go: u8,
-        ge: u8,
+        scores: Scores,
         bandwidth: Option<usize>,
     ) -> AlignmentResult {
         match bandwidth {
             // A band that reaches every cell is the exact mode, and the exact mode is cheaper;
             // see `band_reaches_everything`.
             Some(w) if !band_reaches_everything(query.len(), refseq.len(), w) => {
-                self.global_banded(query, refseq, m, mm, go, ge, w)
+                self.global_banded::<TWO_PIECE>(query, refseq, scores, w)
             }
-            _ => self.align::<false, false>(query, refseq, m, mm, go, ge),
+            _ => self.align::<false, false, TWO_PIECE>(query, refseq, scores),
         }
     }
 
@@ -616,15 +678,11 @@ impl<B: Backend> U8Probe<B> {
     /// cell on the current anti-diagonal. Row `qlen` is live for `p` up to `qlen + rlen`, and the
     /// widening guarantees it is still in band there, so when the fill returns `abs[qlen]` *is*
     /// `S[qlen][rlen]`. The end cell is read, not recomputed.
-    #[allow(clippy::too_many_arguments)] // ditto, plus the bandwidth
-    fn global_banded(
+    fn global_banded<const TWO_PIECE: bool>(
         &mut self,
         query: &[u8],
         refseq: &[u8],
-        m: u8,
-        mm: u8,
-        go: u8,
-        ge: u8,
+        scores: Scores,
         w: usize,
     ) -> AlignmentResult {
         let (qlen, rlen) = (query.len(), refseq.len());
@@ -632,11 +690,11 @@ impl<B: Backend> U8Probe<B> {
         // single gap `degenerate` returns, and `w >= |qlen - rlen|` is exactly wide enough to
         // hold it.
         if qlen == 0 || rlen == 0 {
-            return self.degenerate::<false, false>(qlen, rlen, go, ge);
+            return self.degenerate::<false, false>(qlen, rlen, scores);
         }
         let w = w.max(1).max(qlen.abs_diff(rlen));
 
-        self.row_pass::<false, true>(query, refseq, m, mm, go, ge, w);
+        self.row_pass::<false, true, TWO_PIECE>(query, refseq, scores, w);
 
         // `abs[qlen]` after the fill is `S[qlen][rlen]`; see this function's docs. The widening
         // is what puts the corner in band, and so what makes this read meaningful.
@@ -646,7 +704,7 @@ impl<B: Backend> U8Probe<B> {
         );
         let score = self.abs[qlen];
 
-        let cigar = self.replay::<false, true>(query, refseq, qlen, rlen, w);
+        let cigar = self.replay::<false, true, TWO_PIECE>(query, refseq, qlen, rlen, w);
         AlignmentResult {
             score,
             query_start: 0,
@@ -662,22 +720,18 @@ impl<B: Backend> U8Probe<B> {
     ///
     /// `j = 0` is a legal end cell and sometimes the winning one. Ties resolve to the
     /// **smallest** `ref_end`.
-    #[allow(clippy::too_many_arguments)] // a kernel entry point: the scheme plus the bandwidth
-    pub fn local_reference_end_alignment(
+    pub fn local_reference_end_alignment<const TWO_PIECE: bool>(
         &mut self,
         query: &[u8],
         refseq: &[u8],
-        m: u8,
-        mm: u8,
-        go: u8,
-        ge: u8,
+        scores: Scores,
         bandwidth: Option<usize>,
     ) -> AlignmentResult {
         match bandwidth {
             Some(w) if !band_reaches_everything(query.len(), refseq.len(), w) => {
-                self.local_reference::<false>(query, refseq, m, mm, go, ge, w)
+                self.local_reference::<false, TWO_PIECE>(query, refseq, scores, w)
             }
-            _ => self.align::<true, false>(query, refseq, m, mm, go, ge),
+            _ => self.align::<true, false, TWO_PIECE>(query, refseq, scores),
         }
     }
 
@@ -686,22 +740,18 @@ impl<B: Backend> U8Probe<B> {
     /// This is `local_reference_end_alignment` on reversed inputs, and that is exact rather than
     /// an approximation: affine gap costs are symmetric under reversal, and so is literal byte
     /// identity. Ties resolve to the **largest** `ref_start`.
-    #[allow(clippy::too_many_arguments)] // a kernel entry point: the scheme plus the bandwidth
-    pub fn local_reference_start_alignment(
+    pub fn local_reference_start_alignment<const TWO_PIECE: bool>(
         &mut self,
         query: &[u8],
         refseq: &[u8],
-        m: u8,
-        mm: u8,
-        go: u8,
-        ge: u8,
+        scores: Scores,
         bandwidth: Option<usize>,
     ) -> AlignmentResult {
         match bandwidth {
             Some(w) if !band_reaches_everything(query.len(), refseq.len(), w) => {
-                self.local_reference::<true>(query, refseq, m, mm, go, ge, w)
+                self.local_reference::<true, TWO_PIECE>(query, refseq, scores, w)
             }
-            _ => self.align::<true, true>(query, refseq, m, mm, go, ge),
+            _ => self.align::<true, true, TWO_PIECE>(query, refseq, scores),
         }
     }
 
@@ -718,22 +768,18 @@ impl<B: Backend> U8Probe<B> {
     /// `TRACK_ROW_MAX` is the way in: it carries **absolute** per-cell scores, it is already
     /// banded, and `row_max[qlen]` *is* this mode's objective. It costs a `row_max` store and a
     /// bit of the new-max stream per chunk, which is why `None` still takes `align`.
-    #[allow(clippy::too_many_arguments)] // ditto, plus the bandwidth
-    fn local_reference<const REVERSED: bool>(
+    fn local_reference<const REVERSED: bool, const TWO_PIECE: bool>(
         &mut self,
         query: &[u8],
         refseq: &[u8],
-        m: u8,
-        mm: u8,
-        go: u8,
-        ge: u8,
+        scores: Scores,
         w: usize,
     ) -> AlignmentResult {
         let (qlen, rlen) = (query.len(), refseq.len());
         // Band-independent: see the widening below, which always admits the whole of the one
         // live row or column these cases consist of.
         if qlen == 0 || rlen == 0 {
-            return self.degenerate::<true, REVERSED>(qlen, rlen, go, ge);
+            return self.degenerate::<true, REVERSED>(qlen, rlen, scores);
         }
 
         // The widening. This mode must span the query, so it must reach a cell `(qlen, j)` with
@@ -742,7 +788,7 @@ impl<B: Backend> U8Probe<B> {
         // and widened to the narrowest band that has an answer.
         let w = w.max(1).max(qlen.saturating_sub(rlen));
 
-        self.row_pass::<REVERSED, true>(query, refseq, m, mm, go, ge, w);
+        self.row_pass::<REVERSED, true, TWO_PIECE>(query, refseq, scores, w);
 
         // `last_row == min(qlen, rlen + w) == qlen` after the widening, so row `qlen` is filled
         // and this read is in bounds; that is what the widening is for.
@@ -759,7 +805,7 @@ impl<B: Backend> U8Probe<B> {
             "the reduce picked ({qlen}, {j}), which is outside the band of {w}"
         );
 
-        let cigar = self.replay::<REVERSED, true>(query, refseq, qlen, j, w);
+        let cigar = self.replay::<REVERSED, true, TWO_PIECE>(query, refseq, qlen, j, w);
         let (ref_start, ref_end) = ref_span::<REVERSED>(rlen, j);
         AlignmentResult {
             score,
@@ -779,23 +825,18 @@ impl<B: Backend> U8Probe<B> {
     /// `end_bonus` never enters the DP. It is applied once, at the end, to choose between "the
     /// best cell anywhere" and "the best cell that finishes the query". Ties resolve to the
     /// **longest extension**: largest `query_end`, then largest `ref_end`.
-    #[allow(clippy::too_many_arguments)] // a kernel entry point: the scheme is five scalars
-    pub fn local_end_alignment(
+    pub fn local_end_alignment<const TWO_PIECE: bool>(
         &mut self,
         query: &[u8],
         refseq: &[u8],
-        m: u8,
-        mm: u8,
-        go: u8,
-        ge: u8,
-        end_bonus: u32,
+        scores: Scores,
         bandwidth: Option<usize>,
     ) -> AlignmentResult {
         match bandwidth {
             Some(w) if !band_reaches_everything(query.len(), refseq.len(), w.max(1)) => {
-                self.local::<false, true>(query, refseq, m, mm, go, ge, end_bonus, w.max(1))
+                self.local::<false, true, TWO_PIECE>(query, refseq, scores, w.max(1))
             }
-            _ => self.local::<false, false>(query, refseq, m, mm, go, ge, end_bonus, 0),
+            _ => self.local::<false, false, TWO_PIECE>(query, refseq, scores, 0),
         }
     }
 
@@ -804,40 +845,31 @@ impl<B: Backend> U8Probe<B> {
     /// Its empty alignment sits at the *end* of both sequences (`qlen..qlen`, `rlen..rlen`),
     /// the mirror of `local_end`'s, which sits at the start. Tie-break mirrored too: the
     /// **smallest** `query_start`, then the smallest `ref_start`.
-    #[allow(clippy::too_many_arguments)] // a kernel entry point: the scheme is five scalars
-    pub fn local_start_alignment(
+    pub fn local_start_alignment<const TWO_PIECE: bool>(
         &mut self,
         query: &[u8],
         refseq: &[u8],
-        m: u8,
-        mm: u8,
-        go: u8,
-        ge: u8,
-        end_bonus: u32,
+        scores: Scores,
         bandwidth: Option<usize>,
     ) -> AlignmentResult {
         match bandwidth {
             Some(w) if !band_reaches_everything(query.len(), refseq.len(), w.max(1)) => {
-                self.local::<true, true>(query, refseq, m, mm, go, ge, end_bonus, w.max(1))
+                self.local::<true, true, TWO_PIECE>(query, refseq, scores, w.max(1))
             }
-            _ => self.local::<true, false>(query, refseq, m, mm, go, ge, end_bonus, 0),
+            _ => self.local::<true, false, TWO_PIECE>(query, refseq, scores, 0),
         }
     }
 
     /// `w` is read only when `BANDED`, and is the caller's bandwidth already clamped to
     /// `>= 1`: a zero-width band is not meaningful, so callers clamp rather than pass it on.
-    #[allow(clippy::too_many_arguments)] // ditto, plus the bandwidth
-    fn local<const REVERSED: bool, const BANDED: bool>(
+    fn local<const REVERSED: bool, const BANDED: bool, const TWO_PIECE: bool>(
         &mut self,
         query: &[u8],
         refseq: &[u8],
-        match_score: u8,
-        mismatch: u8,
-        gap_open: u8,
-        gap_extend: u8,
-        end_bonus: u32,
+        scores: Scores,
         w: usize,
     ) -> AlignmentResult {
+        let end_bonus = scores.end_bonus;
         let (qlen, rlen) = (query.len(), refseq.len());
         // A zero-length side skips the kernel, but it is NOT simply "the empty alignment":
         //
@@ -849,13 +881,7 @@ impl<B: Backend> U8Probe<B> {
         //
         // So scan the one live row or column in closed form.
         if qlen == 0 || rlen == 0 {
-            let gap = |k: usize| -> i32 {
-                if k == 0 {
-                    0
-                } else {
-                    -(gap_open as i32) - (k as i32 - 1) * gap_extend as i32
-                }
-            };
+            let gap = |k: usize| -> i32 { -scores.gap_cost(k) };
             // The band reaches the live row/column too: `H[0][j]` sits `j` off the diagonal, so
             // a band of `w` can only see the first `w` of it. Without this the free-gap case
             // would report the furthest cell in the row rather than in the *band*.
@@ -903,20 +929,11 @@ impl<B: Backend> U8Probe<B> {
             };
         }
 
-        self.prepare::<REVERSED>(query, refseq, match_score, gap_open, gap_extend);
-        self.size_flags::<true, BANDED>(qlen, rlen, w);
+        self.prepare::<REVERSED, TWO_PIECE>(query, refseq, scores);
+        self.size_flags::<true, BANDED, TWO_PIECE>(qlen, rlen, w);
 
         unsafe {
-            B::fill::<true, false, true, true, BANDED>(
-                self,
-                qlen,
-                rlen,
-                match_score,
-                mismatch,
-                gap_open,
-                gap_extend,
-                w,
-            )
+            B::fill::<true, false, true, true, BANDED, TWO_PIECE>(self, qlen, rlen, scores, w)
         };
 
         // How far down the query the band still has cells to offer.
@@ -970,7 +987,7 @@ impl<B: Backend> U8Probe<B> {
             "the reduce picked ({bi}, {bj}), which is outside the band of {w}"
         );
 
-        let cigar = self.replay::<REVERSED, BANDED>(query, refseq, bi, bj, w);
+        let cigar = self.replay::<REVERSED, BANDED, TWO_PIECE>(query, refseq, bi, bj, w);
         let (query_start, query_end) = query_span::<REVERSED>(qlen, bi);
         let (ref_start, ref_end) = ref_span::<REVERSED>(rlen, bj);
         AlignmentResult {
@@ -1014,7 +1031,7 @@ impl<B: Backend> U8Probe<B> {
     /// write; grow-only means a program that only ever aligns globally never allocates it at all.
     /// `BANDED`/`w` are what stop a band allocating for a matrix it will never visit; see
     /// [`U8Probe::banded_chunks_bound`].
-    fn size_flags<const NEED_NM: bool, const BANDED: bool>(
+    fn size_flags<const NEED_NM: bool, const BANDED: bool, const TWO_PIECE: bool>(
         &mut self,
         qlen: usize,
         rlen: usize,
@@ -1038,8 +1055,9 @@ impl<B: Backend> U8Probe<B> {
         if self.tb_base.len() < qlen + rlen + 1 {
             self.tb_base.resize(qlen + rlen + 1, 0);
         }
-        if self.tb.len() < chunks_bound * TB_WORDS {
-            self.tb.resize(chunks_bound * TB_WORDS, 0);
+        let tb_words = tb_words::<TWO_PIECE>();
+        if self.tb.len() < chunks_bound * tb_words {
+            self.tb.resize(chunks_bound * tb_words, 0);
         }
         if NEED_NM && self.nm.len() < chunks_bound * NM_WORDS {
             self.nm.resize(chunks_bound * NM_WORDS, 0);
@@ -1067,17 +1085,13 @@ impl<B: Backend> U8Probe<B> {
     /// Ties resolve to the smallest `|left.score - right.score|`, then the smallest `k`.
     ///
     /// # Panics
-    /// If `fits_u8_lanes` rejects the scheme or if `gap_open < gap_extend`.
-    #[allow(clippy::too_many_arguments)] // a kernel entry point: two references and the scheme
-    pub fn split_reference_alignment(
+    /// On any precondition `prepare` asserts: see [`check_scores`](super::check_scores).
+    pub fn split_reference_alignment<const TWO_PIECE: bool>(
         &mut self,
         query: &[u8],
         left_reference: &[u8],
         right_reference: &[u8],
-        m: u8,
-        mm: u8,
-        go: u8,
-        ge: u8,
+        scores: Scores,
         bandwidth: Option<usize>,
     ) -> SplitReferenceAlignment {
         match bandwidth {
@@ -1098,57 +1112,44 @@ impl<B: Backend> U8Probe<B> {
                 // they align against different references, so the wider of the two decides.
                 let widest = left_reference.len().max(right_reference.len());
                 if band_reaches_everything(query.len(), widest, w) {
-                    return self.split_reference::<false>(
+                    return self.split_reference::<false, TWO_PIECE>(
                         query,
                         left_reference,
                         right_reference,
-                        m,
-                        mm,
-                        go,
-                        ge,
+                        scores,
                         0,
                     );
                 }
-                self.split_reference::<true>(
+                self.split_reference::<true, TWO_PIECE>(
                     query,
                     left_reference,
                     right_reference,
-                    m,
-                    mm,
-                    go,
-                    ge,
+                    scores,
                     w,
                 )
             }
-            None => self.split_reference::<false>(
+            None => self.split_reference::<false, TWO_PIECE>(
                 query,
                 left_reference,
                 right_reference,
-                m,
-                mm,
-                go,
-                ge,
+                scores,
                 0,
             ),
         }
     }
 
-    #[allow(clippy::too_many_arguments)] // ditto, plus the bandwidth
-    fn split_reference<const BANDED: bool>(
+    fn split_reference<const BANDED: bool, const TWO_PIECE: bool>(
         &mut self,
         query: &[u8],
         left_reference: &[u8],
         right_reference: &[u8],
-        m: u8,
-        mm: u8,
-        go: u8,
-        ge: u8,
+        scores: Scores,
         w: usize,
     ) -> SplitReferenceAlignment {
         let qlen = query.len();
 
         // --- pass A: forward against the right reference. row_max[k] == F[k]. ---
-        self.row_pass::<false, BANDED>(query, right_reference, m, mm, go, ge, w);
+        self.row_pass::<false, BANDED, TWO_PIECE>(query, right_reference, scores, w);
         // Park A's results in the `_b` slots and let pass B use the primary ones.
         std::mem::swap(&mut self.tb, &mut self.tb_b);
         std::mem::swap(&mut self.tb_base, &mut self.tb_base_b);
@@ -1161,7 +1162,7 @@ impl<B: Backend> U8Probe<B> {
         // From here: `*_b` holds pass A (right arm), `*` holds pass B (left arm).
 
         // --- pass B: REVERSED against the left reference. row_max[qlen - k] == G[k]. ---
-        self.row_pass::<true, BANDED>(query, left_reference, m, mm, go, ge, w);
+        self.row_pass::<true, BANDED, TWO_PIECE>(query, left_reference, scores, w);
 
         // --- the jump point: a 1-D scan over qlen+1 values ---
         //
@@ -1227,7 +1228,7 @@ impl<B: Backend> U8Probe<B> {
             query_end: k,
             ref_start: 0,
             ref_end: rj,
-            cigar: self.replay::<false, BANDED>(query, right_reference, k, rj, w),
+            cigar: self.replay::<false, BANDED, TWO_PIECE>(query, right_reference, k, rj, w),
         };
         std::mem::swap(&mut self.tb, &mut self.tb_b);
         std::mem::swap(&mut self.tb_base, &mut self.tb_base_b);
@@ -1258,7 +1259,7 @@ impl<B: Backend> U8Probe<B> {
             query_end: qlen,
             ref_start: llen - lj,
             ref_end: llen,
-            cigar: self.replay::<true, BANDED>(query, left_reference, qlen - k, lj, w),
+            cigar: self.replay::<true, BANDED, TWO_PIECE>(query, left_reference, qlen - k, lj, w),
         };
 
         SplitReferenceAlignment {
@@ -1276,15 +1277,11 @@ impl<B: Backend> U8Probe<B> {
     /// filled** (row `i`'s in-band columns are `[i - w, i + w]` intersected with `[0, rlen]`,
     /// which is empty past that), so every caller must bound its scan over `row_max` by that
     /// same `last_row`. Reading past it reads whatever the previous call left.
-    #[allow(clippy::too_many_arguments)] // a kernel entry point: the scheme plus the bandwidth
-    fn row_pass<const REVERSED: bool, const BANDED: bool>(
+    fn row_pass<const REVERSED: bool, const BANDED: bool, const TWO_PIECE: bool>(
         &mut self,
         query: &[u8],
         refseq: &[u8],
-        match_score: u8,
-        mismatch: u8,
-        gap_open: u8,
-        gap_extend: u8,
+        scores: Scores,
         w: usize,
     ) {
         let (qlen, rlen) = (query.len(), refseq.len());
@@ -1295,11 +1292,7 @@ impl<B: Backend> U8Probe<B> {
                 self.row_max.resize(qlen + 1 + B::LANES, 0);
             }
             for i in 0..=qlen {
-                self.row_max[i] = if i == 0 {
-                    0
-                } else {
-                    -(gap_open as i32) - (i as i32 - 1) * gap_extend as i32
-                };
+                self.row_max[i] = -scores.gap_cost(i);
             }
             // Every row's best is its column-0 cell, so every argmax is 0, including row 0's,
             // which is carried scalar and would otherwise be whatever the previous call left.
@@ -1307,19 +1300,10 @@ impl<B: Backend> U8Probe<B> {
             self.tb_base.clear();
             return;
         }
-        self.prepare::<REVERSED>(query, refseq, match_score, gap_open, gap_extend);
-        self.size_flags::<true, BANDED>(qlen, rlen, w);
+        self.prepare::<REVERSED, TWO_PIECE>(query, refseq, scores);
+        self.size_flags::<true, BANDED, TWO_PIECE>(qlen, rlen, w);
         unsafe {
-            B::fill::<true, false, true, false, BANDED>(
-                self,
-                qlen,
-                rlen,
-                match_score,
-                mismatch,
-                gap_open,
-                gap_extend,
-                w,
-            )
+            B::fill::<true, false, true, false, BANDED, TWO_PIECE>(self, qlen, rlen, scores, w)
         };
     }
 
@@ -1327,38 +1311,28 @@ impl<B: Backend> U8Probe<B> {
     ///
     /// `TRACK_LAST_ROW` argmaxes `H[qlen][j]` instead of pinning the end cell at `(qlen, rlen)`;
     /// `REVERSED` runs the whole thing back-to-front.
-    fn align<const TRACK_LAST_ROW: bool, const REVERSED: bool>(
+    fn align<const TRACK_LAST_ROW: bool, const REVERSED: bool, const TWO_PIECE: bool>(
         &mut self,
         query: &[u8],
         refseq: &[u8],
-        match_score: u8,
-        mismatch: u8,
-        gap_open: u8,
-        gap_extend: u8,
+        scores: Scores,
     ) -> AlignmentResult {
         let (qlen, rlen) = (query.len(), refseq.len());
 
         // A zero-length side never reaches the kernel: there is no anti-diagonal to walk.
         if qlen == 0 || rlen == 0 {
-            return self.degenerate::<TRACK_LAST_ROW, REVERSED>(qlen, rlen, gap_open, gap_extend);
+            return self.degenerate::<TRACK_LAST_ROW, REVERSED>(qlen, rlen, scores);
         }
 
-        self.prepare::<REVERSED>(query, refseq, match_score, gap_open, gap_extend);
-        self.size_flags::<false, false>(qlen, rlen, 0);
+        self.prepare::<REVERSED, TWO_PIECE>(query, refseq, scores);
+        self.size_flags::<false, false, TWO_PIECE>(qlen, rlen, 0);
 
         let (score, end_j) = unsafe {
-            B::fill::<true, TRACK_LAST_ROW, false, false, false>(
-                self,
-                qlen,
-                rlen,
-                match_score,
-                mismatch,
-                gap_open,
-                gap_extend,
-                0,
+            B::fill::<true, TRACK_LAST_ROW, false, false, false, TWO_PIECE>(
+                self, qlen, rlen, scores, 0,
             )
         };
-        let cigar = self.replay::<REVERSED, false>(query, refseq, qlen, end_j, 0);
+        let cigar = self.replay::<REVERSED, false, TWO_PIECE>(query, refseq, qlen, end_j, 0);
         let (ref_start, ref_end) = ref_span::<REVERSED>(rlen, end_j);
 
         AlignmentResult {
@@ -1380,16 +1354,9 @@ impl<B: Backend> U8Probe<B> {
         &mut self,
         qlen: usize,
         rlen: usize,
-        gap_open: u8,
-        gap_extend: u8,
+        scores: Scores,
     ) -> AlignmentResult {
-        let gap = |k: usize| -> i32 {
-            if k == 0 {
-                0
-            } else {
-                -(gap_open as i32) - (k as i32 - 1) * gap_extend as i32
-            }
-        };
+        let gap = |k: usize| -> i32 { -scores.gap_cost(k) };
         let mut cigar = Cigar::default();
         if qlen > 0 {
             // The query must always be spanned in full, in every mode here.
@@ -1426,7 +1393,7 @@ impl<B: Backend> U8Probe<B> {
     /// the `E`/`F` states read exactly one, so returning all four packed would build bits nobody
     /// looks at. The lane arithmetic is paid once per cell, the loads once per question.
     #[inline(always)]
-    fn flag_at<const BANDED: bool>(
+    fn flag_at<const BANDED: bool, const TWO_PIECE: bool>(
         &self,
         p: usize,
         i: usize,
@@ -1434,13 +1401,14 @@ impl<B: Backend> U8Probe<B> {
         rlen: usize,
         w: usize,
     ) -> (*const u32, u32) {
+        let tb_words = tb_words::<TWO_PIECE>();
         // The lane is `i - lo(p)`, so it moves with the band: the fill starts each
         // anti-diagonal's chunks at the band's top row, not the matrix's. Reading a banded
         // fill's flags with the unbanded `lo` would silently address the wrong cell.
         let (i_from, _) = band_rows::<BANDED>(p, qlen, rlen, w);
         let lane = i - i_from;
         debug_assert!(
-            i >= i_from && (self.tb_base[p] as usize + lane / B::LANES) * TB_WORDS < self.tb.len(),
+            i >= i_from && (self.tb_base[p] as usize + lane / B::LANES) * tb_words < self.tb.len(),
             "flag_at({p}, {i}) is outside the region the fill wrote"
         );
         // SAFETY: `p` is a live anti-diagonal and `i` one of its interior rows, so `base` is
@@ -1448,7 +1416,7 @@ impl<B: Backend> U8Probe<B> {
         // and the same argument covers `tb_base[p]`: `p <= qlen + rlen`, which is what
         // `size_flags` sized it to.
         unsafe {
-            let base = (*self.tb_base.get_unchecked(p) as usize + lane / B::LANES) * TB_WORDS;
+            let base = (*self.tb_base.get_unchecked(p) as usize + lane / B::LANES) * tb_words;
             (self.tb.as_ptr().add(base), 1u32 << (lane % B::LANES))
         }
     }
@@ -1504,7 +1472,7 @@ impl<B: Backend> U8Probe<B> {
     /// addresses a cell the fill wrote. The two closed-form exits are covered too: the replay can
     /// only reach `(i, 0)` or `(0, j)` in band, which bounds `i` and `j` by `w`, and the straight
     /// run to the origin it emits there is in band the whole way.
-    fn replay<const REVERSED: bool, const BANDED: bool>(
+    fn replay<const REVERSED: bool, const BANDED: bool, const TWO_PIECE: bool>(
         &self,
         query: &[u8],
         refseq: &[u8],
@@ -1519,6 +1487,9 @@ impl<B: Backend> U8Probe<B> {
             H,
             E,
             F,
+            /// The long level's two gap states.
+            E2,
+            F2,
         }
         let (mut i, mut j) = (start_i, start_j);
         let mut st = St::H;
@@ -1566,15 +1537,15 @@ impl<B: Backend> U8Probe<B> {
                 !BANDED || i.abs_diff(j) <= w,
                 "the replay stepped out of the band of {w}, to ({i}, {j})"
             );
-            let (word, bit) = self.flag_at::<BANDED>(p, i, qlen, rlen, w);
+            let (word, bit) = self.flag_at::<BANDED, TWO_PIECE>(p, i, qlen, rlen, w);
             let flag = |which: usize| unsafe { (*word.add(which) & bit) != 0 };
             match st {
                 St::H => {
                     // Diagonal FIRST: on a tie it spends one edit where a gap pair would spend
                     // two or more. See the tie-break note above.
                     //
-                    // `from_f` is the fallthrough and is never stored: `A_G` is a max of three
-                    // operands, so if neither the diagonal nor E achieved it, `ΔF'_G` did.
+                    // `A_G`'s last operand is the fallthrough and is never stored: single-piece
+                    // that is `from_f`, two-piece `from_f2`.
                     if flag(TB_FROM_DIAG) {
                         // `=` vs `X` is **literal byte identity**, re-derived from the original
                         // bytes rather than from how the kernel scored the cell; see `mod.rs`,
@@ -1599,10 +1570,19 @@ impl<B: Backend> U8Probe<B> {
                         emit!(CigarOperation::Insertion, 1);
                         i -= 1;
                         st = St::E;
-                    } else {
+                    } else if TWO_PIECE && flag(TB_FROM_E2) {
+                        emit!(CigarOperation::Insertion, 1);
+                        i -= 1;
+                        st = St::E2;
+                    } else if !TWO_PIECE || flag(TB_FROM_F) {
                         emit!(CigarOperation::Deletion, 1);
                         j -= 1;
                         st = St::F;
+                    } else {
+                        // The inferred direction: five operands, four stored bits.
+                        emit!(CigarOperation::Deletion, 1);
+                        j -= 1;
+                        st = St::F2;
                     }
                 }
                 St::E => {
@@ -1616,6 +1596,22 @@ impl<B: Backend> U8Probe<B> {
                 }
                 St::F => {
                     if flag(TB_F_OPEN) {
+                        st = St::H;
+                    } else {
+                        emit!(CigarOperation::Deletion, 1);
+                        j -= 1;
+                    }
+                }
+                St::E2 => {
+                    if flag(TB_E2_OPEN) {
+                        st = St::H;
+                    } else {
+                        emit!(CigarOperation::Insertion, 1);
+                        i -= 1;
+                    }
+                }
+                St::F2 => {
+                    if flag(TB_F2_OPEN) {
                         st = St::H;
                     } else {
                         emit!(CigarOperation::Deletion, 1);
@@ -1715,7 +1711,6 @@ impl<B: Backend> U8Probe<B> {
     /// of the former and is never banded, because its `anchor` walk cannot survive a band (see
     /// [`U8Probe::local_reference`]).
     ///
-    #[allow(clippy::too_many_arguments)] // the scheme is five scalars, plus the bandwidth
     #[inline(always)]
     pub(super) unsafe fn fill_generic<
         const TRACE: bool,
@@ -1723,22 +1718,25 @@ impl<B: Backend> U8Probe<B> {
         const TRACK_ROW_MAX: bool,
         const ARG_LARGEST: bool,
         const BANDED: bool,
+        const TWO_PIECE: bool,
     >(
         &mut self,
         qlen: usize,
         rlen: usize,
-        match_score: u8,
-        mismatch: u8,
-        gap_open: u8,
-        gap_extend: u8,
+        scores: Scores,
         w: usize,
     ) -> (i32, usize) {
         unsafe {
-            let m = match_score as i64;
-            let mm = mismatch as i64;
-            let go = gap_open as i64 - gap_extend as i64;
-            let ge = gap_extend as i64;
-            let c = 2 * (go + ge); // == 2 * gap_open
+            debug_assert_eq!(
+                TWO_PIECE,
+                scores.is_two_piece(),
+                "TWO_PIECE sizes the buffers and the flag stride, so it has to agree"
+            );
+            let m = scores.match_ as i64;
+            let mm = scores.mismatch as i64;
+            // The offset is level 1's open, the larger of the two; see the module docs.
+            let o = scores.gap_open[1] as i64;
+            let c = 2 * o;
             let upper = (m + c) as u8;
 
             // The two values of s_G, broadcast once. Only the mismatch side needs the clamp:
@@ -1748,29 +1746,64 @@ impl<B: Backend> U8Probe<B> {
             // worst substitution the largest value in the lane and win every max.
             let s_g_match = upper;
             let s_g_mismatch = (c - mm).max(0) as u8;
-            let go_u8 = go as u8;
 
-            // ΔV = ΔV_G - gap_open, un-offset, widened to the accumulator's lane type.
-            let gap_open_vec32 = B::splat32(gap_open as i32);
+            // `short_open` is `o - q1`, zero under a single-piece cost. `short_extend` is the
+            // paper's `go`.
+            let short_open = (o - scores.gap_open[0] as i64) as u8;
+            let short_extend = (o - scores.gap_extend[0] as i64) as u8;
+            let long_extend = (o - scores.gap_extend[1] as i64) as u8;
+
+            // ΔV = ΔV_G - o, un-offset, widened to the accumulator's lane type.
+            let gap_open_vec32 = B::splat32(o as i32);
 
             let match_vec = B::splat8(s_g_match);
             let mismatch_vec = B::splat8(s_g_mismatch);
-            let go_vec = B::splat8(go_u8);
+            let go_vec = B::splat8(short_extend);
+            let diag_mismatch_vec = if c - mm >= 0 {
+                mismatch_vec
+            } else {
+                B::splat8(u8::MAX)
+            };
+            let go2_vec = B::splat8(long_extend);
+            let short_open_vec = B::splat8(short_open);
+
+            // Opening a gap run writes both levels from one value: with `o = q2` the long level
+            // is the single-piece store verbatim and the short level sits `o - q1` above it.
+            // `a_g_short` is the chunk loop's vector twin; these four cells are every scalar use
+            // of `short_open`. The add runs unconditionally: under a single-piece cost it adds a
+            // zero, and gating it instead costs more in block layout than the four adds it saves.
+            macro_rules! open_gap {
+                ($short:expr, $long:expr, $from:expr) => {{
+                    let open = $from;
+                    *$short = open.wrapping_add(short_open);
+                    if TWO_PIECE {
+                        *$long = open;
+                    }
+                }};
+            }
+
+            // Both levels are linear in `p`, so `gap_cost(p)` is carried with one add each
+            // rather than recomputed per anti-diagonal.
+            let (q0, e0) = (scores.gap_open[0] as i64, scores.gap_extend[0] as i64);
+            let (q1, e1) = (scores.gap_open[1] as i64, scores.gap_extend[1] as i64);
+            let (mut level0, mut level1) = (0i64, 0i64);
+            // `gap_cost(p - 1)`, and the increment offset by `o`, which is `S[i,0] - S[i-1,0]`
+            // and its transpose along row 0.
+            let mut cost = 0i64;
             // All-ones exactly when `s_G(mismatch)` did NOT clamp, i.e. when `cmpeq(A_G, s_G)`
             // means what it says at every cell. See TB_FROM_DIAG.
-            let unclamped_vec = if c - mm >= 0 {
-                B::splat8(0xFF)
-            } else {
-                B::splat8(0)
-            };
+            // The mismatch value the *traceback* compares against: `s_G(mismatch)` where it
+            // did not clamp, and otherwise a value no cell can hold, since a clamped diagonal
+            // must never look like it achieved `A_G`'s max. Either way `from_diag` is one
+            // `eq8` with no mask to build per cell.
 
             let q_ptr = self.q_codes.as_ptr();
             let r_ptr = self.r_rev.as_ptr();
 
             // Hoist every buffer to a raw pointer, ONCE, and ping-pong the pointers rather than
-            // the `Vec`s: swapping two `Deltas` would move eight `Vec` headers per
-            // anti-diagonal, which dominates at small `n` where the ramp runs more
-            // anti-diagonals than chunks of actual DP.
+            // the `Vec`s: swapping two `Deltas` would move eight `Vec` headers per anti-diagonal,
+            // twelve under a two-piece cost, which dominates at small `n` where the ramp runs
+            // more anti-diagonals than chunks of actual DP.
             let mut p_dh = self.prev.dh.as_mut_ptr();
             let mut p_dv = self.prev.dv.as_mut_ptr();
             let mut p_de = self.prev.de.as_mut_ptr();
@@ -1779,7 +1812,14 @@ impl<B: Backend> U8Probe<B> {
             let mut c_dv = self.cur.dv.as_mut_ptr();
             let mut c_de = self.cur.de.as_mut_ptr();
             let mut c_df = self.cur.df.as_mut_ptr();
+            // The long level's layers. Under a single-piece cost these are dangling pointers
+            // into empty `Vec`s and every use of them is behind `if TWO_PIECE`.
+            let mut p_de2 = self.prev.de2.as_mut_ptr();
+            let mut p_df2 = self.prev.df2.as_mut_ptr();
+            let mut c_de2 = self.cur.de2.as_mut_ptr();
+            let mut c_df2 = self.cur.df2.as_mut_ptr();
             let tb_ptr = self.tb.as_mut_ptr();
+            let tb_words = tb_words::<TWO_PIECE>();
             let tb_base_ptr = self.tb_base.as_mut_ptr();
             let abs_ptr = self.abs.as_mut_ptr();
             let row_max_ptr = self.row_max.as_mut_ptr();
@@ -1816,9 +1856,9 @@ impl<B: Backend> U8Probe<B> {
             //
             // `abs[0]` is deliberately not seeded: the group loop starts at `i_from >= 1`, so
             // row 0 has no lane and nothing reads it.
-            let row0_arg: i32 = if !ARG_LARGEST || gap_open > 0 {
+            let row0_arg: i32 = if !ARG_LARGEST || scores.gap_cost(1) > 0 {
                 0
-            } else if gap_extend > 0 {
+            } else if scores.gap_cost(2) > 0 {
                 1.min(rlen) as i32
             } else if BANDED {
                 rlen.min(w) as i32
@@ -1864,6 +1904,18 @@ impl<B: Backend> U8Probe<B> {
             let (mut prev_lo, mut prev_hi) = (1usize, 0usize);
 
             for p in 1..=(qlen + rlen) {
+                if p == 1 {
+                    level0 = q0;
+                    level1 = q1;
+                } else {
+                    level0 += e0;
+                    level1 += e1;
+                }
+                let cost_p = level0.min(level1);
+                let boundary = (o - (cost_p - cost)) as u8;
+                cost = cost_p;
+                debug_assert_eq!(cost_p, scores.gap_cost(p) as i64);
+
                 debug_assert_eq!(i_from, 1.max(p.saturating_sub(rlen)));
                 debug_assert_eq!(i_to, qlen.min(p - 1));
 
@@ -1929,6 +1981,11 @@ impl<B: Backend> U8Probe<B> {
                     let de_up = B::load8(p_de.add(i0 - 1));
                     let dh_left = B::load8(p_dh.add(i0));
                     let df_left = B::load8(p_df.add(i0));
+                    let (de2_up, df2_left) = if TWO_PIECE {
+                        (B::load8(p_de2.add(i0 - 1)), B::load8(p_df2.add(i0)))
+                    } else {
+                        (dv_up, dv_up) // never read
+                    };
 
                     // `rlen + i0 - p`, never `rlen - p + i0`: the index is provably non-negative
                     // on every live lane, but `rlen - p` alone underflows the moment the
@@ -1939,34 +1996,67 @@ impl<B: Backend> U8Probe<B> {
                     // scheme `from_diag` is only trustworthy at match cells. See TB_FROM_DIAG.
                     let eq_qr = B::eq8(qv, rv);
                     let s_g = B::blend8(mismatch_vec, match_vec, eq_qr);
+                    let s_g_diag = B::blend8(diag_mismatch_vec, match_vec, eq_qr);
 
-                    // Critical path 4: two maxes with nothing feeding them. ΔE'_G and ΔF'_G have
+                    // Critical path 4, or 3 under TWO_PIECE: maxes with nothing feeding them.
+                    // ΔE'_G and ΔF'_G have
                     // already absorbed ΔV and ΔH, so A_G reads them directly rather than adding
                     // first, the entire reason Eq 3 exists.
-                    let a_g = B::max8(B::max8(s_g, de_up), df_left);
+                    let a_g = if TWO_PIECE {
+                        // Balanced rather than chained: the five operands are independent, so a
+                        // tree keeps the critical path at 3 maxes instead of 4.
+                        B::max8(
+                            B::max8(B::max8(s_g, de_up), df_left),
+                            B::max8(de2_up, df2_left),
+                        )
+                    } else {
+                        B::max8(B::max8(s_g, de_up), df_left)
+                    };
 
-                    let de_next = B::max8(a_g, B::add8(de_up, go_vec));
-                    let df_next = B::max8(a_g, B::add8(df_left, go_vec));
+                    // `o - q1` back onto A_G for the short level, once, shared by E1 and F1.
+                    let a_g_short = if TWO_PIECE {
+                        B::add8(a_g, short_open_vec)
+                    } else {
+                        a_g
+                    };
+                    let de_next = B::max8(a_g_short, B::add8(de_up, go_vec));
+                    let df_next = B::max8(a_g_short, B::add8(df_left, go_vec));
+                    let (de2_next, df2_next) = if TWO_PIECE {
+                        (
+                            B::max8(a_g, B::add8(de2_up, go2_vec)),
+                            B::max8(a_g, B::add8(df2_left, go2_vec)),
+                        )
+                    } else {
+                        (de_next, df_next) // never stored
+                    };
 
                     // The traceback flags: equalities on values already in registers, extracted
                     // a bit per lane. `const TRACE` so the score-only path monomorphizes without
                     // them entirely.
                     if TRACE {
-                        let tb = tb_ptr.add((chunk + (i0 - lo) / B::LANES) * TB_WORDS);
+                        let tb = tb_ptr.add((chunk + (i0 - lo) / B::LANES) * tb_words);
                         // `from_diag`/`from_e`: which operands achieved A_G's max. `from_f` is
-                        // NOT stored: it is the replay's fallthrough. See TB_WORDS.
+                        // NOT stored: it is the replay's fallthrough. See `tb_words`.
                         //
                         // `unclamped_vec` is all-ones for every scheme that does not clamp
                         // `s_G`, making the `or` a no-op and the `and` an identity, so the
                         // correction costs nothing where it is not needed and does not need a
                         // second monomorphization of this loop.
-                        *tb.add(TB_FROM_DIAG) =
-                            B::movemask8(B::and8(B::eq8(a_g, s_g), B::or8(eq_qr, unclamped_vec)));
+                        *tb.add(TB_FROM_DIAG) = B::movemask8(B::eq8(a_g, s_g_diag));
                         *tb.add(TB_FROM_E) = B::movemask8(B::eq8(a_g, de_up));
                         // `e_open`/`f_open`: whether the gap state opened from A_G rather than
-                        // extending.
-                        *tb.add(TB_E_OPEN) = B::movemask8(B::eq8(de_next, a_g));
-                        *tb.add(TB_F_OPEN) = B::movemask8(B::eq8(df_next, a_g));
+                        // extending. The comparison is against `a_g_short`, the value the max
+                        // actually took, not `a_g`.
+                        *tb.add(TB_E_OPEN) = B::movemask8(B::eq8(de_next, a_g_short));
+                        *tb.add(TB_F_OPEN) = B::movemask8(B::eq8(df_next, a_g_short));
+                        if TWO_PIECE {
+                            // `from_f` stops being the fallthrough once `F2` exists, so it is
+                            // stored and `from_f2` is inferred instead.
+                            *tb.add(TB_FROM_F) = B::movemask8(B::eq8(a_g, df_left));
+                            *tb.add(TB_FROM_E2) = B::movemask8(B::eq8(a_g, de2_up));
+                            *tb.add(TB_E2_OPEN) = B::movemask8(B::eq8(de2_next, a_g));
+                            *tb.add(TB_F2_OPEN) = B::movemask8(B::eq8(df2_next, a_g));
+                        }
                     }
 
                     // Plain subs, no saturation: every result is provably in [0, upper], so the
@@ -1975,6 +2065,10 @@ impl<B: Backend> U8Probe<B> {
                     B::store8(c_dv.add(i0), B::sub8(a_g, dh_left));
                     B::store8(c_de.add(i0), B::sub8(de_next, dh_left));
                     B::store8(c_df.add(i0), B::sub8(df_next, dv_up));
+                    if TWO_PIECE {
+                        B::store8(c_de2.add(i0), B::sub8(de2_next, dh_left));
+                        B::store8(c_df2.add(i0), B::sub8(df2_next, dv_up));
+                    }
 
                     i0 += B::LANES;
                 }
@@ -2106,6 +2200,10 @@ impl<B: Backend> U8Probe<B> {
                     // and takes it back.
                     *c_de.add(lo - 1) = 0;
                     *c_df.add(hi + 1) = 0;
+                    if TWO_PIECE {
+                        *c_de2.add(lo - 1) = 0;
+                        *c_df2.add(hi + 1) = 0;
+                    }
 
                     // --- the edges: where a seal of `0` is not enough ---
                     //
@@ -2128,25 +2226,36 @@ impl<B: Backend> U8Probe<B> {
                     // and the bottom edge's upper neighbour is inside. The copies cannot cross:
                     // `top_sealed && bottom_sealed` implies a strip `w + 1 >= 2` rows wide.
                     if top_sealed {
-                        *c_de.add(lo) = *c_dv.add(lo);
+                        // Opening is `A_G + (o - q_k) - ΔH_G[i,j-1]`, and `ΔV_G[i,j]` is the
+                        // `k = long` case of exactly that, so the copy is the opening value.
+                        open_gap!(c_de.add(lo), c_de2.add(lo), *c_dv.add(lo));
                         if TRACE {
                             // In `St::H`, "H came from E[i-1,j]" is out of band, so clear it. It
                             // could only ever have been the seal tying an `A_G` of 0. The replay
                             // then falls through to F, which at this edge leads *inwards*.
-                            *tb_ptr.add(chunk_base * TB_WORDS + TB_FROM_E) &= !1u32;
+                            *tb_ptr.add(chunk_base * tb_words + TB_FROM_E) &= !1u32;
                             // In `St::E`, "the run opened here", which it must have.
-                            *tb_ptr.add(chunk_base * TB_WORDS + TB_E_OPEN) |= 1u32;
+                            *tb_ptr.add(chunk_base * tb_words + TB_E_OPEN) |= 1u32;
+                            if TWO_PIECE {
+                                *tb_ptr.add(chunk_base * tb_words + TB_FROM_E2) &= !1u32;
+                                *tb_ptr.add(chunk_base * tb_words + TB_E2_OPEN) |= 1u32;
+                            }
                         }
                     }
                     if bottom_sealed {
-                        *c_df.add(hi) = *c_dh.add(hi);
+                        open_gap!(c_df.add(hi), c_df2.add(hi), *c_dh.add(hi));
                         if TRACE {
-                            // In `St::F`: "the run opened here". `from_f` itself needs no mask:
-                            // it is the replay's fallthrough, and at this edge one of the two
-                            // flags it falls through *from* is always set. See `replay`.
+                            // In `St::F`: "the run opened here". Neither `from_f` nor `from_f2`
+                            // needs a mask, including the stored `from_f` of a two-piece fill:
+                            // at this edge the replay provably leaves via the diagonal or via E
+                            // before it reaches either. See `replay`.
                             let lane = hi - lo;
-                            *tb_ptr.add((chunk_base + lane / B::LANES) * TB_WORDS + TB_F_OPEN) |=
-                                1u32 << (lane % B::LANES);
+                            let word = (chunk_base + lane / B::LANES) * tb_words;
+                            let bit = 1u32 << (lane % B::LANES);
+                            *tb_ptr.add(word + TB_F_OPEN) |= bit;
+                            if TWO_PIECE {
+                                *tb_ptr.add(word + TB_F2_OPEN) |= bit;
+                            }
                         }
                     }
 
@@ -2155,7 +2264,7 @@ impl<B: Backend> U8Probe<B> {
                     // docs. `row_max` is *assigned*, not maxed: this is the row's first
                     // candidate, and whatever is sitting there is the partial chunk's garbage.
                     if seeds_row {
-                        let s = seed_carry + *c_dh.add(hi) as i32 - gap_open as i32;
+                        let s = seed_carry + *c_dh.add(hi) as i32 - o as i32;
                         *abs_ptr.add(hi) = s;
                         *row_max_ptr.add(hi) = s;
                         // No `nm` bit is written for it: `arg_for_row_banded` returns this column
@@ -2174,17 +2283,15 @@ impl<B: Backend> U8Probe<B> {
                 // seals are there to prevent, undone one line after them. Past `w` the seals are
                 // the truth, and they cover the only two rows that get read.
                 if p <= rlen && (!BANDED || p <= w) {
-                    let b = if p == 1 { 0 } else { go_u8 };
-                    *c_dv.add(0) = b;
-                    *c_de.add(0) = b;
+                    *c_dv.add(0) = boundary;
+                    open_gap!(c_de.add(0), c_de2.add(0), boundary);
                     // Row 0's max and argmax are hoisted out of the loop; see the closed form
                     // above it. `abs[0]` goes with them: it is never read, because `i_from >= 1`
                     // means the group loop never touches row 0.
                 }
                 if p <= qlen && (!BANDED || p <= w) {
-                    let b = if p == 1 { 0 } else { go_u8 };
-                    *c_dh.add(p) = b;
-                    *c_df.add(p) = b;
+                    *c_dh.add(p) = boundary;
+                    open_gap!(c_df.add(p), c_df2.add(p), boundary);
                     // The corner seed, gated with the boundary it reads. Rows past `w` are
                     // seeded at their real first column instead, by `seeds_row` above; between
                     // the two, every row is seeded exactly once.
@@ -2197,7 +2304,7 @@ impl<B: Backend> U8Probe<B> {
                         //
                         // No arg store: `j = 0` is what `arg_for_row` returns when no interior
                         // cell of the row ever took the max, so the column-0 seed is implicit.
-                        let s_i0 = -(gap_open as i32) - (p as i32 - 1) * gap_extend as i32;
+                        let s_i0 = -cost_p as i32;
                         *abs_ptr.add(p) = s_i0;
                         *row_max_ptr.add(p) = s_i0;
                     }
@@ -2213,13 +2320,9 @@ impl<B: Backend> U8Probe<B> {
                 // kill the chain including the `c_dv[qlen]` load. If it ever does not, the cost
                 // is one stale in-bounds read, not a wrong answer.
                 anchor = if p <= qlen {
-                    if p == 1 {
-                        -(gap_open as i64)
-                    } else {
-                        anchor - ge
-                    }
+                    -cost_p
                 } else {
-                    anchor + *c_dv.add(qlen) as i64 - (go + ge)
+                    anchor + *c_dv.add(qlen) as i64 - o
                 };
 
                 if TRACK_LAST_ROW && p >= qlen && anchor > best_score {
@@ -2231,6 +2334,10 @@ impl<B: Backend> U8Probe<B> {
                 std::mem::swap(&mut p_dv, &mut c_dv);
                 std::mem::swap(&mut p_de, &mut c_de);
                 std::mem::swap(&mut p_df, &mut c_df);
+                if TWO_PIECE {
+                    std::mem::swap(&mut p_de2, &mut c_de2);
+                    std::mem::swap(&mut p_df2, &mut c_df2);
+                }
 
                 // Advance the row range for p+1. AFTER the body, not before: incrementing on
                 // entry reads min(qlen, p) where the body wants min(qlen, p-1), which is what
@@ -2267,10 +2374,10 @@ impl<B: Backend> U8Probe<B> {
             // register-starved, and down here the whole thing is inside the `debug_assert!` so a
             // release build reads nothing at all.
             debug_assert!(
-                !TRACE || chunk * TB_WORDS <= self.tb.len(),
-                "the fill wrote {chunk} chunks but tb holds {} ({TB_WORDS} words per chunk): \
+                !TRACE || chunk * tb_words <= self.tb.len(),
+                "the fill wrote {chunk} chunks but tb holds {} ({tb_words} words per chunk): \
                  the chunk bound is too tight, and every store past it was heap corruption",
-                self.tb.len() / TB_WORDS,
+                self.tb.len() / tb_words,
             );
             debug_assert!(
                 !(TRACE && TRACK_ROW_MAX) || chunk * NM_WORDS <= self.nm.len(),

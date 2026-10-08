@@ -267,9 +267,7 @@ impl PiecewiseAligner {
                 // Overlap between anchors, no need to align
                 if ref_diff < query_diff {
                     let inserted_part = (query_diff - ref_diff) as usize;
-
-                    score += -(self.scores.gap_open as i32)
-                        + (inserted_part as i32 - 1) * -(self.scores.gap_extend as i32);
+                    score -= self.scores.gap_cost(inserted_part);
                     cigar.push(CigarOperation::Insertion, inserted_part);
 
                     let matching_part = (self.k as isize + ref_diff) as usize;
@@ -277,8 +275,7 @@ impl PiecewiseAligner {
                     cigar.push(CigarOperation::Eq, matching_part);
                 } else if ref_diff > query_diff {
                     let deleted_part = (ref_diff - query_diff) as usize;
-                    score += -(self.scores.gap_open as i32)
-                        + (deleted_part as i32 - 1) * -(self.scores.gap_extend as i32);
+                    score -= self.scores.gap_cost(deleted_part);
                     cigar.push(CigarOperation::Deletion, deleted_part);
 
                     let matching_part = (self.k as isize + query_diff) as usize;
@@ -505,8 +502,8 @@ mod tests {
             Scores {
                 match_: 2,
                 mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
+                gap_open: [12, 12],
+                gap_extend: [1, 1],
                 end_bonus: 10,
             },
             5,
@@ -533,8 +530,8 @@ mod tests {
             Scores {
                 match_: 2,
                 mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
+                gap_open: [12, 12],
+                gap_extend: [1, 1],
                 end_bonus: 10,
             },
             5,
@@ -554,8 +551,8 @@ mod tests {
             Scores {
                 match_: 2,
                 mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
+                gap_open: [12, 12],
+                gap_extend: [1, 1],
                 end_bonus: 10,
             },
             5,
@@ -591,8 +588,8 @@ mod tests {
             Scores {
                 match_: 2,
                 mismatch: 8,
-                gap_open: 12,
-                gap_extend: 1,
+                gap_open: [12, 12],
+                gap_extend: [1, 1],
                 end_bonus: 10,
             },
             5,

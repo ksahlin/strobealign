@@ -85,8 +85,8 @@ pub enum InvalidScores {
 
     #[error(
         "match score ({match_}) + 3 * gap open penalty ({gap_open}) - gap extension penalty \
-         ({gap_extend}) must be at most 255, but is {}; at match score {match_} the gap open \
-         penalty can be at most {}",
+         ({gap_extend}) must be at most 255 (254 when the two gap penalties are equal), but is \
+         {}; at match score {match_} the gap open penalty can be at most {}",
         *match_ as u32 + 3 * *gap_open as u32 - *gap_extend as u32,
         (255 + *gap_extend as u32 - *match_ as u32) / 3
     )]
@@ -95,6 +95,9 @@ pub enum InvalidScores {
         gap_open: u8,
         gap_extend: u8,
     },
+
+    #[error("the second gap open penalty ({second}) must be at least the first ({first})")]
+    GapOpensOutOfOrder { first: u8, second: u8 },
 
     #[error("end bonus ({end_bonus}) must be at most {}", i32::MAX)]
     EndBonusTooLarge { end_bonus: u32 },
@@ -105,17 +108,26 @@ pub enum InvalidScores {
 /// The rules live here, not at the call sites, so a front end validating user input and
 /// [`SimdAligner::new`] cannot drift apart.
 pub fn check_scores(scores: Scores) -> Result<(), InvalidScores> {
-    if scores.gap_open < scores.gap_extend {
-        return Err(InvalidScores::GapOpenBelowExtend {
-            gap_open: scores.gap_open,
-            gap_extend: scores.gap_extend,
+    for i in 0..2 {
+        if scores.gap_open[i] < scores.gap_extend[i] {
+            return Err(InvalidScores::GapOpenBelowExtend {
+                gap_open: scores.gap_open[i],
+                gap_extend: scores.gap_extend[i],
+            });
+        }
+    }
+    if scores.gap_open[0] > scores.gap_open[1] {
+        return Err(InvalidScores::GapOpensOutOfOrder {
+            first: scores.gap_open[0],
+            second: scores.gap_open[1],
         });
     }
-    if !fits_u8_lanes(scores.match_, scores.gap_open, scores.gap_extend) {
+    // The bound is stated against level 1; see `fits_u8_lanes`.
+    if !fits_u8_lanes(scores) {
         return Err(InvalidScores::ExceedsLanes {
             match_: scores.match_,
-            gap_open: scores.gap_open,
-            gap_extend: scores.gap_extend,
+            gap_open: scores.gap_open[1],
+            gap_extend: scores.gap_extend[1],
         });
     }
     // The kernel adds the bonus as `i32`; past that it wraps negative and silently suppresses
@@ -135,28 +147,48 @@ fn validate(scores: Scores) {
     }
 }
 
-/// Call the same method on whichever kernel was selected.
+/// Turn the runtime "is this scheme two-piece?" into the const generic the kernel wants.
+///
+/// The gap model decides the delta layers, the traceback stride and the replay's state machine,
+/// so it has to be a const.
+macro_rules! with_two_piece {
+    ($probe:expr, $two:expr, $ws:ident, $tp:ident => $body:expr) => {
+        if $two {
+            let $ws = $probe;
+            const $tp: bool = true;
+            $body
+        } else {
+            let $ws = $probe;
+            const $tp: bool = false;
+            $body
+        }
+    };
+}
+
+/// Call the same method on whichever kernel was selected, at whichever gap model the scheme
+/// asked for.
 ///
 /// The body is written once and monomorphized per backend by inference on `$ws`, so dispatch
 /// costs one well-predicted branch per alignment call, not per cell.
 macro_rules! dispatch {
-    ($self:ident, $ws:ident => $body:expr) => {
+    ($self:ident, $ws:ident, $tp:ident => $body:expr) => {{
+        let two = $self.scores.is_two_piece();
         match &mut $self.workspace {
             #[cfg(target_arch = "x86_64")]
-            Workspace::Avx2($ws) => $body,
+            Workspace::Avx2(p) => with_two_piece!(p, two, $ws, $tp => $body),
             #[cfg(target_arch = "x86_64")]
-            Workspace::Sse41($ws) => $body,
+            Workspace::Sse41(p) => with_two_piece!(p, two, $ws, $tp => $body),
             #[cfg(all(
                 target_arch = "aarch64",
                 target_feature = "neon",
                 target_endian = "little"
             ))]
-            Workspace::Neon($ws) => $body,
+            Workspace::Neon(p) => with_two_piece!(p, two, $ws, $tp => $body),
             #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
-            Workspace::Simd128($ws) => $body,
-            Workspace::Scalar($ws) => $body,
+            Workspace::Simd128(p) => with_two_piece!(p, two, $ws, $tp => $body),
+            Workspace::Scalar(p) => with_two_piece!(p, two, $ws, $tp => $body),
         }
-    };
+    }};
 }
 
 /// A reusable aligner configured with a fixed [`Scores`] scheme.
@@ -254,15 +286,7 @@ impl SimdAligner {
         reference: &[u8],
         bandwidth: Option<usize>,
     ) -> AlignmentResult {
-        dispatch!(self, ws => ws.global_alignment(
-            query,
-            reference,
-            self.scores.match_,
-            self.scores.mismatch,
-            self.scores.gap_open,
-            self.scores.gap_extend,
-            bandwidth,
-        ))
+        dispatch!(self, ws, TP => ws.global_alignment::<TP>(query, reference, self.scores, bandwidth))
     }
 
     /// Alignment with a **local reference end**: the query is spanned in full, but the reference
@@ -286,15 +310,7 @@ impl SimdAligner {
         reference: &[u8],
         bandwidth: Option<usize>,
     ) -> AlignmentResult {
-        dispatch!(self, ws => ws.local_reference_end_alignment(
-            query,
-            reference,
-            self.scores.match_,
-            self.scores.mismatch,
-            self.scores.gap_open,
-            self.scores.gap_extend,
-            bandwidth,
-        ))
+        dispatch!(self, ws, TP => ws.local_reference_end_alignment::<TP>(query, reference, self.scores, bandwidth))
     }
 
     /// Alignment with a **local reference start**: the mirror of
@@ -320,15 +336,7 @@ impl SimdAligner {
         reference: &[u8],
         bandwidth: Option<usize>,
     ) -> AlignmentResult {
-        dispatch!(self, ws => ws.local_reference_start_alignment(
-            query,
-            reference,
-            self.scores.match_,
-            self.scores.mismatch,
-            self.scores.gap_open,
-            self.scores.gap_extend,
-            bandwidth,
-        ))
+        dispatch!(self, ws, TP => ws.local_reference_start_alignment::<TP>(query, reference, self.scores, bandwidth))
     }
 
     /// **Local-end alignment**: both sequences start at 0, and the alignment ends wherever it
@@ -369,16 +377,7 @@ impl SimdAligner {
         reference: &[u8],
         bandwidth: Option<usize>,
     ) -> AlignmentResult {
-        dispatch!(self, ws => ws.local_end_alignment(
-            query,
-            reference,
-            self.scores.match_,
-            self.scores.mismatch,
-            self.scores.gap_open,
-            self.scores.gap_extend,
-            self.scores.end_bonus,
-            bandwidth,
-        ))
+        dispatch!(self, ws, TP => ws.local_end_alignment::<TP>(query, reference, self.scores, bandwidth))
     }
 
     /// **Local-start alignment**: the mirror of
@@ -408,16 +407,7 @@ impl SimdAligner {
         reference: &[u8],
         bandwidth: Option<usize>,
     ) -> AlignmentResult {
-        dispatch!(self, ws => ws.local_start_alignment(
-            query,
-            reference,
-            self.scores.match_,
-            self.scores.mismatch,
-            self.scores.gap_open,
-            self.scores.gap_extend,
-            self.scores.end_bonus,
-            bandwidth,
-        ))
+        dispatch!(self, ws, TP => ws.local_start_alignment::<TP>(query, reference, self.scores, bandwidth))
     }
 
     /// **Split-reference alignment**: one query aligned across two references, with a single
@@ -471,14 +461,11 @@ impl SimdAligner {
         right_reference: &[u8],
         bandwidth: Option<usize>,
     ) -> SplitReferenceAlignment {
-        dispatch!(self, ws => ws.split_reference_alignment(
+        dispatch!(self, ws, TP => ws.split_reference_alignment::<TP>(
             query,
             left_reference,
             right_reference,
-            self.scores.match_,
-            self.scores.mismatch,
-            self.scores.gap_open,
-            self.scores.gap_extend,
+            self.scores,
             bandwidth,
         ))
     }

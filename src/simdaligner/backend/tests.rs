@@ -324,13 +324,44 @@ mod ops {
 
 mod differential {
     use super::*;
+    use crate::simdaligner::Scores;
     use crate::simdaligner::kernel::U8Probe;
+
+    /// The schemes every differential run sweeps.
+    ///
+    /// The two-piece entries are what exercise the long level's extra layers, flag words and
+    /// replay states.
+    const SCHEMES: [Scores; 3] = [
+        Scores {
+            match_: 2,
+            mismatch: 8,
+            gap_open: [12, 12],
+            gap_extend: [1, 1],
+            end_bonus: 10,
+        },
+        Scores {
+            match_: 2,
+            mismatch: 8,
+            gap_open: [12, 36],
+            gap_extend: [2, 1],
+            end_bonus: 10,
+        },
+        // A deliberately extreme one: a free long extension and a mismatch far past
+        // `2 * gap_open`, so `s_G` clamps and the `from_diag` correction is live.
+        Scores {
+            match_: 1,
+            mismatch: 60,
+            gap_open: [4, 20],
+            gap_extend: [3, 0],
+            end_bonus: 0,
+        },
+    ];
 
     /// Run every alignment mode on both backends and require identical results.
     ///
     /// Identical, not merely equally-scoring: the tie-break rules are part of the contract, so
     /// two backends that pick different equally-optimal CIGARs are a bug, not a wash.
-    fn compare<A: Backend, B: Backend>() {
+    fn compare_scheme<A: Backend, B: Backend, const TP: bool>(scores: Scores) {
         let mut rng = Rng(0xDEADBEEF_CAFEF00D);
         let mut pa = U8Probe::<A>::new();
         let mut pb = U8Probe::<B>::new();
@@ -347,15 +378,13 @@ mod differential {
                 let q = rng.dna(qlen);
                 let r = rng.dna(rlen);
                 for bandwidth in [None, Some(0), Some(1), Some(8), Some(33)] {
-                    let (m, mm, go, ge, eb) = (2u8, 8u8, 12u8, 1u8, 10u32);
-
                     macro_rules! same {
-                        ($mode:ident $(, $extra:expr)*) => {
+                        ($mode:ident) => {
                             assert_eq!(
-                                pa.$mode(&q, &r, m, mm, go, ge $(, $extra)*, bandwidth),
-                                pb.$mode(&q, &r, m, mm, go, ge $(, $extra)*, bandwidth),
-                                "{} vs {} disagree on {} (qlen={qlen}, rlen={rlen}, band={bandwidth:?})\n\
-                                 query={:?}\nref={:?}",
+                                pa.$mode::<TP>(&q, &r, scores, bandwidth),
+                                pb.$mode::<TP>(&q, &r, scores, bandwidth),
+                                "{} vs {} disagree on {} (qlen={qlen}, rlen={rlen}, \
+                                 band={bandwidth:?}, scores={scores:?})\nquery={:?}\nref={:?}",
                                 A::NAME, B::NAME, stringify!($mode),
                                 String::from_utf8_lossy(&q), String::from_utf8_lossy(&r),
                             );
@@ -365,22 +394,32 @@ mod differential {
                     same!(global_alignment);
                     same!(local_reference_end_alignment);
                     same!(local_reference_start_alignment);
-                    same!(local_end_alignment, eb);
-                    same!(local_start_alignment, eb);
+                    same!(local_end_alignment);
+                    same!(local_start_alignment);
                 }
 
                 // Split-reference takes two references, so it gets its own call.
                 let r2 = rng.dna(rlen);
                 for bandwidth in [None, Some(8)] {
                     assert_eq!(
-                        pa.split_reference_alignment(&q, &r, &r2, 2, 8, 12, 1, bandwidth),
-                        pb.split_reference_alignment(&q, &r, &r2, 2, 8, 12, 1, bandwidth),
+                        pa.split_reference_alignment::<TP>(&q, &r, &r2, scores, bandwidth),
+                        pb.split_reference_alignment::<TP>(&q, &r, &r2, scores, bandwidth),
                         "{} vs {} disagree on split_reference_alignment \
-                         (qlen={qlen}, rlen={rlen}, band={bandwidth:?})",
+                         (qlen={qlen}, rlen={rlen}, band={bandwidth:?}, scores={scores:?})",
                         A::NAME,
                         B::NAME
                     );
                 }
+            }
+        }
+    }
+
+    fn compare<A: Backend, B: Backend>() {
+        for scores in SCHEMES {
+            if scores.is_two_piece() {
+                compare_scheme::<A, B, true>(scores);
+            } else {
+                compare_scheme::<A, B, false>(scores);
             }
         }
     }

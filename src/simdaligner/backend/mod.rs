@@ -37,6 +37,7 @@
 
 use std::marker::PhantomData;
 
+use super::Scores;
 use super::kernel::U8Probe;
 
 #[cfg(test)]
@@ -210,14 +211,12 @@ pub unsafe trait Backend: Copy + 'static {
         const TRACK_ROW_MAX: bool,
         const ARG_LARGEST: bool,
         const BANDED: bool,
+        const TWO_PIECE: bool,
     >(
         probe: &mut U8Probe<Self>,
         qlen: usize,
         rlen: usize,
-        match_score: u8,
-        mismatch: u8,
-        gap_open: u8,
-        gap_extend: u8,
+        scores: Scores,
         w: usize,
     ) -> (i32, usize)
     where

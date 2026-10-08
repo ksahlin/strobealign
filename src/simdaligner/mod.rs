@@ -1,4 +1,4 @@
-//! Exact pairwise sequence alignment with affine gap costs.
+//! Exact pairwise sequence alignment with affine or two-piece affine gap costs.
 //!
 //! The entry point is [`SimdAligner`]: build one with a [`Scores`] scheme (or
 //! [`Scores::default()`]) and call an alignment method on it repeatedly. Construct
@@ -33,6 +33,15 @@
 //! let result = aligner.global_alignment(b"ACGTACGT", b"ACGTTACGT", None);
 //! assert_eq!(result.cigar.to_string(), "3=1D5=");
 //! ```
+//!
+//! # Gap costs
+//!
+//! A gap of `k` bases costs the cheaper of [`Scores`]' two affine levels.
+//! Level 1 opens dearer and extends cheaper, so it only wins once the gap is long enough to pay
+//! back the opening, which is what stops a long gap being split around a few matching bases.
+//!
+//! The fill carries two more gap layers and the traceback twice the flags, so it is the dearer
+//! of the two kernels. Two equal levels take the single-piece one instead.
 //!
 //! Every alignment method takes a trailing `bandwidth: Option<usize>`: `None` aligns
 //! exactly, `Some(w)` confines the fill to `w` diagonals either side of the anchor
@@ -70,10 +79,10 @@
 //! run and **never panics for want of an instruction set**; [`SimdAligner::is_supported`] reports
 //! whether that pick was a vectorized one.
 //!
-//! The **scoring scheme** is bounded, though (`match + 3*gap_open - gap_extend <= 255`, i.e.
-//! `gap_open <= ~84` at `match = 2`), and [`SimdAligner::new`] rejects anything past it rather
-//! than silently wrap a lane. Sequence *lengths* are not: every stored value is bounded by the
-//! scheme alone, with no length term.
+//! The **scoring scheme** is bounded, though (`match + 3*O - E <= 255` where `O` is the largest
+//! gap open and `E` the smallest gap extend, i.e. `O <= ~84` at `match = 2`), and
+//! [`SimdAligner::new`] rejects anything past it rather than silently wrap a lane. Sequence
+//! *lengths* are not: every stored value is bounded by the scheme alone, with no length term.
 
 mod aligner;
 pub mod backend;

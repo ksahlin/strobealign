@@ -267,12 +267,12 @@ struct Args {
     mismatch_score: u8,
 
     /// Gap open penalty
-    #[arg(short = 'O', default_value_t = Scores::default().gap_open, value_name = "N", help_heading = "Alignment")]
-    gap_open_penalty: u8,
+    #[arg(short = 'O', value_parser = gap_levels, default_value = gap_levels_text(Scores::default().gap_open), value_name = "N[,N]", help_heading = "Alignment")]
+    gap_open_penalty: [u8; 2],
 
     /// Gap extension penalty
-    #[arg(short = 'E', default_value_t = Scores::default().gap_extend, value_name = "N", help_heading = "Alignment")]
-    gap_extension_penalty: u8,
+    #[arg(short = 'E', value_parser = gap_levels, default_value = gap_levels_text(Scores::default().gap_extend), value_name = "N[,N]", help_heading = "Alignment")]
+    gap_extension_penalty: [u8; 2],
 
     /// Bonus added to the alignment score when no soft-clipping occurs
     #[arg(short = 'L', default_value_t = Scores::default().end_bonus, value_name = "N", help_heading = "Alignment")]
@@ -295,6 +295,26 @@ struct Args {
 
     /// Path to file with R2 reads if paired-end (in FASTQ or FASTA format)
     reads_path2: Option<String>,
+}
+
+/// Parse a gap penalty given as `N` for both levels of the gap cost or `N1,N2` for one each.
+fn gap_levels(s: &str) -> Result<[u8; 2], String> {
+    let (first, second) = s.split_once(',').unwrap_or((s, s));
+    Ok([gap_level(first)?, gap_level(second)?])
+}
+
+fn gap_level(s: &str) -> Result<u8, String> {
+    s.parse().map_err(|e| format!("{s}: {e}"))
+}
+
+/// Spell a gap penalty the way `gap_levels` reads it, for the default shown in `--help`. clap
+/// holds on to defaults for as long as the command lives, so this has to outlive the call.
+fn gap_levels_text(levels: [u8; 2]) -> &'static str {
+    if levels[0] == levels[1] {
+        levels[0].to_string().leak()
+    } else {
+        format!("{},{}", levels[0], levels[1]).leak()
+    }
 }
 
 #[derive(Debug, Clone, clap::ValueEnum)]
