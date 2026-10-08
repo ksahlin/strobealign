@@ -1,6 +1,10 @@
 # Strobealign Changelog
 
-## development version
+## v0.19.0 (2026-10-08)
+
+This release improves mapping speed, in particular when mapping paired-end
+reads, improves indexing speed, and reduces memory usage.
+Accuracy remains mostly unchanged.
 
 * #614: The piecewise extension for single-end reads now uses a custom SIMD
   aligner, extension length is controlled by a bandwidth parameter (`--bw`, 
