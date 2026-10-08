@@ -254,7 +254,7 @@ impl Chainer {
         let (mut chain_details, chains) =
             self.get_chains_from_hits(index, read_len, hits, hits_details);
 
-        chain_details.n_anchors = query_randstrobes[0].len() + query_randstrobes[1].len();
+        chain_details.n_randstrobes = query_randstrobes[0].len() + query_randstrobes[1].len();
         chain_details.time_find_hits += time_find_hits;
 
         (chain_details, chains)
