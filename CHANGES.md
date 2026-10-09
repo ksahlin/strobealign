@@ -15,6 +15,13 @@
 * #648: Speed up indexing by about 20% by eliminating a pass over the
   reference.
 * #636: Reduce RAM usage for large, repetitive genomes
+* Report tandem duplications in single-end mode. An insertion of at least
+  `--dl` bases (default 50) is re-aligned against the reference on either side of
+  the insertion point; if it matches at least a fraction `--dm` (default 0.80) of
+  the inserted sequence, the read is reported as one record per copy instead of as
+  an insertion. `--dw` is the bandwidth used for the two arms, and `--dl 0` turns
+  duplication detection off. Records split this way carry an `SA:Z` tag, which
+  strobealign did not write before.
 
 ## v0.18.0 (2026-09-01)
 

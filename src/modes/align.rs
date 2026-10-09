@@ -222,7 +222,7 @@ fn find_duplication(
 }
 
 /// Re-interpret the long insertions of an alignment as tandem duplications, cutting it into
-/// one segment per copy.
+/// one segment per copy. A `min_length` of zero turns the whole thing off.
 fn resolve_duplications(
     aligner: &Aligner,
     alignment: Alignment,
@@ -232,6 +232,9 @@ fn resolve_duplications(
     min_matches: f32,
     band: usize,
 ) -> Vec<Alignment> {
+    if min_length == 0 {
+        return vec![alignment];
+    }
     if !alignment
         .cigar
         .iter()
@@ -1823,8 +1826,13 @@ mod tests {
 
         let below = resolve_duplications(&aligner, alignment.clone(), &refseq, &read, 61, 0.80, 20);
         assert_eq!(below.len(), 1);
-        let no_minimum = resolve_duplications(&aligner, alignment, &refseq, &read, 0, 0.80, 20);
-        assert_eq!(no_minimum.len(), 2);
+        let smallest =
+            resolve_duplications(&aligner, alignment.clone(), &refseq, &read, 1, 0.80, 20);
+        assert_eq!(smallest.len(), 2);
+
+        // Zero is off rather than no minimum, so the insertion is left as one
+        let disabled = resolve_duplications(&aligner, alignment, &refseq, &read, 0, 0.80, 20);
+        assert_eq!(disabled.len(), 1);
     }
 
     #[test]
