@@ -287,6 +287,24 @@ struct Args {
     #[arg(long = "bw", default_value_t = 1024, value_name = "N", help_heading = "Alignment")]
     bandwidth: usize,
 
+    // Supplementary parameters
+
+    /// Minimum score of for a supplementary alignment to be reported
+    #[arg(long = "sm", default_value_t = MappingParameters::default().min_supplementary_score, value_name = "N", help_heading = "Supplementary")]
+    min_supplementary_score: u32,
+
+    /// How big of a gap/overlap supplementary and primary can have
+    #[arg(long = "ss", default_value_t = MappingParameters::default().max_segment_gap, value_name = "N", help_heading = "Supplementary")]
+    max_segment_gap: usize,
+
+    /// How far a chain may sit from the primary to be a supplementary candidate
+    #[arg(long = "sc", default_value_t = MappingParameters::default().max_chain_distance, value_name = "N", help_heading = "Supplementary")]
+    max_chain_distance: usize,
+
+    /// Longest deletion or tandem duplication a supplementary alignment may describe
+    #[arg(long = "sd", default_value_t = MappingParameters::default().max_gap_distance, value_name = "N", help_heading = "Supplementary")]
+    max_gap_distance: usize,
+
     /// Minimum size for reported tandem duplications (single-end only), 0 to disable duplication detection
     #[arg(long = "dl", default_value_t = MappingParameters::default().min_duplication_length, value_name = "N", help_heading = "Duplications")]
     min_duplication_length: usize,
@@ -556,6 +574,10 @@ fn run() -> Result<(), CliError> {
             args.max_secondary as usize
         },
         secondary_threshold: args.secondary_threshold,
+        max_segment_gap: args.max_segment_gap,
+        max_chain_distance: args.max_chain_distance,
+        max_gap_distance: args.max_gap_distance,
+        min_supplementary_score: args.min_supplementary_score,
         max_tries: args.max_tries,
         dropoff_threshold: args.dropoff_threshold,
         rescue_distance: args.rescue_distance,

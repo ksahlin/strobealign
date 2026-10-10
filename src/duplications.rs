@@ -1,11 +1,47 @@
+use std::cmp::Reverse;
+
 use crate::aligner::{Aligner, Scores};
 use crate::cigar::{Cigar, CigarOperation, OpLen};
 use crate::details::AlignmentDetails;
-use crate::modes::align::Alignment;
+use crate::modes::align::{Alignment, MappingParameters, Segment};
 use crate::packed_seq::PackedSeqSlice;
 use crate::read::Read;
 use crate::refseq::RefSequence;
 use crate::simdaligner::SplitReferenceAlignment;
+
+/// Each segment holding a duplication split into one per copy, the copies carrying the mapping
+/// quality of the segment they came out of.
+pub fn split_duplications(
+    aligner: &Aligner,
+    refseq: &RefSequence,
+    read: &Read,
+    segments: Vec<Segment>,
+    parameters: &MappingParameters,
+    details: &mut AlignmentDetails,
+) -> Vec<Segment> {
+    let mut resolved = Vec::new();
+    for Segment { alignment, mapq } in segments {
+        let mut split = reinterpret_insertions(
+            aligner,
+            alignment,
+            refseq,
+            read,
+            parameters.min_duplication_length,
+            parameters.min_duplication_matches,
+            parameters.duplication_band,
+            details,
+        );
+
+        split.sort_by_key(|segment| Reverse(segment.score));
+        resolved.extend(
+            split
+                .into_iter()
+                .map(|alignment| Segment { alignment, mapq }),
+        );
+    }
+
+    resolved
+}
 
 /// Cuts the alignment into one segment per copy wherever an insertion of at least `min_length`
 /// bases turns out to be a tandem duplication. A `min_length` of zero turns this off. Always

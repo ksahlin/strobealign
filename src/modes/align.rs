@@ -18,7 +18,7 @@ use crate::chain::Chain;
 use crate::chainer::Anchor;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::{AlignmentDetails, ChainDetails, Details};
-use crate::duplications::reinterpret_insertions;
+use crate::duplications::split_duplications;
 use crate::hit::HitsDetails;
 use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
@@ -34,6 +34,7 @@ use crate::read::Read;
 use crate::refseq::{ContigPosition, RefSequence};
 use crate::revcomp::reverse_complement;
 use crate::seeding::SeedingParameters;
+use crate::supplementary::get_supplementary_segment;
 
 const MAX_PAIR_CHAINS: usize = 1000;
 
@@ -41,6 +42,10 @@ const MAX_PAIR_CHAINS: usize = 1000;
 pub struct MappingParameters {
     pub max_secondary: usize,
     pub secondary_threshold: f32,
+    pub max_segment_gap: usize,
+    pub max_chain_distance: usize,
+    pub max_gap_distance: usize,
+    pub min_supplementary_score: u32,
     pub dropoff_threshold: f32,
     pub rescue_distance: usize,
     pub max_tries: usize,
@@ -57,6 +62,10 @@ impl Default for MappingParameters {
         MappingParameters {
             max_secondary: 0,
             secondary_threshold: 0.95,
+            max_segment_gap: 50,
+            max_chain_distance: 200,
+            max_gap_distance: 100_000,
+            min_supplementary_score: 80,
             dropoff_threshold: 0.5,
             rescue_distance: 100,
             max_tries: 20,
@@ -126,9 +135,14 @@ impl Alignment {
     }
 }
 
+/// An alignment with its mapping quality.
+pub struct Segment {
+    pub alignment: Alignment,
+    pub mapq: u8,
+}
+
 fn build_sa_tags(
-    segments: &[Alignment],
-    mapq: u8,
+    segments: &[Segment],
     refseq: &RefSequence,
     cigar_eqx: bool,
 ) -> Vec<Option<String>> {
@@ -138,7 +152,7 @@ fn build_sa_tags(
 
     let mut entries = Vec::with_capacity(segments.len());
     for segment in segments {
-        entries.push(segment.sa_entry(refseq, mapq, cigar_eqx));
+        entries.push(segment.alignment.sa_entry(refseq, segment.mapq, cigar_eqx));
     }
 
     let mut tags = Vec::with_capacity(segments.len());
@@ -156,7 +170,7 @@ fn build_sa_tags(
 }
 
 impl AlignmentDetails {
-    fn add_alignment(&mut self, alignment: &Alignment) {
+    pub fn add_alignment(&mut self, alignment: &Alignment) {
         self.tried_alignment += 1;
         self.gapped += alignment.gapped as usize;
         self.collisions += alignment.collisions;
@@ -541,20 +555,31 @@ pub fn align_single_end_read(
     };
     let mapq = (60 * (best_score - second_best_score)).div_ceil(best_score) as u8;
 
-    let mut segments = reinterpret_insertions(
+    let supplementary = get_supplementary_segment(
         aligner,
-        best_alignment,
         refseq,
         &read,
-        mapping_parameters.min_duplication_length,
-        mapping_parameters.min_duplication_matches,
-        mapping_parameters.duplication_band,
+        index.k(),
+        &best_alignment,
+        chains,
+        mapping_parameters,
         &mut details.align,
     );
 
-    // The best scoring segment becomes the primary and the rest supplementary
-    segments.sort_by_key(|segment| Reverse(segment.score));
-    let mut sa_tags = build_sa_tags(&segments, mapq, refseq, sam_output.cigar_eqx);
+    let mut reported = vec![Segment {
+        alignment: best_alignment,
+        mapq,
+    }];
+    reported.extend(supplementary);
+    let segments = split_duplications(
+        aligner,
+        refseq,
+        &read,
+        reported,
+        mapping_parameters,
+        &mut details.align,
+    );
+    let mut sa_tags = build_sa_tags(&segments, refseq, sam_output.cigar_eqx);
 
     for i in 0..segments.len() {
         let status = if i == 0 {
@@ -563,10 +588,10 @@ pub fn align_single_end_read(
             AlignmentStatus::Supplementary
         };
         sam_records.push(sam_output.make_mapped_record(
-            &segments[i],
+            &segments[i].alignment,
             refseq,
             record,
-            mapq,
+            segments[i].mapq,
             status,
             details.clone(),
             sa_tags[i].take(),
@@ -649,7 +674,7 @@ fn trace_log(
 
 /// Extend a chain so that it covers the entire read and return the resulting
 /// alignment.
-fn extend_seed(
+pub fn extend_seed(
     aligner: &Aligner,
     chain: &mut Chain,
     refseq: &RefSequence,
@@ -1629,11 +1654,25 @@ mod tests {
             collisions: 0,
         };
 
-        let tags = build_sa_tags(&[first.clone(), second], 60, &refseq, true);
+        let segments = [
+            Segment {
+                alignment: first.clone(),
+                mapq: 60,
+            },
+            Segment {
+                alignment: second,
+                mapq: 60,
+            },
+        ];
+        let tags = build_sa_tags(&segments, &refseq, true);
         assert_eq!(tags[0].as_deref(), Some("chr1,11,-,40S70=,60,0;"));
         assert_eq!(tags[1].as_deref(), Some("chr1,101,+,40=70S,60,0;"));
 
-        assert_eq!(build_sa_tags(&[first], 60, &refseq, true), vec![None]);
+        let only = [Segment {
+            alignment: first,
+            mapq: 60,
+        }];
+        assert_eq!(build_sa_tags(&only, &refseq, true), vec![None]);
     }
 
     #[test]
