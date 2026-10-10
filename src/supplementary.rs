@@ -39,12 +39,27 @@ pub fn get_supplementary_segment(
     let mut best_score = 0;
     let mut second_best_score = 0;
 
+    let primary_start = primary.soft_clip_left;
+    let primary_end = read.len() - primary.soft_clip_right;
     for chain in candidates.iter_mut().take(parameters.max_tries) {
         if chain.score < dropoff {
             break;
         }
-        let Some(alignment) = extend_seed(aligner, chain, refseq, read, parameters.use_ssw, k)
-        else {
+
+        let interval = if chain.query_start >= primary_start {
+            (primary_end, read.len())
+        } else {
+            (0, primary_start)
+        };
+        let Some(alignment) = extend_seed(
+            aligner,
+            chain,
+            refseq,
+            read,
+            parameters.use_ssw,
+            k,
+            interval,
+        ) else {
             continue;
         };
         details.supplementary_extended += 1;
