@@ -509,6 +509,7 @@ pub fn align_single_end_read(
             &read,
             mapping_parameters.use_ssw,
             index.k(),
+            (0, read.len()),
         ) else {
             continue;
         };
@@ -652,13 +653,13 @@ fn trace_log(
 
     let (mut ssw, mut pw) = if !mapping_parameters.use_ssw {
         (
-            extend_seed(aligner, chain, refseq, read, true, k).unwrap(),
+            extend_seed(aligner, chain, refseq, read, true, k, (0, read.len())).unwrap(),
             alignment.clone(),
         )
     } else {
         (
             alignment.clone(),
-            extend_seed(aligner, chain, refseq, read, false, k).unwrap(),
+            extend_seed(aligner, chain, refseq, read, false, k, (0, read.len())).unwrap(),
         )
     };
     // manually adds the soft clips
@@ -686,20 +687,26 @@ pub fn extend_seed(
     read: &Read,
     use_ssw: bool,
     k: usize,
+    query_interval: (usize, usize),
 ) -> Option<Alignment> {
-    let query = if chain.is_revcomp {
+    let full = if chain.is_revcomp {
         read.rc()
     } else {
         read.seq()
     };
+    let (start, end) = query_interval;
+    debug_assert!(start <= chain.query_start && chain.query_end <= end,);
+    let query = &full[start..end];
+    let chain_start = chain.query_start.saturating_sub(start);
+    let chain_end = chain.query_end.saturating_sub(start).min(query.len());
     let (contig_id, contig_start) = refseq.unflatten(chain.ref_start);
     let contig_start = contig_start.0 as usize;
     let contig_end = contig_start + chain.ref_span();
     let contig = refseq.contig(contig_id);
     assert!(contig_end <= contig.len());
 
-    let projected_start = contig_start.saturating_sub(chain.query_start);
-    let projected_end = min(contig_end + query.len() - chain.query_end, contig.len());
+    let projected_start = contig_start.saturating_sub(chain_start);
+    let projected_end = min(contig_end + (query.len() - chain_end), contig.len());
 
     // TODO ugly
     let mut info = AlignmentInfo {
@@ -752,11 +759,10 @@ pub fn extend_seed(
                 .iter()
                 .filter_map(|a| {
                     let ref_start = a.ref_start() - decode_start - refseq.starts.0[contig_id];
+                    let query_start = a.query_start() - start;
                     // Skip anchors resulting from hash collisions
-                    if query[a.query_start()..a.query_start() + k]
-                        == segment[ref_start..ref_start + k]
-                    {
-                        Some(Anchor::new(ref_start, a.query_start()))
+                    if query[query_start..query_start + k] == segment[ref_start..ref_start + k] {
+                        Some(Anchor::new(ref_start, query_start))
                     } else {
                         collisions += 1;
 
@@ -772,8 +778,8 @@ pub fn extend_seed(
     Some(Alignment {
         cigar: mem::take(&mut info.cigar),
         edit_distance: info.edit_distance,
-        soft_clip_left: info.query_start,
-        soft_clip_right: query.len() - info.query_end,
+        soft_clip_left: start + info.query_start,
+        soft_clip_right: full.len() - start - info.query_end,
         score: info.score,
         contig_id,
         contig_start: result_start,
@@ -1003,8 +1009,24 @@ fn extend_paired_seeds(
         let mut ch_max1 = chains[0][0].clone();
         let mut ch_max2 = chains[1][0].clone();
 
-        let alignment1 = extend_seed(aligner, &mut ch_max1, refseq, read1, use_ssw, k);
-        let alignment2 = extend_seed(aligner, &mut ch_max2, refseq, read2, use_ssw, k);
+        let alignment1 = extend_seed(
+            aligner,
+            &mut ch_max1,
+            refseq,
+            read1,
+            use_ssw,
+            k,
+            (0, read1.len()),
+        );
+        let alignment2 = extend_seed(
+            aligner,
+            &mut ch_max2,
+            refseq,
+            read2,
+            use_ssw,
+            k,
+            (0, read2.len()),
+        );
         if let (Some(alignment1), Some(alignment2)) = (alignment1, alignment2) {
             details[0].add_alignment(&alignment1);
             details[1].add_alignment(&alignment2);
@@ -1028,7 +1050,15 @@ fn extend_paired_seeds(
     // the paired-end read as two single-end reads.
     let mut a_indv_max = [None, None];
     for i in 0..2 {
-        a_indv_max[i] = extend_seed(aligner, &mut chains[i][0], refseq, reads[i], use_ssw, k);
+        a_indv_max[i] = extend_seed(
+            aligner,
+            &mut chains[i][0],
+            refseq,
+            reads[i],
+            use_ssw,
+            k,
+            (0, reads[i].len()),
+        );
         details[i].tried_alignment += 1;
         details[i].gapped += a_indv_max[i].as_ref().map_or(0, |a| a.gapped as usize);
         alignment_cache[i].insert(chains[i][0].id, a_indv_max[i].clone());
@@ -1056,7 +1086,15 @@ fn extend_paired_seeds(
             let alignment;
             if let Some(mut this_chain) = chainsp[i].clone() {
                 if let Entry::Vacant(e) = alignment_cache[i].entry(this_chain.id) {
-                    alignment = extend_seed(aligner, &mut this_chain, refseq, reads[i], use_ssw, k);
+                    alignment = extend_seed(
+                        aligner,
+                        &mut this_chain,
+                        refseq,
+                        reads[i],
+                        use_ssw,
+                        k,
+                        (0, reads[i].len()),
+                    );
                     details[i].tried_alignment += 1;
                     details[i].gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
                     e.insert(alignment.clone());
@@ -1154,7 +1192,9 @@ fn rescue_read(
         if score_dropoff1 < dropoff {
             break;
         }
-        if let Some(alignment) = extend_seed(aligner, chain, refseq, read1, use_ssw, k) {
+        if let Some(alignment) =
+            extend_seed(aligner, chain, refseq, read1, use_ssw, k, (0, read1.len()))
+        {
             details[0].add_alignment(&alignment);
             alignments1.push(alignment);
 
