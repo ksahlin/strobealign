@@ -299,6 +299,24 @@ struct Args {
     #[arg(long = "bd", default_value_t = 1036, value_name = "N", help_heading = "Alignment")]
     score_drop: u32,
 
+    // Supplementary parameters
+
+    /// Minimum score for a supplementary alignment to be reported
+    #[arg(long = "sm", default_value_t = MappingParameters::default().min_supplementary_score, value_name = "N", help_heading = "Supplementary")]
+    min_supplementary_score: u32,
+
+    /// Maximum gap between the primary and a supplementary, on the read or the reference
+    #[arg(long = "ss", default_value_t = MappingParameters::default().max_segment_gap, value_name = "N", help_heading = "Supplementary")]
+    max_segment_gap: usize,
+
+    /// Longest deletion or tandem duplication a supplementary alignment may describe
+    #[arg(long = "sd", default_value_t = MappingParameters::default().max_gap_distance, value_name = "N", help_heading = "Supplementary")]
+    max_gap_distance: usize,
+
+    /// Fraction of the primary's read span a supplementary candidate may overlap
+    #[arg(long = "so", default_value_t = MappingParameters::default().max_supplementary_overlap, value_name = "FRACTION", help_heading = "Supplementary")]
+    max_supplementary_overlap: f32,
+
     /// Minimum insertion length that triggers tandem duplication detection (single-end only); 0 to disable
     #[arg(long = "dl", default_value_t = MappingParameters::default().min_duplication_length, value_name = "N", help_heading = "Duplications")]
     min_duplication_length: usize,
@@ -584,6 +602,10 @@ fn run() -> Result<(), CliError> {
             args.max_secondary as usize
         },
         secondary_threshold: args.secondary_threshold,
+        max_segment_gap: args.max_segment_gap,
+        max_gap_distance: args.max_gap_distance,
+        min_supplementary_score: args.min_supplementary_score,
+        max_supplementary_overlap: args.max_supplementary_overlap,
         max_tries: args.max_tries,
         dropoff_threshold: args.dropoff_threshold,
         rescue_distance: args.rescue_distance,
