@@ -512,10 +512,11 @@ impl ChainingResult {
 
         let mut used = vec![false; n];
         let mut intervals = Vec::new();
-        for (i, score) in candidates {
+        for (i, mut score) in candidates {
             if used[i] {
                 continue;
             }
+            used[i] = true;
 
             let mut j = i;
             let mut overlaps = false;
@@ -525,11 +526,12 @@ impl ChainingResult {
             let mut ref_coverage = self.anchors[i].ref_start();
 
             while self.predecessors[j] != usize::MAX {
-                j = self.predecessors[j];
-                if used[j] {
+                let predecessor = self.predecessors[j];
+                if used[predecessor] {
                     overlaps = true;
                     break;
                 }
+                j = predecessor;
                 n_chain_anchors += 1;
                 used[j] = true;
 
@@ -540,7 +542,10 @@ impl ChainingResult {
             }
 
             if overlaps {
-                continue;
+                score = self.dp[i] - self.dp[j] + k as f32;
+                if score < valid_score {
+                    continue;
+                }
             }
 
             let first = &self.anchors[j];
@@ -646,6 +651,49 @@ pub mod test {
         let chainer = Chainer::new(20, parameters);
         let chaining_result = chainer.collinear_chaining(anchors, &starts, 2000);
         assert!(chaining_result.best_score > 42.0);
+    }
+
+    #[test]
+    fn recover_lower_scoring_sub_chain_for_supplementary() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        let starts = ContigStarts::new(vec![0], 100_000);
+        let extract = |anchors| {
+            let mut chains = vec![];
+            chainer
+                .collinear_chaining(anchors, &starts, 2000)
+                .extract_chains(20, false, &starts, &mut chains);
+            chains
+        };
+
+        #[rustfmt::skip]
+        let chains = extract(anchors![
+            (0, 0), (20, 20), (40, 40), (60, 60), (80, 80), (100, 100),
+            (1090, 200), (1110, 220), (1130, 240),
+        ]);
+        let alone = extract(anchors![(1090, 200), (1110, 220), (1130, 240)]);
+
+        assert_eq!(chains.len(), 2);
+        assert_eq!(alone.len(), 1);
+        let (cut, whole) = (&chains[1], &alone[0]);
+        assert_eq!(cut.anchors, whole.anchors);
+        assert_eq!(
+            (
+                cut.query_start,
+                cut.query_end,
+                cut.ref_start,
+                cut.ref_end,
+                cut.matching_bases
+            ),
+            (
+                whole.query_start,
+                whole.query_end,
+                whole.ref_start,
+                whole.ref_end,
+                whole.matching_bases
+            ),
+        );
+
+        assert!((cut.score - whole.score).abs() < 1e-4);
     }
 
     #[test]
