@@ -245,6 +245,14 @@ struct Args {
     #[arg(long = "vp", default_value_t = ChainingParameters::default().valid_score_threshold, help_heading = "Collinear chaining")]
     valid_score_threshold: f32,
 
+    /// Minimum score for a chain to be kept
+    #[arg(long = "vs", default_value_t = ChainingParameters::default().min_chain_score, help_heading = "Collinear chaining")]
+    min_chain_score: f32,
+
+    /// Maximum number of chains kept over one query interval
+    #[arg(long = "vn", default_value_t = ChainingParameters::default().max_chains_per_interval, help_heading = "Collinear chaining")]
+    max_chains_per_interval: usize,
+
     /// Maximum allowed distance between anchors on the reference [default: same as read length]
     #[arg(long = "sg", help_heading = "Collinear chaining")]
     max_ref_gap: Option<usize>,
@@ -594,6 +602,8 @@ fn run() -> Result<(), CliError> {
         diag_diff_penalty: args.diag_diff_penalty,
         gap_length_penalty: args.gap_length_penalty,
         valid_score_threshold: args.valid_score_threshold,
+        min_chain_score: args.min_chain_score,
+        max_chains_per_interval: args.max_chains_per_interval,
         max_ref_gap: args.max_ref_gap,
         matches_weight: args.matches_weight,
         max_diagonal_ratio: args.max_diagonal_ratio,
