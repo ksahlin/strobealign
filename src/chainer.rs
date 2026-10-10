@@ -427,7 +427,7 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
 
 impl ChainingResult {
     fn extract_chains(
-        &self,
+        mut self,
         k: usize,
         is_revcomp: bool,
         contig_starts: &ContigStarts,
@@ -436,12 +436,21 @@ impl ChainingResult {
         let n = self.anchors.len();
         let valid_score = self.best_score * self.parameters.valid_score_threshold;
 
+        // A predecessor j of a candidate i with a higher score is marked as
+        // used (by the walk from i or the walk that marked i) before its own
+        // turn, so it cannot start a chain. Remove such candidates by setting
+        // their score to -inf (j < i, so j has already been pushed).
         let mut candidates = vec![];
         for i in 0..n {
             if self.dp[i] >= valid_score {
                 candidates.push((i, self.dp[i]));
+                let j = self.predecessors[i];
+                if j != usize::MAX && self.dp[j] < self.dp[i] {
+                    self.dp[j] = f32::NEG_INFINITY;
+                }
             }
         }
+        candidates.retain(|&(i, _)| self.dp[i] != f32::NEG_INFINITY);
 
         candidates.sort_by(|a, b| b.1.total_cmp(&a.1));
 
