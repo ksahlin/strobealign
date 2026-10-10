@@ -175,6 +175,11 @@ impl Chainer {
                     continue;
                 }
 
+                // Skip the expensive score computation if it cannot improve dp[i]
+                if dq != dr && dp[j] + score_upper_bound(dq, dr, self.k, &self.parameters) < dp[i] {
+                    continue;
+                }
+
                 let score = self.compute_score_cached(dq, dr);
                 let new_score = dp[j] + score;
                 if new_score >= dp[i] {
@@ -356,6 +361,16 @@ fn compute_score(dq: usize, dr: usize, k: usize, parameters: &ChainingParameters
     score -= lin_penalty + 0.5 * log_penalty;
 
     score
+}
+
+/// compute_score without the (non-negative) log penalty, which makes it an
+/// upper bound. Must use the same operations as compute_score.
+fn score_upper_bound(dq: usize, dr: usize, k: usize, parameters: &ChainingParameters) -> f32 {
+    let dd = dr.abs_diff(dq);
+    let dg = dq.min(dr);
+    let score = k.min(dg) as f32;
+    let dg = dg.saturating_sub(k);
+    score - (parameters.diag_diff_penalty * dd as f32 + parameters.gap_length_penalty * dg as f32)
 }
 
 fn add_to_anchors_full(
