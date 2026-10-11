@@ -112,6 +112,8 @@ impl Chainer {
         }
     }
 
+    // Inlining this into get_chains makes the DP loop slower
+    #[inline(never)]
     fn collinear_chaining(
         &self,
         anchors: Vec<Anchor>,
