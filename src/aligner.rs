@@ -5,6 +5,7 @@ use std::cell::Cell;
 use crate::chainer::Anchor;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::piecewisealigner::PiecewiseAligner;
+use crate::simdaligner::SplitReferenceAlignment;
 use crate::ssw::SswAligner;
 
 #[derive(Debug, Clone, Copy)]
@@ -26,6 +27,22 @@ impl Default for Scores {
             gap_extend: 1,
             end_bonus: 10,
         }
+    }
+}
+
+impl Scores {
+    pub fn score(&self, cigar: &Cigar) -> i32 {
+        cigar
+            .iter()
+            .map(|(op, len)| match op {
+                CigarOperation::Eq => self.match_ as i32 * len as i32,
+                CigarOperation::X => -(self.mismatch as i32) * len as i32,
+                CigarOperation::Insertion | CigarOperation::Deletion => {
+                    -(self.gap_open as i32 + (len as i32 - 1) * self.gap_extend as i32)
+                }
+                _ => unreachable!("scoring a CIGAR that is not =/X/I/D: {len}{op}"),
+            })
+            .sum()
     }
 }
 
@@ -174,6 +191,19 @@ impl Aligner {
             .expect("this Aligner was built for SSW extension only")
             .extend_piecewise(query, refseq, chain, padding)
     }
+
+    pub fn realign_insertion(
+        &self,
+        inserted: &[u8],
+        left_reference: &[u8],
+        right_reference: &[u8],
+    ) -> Option<SplitReferenceAlignment> {
+        Some(self.piecewise_aligner.as_ref()?.realign_insertion(
+            inserted,
+            left_reference,
+            right_reference,
+        ))
+    }
 }
 
 pub fn hamming_distance(s: &[u8], t: &[u8]) -> Option<u32> {
@@ -308,6 +338,21 @@ mod test {
     use crate::aligner::{
         Aligner, Scores, hamming_align, hamming_align_global, highest_scoring_segment,
     };
+    use crate::cigar::Cigar;
+
+    #[test]
+    fn score_cigar() {
+        let scores = Scores {
+            match_: 2,
+            mismatch: 8,
+            gap_open: 12,
+            gap_extend: 1,
+            end_bonus: 10,
+        };
+        let cigar: Cigar = "10X100=52D5=".parse().unwrap();
+
+        assert_eq!(scores.score(&cigar), 67);
+    }
 
     #[test]
     fn ssw_align_no_result() {
