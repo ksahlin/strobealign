@@ -50,6 +50,7 @@ pub struct MappingParameters {
     pub output_unmapped: bool,
     pub use_ssw: bool,
     pub min_duplication_length: usize,
+    pub min_duplication_matches: f32,
     pub duplication_band: usize,
 }
 
@@ -65,6 +66,7 @@ impl Default for MappingParameters {
             output_unmapped: true,
             use_ssw: false,
             min_duplication_length: 50,
+            min_duplication_matches: 0.80,
             duplication_band: 20,
         }
     }
@@ -546,6 +548,7 @@ pub fn align_single_end_read(
         refseq,
         &read,
         mapping_parameters.min_duplication_length,
+        mapping_parameters.min_duplication_matches,
         mapping_parameters.duplication_band,
     );
     details.align.duplications += segments.len() - 1;
@@ -763,6 +766,7 @@ fn reinterpret_insertions(
     refseq: &RefSequence,
     read: &Read,
     min_length: usize,
+    min_matches: f32,
     band: usize,
 ) -> Vec<Alignment> {
     if min_length == 0 {
@@ -791,6 +795,7 @@ fn reinterpret_insertions(
                 &query[query_pos..query_pos + len],
                 ref_pos,
                 min_length,
+                min_matches,
                 band,
             )
         {
@@ -851,6 +856,7 @@ fn find_duplication(
     insertion: &[u8],
     ref_pos: usize,
     min_length: usize,
+    min_matches: f32,
     band: usize,
 ) -> Option<(usize, SplitReferenceAlignment)> {
     let len = insertion.len();
@@ -862,13 +868,12 @@ fn find_duplication(
 
     let split = aligner.realign_insertion(insertion, &left_reference, &right_reference, band)?;
 
-    let insertion_penalty =
-        aligner.scores.gap_open as i32 + (len as i32 - 1) * aligner.scores.gap_extend as i32;
+    let matched = split.left.cigar.matches() + split.right.cigar.matches();
     let copy_len =
         (split.right.ref_end - split.right.ref_start) + (split.left.ref_end - split.left.ref_start);
 
-    // The duplication must provide better alignment score than the insertion.
-    if split.score <= -insertion_penalty || copy_len < min_length {
+    // The duplication must match most of the inserted sequence.
+    if (matched as f32) < min_matches * len as f32 || copy_len < min_length {
         return None;
     }
 
