@@ -328,9 +328,10 @@ impl PiecewiseAligner {
 ///
 /// # Pruning Strategies
 ///
-/// ## First Pruning: Canceling Indels
+/// ## First Pruning: Canceling and Overlapping Indels
 /// Removes clusters of anchors that create two cancelling indels within the diagonal
-/// tolerance (5 bases).
+/// tolerance (5 bases), and collapses two indels that point the same way and are close
+/// enough together in the read to be one spurious event.
 ///
 /// ## Second Pruning: Edge Anchors
 /// Removes anchors at the beginning and end of the chain (up to 20% of the chain
@@ -350,6 +351,7 @@ pub fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
     // they will be retrieved in the global alignment.
 
     let diag_tolerance = 5;
+    let max_collapse_length = 400;
 
     let mut tracked_indel = 0;
     let mut deviation_start = None;
@@ -374,6 +376,19 @@ pub fn remove_spurious_anchors(anchors: &mut Vec<Anchor>) {
                 i = index;
                 deviation_start = None;
                 tracked_indel = 0;
+                continue;
+            }
+            if let Some(index) = deviation_start
+                && (tracked_indel < 0) == (indel < 0)
+                && anchors[index]
+                    .query_start()
+                    .abs_diff(anchors[i].query_start())
+                    <= max_collapse_length
+            {
+                // Dropping the anchors in between leaves a single tracked indel.
+                anchors.drain(index..i);
+                tracked_indel += indel;
+                i = index + 1;
                 continue;
             }
             deviation_start = Some(i);
@@ -496,6 +511,70 @@ mod tests {
             (70, 70),
             (80, 80),
         ];
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn remove_spurious_anchors_collapses_a_staircase_of_insertions() {
+        let mut result = anchors![
+            (2000, 0),
+            (2100, 100),
+            (2200, 200),
+            (2220, 300),
+            (2128, 400),
+            (1789, 500),
+            (1781, 600),
+            (1825, 700),
+            (1925, 800),
+            (2025, 900),
+        ];
+        remove_spurious_anchors(&mut result);
+        let expected = anchors![
+            (2000, 0),
+            (2100, 100),
+            (2200, 200),
+            (1825, 700),
+            (1925, 800),
+            (2025, 900),
+        ];
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn remove_spurious_anchors_keeps_indels_that_point_apart() {
+        let expected = anchors![
+            (2000, 0),
+            (2100, 100),
+            (2200, 200),
+            (2240, 300),
+            (2340, 400),
+            (2560, 500),
+            (2660, 600),
+            (2760, 700),
+        ];
+        let mut result = expected.clone();
+        remove_spurious_anchors(&mut result);
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn remove_spurious_anchors_keeps_indels_too_far_apart_to_collapse() {
+        let expected = anchors![
+            (1000, 0),
+            (1100, 100),
+            (1200, 200),
+            (1360, 300),
+            (1460, 400),
+            (1560, 500),
+            (1660, 600),
+            (1760, 700),
+            (1920, 800),
+            (2020, 900),
+            (2120, 1000),
+            (2220, 1100),
+        ];
+        let mut result = expected.clone();
+        remove_spurious_anchors(&mut result);
         assert_eq!(expected, result);
     }
 
