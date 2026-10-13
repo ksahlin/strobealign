@@ -23,7 +23,8 @@ use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
 use crate::io::record::SequenceRecord;
 use crate::io::sam::{
-    MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SamRecord, UNMAP,
+    MREVERSE, MUNMAP, PAIRED, PROPER_PAIR, READ1, READ2, REVERSE, SECONDARY, SUPPLEMENTARY,
+    SamRecord, UNMAP,
 };
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
@@ -95,6 +96,57 @@ impl Alignment {
     fn global_edit_distance(&self) -> usize {
         self.edit_distance + self.soft_clip_left + self.soft_clip_right
     }
+
+    fn sam_cigar(&self, cigar_eqx: bool) -> Cigar {
+        let mut cigar = Cigar::new();
+        cigar.push(CigarOperation::Softclip, self.soft_clip_left);
+        cigar.extend(&self.cigar);
+        cigar.push(CigarOperation::Softclip, self.soft_clip_right);
+        if cigar_eqx { cigar } else { cigar.with_m() }
+    }
+
+    #[allow(dead_code)]
+    fn sa_entry(&self, refseq: &RefSequence, mapq: u8, cigar_eqx: bool) -> String {
+        format!(
+            "{},{},{},{},{},{};",
+            refseq.names[self.contig_id],
+            self.contig_start + 1,
+            if self.is_revcomp { '-' } else { '+' },
+            self.sam_cigar(cigar_eqx),
+            mapq,
+            self.edit_distance,
+        )
+    }
+}
+
+#[allow(dead_code)]
+fn build_sa_tags(
+    segments: &[Alignment],
+    mapq: u8,
+    refseq: &RefSequence,
+    cigar_eqx: bool,
+) -> Vec<Option<String>> {
+    if segments.len() < 2 {
+        return vec![None; segments.len()];
+    }
+
+    let mut entries = Vec::with_capacity(segments.len());
+    for segment in segments {
+        entries.push(segment.sa_entry(refseq, mapq, cigar_eqx));
+    }
+
+    let mut tags = Vec::with_capacity(segments.len());
+    for i in 0..entries.len() {
+        let mut tag = String::new();
+        for (j, entry) in entries.iter().enumerate() {
+            if i != j {
+                tag.push_str(entry);
+            }
+        }
+        tags.push(Some(tag));
+    }
+
+    tags
 }
 
 impl AlignmentDetails {
@@ -116,6 +168,8 @@ enum PairStatus {
 enum AlignmentStatus {
     Primary,
     Secondary,
+    #[allow(dead_code)]
+    Supplementary,
 }
 
 /// Conversion of an Alignment into a SamRecord
@@ -159,6 +213,7 @@ impl SamOutput {
                 mapq,
                 alignment_status,
                 details.clone(),
+                None,
             ),
             None => self.make_unmapped_record(record, details.clone()),
         }
@@ -173,15 +228,20 @@ impl SamOutput {
         mut mapq: u8,
         alignment_status: AlignmentStatus,
         details: Details,
+        sa_tag: Option<String>,
     ) -> SamRecord {
         let mut flags = 0;
 
         if alignment.is_revcomp {
             flags |= REVERSE;
         }
-        if alignment_status == AlignmentStatus::Secondary {
-            mapq = 0;
-            flags |= SECONDARY;
+        match alignment_status {
+            AlignmentStatus::Primary => {}
+            AlignmentStatus::Secondary => {
+                mapq = 0;
+                flags |= SECONDARY;
+            }
+            AlignmentStatus::Supplementary => flags |= SUPPLEMENTARY,
         }
 
         let query_sequence = if alignment.is_revcomp {
@@ -199,10 +259,6 @@ impl SamOutput {
         } else {
             record.qualities.clone()
         };
-        let mut cigar = Cigar::new();
-        cigar.push(CigarOperation::Softclip, alignment.soft_clip_left);
-        cigar.extend(&alignment.cigar);
-        cigar.push(CigarOperation::Softclip, alignment.soft_clip_right);
         let reference_name = Some(refseq.names[alignment.contig_id].clone());
         let pos = Some(ContigPosition(alignment.contig_start as u32));
         let details = if self.show_details {
@@ -210,11 +266,7 @@ impl SamOutput {
         } else {
             None
         };
-        let cigar = if self.cigar_eqx {
-            Some(cigar)
-        } else {
-            Some(cigar.with_m())
-        };
+        let cigar = Some(alignment.sam_cigar(self.cigar_eqx));
         let extra = if self.fastq_comments {
             record.comment.clone()
         } else {
@@ -231,6 +283,7 @@ impl SamOutput {
             query_qualities,
             edit_distance: Some(alignment.edit_distance as u32),
             alignment_score: Some(alignment.score),
+            sa_tag,
             details,
             rg_id: self.rg_id.clone(),
             extra,
@@ -491,6 +544,7 @@ pub fn align_single_end_read(
         mapq,
         AlignmentStatus::Primary,
         details.clone(),
+        None,
     ));
 
     // Secondary alignments
@@ -516,6 +570,7 @@ pub fn align_single_end_read(
                 mapq,
                 AlignmentStatus::Secondary,
                 details.clone(),
+                None,
             ));
         }
     }
@@ -1474,6 +1529,8 @@ fn top_dropoff(chains: &[Chain]) -> f32 {
 mod tests {
     use super::*;
     use crate::cigar::Cigar;
+    use crate::packed_seq::PackedSeq;
+    use std::str::FromStr;
 
     pub fn make_alignment(contig_start: usize, score: u32, is_revcomp: bool) -> Alignment {
         Alignment {
@@ -1507,6 +1564,50 @@ mod tests {
             collisions: 0,
             anchors: 0,
         }
+    }
+
+    #[test]
+    fn sa_tags_cross_reference_the_other_segments() {
+        let refseq = RefSequence::new(
+            PackedSeq::from_slice(b""),
+            vec![0],
+            vec!["chr1".to_string()],
+        )
+        .unwrap();
+        let first = Alignment {
+            contig_id: 0,
+            contig_start: 100,
+            cigar: Cigar::from_str("40=").unwrap(),
+            edit_distance: 0,
+            soft_clip_left: 0,
+            soft_clip_right: 70,
+            score: 60,
+            length: 40,
+            is_revcomp: false,
+            gapped: false,
+            anchors: 0,
+            collisions: 0,
+        };
+        let second = Alignment {
+            contig_id: 0,
+            contig_start: 10,
+            cigar: Cigar::from_str("70=").unwrap(),
+            edit_distance: 0,
+            soft_clip_left: 40,
+            soft_clip_right: 0,
+            score: 55,
+            length: 70,
+            is_revcomp: true,
+            gapped: false,
+            anchors: 0,
+            collisions: 0,
+        };
+
+        let tags = build_sa_tags(&[first.clone(), second], 60, &refseq, true);
+        assert_eq!(tags[0].as_deref(), Some("chr1,11,-,40S70=,60,0;"));
+        assert_eq!(tags[1].as_deref(), Some("chr1,101,+,40=70S,60,0;"));
+
+        assert_eq!(build_sa_tags(&[first], 60, &refseq, true), vec![None]);
     }
 
     #[test]
