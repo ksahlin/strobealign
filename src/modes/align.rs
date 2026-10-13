@@ -50,6 +50,7 @@ pub struct MappingParameters {
     pub output_unmapped: bool,
     pub use_ssw: bool,
     pub min_duplication_length: usize,
+    pub duplication_band: usize,
 }
 
 impl Default for MappingParameters {
@@ -64,6 +65,7 @@ impl Default for MappingParameters {
             output_unmapped: true,
             use_ssw: false,
             min_duplication_length: 50,
+            duplication_band: 20,
         }
     }
 }
@@ -544,6 +546,7 @@ pub fn align_single_end_read(
         refseq,
         &read,
         mapping_parameters.min_duplication_length,
+        mapping_parameters.duplication_band,
     );
     details.align.duplications += segments.len() - 1;
 
@@ -760,6 +763,7 @@ fn reinterpret_insertions(
     refseq: &RefSequence,
     read: &Read,
     min_length: usize,
+    band: usize,
 ) -> Vec<Alignment> {
     if min_length == 0 {
         return vec![alignment];
@@ -787,6 +791,7 @@ fn reinterpret_insertions(
                 &query[query_pos..query_pos + len],
                 ref_pos,
                 min_length,
+                band,
             )
         {
             // The right arm carries the segment being built on past the insertion point, and
@@ -846,17 +851,16 @@ fn find_duplication(
     insertion: &[u8],
     ref_pos: usize,
     min_length: usize,
+    band: usize,
 ) -> Option<(usize, SplitReferenceAlignment)> {
     let len = insertion.len();
-
-    // Generous duplication padding
-    let padding = len / 2;
+    let padding = len + band;
     let left_start = ref_pos.saturating_sub(len + padding);
     let right_end = (ref_pos + len + padding).min(contig.len());
     let left_reference = contig.decode(left_start, ref_pos);
     let right_reference = contig.decode(ref_pos, right_end);
 
-    let split = aligner.realign_insertion(insertion, &left_reference, &right_reference)?;
+    let split = aligner.realign_insertion(insertion, &left_reference, &right_reference, band)?;
 
     let insertion_penalty =
         aligner.scores.gap_open as i32 + (len as i32 - 1) * aligner.scores.gap_extend as i32;
