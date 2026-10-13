@@ -118,11 +118,12 @@ impl Display for SamRecord {
         if let Some(details) = &self.details {
             write!(
                 f,
-                "\tna:i:{}\tal:i:{}\tga:i:{}\tX0:i:{}",
+                "\tna:i:{}\tal:i:{}\tga:i:{}\tX0:i:{}\tdu:i:{}",
                 details.chain.n_chains,
                 details.align.tried_alignment,
                 details.align.gapped,
                 details.align.best_alignments,
+                details.align.duplications,
             )?;
             if self.flags & PAIRED != 0 {
                 write!(f, "\tmr:i:{}", details.align.mate_rescue)?;
