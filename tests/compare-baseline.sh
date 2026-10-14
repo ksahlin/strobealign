@@ -5,7 +5,7 @@
 #
 # - Test data is automatically downloaded if needed
 #   (and put into tests/drosophila)
-# - The baseline BAM file is generated if necessary
+# - The baseline BAM or PAF file is generated if necessary
 
 set -euo pipefail
 
@@ -14,9 +14,9 @@ python3 -c 'import pysam'
 
 ends="pe"
 threads=4
-mcs=0
 baseline_commit=$(git --no-pager log -n1 --pretty=format:%H --grep='^Is-new-baseline: yes')
 
+mode=align
 while getopts "b:st:m" opt; do
   case "${opt}" in
     b)
@@ -28,7 +28,9 @@ while getopts "b:st:m" opt; do
     s)
       ends=se  # single-end reads
       ;;
-
+    m)
+      mode=map
+      ;;
     \?)
       exit 1
       ;;
@@ -41,16 +43,17 @@ if [[ ${ends} = "pe" ]]; then
   reads+=(tests/drosophila/reads.2.fastq.gz)
 fi
 
+if [[ ${mode} = align ]]; then ext=bam; else ext=paf.gz; fi
+
 # Ensure test data is available
 tests/download.sh
 
 baseline_binary=baseline/strobealign-${baseline_commit}
-extra_ext=""
-baseline_bam=baseline/bam/${baseline_commit}.${ends}${extra_ext}.bam
+baseline_file=baseline/bampaf/${baseline_commit}.${ends}.${ext}
 
 # Generate the baseline BAM if necessary
-mkdir -p baseline/bam
-if ! test -f ${baseline_bam}; then
+mkdir -p baseline/bampaf
+if ! test -f ${baseline_file}; then
   if ! test -f ${baseline_binary}; then
     srcdir=$(mktemp -p . -d compile.XXXXXXX)
     git clone . ${srcdir}
@@ -61,14 +64,21 @@ if ! test -f ${baseline_bam}; then
     mv ${srcdir}/target/debug/strobealign ${baseline_binary}
     rm -rf "${srcdir}"
   fi
-  ${baseline_binary} -N 2 -v -t ${threads} ${ref} ${reads[@]} | samtools view -o ${baseline_bam}.tmp.bam
-  mv ${baseline_bam}.tmp.bam ${baseline_bam}
+  if [[ ${mode} = align ]]; then
+    ${baseline_binary} -N 2 -v -t ${threads} ${ref} ${reads[@]} | samtools view -o ${baseline_file}.tmp.${ext}
+  else
+    ${baseline_binary} -N 2 -v -x -t ${threads} ${ref} ${reads[@]} | gzip > ${baseline_file}.tmp.${ext}
+  fi
+  mv ${baseline_file}.tmp.${ext} ${baseline_file}
 fi
 
 # Build and run strobealign
 cargo build
 set -x
-RUST_BACKTRACE=1 target/debug/strobealign -N 2 -v -t ${threads} ${ref} ${reads[@]} | samtools view -o head.bam
-
-# Do the actual comparison
-tests/samdiff.py ${baseline_bam} head.bam
+if [[ ${mode} = align ]]; then
+  RUST_BACKTRACE=1 target/debug/strobealign -N 2 -v -t ${threads} ${ref} ${reads[@]} | samtools view -o head.bam
+  tests/samdiff.py ${baseline_file} head.bam
+else
+  RUST_BACKTRACE=1 target/debug/strobealign -N 2 -v -x -t ${threads} ${ref} ${reads[@]} | gzip > head.paf.gz
+  diff -u <(zcat ${baseline_file}) <(zcat head.paf.gz) | head -n 100
+fi
