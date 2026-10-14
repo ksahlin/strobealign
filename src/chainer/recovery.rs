@@ -13,6 +13,9 @@ const BIN_BITS: u32 = 12;
 const N_BINS: usize = 1 << 15;
 /// Entries skipped at once
 const SKIP: usize = 32;
+/// Of the filtered hits, at most one per read_len / HIT_SPACING_DIVISOR bases
+/// of the read is looked up: in satellite arrays, they are dense
+const HIT_SPACING_DIVISOR: usize = 400;
 
 /// Buffers reused for the chains of a read: the candidates of a chain, its
 /// anchors with the recovered ones and the DP of a gap (see take_best_run)
@@ -34,7 +37,8 @@ impl Chainer {
             return;
         }
         let bands = chains.iter().map(|chain| band(chain, read_len)).collect();
-        let mut anchors = filtered_hits_to_anchors(hits, index, bands);
+        let spacing = read_len / HIT_SPACING_DIVISOR;
+        let mut anchors = filtered_hits_to_anchors(hits, index, bands, spacing);
         anchors.sort_unstable();
         anchors.dedup();
 
@@ -251,12 +255,14 @@ fn merge(intervals: &mut Vec<(i64, i64)>) {
     });
 }
 
-/// Looks up the filtered hits again and returns their anchors, among them
+/// Looks up the filtered hits again, skipping those closer than spacing to
+/// the previous one looked up, and returns their anchors, among them
 /// all those on the diagonals of the bands
 fn filtered_hits_to_anchors(
     hits: &[Hit],
     index: &StrobemerIndex,
     mut bands: Vec<(i64, i64)>,
+    spacing: usize,
 ) -> Vec<Anchor> {
     let k = index.k();
     let max_dist = index.parameters.randstrobe.max_dist as i64;
@@ -264,7 +270,12 @@ fn filtered_hits_to_anchors(
     // The first index entry of each filtered hit, and the mask of the hash
     // its entries share
     let mut runs = vec![];
+    let mut next = 0;
     for hit in hits.iter().filter(|hit| hit.is_filtered) {
+        if hit.query_start < next {
+            continue;
+        }
+        next = hit.query_start + spacing;
         if !hit.is_partial {
             runs.push((hit.position, REF_RANDSTROBE_HASH_MASK, hit));
         } else if let Some(entry) = index.get_partial_forward_from(hit.hash, hit.position) {
