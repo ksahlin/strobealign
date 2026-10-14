@@ -10,6 +10,8 @@ use crate::mcsstrategy::McsStrategy;
 use crate::refseq::{ContigStarts, REFERENCE_BITS};
 use crate::seeding::QueryRandstrobe;
 
+mod recovery;
+
 const N_PRECOMPUTED: usize = 1024;
 
 /// Number of low bits used for the query start in an Anchor. The
@@ -54,6 +56,7 @@ pub struct ChainingParameters {
     pub diag_diff_penalty: f32,
     pub gap_length_penalty: f32,
     pub valid_score_threshold: f32,
+    pub max_chains: usize,
     pub max_ref_gap: Option<usize>,
     pub matches_weight: f32,
     pub max_diagonal_ratio: f32,
@@ -65,7 +68,8 @@ impl Default for ChainingParameters {
             max_lookback: 50,
             diag_diff_penalty: 0.1,
             gap_length_penalty: 0.05,
-            valid_score_threshold: 0.7,
+            valid_score_threshold: 0.5,
+            max_chains: 200,
             max_ref_gap: None,
             matches_weight: 0.01,
             max_diagonal_ratio: 10.0,
@@ -267,6 +271,7 @@ impl Chainer {
         let mut n_anchors = 0;
         let mut time_chaining = 0.0;
         let mut chains = vec![];
+        let mut orientation_chains = vec![];
         for &is_revcomp in &orientations {
             let hits_timer = Instant::now();
             let mut anchors = hits_to_anchors(&hits[is_revcomp], index);
@@ -297,6 +302,7 @@ impl Chainer {
 
             let chaining_result = self.collinear_chaining(anchors, &index.contig_starts, read_len);
 
+            let n_chains = chains.len();
             chaining_result.extract_chains(
                 index.k(),
                 is_revcomp == 1,
@@ -304,7 +310,13 @@ impl Chainer {
                 &mut chains,
             );
             time_chaining += chaining_timer.elapsed().as_secs_f64();
+            orientation_chains.push((is_revcomp, n_chains..chains.len()));
         }
+        let recovery_timer = Instant::now();
+        for (is_revcomp, range) in orientation_chains {
+            self.recover_anchors(&mut chains[range], &hits[is_revcomp], index, read_len);
+        }
+        let time_recovery = recovery_timer.elapsed().as_secs_f64();
         let mut hits_details12 = hits_details[0].clone();
         hits_details12 += hits_details[1].clone();
         let details = ChainDetails {
@@ -317,6 +329,7 @@ impl Chainer {
             time_find_hits,
             time_chaining,
             time_rescue: 0.0,
+            time_recovery,
             time_sort_chains: 0f64,
         };
 
@@ -445,10 +458,14 @@ impl ChainingResult {
 
         candidates.sort_by(|a, b| b.1.total_cmp(&a.1));
 
+        let limit = chains.len() + self.parameters.max_chains;
         let mut used = vec![false; n];
         // Each candidate yields at most one chain
-        chains.reserve(candidates.len());
+        chains.reserve(candidates.len().min(self.parameters.max_chains));
         for (i, score) in candidates {
+            if chains.len() >= limit {
+                break;
+            }
             if used[i] {
                 continue;
             }

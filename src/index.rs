@@ -205,6 +205,10 @@ impl StrobemerIndex {
         self.get_masked_from(hash, hash_mask, None)
     }
 
+    pub fn entries_from(&self, position: usize) -> &[RefRandstrobe] {
+        &self.randstrobes[position..]
+    }
+
     pub fn k(&self) -> usize {
         self.parameters.syncmer.k
     }
