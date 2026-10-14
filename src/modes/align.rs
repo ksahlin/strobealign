@@ -17,7 +17,7 @@ use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
 use crate::chain::Chain;
 use crate::chainer::Anchor;
 use crate::cigar::{Cigar, CigarOperation};
-use crate::details::Details;
+use crate::details::{ChainDetails, Details};
 use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
 use crate::io::record::SequenceRecord;
@@ -382,11 +382,12 @@ pub fn align_single_end_read(
     refseq: &RefSequence,
     mapping_parameters: &MappingParameters,
     sam_output: &SamOutput,
+    chain_details: ChainDetails,
     chains: &mut [Chain],
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let mut details = Details::new();
+    let mut details: Details = chain_details.into();
 
     let timer = Instant::now();
     if chains.is_empty() {
@@ -675,11 +676,12 @@ pub fn align_paired_end_read(
     sam_output: &SamOutput,
     seeding_parameters: &SeedingParameters,
     insert_size_distribution: &mut InsertSizeDistribution,
+    chain_details: [ChainDetails; 2],
     chains_pair: &mut [Vec<Chain>; 2],
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let mut details = [Details::default(), Details::default()];
+    let mut details = chain_details.map(Details::from);
     let timer = Instant::now();
     let read1 = Read::new(&r1.sequence); // TODO pass r1, r2 to extend_paired_seeds instead
     let read2 = Read::new(&r2.sequence);
