@@ -685,20 +685,20 @@ pub fn align_paired_end_read(
     let timer = Instant::now();
     let read1 = Read::new(&r1.sequence); // TODO pass r1, r2 to extend_paired_seeds instead
     let read2 = Read::new(&r2.sequence);
-    let alignment_pairs = extend_paired_seeds(
+    let (alignment_pairs, mut edetails) = extend_paired_seeds(
         aligner,
         chains_pair,
         &read1,
         &read2,
         seeding_parameters.syncmer.k,
         refseq,
-        &mut details,
         mapping_parameters.dropoff_threshold,
         insert_size_distribution,
         mapping_parameters.max_tries,
         mapping_parameters.use_ssw,
     );
-
+    details[0] += mem::take(&mut edetails[0]);
+    details[1] += mem::take(&mut edetails[1]);
     let mut sam_records = Vec::new();
 
     match alignment_pairs {
@@ -813,23 +813,23 @@ fn extend_paired_seeds(
     read2: &Read,
     k: usize,
     refseq: &RefSequence,
-    details: &mut [Details; 2],
     dropoff: f32,
     insert_size_distribution: &InsertSizeDistribution,
     max_tries: usize,
     use_ssw: bool,
-) -> AlignedPairs {
+) -> (AlignedPairs, [Details; 2]) {
     let mu = insert_size_distribution.mu;
     let sigma = insert_size_distribution.sigma;
+    let mut details = [Details::default(), Details::default()];
 
     if chains[0].is_empty() && chains[1].is_empty() {
         // None of the reads have any chains
-        return AlignedPairs::WithScores(vec![]);
+        return (AlignedPairs::WithScores(vec![]), details);
     }
 
     if !chains[0].is_empty() && chains[1].is_empty() {
         // Only read 1 has any chains: attempt to rescue read 2
-        let (pairs, mut rdetails) = rescue_read(
+        let (pairs, details) = rescue_read(
             read2,
             read1,
             aligner,
@@ -842,15 +842,13 @@ fn extend_paired_seeds(
             sigma,
             use_ssw,
         );
-        details[0] += mem::take(&mut rdetails[0]);
-        details[1] += mem::take(&mut rdetails[1]);
 
-        return AlignedPairs::WithScores(pairs);
+        return (AlignedPairs::WithScores(pairs), details);
     }
 
     if chains[0].is_empty() && !chains[1].is_empty() {
         // Only read 2 has any chains: attempt to rescue read 1
-        let (mut pairs, mut rdetails) = rescue_read(
+        let (mut pairs, mut details) = rescue_read(
             read1,
             read2,
             aligner,
@@ -863,13 +861,12 @@ fn extend_paired_seeds(
             sigma,
             use_ssw,
         );
-        details[0] += mem::take(&mut rdetails[1]);
-        details[1] += mem::take(&mut rdetails[0]);
+        details.swap(0, 1);
         for pair in &mut pairs {
             mem::swap(&mut pair.alignment1, &mut pair.alignment2);
         }
 
-        return AlignedPairs::WithScores(pairs);
+        return (AlignedPairs::WithScores(pairs), details);
     }
 
     // Both reads have chains
@@ -889,7 +886,7 @@ fn extend_paired_seeds(
             details[0].add_alignment(&alignment1);
             details[1].add_alignment(&alignment2);
 
-            return AlignedPairs::Proper((alignment1, alignment2));
+            return (AlignedPairs::Proper((alignment1, alignment2)), details);
         }
         // TODO what if one of the alignments is None?
     }
@@ -1004,7 +1001,7 @@ fn extend_paired_seeds(
         });
     }
 
-    AlignedPairs::WithScores(alignment_pairs)
+    (AlignedPairs::WithScores(alignment_pairs), details)
 }
 
 /// Align a pair of reads for which only one has chains. For the other, rescue
