@@ -829,7 +829,7 @@ fn extend_paired_seeds(
 
     if !chains[0].is_empty() && chains[1].is_empty() {
         // Only read 1 has any chains: attempt to rescue read 2
-        return AlignedPairs::WithScores(rescue_read(
+        let (pairs, mut rdetails) = rescue_read(
             read2,
             read1,
             aligner,
@@ -837,18 +837,20 @@ fn extend_paired_seeds(
             &mut chains[0],
             max_tries,
             dropoff,
-            details,
             k,
             mu,
             sigma,
             use_ssw,
-        ));
+        );
+        details[0] += mem::take(&mut rdetails[0]);
+        details[1] += mem::take(&mut rdetails[1]);
+
+        return AlignedPairs::WithScores(pairs);
     }
 
     if chains[0].is_empty() && !chains[1].is_empty() {
         // Only read 2 has any chains: attempt to rescue read 1
-        details.swap(0, 1);
-        let mut pairs = rescue_read(
+        let (mut pairs, mut rdetails) = rescue_read(
             read1,
             read2,
             aligner,
@@ -856,13 +858,13 @@ fn extend_paired_seeds(
             &mut chains[1],
             max_tries,
             dropoff,
-            details,
             k,
             mu,
             sigma,
             use_ssw,
         );
-        details.swap(0, 1);
+        details[0] += mem::take(&mut rdetails[1]);
+        details[1] += mem::take(&mut rdetails[0]);
         for pair in &mut pairs {
             mem::swap(&mut pair.alignment1, &mut pair.alignment2);
         }
@@ -1015,12 +1017,12 @@ fn rescue_read(
     chains1: &mut [Chain],
     max_tries: usize,
     dropoff: f32,
-    details: &mut [Details; 2],
     k: usize,
     mu: f32,
     sigma: f32,
     use_ssw: bool,
-) -> Vec<ScoredAlignmentPair> {
+) -> (Vec<ScoredAlignmentPair>, [Details; 2]) {
+    let mut details = [Details::default(), Details::default()];
     let max_score1 = chains1[0].score;
 
     let mut alignments1 = vec![];
@@ -1076,7 +1078,7 @@ fn rescue_read(
         }
     }
 
-    pairs
+    (pairs, details)
 }
 
 /// Align a read to the reference given the mapping location of its mate.
