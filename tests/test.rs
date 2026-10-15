@@ -104,6 +104,7 @@ fn single_end_sam() {
         "--chunk-size=3",
         "--no-PG",
         "--eqx",
+        "--details",
         "--rg-id=1",
         "--rg=SM:sample",
         "--rg=LB:library",
@@ -121,6 +122,7 @@ fn paired_end_sam() {
     let p = cmd.args([
         "--no-PG",
         "--eqx",
+        "--details",
         "--rg-id=1",
         "--rg=SM:sample",
         "--rg=LB:library",
