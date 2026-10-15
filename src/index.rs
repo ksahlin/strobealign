@@ -329,7 +329,7 @@ impl<'a> IndexEntry<'a> {
     }
 }
 
-const STI_FILE_FORMAT_VERSION: u32 = 7;
+const STI_FILE_FORMAT_VERSION: u32 = 8;
 
 #[derive(Error, Debug)]
 pub enum IndexReadingError {
@@ -574,6 +574,24 @@ mod tests {
             Err(IndexReadingError::ParameterMismatch) => {}
             _ => {
                 panic!("Parameters are expected not to match");
+            }
+        }
+    }
+
+    #[test]
+    fn all_randstrobes_found() {
+        let refseq = read_ref("tests/phix.fasta").unwrap();
+        let parameters = SeedingParameters::new(150);
+        // With more bits, it becomes likely that the first bucket is empty
+        for bits in 8..=16 {
+            let index = make_index(&refseq, parameters.clone(), bits, 0.1, 1).0;
+            for (position, randstrobe) in index.randstrobes.iter().enumerate() {
+                let hash = randstrobe.hash();
+                if position > 0 && index.randstrobes[position - 1].hash() == hash {
+                    continue;
+                }
+                let found_position = index.get_full_forward(hash).map(|entry| entry.position);
+                assert_eq!(found_position, Some(position), "bits={bits}");
             }
         }
     }

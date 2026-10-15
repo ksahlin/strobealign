@@ -98,7 +98,8 @@ pub fn make_index(
     let mut count = 1;
 
     if !randstrobes.is_empty() {
-        randstrobe_start_indices.push(0);
+        let first_hash_n = prev_hash >> (64 - bits);
+        randstrobe_start_indices.resize(first_hash_n as usize + 1, 0);
     }
 
     // strobemer_counts[i] is how many strobemers occur i times,
