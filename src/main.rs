@@ -706,10 +706,8 @@ fn run() -> Result<(), CliError> {
 
     let (abundances_tx, abundances_rx) = channel();
 
-    // TODO
-    // this thread should be joined after the workers are done
-    if show_progress {
-        thread::spawn(move || {
+    let progress_thread = if show_progress {
+        let thread = thread::spawn(move || {
             let timer = Instant::now();
             let mut time_to_wait = time::Duration::from_millis(10);
             let mut reported_time = Instant::now();
@@ -736,7 +734,11 @@ fn run() -> Result<(), CliError> {
             );
             eprintln!("Done!");
         });
-    }
+
+        Some(thread)
+    } else {
+        None
+    };
 
     // worker threads
     thread::scope(|s| {
@@ -767,6 +769,9 @@ fn run() -> Result<(), CliError> {
     reader_thread.join().unwrap();
     let details = details_rx.recv().unwrap();
     let out = writer_thread.join().unwrap();
+    if let Some(thread) = progress_thread {
+        thread.join().unwrap();
+    }
 
     let mut out = Arc::into_inner(out).unwrap().into_inner().unwrap();
 
