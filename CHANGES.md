@@ -6,6 +6,13 @@
 * #661: Fix a bug in index construction that, for some references, made the
   randstrobe with the smallest hash value impossible to find.
   Pre-generated index files (`.sti` files) need to be re-generated.
+* #656: Report tandem duplications in single-end mode: an insertion of at least
+  `--dl` bases (default 50) is re-aligned against the reference on both sides of
+  the insertion point, and if it matches at least a fraction `--dm` (default
+  0.80) of the inserted bases, the read is output as one record per copy instead
+  of as an insertion. `--dw` (default 20) is the bandwidth used for the two arms
+  and `--dl 0` turns detection off. Strobealign supports multiple records per
+  read with an `SA:Z` tag.
 
 ## v0.19.0 (2026-10-08)
 
