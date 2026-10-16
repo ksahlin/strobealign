@@ -888,32 +888,48 @@ fn print_statistics(
     debug!("## Mapping runtime breakdown");
     debug!("");
     // This is neither wall-clock time nor CPU time.
-    // TODO We could just report percentages instead.
     debug!("(Summed per-thread wall-clock times.)");
+
+    let total = details.chain.time_randstrobes
+        + details.chain.time_find_hits
+        + details.chain.time_sort_anchors
+        + details.chain.time_chaining
+        + details.chain.time_sort_chains
+        + details.align.time_extend;
     debug!("");
     debug!(
-        "Creating strobemers:         {:6.2} s",
-        details.chain.time_randstrobes
+        "Creating strobemers:         {:8.2} s  {:5.1} %",
+        details.chain.time_randstrobes,
+        details.chain.time_randstrobes * 100. / total
     );
     debug!(
-        "Finding hits:                {:6.2} s",
-        details.chain.time_find_hits
+        "Finding hits:                {:8.2} s  {:5.1} %",
+        details.chain.time_find_hits,
+        details.chain.time_find_hits * 100. / total
     );
     debug!(
-        "Sorting anchors:             {:6.2} s",
-        details.chain.time_sort_anchors
+        "Sorting anchors:             {:8.2} s  {:5.1} %",
+        details.chain.time_sort_anchors,
+        details.chain.time_sort_anchors * 100. / total
     );
     debug!(
-        "Chaining (non-rescue mode):  {:6.2} s",
-        details.chain.time_chaining
+        "Chaining (non-rescue mode):  {:8.2} s  {:5.1} %",
+        details.chain.time_chaining,
+        details.chain.time_chaining * 100. / total
     );
     debug!(
-        "Sorting chains by score:     {:6.2} s",
-        details.chain.time_sort_chains
+        "Sorting chains by score:     {:8.2} s  {:5.1} %",
+        details.chain.time_sort_chains,
+        details.chain.time_sort_chains * 100. / total
     );
     debug!(
-        "Extending and pairing seeds: {:6.2} s",
-        details.align.time_extend
+        "Extending and pairing seeds: {:8.2} s  {:5.1} %",
+        details.align.time_extend,
+        details.align.time_extend * 100. / total
+    );
+    debug!(
+        "Total:                       {:8.2} s  {:5.1} %",
+        total, 100.
     );
 
     info!("");
