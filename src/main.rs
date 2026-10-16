@@ -785,6 +785,13 @@ fn run() -> Result<(), CliError> {
         output_abundances(&abundances, &refseq, &mut out)?;
     }
 
+    print_statistics(&details, timer.elapsed().as_secs_f64());
+
+
+    Ok(())
+}
+
+fn print_statistics(details: &Details, mapping_time: f64) {
     debug!("");
     debug!("# Statistics");
     debug!("");
@@ -898,8 +905,6 @@ fn run() -> Result<(), CliError> {
         "Total time extending and pairing seeds: {:.2} s",
         details.align.time_extend
     );
-
-    Ok(())
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
