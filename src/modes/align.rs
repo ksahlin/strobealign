@@ -123,21 +123,21 @@ enum AlignmentStatus {
 #[derive(Default)]
 pub struct SamOutput {
     cigar_eqx: bool,
-    details: bool,
+    show_details: bool,
     rg_id: Option<String>,
     fastq_comments: bool,
 }
 
 impl SamOutput {
     pub fn new(
-        details: bool,
+        show_details: bool,
         cigar_eqx: bool,
         rg_id: Option<String>,
         fastq_comments: bool,
     ) -> Self {
         SamOutput {
             cigar_eqx,
-            details,
+            show_details,
             rg_id,
             fastq_comments,
         }
@@ -206,7 +206,11 @@ impl SamOutput {
         cigar.push(CigarOperation::Softclip, alignment.soft_clip_right);
         let reference_name = Some(refseq.names[alignment.contig_id].clone());
         let pos = Some(ContigPosition(alignment.contig_start as u32));
-        let details = if self.details { Some(details) } else { None };
+        let details = if self.show_details {
+            Some(details)
+        } else {
+            None
+        };
         let cigar = if self.cigar_eqx {
             Some(cigar)
         } else {
@@ -236,7 +240,11 @@ impl SamOutput {
     }
 
     fn make_unmapped_record(&self, record: &SequenceRecord, details: Details) -> SamRecord {
-        let details = if self.details { Some(details) } else { None };
+        let details = if self.show_details {
+            Some(details)
+        } else {
+            None
+        };
         let extra = if self.fastq_comments {
             record.comment.clone()
         } else {
