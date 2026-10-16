@@ -15,6 +15,7 @@ use fastrand::Rng;
 use log::{debug, error, info, trace, warn};
 use mimalloc::MiMalloc;
 use strobealign::chain::{Chain, get_sorted_chains};
+use strobealign::hit::HitsDetails;
 use strobealign::indexer::make_index;
 use strobealign::refseq::RefSequence;
 use thiserror::Error;
@@ -801,38 +802,38 @@ fn run() -> Result<(), CliError> {
     );
     debug!(
         "  Full randstrobe found                   {:12} {:9.1} %",
-        details.chain.hits.full_found,
-        100f64 * details.chain.hits.full_found as f64 / details.chain.n_randstrobes as f64
+        details.hits.full_found,
+        100f64 * details.hits.full_found as f64 / details.chain.n_randstrobes as f64
     );
     debug!(
         "  Full randstrobe found but filtered      {:12} {:9.1} %",
-        details.chain.hits.full_filtered,
-        100f64 * details.chain.hits.full_filtered as f64 / details.chain.n_randstrobes as f64
+        details.hits.full_filtered,
+        100f64 * details.hits.full_filtered as f64 / details.chain.n_randstrobes as f64
     );
     debug!(
         "  Full randstrobe not found               {:12} {:9.1} %",
-        details.chain.hits.full_not_found,
-        100f64 * details.chain.hits.full_not_found as f64 / details.chain.n_randstrobes as f64
+        details.hits.full_not_found,
+        100f64 * details.hits.full_not_found as f64 / details.chain.n_randstrobes as f64
     );
     debug!(
         "    Partial randstrobe found              {:12} {:9.1} %",
-        details.chain.hits.partial_found,
-        100f64 * details.chain.hits.partial_found as f64 / details.chain.n_randstrobes as f64
+        details.hits.partial_found,
+        100f64 * details.hits.partial_found as f64 / details.chain.n_randstrobes as f64
     );
     debug!(
         "    Partial randstrobe found but filtered {:12} {:9.1} %",
-        details.chain.hits.partial_filtered,
-        100f64 * details.chain.hits.partial_filtered as f64 / details.chain.n_randstrobes as f64
+        details.hits.partial_filtered,
+        100f64 * details.hits.partial_filtered as f64 / details.chain.n_randstrobes as f64
     );
     debug!(
         "    Partial randstrobe not found          {:12} {:9.1} %",
-        details.chain.hits.partial_not_found,
-        100f64 * details.chain.hits.partial_not_found as f64 / details.chain.n_randstrobes as f64
+        details.hits.partial_not_found,
+        100f64 * details.hits.partial_not_found as f64 / details.chain.n_randstrobes as f64
     );
     debug!("");
     debug!(
         "Filtered but rescued randstrobes          {:12}",
-        details.chain.hits.rescued
+        details.hits.rescued
     );
     debug!("");
     debug!("## Chaining");
@@ -935,7 +936,7 @@ impl Mapper<'_> {
             let (r1, r2) = record?;
             trace!("\nQuery: {}\nlength={}", r1.name, r1.len());
 
-            let (chain_details1, mut chains1) = get_sorted_chains(
+            let (chain_details1, hits_details1, mut chains1) = get_sorted_chains(
                 &r1.sequence,
                 self.index,
                 self.chainer,
@@ -946,7 +947,7 @@ impl Mapper<'_> {
 
             if let Some(r2) = r2 {
                 // paired-end
-                let (chain_details2, chains2) = get_sorted_chains(
+                let (chain_details2, hits_details2, chains2) = get_sorted_chains(
                     &r2.sequence,
                     self.index,
                     self.chainer,
@@ -961,6 +962,7 @@ impl Mapper<'_> {
                             &mut out,
                             &r1,
                             &r2,
+                            [hits_details1, hits_details2],
                             [chain_details1, chain_details2],
                             &mut chains_pair,
                             &mut isizedist,
@@ -968,6 +970,8 @@ impl Mapper<'_> {
                         )?;
                     }
                     Mode::Paf => {
+                        cumulative_details.hits += hits_details1;
+                        cumulative_details.hits += hits_details2;
                         cumulative_details.chain += chain_details1;
                         cumulative_details.chain += chain_details2;
                         self.handle_paf_paired(
@@ -979,6 +983,8 @@ impl Mapper<'_> {
                         )?;
                     }
                     Mode::Abundances => {
+                        cumulative_details.hits += hits_details1;
+                        cumulative_details.hits += hits_details2;
                         cumulative_details.chain += chain_details1;
                         cumulative_details.chain += chain_details2;
                         abundances_paired_end_read(
@@ -998,16 +1004,19 @@ impl Mapper<'_> {
                         cumulative_details += self.handle_sam_single(
                             &mut out,
                             &r1,
+                            hits_details1,
                             chain_details1,
                             &mut chains1,
                             &mut rng,
                         )?;
                     }
                     Mode::Paf => {
+                        cumulative_details.hits += hits_details1;
                         cumulative_details.chain += chain_details1;
                         self.handle_paf_single(&mut out, &r1, &mut chains1)?;
                     }
                     Mode::Abundances => {
+                        cumulative_details.hits += hits_details1;
                         cumulative_details.chain += chain_details1;
                         abundances_single_end_read(
                             &r1,
@@ -1027,6 +1036,7 @@ impl Mapper<'_> {
         out: &mut Vec<u8>,
         r1: &SequenceRecord,
         r2: &SequenceRecord,
+        hits_details: [HitsDetails; 2],
         chain_details: [ChainDetails; 2],
         chains_pair: &mut [Vec<Chain>; 2],
         isizedist: &mut InsertSizeDistribution,
@@ -1040,6 +1050,7 @@ impl Mapper<'_> {
             self.sam_output,
             self.seeding_parameters,
             isizedist,
+            hits_details,
             chain_details,
             chains_pair,
             &self.aligner,
@@ -1076,6 +1087,7 @@ impl Mapper<'_> {
         &self,
         out: &mut Vec<u8>,
         r1: &SequenceRecord,
+        hits_details: HitsDetails,
         chain_details: ChainDetails,
         chains: &mut [Chain],
         rng: &mut Rng,
@@ -1086,6 +1098,7 @@ impl Mapper<'_> {
             self.refseq,
             self.mapping_parameters,
             self.sam_output,
+            hits_details,
             chain_details,
             chains,
             &self.aligner,

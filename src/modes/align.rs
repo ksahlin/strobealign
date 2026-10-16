@@ -18,6 +18,7 @@ use crate::chain::Chain;
 use crate::chainer::Anchor;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::{ChainDetails, Details};
+use crate::hit::HitsDetails;
 use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
 use crate::io::record::SequenceRecord;
@@ -382,12 +383,14 @@ pub fn align_single_end_read(
     refseq: &RefSequence,
     mapping_parameters: &MappingParameters,
     sam_output: &SamOutput,
+    hits_details: HitsDetails,
     chain_details: ChainDetails,
     chains: &mut [Chain],
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
     let mut details: Details = chain_details.into();
+    details.hits = hits_details;
 
     let timer = Instant::now();
     if chains.is_empty() {
@@ -676,12 +679,15 @@ pub fn align_paired_end_read(
     sam_output: &SamOutput,
     seeding_parameters: &SeedingParameters,
     insert_size_distribution: &mut InsertSizeDistribution,
+    hits_details: [HitsDetails; 2],
     chain_details: [ChainDetails; 2],
     chains_pair: &mut [Vec<Chain>; 2],
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
     let mut details = chain_details.map(Details::from);
+    details[0].hits = hits_details[0].clone();
+    details[1].hits = hits_details[1].clone();
     let timer = Instant::now();
     let read1 = Read::new(&r1.sequence); // TODO pass r1, r2 to extend_paired_seeds instead
     let read2 = Read::new(&r2.sequence);

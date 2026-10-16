@@ -243,7 +243,7 @@ impl Chainer {
         rescue_distance: usize,
         mcs_strategy: McsStrategy,
         read_len: usize,
-    ) -> (ChainDetails, Vec<Chain>) {
+    ) -> (ChainDetails, HitsDetails, Vec<Chain>) {
         let hits_timer = Instant::now();
 
         let mut hits = [vec![], vec![]];
@@ -316,7 +316,6 @@ impl Chainer {
         let mut hits_details12 = hits_details[0].clone();
         hits_details12 += hits_details[1].clone();
         let details = ChainDetails {
-            hits: hits_details12,
             n_reads: 1,
             n_randstrobes: query_randstrobes[0].len() + query_randstrobes[1].len(),
             n_anchors,
@@ -328,7 +327,7 @@ impl Chainer {
             time_sort_chains: 0f64,
         };
 
-        (details, chains)
+        (details, hits_details12, chains)
     }
 }
 
