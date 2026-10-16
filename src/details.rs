@@ -6,9 +6,6 @@ use crate::hit::HitsDetails;
 
 #[derive(Default, Debug, Clone)]
 pub struct ChainDetails {
-    // TODO should be moved out of here and into Details
-    pub hits: HitsDetails,
-
     pub n_reads: usize,
 
     pub n_randstrobes: usize,
@@ -27,7 +24,6 @@ pub struct ChainDetails {
 
 impl ops::AddAssign<ChainDetails> for ChainDetails {
     fn add_assign(&mut self, rhs: ChainDetails) {
-        self.hits += rhs.hits;
         self.n_reads += rhs.n_reads;
         self.n_randstrobes += rhs.n_randstrobes;
         self.n_anchors += rhs.n_anchors;
@@ -40,11 +36,17 @@ impl ops::AddAssign<ChainDetails> for ChainDetails {
     }
 }
 
-/// Details about aligning a single read
+/// Collective details about hit finding, chaining and alignment
 #[derive(Default, Debug, Clone)]
 pub struct Details {
+    pub hits: HitsDetails,
     pub chain: ChainDetails,
+    pub align: AlignmentDetails,
+}
 
+/// Details about aligning a single read
+#[derive(Default, Debug, Clone)]
+pub struct AlignmentDetails {
     /// No. of times rescue by local alignment was attempted
     pub mate_rescue: usize,
 
@@ -66,9 +68,8 @@ pub struct Details {
     pub time_extend: f64,
 }
 
-impl ops::AddAssign<Details> for Details {
-    fn add_assign(&mut self, rhs: Details) {
-        self.chain += rhs.chain;
+impl ops::AddAssign<AlignmentDetails> for AlignmentDetails {
+    fn add_assign(&mut self, rhs: AlignmentDetails) {
         self.mate_rescue += rhs.mate_rescue;
         self.tried_alignment += rhs.tried_alignment;
         self.gapped += rhs.gapped;
@@ -79,17 +80,20 @@ impl ops::AddAssign<Details> for Details {
     }
 }
 
-impl Details {
-    pub fn new() -> Self {
-        Details::default()
+impl ops::AddAssign<Details> for Details {
+    fn add_assign(&mut self, rhs: Details) {
+        self.hits += rhs.hits;
+        self.chain += rhs.chain;
+        self.align += rhs.align;
     }
 }
 
-impl From<ChainDetails> for Details {
-    fn from(chain_details: ChainDetails) -> Self {
+impl Details {
+    pub fn new(hits_details: HitsDetails, chain_details: ChainDetails) -> Self {
         Details {
+            hits: hits_details,
             chain: chain_details,
-            ..Details::default()
+            align: AlignmentDetails::default(),
         }
     }
 }

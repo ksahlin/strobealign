@@ -243,13 +243,13 @@ impl Chainer {
         rescue_distance: usize,
         mcs_strategy: McsStrategy,
         read_len: usize,
-    ) -> (ChainDetails, Vec<Chain>) {
+    ) -> (Vec<Chain>, ChainDetails, HitsDetails) {
         let hits_timer = Instant::now();
 
         let mut hits = [vec![], vec![]];
         let mut hits_details = [HitsDetails::default(), HitsDetails::default()];
         for is_revcomp in 0..2 {
-            (hits_details[is_revcomp], hits[is_revcomp]) = find_hits(
+            (hits[is_revcomp], hits_details[is_revcomp]) = find_hits(
                 &query_randstrobes[is_revcomp],
                 index,
                 mcs_strategy,
@@ -316,7 +316,6 @@ impl Chainer {
         let mut hits_details12 = hits_details[0].clone();
         hits_details12 += hits_details[1].clone();
         let details = ChainDetails {
-            hits: hits_details12,
             n_reads: 1,
             n_randstrobes: query_randstrobes[0].len() + query_randstrobes[1].len(),
             n_anchors,
@@ -328,7 +327,7 @@ impl Chainer {
             time_sort_chains: 0f64,
         };
 
-        (details, chains)
+        (chains, details, hits_details12)
     }
 }
 
