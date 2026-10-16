@@ -21,7 +21,7 @@ use thiserror::Error;
 
 use strobealign::aligner::{Aligner, Scores};
 use strobealign::chainer::{Chainer, ChainingParameters, MAXIMUM_QUERY_LENGTH};
-use strobealign::details::Details;
+use strobealign::details::{ChainDetails, Details};
 use strobealign::index::{IndexReadingError, StrobemerIndex, read_index};
 use strobealign::insertsize::InsertSizeDistribution;
 use strobealign::io::SequenceIOError;
@@ -943,7 +943,6 @@ impl Mapper<'_> {
                 self.mapping_parameters.mcs_strategy,
                 &mut rng,
             );
-            cumulative_details.chain += chain_details1;
 
             if let Some(r2) = r2 {
                 // paired-end
@@ -955,7 +954,6 @@ impl Mapper<'_> {
                     self.mapping_parameters.mcs_strategy,
                     &mut rng,
                 );
-                cumulative_details.chain += chain_details2;
                 let mut chains_pair = [chains1, chains2];
                 match self.mode {
                     Mode::Sam => {
@@ -963,12 +961,15 @@ impl Mapper<'_> {
                             &mut out,
                             &r1,
                             &r2,
+                            [chain_details1, chain_details2],
                             &mut chains_pair,
                             &mut isizedist,
                             &mut rng,
                         )?;
                     }
                     Mode::Paf => {
+                        cumulative_details.chain += chain_details1;
+                        cumulative_details.chain += chain_details2;
                         self.handle_paf_paired(
                             &mut out,
                             &r1,
@@ -978,6 +979,8 @@ impl Mapper<'_> {
                         )?;
                     }
                     Mode::Abundances => {
+                        cumulative_details.chain += chain_details1;
+                        cumulative_details.chain += chain_details2;
                         abundances_paired_end_read(
                             &r1,
                             &r2,
@@ -992,13 +995,20 @@ impl Mapper<'_> {
                 // single-end
                 match self.mode {
                     Mode::Sam => {
-                        cumulative_details +=
-                            self.handle_sam_single(&mut out, &r1, &mut chains1, &mut rng)?;
+                        cumulative_details += self.handle_sam_single(
+                            &mut out,
+                            &r1,
+                            chain_details1,
+                            &mut chains1,
+                            &mut rng,
+                        )?;
                     }
                     Mode::Paf => {
+                        cumulative_details.chain += chain_details1;
                         self.handle_paf_single(&mut out, &r1, &mut chains1)?;
                     }
                     Mode::Abundances => {
+                        cumulative_details.chain += chain_details1;
                         abundances_single_end_read(
                             &r1,
                             self.refseq,
@@ -1017,6 +1027,7 @@ impl Mapper<'_> {
         out: &mut Vec<u8>,
         r1: &SequenceRecord,
         r2: &SequenceRecord,
+        chain_details: [ChainDetails; 2],
         chains_pair: &mut [Vec<Chain>; 2],
         isizedist: &mut InsertSizeDistribution,
         rng: &mut Rng,
@@ -1029,6 +1040,7 @@ impl Mapper<'_> {
             self.sam_output,
             self.seeding_parameters,
             isizedist,
+            chain_details,
             chains_pair,
             &self.aligner,
             rng,
@@ -1064,6 +1076,7 @@ impl Mapper<'_> {
         &self,
         out: &mut Vec<u8>,
         r1: &SequenceRecord,
+        chain_details: ChainDetails,
         chains: &mut [Chain],
         rng: &mut Rng,
     ) -> Result<Details, std::io::Error> {
@@ -1073,6 +1086,7 @@ impl Mapper<'_> {
             self.refseq,
             self.mapping_parameters,
             self.sam_output,
+            chain_details,
             chains,
             &self.aligner,
             rng,

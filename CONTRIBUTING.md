@@ -94,11 +94,11 @@ baseline commit does not change.
 When `--details` is provided, the following additional SAM tags are output for
 mapped reads.
 
-`na`: Number of NAMs (seeds) found
+`na`: Number of chains found
 `mr`: Number of times mate rescue was attempted (local alignment of a mate to
   the expected region given its mate)
-`al`: Number of times an attempt was made to extend a seed (by gapped or ungapped alignment)
-`ga`: Number of times an attempt was made to extend a seed by gapped alignment
+`al`: Number of times an attempt was made to extend a chain (by gapped or ungapped alignment)
+`ga`: Number of times an attempt was made to extend a chain by gapped alignment
 `X0`: Number of equally scored best alignments (greater than 1 for multimappers).
  For paired-end reads, the tag is output for both reads, but the value is
  identical and is the number of equally scored best alignment *pairs*.
@@ -116,7 +116,7 @@ The following command-line options are not shown when strobealign is run with
   Default: 1 million
 * `--trace`: Highly verbose output; shows lots of details for each read.
   This also sets `--ithreads 1`.
-* `--max-seed-length`: Set maximum seed length.
+* `-m`: Set maximum seed length.
   For reasonable values on `-l` and `-u`, the seed length distribution is
   usually determined by parameters `l` and `u`,
   and then this parameter is only active in regions where syncmers are very
