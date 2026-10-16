@@ -853,21 +853,21 @@ fn run() -> Result<(), CliError> {
     debug!("");
     debug!(
         "Number of computed alignments:            {:12}               Per read: {:7.1}",
-        details.tried_alignment,
-        details.tried_alignment as f64 / details.chain.n_reads as f64
+        details.align.tried_alignment,
+        details.align.tried_alignment as f64 / details.chain.n_reads as f64
     );
     debug!(
         "Anchors used in piecewise alignments:     {:12}               Per read: {:7.1}",
-        details.anchors,
-        details.anchors as f64 / details.chain.n_reads as f64
+        details.align.anchors,
+        details.align.anchors as f64 / details.chain.n_reads as f64
     );
     debug!(
         "Anchors discarded due to hash collisions: {:12}",
-        details.collisions
+        details.align.collisions
     );
     debug!(
         "Mates rescued by alignment:               {:12}",
-        details.mate_rescue
+        details.align.mate_rescue
     );
     debug!("");
     debug!("## Runtimes");
@@ -896,7 +896,7 @@ fn run() -> Result<(), CliError> {
     );
     info!(
         "Total time extending and pairing seeds: {:.2} s",
-        details.time_extend
+        details.align.time_extend
     );
 
     Ok(())

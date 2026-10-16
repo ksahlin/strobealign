@@ -100,10 +100,10 @@ impl Alignment {
 
 impl Details {
     fn add_alignment(&mut self, alignment: &Alignment) {
-        self.tried_alignment += 1;
-        self.gapped += alignment.gapped as usize;
-        self.collisions += alignment.collisions;
-        self.anchors += alignment.anchors;
+        self.align.tried_alignment += 1;
+        self.align.gapped += alignment.gapped as usize;
+        self.align.collisions += alignment.collisions;
+        self.align.anchors += alignment.anchors;
     }
 }
 
@@ -513,7 +513,7 @@ pub fn align_single_end_read(
             ));
         }
     }
-    details.time_extend = timer.elapsed().as_secs_f64();
+    details.align.time_extend = timer.elapsed().as_secs_f64();
 
     (sam_records, details)
 }
@@ -728,8 +728,8 @@ pub fn align_paired_end_read(
             let mapq1 = mapping_quality(&chains_pair[0]);
             let mapq2 = mapping_quality(&chains_pair[1]);
 
-            details[0].best_alignments = 1;
-            details[1].best_alignments = 1;
+            details[0].align.best_alignments = 1;
+            details[1].align.best_alignments = 1;
 
             sam_records.extend(sam_output.make_paired_records(
                 [Some(&alignment1), Some(&alignment2)],
@@ -748,8 +748,8 @@ pub fn align_paired_end_read(
             // If there are multiple top-scoring alignments (all with the same score),
             // pick one randomly and move it to the front.
             let i = count_best_alignment_pairs(&alignment_pairs);
-            details[0].best_alignments = i;
-            details[1].best_alignments = i;
+            details[0].align.best_alignments = i;
+            details[1].align.best_alignments = i;
             if i > 1 {
                 let random_index = rng.usize(..i);
                 alignment_pairs.swap(0, random_index);
@@ -799,7 +799,7 @@ pub fn align_paired_end_read(
 
     let mut details_both = details[0].clone();
     details_both += details[1].clone();
-    details_both.time_extend = timer.elapsed().as_secs_f64();
+    details_both.align.time_extend = timer.elapsed().as_secs_f64();
 
     (sam_records, details_both)
 }
@@ -912,8 +912,8 @@ fn extend_paired_seeds(
     let mut a_indv_max = [None, None];
     for i in 0..2 {
         a_indv_max[i] = extend_seed(aligner, &mut chains[i][0], refseq, reads[i], use_ssw, k);
-        details[i].tried_alignment += 1;
-        details[i].gapped += a_indv_max[i].as_ref().map_or(0, |a| a.gapped as usize);
+        details[i].align.tried_alignment += 1;
+        details[i].align.gapped += a_indv_max[i].as_ref().map_or(0, |a| a.gapped as usize);
         alignment_cache[i].insert(chains[i][0].id, a_indv_max[i].clone());
     }
 
@@ -940,8 +940,8 @@ fn extend_paired_seeds(
             if let Some(mut this_chain) = chainsp[i].clone() {
                 if let Entry::Vacant(e) = alignment_cache[i].entry(this_chain.id) {
                     alignment = extend_seed(aligner, &mut this_chain, refseq, reads[i], use_ssw, k);
-                    details[i].tried_alignment += 1;
-                    details[i].gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
+                    details[i].align.tried_alignment += 1;
+                    details[i].align.gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
                     e.insert(alignment.clone());
                 } else {
                     alignment = alignment_cache[i].get(&this_chain.id).unwrap().clone();
@@ -950,8 +950,8 @@ fn extend_paired_seeds(
                 let other_chain = chainsp[1 - i].clone().unwrap();
                 alignment = rescue_align(aligner, &other_chain, refseq, reads[i], mu, sigma, k);
                 if alignment.is_some() {
-                    details[i].mate_rescue += 1;
-                    details[i].tried_alignment += 1;
+                    details[i].align.mate_rescue += 1;
+                    details[i].align.tried_alignment += 1;
                 }
             }
             if alignment.as_ref().map_or(0, |a| a.score)
@@ -1043,7 +1043,7 @@ fn rescue_read(
 
             let a2 = rescue_align(aligner, chain, refseq, read2, mu, sigma, k);
             if a2.is_some() {
-                details[1].mate_rescue += 1;
+                details[1].align.mate_rescue += 1;
             }
             alignments2.push(a2);
         }

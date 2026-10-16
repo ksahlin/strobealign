@@ -36,12 +36,17 @@ impl ops::AddAssign<ChainDetails> for ChainDetails {
     }
 }
 
-/// Details about aligning a single read
+/// Collective details about hit finding, chaining and alignment
 #[derive(Default, Debug, Clone)]
 pub struct Details {
     pub hits: HitsDetails,
     pub chain: ChainDetails,
+    pub align: AlignmentDetails,
+}
 
+/// Details about aligning a single read
+#[derive(Default, Debug, Clone)]
+pub struct AlignmentDetails {
     /// No. of times rescue by local alignment was attempted
     pub mate_rescue: usize,
 
@@ -63,10 +68,8 @@ pub struct Details {
     pub time_extend: f64,
 }
 
-impl ops::AddAssign<Details> for Details {
-    fn add_assign(&mut self, rhs: Details) {
-        self.hits += rhs.hits;
-        self.chain += rhs.chain;
+impl ops::AddAssign<AlignmentDetails> for AlignmentDetails {
+    fn add_assign(&mut self, rhs: AlignmentDetails) {
         self.mate_rescue += rhs.mate_rescue;
         self.tried_alignment += rhs.tried_alignment;
         self.gapped += rhs.gapped;
@@ -74,6 +77,14 @@ impl ops::AddAssign<Details> for Details {
         self.collisions += rhs.collisions;
         self.best_alignments += rhs.best_alignments;
         self.time_extend += rhs.time_extend;
+    }
+}
+
+impl ops::AddAssign<Details> for Details {
+    fn add_assign(&mut self, rhs: Details) {
+        self.hits += rhs.hits;
+        self.chain += rhs.chain;
+        self.align += rhs.align;
     }
 }
 
