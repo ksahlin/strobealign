@@ -350,6 +350,7 @@ fn run() -> Result<(), CliError> {
     };
     logger::init(level).unwrap();
     info!("This is {} {}", NAME, VERSION);
+    let total_timer = Instant::now();
 
     let scores = Scores {
         match_: args.match_score,
@@ -459,16 +460,14 @@ fn run() -> Result<(), CliError> {
     }
 
     // Read reference FASTA
-    let timer = Instant::now();
+    let ref_timer = Instant::now();
     let ref_file = xopen(&args.ref_path).map_err(|e| CliError::IoWithPath {
         e,
         path: args.ref_path.clone(),
     })?;
     let refseq = fasta::read_fasta(&mut BufReader::new(ref_file))?;
-    info!(
-        "Time reading reference: {:.2} s",
-        timer.elapsed().as_secs_f64()
-    );
+    let time_reading_reference = ref_timer.elapsed().as_secs_f64();
+    info!("Time reading reference: {:.2} s", time_reading_reference);
     let total_ref_size = refseq.total_length();
     let max_contig_size = refseq.max_contig_len().ok_or(CliError::NoReference)?;
     info!(
@@ -487,6 +486,7 @@ fn run() -> Result<(), CliError> {
         .unwrap_or_else(|| parameters.syncmer.pick_bits(&refseq));
     info!("Bits used to index buckets: {}", bits);
 
+    let time_indexing;
     let index = if args.use_index {
         // Read the index from a file
         assert!(!args.create_index);
@@ -495,10 +495,8 @@ fn run() -> Result<(), CliError> {
         sti_path.push_str(&parameters.filename_extension());
         info!("Reading index from {}", sti_path);
         let index = read_index(&sti_path, parameters.clone(), bits, refseq.starts.clone())?;
-        info!(
-            "Total time reading index: {:.2} s",
-            read_index_timer.elapsed().as_secs_f64()
-        );
+        time_indexing = read_index_timer.elapsed().as_secs_f64();
+        info!("Time reading index: {:.2} s", time_indexing);
 
         index
     } else {
@@ -516,10 +514,8 @@ fn run() -> Result<(), CliError> {
             args.filter_fraction,
             indexing_threads,
         );
-        info!(
-            "Total time indexing: {:.2} s",
-            timer.elapsed().as_secs_f64()
-        );
+        time_indexing = timer.elapsed().as_secs_f64();
+        info!("Time indexing: {:.2} s", time_indexing);
         debug!("{}", index_stats);
 
         index
@@ -785,17 +781,28 @@ fn run() -> Result<(), CliError> {
         output_abundances(&abundances, &refseq, &mut out)?;
     }
 
-    print_statistics(&details, timer.elapsed().as_secs_f64());
-
+    print_statistics(
+        &details,
+        time_reading_reference,
+        time_indexing,
+        timer.elapsed().as_secs_f64(),
+        total_timer.elapsed().as_secs_f64(),
+    );
 
     Ok(())
 }
 
-fn print_statistics(details: &Details, mapping_time: f64) {
-    debug!("");
-    debug!("# Statistics");
-    debug!("");
-    debug!(
+fn print_statistics(
+    details: &Details,
+    reference_reading_time: f64,
+    indexing_time: f64,
+    mapping_time: f64,
+    total_time: f64,
+) {
+    info!("");
+    info!("# Statistics");
+    info!("");
+    info!(
         "Reads:                                    {:12}",
         details.chain.n_reads
     );
@@ -876,35 +883,49 @@ fn print_statistics(details: &Details, mapping_time: f64) {
         "Mates rescued by alignment:               {:12}",
         details.align.mate_rescue
     );
+
     debug!("");
-    debug!("## Runtimes");
+    debug!("## Runtime breakdown");
     debug!("");
-    info!("Total time mapping: {:.2} s", timer.elapsed().as_secs_f64());
-    //info!("Total time reading read-file(s): {:.2} s", );
-    info!(
-        "Total time creating strobemers: {:.2} s",
+    // This is neither wall-clock time nor CPU time.
+    // TODO We could just report percentages instead.
+    debug!("(Summed per-thread wall-clock times.)");
+    debug!("");
+    debug!(
+        "Creating strobemers:            {:6.2} s",
         details.chain.time_randstrobes
     );
-    info!(
-        "Total time finding hits (non-rescue mode): {:.2} s",
+    debug!(
+        "Finding hits (non-rescue mode): {:6.2} s",
         details.chain.time_find_hits
     );
-    info!(
-        "Total time finding hits (rescue mode): {:.2} s",
+    debug!(
+        "Finding hits (rescue mode):     {:6.2} s",
         details.chain.time_rescue
     );
-    info!(
-        "Total time chaining (non-rescue mode): {:.2} s",
+    debug!(
+        "Chaining (non-rescue mode):     {:6.2} s",
         details.chain.time_chaining
     );
-    info!(
-        "Total time sorting NAMs/chains by score: {:.2} s",
+    debug!(
+        "Sorting NAMs/chains by score:   {:6.2} s",
         details.chain.time_sort_chains
     );
-    info!(
-        "Total time extending and pairing seeds: {:.2} s",
+    debug!(
+        "Extending and pairing seeds:    {:6.2} s",
         details.align.time_extend
     );
+
+    info!("");
+    info!("## Runtimes");
+    info!("");
+    info!(
+        "Reading reference:              {:8.2} s",
+        reference_reading_time
+    );
+    info!("Reading or creating index:      {:8.2} s", indexing_time);
+    info!("Mapping:                        {:8.2} s", mapping_time);
+    info!("Total:                          {:8.2} s", total_time);
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
