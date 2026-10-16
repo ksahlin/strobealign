@@ -89,16 +89,11 @@ impl ops::AddAssign<Details> for Details {
 }
 
 impl Details {
-    pub fn new() -> Self {
-        Details::default()
-    }
-}
-
-impl From<ChainDetails> for Details {
-    fn from(chain_details: ChainDetails) -> Self {
+    pub fn new(hits_details: HitsDetails, chain_details: ChainDetails) -> Self {
         Details {
+            hits: hits_details,
             chain: chain_details,
-            ..Details::default()
+            align: AlignmentDetails::default(),
         }
     }
 }

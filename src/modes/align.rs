@@ -17,7 +17,7 @@ use crate::aligner::{AlignmentInfo, hamming_align, hamming_distance};
 use crate::chain::Chain;
 use crate::chainer::Anchor;
 use crate::cigar::{Cigar, CigarOperation};
-use crate::details::{ChainDetails, Details};
+use crate::details::{AlignmentDetails, ChainDetails, Details};
 use crate::hit::HitsDetails;
 use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
@@ -98,12 +98,12 @@ impl Alignment {
     }
 }
 
-impl Details {
+impl AlignmentDetails {
     fn add_alignment(&mut self, alignment: &Alignment) {
-        self.align.tried_alignment += 1;
-        self.align.gapped += alignment.gapped as usize;
-        self.align.collisions += alignment.collisions;
-        self.align.anchors += alignment.anchors;
+        self.tried_alignment += 1;
+        self.gapped += alignment.gapped as usize;
+        self.collisions += alignment.collisions;
+        self.anchors += alignment.anchors;
     }
 }
 
@@ -389,8 +389,7 @@ pub fn align_single_end_read(
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let mut details: Details = chain_details.into();
-    details.hits = hits_details;
+    let mut details = Details::new(hits_details, chain_details);
 
     let timer = Instant::now();
     if chains.is_empty() {
@@ -436,7 +435,7 @@ pub fn align_single_end_read(
 
         // trace_log(mapping_parameters, aligner, &alignment, chain, refseq, &read, index.k());
 
-        details.add_alignment(&alignment);
+        details.align.add_alignment(&alignment);
 
         if alignment.score >= best_score {
             second_best_score = best_score;
@@ -685,13 +684,14 @@ pub fn align_paired_end_read(
     aligner: &Aligner,
     rng: &mut Rng,
 ) -> (Vec<SamRecord>, Details) {
-    let mut details = chain_details.map(Details::from);
-    details[0].hits = hits_details[0].clone();
-    details[1].hits = hits_details[1].clone();
+    let mut details = [
+        Details::new(hits_details[0].clone(), chain_details[0].clone()),
+        Details::new(hits_details[1].clone(), chain_details[1].clone()),
+    ];
     let timer = Instant::now();
     let read1 = Read::new(&r1.sequence); // TODO pass r1, r2 to extend_paired_seeds instead
     let read2 = Read::new(&r2.sequence);
-    let (alignment_pairs, mut edetails) = extend_paired_seeds(
+    let (alignment_pairs, mut adetails) = extend_paired_seeds(
         aligner,
         chains_pair,
         &read1,
@@ -703,8 +703,8 @@ pub fn align_paired_end_read(
         mapping_parameters.max_tries,
         mapping_parameters.use_ssw,
     );
-    details[0] += mem::take(&mut edetails[0]);
-    details[1] += mem::take(&mut edetails[1]);
+    details[0].align += mem::take(&mut adetails[0]);
+    details[1].align += mem::take(&mut adetails[1]);
     let mut sam_records = Vec::new();
 
     match alignment_pairs {
@@ -823,10 +823,10 @@ fn extend_paired_seeds(
     insert_size_distribution: &InsertSizeDistribution,
     max_tries: usize,
     use_ssw: bool,
-) -> (AlignedPairs, [Details; 2]) {
+) -> (AlignedPairs, [AlignmentDetails; 2]) {
     let mu = insert_size_distribution.mu;
     let sigma = insert_size_distribution.sigma;
-    let mut details = [Details::default(), Details::default()];
+    let mut details = [AlignmentDetails::default(), AlignmentDetails::default()];
 
     if chains[0].is_empty() && chains[1].is_empty() {
         // None of the reads have any chains
@@ -912,8 +912,8 @@ fn extend_paired_seeds(
     let mut a_indv_max = [None, None];
     for i in 0..2 {
         a_indv_max[i] = extend_seed(aligner, &mut chains[i][0], refseq, reads[i], use_ssw, k);
-        details[i].align.tried_alignment += 1;
-        details[i].align.gapped += a_indv_max[i].as_ref().map_or(0, |a| a.gapped as usize);
+        details[i].tried_alignment += 1;
+        details[i].gapped += a_indv_max[i].as_ref().map_or(0, |a| a.gapped as usize);
         alignment_cache[i].insert(chains[i][0].id, a_indv_max[i].clone());
     }
 
@@ -940,8 +940,8 @@ fn extend_paired_seeds(
             if let Some(mut this_chain) = chainsp[i].clone() {
                 if let Entry::Vacant(e) = alignment_cache[i].entry(this_chain.id) {
                     alignment = extend_seed(aligner, &mut this_chain, refseq, reads[i], use_ssw, k);
-                    details[i].align.tried_alignment += 1;
-                    details[i].align.gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
+                    details[i].tried_alignment += 1;
+                    details[i].gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
                     e.insert(alignment.clone());
                 } else {
                     alignment = alignment_cache[i].get(&this_chain.id).unwrap().clone();
@@ -950,8 +950,8 @@ fn extend_paired_seeds(
                 let other_chain = chainsp[1 - i].clone().unwrap();
                 alignment = rescue_align(aligner, &other_chain, refseq, reads[i], mu, sigma, k);
                 if alignment.is_some() {
-                    details[i].align.mate_rescue += 1;
-                    details[i].align.tried_alignment += 1;
+                    details[i].mate_rescue += 1;
+                    details[i].tried_alignment += 1;
                 }
             }
             if alignment.as_ref().map_or(0, |a| a.score)
@@ -1024,8 +1024,8 @@ fn rescue_read(
     mu: f32,
     sigma: f32,
     use_ssw: bool,
-) -> (Vec<ScoredAlignmentPair>, [Details; 2]) {
-    let mut details = [Details::default(), Details::default()];
+) -> (Vec<ScoredAlignmentPair>, [AlignmentDetails; 2]) {
+    let mut details = [AlignmentDetails::default(), AlignmentDetails::default()];
     let max_score1 = chains1[0].score;
 
     let mut alignments1 = vec![];
@@ -1043,7 +1043,7 @@ fn rescue_read(
 
             let a2 = rescue_align(aligner, chain, refseq, read2, mu, sigma, k);
             if a2.is_some() {
-                details[1].align.mate_rescue += 1;
+                details[1].mate_rescue += 1;
             }
             alignments2.push(a2);
         }

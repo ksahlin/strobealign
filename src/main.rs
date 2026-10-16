@@ -931,7 +931,7 @@ impl Mapper<'_> {
         let mut out = vec![];
         let mut rng = Rng::with_seed(0);
         let mut isizedist = InsertSizeDistribution::new();
-        let mut cumulative_details = Details::new();
+        let mut cumulative_details = Details::default();
         for record in chunk {
             let (r1, r2) = record?;
             trace!("\nQuery: {}\nlength={}", r1.name, r1.len());
