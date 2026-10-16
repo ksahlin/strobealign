@@ -936,7 +936,7 @@ impl Mapper<'_> {
             let (r1, r2) = record?;
             trace!("\nQuery: {}\nlength={}", r1.name, r1.len());
 
-            let (chain_details1, hits_details1, mut chains1) = get_sorted_chains(
+            let (mut chains1, chain_details1, hits_details1) = get_sorted_chains(
                 &r1.sequence,
                 self.index,
                 self.chainer,
@@ -947,7 +947,7 @@ impl Mapper<'_> {
 
             if let Some(r2) = r2 {
                 // paired-end
-                let (chain_details2, hits_details2, chains2) = get_sorted_chains(
+                let (chains2, chain_details2, hits_details2) = get_sorted_chains(
                     &r2.sequence,
                     self.index,
                     self.chainer,

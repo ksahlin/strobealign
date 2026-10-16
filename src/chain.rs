@@ -70,7 +70,7 @@ pub fn get_sorted_chains(
     rescue_distance: usize,
     mcs_strategy: McsStrategy,
     rng: &mut Rng,
-) -> (ChainDetails, HitsDetails, Vec<Chain>) {
+) -> (Vec<Chain>, ChainDetails, HitsDetails) {
     let timer = Instant::now();
     let query_randstrobes = randstrobes_query(sequence, &index.parameters);
     let time_randstrobes = timer.elapsed().as_secs_f64();
@@ -81,7 +81,7 @@ pub fn get_sorted_chains(
         query_randstrobes[1].len()
     );
 
-    let (mut chain_details, hits_details, mut chains) = chainer.get_chains(
+    let (mut chains, mut chain_details, hits_details) = chainer.get_chains(
         &query_randstrobes,
         index,
         rescue_distance,
@@ -92,7 +92,7 @@ pub fn get_sorted_chains(
     chain_details.time_randstrobes = time_randstrobes;
     chain_details.time_sort_chains = sort_chains(&mut chains, rng);
 
-    (chain_details, hits_details, chains)
+    (chains, chain_details, hits_details)
 }
 
 fn sort_chains(chains: &mut [Chain], rng: &mut Rng) -> f64 {
