@@ -350,6 +350,7 @@ fn run() -> Result<(), CliError> {
     };
     logger::init(level).unwrap();
     info!("This is {} {}", NAME, VERSION);
+    let total_timer = Instant::now();
 
     let scores = Scores {
         match_: args.match_score,
@@ -459,16 +460,14 @@ fn run() -> Result<(), CliError> {
     }
 
     // Read reference FASTA
-    let timer = Instant::now();
+    let ref_timer = Instant::now();
     let ref_file = xopen(&args.ref_path).map_err(|e| CliError::IoWithPath {
         e,
         path: args.ref_path.clone(),
     })?;
     let refseq = fasta::read_fasta(&mut BufReader::new(ref_file))?;
-    info!(
-        "Time reading reference: {:.2} s",
-        timer.elapsed().as_secs_f64()
-    );
+    let time_reading_reference = ref_timer.elapsed().as_secs_f64();
+    info!("Time reading reference: {:.2} s", time_reading_reference);
     let total_ref_size = refseq.total_length();
     let max_contig_size = refseq.max_contig_len().ok_or(CliError::NoReference)?;
     info!(
@@ -487,6 +486,7 @@ fn run() -> Result<(), CliError> {
         .unwrap_or_else(|| parameters.syncmer.pick_bits(&refseq));
     info!("Bits used to index buckets: {}", bits);
 
+    let time_indexing;
     let index = if args.use_index {
         // Read the index from a file
         assert!(!args.create_index);
@@ -495,10 +495,8 @@ fn run() -> Result<(), CliError> {
         sti_path.push_str(&parameters.filename_extension());
         info!("Reading index from {}", sti_path);
         let index = read_index(&sti_path, parameters.clone(), bits, refseq.starts.clone())?;
-        info!(
-            "Total time reading index: {:.2} s",
-            read_index_timer.elapsed().as_secs_f64()
-        );
+        time_indexing = read_index_timer.elapsed().as_secs_f64();
+        info!("Time reading index: {:.2} s", time_indexing);
 
         index
     } else {
@@ -516,10 +514,8 @@ fn run() -> Result<(), CliError> {
             args.filter_fraction,
             indexing_threads,
         );
-        info!(
-            "Total time indexing: {:.2} s",
-            timer.elapsed().as_secs_f64()
-        );
+        time_indexing = timer.elapsed().as_secs_f64();
+        info!("Time indexing: {:.2} s", time_indexing);
         debug!("{}", index_stats);
 
         index
@@ -710,10 +706,8 @@ fn run() -> Result<(), CliError> {
 
     let (abundances_tx, abundances_rx) = channel();
 
-    // TODO
-    // this thread should be joined after the workers are done
-    if show_progress {
-        thread::spawn(move || {
+    let progress_thread = if show_progress {
+        let thread = thread::spawn(move || {
             let timer = Instant::now();
             let mut time_to_wait = time::Duration::from_millis(10);
             let mut reported_time = Instant::now();
@@ -740,7 +734,11 @@ fn run() -> Result<(), CliError> {
             );
             eprintln!("Done!");
         });
-    }
+
+        Some(thread)
+    } else {
+        None
+    };
 
     // worker threads
     thread::scope(|s| {
@@ -771,6 +769,9 @@ fn run() -> Result<(), CliError> {
     reader_thread.join().unwrap();
     let details = details_rx.recv().unwrap();
     let out = writer_thread.join().unwrap();
+    if let Some(thread) = progress_thread {
+        thread.join().unwrap();
+    }
 
     let mut out = Arc::into_inner(out).unwrap().into_inner().unwrap();
 
@@ -785,10 +786,28 @@ fn run() -> Result<(), CliError> {
         output_abundances(&abundances, &refseq, &mut out)?;
     }
 
-    debug!("");
-    debug!("# Statistics");
-    debug!("");
-    debug!(
+    print_statistics(
+        &details,
+        time_reading_reference,
+        time_indexing,
+        timer.elapsed().as_secs_f64(),
+        total_timer.elapsed().as_secs_f64(),
+    );
+
+    Ok(())
+}
+
+fn print_statistics(
+    details: &Details,
+    reference_reading_time: f64,
+    indexing_time: f64,
+    mapping_time: f64,
+    total_time: f64,
+) {
+    info!("");
+    info!("# Statistics");
+    info!("");
+    info!(
         "Reads:                                    {:12}",
         details.chain.n_reads
     );
@@ -869,37 +888,65 @@ fn run() -> Result<(), CliError> {
         "Mates rescued by alignment:               {:12}",
         details.align.mate_rescue
     );
+
     debug!("");
-    debug!("## Runtimes");
+    debug!("## Mapping runtime breakdown");
     debug!("");
-    info!("Total time mapping: {:.2} s", timer.elapsed().as_secs_f64());
-    //info!("Total time reading read-file(s): {:.2} s", );
-    info!(
-        "Total time creating strobemers: {:.2} s",
-        details.chain.time_randstrobes
+    // This is neither wall-clock time nor CPU time.
+    debug!("(Summed per-thread wall-clock times.)");
+
+    let total = details.chain.time_randstrobes
+        + details.chain.time_find_hits
+        + details.chain.time_sort_anchors
+        + details.chain.time_chaining
+        + details.chain.time_sort_chains
+        + details.align.time_extend;
+    debug!("");
+    debug!(
+        "Creating strobemers:         {:8.2} s  {:5.1} %",
+        details.chain.time_randstrobes,
+        details.chain.time_randstrobes * 100. / total
     );
-    info!(
-        "Total time finding hits (non-rescue mode): {:.2} s",
-        details.chain.time_find_hits
+    debug!(
+        "Finding hits:                {:8.2} s  {:5.1} %",
+        details.chain.time_find_hits,
+        details.chain.time_find_hits * 100. / total
     );
-    info!(
-        "Total time finding hits (rescue mode): {:.2} s",
-        details.chain.time_rescue
+    debug!(
+        "Sorting anchors:             {:8.2} s  {:5.1} %",
+        details.chain.time_sort_anchors,
+        details.chain.time_sort_anchors * 100. / total
     );
-    info!(
-        "Total time chaining (non-rescue mode): {:.2} s",
-        details.chain.time_chaining
+    debug!(
+        "Chaining (non-rescue mode):  {:8.2} s  {:5.1} %",
+        details.chain.time_chaining,
+        details.chain.time_chaining * 100. / total
     );
-    info!(
-        "Total time sorting NAMs/chains by score: {:.2} s",
-        details.chain.time_sort_chains
+    debug!(
+        "Sorting chains by score:     {:8.2} s  {:5.1} %",
+        details.chain.time_sort_chains,
+        details.chain.time_sort_chains * 100. / total
     );
-    info!(
-        "Total time extending and pairing seeds: {:.2} s",
-        details.align.time_extend
+    debug!(
+        "Extending and pairing seeds: {:8.2} s  {:5.1} %",
+        details.align.time_extend,
+        details.align.time_extend * 100. / total
+    );
+    debug!(
+        "Total:                       {:8.2} s  {:5.1} %",
+        total, 100.
     );
 
-    Ok(())
+    info!("");
+    info!("## Runtimes");
+    info!("");
+    info!(
+        "Reading reference:              {:8.2} s",
+        reference_reading_time
+    );
+    info!("Reading or creating index:      {:8.2} s", indexing_time);
+    info!("Mapping:                        {:8.2} s", mapping_time);
+    info!("Total:                          {:8.2} s", total_time);
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

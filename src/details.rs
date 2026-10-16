@@ -17,8 +17,8 @@ pub struct ChainDetails {
 
     pub time_randstrobes: f64,
     pub time_find_hits: f64,
+    pub time_sort_anchors: f64,
     pub time_chaining: f64,
-    pub time_rescue: f64,
     pub time_sort_chains: f64,
 }
 
@@ -30,8 +30,8 @@ impl ops::AddAssign<ChainDetails> for ChainDetails {
         self.n_chains += rhs.n_chains;
         self.time_randstrobes += rhs.time_randstrobes;
         self.time_find_hits += rhs.time_find_hits;
+        self.time_sort_anchors += rhs.time_sort_anchors;
         self.time_chaining += rhs.time_chaining;
-        self.time_rescue += rhs.time_rescue;
         self.time_sort_chains += rhs.time_sort_chains;
     }
 }

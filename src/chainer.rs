@@ -274,13 +274,15 @@ impl Chainer {
 
         let mut n_anchors = 0;
         let mut time_chaining = 0.0;
+        let mut time_sort_anchors = 0.0;
         let mut chains = vec![];
         for &is_revcomp in &orientations {
             let hits_timer = Instant::now();
             let mut anchors = hits_to_anchors(&hits[is_revcomp], index);
             time_find_hits += hits_timer.elapsed().as_secs_f64();
+
+            let timer = Instant::now();
             n_anchors += anchors.len();
-            let chaining_timer = Instant::now();
             trace!("Chaining {} anchors", anchors.len());
             debug_assert!(
                 read_len < (1 << ANCHOR_QUERY_BITS),
@@ -288,6 +290,7 @@ impl Chainer {
             );
             anchors.sort_unstable();
             anchors.dedup();
+            time_sort_anchors += timer.elapsed().as_secs_f64();
 
             // trace!(
             //     "Anchors for {} strand [{}]",
@@ -303,6 +306,7 @@ impl Chainer {
             //         .join(",")
             // );
 
+            let chaining_timer = Instant::now();
             let chaining_result = self.collinear_chaining(anchors, &index.contig_starts, read_len);
 
             chaining_result.extract_chains(
@@ -322,9 +326,9 @@ impl Chainer {
             n_chains: chains.len(),
             time_randstrobes: 0.0,
             time_find_hits,
+            time_sort_anchors,
             time_chaining,
-            time_rescue: 0.0,
-            time_sort_chains: 0f64,
+            time_sort_chains: 0.0,
         };
 
         (chains, details, hits_details12)
