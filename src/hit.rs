@@ -15,6 +15,9 @@ const GLOBAL_RESCUE_COUNT: usize = 5;
 const LOCAL_RESCUE_THRESHOLD: usize = 10000;
 const GLOBAL_RESCUE_THRESHOLD: usize = 1000;
 
+/// find_all_hits() prefetches index data for this many randstrobes at a time
+const PREFETCH_BATCH_SIZE: usize = 64;
+
 #[derive(Debug)]
 pub struct Hit {
     pub query_start: usize,
@@ -124,6 +127,25 @@ fn rescue_least_frequent(
     rescued
 }
 
+/// Prefetch what looking up these randstrobes in find_all_hits() reads.
+///
+/// A lookup reads a bucket_starts entry and then the bucket it points to.
+/// Both are usually cache misses, and the bucket can only be located once the
+/// bucket_starts entry has been read. Prefetching first all bucket_starts
+/// entries and then all buckets lets the CPU wait for many misses at the same
+/// time instead of one after the other. hash_revcomp is prefetched as well
+/// because is_too_frequent() looks it up.
+fn prefetch_lookups(index: &StrobemerIndex, randstrobes: &[QueryRandstrobe]) {
+    for randstrobe in randstrobes {
+        index.prefetch_bucket_start(randstrobe.hash);
+        index.prefetch_bucket_start(randstrobe.hash_revcomp);
+    }
+    for randstrobe in randstrobes {
+        index.prefetch_bucket(randstrobe.hash);
+        index.prefetch_bucket(randstrobe.hash_revcomp);
+    }
+}
+
 /// Find all hits for a query, using the requested MCS strategy.
 /// Repetitive hits are included.
 fn find_all_hits(
@@ -136,7 +158,11 @@ fn find_all_hits(
     let mut hits_details = HitsDetails::default();
 
     if mcs_strategy != McsStrategy::FirstStrobe {
-        for randstrobe in query_randstrobes {
+        for (i, randstrobe) in query_randstrobes.iter().enumerate() {
+            if i.is_multiple_of(PREFETCH_BATCH_SIZE) {
+                let end = query_randstrobes.len().min(i + PREFETCH_BATCH_SIZE);
+                prefetch_lookups(index, &query_randstrobes[i..end]);
+            }
             if let Some(entry) = index.get_full_forward(randstrobe.hash) {
                 let is_filtered = entry.is_too_frequent(filter_cutoff, randstrobe.hash_revcomp);
                 if is_filtered {
