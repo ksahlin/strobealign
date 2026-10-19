@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
 
-use log::{debug, trace};
+use log::{debug, trace, warn};
 use rayon;
 use rayon::slice::ParallelSliceMut;
 
@@ -195,8 +195,11 @@ fn make_randstrobes_parallel(
     estimated_number_of_randstrobes: usize,
     n_threads: usize,
 ) -> Vec<RefRandstrobe> {
-    // Reserve slightly more memory than we estimate we need
-    let n = (estimated_number_of_randstrobes as f64 * 1.01) as usize;
+    // Reserve quite a bit more memory than we estimate we need because exceeding the
+    // estimate makes indexing very slow as soon as we hit the capacity.
+    // Reserving too much memory should not be a problem because the memory is not
+    // actually backed by physical RAM until we use it.
+    let n = (estimated_number_of_randstrobes as f64 * 1.2) as usize;
     let mut randstrobes = Vec::with_capacity(n);
 
     const SLICE_LENGTH: usize = 10000;
@@ -296,6 +299,14 @@ fn make_randstrobes_parallel(
         overflow.lock().unwrap().len()
     );
     randstrobes.extend_from_slice(&overflow.lock().unwrap());
+
+    let ptr_before = randstrobes.as_ptr();
+    randstrobes.shrink_to_fit();
+    if randstrobes.as_ptr() != ptr_before {
+        warn!(
+            "Unexpected behavior: Excessive memory usage because shrink_to_fit() re-allocated the randstrobes Vec. Please report this as a bug."
+        );
+    }
 
     randstrobes
 }
