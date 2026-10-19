@@ -78,16 +78,18 @@ then builds strobealign as it is in your working copy and compares the
 two produced BAM files. The baseline BAM is cached and re-used as long as the
 baseline commit does not change.
 
-## Making a release
+## Release checklist
 
-* Update changelog (adjust section header)
-* Bump version in `Cargo.toml`
-* Commit
-* Push and wait for CI to pass
-* Do `git tag ...` and `git push --tags`
-* Make a release via the GitHub releases page
-* Wait for the Bioconda bot to pick up the new release and then approve its
-  version bump PR
+- [ ] Increase `STI_FILE_FORMAT` constant if needed
+- [ ] Run benchmarks that compare to the previous version
+- [ ] Update changelog (check for completeness, adjust section header)
+- [ ] Bump version in `Cargo.toml`
+- [ ] Commit
+- [ ] Push and wait for CI to pass
+- [ ] Do `git tag ...` and `git push --tags`
+- [ ] `cargo publish`
+- [ ] Make a release via the GitHub releases page
+- [ ] Wait for the Bioconda bot to pick up the new release and then approve its version bump PR
 
 ## Detailed SAM output (`--details`)
 

@@ -1,12 +1,9 @@
 # Strobealign Changelog
 
-## development version
+## v0.19.1 (2026-10-19)
 
-* #666: Fix slow indexing of GRCh38. 
+* #666: Fix slow indexing of GRCh38.
 * #646: Speed up chaining slightly by avoiding some computations.
-* #661: Fix a bug in index construction that, for some references, made the
-  randstrobe with the smallest hash value impossible to find.
-  Pre-generated index files (`.sti` files) need to be re-generated.
 
 ## v0.19.0 (2026-10-08)
 
