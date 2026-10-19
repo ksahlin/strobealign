@@ -102,6 +102,7 @@ mapped reads.
 `X0`: Number of equally scored best alignments (greater than 1 for multimappers).
  For paired-end reads, the tag is output for both reads, but the value is
  identical and is the number of equally scored best alignment *pairs*.
+`du`: Number of insertions re-interpreted as tandem duplications.
 
 ## Hidden command-line options
 
