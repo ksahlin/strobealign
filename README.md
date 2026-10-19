@@ -1,6 +1,7 @@
 ![CI](https://github.com/ksahlin/strobealign/actions/workflows/ci.yml/badge.svg?branch=main)
 [![Crates.io](https://img.shields.io/crates/v/strobealign.svg)](https://crates.io/crates/strobealign)
 [![install with Bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg)](http://bioconda.github.io/recipes/strobealign/README.html)
+[![Bioconda downloads](https://anaconda.org/bioconda/strobealign/badges/downloads.svg)](https://anaconda.org/bioconda/strobealign)
 
 # strobealign: A fast short-read aligner
 
