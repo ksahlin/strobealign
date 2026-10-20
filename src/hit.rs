@@ -182,31 +182,28 @@ pub fn find_hit_full_strobe(
     hits_details: &mut HitsDetails,
     randstrobe: &QueryRandstrobe,
 ) -> Option<Hit> {
-    match index.get_full_forward(randstrobe.hash) {
-        Some(entry) => {
-            let is_filtered = entry.is_too_frequent(filter_cutoff, randstrobe.hash_revcomp);
-            if is_filtered {
-                hits_details.full_filtered += 1;
-            } else {
-                hits_details.full_found += 1;
-            }
-            let hit = Hit {
-                position: entry.position,
-                query_start: randstrobe.start,
-                query_end: randstrobe.end,
-                is_partial: false,
-                is_filtered,
-                hash: randstrobe.hash,
-                hash_revcomp: randstrobe.hash_revcomp,
-            };
-
-            Some(hit)
+    if let Some(entry) = index.get_full_forward(randstrobe.hash) {
+        let is_filtered = entry.is_too_frequent(filter_cutoff, randstrobe.hash_revcomp);
+        if is_filtered {
+            hits_details.full_filtered += 1;
+        } else {
+            hits_details.full_found += 1;
         }
-        None => {
-            hits_details.full_not_found += 1;
+        let hit = Hit {
+            position: entry.position,
+            query_start: randstrobe.start,
+            query_end: randstrobe.end,
+            is_partial: false,
+            is_filtered,
+            hash: randstrobe.hash,
+            hash_revcomp: randstrobe.hash_revcomp,
+        };
 
-            None
-        }
+        Some(hit)
+    } else {
+        hits_details.full_not_found += 1;
+
+        None
     }
 }
 
