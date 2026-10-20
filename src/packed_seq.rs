@@ -12,6 +12,7 @@
 pub struct PackedSeq {
     data: Vec<u64>,
     len: usize,
+    wildcards: usize,
 }
 
 #[derive(Debug)]
@@ -89,6 +90,7 @@ impl PackedSeq {
         let bits = if IS_WILDCARD[c as usize] == 0 {
             ENCODE[c as usize] as u64
         } else {
+            self.wildcards += 1;
             encode_wildcard(self.len)
         };
         let bit = (self.len & 31) * 2;
@@ -112,6 +114,10 @@ impl PackedSeq {
 
     pub fn is_empty(&self) -> bool {
         self.len == 0
+    }
+
+    pub fn wildcards(&self) -> usize {
+        self.wildcards
     }
 
     /// Return the raw 2-bit value of base `i` (0=A, 1=C, 2=G, 3=T).

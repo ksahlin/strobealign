@@ -471,8 +471,9 @@ fn run() -> Result<(), CliError> {
     let total_ref_size = refseq.total_length();
     let max_contig_size = refseq.max_contig_len().ok_or(CliError::NoReference)?;
     info!(
-        "Reference size: {:.2} Mbp ({} contig{}; largest: {:.2} Mbp)",
+        "Reference size: {:.2} Mbp ({:.2} Mbp non-ACGTs; {} contig{}; largest: {:.2} Mbp)",
         total_ref_size as f64 / 1E6,
+        refseq.wildcards() as f64 / 1E6,
         refseq.names.len(),
         if refseq.names.len() != 1 { "s" } else { "" },
         max_contig_size as f64 / 1E6
