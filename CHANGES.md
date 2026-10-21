@@ -2,9 +2,9 @@
 
 ## development version
 
-* #669: Fixed the algorithm used for converting N wildcards to random
-  nucleotides. This affects GRCh38, which now needs 0.5 GB less RAM at the
-  cost of 1 second indexing runtime.
+* #671 (and #669): Fixed the algorithm used for converting N wildcards to
+  random nucleotides. This affects GRCh38, for which the index now needs
+  0.5 GB less RAM.
 * #642: Prefetch index lookups, speeding up mapping by ~7%.
 
 ## v0.19.1 (2026-10-19)

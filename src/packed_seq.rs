@@ -1,5 +1,3 @@
-use rand_philox::Philox;
-
 /// 2-bit packed nucleotide sequence.
 ///
 /// Encoding: A=0, C=1, G=2, T/U=3.  Ambiguous/unknown bases (N, R, Y, ...)
@@ -60,15 +58,16 @@ static DECODE: [u8; 4] = *b"ACGT";
 
 /// Deterministic pseudo-random 2-bit value for position `pos`.
 ///
-/// This uses the Philox counter-based random number generator (CBRNG).
+/// This uses SplitMix64 as a counter-based random number generator (CBRNG).
 /// Using a "normal" random number generator seeded with the position
 /// does not work as it will generate repetitive sequences like
 /// 0, 1, 2, 3, 0, 1, 2, 3, ... for consecutive positions.
 #[inline]
 fn encode_wildcard(pos: usize) -> u64 {
-    let h = Philox::from_u64_seed(pos as u64).next_u32();
-
-    (h & 3) as u64
+    let mut z = (pos as u64).wrapping_add(0x9e3779b97f4a7c15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94d049bb133111eb);
+    z >> 62
 }
 
 impl PackedSeq {
