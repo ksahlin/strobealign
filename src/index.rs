@@ -88,6 +88,25 @@ pub struct StrobemerIndex {
     pub contig_starts: ContigStarts,
 }
 
+/// Tell the CPU that the memory at `ptr` will be read soon, so that it can
+/// start loading it into the cache. This is only a hint and does not change
+/// any results.
+#[inline(always)]
+fn prefetch<T>(ptr: *const T) {
+    // TODO Use std::hint::prefetch_read once it is stable (rust-lang/rust#146941)
+    #[cfg(target_arch = "aarch64")]
+    unsafe {
+        std::arch::asm!("prfm pldl1keep, [{0}]", in(reg) ptr, options(nostack, readonly, preserves_flags));
+    }
+    #[cfg(target_arch = "x86_64")]
+    unsafe {
+        use std::arch::x86_64::{_MM_HINT_T0, _mm_prefetch};
+        _mm_prefetch(ptr.cast::<i8>(), _MM_HINT_T0);
+    }
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    let _ = ptr;
+}
+
 pub struct IndexEntry<'a> {
     strobemer_index: &'a StrobemerIndex,
 
@@ -203,6 +222,40 @@ impl StrobemerIndex {
         hash_mask: RandstrobeHash,
     ) -> Option<IndexEntry<'_>> {
         self.get_masked_from(hash, hash_mask, None)
+    }
+
+    /// Prefetch the bucket_starts entry for `hash`
+    pub fn prefetch_bucket_start(&self, hash: RandstrobeHash) {
+        let top_n = (hash >> (64 - self.bits)) as usize;
+        prefetch(&self.bucket_starts[top_n]);
+    }
+
+    /// Prefetch the randstrobes that a lookup of `hash` reads in its bucket.
+    ///
+    /// This reads the bucket_starts entry for `hash`, so prefetch_bucket_start()
+    /// should have been called for the same hash some time before.
+    pub fn prefetch_bucket(&self, hash: RandstrobeHash) {
+        let top_n = (hash >> (64 - self.bits)) as usize;
+        let bucket = &self.randstrobes[self.bucket_starts[top_n]..self.bucket_starts[top_n + 1]];
+        if bucket.len() <= 64 {
+            // Small buckets (up to 64 randstrobes) are prefetched completely
+            //
+            // Since four RefRandstrobes (16 bytes) fit into a 64-byte cache line,
+            // prefetching every fourth is sufficient
+            for randstrobe in bucket.iter().step_by(4) {
+                prefetch(randstrobe);
+            }
+        } else {
+            // Of large buckets, approximately those randstrobes that the binary search
+            // (custom_partition_point) reads in its first three steps are prefetched.
+            for j in 0..8 {
+                prefetch(&bucket[bucket.len() * j / 8]);
+            }
+        }
+        // Prefetch also the last randstrobe
+        if let Some(last) = bucket.last() {
+            prefetch(last);
+        }
     }
 
     pub fn k(&self) -> usize {
