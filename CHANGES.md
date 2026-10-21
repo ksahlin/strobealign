@@ -1,5 +1,11 @@
 # Strobealign Changelog
 
+## development version
+
+* #669: Fixed the algorithm used for converting N wildcards to random
+  nucleotides. This affects GRCh38, which now needs 0.5 GB less RAM at the
+  cost of 1 second indexing runtime.
+
 ## v0.19.1 (2026-10-19)
 
 * #666: Fix slow indexing of GRCh38.
