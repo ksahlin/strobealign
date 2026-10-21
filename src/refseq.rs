@@ -125,6 +125,10 @@ impl RefSequence {
         (0..self.names.len()).map(|i| self.contig(i).len()).max()
     }
 
+    pub fn wildcards(&self) -> usize {
+        self.sequence.wildcards()
+    }
+
     pub fn total_length(&self) -> usize {
         self.starts.total_length()
     }
