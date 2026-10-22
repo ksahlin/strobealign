@@ -14,6 +14,7 @@ pub mod modes;
 pub mod packed_seq;
 pub mod partition;
 pub mod piecewisealigner;
+pub mod radixsort;
 pub mod read;
 pub mod refseq;
 pub mod revcomp;
