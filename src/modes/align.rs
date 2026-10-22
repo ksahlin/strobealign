@@ -28,7 +28,6 @@ use crate::io::sam::{
 use crate::math::normal_pdf;
 use crate::mcsstrategy::McsStrategy;
 use crate::modes::mapping_quality;
-use crate::piecewisealigner::remove_spurious_anchors;
 use crate::read::Read;
 use crate::refseq::{ContigPosition, RefSequence};
 use crate::revcomp::reverse_complement;
@@ -632,7 +631,6 @@ fn extend_seed(
             info = aligner.align(query, &segment)?;
             result_start = decode_start + info.ref_start;
         } else {
-            remove_spurious_anchors(&mut chain.anchors);
             // Decode the reference region needed by the piecewise aligner.
             // Use a generous range so all anchor-relative slices stay in bounds.
             let decode_start = contig_start.saturating_sub(query.len() + padding);
