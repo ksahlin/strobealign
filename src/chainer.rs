@@ -288,8 +288,7 @@ impl Chainer {
                 read_len < (1 << ANCHOR_QUERY_BITS),
                 "query positions must fit in ANCHOR_QUERY_BITS bits"
             );
-            anchors.sort_unstable();
-            anchors.dedup();
+            sort_and_dedup(&mut anchors);
             time_sort_anchors += timer.elapsed().as_secs_f64();
 
             // trace!(
@@ -367,6 +366,89 @@ fn compute_score(dq: usize, dr: usize, k: usize, parameters: &ChainingParameters
     score -= lin_penalty + 0.5 * log_penalty;
 
     score
+}
+
+/// Sort anchors and remove duplicates
+///
+/// The result is the same as that of `sort_unstable()` followed by `dedup()`.
+/// Since repetitive seeds can result in thousands of anchors per read, larger
+/// inputs are bucket sorted: The anchors are distributed into up to twice as
+/// many buckets as there are anchors, by their distance to the smallest anchor.
+/// Large buckets are then sorted separately, and a final insertion sort pass
+/// sorts the remaining small buckets.
+fn sort_and_dedup(anchors: &mut Vec<Anchor>) {
+    if anchors.len() < 256 {
+        anchors.sort_unstable();
+    } else {
+        // Anchors are processed in pairs below. If their number is odd, a
+        // duplicate is added, which is removed below with the other duplicates.
+        let n = anchors.len().next_multiple_of(2);
+        anchors.resize(n, anchors[0]);
+        // map() is much faster than comparing the references that iter() yields
+        let min = anchors.iter().map(|a| a.0).min().unwrap();
+        let max = anchors.iter().map(|a| a.0).max().unwrap();
+        let shift = (max - min).max(1).ilog2().saturating_sub(n.ilog2());
+        let bucket = |anchor: Anchor| ((anchor.0 - min) >> shift) as usize;
+
+        // Count the anchors in each bucket, then turn the counts into start
+        // offsets and remember the large buckets
+        let mut offsets = vec![0u32; bucket(Anchor(max)) + 1];
+        for pair in anchors.chunks_exact(2) {
+            increment_pair(&mut offsets, bucket(pair[0]), bucket(pair[1]));
+        }
+        let mut large_buckets = vec![];
+        let mut start = 0;
+        for offset in &mut offsets {
+            let count = std::mem::replace(offset, start);
+            if count > 32 {
+                large_buckets.push(start as usize..(start + count) as usize);
+            }
+            start += count;
+        }
+
+        let mut sorted = vec![Anchor(0); n];
+        for pair in anchors.chunks_exact(2) {
+            let (p0, p1) = increment_pair(&mut offsets, bucket(pair[0]), bucket(pair[1]));
+            sorted[p0] = pair[0];
+            sorted[p1] = pair[1];
+        }
+        for range in large_buckets {
+            sorted[range].sort_unstable();
+        }
+        // Insertion sort: Anchors now only need to be moved within their small bucket
+        for i in 1..n {
+            let mut j = i;
+            while j > 0 && sorted[j - 1] > sorted[j] {
+                sorted.swap(j - 1, j);
+                j -= 1;
+            }
+        }
+        *anchors = sorted;
+    }
+
+    // Remove duplicates (like `Vec::dedup`, but without a data-dependent branch)
+    let mut n_unique = 0;
+    let mut previous = None;
+    for i in 0..anchors.len() {
+        let anchor = anchors[i];
+        anchors[n_unique] = anchor;
+        n_unique += (previous != Some(anchor)) as usize;
+        previous = Some(anchor);
+    }
+    anchors.truncate(n_unique);
+}
+
+/// Increment `counters[b0]` and `counters[b1]` and return their previous values
+///
+/// Consecutive anchors are often in the same bucket. Handling them in pairs,
+/// where the second one takes the first one into account if both are in the
+/// same bucket, avoids waiting for the previous update of the same counter.
+fn increment_pair(counters: &mut [u32], b0: usize, b1: usize) -> (usize, usize) {
+    let c0 = counters[b0];
+    let c1 = counters[b1] + (b0 == b1) as u32;
+    counters[b0] = c0 + 1;
+    counters[b1] = c1 + 1;
+    (c0 as usize, c1 as usize)
 }
 
 fn add_to_anchors_full(
@@ -525,7 +607,7 @@ pub mod test {
         refseq::{ContigStarts, MAXIMUM_REFERENCE_LENGTH},
     };
 
-    use super::{Chainer, ChainingParameters};
+    use super::{Chainer, ChainingParameters, sort_and_dedup};
 
     /// A Vec of Anchors
     #[macro_export]
@@ -622,5 +704,32 @@ pub mod test {
         // dr=11, dq=1 gives a diagonal ratio of 11.0, exceeding the default max of 10.
         // The two anchors cannot be chained, so the best score is that of a single anchor.
         assert_eq!(chaining_result.best_score, chainer.k as f32);
+    }
+
+    #[test]
+    fn sort_and_dedup_matches_sort_unstable_and_dedup() {
+        let mut rng = fastrand::Rng::with_seed(1);
+        // Lengths below and above the threshold for using bucket sort
+        for len in (0..600).chain([1000, 5000, 20000]) {
+            // Anchors are clustered around few reference positions or spread
+            // out. Few distinct positions give many duplicates or even a
+            // single value.
+            for n_refs in [1, 2, 10, len.max(1), 1 << 30] {
+                for n_queries in [1, 1000] {
+                    let ref_base = rng.usize(..1 << 40);
+                    let mut anchors: Vec<Anchor> = (0..len)
+                        .map(|_| {
+                            let ref_start = ref_base + rng.usize(..n_refs) * 997;
+                            Anchor::new(ref_start, rng.usize(..n_queries))
+                        })
+                        .collect();
+                    let mut expected = anchors.clone();
+                    expected.sort_unstable();
+                    expected.dedup();
+                    sort_and_dedup(&mut anchors);
+                    assert_eq!(anchors, expected);
+                }
+            }
+        }
     }
 }
