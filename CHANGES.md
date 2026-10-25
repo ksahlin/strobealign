@@ -9,6 +9,11 @@
 * #685: Add `--be` (default 10000, 0 for no limit) to cap how far a chain is
   extended towards the read ends. This halves peak memory on HG002 ONT reads, from
   26 to 13 GiB.
+* #674: Implemented a score drop early stop heuristic for the piecewise start/end
+  extensions: an extension now stops where its score has dropped too far below
+  the best running score, which speeds up extension into read ends that the
+  reference does not explain. The threshold is a parameter (`--bd`, default
+  1036, which matches the default `--bw` and gap costs), `--bd 0` disables it.
 * #686: Avoid unbounded memory usage when data cannot be written to the
   output as fast as reads are mapped (that is, when the output file/stdout
   blocks).

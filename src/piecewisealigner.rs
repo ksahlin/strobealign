@@ -11,22 +11,36 @@ pub struct PiecewiseAligner {
     k: usize,
     bandwidth: usize,
     max_extension: usize,
+    score_drop: u32,
     simd_aligner: RefCell<SimdAligner>,
 }
 
 impl Clone for PiecewiseAligner {
     fn clone(&self) -> Self {
-        PiecewiseAligner::new(self.scores, self.k, self.bandwidth, self.max_extension)
+        PiecewiseAligner::new(
+            self.scores,
+            self.k,
+            self.bandwidth,
+            self.max_extension,
+            self.score_drop,
+        )
     }
 }
 
 impl PiecewiseAligner {
-    pub fn new(scores: Scores, k: usize, bandwidth: usize, max_extension: usize) -> Self {
+    pub fn new(
+        scores: Scores,
+        k: usize,
+        bandwidth: usize,
+        max_extension: usize,
+        score_drop: u32,
+    ) -> Self {
         PiecewiseAligner {
             scores,
             k,
             bandwidth,
             max_extension,
+            score_drop,
             simd_aligner: RefCell::new(SimdAligner::new(scores)),
         }
     }
@@ -82,6 +96,7 @@ impl PiecewiseAligner {
                 ref_part,
                 Some(self.bandwidth),
                 query_from == 0,
+                Some(self.score_drop),
             );
 
             if pre_align.score == 0 {
@@ -160,6 +175,7 @@ impl PiecewiseAligner {
                 ref_part,
                 Some(self.bandwidth),
                 query_to == query.len(),
+                Some(self.score_drop),
             );
 
             if post_align.score == 0 {
@@ -370,6 +386,7 @@ mod tests {
             5,
             1024,
             0,
+            1036,
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
@@ -399,14 +416,14 @@ mod tests {
         let refseq = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let anchors = anchors![(40, 30), (30, 20), (20, 10)];
 
-        let uncapped = PiecewiseAligner::new(scores, 5, 1024, 0)
+        let uncapped = PiecewiseAligner::new(scores, 5, 1024, 0, 1036)
             .extend_piecewise(query, refseq, &anchors, 5)
             .unwrap();
         assert_eq!(uncapped.query_start, 0);
         assert_eq!(uncapped.query_end, 50);
         assert_eq!(uncapped.score, 2 * 50 + 2 * 10);
 
-        let capped = PiecewiseAligner::new(scores, 5, 1024, 4)
+        let capped = PiecewiseAligner::new(scores, 5, 1024, 4, 1036)
             .extend_piecewise(query, refseq, &anchors, 5)
             .unwrap();
         assert_eq!(capped.query_start, 6);
@@ -429,6 +446,7 @@ mod tests {
             5,
             1024,
             0,
+            1036,
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq = b"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT";
@@ -451,6 +469,7 @@ mod tests {
             5,
             1024,
             0,
+            1036,
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq =
@@ -489,6 +508,7 @@ mod tests {
             5,
             1024,
             0,
+            1036,
         );
         let query = b"CTTTTAAAAATTTTAAAAATGGTTTCAAAAATTCCTAAAAATTTTTCCCCC";
         let refseq = b"TTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAA";
