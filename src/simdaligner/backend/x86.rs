@@ -152,6 +152,7 @@ unsafe impl Backend for Avx2 {
         const TRACK_ROW_MAX: bool,
         const ARG_LARGEST: bool,
         const BANDED: bool,
+        const SCORE_DROP: bool,
     >(
         probe: &mut U8Probe<Self>,
         qlen: usize,
@@ -161,9 +162,10 @@ unsafe impl Backend for Avx2 {
         gap_open: u8,
         gap_extend: u8,
         w: usize,
+        score_drop: i32,
     ) -> (i32, usize) {
         unsafe {
-            probe.fill_generic::<TRACE, TRACK_LAST_ROW, TRACK_ROW_MAX, ARG_LARGEST, BANDED>(
+            probe.fill_generic::<TRACE, TRACK_LAST_ROW, TRACK_ROW_MAX, ARG_LARGEST, BANDED, SCORE_DROP>(
                 qlen,
                 rlen,
                 match_score,
@@ -171,6 +173,7 @@ unsafe impl Backend for Avx2 {
                 gap_open,
                 gap_extend,
                 w,
+                score_drop,
             )
         }
     }
@@ -308,6 +311,7 @@ unsafe impl Backend for Sse41 {
         const TRACK_ROW_MAX: bool,
         const ARG_LARGEST: bool,
         const BANDED: bool,
+        const SCORE_DROP: bool,
     >(
         probe: &mut U8Probe<Self>,
         qlen: usize,
@@ -317,9 +321,10 @@ unsafe impl Backend for Sse41 {
         gap_open: u8,
         gap_extend: u8,
         w: usize,
+        score_drop: i32,
     ) -> (i32, usize) {
         unsafe {
-            probe.fill_generic::<TRACE, TRACK_LAST_ROW, TRACK_ROW_MAX, ARG_LARGEST, BANDED>(
+            probe.fill_generic::<TRACE, TRACK_LAST_ROW, TRACK_ROW_MAX, ARG_LARGEST, BANDED, SCORE_DROP>(
                 qlen,
                 rlen,
                 match_score,
@@ -327,6 +332,7 @@ unsafe impl Backend for Sse41 {
                 gap_open,
                 gap_extend,
                 w,
+                score_drop,
             )
         }
     }
