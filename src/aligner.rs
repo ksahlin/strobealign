@@ -56,9 +56,9 @@ pub struct Aligner {
 }
 
 impl Aligner {
-    pub fn new(scores: Scores, k: usize, bandwidth: usize) -> Self {
+    pub fn new(scores: Scores, k: usize, bandwidth: usize, score_drop: u32) -> Self {
         Aligner {
-            piecewise_aligner: Some(PiecewiseAligner::new(scores, k, bandwidth)),
+            piecewise_aligner: Some(PiecewiseAligner::new(scores, k, bandwidth, score_drop)),
             ..Aligner::new_ssw_only(scores)
         }
     }
@@ -311,7 +311,7 @@ mod test {
 
     #[test]
     fn ssw_align_no_result() {
-        let aligner = Aligner::new(Scores::default(), 0, 0);
+        let aligner = Aligner::new(Scores::default(), 0, 0, 1036);
         let query = b"TCTCTCCCTCTCTCTCTCTCCCTCCCTCTCTCTCCCTCTCTCTCTCTCTCTCCCTCCCTT";
         let refseq = b"GAGGGAGAGAGAGAGAGGGAGAGAGAGAGAGAG";
         let info = aligner.align(query, refseq);
@@ -320,7 +320,7 @@ mod test {
 
     #[test]
     fn call_count() {
-        let aligner = Aligner::new(Scores::default(), 0, 0);
+        let aligner = Aligner::new(Scores::default(), 0, 0, 1036);
         assert_eq!(aligner.call_count(), 0);
         let refseq = b"AAAAAACCCCCGGGGG";
         let query = b"CCCCC";

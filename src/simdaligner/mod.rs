@@ -39,6 +39,12 @@
 //! diagonal. Each method's own `# bandwidth` section says where its band is anchored and
 //! whether `w` can be widened.
 //!
+//! [`SimdAligner::local_end_alignment`] and [`SimdAligner::local_start_alignment`] take a
+//! second heuristic after it, `score_drop: Option<u32>`: `None` fills everything the band admits,
+//! `Some(z)` stops the fill where the score has fallen more than `z` below the best it reached,
+//! so how much of the matrix is filled depends on the sequences. Each method's own `# score_drop`
+//! section says what comes back from a stop.
+//!
 //! # Alphabet
 //! The alphabet is **A, C, G, T and U** (case-insensitive), and nothing else. `U` is RNA's
 //! T-equivalent and scores identically to `T`.
@@ -53,14 +59,18 @@
 //! about biology; `=`/`X` is about the bytes the caller handed us.
 //!
 //! # Guarantees
-//! With `bandwidth: None` the alignment is *exact* at every length: the reported score is the
-//! optimal score under the given scheme, and the CIGAR is an alignment achieving it. There is
-//! no x-drop and no early exit. With `Some(w)` it is optimal among alignments staying inside
-//! the band. Either way every input pair produces an alignment, including ones whose optimal
-//! score is negative.
+//! With `bandwidth: None` and no score drop the alignment is *exact* at every length: the reported
+//! score is the optimal score under the given scheme, and the CIGAR is an alignment achieving
+//! it. With `Some(w)`, still without a score drop, it is optimal among alignments staying
+//! inside the band. Either way every
+//! input pair produces an alignment, including ones whose optimal score is negative.
 //!
-//! `piecewisealigner.rs` passes `None` between anchors and `Some(w)` for the end extensions, so
-//! "exact" is not a property of the aligner as strobealign uses it.
+//! `score_drop: Some(z)` is **the only early exit in here**, and the only heuristic with no optimum
+//! to be exact against: it stops the fill and reports the best alignment in the region that was
+//! filled. See [`SimdAligner::local_end_alignment`].
+//!
+//! `piecewisealigner.rs` passes `None` between anchors and `Some(w)` with a score drop for the end
+//! extensions, so "exact" is not a property of the aligner as strobealign uses it.
 //!
 //! # The kernel
 //! One kernel (u8 lanes on a difference recurrence) and every call takes it. Written once,
@@ -135,7 +145,8 @@ pub mod internal {
 ///
 /// `Default` is the **empty alignment**: score 0, all four coordinates at 0, and an empty
 /// CIGAR. It is a real result, returned by [`SimdAligner::local_end_alignment`] when no
-/// extension scores better than stopping immediately.
+/// extension scores better than stopping immediately, including where a score drop stopped the fill
+/// before one did.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AlignmentResult {
     pub score: i32,

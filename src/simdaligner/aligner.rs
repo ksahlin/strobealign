@@ -135,6 +135,12 @@ fn validate(scores: Scores) {
     }
 }
 
+/// The kernel's score drop threshold, as an `i32` with `0` for off. Saturated rather than wrapped,
+/// though no drop can reach a threshold anywhere near that large.
+fn clamp_score_drop(score_drop: Option<u32>) -> i32 {
+    score_drop.unwrap_or(0).min(i32::MAX as u32) as i32
+}
+
 /// Call the same method on whichever kernel was selected.
 ///
 /// The body is written once and monomorphized per backend by inference on `$ws`, so dispatch
@@ -363,11 +369,32 @@ impl SimdAligner {
     /// Anchored at `(0, 0)`, which is in every band, so `Some(w)` is exactly `w`: this and
     /// [`local_start_alignment`](SimdAligner::local_start_alignment) are the only two modes
     /// never widened.
+    ///
+    /// # `score_drop`
+    ///
+    /// `Some(z)` stops the fill where the extension has given up: where the best score on the
+    /// current anti-diagonal has fallen more than `z` below the best any earlier one reached.
+    /// What comes back is the best alignment inside the region that was filled, which for a
+    /// hopeless extension is a short alignment or the empty one. **`end_bonus` is applied only
+    /// where the fill still reached the end of the query**, since a stop short of it leaves no
+    /// cell that finishes the query to apply it to. The test is sampled, so a stop can land
+    /// later than where the threshold was first crossed, or not happen at all where the score
+    /// recovers in between. `None` and `Some(0)` are off, and the
+    /// optimum above holds.
+    ///
+    /// `z` is a flat threshold, with no term for how far the alignment has drifted off the
+    /// anchor diagonal, which the band bounds by `w` where there is one. So pick `z` against the
+    /// same gap `w` is picked against: a deletion of `g` reference bases needs `w >= g` to stay
+    /// in band and costs `gap_open + (g - 1) * gap_extend` before it pays anything back, so a `z`
+    /// well under that cost breaks the alignment at that gap however wide `w` is. A `z`
+    /// just under it can still survive one: the test only looks every few anti-diagonals, so it
+    /// can step over the trough.
     pub fn local_end_alignment(
         &mut self,
         query: &[u8],
         reference: &[u8],
         bandwidth: Option<usize>,
+        score_drop: Option<u32>,
     ) -> AlignmentResult {
         dispatch!(self, ws => ws.local_end_alignment(
             query,
@@ -378,6 +405,7 @@ impl SimdAligner {
             self.scores.gap_extend,
             self.scores.end_bonus,
             bandwidth,
+            clamp_score_drop(score_drop),
         ))
     }
 
@@ -402,11 +430,18 @@ impl SimdAligner {
     /// As [`local_end_alignment`](SimdAligner::local_end_alignment), **mirrored with the mode**:
     /// the band is anchored at the *ends* of the two inputs, where this alignment is pinned, so
     /// it constrains start cells to `|(qlen - a) - (rlen - b)| <= w`.
+    ///
+    /// # `score_drop`
+    ///
+    /// As [`local_end_alignment`](SimdAligner::local_end_alignment), **mirrored with the mode**:
+    /// the fill runs from the ends of the two inputs, so a stop truncates the alignment at its
+    /// *start*, and the `end_bonus` candidate is the one that reaches `query_start == 0`.
     pub fn local_start_alignment(
         &mut self,
         query: &[u8],
         reference: &[u8],
         bandwidth: Option<usize>,
+        score_drop: Option<u32>,
     ) -> AlignmentResult {
         dispatch!(self, ws => ws.local_start_alignment(
             query,
@@ -417,6 +452,7 @@ impl SimdAligner {
             self.scores.gap_extend,
             self.scores.end_bonus,
             bandwidth,
+            clamp_score_drop(score_drop),
         ))
     }
 

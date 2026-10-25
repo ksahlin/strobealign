@@ -210,6 +210,7 @@ pub unsafe trait Backend: Copy + 'static {
         const TRACK_ROW_MAX: bool,
         const ARG_LARGEST: bool,
         const BANDED: bool,
+        const SCORE_DROP: bool,
     >(
         probe: &mut U8Probe<Self>,
         qlen: usize,
@@ -219,6 +220,7 @@ pub unsafe trait Backend: Copy + 'static {
         gap_open: u8,
         gap_extend: u8,
         w: usize,
+        score_drop: i32,
     ) -> (i32, usize)
     where
         Self: Sized;

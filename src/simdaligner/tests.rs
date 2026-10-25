@@ -232,7 +232,7 @@ fn local_end_stops_before_a_bad_tail() {
     // The reference matches for 6 bases then diverges completely. Extending into the tail
     // costs more than it earns, so the alignment stops at the divergence.
     let (query, reference) = (b"AAATTTGGGGGG", b"AAATTTCCCCCC");
-    let result = aligner().local_end_alignment(query, reference, None);
+    let result = aligner().local_end_alignment(query, reference, None, None);
     check(&result, query, reference, 0);
     assert_eq!(result.score, 6 * 2);
     assert_eq!(result.cigar.to_string(), "6=");
@@ -245,7 +245,7 @@ fn local_end_spans_the_query_for_the_end_bonus() {
     // A single trailing mismatch is worth crossing: -8 for the mismatch against +10 of
     // end_bonus for reaching the end of the query.
     let (query, reference) = (b"AAATTTG", b"AAATTTC");
-    let result = aligner().local_end_alignment(query, reference, None);
+    let result = aligner().local_end_alignment(query, reference, None, None);
     check(&result, query, reference, SCORES.end_bonus as i32);
     assert_eq!(result.score, 6 * 2 - 8 + 10);
     assert_eq!(result.cigar.to_string(), "6=1X");
@@ -255,7 +255,7 @@ fn local_end_spans_the_query_for_the_end_bonus() {
 #[test]
 fn local_end_never_scores_below_zero() {
     // Nothing is worth aligning, so the empty alignment wins.
-    let result = aligner().local_end_alignment(b"GGGG", b"CCCC", None);
+    let result = aligner().local_end_alignment(b"GGGG", b"CCCC", None, None);
     assert_eq!(result.score, 0);
     assert!(result.cigar.is_empty());
     assert_eq!((result.query_end, result.ref_end), (0, 0));
@@ -266,12 +266,127 @@ fn local_start_is_the_mirror_of_local_end() {
     // Same shape as `local_end_stops_before_a_bad_tail`, reversed: the junk is a leading
     // prefix and the alignment begins after it.
     let (query, reference) = (b"GGGGGGAAATTT", b"CCCCCCAAATTT");
-    let result = aligner().local_start_alignment(query, reference, None);
+    let result = aligner().local_start_alignment(query, reference, None, None);
     check(&result, query, reference, 0);
     assert_eq!(result.score, 6 * 2);
     assert_eq!(result.cigar.to_string(), "6=");
     assert_eq!((result.query_start, result.query_end), (6, 12));
     assert_eq!((result.ref_start, result.ref_end), (6, 12));
+}
+
+// ---------------------------------------------------------------------------------
+// The score drop, which only the two modes above have.
+// ---------------------------------------------------------------------------------
+
+/// 40 matching bases, then 40 the reference has and the query does not, then 80 more that
+/// match. Crossing the gap pays for itself (`-51` for the deletion against `+160` for the
+/// tail), so the unbounded alignment spans the query and the score drop of 13 below does not.
+const DROP_QUERY: &[u8] = b"GCTAAAGACAATTACATAACATACACGTCAGCACGAAACT\
+GATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCAGAAACAGAACTCGGGTAATT";
+const DROP_REF: &[u8] = b"GCTAAAGACAATTACATAACATACACGTCAGCACGAAACT\
+TGTTGGCCCAGTGTGAATCGCTTAAGGGTTAAGTAAGTGT\
+GATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCAGAAACAGAACTCGGGTAATT";
+
+#[test]
+fn a_tight_score_drop_gives_up_inside_the_deletion() {
+    // 13 is what the deletion's first two bases already cost, so a sampled anti-diagonal inside
+    // the gap stops the fill and the head comes back on its own, with no end bonus because
+    // nothing reached the end of the query. A
+    // fresh aligner on purpose: with `tb_base` past the stop still zero, an argmax scan that
+    // ignored the stop aliases to chunk 0 and picks a different column.
+    let mut aligner = aligner();
+    let dropped = aligner.local_end_alignment(DROP_QUERY, DROP_REF, None, Some(13));
+    check(&dropped, DROP_QUERY, DROP_REF, 0);
+    assert_eq!(dropped.cigar.to_string(), "40=");
+    assert_eq!(dropped.score, 40 * 2);
+    assert_eq!(dropped.query_end, 40);
+
+    // Unbounded, the deletion is crossed. `39=` rather than `40=`: the head's last base and the
+    // gap's first are both `T`, so the deletion can start a base earlier at the same score, and
+    // the replay prefers the diagonal.
+    let crossed = aligner.local_end_alignment(DROP_QUERY, DROP_REF, None, None);
+    check(&crossed, DROP_QUERY, DROP_REF, SCORES.end_bonus as i32);
+    assert_eq!(crossed.cigar.to_string(), "39=40D81=");
+    assert_eq!(crossed.score, 120 * 2 - (12 + 39) + 10);
+    assert_eq!(crossed.query_end, DROP_QUERY.len());
+    // `Some(0)` is off, the same fill as `None`.
+    assert_eq!(
+        aligner.local_end_alignment(DROP_QUERY, DROP_REF, None, Some(0)),
+        crossed
+    );
+}
+
+#[test]
+fn a_banded_score_drop_that_stops_inside_the_band_reads_no_further() {
+    // A stop leaves every row past it unfilled, and under a band those are rows the band's own
+    // bound would still offer. The two bandwidths take the two branches of `reached`, since the
+    // stop lands below one and above the other. The long alignment first leaves large maxima in
+    // those rows, so reading one is a score no CIGAR produces rather than a harmless zero.
+    let long: Vec<u8> = b"ACGTTGCAAGGCTTAC"
+        .iter()
+        .cycle()
+        .take(1200)
+        .copied()
+        .collect();
+    let query: Vec<u8> = b"ACCAGTTCAGGTCAAT"
+        .iter()
+        .cycle()
+        .take(300)
+        .copied()
+        .collect();
+    let reference: Vec<u8> = b"TTGAGATCTGGATCGG"
+        .iter()
+        .cycle()
+        .take(300)
+        .copied()
+        .collect();
+    let mut aligner = aligner();
+    aligner.local_end_alignment(&long, &long, None, None);
+    for w in [8, 64] {
+        let dropped = aligner.local_end_alignment(&query, &reference, Some(w), Some(13));
+        check(&dropped, &query, &reference, 0);
+        assert_eq!(dropped.score, 0, "band {w}");
+    }
+}
+
+#[test]
+fn a_score_drop_after_the_query_was_spanned_keeps_the_end_bonus() {
+    // The query is the head alone, so the fill reaches row `qlen` early and only then runs out of
+    // score along the reference's tail. The stop is past row `qlen`, so the `end_bonus` candidate
+    // is still there and the answer is the unbounded one.
+    let query = &DROP_QUERY[..40];
+    let mut aligner = aligner();
+    let exact = aligner.local_end_alignment(query, DROP_REF, None, None);
+    let dropped = aligner.local_end_alignment(query, DROP_REF, None, Some(13));
+    assert_eq!(dropped, exact);
+    check(&dropped, query, DROP_REF, SCORES.end_bonus as i32);
+    assert_eq!(dropped.score, 40 * 2 + 10);
+    assert_eq!(dropped.query_end, 40);
+}
+
+#[test]
+fn a_score_drop_wider_than_the_fall_changes_nothing() {
+    // Armed, since the size gate's window is far past 60, but 60 is past the 51 the deletion
+    // costs, so the sampled test runs the length of the fill without ever stopping it.
+    let mut aligner = aligner();
+    let exact = aligner.local_end_alignment(DROP_QUERY, DROP_REF, None, None);
+    assert_eq!(
+        aligner.local_end_alignment(DROP_QUERY, DROP_REF, None, Some(60)),
+        exact
+    );
+}
+
+#[test]
+fn a_score_drop_mirrors_with_local_start() {
+    // Same sequences read back to front: the gap is now a leading deletion, so the stop
+    // truncates the alignment at its start.
+    let rev = |s: &[u8]| -> Vec<u8> { s.iter().rev().copied().collect() };
+    let (query, reference) = (rev(DROP_QUERY), rev(DROP_REF));
+    let result = aligner().local_start_alignment(&query, &reference, None, Some(13));
+    check(&result, &query, &reference, 0);
+    assert_eq!(result.cigar.to_string(), "40=");
+    assert_eq!(result.score, 40 * 2);
+    assert_eq!(result.query_start, query.len() - 40);
 }
 
 #[test]
