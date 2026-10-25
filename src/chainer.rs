@@ -143,8 +143,9 @@ impl Chainer {
             let ai = anchors[i];
 
             // Flat start position of the contig that a[i] is on
-            while ai.ref_start() >= starts[contig_index + 1] {
-                contig_index += 1;
+            if ai.ref_start() >= starts[contig_index + 1] {
+                contig_index +=
+                    starts[contig_index + 1..].partition_point(|&x| x <= ai.ref_start());
             }
             let ref_contig_start = starts[contig_index];
             // Smallest ref_start of an anchor that is on the same contig as a[i]
