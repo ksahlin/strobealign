@@ -349,11 +349,13 @@ mod differential {
                 for bandwidth in [None, Some(0), Some(1), Some(8), Some(33)] {
                     let (m, mm, go, ge, eb) = (2u8, 8u8, 12u8, 1u8, 10u32);
 
+                    // `$tail` is what goes AFTER the bandwidth, which is where the local
+                    // modes take their score drop.
                     macro_rules! same {
-                        ($mode:ident $(, $extra:expr)*) => {
+                        ($mode:ident $(, $extra:expr)* $(; $tail:expr)?) => {
                             assert_eq!(
-                                pa.$mode(&q, &r, m, mm, go, ge $(, $extra)*, bandwidth),
-                                pb.$mode(&q, &r, m, mm, go, ge $(, $extra)*, bandwidth),
+                                pa.$mode(&q, &r, m, mm, go, ge $(, $extra)*, bandwidth $(, $tail)*),
+                                pb.$mode(&q, &r, m, mm, go, ge $(, $extra)*, bandwidth $(, $tail)*),
                                 "{} vs {} disagree on {} (qlen={qlen}, rlen={rlen}, band={bandwidth:?})\n\
                                  query={:?}\nref={:?}",
                                 A::NAME, B::NAME, stringify!($mode),
@@ -365,8 +367,13 @@ mod differential {
                     same!(global_alignment);
                     same!(local_reference_end_alignment);
                     same!(local_reference_start_alignment);
-                    same!(local_end_alignment, eb);
-                    same!(local_start_alignment, eb);
+                    // Off, and tight enough to fire on most of these shapes: the stop is
+                    // decided per anti-diagonal from `abs`, so a backend whose i32 lanes
+                    // disagree anywhere stops elsewhere and the whole alignment moves.
+                    for score_drop in [0i32, 40] {
+                        same!(local_end_alignment, eb; score_drop);
+                        same!(local_start_alignment, eb; score_drop);
+                    }
                 }
 
                 // Split-reference takes two references, so it gets its own call.

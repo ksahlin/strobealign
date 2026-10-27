@@ -2,6 +2,11 @@
 
 ## development version
 
+* #674: Implemented a score drop early stop heuristic for the piecewise start/end
+  extensions: an extension now stops where its score has dropped too far below
+  the best running score, which speeds up extension into read ends that the
+  reference does not explain. The threshold is a parameter (`--bd`, default
+  1036, which matches the default `--bw` and gap costs), `--bd 0` disables it.
 * #671 (and #669): Fixed the algorithm used for converting N wildcards to
   random nucleotides. This affects GRCh38, for which the index now needs
   0.5 GB less RAM.

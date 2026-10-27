@@ -287,6 +287,10 @@ struct Args {
     #[arg(long = "bw", default_value_t = 1024, value_name = "N", help_heading = "Alignment")]
     bandwidth: usize,
 
+    /// Score dropoff of the piecewise start/end extensions, 0 to disable
+    #[arg(long = "bd", default_value_t = 1036, value_name = "N", help_heading = "Alignment")]
+    score_drop: u32,
+
 
     /// Path to input reference (in FASTA format)
     ref_path: String,
@@ -570,7 +574,7 @@ fn run() -> Result<(), CliError> {
     let aligner = if args.use_ssw {
         Aligner::new_ssw_only(scores)
     } else {
-        Aligner::new(scores, index.k(), args.bandwidth)
+        Aligner::new(scores, index.k(), args.bandwidth, args.score_drop)
     };
 
     let cmd_line = env::args().skip(1).collect::<Vec<_>>().join(" ");

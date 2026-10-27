@@ -111,6 +111,18 @@ const TB_WORDS: usize = 4;
 /// `U8Probe::nm`.
 const NM_WORDS: usize = 1;
 
+/// How often the score drop test runs, in anti-diagonals. See `SCORE_DROP` on `fill_generic`.
+///
+/// Sampling only **delays** the stop, and can never cause one: the test compares an exact
+/// anti-diagonal maximum against a running best that is itself a maximum over sampled
+/// anti-diagonals, hence no larger than the true one. So the
+/// period is free to trade a few more anti-diagonals of fill against the test, which is one
+/// more pass over the interior: `(hi - lo) / (SCORE_DROP_PERIOD * B::LANES32)` loads and `max32`s
+/// per anti-diagonal.
+///
+/// A power of two so the test is a mask rather than a division.
+const SCORE_DROP_PERIOD: usize = 16;
+
 const TB_FROM_E: usize = 0;
 const TB_E_OPEN: usize = 1;
 const TB_F_OPEN: usize = 2;
@@ -179,6 +191,42 @@ fn band_rows<const BANDED: bool>(p: usize, qlen: usize, rlen: usize, w: usize) -
 #[inline]
 fn band_reaches_everything(qlen: usize, rlen: usize, w: usize) -> bool {
     w >= qlen.max(rlen)
+}
+
+/// Can a score drop of `score_drop` fire at all on a `qlen x rlen` matrix?
+///
+/// Every achievable score lies in a window that the two sequence lengths bound, and if the
+/// whole window fits inside `score_drop` then no drop can ever reach the threshold, so arming the
+/// test is pure cost. The window:
+///
+/// ```text
+/// best  <= match * min(qlen, rlen)              a path has that many matches at most
+/// worst >= -2*gap_open - (qlen + rlen)*gap_extend    the all-gaps path to any cell
+/// ```
+///
+/// and the test compares a best against an anti-diagonal maximum, both inside it, so
+/// `best - worst <= score_drop` means it can never fire, which is what keeps the short
+/// extensions off the sampled pass. The `qlen + rlen` term is what arms a long one: a query
+/// facing much more reference than its own length can drop where a square matrix of the same
+/// query cannot.
+///
+/// **Takes no `w`, and errs only towards not arming**: a band lowers the best and the
+/// anti-diagonal maxima alike, and the all-gaps path to a cell may leave the strip, so a banded
+/// fill can drop by more than this window. What that costs is a stop not taken, never a
+/// truncation.
+#[inline]
+fn score_drop_can_fire(
+    qlen: usize,
+    rlen: usize,
+    match_score: u8,
+    gap_open: u8,
+    gap_extend: u8,
+    score_drop: i32,
+) -> bool {
+    let window = match_score as i64 * qlen.min(rlen) as i64
+        + 2 * gap_open as i64
+        + (qlen + rlen) as i64 * gap_extend as i64;
+    window > score_drop as i64
 }
 
 /// The query counterpart of [`ref_span`]. Only the `local_*` modes (the ones that let the
@@ -283,6 +331,12 @@ pub struct U8Probe<B: Backend> {
     /// *is* the update condition, so the last cell whose bit is set is by construction the cell
     /// a blend would have left.
     nm: Vec<u32>,
+    /// The anti-diagonal the last fill stopped on: `qlen + rlen` unless its score drop cut it
+    /// short. Past it `row_max`, `nm` and `tb_base` hold whatever the previous call left, so
+    /// every scan over them has to stop here; see `local`.
+    /// `usize::MAX` is what the other modes pass `arg_for_row*`, not this: `split_reference`
+    /// runs two fills, so by the time the a-side argmax is taken this holds the b-side's stop.
+    last_p: usize,
     /// Row 0's argmax, which the bit stream cannot carry: row 0 is never *interior* to an
     /// anti-diagonal (`i_from >= 1` always), so it has no lane and no bit. Maintained scalar in
     /// the boundary, and load-bearing: with `gap_open == gap_extend == 0` the whole of row 0
@@ -320,6 +374,7 @@ impl<B: Backend> Default for U8Probe<B> {
             abs: Vec::new(),
             row_max: Vec::new(),
             nm: Vec::new(),
+            last_p: 0,
             row0_arg: 0,
             tb_b: Vec::new(),
             tb_base_b: Vec::new(),
@@ -348,6 +403,10 @@ impl<B: Backend> Default for U8Probe<B> {
 /// Falling off the bottom means no interior cell ever took the max, so the row's max is still
 /// its column-0 seed: `j = 0`.
 ///
+/// `p_max` is the anti-diagonal the fill stopped on, or `usize::MAX` from the modes that never
+/// stop early: past a stop `nm` and `tb_base` hold the previous call's leftovers, so the scan
+/// starts there rather than at the matrix edge.
+///
 /// The scan is two phases because `lane = row - max(1, p - rlen)` is constant at `row - 1` while
 /// `p <= rlen + 1`, which is most of it.
 fn arg_for_row<B: Backend>(
@@ -356,6 +415,7 @@ fn arg_for_row<B: Backend>(
     row0_arg: i32,
     row: usize,
     rlen: usize,
+    p_max: usize,
 ) -> usize {
     // Row 0 has no lane and no bit (`i_from >= 1` always), so it is carried scalar.
     if row == 0 {
@@ -371,7 +431,7 @@ fn arg_for_row<B: Backend>(
         }
     };
 
-    let mut p = row + rlen;
+    let mut p = (row + rlen).min(p_max);
     // Phase 2: `p > rlen + 1`, so `i_from = p - rlen` and the lane slides with `p`. At most
     // `qlen` iterations, the ramp off the end of the reference.
     while p > rlen + 1 && p > row {
@@ -407,6 +467,9 @@ fn arg_for_row<B: Backend>(
 /// row `row > w` has no column-0 cell and is seeded at its first in-band column by the fill's
 /// band-entry seed. `saturating_sub` covers both cases.
 ///
+/// `p_max` bounds the scan the way it does in [`arg_for_row`]: a fill that stopped on a score
+/// drop wrote nothing past its stop.
+///
 /// That also disposes of the one garbage bit in the stream. At `p = 2*row - w` the row's `take`
 /// came from a `ΔV` whose left neighbour is outside the band, so the bit means nothing, but the
 /// scan only reaches it after finding no set bit above, which is exactly the case where the
@@ -419,12 +482,13 @@ fn arg_for_row_banded<B: Backend>(
     qlen: usize,
     rlen: usize,
     w: usize,
+    p_max: usize,
 ) -> usize {
     if row == 0 {
         return row0_arg as usize;
     }
     // Row `row` is interior to `p` for `j = p - row` in `[1, rlen]` and `|2*row - p| <= w`.
-    let p_hi = (row + rlen).min(2 * row + w);
+    let p_hi = (row + rlen).min(2 * row + w).min(p_max);
     let p_lo = (row + 1).max((2 * row).saturating_sub(w));
 
     let mut p = p_hi;
@@ -752,8 +816,16 @@ impl<B: Backend> U8Probe<B> {
         );
         let score = self.row_max[qlen];
         // `ARG_LARGEST = false` in `row_pass`, so ties give the smallest `j` (this mode's rule).
-        let j =
-            arg_for_row_banded::<B>(&self.nm, &self.tb_base, self.row0_arg, qlen, qlen, rlen, w);
+        let j = arg_for_row_banded::<B>(
+            &self.nm,
+            &self.tb_base,
+            self.row0_arg,
+            qlen,
+            qlen,
+            rlen,
+            w,
+            usize::MAX,
+        );
         debug_assert!(
             qlen.abs_diff(j) <= w,
             "the reduce picked ({qlen}, {j}), which is outside the band of {w}"
@@ -779,6 +851,11 @@ impl<B: Backend> U8Probe<B> {
     /// `end_bonus` never enters the DP. It is applied once, at the end, to choose between "the
     /// best cell anywhere" and "the best cell that finishes the query". Ties resolve to the
     /// **longest extension**: largest `query_end`, then largest `ref_end`.
+    ///
+    /// `score_drop` bounds how far the fill goes, `0` is off, and the result is then the best
+    /// alignment inside the region filled; see `SCORE_DROP` on `fill_generic`. The bonus candidate
+    /// survives a stop that came after row `qlen` was reached and is gone where the fill stopped
+    /// before the query was spanned, because then no cell finishes it.
     #[allow(clippy::too_many_arguments)] // a kernel entry point: the scheme is five scalars
     pub fn local_end_alignment(
         &mut self,
@@ -790,12 +867,22 @@ impl<B: Backend> U8Probe<B> {
         ge: u8,
         end_bonus: u32,
         bandwidth: Option<usize>,
+        score_drop: i32,
     ) -> AlignmentResult {
         match bandwidth {
-            Some(w) if !band_reaches_everything(query.len(), refseq.len(), w.max(1)) => {
-                self.local::<false, true>(query, refseq, m, mm, go, ge, end_bonus, w.max(1))
-            }
-            _ => self.local::<false, false>(query, refseq, m, mm, go, ge, end_bonus, 0),
+            Some(w) if !band_reaches_everything(query.len(), refseq.len(), w.max(1)) => self
+                .local::<false, true>(
+                    query,
+                    refseq,
+                    m,
+                    mm,
+                    go,
+                    ge,
+                    end_bonus,
+                    w.max(1),
+                    score_drop,
+                ),
+            _ => self.local::<false, false>(query, refseq, m, mm, go, ge, end_bonus, 0, score_drop),
         }
     }
 
@@ -804,6 +891,8 @@ impl<B: Backend> U8Probe<B> {
     /// Its empty alignment sits at the *end* of both sequences (`qlen..qlen`, `rlen..rlen`),
     /// the mirror of `local_end`'s, which sits at the start. Tie-break mirrored too: the
     /// **smallest** `query_start`, then the smallest `ref_start`.
+    ///
+    /// `score_drop` as in [`U8Probe::local_end_alignment`], mirrored with the mode.
     #[allow(clippy::too_many_arguments)] // a kernel entry point: the scheme is five scalars
     pub fn local_start_alignment(
         &mut self,
@@ -815,17 +904,31 @@ impl<B: Backend> U8Probe<B> {
         ge: u8,
         end_bonus: u32,
         bandwidth: Option<usize>,
+        score_drop: i32,
     ) -> AlignmentResult {
         match bandwidth {
-            Some(w) if !band_reaches_everything(query.len(), refseq.len(), w.max(1)) => {
-                self.local::<true, true>(query, refseq, m, mm, go, ge, end_bonus, w.max(1))
-            }
-            _ => self.local::<true, false>(query, refseq, m, mm, go, ge, end_bonus, 0),
+            Some(w) if !band_reaches_everything(query.len(), refseq.len(), w.max(1)) => self
+                .local::<true, true>(
+                    query,
+                    refseq,
+                    m,
+                    mm,
+                    go,
+                    ge,
+                    end_bonus,
+                    w.max(1),
+                    score_drop,
+                ),
+            _ => self.local::<true, false>(query, refseq, m, mm, go, ge, end_bonus, 0, score_drop),
         }
     }
 
     /// `w` is read only when `BANDED`, and is the caller's bandwidth already clamped to
     /// `>= 1`: a zero-width band is not meaningful, so callers clamp rather than pass it on.
+    ///
+    /// `score_drop` is the threshold and `0` is off. It stops the fill short, so the reduce
+    /// below is bounded by `last_p` and the `end_bonus` candidate exists only where the fill
+    /// still reached row `qlen`; see `SCORE_DROP` on `fill_generic`.
     #[allow(clippy::too_many_arguments)] // ditto, plus the bandwidth
     fn local<const REVERSED: bool, const BANDED: bool>(
         &mut self,
@@ -837,6 +940,7 @@ impl<B: Backend> U8Probe<B> {
         gap_extend: u8,
         end_bonus: u32,
         w: usize,
+        score_drop: i32,
     ) -> AlignmentResult {
         let (qlen, rlen) = (query.len(), refseq.len());
         // A zero-length side skips the kernel, but it is NOT simply "the empty alignment":
@@ -906,18 +1010,33 @@ impl<B: Backend> U8Probe<B> {
         self.prepare::<REVERSED>(query, refseq, match_score, gap_open, gap_extend);
         self.size_flags::<true, BANDED>(qlen, rlen, w);
 
-        unsafe {
-            B::fill::<true, false, true, true, BANDED>(
-                self,
-                qlen,
-                rlen,
-                match_score,
-                mismatch,
-                gap_open,
-                gap_extend,
-                w,
-            )
-        };
+        // One branch per alignment, so the fill without a score drop carries none of its state;
+        // see `SCORE_DROP` on `fill_generic`.
+        macro_rules! fill {
+            ($score_drop:literal) => {
+                unsafe {
+                    B::fill::<true, false, true, true, BANDED, $score_drop>(
+                        self,
+                        qlen,
+                        rlen,
+                        match_score,
+                        mismatch,
+                        gap_open,
+                        gap_extend,
+                        w,
+                        score_drop,
+                    )
+                }
+            };
+        }
+        if score_drop > 0
+            && score_drop_can_fire(qlen, rlen, match_score, gap_open, gap_extend, score_drop)
+        {
+            fill!(true);
+        } else {
+            fill!(false);
+        }
+        let last_p = self.last_p;
 
         // How far down the query the band still has cells to offer.
         //
@@ -926,7 +1045,21 @@ impl<B: Backend> U8Probe<B> {
         // filled: `row_max[i]` there is whatever the previous call left, or the garbage the
         // partial chunk's tail wrote. So the reduce must not look at them: a wrong-but-huge
         // value would win, and would win *silently*.
-        let last_row = if BANDED { qlen.min(rlen + w) } else { qlen };
+        //
+        // The score drop bounds it a second time, and by the same argument: a fill that stopped
+        // at `last_p` seeded rows up to `last_p` at the matrix corner (`p <= qlen`, and under a
+        // band `p <= w`) and up to `(last_p + w) / 2` at the band's lower edge, which is where
+        // row `i > w` enters at `p = 2*i - w`. Every row past that is unfilled.
+        let reached = if BANDED && last_p > w {
+            (last_p + w) / 2
+        } else {
+            last_p
+        };
+        let last_row = if BANDED {
+            qlen.min(rlen + w).min(reached)
+        } else {
+            qlen.min(reached)
+        };
 
         // Reduce the per-row maxima to a single cell. Ties resolve to the longest extension:
         // largest i, then largest j. `>=` on i gives the largest i directly; the largest j comes
@@ -953,9 +1086,18 @@ impl<B: Backend> U8Probe<B> {
         // The argmax `j`, recovered for the ONE row that won, which is the whole reason the
         // fill stores a bit per cell instead of a `j` per row.
         let bj = if BANDED {
-            arg_for_row_banded::<B>(&self.nm, &self.tb_base, self.row0_arg, bi, qlen, rlen, w)
+            arg_for_row_banded::<B>(
+                &self.nm,
+                &self.tb_base,
+                self.row0_arg,
+                bi,
+                qlen,
+                rlen,
+                w,
+                last_p,
+            )
         } else {
-            arg_for_row::<B>(&self.nm, &self.tb_base, self.row0_arg, bi, rlen)
+            arg_for_row::<B>(&self.nm, &self.tb_base, self.row0_arg, bi, rlen, last_p)
         };
         // No early return for `best == 0`: (0,0) is the reduce's seed candidate, so the score
         // can never go negative anyway, and bailing out at `best <= 0` would discard a *longer*
@@ -1209,6 +1351,7 @@ impl<B: Backend> U8Probe<B> {
                 qlen,
                 right_reference.len(),
                 w,
+                usize::MAX,
             )
         } else {
             arg_for_row::<B>(
@@ -1217,6 +1360,7 @@ impl<B: Backend> U8Probe<B> {
                 self.row0_arg_b,
                 k,
                 right_reference.len(),
+                usize::MAX,
             )
         };
         std::mem::swap(&mut self.tb, &mut self.tb_b);
@@ -1248,9 +1392,17 @@ impl<B: Backend> U8Probe<B> {
                 qlen,
                 llen,
                 w,
+                usize::MAX,
             )
         } else {
-            arg_for_row::<B>(&self.nm, &self.tb_base, self.row0_arg, qlen - k, llen)
+            arg_for_row::<B>(
+                &self.nm,
+                &self.tb_base,
+                self.row0_arg,
+                qlen - k,
+                llen,
+                usize::MAX,
+            )
         };
         let left = AlignmentResult {
             score: self.row_max[qlen - k],
@@ -1310,7 +1462,7 @@ impl<B: Backend> U8Probe<B> {
         self.prepare::<REVERSED>(query, refseq, match_score, gap_open, gap_extend);
         self.size_flags::<true, BANDED>(qlen, rlen, w);
         unsafe {
-            B::fill::<true, false, true, false, BANDED>(
+            B::fill::<true, false, true, false, BANDED, false>(
                 self,
                 qlen,
                 rlen,
@@ -1319,6 +1471,9 @@ impl<B: Backend> U8Probe<B> {
                 gap_open,
                 gap_extend,
                 w,
+                // No score drop: `row_pass`'s modes all read a pinned end cell, which an early stop
+                // would leave unfilled.
+                0,
             )
         };
     }
@@ -1347,7 +1502,7 @@ impl<B: Backend> U8Probe<B> {
         self.size_flags::<false, false>(qlen, rlen, 0);
 
         let (score, end_j) = unsafe {
-            B::fill::<true, TRACK_LAST_ROW, false, false, false>(
+            B::fill::<true, TRACK_LAST_ROW, false, false, false, false>(
                 self,
                 qlen,
                 rlen,
@@ -1355,6 +1510,8 @@ impl<B: Backend> U8Probe<B> {
                 mismatch,
                 gap_open,
                 gap_extend,
+                0,
+                // No score drop: `TRACK_ROW_MAX` is off here, so the test has no `abs` to read.
                 0,
             )
         };
@@ -1697,19 +1854,43 @@ impl<B: Backend> U8Probe<B> {
     /// rows *below* the strip, and under a band those rows are reached far later than the
     /// unbanded corner seed would have scrubbed them. The row is seeded at the moment it enters
     /// the band, which is after the last garbage write to it and before its first real read.
+    ///
+    /// # `SCORE_DROP`: stopping the fill where the extension has given up
+    ///
+    /// `SCORE_DROP` lets the fill stop before `p` reaches `qlen + rlen`: every
+    /// [`SCORE_DROP_PERIOD`]-th anti-diagonal it takes the maximum absolute score over the
+    /// interior and breaks if that has fallen more than `score_drop` below the best any sampled
+    /// anti-diagonal reached, with no term for how far the alignment has drifted off its
+    /// diagonal: under a band `w` bounds that drift, and unbanded the threshold absorbs it. It
+    /// leaves the anti-diagonal it stopped on in `self.last_p`. Only `TRACK_ROW_MAX` modes can
+    /// compile it, since the test reads `abs`.
+    ///
+    /// **A `const`, with the threshold a runtime scalar beside it.** `score_drop == 0` as the only
+    /// switch would keep `best_seen` and `last_p` live across a chunk loop that is already short of
+    /// registers, and every mode that never stops early would carry them too, so the caller
+    /// branches once per alignment and the `false` instantiation holds none of the score drop's
+    /// state.
+    ///
+    /// Stopping early truncates rather than corrupts: every cell the fill did write is exact,
+    /// and `row_max` holds each row's max over the columns it reached. The **caller** has to
+    /// bound its reduce and its argmax scan by the stop, because past it `row_max`, `nm` and
+    /// `tb_base` hold the previous call's leftovers; see `local`. What it gives up is the
+    /// optimum: the result is the best alignment inside the region filled, and the `end_bonus`
+    /// candidate goes with row `qlen`, which a stop short of it never reached.
+    ///
     /// # Which mode compiles which flags
     ///
     /// Every public mode reaches this function through one of three wrappers. `REVERSED` is
     /// threaded separately (see `prepare`) and never reaches `fill_generic`.
     ///
-    /// | mode | wrapper | TRACE | LAST_ROW | ROW_MAX | ARG_LARGEST | BANDED | score read from |
-    /// |---|---|---|---|---|---|---|---|
-    /// | `global`, exact | `align` | y | - | - | - | - | `anchor` |
-    /// | `global`, banded | `row_pass` | y | - | y | - | y | `abs[qlen]` |
-    /// | `local_reference_*`, exact | `align` | y | y | - | - | - | `best_score` |
-    /// | `local_reference_*`, banded | `row_pass` | y | - | y | - | y | `row_max[qlen]` |
-    /// | `local_end` / `local_start` | `local` | y | - | y | y | opt | reduce over `row_max` |
-    /// | `split_reference` (two passes) | `row_pass` | y | - | y | - | opt | `row_max_b[k] + row_max[qlen-k]` |
+    /// | mode | wrapper | TRACE | LAST_ROW | ROW_MAX | ARG_LARGEST | BANDED | SCORE_DROP | score read from |
+    /// |---|---|---|---|---|---|---|---|---|
+    /// | `global`, exact | `align` | y | - | - | - | - | - | `anchor` |
+    /// | `global`, banded | `row_pass` | y | - | y | - | y | - | `abs[qlen]` |
+    /// | `local_reference_*`, exact | `align` | y | y | - | - | - | - | `best_score` |
+    /// | `local_reference_*`, banded | `row_pass` | y | - | y | - | y | - | `row_max[qlen]` |
+    /// | `local_end` / `local_start` | `local` | y | - | y | y | opt | opt | reduce over `row_max` |
+    /// | `split_reference` (two passes) | `row_pass` | y | - | y | - | opt | - | `row_max_b[k] + row_max[qlen-k]` |
     ///
     /// **`TRACK_LAST_ROW` and `BANDED` are never compiled together**: `align` is the only user
     /// of the former and is never banded, because its `anchor` walk cannot survive a band (see
@@ -1723,6 +1904,7 @@ impl<B: Backend> U8Probe<B> {
         const TRACK_ROW_MAX: bool,
         const ARG_LARGEST: bool,
         const BANDED: bool,
+        const SCORE_DROP: bool,
     >(
         &mut self,
         qlen: usize,
@@ -1732,6 +1914,7 @@ impl<B: Backend> U8Probe<B> {
         gap_open: u8,
         gap_extend: u8,
         w: usize,
+        score_drop: i32,
     ) -> (i32, usize) {
         unsafe {
             let m = match_score as i64;
@@ -1834,6 +2017,12 @@ impl<B: Backend> U8Probe<B> {
             // LLVM proving it does not alias the delta buffers, so it stops keeping their
             // pointers in registers.
             let mut chunk: usize = 0;
+
+            // The score drop's two scalars: the best absolute score any sampled anti-diagonal
+            // reached, and the anti-diagonal the fill stopped on. `best_seen` starts at 0 because
+            // `H[0][0]` is a cell, and it is in band in every mode.
+            let mut best_seen: i32 = 0;
+            let mut last_p = qlen + rlen;
 
             // The interior row range, maintained INCREMENTALLY rather than recomputed. Both
             // `i_from = max(1, p - rlen)` and `i_to = min(qlen, p - 1)` are monotone step
@@ -2227,6 +2416,48 @@ impl<B: Backend> U8Probe<B> {
                     best_j = p - qlen;
                 }
 
+                // The score drop, AFTER the band's seed: that seed is what makes `abs[hi]` row
+                // `hi`'s own first in-band cell rather than the garbage the group loop left
+                // there. Over the interior only, and `live` because an empty interior has no
+                // maximum: the reduce would come back `i32::MIN` and the subtraction overflow.
+                // See `SCORE_DROP_PERIOD`.
+                if SCORE_DROP && live && p.is_multiple_of(SCORE_DROP_PERIOD) {
+                    // `max(abs[lo..=hi])`, whole vectors then a scalar tail, and a pass of its
+                    // own rather than a max folded into the i32 pass above: that one has a
+                    // CONSTANT trip count, so it writes `abs` for every lane of the partial last
+                    // chunk, dead ones included, and that garbage grows by up to `255` an
+                    // anti-diagonal. A max that read it would set a new `best_seen` on every sample
+                    // and the test would never fire, which is also why the tail here is not
+                    // rounded up into a vector however tempting the padding makes it look.
+                    let mut acc = B::splat32(i32::MIN);
+                    let mut i = lo;
+                    while i + B::LANES32 <= hi + 1 {
+                        acc = B::max32(acc, B::load32(abs_ptr.add(i)));
+                        i += B::LANES32;
+                    }
+                    // Reduced through the stack rather than a shuffle, so the backend trait
+                    // needs no horizontal op for something that runs once per sampled
+                    // anti-diagonal.
+                    // `LANES32 <= 8`: `U8Probe::new` asserts `LANES <= 32` for the `u32` flag
+                    // words and `AssertLaneRatio` pins `LANES == 4 * LANES32`.
+                    let mut lanes = [i32::MIN; 8];
+                    B::store32(lanes.as_mut_ptr(), acc);
+                    let mut d = i32::MIN;
+                    for &v in &lanes[..B::LANES32] {
+                        d = d.max(v);
+                    }
+                    while i <= hi {
+                        d = d.max(*abs_ptr.add(i));
+                        i += 1;
+                    }
+                    if d > best_seen {
+                        best_seen = d;
+                    } else if best_seen - d > score_drop {
+                        last_p = p;
+                        break;
+                    }
+                }
+
                 std::mem::swap(&mut p_dh, &mut c_dh);
                 std::mem::swap(&mut p_dv, &mut c_dv);
                 std::mem::swap(&mut p_de, &mut c_de);
@@ -2280,6 +2511,10 @@ impl<B: Backend> U8Probe<B> {
             if TRACK_ROW_MAX {
                 self.row0_arg = row0_arg;
             }
+            // Written on every call, score drop or not, so it can never be read stale. Not a third
+            // return value because `align` reads the second one as a *column* even with
+            // `TRACK_LAST_ROW` off, which is what `global_alignment` ends at.
+            self.last_p = last_p;
             if TRACK_LAST_ROW {
                 (best_score as i32, best_j)
             } else {
