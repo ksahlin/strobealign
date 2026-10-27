@@ -239,12 +239,19 @@ impl PiecewiseAligner {
                         self.scores.mismatch,
                     );
 
-                    if hamming_aligned.score > 0
-                        && hamming_aligned.score
-                            > self.scores.match_ as u32
-                                * ((query_part.len() as f32) * 0.85).ceil() as u32
+                    let len = query_part.len() as i32;
+                    let match_ = self.scores.match_ as i32;
+                    let mismatches = hamming_aligned.edit_distance as i32;
+                    // Unlike hamming_aligned.score, not clamped at 0
+                    let hamming_score =
+                        match_ * (len - mismatches) - self.scores.mismatch as i32 * mismatches;
+                    // A gapped alignment of equal query and ref lengths needs at least one
+                    // insertion and one deletion and thus scores at most
+                    // match * (len - 1) - 2 * gap_open
+                    if hamming_score > match_ * (len - 1) - 2 * self.scores.gap_open as i32
+                        || hamming_score > match_ * ((len as f32) * 0.85).ceil() as i32
                     {
-                        score += hamming_aligned.score as i32;
+                        score += hamming_score;
                         cigar.extend(&hamming_aligned.cigar);
 
                         score += self.k as i32 * self.scores.match_ as i32;
