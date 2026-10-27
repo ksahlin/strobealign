@@ -6,6 +6,8 @@
   random nucleotides. This affects GRCh38, for which the index now needs
   0.5 GB less RAM.
 * #642: Prefetch index lookups, speeding up mapping by ~7%.
+* #675: Fix very slow chaining on references with many contigs (hundreds of
+  thousands). Contributed by @rhysnewell.
 
 ## v0.19.1 (2026-10-19)
 
