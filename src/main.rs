@@ -943,6 +943,21 @@ fn print_statistics(
         "Insertions reinterpreted as duplications: {:12}",
         details.align.duplications
     );
+    debug!(
+        "Supplementary candidates:                 {:12}               Per read: {:7.1}",
+        details.align.supplementary_candidates,
+        details.align.supplementary_candidates as f64 / details.chain.n_reads as f64
+    );
+    debug!(
+        "Supplementary candidates extended:        {:12}               Per read: {:7.1}",
+        details.align.supplementary_extended,
+        details.align.supplementary_extended as f64 / details.chain.n_reads as f64
+    );
+    debug!(
+        "Supplementary alignments reported:        {:12}               Per read: {:7.1}",
+        details.align.supplementary,
+        details.align.supplementary as f64 / details.chain.n_reads as f64
+    );
 
     debug!("");
     debug!("## Mapping runtime breakdown");
@@ -986,6 +1001,16 @@ fn print_statistics(
         "Extending and pairing seeds: {:8.2} s  {:5.1} %",
         details.align.time_extend,
         details.align.time_extend * 100. / total
+    );
+    debug!(
+        "  primary chains:            {:8.2} s  {:5.1} %",
+        details.align.time_extend_primary,
+        details.align.time_extend_primary * 100. / total
+    );
+    debug!(
+        "  supplementary search:      {:8.2} s  {:5.1} %",
+        details.align.time_extend_supplementary,
+        details.align.time_extend_supplementary * 100. / total
     );
     debug!(
         "Total:                       {:8.2} s  {:5.1} %",

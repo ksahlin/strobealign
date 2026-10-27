@@ -488,6 +488,7 @@ pub fn align_single_end_read(
     let mut best_alignment = None;
 
     let read = Read::new(&record.sequence);
+    let primary_timer = Instant::now();
     for (tries, chain) in chains
         .iter_mut()
         .take(mapping_parameters.max_tries)
@@ -547,6 +548,8 @@ pub fn align_single_end_read(
             alignments.push(alignment);
         }
     }
+    details.align.time_extend_primary += primary_timer.elapsed().as_secs_f64();
+
     let Some(best_alignment) = best_alignment else {
         return (
             vec![sam_output.make_unmapped_record(record, details.clone())],
@@ -555,6 +558,7 @@ pub fn align_single_end_read(
     };
     let mapq = (60 * (best_score - second_best_score)).div_ceil(best_score) as u8;
 
+    let supplementary_timer = Instant::now();
     let supplementary = get_supplementary_segment(
         aligner,
         refseq,
@@ -565,6 +569,7 @@ pub fn align_single_end_read(
         mapping_parameters,
         &mut details.align,
     );
+    details.align.time_extend_supplementary += supplementary_timer.elapsed().as_secs_f64();
 
     let mut reported = vec![Segment {
         alignment: best_alignment,

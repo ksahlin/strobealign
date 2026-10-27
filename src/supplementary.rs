@@ -31,6 +31,7 @@ pub fn get_supplementary_segment(
             )
         })
         .collect();
+    details.supplementary_candidates += candidates.len();
 
     let dropoff = candidates.first()?.score * parameters.dropoff_threshold;
     let max_gap = parameters.max_segment_gap as i64;
@@ -46,6 +47,7 @@ pub fn get_supplementary_segment(
         else {
             continue;
         };
+        details.supplementary_extended += 1;
         details.add_alignment(&alignment);
 
         let (read_gap, ref_gap) = segment_gaps(primary, &alignment, read.len());
@@ -68,6 +70,7 @@ pub fn get_supplementary_segment(
 
     let alignment = best_alignment?;
     let mapq = (60 * best_score.saturating_sub(second_best_score)).div_ceil(best_score) as u8;
+    details.supplementary += 1;
 
     Some(Segment { alignment, mapq })
 }
