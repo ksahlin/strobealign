@@ -109,6 +109,7 @@ impl Alignment {
         cigar.push(CigarOperation::Softclip, self.soft_clip_left);
         cigar.extend(&self.cigar);
         cigar.push(CigarOperation::Softclip, self.soft_clip_right);
+
         if cigar_eqx { cigar } else { cigar.with_m() }
     }
 

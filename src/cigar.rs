@@ -60,9 +60,9 @@ impl CigarOperation {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct OpLen {
-    op: CigarOperation,
-    len: usize,
+pub struct OpLen {
+    pub op: CigarOperation,
+    pub len: usize,
 }
 
 impl TryFrom<u32> for OpLen {
@@ -164,9 +164,9 @@ impl Cigar {
             .sum()
     }
 
-    /// Iterate over the operations as `(operation, length)` pairs.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (CigarOperation, usize)> {
-        self.ops.iter().map(|oplen| (oplen.op, oplen.len))
+    /// Iterate over the operations and their lengths.
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = OpLen> {
+        self.ops.iter().copied()
     }
 
     /// Return a new Cigar that uses = and X operations instead of M
@@ -268,7 +268,7 @@ impl TryFrom<&[u32]> for Cigar {
 
 #[cfg(test)]
 mod test {
-    use super::{Cigar, CigarOperation};
+    use super::{Cigar, CigarOperation, OpLen};
     use std::str::FromStr;
 
     #[test]
@@ -285,15 +285,16 @@ mod test {
     }
 
     #[test]
+    #[rustfmt::skip]
     fn iter_yields_operations_and_lengths() {
         let cigar = Cigar::from_str("10=2X3D5=").unwrap();
         assert_eq!(
             cigar.iter().collect::<Vec<_>>(),
             vec![
-                (CigarOperation::Eq, 10),
-                (CigarOperation::X, 2),
-                (CigarOperation::Deletion, 3),
-                (CigarOperation::Eq, 5),
+                OpLen{op: CigarOperation::Eq, len: 10},
+                OpLen{op: CigarOperation::X, len: 2},
+                OpLen{op: CigarOperation::Deletion, len: 3},
+                OpLen{op: CigarOperation::Eq, len: 5},
             ]
         );
     }

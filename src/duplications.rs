@@ -1,5 +1,5 @@
 use crate::aligner::{Aligner, Scores};
-use crate::cigar::{Cigar, CigarOperation};
+use crate::cigar::{Cigar, CigarOperation, OpLen};
 use crate::modes::align::Alignment;
 use crate::packed_seq::PackedSeqSlice;
 use crate::read::Read;
@@ -35,7 +35,7 @@ pub fn reinterpret_insertions(
     let mut ref_pos = alignment.contig_start;
     let mut query_pos = alignment.soft_clip_left;
 
-    for (op, len) in alignment.cigar.iter() {
+    for OpLen { op, len } in alignment.cigar.iter() {
         if op == CigarOperation::Insertion
             && len >= min_length
             && let Some((copy_start, split)) = find_duplication(
@@ -130,7 +130,7 @@ fn find_duplication(
 }
 
 /// Builds the alignment of one segment from the cigar it covers, soft-clipping the read on
-/// both sides and scoring the segment on its own. None if it scores zero or less.
+/// both sides and scoring the segment on its own. Returns None if it scores zero or less.
 fn clip_segment(
     source: &Alignment,
     cigar: Cigar,
@@ -167,7 +167,7 @@ fn query_ref_span(cigar: &Cigar) -> (usize, usize) {
     let mut query = 0;
     let mut reference = 0;
 
-    for (op, len) in cigar.iter() {
+    for OpLen { op, len } in cigar.iter() {
         let (q, r) = query_ref_len(op, len);
         query += q;
         reference += r;
