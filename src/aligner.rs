@@ -3,7 +3,7 @@
 use std::cell::Cell;
 
 use crate::chainer::Anchor;
-use crate::cigar::{Cigar, CigarOperation};
+use crate::cigar::{Cigar, CigarOperation, OpLen};
 use crate::piecewisealigner::PiecewiseAligner;
 use crate::simdaligner::SplitReferenceAlignment;
 use crate::ssw::SswAligner;
@@ -34,7 +34,7 @@ impl Scores {
     pub fn score(&self, cigar: &Cigar) -> i32 {
         cigar
             .iter()
-            .map(|(op, len)| match op {
+            .map(|OpLen { op, len }| match op {
                 CigarOperation::Eq => self.match_ as i32 * len as i32,
                 CigarOperation::X => -(self.mismatch as i32) * len as i32,
                 CigarOperation::Insertion | CigarOperation::Deletion => {
