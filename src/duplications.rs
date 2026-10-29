@@ -1,5 +1,6 @@
 use crate::aligner::{Aligner, Scores};
 use crate::cigar::{Cigar, CigarOperation, OpLen};
+use crate::details::AlignmentDetails;
 use crate::modes::align::Alignment;
 use crate::packed_seq::PackedSeqSlice;
 use crate::read::Read;
@@ -17,6 +18,7 @@ pub fn reinterpret_insertions(
     min_length: usize,
     min_matches: f32,
     band: usize,
+    details: &mut AlignmentDetails,
 ) -> Vec<Alignment> {
     if min_length == 0 {
         return vec![alignment];
@@ -46,6 +48,7 @@ pub fn reinterpret_insertions(
                 min_length,
                 min_matches,
                 band,
+                details,
             )
         {
             // The head arm carries the segment being built on past the insertion point, and
@@ -91,6 +94,7 @@ pub fn reinterpret_insertions(
         return vec![alignment];
     };
     segments.push(last);
+    details.duplications += segments.len() - 1;
 
     segments
 }
@@ -107,7 +111,9 @@ fn find_duplication(
     min_length: usize,
     min_matches: f32,
     band: usize,
+    details: &mut AlignmentDetails,
 ) -> Option<(usize, SplitReferenceAlignment)> {
+    details.duplication_candidates += 1;
     let len = insertion.len();
     let padding = len + band;
     let left_start = ref_pos.saturating_sub(len + padding);
