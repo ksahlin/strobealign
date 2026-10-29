@@ -1048,15 +1048,15 @@ impl<B: Backend> U8Probe<B> {
 
     /// One query aligned across **two** references, with a single jump point between them.
     ///
-    /// Returns two [`AlignmentResult`]s that **partition the query exactly**: `right` covers
-    /// `query[..k]` from `right_reference[0]`, `left` covers `query[k..]` to the end of
+    /// Returns two [`AlignmentResult`]s that **partition the query exactly**: `head` covers
+    /// `query[..k]` from `right_reference[0]`, `tail` covers `query[k..]` to the end of
     /// `left_reference`, and `k` is chosen to maximize the total.
     ///
     /// # Reduction to two ordinary passes
     ///
     /// ```text
-    /// F[k] = max over j of H(query, right)[k][j]                   // best right arm handing over at k
-    /// G[k] = max over l of (best alignment of query[k..] vs left[l..])   // best left arm taking over
+    /// F[k] = max over j of H(query, right)[k][j]                   // best head arm handing over at k
+    /// G[k] = max over l of (best alignment of query[k..] vs left[l..])   // best tail arm taking over
     /// score = max over k in 0..=qlen of F[k] + G[k]
     /// ```
     ///
@@ -1158,7 +1158,7 @@ impl<B: Backend> U8Probe<B> {
         // silently return a `j` from the wrong matrix.
         std::mem::swap(&mut self.nm, &mut self.nm_b);
         std::mem::swap(&mut self.row0_arg, &mut self.row0_arg_b);
-        // From here: `*_b` holds pass A (right arm), `*` holds pass B (left arm).
+        // From here: `*_b` holds pass A (head arm), `*` holds pass B (tail arm).
 
         // --- pass B: REVERSED against the left reference. row_max[qlen - k] == G[k]. ---
         self.row_pass::<true, BANDED>(query, left_reference, m, mm, go, ge, w);
@@ -1196,7 +1196,7 @@ impl<B: Backend> U8Probe<B> {
         }
         let k = best_k;
 
-        // --- the right arm: query[..k] from right_reference[0], stopping wherever it scored ---
+        // --- the head arm: query[..k] from right_reference[0], stopping wherever it scored ---
         //
         // Pass A's triple, explicitly: this reads before the `tb`/`tb_base` swap below, so the
         // `_b` slots are the ones holding A.
@@ -1221,7 +1221,7 @@ impl<B: Backend> U8Probe<B> {
         };
         std::mem::swap(&mut self.tb, &mut self.tb_b);
         std::mem::swap(&mut self.tb_base, &mut self.tb_base_b);
-        let right = AlignmentResult {
+        let head = AlignmentResult {
             score: self.row_max_b[k],
             query_start: 0,
             query_end: k,
@@ -1232,7 +1232,7 @@ impl<B: Backend> U8Probe<B> {
         std::mem::swap(&mut self.tb, &mut self.tb_b);
         std::mem::swap(&mut self.tb_base, &mut self.tb_base_b);
 
-        // --- the left arm: query[k..] ending at the end of left_reference ---
+        // --- the tail arm: query[k..] ending at the end of left_reference ---
         //
         // The replay runs in the REVERSED frame, walking from (qlen-k, lj) back to the origin.
         // Row `i` there is `query[qlen-i]`, so starting at `qlen-k` covers exactly `query[k..]`,
@@ -1252,7 +1252,7 @@ impl<B: Backend> U8Probe<B> {
         } else {
             arg_for_row::<B>(&self.nm, &self.tb_base, self.row0_arg, qlen - k, llen)
         };
-        let left = AlignmentResult {
+        let tail = AlignmentResult {
             score: self.row_max[qlen - k],
             query_start: k,
             query_end: qlen,
@@ -1262,9 +1262,9 @@ impl<B: Backend> U8Probe<B> {
         };
 
         SplitReferenceAlignment {
-            score: left.score + right.score,
-            left,
-            right,
+            score: head.score + tail.score,
+            head,
+            tail,
         }
     }
 

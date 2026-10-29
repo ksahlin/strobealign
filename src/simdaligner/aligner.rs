@@ -428,8 +428,8 @@ impl SimdAligner {
     /// `left_reference`, jumping once from the right reference to the left. It returns two
     /// [`AlignmentResult`]s that **partition the query exactly**:
     ///
-    /// - `right` covers `query[..k]` against a prefix of `right_reference`;
-    /// - `left` covers `query[k..]` against a suffix of `left_reference`;
+    /// - `head` covers `query[..k]` against a prefix of `right_reference`;
+    /// - `tail` covers `query[k..]` against a suffix of `left_reference`;
     ///
     /// where `k`, the jump point, is chosen to maximise the total score:
     ///
@@ -442,7 +442,7 @@ impl SimdAligner {
     /// `end_bonus` is ignored: the query is spanned in full by construction.
     ///
     /// Total score decides between splits. Among equal totals the **most balanced** wins (the
-    /// smallest `|left.score - right.score|`, since `5 + 5` describes a real duplication and
+    /// smallest `|head.score - tail.score|`, since `5 + 5` describes a real duplication and
     /// `-20 + 30` does not), then the smallest `k`. Each arm's own reference endpoint breaks
     /// ties the way its one-reference counterpart does.
     ///
@@ -457,7 +457,7 @@ impl SimdAligner {
     /// # `bandwidth`
     ///
     /// `Some(w)` is **one band, applied to both arms**, each measured from that arm's own anchor:
-    /// the right arm from `(query[0], right_reference[0])`, the left arm from the ends of `query`
+    /// the head arm from `(query[0], right_reference[0])`, the tail arm from the ends of `query`
     /// and `left_reference`. **It does not constrain the jump point**: `k` is still chosen over
     /// every value the two bands admit.
     ///

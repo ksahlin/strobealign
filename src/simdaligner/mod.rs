@@ -149,27 +149,31 @@ pub struct AlignmentResult {
 /// Result of [`SimdAligner::split_reference_alignment`]: one query aligned across two
 /// references, with a single jump point between them.
 ///
-/// The two arms **partition the query exactly**: `right.query_start` is 0,
-/// `left.query_end` is `query.len()`, and `right.query_end == left.query_start` (the
+/// The arms are named after the part of the query they cover, not after the reference they
+/// align to: the `head` starts at `query[0]` and the `tail` ends at `query.len()`, whichever
+/// reference each of them happens to explain.
+///
+/// The two arms **partition the query exactly**: `head.query_start` is 0,
+/// `tail.query_end` is `query.len()`, and `head.query_end == tail.query_start` (the
 /// jump point). Each arm's CIGAR covers its own half of the query against its own
 /// reference span, and the two CIGARs together consume every query base once.
 ///
-/// `right` is anchored at the start of `right_reference` (`ref_start == 0`) and may
-/// stop anywhere; `left` is anchored at the end of `left_reference`
+/// `head` is anchored at the start of `right_reference` (`ref_start == 0`) and may
+/// stop anywhere; `tail` is anchored at the end of `left_reference`
 /// (`ref_end == left_reference.len()`) and may begin anywhere.
 ///
-/// `score` is `left.score + right.score`, and unlike the local types it **can be
+/// `score` is `head.score + tail.score`, and unlike the local types it **can be
 /// negative**: the query must be covered whether or not either reference explains it.
 /// An arm may be the empty alignment, or may consume no reference at all and report its
 /// query segment as one pure insertion.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SplitReferenceAlignment {
-    /// The arm against `left_reference`: covers the query *suffix*, and ends at the
-    /// end of the left reference.
-    pub left: AlignmentResult,
-    /// The arm against `right_reference`: covers the query *prefix*, and starts at the
-    /// start of the right reference.
-    pub right: AlignmentResult,
-    /// `left.score + right.score`.
+    /// The arm covering the query *prefix*: aligned against `right_reference`, starting
+    /// at the start of that reference.
+    pub head: AlignmentResult,
+    /// The arm covering the query *suffix*: aligned against `left_reference`, ending at
+    /// the end of that reference.
+    pub tail: AlignmentResult,
+    /// `head.score + tail.score`.
     pub score: i32,
 }

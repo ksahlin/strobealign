@@ -48,10 +48,10 @@ pub fn reinterpret_insertions(
                 band,
             )
         {
-            // The right arm carries the segment being built on past the insertion point, and
-            // the left arm opens the next one at the second copy.
+            // The head arm carries the segment being built on past the insertion point, and
+            // the tail arm opens the next one at the second copy.
             let mut upstream = segment_cigar.clone();
-            upstream.extend(&split.right.cigar);
+            upstream.extend(&split.head.cigar);
 
             if let Some(segment) = clip_segment(
                 &alignment,
@@ -62,9 +62,9 @@ pub fn reinterpret_insertions(
                 &aligner.scores,
             ) {
                 segments.push(segment);
-                segment_cigar = split.left.cigar;
+                segment_cigar = split.tail.cigar;
                 segment_start = copy_start;
-                segment_clip_left = query_pos + split.left.query_start;
+                segment_clip_left = query_pos + split.tail.query_start;
                 query_pos += len;
                 continue;
             }
@@ -117,16 +117,16 @@ fn find_duplication(
 
     let split = aligner.realign_insertion(insertion, &left_reference, &right_reference, band)?;
 
-    let matched = split.left.cigar.matches() + split.right.cigar.matches();
+    let matched = split.head.cigar.matches() + split.tail.cigar.matches();
     let copy_len =
-        (split.right.ref_end - split.right.ref_start) + (split.left.ref_end - split.left.ref_start);
+        (split.head.ref_end - split.head.ref_start) + (split.tail.ref_end - split.tail.ref_start);
 
     // The duplication must match most of the inserted sequence.
     if (matched as f32) < min_matches * len as f32 || copy_len < min_length {
         return None;
     }
 
-    Some((left_start + split.left.ref_start, split))
+    Some((left_start + split.tail.ref_start, split))
 }
 
 /// Builds the alignment of one segment from the cigar it covers, soft-clipping the read on
