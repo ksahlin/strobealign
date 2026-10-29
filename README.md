@@ -274,6 +274,25 @@ controls the chaining look-back window heuristic, `--gd` sets the diagonal gap c
 `--gl` sets the gap length cost, `--vp` determines the best-chain score threshold, 
 and `--sg` controls the maximum skip distance on the reference.
 
+### Duplication detection
+
+Strobealign reinterprets insertions inside an alignment as tandem duplications.
+Once a read has been aligned, each insertion of at least `--dl` bases (50 by
+default) is re-aligned against the two sides of the reference surrounding the
+insertion point, within a band of `--dw` diagonals (20 by default). The
+re-alignment returns two alignments that bridge the insertion gap: one extends
+the alignment past the insertion point, the other starts earlier on the
+reference, at the second copy. Strobealign only reports a duplication it found
+if it passes a threshold of `--dm` (0.80 by default) matches over the inserted
+bases. The alignment is then split into one segment per copy, otherwise the
+insertion is kept as it is.
+
+The segments have no read overlap and no gap, so the breakpoints are exact on
+both the read and the reference. The best scoring segment becomes the primary
+record and the others supplementary ones, each with an `SA:Z` tag that
+cross-references the other records of the read. `--dl 0` turns detection off,
+and detection runs for single-end reads only.
+
 ## Changelog
 
 See [Changelog](CHANGES.md).
