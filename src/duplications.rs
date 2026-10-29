@@ -53,7 +53,7 @@ pub fn reinterpret_insertions(
             let mut upstream = segment_cigar.clone();
             upstream.extend(&split.head.cigar);
 
-            if let Some(segment) = clip_segment(
+            if let Some(segment) = build_segment(
                 &alignment,
                 upstream,
                 segment_start,
@@ -80,7 +80,7 @@ pub fn reinterpret_insertions(
         return vec![alignment];
     }
 
-    let Some(last) = clip_segment(
+    let Some(last) = build_segment(
         &alignment,
         segment_cigar,
         segment_start,
@@ -121,7 +121,8 @@ fn find_duplication(
     let copy_len =
         (split.head.ref_end - split.head.ref_start) + (split.tail.ref_end - split.tail.ref_start);
 
-    // The duplication must match most of the inserted sequence.
+    // The duplication must match most of the inserted sequence: matched bases over the
+    // insertion length is a cheap proxy for the identity of the two copies.
     if (matched as f32) < min_matches * len as f32 || copy_len < min_length {
         return None;
     }
@@ -129,9 +130,10 @@ fn find_duplication(
     Some((left_start + split.tail.ref_start, split))
 }
 
-/// Builds the alignment of one segment from the cigar it covers, soft-clipping the read on
-/// both sides and scoring the segment on its own. Returns None if it scores zero or less.
-fn clip_segment(
+/// Makes an alignment for a segment of a duplication split. It needs its own
+/// cigar, reference start, soft clips, score and edit distance, the rest comes
+/// from the original alignment. Returns None if it scores zero or less.
+fn build_segment(
     source: &Alignment,
     cigar: Cigar,
     ref_start: usize,

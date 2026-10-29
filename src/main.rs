@@ -291,14 +291,13 @@ struct Args {
     #[arg(long = "dl", default_value_t = MappingParameters::default().min_duplication_length, value_name = "N", help_heading = "Duplications")]
     min_duplication_length: usize,
 
-    /// Minimum fraction of matches for a valid duplication
-    #[arg(long = "dm", default_value_t = MappingParameters::default().min_duplication_matches, help_heading = "Duplications")]
+    /// Minimum fraction of the inserted bases a duplication must match to be reported
+    #[arg(long = "dm", default_value_t = MappingParameters::default().min_duplication_matches, value_name = "FRACTION", help_heading = "Duplications")]
     min_duplication_matches: f32,
 
-    /// Bandwidth of the two arms of a duplication split
+    /// Bandwidth for re-aligning an insertion
     #[arg(long = "dw", default_value_t = MappingParameters::default().duplication_band, value_name = "N", help_heading = "Duplications")]
     duplication_band: usize,
-
 
     /// Path to input reference (in FASTA format)
     ref_path: String,

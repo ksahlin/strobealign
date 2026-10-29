@@ -35,7 +35,7 @@ pub struct SamRecord {
     pub alignment_score: Option<u32>,
     pub details: Option<Details>,
     pub rg_id: Option<String>,
-    /// Lists the alignments for a read split in multiple records
+    /// `SA:Z` tag: the supplementary alignments of a read split over multiple records
     pub sa_tag: Option<String>,
     /// Copied from FASTQ header
     pub extra: Option<String>,
