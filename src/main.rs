@@ -903,6 +903,14 @@ fn print_statistics(
         "Mates rescued by alignment:               {:12}",
         details.align.mate_rescue
     );
+    debug!(
+        "Insertions re-aligned for duplications:   {:12}",
+        details.align.duplication_candidates
+    );
+    debug!(
+        "Insertions reinterpreted as duplications: {:12}",
+        details.align.duplications
+    );
 
     debug!("");
     debug!("## Mapping runtime breakdown");

@@ -549,8 +549,8 @@ pub fn align_single_end_read(
         mapping_parameters.min_duplication_length,
         mapping_parameters.min_duplication_matches,
         mapping_parameters.duplication_band,
+        &mut details.align,
     );
-    details.align.duplications += segments.len() - 1;
 
     // The best scoring segment becomes the primary and the rest supplementary
     segments.sort_by_key(|segment| Reverse(segment.score));

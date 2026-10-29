@@ -65,6 +65,9 @@ pub struct AlignmentDetails {
     /// No. of best alignments with same score
     pub best_alignments: usize,
 
+    /// No. of insertion candidates considered for duplications
+    pub duplication_candidates: usize,
+
     /// No. of insertions re-interpreted as tandem duplications
     pub duplications: usize,
 
@@ -79,6 +82,7 @@ impl ops::AddAssign<AlignmentDetails> for AlignmentDetails {
         self.anchors += rhs.anchors;
         self.collisions += rhs.collisions;
         self.best_alignments += rhs.best_alignments;
+        self.duplication_candidates += rhs.duplication_candidates;
         self.duplications += rhs.duplications;
         self.time_extend += rhs.time_extend;
     }
