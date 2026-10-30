@@ -92,6 +92,10 @@ struct Args {
     #[arg(short = 'x', help_heading = "Input/output")]
     map_only: bool,
 
+    /// Exclude reference contigs that appear to be GRCh38 ALT contigs (uses a heuristic based on contig name)
+    #[arg(long, help_heading = "Input/output")]
+    exclude_alt: bool,
+
     /// Output the estimated abundance per contig (tabular output)
     #[arg(long, help_heading = "Input/output", conflicts_with = "map_only")]
     aemb: bool,
@@ -465,18 +469,24 @@ fn run() -> Result<(), CliError> {
         e,
         path: args.ref_path.clone(),
     })?;
-    let refseq = fasta::read_fasta(&mut BufReader::new(ref_file))?;
+    let (refseq, alt_length) =
+        fasta::read_fasta_alt_aware(&mut BufReader::new(ref_file), args.exclude_alt)?;
     let time_reading_reference = ref_timer.elapsed().as_secs_f64();
     info!("Time reading reference: {:.2} s", time_reading_reference);
     let total_ref_size = refseq.total_length();
     let max_contig_size = refseq.max_contig_len().ok_or(CliError::NoReference)?;
     info!(
-        "Reference size: {:.2} Mbp ({:.2} Mbp non-ACGTs; {} contig{}; largest: {:.2} Mbp)",
+        "Reference size: {:.2} Mbp ({:.2} Mbp non-ACGTs; {} contig{}; largest: {:.2} Mbp{})",
         total_ref_size as f64 / 1E6,
         refseq.wildcards() as f64 / 1E6,
         refseq.names.len(),
         if refseq.names.len() != 1 { "s" } else { "" },
-        max_contig_size as f64 / 1E6
+        max_contig_size as f64 / 1E6,
+        if args.exclude_alt {
+            format!("; {} Mbp ALT contigs excluded", alt_length).to_string()
+        } else {
+            "".to_string()
+        }
     );
 
     // Create the index

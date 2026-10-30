@@ -125,7 +125,7 @@ PAF output includes only mapped reads. Unmapped reads are omitted. This is also
 true for paired-end reads: If one of the reads is unmapped, only the mapped one
 is output.
 
-## Abundance estimation mode (for metagenomic binning)
+### Abundance estimation mode (for metagenomic binning)
 
 The command-line option `--aemb` switches strobealign into abundance estimation
 mode, intended for metagenomic binning.
@@ -172,6 +172,13 @@ options. Some important ones are:
 * `--create-index`, `-i`: Generate a strobemer index file (`.sti`) and write it
   to disk next to the input reference FASTA. Do not map reads. If read files are
   provided, they are used to estimate read length. See [index files](#index-files).
+* `--exclude-alt`: When this option is enabled, strobealign ignores reference contigs
+  that appear to be GRCh38 ALT contigs. ALT contigs contain regions that are exact
+  duplicates of regions on the primary assembly. Without this option, reads mapping into
+  these regions get mapping quality zero and may incorrectly be assigned to the ALT
+  contig. Note that this is only a very basic form of ALT-aware mapping. It mainly
+  allows one to use the same reference with strobealign that one would use with an
+  ALT-aware read mapper.
 
 ## Read profiles and canonical read lengths
 

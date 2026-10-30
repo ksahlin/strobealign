@@ -5,6 +5,8 @@
 * #671 (and #669): Fixed the algorithm used for converting N wildcards to
   random nucleotides. This affects GRCh38, for which the index now needs
   0.5 GB less RAM.
+* Add `--exclude-alt` option for excluding contigs from the reference that appear to be
+  GRCh38 ALT contigs.
 * #642: Prefetch index lookups, speeding up mapping by ~7%.
 * #675: Fix very slow chaining on references with many contigs (hundreds of
   thousands). Contributed by @rhysnewell.
