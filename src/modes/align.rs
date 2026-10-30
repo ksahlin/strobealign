@@ -44,6 +44,7 @@ pub struct MappingParameters {
     pub secondary_threshold: f32,
     pub max_segment_gap: usize,
     pub max_gap_distance: usize,
+    pub max_insertion_ref_gap: usize,
     pub min_supplementary_score: u32,
     pub max_supplementary_overlap: f32,
     pub dropoff_threshold: f32,
@@ -64,6 +65,7 @@ impl Default for MappingParameters {
             secondary_threshold: 0.95,
             max_segment_gap: 50,
             max_gap_distance: 100_000,
+            max_insertion_ref_gap: 200,
             min_supplementary_score: 80,
             max_supplementary_overlap: 0.5,
             dropoff_threshold: 0.5,
@@ -695,7 +697,6 @@ pub fn extend_seed(
         read.seq()
     };
     let (start, end) = query_interval;
-    debug_assert!(start <= chain.query_start && chain.query_end <= end,);
     let query = &full[start..end];
     let chain_start = chain.query_start.saturating_sub(start);
     let chain_end = chain.query_end.saturating_sub(start).min(query.len());
@@ -759,7 +760,11 @@ pub fn extend_seed(
                 .iter()
                 .filter_map(|a| {
                     let ref_start = a.ref_start() - decode_start - refseq.starts.0[contig_id];
-                    let query_start = a.query_start() - start;
+                    // Remove anchors outside the interval
+                    let query_start = a.query_start().checked_sub(start)?;
+                    if query_start + k > query.len() {
+                        return None;
+                    }
                     // Skip anchors resulting from hash collisions
                     if query[query_start..query_start + k] == segment[ref_start..ref_start + k] {
                         Some(Anchor::new(ref_start, query_start))

@@ -27,6 +27,7 @@ pub fn get_supplementary_segment(
                 chain,
                 read.len(),
                 parameters.max_gap_distance as i64,
+                parameters.max_insertion_ref_gap as i64,
                 parameters.max_supplementary_overlap,
             )
         })
@@ -98,6 +99,7 @@ fn fits_variant_pattern(
     chain: &Chain,
     read_len: usize,
     max_gap_distance: i64,
+    max_insertion_ref_gap: i64,
     overlap_fraction: f32,
 ) -> bool {
     let (contig_id, contig_start) = refseq.unflatten(chain.ref_start);
@@ -120,15 +122,13 @@ fn fits_variant_pattern(
 
     let primary_span = (read_len - primary.soft_clip_left - primary.soft_clip_right) as i64;
     let overlap_tolerance = (primary_span as f32 * overlap_fraction) as i64;
-    // A candidate has to bring read bases the primary does not have, which is also what
-    // keeps the chain the primary was built from out of its own search
-    if read_gap < 0 {
+    if read_gap < -overlap_tolerance {
         return false;
     }
 
     // An insertion: the contig carries straight on while the read jumps the
     // inserted bases
-    if (0..=overlap_tolerance).contains(&ref_gap) {
+    if (0..=max_insertion_ref_gap).contains(&ref_gap) {
         return true;
     }
 

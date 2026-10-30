@@ -321,6 +321,10 @@ struct Args {
     #[arg(long = "sd", default_value_t = MappingParameters::default().max_gap_distance, value_name = "N", help_heading = "Supplementary")]
     max_gap_distance: usize,
 
+    /// Maximum reference gap between the primary and an insertion candidate
+    #[arg(long = "si", default_value_t = MappingParameters::default().max_insertion_ref_gap, value_name = "N", help_heading = "Supplementary")]
+    max_insertion_ref_gap: usize,
+
     /// Fraction of the primary's read span a supplementary candidate may overlap
     #[arg(long = "so", default_value_t = MappingParameters::default().max_supplementary_overlap, value_name = "FRACTION", help_heading = "Supplementary")]
     max_supplementary_overlap: f32,
@@ -612,6 +616,7 @@ fn run() -> Result<(), CliError> {
         secondary_threshold: args.secondary_threshold,
         max_segment_gap: args.max_segment_gap,
         max_gap_distance: args.max_gap_distance,
+        max_insertion_ref_gap: args.max_insertion_ref_gap,
         min_supplementary_score: args.min_supplementary_score,
         max_supplementary_overlap: args.max_supplementary_overlap,
         max_tries: args.max_tries,
