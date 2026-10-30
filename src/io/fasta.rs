@@ -26,6 +26,13 @@ fn is_valid_name(name: &[u8]) -> bool {
     true
 }
 
+/// Returns whether the contig whose name is provided is an alternative contig
+/// (This is a heuristic that works for the popular
+/// `GRCh38_full_analysis_set_plus_decoy_hla.fa` reference)
+fn is_alternative_contig_name(name: &str) -> bool {
+    name.starts_with("HLA-") || name.ends_with("_alt") || name.ends_with("_decoy")
+}
+
 fn check_duplicate_names(names: &[String]) -> Result<(), SequenceIOError> {
     let mut names: Vec<_> = names.iter().collect();
     names.sort();
@@ -108,11 +115,18 @@ impl<B: BufRead> Iterator for FastaReader<B> {
     }
 }
 
-pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<RefSequence, SequenceIOError> {
+/// ignore_alt: ignore contigs whose name ends with "_alt", "_decoy" or starts with "HLA-"
+/// The second element of the returned pair is the total length of the excluded ALT contigs.
+pub fn read_fasta_alt_aware<R: BufRead>(
+    reader: &mut R,
+    exclude_alt: bool,
+) -> Result<(RefSequence, usize), SequenceIOError> {
     let mut names = vec![];
     let mut starts = vec![];
     let mut seq = PackedSeq::new();
     let mut line = String::new();
+    let mut ignore_current_record = false;
+    let mut excluded = 0;
 
     loop {
         line.clear();
@@ -120,11 +134,21 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<RefSequence, SequenceIOE
             Ok(0) => break,
             Ok(_) => {
                 if let Some(header) = line.strip_prefix('>') {
-                    starts.push(seq.len());
-                    names.push(split_header(header).0);
+                    let record_id = split_header(header).0;
+                    if exclude_alt && is_alternative_contig_name(&record_id) {
+                        ignore_current_record = true;
+                    } else {
+                        starts.push(seq.len());
+                        names.push(record_id);
+                        ignore_current_record = false;
+                    }
                 } else if !names.is_empty() {
                     let line = line.trim_ascii_end();
-                    seq.extend(line.bytes());
+                    if !ignore_current_record {
+                        seq.extend(line.bytes());
+                    } else {
+                        excluded += line.len();
+                    }
                 } else if line.trim_ascii().is_empty() {
                     // ignore empty lines
                 } else {
@@ -145,7 +169,11 @@ pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<RefSequence, SequenceIOE
     check_duplicate_names(&names)?;
     assert_eq!(names.len(), starts.len());
 
-    Ok(RefSequence::new(seq, starts, names)?)
+    Ok((RefSequence::new(seq, starts, names)?, excluded))
+}
+
+pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<RefSequence, SequenceIOError> {
+    read_fasta_alt_aware(reader, false).map(|r| r.0)
 }
 
 pub fn read_ref<P: AsRef<Path>>(path: P) -> Result<RefSequence, SequenceIOError> {
@@ -286,5 +314,21 @@ mod tests {
         let mut reader = BufReader::new(b">abc\nAAAA\n>abc\nCCCC\n".as_slice());
         let result = read_fasta(&mut reader);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn alt_contigs_get_ignored() {
+        let mut reader = BufReader::new(b">chr1\nAA\n>chr1_alt comment\nCC\n>chr2\nGG\n>chr2_decoy\nT\n>HLA-123 comment\nAAAA\n>chr3\nCCC".as_slice());
+        let (refseq, alt_length) = read_fasta_alt_aware(&mut reader, true).unwrap();
+        assert_eq!(refseq.names.len(), 3);
+        assert_eq!(refseq.names[0], "chr1");
+        assert_eq!(refseq.names[1], "chr2");
+        assert_eq!(refseq.names[2], "chr3");
+
+        assert_eq!(refseq.contig(0).decode_all(), b"AA");
+        assert_eq!(refseq.contig(1).decode_all(), b"GG");
+        assert_eq!(refseq.contig(2).decode_all(), b"CCC");
+
+        assert_eq!(alt_length, 7);
     }
 }
