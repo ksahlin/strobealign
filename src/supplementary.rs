@@ -120,15 +120,16 @@ fn fits_variant_pattern(
 
     let primary_span = (read_len - primary.soft_clip_left - primary.soft_clip_right) as i64;
     let overlap_tolerance = (primary_span as f32 * overlap_fraction) as i64;
-    // A candidate has to bring read bases the primary does not have, which is also what
-    // keeps the chain the primary was built from out of its own search
-    if read_gap < 0 {
+    if read_gap < -overlap_tolerance {
         return false;
     }
 
+    // Maximum reference gap for insertion candidates
+    const MAX_REF_OFFSET: i64 = 200;
+
     // An insertion: the contig carries straight on while the read jumps the
     // inserted bases
-    if (0..=overlap_tolerance).contains(&ref_gap) {
+    if (0..=MAX_REF_OFFSET).contains(&ref_gap) {
         return true;
     }
 
