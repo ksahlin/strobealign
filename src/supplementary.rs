@@ -118,9 +118,8 @@ fn fits_variant_pattern(
         )
     };
 
-    // A candidate has to bring read bases the primary does not have, which is also what
-    // keeps the chain the primary was built from out of its own search
-    if read_gap < 0 {
+    let primary_span = (read_len - primary.soft_clip_left - primary.soft_clip_right) as i64;
+    if read_gap < -(primary_span / 2).min(max_chain_distance) {
         return false;
     }
 
