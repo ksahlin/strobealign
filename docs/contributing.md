@@ -1,4 +1,7 @@
-# Contributing
+# Development
+
+
+## Contributing
 
 Contributions to strobealign are very welcome!
 
@@ -14,7 +17,7 @@ more focused discussion.
 
 ## Building strobealign
 
-Use `cargo build --release`. The compiled binary is at
+Use `cargo build --release`. The compiled binary will be at
 `target/release/strobealign`.
 
 Without `--release`, the compiler uses the default `debug` profile, which does
@@ -45,7 +48,7 @@ There are additional tests that should be run with `tests/run.sh`.
 Until version 0.17.0, strobealign was written in C++. The code currently still
 exists in the repository. To configure that code, change to the `cpp` directory
 and run `cmake -B build`.
-You can add specify a build type to set some useful compiler options by adding
+You can specify a build type to set some useful compiler options by adding
 one of these options to the command:
 - Use `-DCMAKE_BUILD_TYPE=Release` when building a release (`-O3 -DNDEBUG`) (this is the default)
 - Use `-DCMAKE_BUILD_TYPE=Debug` for development (`-O2 -g`)

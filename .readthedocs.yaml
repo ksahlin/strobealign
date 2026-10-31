@@ -1,0 +1,17 @@
+version: 2
+ build:
+   os: ubuntu-26.04
+   tools:
+     python: latest
+   jobs:
+     # For reproducible builds, install with uv:
+     # https://docs.readthedocs.com/platform/stable/build-customization.html#install-dependencies-with-uv
+     install:
+       - pip install zensical
+     build:
+       html:
+         - zensical build
+     post_build:
+       # Copy the built site into the directory Read the Docs publishes.
+       - mkdir -p $READTHEDOCS_OUTPUT/html/
+       - cp --recursive site/* $READTHEDOCS_OUTPUT/html/
