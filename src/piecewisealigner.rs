@@ -333,6 +333,38 @@ impl PiecewiseAligner {
             Some(band),
         )
     }
+
+    /// How far the inserted bases reach into the reference on either side of
+    /// the insertion point, counted in reference bases: backward into
+    /// `left_reference`, then forward into `right_reference`.
+    pub fn insertion_reach(
+        &self,
+        inserted: &[u8],
+        left_reference: &[u8],
+        right_reference: &[u8],
+        band: usize,
+    ) -> (usize, usize) {
+        let mut aligner = self.simd_aligner.borrow_mut();
+        let into_left = aligner.local_start_alignment(inserted, left_reference, Some(band));
+        let into_right = aligner.local_end_alignment(inserted, right_reference, Some(band));
+        (
+            left_reference.len() - into_left.ref_start,
+            into_right.ref_end,
+        )
+    }
+
+    /// Aligns the inserted bases against `tiled_reference`, the duplicated unit repeated once
+    /// per copy.
+    pub fn realign_copies(
+        &self,
+        inserted: &[u8],
+        tiled_reference: &[u8],
+        band: usize,
+    ) -> AlignmentResult {
+        self.simd_aligner
+            .borrow_mut()
+            .global_alignment(inserted, tiled_reference, Some(band))
+    }
 }
 
 #[cfg(test)]

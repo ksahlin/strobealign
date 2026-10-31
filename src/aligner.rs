@@ -5,7 +5,7 @@ use std::cell::Cell;
 use crate::chainer::Anchor;
 use crate::cigar::{Cigar, CigarOperation, OpLen};
 use crate::piecewisealigner::PiecewiseAligner;
-use crate::simdaligner::SplitReferenceAlignment;
+use crate::simdaligner::{AlignmentResult, SplitReferenceAlignment};
 use crate::ssw::SswAligner;
 
 #[derive(Debug, Clone, Copy)]
@@ -205,6 +205,34 @@ impl Aligner {
             right_reference,
             band,
         ))
+    }
+
+    pub fn insertion_reach(
+        &self,
+        inserted: &[u8],
+        left_reference: &[u8],
+        right_reference: &[u8],
+        band: usize,
+    ) -> Option<(usize, usize)> {
+        Some(self.piecewise_aligner.as_ref()?.insertion_reach(
+            inserted,
+            left_reference,
+            right_reference,
+            band,
+        ))
+    }
+
+    pub fn realign_copies(
+        &self,
+        inserted: &[u8],
+        tiled_reference: &[u8],
+        band: usize,
+    ) -> Option<AlignmentResult> {
+        Some(
+            self.piecewise_aligner
+                .as_ref()?
+                .realign_copies(inserted, tiled_reference, band),
+        )
     }
 }
 
