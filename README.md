@@ -289,10 +289,16 @@ bases (50 by default) is re-aligned against the two sides of the reference
 surrounding the insertion point, within a band of `--dw` diagonals (20 by
 default). The re-alignment returns two alignments that bridge the insertion
 gap: one extends the alignment past the insertion point, the other starts
-earlier on the reference, at the second copy. Strobealign only reports a
-duplication it found if it passes a threshold of `--dm` (0.80 by default)
-matches over the inserted bases. The alignment is then split into one segment
-per copy, otherwise the insertion is kept as it is.
+earlier on the reference, at the second copy. 
+
+An insertion half as long again as the duplicated unit can hold more than two
+copies, and since every jump of a tandem duplication is the same jump,
+strobealign measures the unit instead, lays it out once per copy and cuts the
+alignment against that tiled reference apart at the tile boundaries.
+
+Strobealign only reports a duplication it found if it passes a threshold of
+`--dm` (0.80 by default) matches over the inserted bases. The alignment is then
+split into one segment per copy, otherwise the insertion is kept as it is.
 
 The segments have no read overlap and no gap, so the breakpoints are exact on
 both the read and the reference. The best scoring segment becomes the primary

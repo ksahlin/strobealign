@@ -109,6 +109,26 @@ impl Cigar {
         self.ops.push(OpLen { op, len });
     }
 
+    pub fn first(&self) -> Option<OpLen> {
+        self.ops.first().copied()
+    }
+
+    pub fn last(&self) -> Option<OpLen> {
+        self.ops.last().copied()
+    }
+
+    pub fn pop_front(&mut self) -> Option<OpLen> {
+        if self.ops.is_empty() {
+            None
+        } else {
+            Some(self.ops.remove(0))
+        }
+    }
+
+    pub fn pop(&mut self) -> Option<OpLen> {
+        self.ops.pop()
+    }
+
     /// Return a new Cigar that uses M operations instead of =/X
     pub fn with_m(&self) -> Self {
         let mut cigar = Cigar::new();
