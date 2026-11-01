@@ -50,6 +50,8 @@ To compile from source, you need a recent Rust version, which you can get via
 [Rustup](https://rust-lang.org/tools/install/) (the Rust packaged with
 Debian and Ubuntu is usually too old). Then
 ```sh
+git clone https://github.com/ksahlin/strobealign
+cd strobealign
 RUSTFLAGS='-C target-cpu=native' cargo build --release
 ```
 The binary is then available at `target/release/strobealign`.
