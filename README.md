@@ -3,329 +3,125 @@
 [![install with Bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg)](http://bioconda.github.io/recipes/strobealign/README.html)
 [![Bioconda downloads](https://anaconda.org/bioconda/strobealign/badges/downloads.svg)](https://anaconda.org/bioconda/strobealign)
 
-# strobealign: A fast short-read aligner
+# strobealign
 
-Strobealign is a read mapper that is typically significantly faster than other read mappers while achieving comparable or better accuracy, see the [performance evaluation](evaluation.md).
+Strobealign is a fast and accurate read mapper. It aligns single-end and
+paired-end reads to a reference genome and outputs SAM, PAF, or contig
+abundances. Indexing is fast enough (under a minute for a human genome) that it is
+done on the fly by default.
 
-## Features
+## Getting started
 
-- Map single-end and paired-end reads
-- Multithreading support
-- Fast indexing (<1 minute for a human-sized reference genome using four cores)
-- On-the-fly indexing by default. Optionally create an on-disk index.
-- Output in standard SAM format or produce even faster results by writing PAF (without alignments)
-- Strobealign is most suited for read lengths between 100 and 500 bp
+```sh
+# Install (see below for building from source)
+conda create -n strobealign strobealign samtools
+conda activate strobealign
 
-## Background
+# Paired-end reads -> sorted BAM
+strobealign -t 8 ref.fa reads_1.fq.gz reads_2.fq.gz | samtools sort -o aln.bam
 
-Strobealign achieves its speedup by using a dynamic seed size obtained from [syncmer](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7869670/)-thinned [strobemers](https://github.com/ksahlin/strobemers#what-is-a-strobemer).
+# Single-end reads
+strobealign -t 8 ref.fa reads.fq.gz | samtools sort -o aln.bam
 
-For details, refer to [Strobealign: flexible seed size enables ultra-fast and accurate read alignment](https://doi.org/10.1186/s13059-022-02831-7). The paper describes v0.7.1 of the program.
+# Mapping only, no base-level alignment (PAF output, faster)
+strobealign -x -t 8 ref.fa reads_1.fq.gz reads_2.fq.gz > aln.paf
 
-For an introduction, see also the 📺 [RECOMB-Seq video from 2022: “Flexible seed size enables ultra-fast and accurate read alignment”](https://www.youtube.com/watch?v=cn32telW63w) (12 minutes). For a more detailed presentation of the underlying seeding mechanism in strobealign (strobemers) see 📺 [“Efficient sequence similarity searches with strobemers”](https://www.youtube.com/watch?v=DS4tURz1Wio) (73 minutes).
+# Short reads for variant calling: add read group, exclude GRCh38 ALT contigs
+strobealign -t 8 --rg-id=S1 --rg=SM:sample1 --exclude-alt GRCh38.fa reads_1.fq.gz reads_2.fq.gz | samtools sort -o aln.bam
 
-## Table of contents
+# Long reads
+# TODO
 
-1. [Installation](#installation)
-2. [Usage](#usage)
-3. [Command-line options](#command-line-options)
-4. [Index files](#index-files)
-5. [Changelog](#changelog)
-6. [Contributing](#contributing)
-7. [Evaluation](#evaluation)
-8. [Citation](#citation)
-9. [Version info](#version-info)
-10. [License](#license)
+# Metagenomic abundance estimation (for binning)
+strobealign -t 8 --aemb contigs.fa reads_1.fq.gz reads_2.fq.gz > abundances.tsv
+```
 
 ## Installation
 
-### Conda
-
 Strobealign is available from [Bioconda](https://bioconda.github.io/).
-1. Follow the [Bioconda setup instructions](http://bioconda.github.io/#usage)
-2. Install strobealign into a new Conda environment:
-   ```
-   conda create -n strobealign strobealign samtools
-   ```
-3. Activate the environment that was just created:
-   ```
-   conda activate strobealign
-   ```
-4. Run strobealign:
-   ```
-   strobealign --version
-   ```
-
-### Homebrew
-
-If you use [Homebrew](https://brew.sh), installing Strobealign is straightforward. Run the following command to get started:
-
-```
-brew install strobealign
+Follow the [Bioconda setup instructions](https://bioconda.github.io/#usage). Then
+```sh
+conda create -n strobealign strobealign samtools  # install strobealign
+conda activate strobealign                        # activate environment
+strobealign --version                             # test the installation
+>>>>>>> conflict 1 of 1 ends
 ```
 
-### From source
-
-To compile strobealign from sources, you need a somewhat recent Rust
-version, which you can obtain via
-[Rustup](https://rust-lang.org/tools/install/).
-At the time of writing,
-the Rust versions included in current Debian and Ubuntu releases are too old.
-
-When Rust is available, you can compile strobealign with
-```
+To compile from source, you need a recent Rust version, which you can get via
+[Rustup](https://rust-lang.org/tools/install/) (the Rust packaged with
+Debian and Ubuntu is usually too old). Then
+```sh
 RUSTFLAGS='-C target-cpu=native' cargo build --release
 ```
-The resulting binary will then be available at `target/release/strobealign`.
-
-
-See the [contributing instructions](#contributing) for how to compile
-strobealign as a developer.
-
-### Python bindings
-
-Experimental Python bindings were available in the C++ version of strobealign
-(until version 0.17.0) and have not been ported to Rust.
-We may add them back, but until then,
-you will need to get strobealign 0.17.0,
-and can then install them with `pip install .`.
-The only documentation for the moment are the tests in `tests/*.py`.
+The binary is then available at `target/release/strobealign`.
 
 ## Usage
 
-To align paired-reads against a reference FASTA and produce a sorted BAM file,
-using eight threads:
+### Short-read mapping
+
+```sh
+strobealign -t 8 ref.fa reads_1.fq.gz reads_2.fq.gz | samtools sort -o aln.bam  # paired-end
+strobealign -t 8 ref.fa reads.fq.gz | samtools sort -o aln.bam                  # single-end
+strobealign -t 8 --interleaved ref.fa reads.fq.gz | samtools sort -o aln.bam    # interleaved or mixed
 ```
-strobealign -t 8 ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools sort -o sorted.bam
+Piping directly into `samtools` avoids writing large intermediate SAM files.
+Strobealign works best for read lengths between 100 and 500 bp. It estimates the
+read length from the input and picks indexing parameters to match (see
+[read profiles](manual.md#read-profiles-and-canonical-read-lengths)).
+
+Useful options: `-N INT` outputs up to INT secondary alignments, `-U` suppresses
+unmapped reads, `--eqx` writes `=`/`X` instead of `M` in CIGAR strings, and `-x`
+skips base-level alignment and outputs [PAF](https://github.com/lh3/miniasm/blob/master/PAF.md)
+(see [mapping-only mode](manual.md#mapping-only-mode)).
+
+### Short-read mapping for SNP and variant calling
+
+Add read group information so that downstream tools (GATK, bcftools, DeepVariant)
+can identify the sample:
+```sh
+strobealign -t 8 --rg-id=S1 --rg=SM:sample1 --rg=LB:lib1 --rg=PL:ILLUMINA \
+    ref.fa reads_1.fq.gz reads_2.fq.gz | samtools sort -o aln.bam
 ```
 
-For single-end reads:
+When mapping to GRCh38 with ALT contigs (such as the reference bundled with
+BWA or GATK), use `--exclude-alt`. ALT contigs duplicate regions of the primary
+assembly, so without this option, reads in these regions get MAPQ 0 and may be
+assigned to the ALT contig. Strobealign recognizes ALT contigs by name
+(`*_alt`, `*_decoy`, `HLA-*`) and prints a warning if it detects them while
+`--exclude-alt` is not given.
+
+### Long-read mapping
+
+TODO
+
+### Metagenomic abundance estimation
+
+With `--aemb`, strobealign outputs a table of contig abundances instead of
+alignments, for use with metagenomic binners:
+```sh
+strobealign -t 8 --aemb contigs.fa reads_1.fq.gz reads_2.fq.gz > abundances.tsv
 ```
-strobealign -t 8 ref.fa reads.fastq.gz | samtools sort -o sorted.bam
+Each row holds a contig name and its abundance: the number of bases mapped to the
+contig divided by its length, where a read mapping to *n* locations counts
+1/*n* toward each.
+
+### Pre-computing an index
+
+The index is built on the fly by default. When mapping many small libraries
+against the same reference, you can save time by writing it to disk once:
+```sh
+strobealign --create-index -t 8 -r 150 ref.fa       # creates ref.fa.r150.sti
+strobealign --use-index -t 8 ref.fa reads_1.fq.gz reads_2.fq.gz | samtools sort -o aln.bam
 ```
+See [index files](manual.md#index-files) for details.
 
-For mixed reads (the input file can contain both single and paired-end reads):
-```
-strobealign -t 8 ref.fa --interleaved reads.fastq.gz | samtools sort -o sorted.bam
-```
+## Further documentation
 
-In alignment mode, strobealign produces SAM output. By piping the output
-directly into `samtools`, the above commands avoid creating potentially large
-intermediate SAM files and also reduce disk I/O.
-
-To produce unsorted BAM, use `samtools view` instead of `samtools sort`.
-
-
-### Mapping-only mode
-
-The command-line option `-x` switches strobealign into mapping-only mode,
-in which it will output [PAF](https://github.com/lh3/miniasm/blob/master/PAF.md)
-files instead of SAM. For example:
-```
-strobealign -x -t 8 ref.fa reads.1.fastq.gz reads.2.fastq.gz | igzip > output.paf.gz
-```
-`igzip` is a faster version of gzip that is part of
-[ISA-L](https://github.com/intel/isa-l/).
-If it is not available, replace it with `pigz` or regular `gzip` in the
-command.
-
-PAF output includes only mapped reads. Unmapped reads are omitted. This is also
-true for paired-end reads: If one of the reads is unmapped, only the mapped one
-is output.
-
-### Abundance estimation mode (for metagenomic binning)
-
-The command-line option `--aemb` switches strobealign into abundance estimation
-mode, intended for metagenomic binning.
-In this mode, strobealign outputs a single table with abundance values in
-tab-separated value format instead of SAM or PAF.
-
-Paired-end example:
-```
-strobealign -t 8 --aemb ref.fa reads.1.fastq.gz reads.2.fastq.gz > abundances.tsv
-```
-The output table contains one row for each contig of the reference.
-The first column is the reference/contig id and the second its abundance.
-
-The abundance is the number of bases mapped to a contig, divided by the length
-of the contig. When a read maps to multiple locations, each of the *n* locations
-is weighted 1/*n*. Note that this is in contrast to alignment mode, where by
-default strobealign would output only a single alignment for each read
-(this can be changed with `-N`).
-
-Further columns may be added to this table in future versions of strobealign.
-
-
-## Command-line options
-
-Please run `strobealign --help` to see the most up-to-date list of command-line
-options. Some important ones are:
-
-* `-r`: Mean read length. If given, this overrides the read length estimated
-  from the input file(s). This is usually only required in combination with
-  `--create-index`, see [index files](#index-files).
-* `-t N`, `--threads=N`: Use N threads (both for mapping and indexing).
-* `--eqx`: Emit `=` and `X` CIGAR operations instead of `M`.
-* `-x`: Only map reads, do not do no base-level alignment. This switches the
-  output format from SAM to [PAF](https://github.com/lh3/miniasm/blob/master/PAF.md).
-* `--aemb`: Output estimated abundance value of each contig, see section above.
-* `--rg-id=ID`: Add RG tag to each SAM record.
-* `--rg=TAG:VALUE`: Add read group metadata to the SAM header. This can be
-  specified multiple times. Example: `--rg-id=1 --rg=SM:mysamle --rg=LB:mylibrary`.
-* `-N INT`: Output up to INT secondary alignments. By default, no secondary
-  alignments are output.
-* `-U`: Suppress output of unmapped single-end reads and pairs in which both
-  reads are unmapped.
-* `--use-index`: Use a pre-generated index instead of generating a new one.
-* `--create-index`, `-i`: Generate a strobemer index file (`.sti`) and write it
-  to disk next to the input reference FASTA. Do not map reads. If read files are
-  provided, they are used to estimate read length. See [index files](#index-files).
-* `--exclude-alt`: When this option is enabled, strobealign ignores reference contigs
-  that appear to be GRCh38 ALT contigs. ALT contigs contain regions that are exact
-  duplicates of regions on the primary assembly. Without this option, reads mapping into
-  these regions get mapping quality zero and may incorrectly be assigned to the ALT
-  contig. Note that this is only a very basic form of ALT-aware mapping. It mainly
-  allows one to use the same reference with strobealign that one would use with an
-  ALT-aware read mapper.
-
-## Read profiles and canonical read lengths
-
-Strobealign needs to build an index of the reference before it can map reads to it.
-
-The optimal indexing parameters depend on the type of reads that are to be mapped.
-
-Strobealign by default uses pre-defined sets of parameters that are optimized
-for different read lengths. These *canonical read lengths* are
-50, 75, 100, 125, 150, 250 and 400. When deciding which of the pre-defined
-indexing parameter sets to use, strobealign chooses one whose canonical
-read length is close to the average read length of the input.
-
-The average read length of the input is normally estimated from the first
-500 reads, but can also be explicitly set with `-r`.
-
-In addition, it is possible to choose a profile optimized for “noisy”, that is,
-error-prone reads. Use `-P noisy` on the command line to select it.
-This is equivalent to `-k 16 -s 12 -l 2 -u 2 -m 100`.
-We found these settings to increase accuracy on error-prone reads,
-but note this comes at the cost of runtime.
-
-## Index files
-
-### Pre-computing an index (`.sti`)
-
-By default, strobealign creates a new index every time the program is run.
-On current CPUs (and using multiple cores), indexing a human-sized genome takes
-less than 1 minute, which is not long compared to mapping many millions of reads.
-However, for repeatedly mapping small libraries, it may be faster to pre-generate
-an index on disk and use that.
-
-To create an index, use the `--create-index` option.
-Since strobealign needs to know the read profile, either provide some reads on
-the command line as if you wanted to map them:
-
-    strobealign --create-index -t 8 ref.fa reads.1.fastq.gz reads.2.fastq.gz
-
-This will use a read-length based profile based on the estimated read length.
-You can also set the read length explicitly with `-r`:
-
-    strobealign --create-index -t 8  -r 150 ref.fa
-
-Or use the “noisy” profile with `-P noisy`:
-
-    strobealign --create-index -t 8 -P noisy ref.fa
-
-This creates a file named `ref.fa.X.sti` containing the strobemer index,
-where `X` is an identifier for the read profile (such as `r50`, `r100`, `noisy`).
-To use the index when mapping, provide option `--use-index` when doing the
-actual mapping:
-
-    strobealign --use-index -t 8 ref.fa reads.1.fastq.gz reads.2.fastq.gz | samtools ...
-
-If you want to use the “noisy” profile, you also need to specify `-P noisy`
-during mapping.
-
-- Note that the `.sti` files are usually tied to a specific strobealign version.
-  That is, when upgrading strobealign, the `.sti` files need to be regenerated.
-  Strobealign detects whether the index was created with an incompatible
-  version and refuses to load it.
-- Index files are about four times as large as the reference.
-
-
-## Explanation
-
-### Multi-context seeds
-
-Strobealign uses randstrobes as seeds, which in our case consist of two k-mers
-("strobes") that are somewhat close to each other. When a seed is looked up
-in the index, it is only found if both strobes match. By changing the way in
-which the index is stored in v0.15.0, it became  possible to support
-*multi-context seeds*. With those changes, strobealign falls back to looking
-up only one of the strobes (a "partial seed") if the full seed cannot be found.
-This results in better mapping rate and accuracy for read lengths of up to
-about 200 nt.
-
-Usage of multi-context seeds is enabled by default in strobealign since v0.16.0.
-The strategy is to first search for all full seeds of the query and fall back to
-partial seeds if *no* seeds could be found.
-
-A slightly more accurate, but slower mode of using multi-context seeds is
-available by using option `--mcs`: With it, the strategy is changed to a
-fallback *per seed*: If an individual full seed cannot be found, its partial
-version is looked up in the index.
-
-### Collinear chaining
-
-Strobealign uses collinear chaining as its default mapping and alignment method,
-replacing the previous NAM approach. The collinear chaining algorithm reproduces
-the method used in Minimap2.
-
-Collinear chaining works by splitting strobemer hits into anchors (two anchors for full
-hits, one for partial hits) and then constructing chains using these anchors with
-a scoring function. Chains are created in O(N×h) time complexity, where N is the
-number of anchors and h is a constant set at 50 by default.
-
-Several command line options allow fine tuning of the chaining behavior: `-H` 
-controls the chaining look-back window heuristic, `--gd` sets the diagonal gap cost, 
-`--gl` sets the gap length cost, `--vp` determines the best-chain score threshold, 
-and `--sg` controls the maximum skip distance on the reference.
-
-### Duplication detection
-
-Strobealign attempts to reinterpret insertions inside an alignment as tandem
-duplications. Once a read has been aligned, each insertion of at least `--dl`
-bases (50 by default) is re-aligned against the two sides of the reference
-surrounding the insertion point, within a band of `--dw` diagonals (20 by
-default). The re-alignment returns two alignments that bridge the insertion
-gap: one extends the alignment past the insertion point, the other starts
-earlier on the reference, at the second copy. Strobealign only reports a
-duplication it found if it passes a threshold of `--dm` (0.80 by default)
-matches over the inserted bases. The alignment is then split into one segment
-per copy, otherwise the insertion is kept as it is.
-
-The segments have no read overlap and no gap, so the breakpoints are exact on
-both the read and the reference. The best scoring segment becomes the primary
-record and the others supplementary ones, each with an `SA:Z` tag that
-cross-references the other records of the read.
-
-Duplication detection runs for single-end reads only.
-
-`--dl 0` turns detection off.
-
-## Changelog
-
-See [Changelog](CHANGES.md).
-
-
-## Contributing
-
-See [Contributing](CONTRIBUTING.md).
-
-
-## Evaluation
-
-See [Performance evaluation](evaluation.md) for some measurements of mapping
-accuracy and runtime using strobealign 0.7.
-
+- [Manual](manual.md): all command-line options, read profiles, index files,
+  and how strobealign works
+- [Changelog](CHANGES.md)
+- [Contributing](CONTRIBUTING.md)
+- Run `strobealign --help` for the full list of options
 
 ## Citation
 
@@ -337,9 +133,6 @@ If using v0.16.1 or earlier:
 
 *Sahlin, K. Strobealign: flexible seed size enables ultra-fast and accurate read alignment. Genome Biol 23, 260 (2022). [https://doi.org/10.1186/s13059-022-02831-7](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02831-7)*
 
-
-
 ## License
 
-Strobealign is available under the MIT license,
-see [LICENSE](https://github.com/ksahlin/strobealign/blob/main/LICENSE).
+Strobealign is available under the MIT license, see [LICENSE](LICENSE).
