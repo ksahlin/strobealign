@@ -622,10 +622,13 @@ fn run() -> Result<(), CliError> {
         let mut nucleotides = 0;
         let mut chunk = vec![];
         for record in record_iter.by_ref() {
-            let r1_len = record.as_ref().map_or(0, |r| r.0.len());
-            let r2_len = record
-                .as_ref()
-                .map_or(0, |r| r.1.as_ref().map_or(0, |r2| r2.len()));
+            // A read error ends the work, dropping the unfinished chunk
+            let record = match record {
+                Ok(record) => record,
+                Err(error) => return Some(Err(error)),
+            };
+            let r1_len = record.0.len();
+            let r2_len = record.1.as_ref().map_or(0, |r2| r2.len());
             assert!(r1_len <= MAXIMUM_QUERY_LENGTH, "Read too long");
             assert!(r2_len <= MAXIMUM_QUERY_LENGTH, "Read too long");
             nucleotides += r1_len + r2_len;
@@ -634,7 +637,12 @@ fn run() -> Result<(), CliError> {
                 break;
             }
         }
-        if chunk.is_empty() { None } else { Some(chunk) }
+
+        if chunk.is_empty() {
+            None
+        } else {
+            Some(Ok(chunk))
+        }
     });
 
     let mapper = Mapper {
@@ -668,11 +676,13 @@ fn run() -> Result<(), CliError> {
     let show_progress = !args.no_progress && io::stderr().is_terminal();
     // TODO channel size?
     let (chunks_tx, chunks_rx) = sync_channel(n_threads);
-    let reader_thread = thread::spawn(move || {
-        for chunk in chunks_iter.enumerate() {
-            chunks_tx.send(chunk).unwrap();
+    let reader_thread = thread::spawn(move || -> Result<(), SequenceIOError> {
+        for (index, chunk) in chunks_iter.enumerate() {
+            chunks_tx.send((index, chunk?)).unwrap();
         }
         drop(chunks_tx);
+
+        Ok(())
     });
     let chunks_rx = Arc::new(Mutex::new(chunks_rx));
 
@@ -767,12 +777,15 @@ fn run() -> Result<(), CliError> {
         }
     });
     drop(out_tx);
-    reader_thread.join().unwrap();
+    let read_chunks = reader_thread.join().unwrap();
     let details = details_rx.recv().unwrap();
     let out = writer_thread.join().unwrap();
     if let Some(thread) = progress_thread {
         thread.join().unwrap();
     }
+
+    // If the reader thread encountered an IO error, it's reported here after the other threads finished up their work.
+    read_chunks?;
 
     let mut out = Arc::into_inner(out).unwrap().into_inner().unwrap();
 
@@ -974,14 +987,13 @@ struct Mapper<'a> {
 impl Mapper<'_> {
     fn map_chunk(
         &mut self, // TODO only because of abundances
-        chunk: Vec<Result<RecordPair, SequenceIOError>>,
+        chunk: Vec<RecordPair>,
     ) -> Result<(Vec<u8>, Details), CliError> {
         let mut out = vec![];
         let mut rng = Rng::with_seed(0);
         let mut isizedist = InsertSizeDistribution::new();
         let mut cumulative_details = Details::default();
-        for record in chunk {
-            let (r1, r2) = record?;
+        for (r1, r2) in chunk {
             trace!("\nQuery: {}\nlength={}", r1.name, r1.len());
 
             let (mut chains1, chain_details1, hits_details1) = get_sorted_chains(

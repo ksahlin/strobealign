@@ -164,3 +164,19 @@ fn fail_when_create_index_is_used_without_read_length() {
         .assert()
         .failure();
 }
+
+/// A malformed FASTQ file must be reported as an error, not panicked on
+#[test]
+fn fail_gracefully_on_malformed_reads() {
+    let reads = read("tests/phix.1.fastq").unwrap();
+    let malformed = [&reads[..], b"garbage\n"].concat();
+    cmd()
+        .args(["-r", "150", "-t", "3", "tests/phix.fasta", "-"])
+        .write_stdin(malformed)
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains(
+            "error: FASTQ file cannot be parsed: Record must start with '@', but found 'g'.",
+        ))
+        .stderr(predicate::str::contains("panicked").not());
+}
