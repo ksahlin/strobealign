@@ -12,6 +12,9 @@
   instead of as a large insertion (options `--dl`, `--dm` and `--dw`, see the
   README). Strobealign now also supports multiple records per read with an
   `SA:Z` tag.
+* #679: A packed anchor now gives the reference as many bits as its length
+  needs instead of a fixed 44, so the maximum read length depends on the
+  reference.
 
 ## v0.19.1 (2026-10-19)
 
