@@ -1598,8 +1598,7 @@ mod tests {
             PackedSeq::from_slice(b""),
             vec![0],
             vec!["chr1".to_string()],
-        )
-        .unwrap();
+        );
         let first = Alignment {
             contig_id: 0,
             contig_start: 100,

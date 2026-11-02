@@ -21,7 +21,7 @@ use strobealign::refseq::RefSequence;
 use thiserror::Error;
 
 use strobealign::aligner::{Aligner, Scores};
-use strobealign::chainer::{Chainer, ChainingParameters, MAXIMUM_QUERY_LENGTH};
+use strobealign::chainer::{Chainer, ChainingParameters, anchor_query_bits, maximum_read_length};
 use strobealign::details::{ChainDetails, Details};
 use strobealign::index::{IndexReadingError, StrobemerIndex, read_index};
 use strobealign::insertsize::InsertSizeDistribution;
@@ -580,7 +580,15 @@ fn run() -> Result<(), CliError> {
     debug!("{:?}", chaining_parameters);
     debug!("{:?}", scores);
 
-    let chainer = Chainer::new(index.k(), chaining_parameters);
+    let query_bits = anchor_query_bits(total_ref_size);
+    let max_read_length = maximum_read_length(query_bits);
+    debug!(
+        "Anchor bits: {} for the reference, {} for the query (packs reads of up to {} bp)",
+        u64::BITS - query_bits,
+        query_bits,
+        max_read_length
+    );
+    let chainer = Chainer::new(index.k(), chaining_parameters, query_bits);
     let aligner = if args.use_ssw {
         Aligner::new_ssw_only(scores)
     } else {
@@ -643,8 +651,19 @@ fn run() -> Result<(), CliError> {
             };
             let r1_len = record.0.len();
             let r2_len = record.1.as_ref().map_or(0, |r2| r2.len());
-            assert!(r1_len <= MAXIMUM_QUERY_LENGTH, "Read too long");
-            assert!(r2_len <= MAXIMUM_QUERY_LENGTH, "Read too long");
+            let read_len = r1_len.max(r2_len);
+            assert!(
+                read_len <= max_read_length,
+                "Cannot handle this combination of read length and reference size: \
+                 a {} bp read and a {} bp reference do not fit into one 64-bit anchor. \
+                 The reference needs {} bits, which leaves {} bits for query positions, \
+                 so reads can be at most {} bp",
+                read_len,
+                total_ref_size,
+                u64::BITS - query_bits,
+                query_bits,
+                max_read_length
+            );
             nucleotides += r1_len + r2_len;
             chunk.push(record);
             if nucleotides > args.chunk_size {
