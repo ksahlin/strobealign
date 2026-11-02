@@ -287,7 +287,7 @@ struct Args {
     #[arg(long = "bw", default_value_t = 1024, value_name = "N", help_heading = "Alignment")]
     bandwidth: usize,
 
-    /// Minimum size for reported tandem duplications (single-end only), 0 to disable duplication detection
+    /// Minimum insertion length that triggers tandem duplication detection (single-end only); 0 to disable
     #[arg(long = "dl", default_value_t = MappingParameters::default().min_duplication_length, value_name = "N", help_heading = "Duplications")]
     min_duplication_length: usize,
 
