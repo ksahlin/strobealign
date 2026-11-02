@@ -659,8 +659,7 @@ mod tests {
             vec![0],
             vec!["phix_rc".to_string()],
             vec![ContigType::Regular],
-        )
-        .unwrap();
+        );
         let parameters = SeedingParameters::new(300);
         let bits = parameters.syncmer.pick_bits(&refseq);
 
