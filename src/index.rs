@@ -658,8 +658,7 @@ mod tests {
             PackedSeq::from_slice(&rc_seq),
             vec![0],
             vec!["phix_rc".to_string()],
-        )
-        .unwrap();
+        );
         let parameters = SeedingParameters::new(300);
         let bits = parameters.syncmer.pick_bits(&refseq);
 
