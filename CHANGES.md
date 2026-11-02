@@ -8,6 +8,9 @@
 * #642: Prefetch index lookups, speeding up mapping by ~7%.
 * #675: Fix very slow chaining on references with many contigs (hundreds of
   thousands). Contributed by @rhysnewell.
+* #679: A packed anchor now gives the reference as many bits as its length 
+  needs instead of a fixed 44, so the maximum read length depends on the 
+  reference.
 
 ## v0.19.1 (2026-10-19)
 
