@@ -2,7 +2,7 @@ use crate::{
     aligner::{AlignmentInfo, Scores, hamming_align_global},
     chainer::Anchor,
     cigar::CigarOperation,
-    simdaligner::{AlignmentResult, SimdAligner},
+    simdaligner::{AlignmentResult, SimdAligner, SplitReferenceAlignment},
 };
 use std::cell::RefCell;
 
@@ -317,6 +317,21 @@ impl PiecewiseAligner {
         } else {
             None
         }
+    }
+
+    pub fn realign_insertion(
+        &self,
+        inserted: &[u8],
+        left_reference: &[u8],
+        right_reference: &[u8],
+        band: usize,
+    ) -> SplitReferenceAlignment {
+        self.simd_aligner.borrow_mut().split_reference_alignment(
+            inserted,
+            left_reference,
+            right_reference,
+            Some(band),
+        )
     }
 }
 

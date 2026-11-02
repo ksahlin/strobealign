@@ -8,6 +8,10 @@
 * #642: Prefetch index lookups, speeding up mapping by ~7%.
 * #675: Fix very slow chaining on references with many contigs (hundreds of
   thousands). Contributed by @rhysnewell.
+* #656: Report tandem duplications in single-end mode as one SAM record per copy
+  instead of as a large insertion (options `--dl`, `--dm` and `--dw`, see the
+  README). Strobealign now also supports multiple records per read with an
+  `SA:Z` tag.
 
 ## v0.19.1 (2026-10-19)
 

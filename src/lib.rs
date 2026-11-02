@@ -3,6 +3,7 @@ pub mod chain;
 pub mod chainer;
 pub mod cigar;
 pub mod details;
+pub mod duplications;
 pub mod hit;
 pub mod index;
 pub mod indexer;

@@ -392,21 +392,21 @@ fn split_reference_partitions_the_query() {
     let right = b"AAAATTTT";
     let result = aligner().split_reference_alignment(query, left, right, None);
 
-    check(&result.right, query, right, 0);
-    check(&result.left, query, left, 0);
+    check(&result.head, query, right, 0);
+    check(&result.tail, query, left, 0);
 
-    assert_eq!(result.score, result.left.score + result.right.score);
+    assert_eq!(result.score, result.tail.score + result.head.score);
     assert_eq!(
-        result.right.query_start, 0,
-        "the right arm covers the query prefix"
+        result.head.query_start, 0,
+        "the head arm covers the query prefix"
     );
     assert_eq!(
-        result.left.query_end,
+        result.tail.query_end,
         query.len(),
-        "the left arm covers the query suffix"
+        "the tail arm covers the query suffix"
     );
     assert_eq!(
-        result.right.query_end, result.left.query_start,
+        result.head.query_end, result.tail.query_start,
         "the two arms must meet at the jump point"
     );
     assert_eq!(result.score, 16 * 2);

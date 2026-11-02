@@ -180,3 +180,21 @@ fn fail_gracefully_on_malformed_reads() {
         ))
         .stderr(predicate::str::contains("panicked").not());
 }
+
+/// Reads carrying tandem duplications output a primary plus supplementary
+/// records with SA:Z tags
+#[test]
+fn duplication_sam() {
+    let expected = String::from_utf8(read("tests/phix.dup.sam").unwrap()).unwrap();
+    let mut cmd = cmd();
+    let p = cmd.args([
+        "--no-PG",
+        "--eqx",
+        "--details",
+        "--dl=50",
+        "tests/phix.fasta",
+        "tests/phix.dup.fastq",
+    ]);
+    let a = p.assert();
+    a.success().stdout(predicate::str::diff(expected));
+}
