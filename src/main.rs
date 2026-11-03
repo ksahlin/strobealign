@@ -503,6 +503,13 @@ fn run() -> Result<(), CliError> {
         }
     );
 
+    if !args.exclude_alt && is_possibly_grch38_with_alts(&refseq) {
+        warn!(
+            "\nWARNING: It appears that your reference is GRCh38 with ALT contigs. \
+               It is highly recommended that you use --exclude-alt to avoid reduced mapping accuracy.\n"
+        );
+    }
+
     // Create the index
     debug!("Auxiliary hash length: {}", args.aux_len);
     info!("Multi-context seed strategy: {}", args.mcs_strategy);
@@ -996,6 +1003,10 @@ fn print_statistics(
     info!("Reading or creating index:      {:8.2} s", indexing_time);
     info!("Mapping:                        {:8.2} s", mapping_time);
     info!("Total:                          {:8.2} s", total_time);
+}
+
+fn is_possibly_grch38_with_alts(refseq: &RefSequence) -> bool {
+    refseq.total_length() == 3217346917 && refseq.names.len() == 3366
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
