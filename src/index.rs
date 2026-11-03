@@ -586,7 +586,7 @@ mod tests {
     use crate::indexer::make_index;
     use crate::io::fasta::read_ref;
     use crate::packed_seq::PackedSeq;
-    use crate::refseq::RefSequence;
+    use crate::refseq::{ContigType, RefSequence};
     use crate::revcomp::reverse_complement;
 
     #[test]
@@ -658,6 +658,7 @@ mod tests {
             PackedSeq::from_slice(&rc_seq),
             vec![0],
             vec!["phix_rc".to_string()],
+            vec![ContigType::Regular],
         )
         .unwrap();
         let parameters = SeedingParameters::new(300);

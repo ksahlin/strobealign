@@ -480,8 +480,7 @@ fn run() -> Result<(), CliError> {
         e,
         path: args.ref_path.clone(),
     })?;
-    let (refseq, alt_length) =
-        fasta::read_fasta_alt_aware(&mut BufReader::new(ref_file), args.exclude_alt)?;
+    let refseq = fasta::read_fasta_alt_aware(&mut BufReader::new(ref_file), args.exclude_alt)?;
     let time_reading_reference = ref_timer.elapsed().as_secs_f64();
     info!("Time reading reference: {:.2} s", time_reading_reference);
     let total_ref_size = refseq.total_length();
@@ -494,7 +493,11 @@ fn run() -> Result<(), CliError> {
         if refseq.names.len() != 1 { "s" } else { "" },
         max_contig_size as f64 / 1E6,
         if args.exclude_alt {
-            format!("; {} Mbp ALT contigs excluded", alt_length).to_string()
+            format!(
+                "; {:.2} Mbp ALT contigs excluded",
+                refseq.alt_length() as f64 / 1E6
+            )
+            .to_string()
         } else {
             "".to_string()
         }

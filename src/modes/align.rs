@@ -1556,6 +1556,7 @@ mod tests {
     use super::*;
     use crate::cigar::Cigar;
     use crate::packed_seq::PackedSeq;
+    use crate::refseq::ContigType;
     use std::str::FromStr;
 
     pub fn make_alignment(contig_start: usize, score: u32, is_revcomp: bool) -> Alignment {
@@ -1598,6 +1599,7 @@ mod tests {
             PackedSeq::from_slice(b""),
             vec![0],
             vec!["chr1".to_string()],
+            vec![ContigType::Regular],
         )
         .unwrap();
         let first = Alignment {

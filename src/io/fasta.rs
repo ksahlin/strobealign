@@ -5,7 +5,7 @@ use std::path::Path;
 use crate::io::record::{End, SequenceRecord};
 use crate::io::{SequenceIOError, split_header};
 use crate::packed_seq::PackedSeq;
-use crate::refseq::RefSequence;
+use crate::refseq::{ContigType, RefSequence};
 
 /// Check whether a name is fine to use in SAM output.
 /// The SAM specification is quite strict and forbids these
@@ -120,13 +120,14 @@ impl<B: BufRead> Iterator for FastaReader<B> {
 pub fn read_fasta_alt_aware<R: BufRead>(
     reader: &mut R,
     exclude_alt: bool,
-) -> Result<(RefSequence, usize), SequenceIOError> {
+) -> Result<RefSequence, SequenceIOError> {
     let mut names = vec![];
     let mut starts = vec![];
+    let mut contig_types = vec![];
     let mut seq = PackedSeq::new();
     let mut line = String::new();
-    let mut ignore_current_record = false;
-    let mut excluded = 0;
+    let mut current_contig_is_alt = false;
+    let mut contig_length = 0;
 
     loop {
         line.clear();
@@ -134,20 +135,24 @@ pub fn read_fasta_alt_aware<R: BufRead>(
             Ok(0) => break,
             Ok(_) => {
                 if let Some(header) = line.strip_prefix('>') {
-                    let record_id = split_header(header).0;
-                    if exclude_alt && is_alternative_contig_name(&record_id) {
-                        ignore_current_record = true;
-                    } else {
-                        starts.push(seq.len());
-                        names.push(record_id);
-                        ignore_current_record = false;
+                    if !names.is_empty() {
+                        if current_contig_is_alt {
+                            contig_types.push(ContigType::Alternative(contig_length));
+                        } else {
+                            contig_types.push(ContigType::Regular);
+                        }
                     }
+                    let record_id = split_header(header).0;
+                    current_contig_is_alt = exclude_alt && is_alternative_contig_name(&record_id);
+                    starts.push(seq.len());
+                    names.push(record_id);
+                    contig_length = 0;
                 } else if !names.is_empty() {
                     let line = line.trim_ascii_end();
-                    if !ignore_current_record {
+                    if !current_contig_is_alt {
                         seq.extend(line.bytes());
                     } else {
-                        excluded += line.len();
+                        contig_length += line.len();
                     }
                 } else if line.trim_ascii().is_empty() {
                     // ignore empty lines
@@ -160,6 +165,13 @@ pub fn read_fasta_alt_aware<R: BufRead>(
             Err(e) => return Err(SequenceIOError::IO(e)),
         }
     }
+    if !names.is_empty() {
+        if current_contig_is_alt {
+            contig_types.push(ContigType::Alternative(contig_length));
+        } else {
+            contig_types.push(ContigType::Regular);
+        }
+    }
 
     for name in &names {
         if !is_valid_name(name.as_bytes()) {
@@ -168,12 +180,13 @@ pub fn read_fasta_alt_aware<R: BufRead>(
     }
     check_duplicate_names(&names)?;
     assert_eq!(names.len(), starts.len());
+    assert_eq!(names.len(), contig_types.len());
 
-    Ok((RefSequence::new(seq, starts, names)?, excluded))
+    Ok(RefSequence::new(seq, starts, names, contig_types)?)
 }
 
 pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<RefSequence, SequenceIOError> {
-    read_fasta_alt_aware(reader, false).map(|r| r.0)
+    read_fasta_alt_aware(reader, false)
 }
 
 pub fn read_ref<P: AsRef<Path>>(path: P) -> Result<RefSequence, SequenceIOError> {
@@ -319,16 +332,19 @@ mod tests {
     #[test]
     fn alt_contigs_get_ignored() {
         let mut reader = BufReader::new(b">chr1\nAA\n>chr1_alt comment\nCC\n>chr2\nGG\n>chr2_decoy\nT\n>HLA-123 comment\nAAAA\n>chr3\nCCC".as_slice());
-        let (refseq, alt_length) = read_fasta_alt_aware(&mut reader, true).unwrap();
-        assert_eq!(refseq.names.len(), 3);
-        assert_eq!(refseq.names[0], "chr1");
-        assert_eq!(refseq.names[1], "chr2");
-        assert_eq!(refseq.names[2], "chr3");
+        let refseq = read_fasta_alt_aware(&mut reader, true).unwrap();
+        assert_eq!(
+            refseq.names,
+            &["chr1", "chr1_alt", "chr2", "chr2_decoy", "HLA-123", "chr3"]
+        );
 
         assert_eq!(refseq.contig(0).decode_all(), b"AA");
-        assert_eq!(refseq.contig(1).decode_all(), b"GG");
-        assert_eq!(refseq.contig(2).decode_all(), b"CCC");
+        assert_eq!(refseq.contig(1).decode_all(), b"");
+        assert_eq!(refseq.contig(2).decode_all(), b"GG");
+        assert_eq!(refseq.contig(3).decode_all(), b"");
+        assert_eq!(refseq.contig(4).decode_all(), b"");
+        assert_eq!(refseq.contig(5).decode_all(), b"CCC");
 
-        assert_eq!(alt_length, 7);
+        assert_eq!(refseq.alt_length(), 7);
     }
 }

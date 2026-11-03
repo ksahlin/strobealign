@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::cigar::Cigar;
 use crate::details::Details;
-use crate::refseq::{ContigPosition, RefSequence};
+use crate::refseq::{ContigPosition, ContigType, RefSequence};
 
 pub const PAIRED: u16 = 1;
 pub const PROPER_PAIR: u16 = 2;
@@ -184,12 +184,12 @@ impl Display for SamHeader<'_> {
         writeln!(f, "@HD\tVN:1.6\tSO:unsorted")?;
 
         for i in 0..self.refseq.names.len() {
-            writeln!(
-                f,
-                "@SQ\tSN:{}\tLN:{}",
-                self.refseq.names[i],
-                self.refseq.contig(i).len()
-            )?;
+            write!(f, "@SQ\tSN:{}", self.refseq.names[i])?;
+            if let ContigType::Alternative(length) = self.refseq.contig_types[i] {
+                writeln!(f, "\tLN:{}\tAH:*", length)?;
+            } else {
+                writeln!(f, "\tLN:{}", self.refseq.contig(i).len())?;
+            }
         }
         if let Some(read_group) = &self.read_group {
             write!(f, "@RG\tID:{}", read_group.id)?;
