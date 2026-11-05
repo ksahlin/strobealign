@@ -10,21 +10,23 @@ pub struct PiecewiseAligner {
     scores: Scores,
     k: usize,
     bandwidth: usize,
+    max_extension: usize,
     simd_aligner: RefCell<SimdAligner>,
 }
 
 impl Clone for PiecewiseAligner {
     fn clone(&self) -> Self {
-        PiecewiseAligner::new(self.scores, self.k, self.bandwidth)
+        PiecewiseAligner::new(self.scores, self.k, self.bandwidth, self.max_extension)
     }
 }
 
 impl PiecewiseAligner {
-    pub fn new(scores: Scores, k: usize, bandwidth: usize) -> Self {
+    pub fn new(scores: Scores, k: usize, bandwidth: usize, max_extension: usize) -> Self {
         PiecewiseAligner {
             scores,
             k,
             bandwidth,
+            max_extension,
             simd_aligner: RefCell::new(SimdAligner::new(scores)),
         }
     }
@@ -62,7 +64,14 @@ impl PiecewiseAligner {
         padding: usize,
     ) -> AlignmentResult {
         if first_anchor.query_start() > 0 && first_anchor.ref_start() > 0 {
-            let query_part = &query[..first_anchor.query_start()];
+            let query_from = if self.max_extension > 0 {
+                first_anchor
+                    .query_start()
+                    .saturating_sub(self.max_extension)
+            } else {
+                0
+            };
+            let query_part = &query[query_from..first_anchor.query_start()];
             let ref_start = first_anchor
                 .ref_start()
                 .saturating_sub(query_part.len() + padding);
@@ -82,6 +91,7 @@ impl PiecewiseAligner {
                 }
             } else {
                 pre_align.ref_start += ref_start;
+                pre_align.query_start += query_from;
                 pre_align
             }
         } else {
@@ -133,7 +143,12 @@ impl PiecewiseAligner {
         let last_anchor_ref_end = last_anchor.ref_start() + self.k;
 
         if last_anchor_query_end < query.len() && last_anchor_ref_end < refseq.len() {
-            let query_part = &query[last_anchor_query_end..];
+            let query_to = if self.max_extension > 0 {
+                query.len().min(last_anchor_query_end + self.max_extension)
+            } else {
+                query.len()
+            };
+            let query_part = &query[last_anchor_query_end..query_to];
             let ref_end = refseq
                 .len()
                 .min(last_anchor_ref_end + query_part.len() + padding);
@@ -352,6 +367,7 @@ mod tests {
             },
             5,
             1024,
+            0,
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
@@ -369,6 +385,33 @@ mod tests {
     }
 
     #[test]
+    fn extend_piecewise_capped_extension() {
+        let scores = Scores {
+            match_: 2,
+            mismatch: 8,
+            gap_open: 12,
+            gap_extend: 1,
+            end_bonus: 10,
+        };
+        let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let refseq = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let anchors = anchors![(40, 30), (30, 20), (20, 10)];
+
+        let uncapped = PiecewiseAligner::new(scores, 5, 1024, 0)
+            .extend_piecewise(query, refseq, &anchors, 5)
+            .unwrap();
+        assert_eq!(uncapped.query_start, 0);
+        assert_eq!(uncapped.query_end, 50);
+
+        let capped = PiecewiseAligner::new(scores, 5, 1024, 4)
+            .extend_piecewise(query, refseq, &anchors, 5)
+            .unwrap();
+        assert_eq!(capped.query_start, 6);
+        assert_eq!(capped.query_end, 39);
+        assert_eq!(capped.cigar.to_string(), "33=");
+    }
+
+    #[test]
     fn extend_piecewise_unmappable() {
         let aligner = PiecewiseAligner::new(
             Scores {
@@ -380,6 +423,7 @@ mod tests {
             },
             5,
             1024,
+            0,
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq = b"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT";
@@ -401,6 +445,7 @@ mod tests {
             },
             5,
             1024,
+            0,
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq =
@@ -438,6 +483,7 @@ mod tests {
             },
             5,
             1024,
+            0,
         );
         let query = b"CTTTTAAAAATTTTAAAAATGGTTTCAAAAATTCCTAAAAATTTTTCCCCC";
         let refseq = b"TTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAA";
