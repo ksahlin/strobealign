@@ -291,6 +291,10 @@ struct Args {
     #[arg(long = "bw", default_value_t = 1024, value_name = "N", help_heading = "Alignment")]
     bandwidth: usize,
 
+    /// Longest chain flanks a piecewise start/end extension may align, 0 for unlimited
+    #[arg(long = "be", default_value_t = 10000, value_name = "N", help_heading = "Alignment")]
+    max_extension: usize,
+
     /// Minimum insertion length that triggers tandem duplication detection (single-end only); 0 to disable
     #[arg(long = "dl", default_value_t = 0, value_name = "N", hide = true)]
     min_duplication_length: usize,
@@ -604,7 +608,7 @@ fn run() -> Result<(), CliError> {
     let aligner = if args.use_ssw {
         Aligner::new_ssw_only(scores)
     } else {
-        Aligner::new(scores, index.k(), args.bandwidth)
+        Aligner::new(scores, index.k(), args.bandwidth, args.max_extension)
     };
 
     let cmd_line = env::args().skip(1).collect::<Vec<_>>().join(" ");
