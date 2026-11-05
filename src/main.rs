@@ -921,8 +921,12 @@ fn print_statistics(
         details.align.duplication_candidates
     );
     debug!(
-        "Insertions reinterpreted as duplications: {:12}",
+        "Copies reported as duplications:          {:12}",
         details.align.duplications
+    );
+    debug!(
+        "Duplications with more than one copy:     {:12}",
+        details.align.multi_copy_duplications
     );
 
     debug!("");

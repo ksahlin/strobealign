@@ -70,6 +70,10 @@ pub fn reinterpret_insertions(
                 query.len(),
                 &aligner.scores,
             ) {
+                if !duplication.inner.is_empty() {
+                    details.multi_copy_duplications += 1;
+                }
+
                 segments.push(segment);
                 segments.extend(inner_segments);
                 segment_start = duplication.tail.contig_start;
