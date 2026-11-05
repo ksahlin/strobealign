@@ -17,13 +17,10 @@ pub struct QueryRandstrobe {
 
 /// Generate randstrobes for a query sequence and its reverse complement.
 pub fn randstrobes_query(seq: &[u8], parameters: &SeedingParameters) -> [Vec<QueryRandstrobe>; 2] {
-    let mut randstrobes = {
-        let expected = seq.len() / (parameters.syncmer.k - parameters.syncmer.s + 1);
-        [Vec::with_capacity(expected), Vec::with_capacity(expected)]
-    };
     if seq.len() < parameters.randstrobe.w_max {
-        return randstrobes;
+        return [vec![], vec![]];
     }
+    let expected = seq.len() / (parameters.syncmer.k - parameters.syncmer.s + 1);
 
     // Generate syncmers for the forward sequence
     let syncmer_iter = SyncmerIterator::new(
@@ -32,7 +29,13 @@ pub fn randstrobes_query(seq: &[u8], parameters: &SeedingParameters) -> [Vec<Que
         parameters.syncmer.s,
         parameters.syncmer.t,
     );
-    let mut syncmers: Vec<_> = syncmer_iter.collect();
+    let mut syncmers = Vec::with_capacity(expected);
+    syncmers.extend(syncmer_iter);
+
+    let mut randstrobes = [
+        Vec::with_capacity(syncmers.len()),
+        Vec::with_capacity(syncmers.len()),
+    ];
 
     // Generate randstrobes for the forward sequence
     let randstrobe_iter =
@@ -71,5 +74,6 @@ pub fn randstrobes_query(seq: &[u8], parameters: &SeedingParameters) -> [Vec<Que
             end: randstrobe.strobe2_pos + parameters.syncmer.k,
         });
     }
+
     randstrobes
 }
