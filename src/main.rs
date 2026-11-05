@@ -92,6 +92,10 @@ struct Args {
     #[arg(short = 'x', help_heading = "Input/output")]
     map_only: bool,
 
+    /// Exclude reference contigs that appear to be GRCh38 ALT contigs (uses a heuristic based on contig name)
+    #[arg(long, help_heading = "Input/output")]
+    exclude_alt: bool,
+
     /// Output the estimated abundance per contig (tabular output)
     #[arg(long, help_heading = "Input/output", conflicts_with = "map_only")]
     aemb: bool,
@@ -476,19 +480,35 @@ fn run() -> Result<(), CliError> {
         e,
         path: args.ref_path.clone(),
     })?;
-    let refseq = fasta::read_fasta(&mut BufReader::new(ref_file))?;
+    let refseq = fasta::read_fasta_alt_aware(&mut BufReader::new(ref_file), args.exclude_alt)?;
     let time_reading_reference = ref_timer.elapsed().as_secs_f64();
     info!("Time reading reference: {:.2} s", time_reading_reference);
     let total_ref_size = refseq.total_length();
     let max_contig_size = refseq.max_contig_len().ok_or(CliError::NoReference)?;
     info!(
-        "Reference size: {:.2} Mbp ({:.2} Mbp non-ACGTs; {} contig{}; largest: {:.2} Mbp)",
+        "Reference size: {:.2} Mbp ({:.2} Mbp non-ACGTs; {} contig{}; largest: {:.2} Mbp{})",
         total_ref_size as f64 / 1E6,
         refseq.wildcards() as f64 / 1E6,
         refseq.names.len(),
         if refseq.names.len() != 1 { "s" } else { "" },
-        max_contig_size as f64 / 1E6
+        max_contig_size as f64 / 1E6,
+        if args.exclude_alt {
+            format!(
+                "; {:.2} Mbp ALT contigs excluded",
+                refseq.alt_length() as f64 / 1E6
+            )
+            .to_string()
+        } else {
+            "".to_string()
+        }
     );
+
+    if !args.exclude_alt && is_possibly_grch38_with_alts(&refseq) {
+        warn!(
+            "\nWARNING: It appears that your reference is GRCh38 with ALT contigs. \
+               It is highly recommended that you use --exclude-alt to avoid reduced mapping accuracy.\n"
+        );
+    }
 
     // Create the index
     debug!("Auxiliary hash length: {}", args.aux_len);
@@ -983,6 +1003,10 @@ fn print_statistics(
     info!("Reading or creating index:      {:8.2} s", indexing_time);
     info!("Mapping:                        {:8.2} s", mapping_time);
     info!("Total:                          {:8.2} s", total_time);
+}
+
+fn is_possibly_grch38_with_alts(refseq: &RefSequence) -> bool {
+    refseq.total_length() == 3217346917 && refseq.names.len() == 3366
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

@@ -401,6 +401,7 @@ impl Display for IndexCreationStatistics {
 mod test {
     use crate::io::fasta::read_ref;
     use crate::packed_seq::PackedSeq;
+    use crate::refseq::ContigType;
 
     use super::*;
 
@@ -423,7 +424,13 @@ mod test {
 
     #[test]
     fn index_empty_reference() {
-        let refseq = RefSequence::new(PackedSeq::new(), vec![0], vec!["name".to_string()]).unwrap();
+        let refseq = RefSequence::new(
+            PackedSeq::new(),
+            vec![0],
+            vec!["name".to_string()],
+            vec![ContigType::Regular],
+        )
+        .unwrap();
         let parameters = SeedingParameters::new(150);
         let bits = parameters.syncmer.pick_bits(&refseq);
         let (_index2, stats) = make_index(&refseq, parameters, bits, 0.1, 1);

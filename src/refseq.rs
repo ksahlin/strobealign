@@ -66,6 +66,15 @@ pub enum RefSequenceError {
     SequenceTooLong,
 }
 
+#[derive(Debug, Clone)]
+pub enum ContigType {
+    // Contig belongs to primary assembly
+    Regular,
+
+    /// Alternative contig. The value is the length it originally had in the FASTA file.
+    Alternative(usize),
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct RefSequence {
     /// Contig names
@@ -75,6 +84,8 @@ pub struct RefSequence {
     sequence: PackedSeq,
 
     pub starts: ContigStarts,
+
+    pub contig_types: Vec<ContigType>,
 }
 
 impl RefSequence {
@@ -83,6 +94,7 @@ impl RefSequence {
         sequence: PackedSeq,
         starts: Vec<usize>,
         names: Vec<String>,
+        contig_types: Vec<ContigType>,
     ) -> Result<Self, RefSequenceError> {
         assert_eq!(starts.len(), names.len());
         let total_length = sequence.len();
@@ -94,6 +106,7 @@ impl RefSequence {
             sequence,
             starts: ContigStarts::new(starts, total_length),
             names,
+            contig_types,
         })
     }
 
@@ -132,6 +145,20 @@ impl RefSequence {
     pub fn total_length(&self) -> usize {
         self.starts.total_length()
     }
+
+    /// Total length of ALT contigs
+    pub fn alt_length(&self) -> usize {
+        self.contig_types
+            .iter()
+            .map(|ct| {
+                if let ContigType::Alternative(length) = *ct {
+                    length
+                } else {
+                    0
+                }
+            })
+            .sum()
+    }
 }
 
 #[cfg(test)]
@@ -148,7 +175,8 @@ mod test {
             "n4".to_string(),
         ];
         let starts = vec![0, 4, 7, 9];
-        RefSequence::new(sequence, starts, names).unwrap()
+        let contig_types = vec![ContigType::Regular];
+        RefSequence::new(sequence, starts, names, contig_types).unwrap()
     }
 
     #[test]
