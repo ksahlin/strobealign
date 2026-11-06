@@ -1,5 +1,12 @@
 # Strobealign Changelog
 
+## development version
+
+* #656: Report tandem duplications in single-end mode as one SAM record per copy
+  instead of as a large insertion (options `--dl`, `--dm` and `--dw`, see the
+  README). Strobealign now also supports multiple records per read with an
+  `SA:Z` tag.
+
 ## v0.20.0 (2026-11-06)
 
 * #671 (and #669): Fixed the algorithm used for converting N wildcards to
