@@ -1,5 +1,11 @@
 # Strobealign Changelog
 
+## development version
+
+* #685: Add `--be` (default 10000, 0 for no limit) to cap how far a chain is
+  extended towards the read ends. This halves peak memory on HG002 ONT reads, from
+  26 to 13 GiB.
+
 ## v0.20.0 (2026-11-06)
 
 * #671 (and #669): Fixed the algorithm used for converting N wildcards to
