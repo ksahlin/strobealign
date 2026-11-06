@@ -2,6 +2,10 @@
 
 ## development version
 
+* #656: Report tandem duplications in single-end mode as one SAM record per copy
+  instead of as a large insertion (options `--dl`, `--dm` and `--dw`, see the
+  README). Strobealign now also supports multiple records per read with an
+  `SA:Z` tag.
 * #685: Add `--be` (default 10000, 0 for no limit) to cap how far a chain is
   extended towards the read ends. This halves peak memory on HG002 ONT reads, from
   26 to 13 GiB.

@@ -296,15 +296,15 @@ struct Args {
     max_extension: usize,
 
     /// Minimum insertion length that triggers tandem duplication detection (single-end only); 0 to disable
-    #[arg(long = "dl", default_value_t = 0, value_name = "N", hide = true)]
+    #[arg(long = "dl", default_value_t = MappingParameters::default().min_duplication_length, value_name = "N", help_heading = "Duplications")]
     min_duplication_length: usize,
 
     /// Minimum fraction of the inserted bases a duplication must match to be reported
-    #[arg(long = "dm", default_value_t = MappingParameters::default().min_duplication_matches, value_name = "FRACTION", hide = true)]
+    #[arg(long = "dm", default_value_t = MappingParameters::default().min_duplication_matches, value_name = "FRACTION", help_heading = "Duplications")]
     min_duplication_matches: f32,
 
     /// Bandwidth for re-aligning an insertion
-    #[arg(long = "dw", default_value_t = MappingParameters::default().duplication_band, value_name = "N", hide = true)]
+    #[arg(long = "dw", default_value_t = MappingParameters::default().duplication_band, value_name = "N", help_heading = "Duplications")]
     duplication_band: usize,
 
     /// Path to input reference (in FASTA format)
