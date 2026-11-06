@@ -1,6 +1,6 @@
 # Strobealign Changelog
 
-## development version
+## v0.20.0 (2026-11-06)
 
 * #671 (and #669): Fixed the algorithm used for converting N wildcards to
   random nucleotides. This affects GRCh38, for which the index now needs
