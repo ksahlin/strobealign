@@ -54,6 +54,8 @@ pub struct ChainingParameters {
     pub diag_diff_penalty: f32,
     pub gap_length_penalty: f32,
     pub valid_score_threshold: f32,
+    pub min_chain_score: f32,
+    pub max_chains_per_interval: usize,
     pub max_ref_gap: Option<usize>,
     pub matches_weight: f32,
     pub max_diagonal_ratio: f32,
@@ -66,6 +68,8 @@ impl Default for ChainingParameters {
             diag_diff_penalty: 0.1,
             gap_length_penalty: 0.05,
             valid_score_threshold: 0.7,
+            min_chain_score: 40.0,
+            max_chains_per_interval: 20,
             max_ref_gap: None,
             matches_weight: 0.01,
             max_diagonal_ratio: 10.0,
@@ -452,6 +456,54 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
     anchors
 }
 
+struct QueryInterval {
+    start: usize,
+    end: usize,
+    best_score: f32,
+    n_chains: usize,
+}
+
+fn admit_chain(
+    intervals: &mut Vec<QueryInterval>,
+    start: usize,
+    end: usize,
+    score: f32,
+    parameters: &ChainingParameters,
+) -> bool {
+    for interval in intervals.iter_mut() {
+        let overlap = interval
+            .end
+            .min(end)
+            .saturating_sub(interval.start.max(start));
+        if overlap * 2 < (end - start).min(interval.end - interval.start) {
+            continue;
+        }
+
+        if score > interval.best_score {
+            interval.start = start;
+            interval.end = end;
+            interval.best_score = score;
+        } else if score < interval.best_score * parameters.valid_score_threshold
+            || interval.n_chains >= parameters.max_chains_per_interval
+        {
+            return false;
+        }
+
+        interval.n_chains += 1;
+
+        return true;
+    }
+
+    intervals.push(QueryInterval {
+        start,
+        end,
+        best_score: score,
+        n_chains: 1,
+    });
+
+    true
+}
+
 impl ChainingResult {
     fn extract_chains(
         &self,
@@ -461,7 +513,8 @@ impl ChainingResult {
         chains: &mut Vec<Chain>,
     ) {
         let n = self.anchors.len();
-        let valid_score = self.best_score * self.parameters.valid_score_threshold;
+        let valid_score = (self.best_score * self.parameters.valid_score_threshold)
+            .min(self.parameters.min_chain_score);
 
         let mut candidates = vec![];
         for i in 0..n {
@@ -473,12 +526,12 @@ impl ChainingResult {
         candidates.sort_by(|a, b| b.1.total_cmp(&a.1));
 
         let mut used = vec![false; n];
-        // Each candidate yields at most one chain
-        chains.reserve(candidates.len());
-        for (i, score) in candidates {
+        let mut intervals = Vec::new();
+        for (i, mut score) in candidates {
             if used[i] {
                 continue;
             }
+            used[i] = true;
 
             let mut j = i;
             let mut overlaps = false;
@@ -488,11 +541,12 @@ impl ChainingResult {
             let mut ref_coverage = self.anchors[i].ref_start();
 
             while self.predecessors[j] != usize::MAX {
-                j = self.predecessors[j];
-                if used[j] {
+                let predecessor = self.predecessors[j];
+                if used[predecessor] {
                     overlaps = true;
                     break;
                 }
+                j = predecessor;
                 n_chain_anchors += 1;
                 used[j] = true;
 
@@ -503,6 +557,23 @@ impl ChainingResult {
             }
 
             if overlaps {
+                score = self.dp[i] - self.dp[j] + k as f32;
+                if score < valid_score {
+                    continue;
+                }
+            }
+
+            let first = &self.anchors[j];
+            let last = &self.anchors[i];
+            let query_start = first.query_start();
+            let query_end = last.query_start() + k;
+            if !admit_chain(
+                &mut intervals,
+                query_start,
+                query_end,
+                score,
+                &self.parameters,
+            ) {
                 continue;
             }
 
@@ -515,13 +586,10 @@ impl ChainingResult {
                 current = self.predecessors[current];
             }
 
-            let first = &self.anchors[j];
-            let last = &self.anchors[i];
-
             chains.push(Chain {
                 id: chains.len(),
-                query_start: first.query_start(),
-                query_end: last.query_start() + k,
+                query_start,
+                query_end,
                 ref_contig_start: contig_starts.ref_contig_start(first.ref_start()),
                 ref_start: first.ref_start(),
                 ref_end: last.ref_start() + k,
@@ -598,6 +666,49 @@ pub mod test {
         let chainer = Chainer::new(20, parameters);
         let chaining_result = chainer.collinear_chaining(anchors, &starts, 2000);
         assert!(chaining_result.best_score > 42.0);
+    }
+
+    #[test]
+    fn recover_lower_scoring_sub_chain_for_supplementary() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        let starts = ContigStarts::new(vec![0], 100_000);
+        let extract = |anchors| {
+            let mut chains = vec![];
+            chainer
+                .collinear_chaining(anchors, &starts, 2000)
+                .extract_chains(20, false, &starts, &mut chains);
+            chains
+        };
+
+        #[rustfmt::skip]
+        let chains = extract(anchors![
+            (0, 0), (20, 20), (40, 40), (60, 60), (80, 80), (100, 100),
+            (1090, 200), (1110, 220), (1130, 240),
+        ]);
+        let alone = extract(anchors![(1090, 200), (1110, 220), (1130, 240)]);
+
+        assert_eq!(chains.len(), 2);
+        assert_eq!(alone.len(), 1);
+        let (cut, whole) = (&chains[1], &alone[0]);
+        assert_eq!(cut.anchors, whole.anchors);
+        assert_eq!(
+            (
+                cut.query_start,
+                cut.query_end,
+                cut.ref_start,
+                cut.ref_end,
+                cut.matching_bases
+            ),
+            (
+                whole.query_start,
+                whole.query_end,
+                whole.ref_start,
+                whole.ref_end,
+                whole.matching_bases
+            ),
+        );
+
+        assert!((cut.score - whole.score).abs() < 1e-4);
     }
 
     #[test]

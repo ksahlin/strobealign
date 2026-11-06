@@ -249,6 +249,14 @@ struct Args {
     #[arg(long = "vp", default_value_t = ChainingParameters::default().valid_score_threshold, help_heading = "Collinear chaining")]
     valid_score_threshold: f32,
 
+    /// Score at which a chain is kept whatever the best chain of the read scores
+    #[arg(long = "vs", default_value_t = ChainingParameters::default().min_chain_score, help_heading = "Collinear chaining")]
+    min_chain_score: f32,
+
+    /// Maximum number of chains kept over one query interval
+    #[arg(long = "vn", default_value_t = ChainingParameters::default().max_chains_per_interval, help_heading = "Collinear chaining")]
+    max_chains_per_interval: usize,
+
     /// Maximum allowed distance between anchors on the reference [default: same as read length]
     #[arg(long = "sg", help_heading = "Collinear chaining")]
     max_ref_gap: Option<usize>,
@@ -290,6 +298,28 @@ struct Args {
     /// Bandwidth of the piecewise start/end extensions, in diagonals
     #[arg(long = "bw", default_value_t = 1024, value_name = "N", help_heading = "Alignment")]
     bandwidth: usize,
+
+    // Supplementary parameters
+
+    /// Minimum score for a supplementary alignment to be reported
+    #[arg(long = "sm", default_value_t = MappingParameters::default().min_supplementary_score, value_name = "N", help_heading = "Supplementary")]
+    min_supplementary_score: u32,
+
+    /// Maximum gap between the primary and a supplementary, on the read or the reference
+    #[arg(long = "ss", default_value_t = MappingParameters::default().max_segment_gap, value_name = "N", help_heading = "Supplementary")]
+    max_segment_gap: usize,
+
+    /// Longest deletion or tandem duplication a supplementary alignment may describe
+    #[arg(long = "sd", default_value_t = MappingParameters::default().max_gap_distance, value_name = "N", help_heading = "Supplementary")]
+    max_gap_distance: usize,
+
+    /// Maximum reference gap between the primary and an insertion candidate
+    #[arg(long = "si", default_value_t = MappingParameters::default().max_insertion_ref_gap, value_name = "N", help_heading = "Supplementary")]
+    max_insertion_ref_gap: usize,
+
+    /// Fraction of the primary's read span a supplementary candidate may overlap
+    #[arg(long = "so", default_value_t = MappingParameters::default().max_supplementary_overlap, value_name = "FRACTION", help_heading = "Supplementary")]
+    max_supplementary_overlap: f32,
 
     /// Minimum insertion length that triggers tandem duplication detection (single-end only); 0 to disable
     #[arg(long = "dl", default_value_t = MappingParameters::default().min_duplication_length, value_name = "N", help_heading = "Duplications")]
@@ -576,6 +606,11 @@ fn run() -> Result<(), CliError> {
             args.max_secondary as usize
         },
         secondary_threshold: args.secondary_threshold,
+        max_segment_gap: args.max_segment_gap,
+        max_gap_distance: args.max_gap_distance,
+        max_insertion_ref_gap: args.max_insertion_ref_gap,
+        min_supplementary_score: args.min_supplementary_score,
+        max_supplementary_overlap: args.max_supplementary_overlap,
         max_tries: args.max_tries,
         dropoff_threshold: args.dropoff_threshold,
         rescue_distance: args.rescue_distance,
@@ -592,6 +627,8 @@ fn run() -> Result<(), CliError> {
         diag_diff_penalty: args.diag_diff_penalty,
         gap_length_penalty: args.gap_length_penalty,
         valid_score_threshold: args.valid_score_threshold,
+        min_chain_score: args.min_chain_score,
+        max_chains_per_interval: args.max_chains_per_interval,
         max_ref_gap: args.max_ref_gap,
         matches_weight: args.matches_weight,
         max_diagonal_ratio: args.max_diagonal_ratio,
@@ -944,6 +981,21 @@ fn print_statistics(
         "Insertions reinterpreted as duplications: {:12}",
         details.align.duplications
     );
+    debug!(
+        "Supplementary candidates:                 {:12}               Per read: {:7.1}",
+        details.align.supplementary_candidates,
+        details.align.supplementary_candidates as f64 / details.chain.n_reads as f64
+    );
+    debug!(
+        "Supplementary candidates extended:        {:12}               Per read: {:7.1}",
+        details.align.supplementary_extended,
+        details.align.supplementary_extended as f64 / details.chain.n_reads as f64
+    );
+    debug!(
+        "Supplementary alignments reported:        {:12}               Per read: {:7.1}",
+        details.align.supplementary,
+        details.align.supplementary as f64 / details.chain.n_reads as f64
+    );
 
     debug!("");
     debug!("## Mapping runtime breakdown");
@@ -987,6 +1039,16 @@ fn print_statistics(
         "Extending and pairing seeds: {:8.2} s  {:5.1} %",
         details.align.time_extend,
         details.align.time_extend * 100. / total
+    );
+    debug!(
+        "  primary chains:            {:8.2} s  {:5.1} %",
+        details.align.time_extend_primary,
+        details.align.time_extend_primary * 100. / total
+    );
+    debug!(
+        "  supplementary search:      {:8.2} s  {:5.1} %",
+        details.align.time_extend_supplementary,
+        details.align.time_extend_supplementary * 100. / total
     );
     debug!(
         "Total:                       {:8.2} s  {:5.1} %",
