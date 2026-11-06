@@ -382,7 +382,7 @@ impl<'a> IndexEntry<'a> {
     }
 }
 
-const STI_FILE_FORMAT_VERSION: u32 = 7;
+const STI_FILE_FORMAT_VERSION: u32 = 8;
 
 #[derive(Error, Debug)]
 pub enum IndexReadingError {
