@@ -81,6 +81,7 @@ impl PiecewiseAligner {
                 query_part,
                 ref_part,
                 Some(self.bandwidth),
+                query_from == 0,
             );
 
             if pre_align.score == 0 {
@@ -158,6 +159,7 @@ impl PiecewiseAligner {
                 query_part,
                 ref_part,
                 Some(self.bandwidth),
+                query_to == query.len(),
             );
 
             if post_align.score == 0 {
@@ -402,6 +404,7 @@ mod tests {
             .unwrap();
         assert_eq!(uncapped.query_start, 0);
         assert_eq!(uncapped.query_end, 50);
+        assert_eq!(uncapped.score, 2 * 50 + 2 * 10);
 
         let capped = PiecewiseAligner::new(scores, 5, 1024, 4)
             .extend_piecewise(query, refseq, &anchors, 5)
@@ -409,6 +412,8 @@ mod tests {
         assert_eq!(capped.query_start, 6);
         assert_eq!(capped.query_end, 39);
         assert_eq!(capped.cigar.to_string(), "33=");
+        // Neither end is an end of the read, so no end bonus
+        assert_eq!(capped.score, 2 * 33);
     }
 
     #[test]
