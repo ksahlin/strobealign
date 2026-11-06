@@ -232,7 +232,7 @@ fn local_end_stops_before_a_bad_tail() {
     // The reference matches for 6 bases then diverges completely. Extending into the tail
     // costs more than it earns, so the alignment stops at the divergence.
     let (query, reference) = (b"AAATTTGGGGGG", b"AAATTTCCCCCC");
-    let result = aligner().local_end_alignment(query, reference, None);
+    let result = aligner().local_end_alignment(query, reference, None, true);
     check(&result, query, reference, 0);
     assert_eq!(result.score, 6 * 2);
     assert_eq!(result.cigar.to_string(), "6=");
@@ -245,7 +245,7 @@ fn local_end_spans_the_query_for_the_end_bonus() {
     // A single trailing mismatch is worth crossing: -8 for the mismatch against +10 of
     // end_bonus for reaching the end of the query.
     let (query, reference) = (b"AAATTTG", b"AAATTTC");
-    let result = aligner().local_end_alignment(query, reference, None);
+    let result = aligner().local_end_alignment(query, reference, None, true);
     check(&result, query, reference, SCORES.end_bonus as i32);
     assert_eq!(result.score, 6 * 2 - 8 + 10);
     assert_eq!(result.cigar.to_string(), "6=1X");
@@ -255,7 +255,7 @@ fn local_end_spans_the_query_for_the_end_bonus() {
 #[test]
 fn local_end_never_scores_below_zero() {
     // Nothing is worth aligning, so the empty alignment wins.
-    let result = aligner().local_end_alignment(b"GGGG", b"CCCC", None);
+    let result = aligner().local_end_alignment(b"GGGG", b"CCCC", None, true);
     assert_eq!(result.score, 0);
     assert!(result.cigar.is_empty());
     assert_eq!((result.query_end, result.ref_end), (0, 0));
@@ -266,7 +266,7 @@ fn local_start_is_the_mirror_of_local_end() {
     // Same shape as `local_end_stops_before_a_bad_tail`, reversed: the junk is a leading
     // prefix and the alignment begins after it.
     let (query, reference) = (b"GGGGGGAAATTT", b"CCCCCCAAATTT");
-    let result = aligner().local_start_alignment(query, reference, None);
+    let result = aligner().local_start_alignment(query, reference, None, true);
     check(&result, query, reference, 0);
     assert_eq!(result.score, 6 * 2);
     assert_eq!(result.cigar.to_string(), "6=");
