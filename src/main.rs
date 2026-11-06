@@ -291,7 +291,7 @@ struct Args {
     #[arg(long = "bw", default_value_t = 1024, value_name = "N", help_heading = "Alignment")]
     bandwidth: usize,
 
-    /// Longest chain flanks a piecewise start/end extension may align, 0 for unlimited
+    /// Maximal length of an extension alignment (before first and after last anchor). Use 0 for unlimited
     #[arg(long = "be", default_value_t = 10000, value_name = "N", help_heading = "Alignment")]
     max_extension: usize,
 
