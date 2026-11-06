@@ -10,21 +10,23 @@ pub struct PiecewiseAligner {
     scores: Scores,
     k: usize,
     bandwidth: usize,
+    score_drop: u32,
     simd_aligner: RefCell<SimdAligner>,
 }
 
 impl Clone for PiecewiseAligner {
     fn clone(&self) -> Self {
-        PiecewiseAligner::new(self.scores, self.k, self.bandwidth)
+        PiecewiseAligner::new(self.scores, self.k, self.bandwidth, self.score_drop)
     }
 }
 
 impl PiecewiseAligner {
-    pub fn new(scores: Scores, k: usize, bandwidth: usize) -> Self {
+    pub fn new(scores: Scores, k: usize, bandwidth: usize, score_drop: u32) -> Self {
         PiecewiseAligner {
             scores,
             k,
             bandwidth,
+            score_drop,
             simd_aligner: RefCell::new(SimdAligner::new(scores)),
         }
     }
@@ -72,6 +74,7 @@ impl PiecewiseAligner {
                 query_part,
                 ref_part,
                 Some(self.bandwidth),
+                Some(self.score_drop),
             );
 
             if pre_align.score == 0 {
@@ -143,6 +146,7 @@ impl PiecewiseAligner {
                 query_part,
                 ref_part,
                 Some(self.bandwidth),
+                Some(self.score_drop),
             );
 
             if post_align.score == 0 {
@@ -352,6 +356,7 @@ mod tests {
             },
             5,
             1024,
+            1036,
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
@@ -380,6 +385,7 @@ mod tests {
             },
             5,
             1024,
+            1036,
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq = b"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT";
@@ -401,6 +407,7 @@ mod tests {
             },
             5,
             1024,
+            1036,
         );
         let query = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let refseq =
@@ -438,6 +445,7 @@ mod tests {
             },
             5,
             1024,
+            1036,
         );
         let query = b"CTTTTAAAAATTTTAAAAATGGTTTCAAAAATTCCTAAAAATTTTTCCCCC";
         let refseq = b"TTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAATTTTTAAAAA";
