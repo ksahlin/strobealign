@@ -7,45 +7,88 @@ use crate::details::ChainDetails;
 use crate::hit::{Hit, HitsDetails, find_hits};
 use crate::index::{IndexEntry, StrobemerIndex};
 use crate::mcsstrategy::McsStrategy;
-use crate::refseq::{ContigStarts, REFERENCE_BITS};
+use crate::refseq::ContigStarts;
 use crate::seeding::QueryRandstrobe;
 
 const N_PRECOMPUTED: usize = 1024;
 
-/// Number of low bits used for the query start in an Anchor. The
-/// remaining 44 bits hold the reference start.
-const ANCHOR_QUERY_BITS: u32 = 64 - REFERENCE_BITS;
-const ANCHOR_QUERY_MASK: u64 = (1 << ANCHOR_QUERY_BITS) - 1;
-pub const MAXIMUM_QUERY_LENGTH: usize = 1 << ANCHOR_QUERY_BITS;
-
 /// An anchor is represented by the start coordinate on the reference and
 /// query (`ref_start` and `query_start`).
 ///
-/// Anchors are packed into a single u64 so that sorting, deduplication and
-/// chaining can use a single machine word.
-/// `query_start` is packed into the lower `ANCHOR_QUERY_BITS` bits and
-/// `ref_start` into the remaining upper bits so that sorting by the u64 value
-/// implicitly sorts by (`ref_start`, `query_start`).
+/// This is the representation used for the anchors of a finished [`Chain`].
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
-pub struct Anchor(u64);
+pub struct Anchor {
+    ref_start: usize,
+    query_start: usize,
+}
 
 impl Anchor {
     #[inline]
     pub fn new(ref_start: usize, query_start: usize) -> Self {
-        debug_assert!(query_start < (1 << ANCHOR_QUERY_BITS));
-        debug_assert!(ref_start < (1 << (64 - ANCHOR_QUERY_BITS)));
-        Anchor(((ref_start as u64) << ANCHOR_QUERY_BITS) | query_start as u64)
+        Anchor {
+            ref_start,
+            query_start,
+        }
     }
 
     #[inline]
     pub fn ref_start(self) -> usize {
-        (self.0 >> ANCHOR_QUERY_BITS) as usize
+        self.ref_start
     }
 
     #[inline]
     pub fn query_start(self) -> usize {
-        (self.0 & ANCHOR_QUERY_MASK) as usize
+        self.query_start
     }
+}
+
+/// An anchor packed into a single u64, used while chaining.
+///
+/// Sorting, deduplication and the chaining DP touch every anchor repeatedly,
+/// so both coordinates go into one machine word: `query_start` into the lower
+/// [`anchor_query_bits`] bits and `ref_start` into the upper ones. Sorting by
+/// the u64 value implicitly sorts by (`ref_start`, `query_start`).
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
+struct PackedAnchor(u64);
+
+impl PackedAnchor {
+    #[inline]
+    fn new(ref_start: usize, query_start: usize, query_bits: u32) -> Self {
+        debug_assert_eq!(query_start as u64 >> query_bits, 0);
+        debug_assert!((ref_start as u64).leading_zeros() >= query_bits);
+        PackedAnchor(((ref_start as u64) << query_bits) | query_start as u64)
+    }
+
+    #[inline]
+    fn ref_start(self, query_bits: u32) -> usize {
+        (self.0 >> query_bits) as usize
+    }
+
+    #[inline]
+    fn query_start(self, query_bits: u32) -> usize {
+        (self.0 & ((1 << query_bits) - 1)) as usize
+    }
+
+    #[inline]
+    fn unpack(self, query_bits: u32) -> Anchor {
+        Anchor::new(self.ref_start(query_bits), self.query_start(query_bits))
+    }
+}
+
+/// Number of the bits of a packed anchor left for the query position, once the
+/// reference has taken as many as its length needs.
+///
+/// The bits the reference does not need are exactly its leading zeros. It
+/// keeps at least one, so that the result stays below [`u64::BITS`] and
+/// shifting an anchor by it is defined.
+pub fn anchor_query_bits(reference_length: usize) -> u32 {
+    (reference_length as u64).leading_zeros().min(u64::BITS - 1)
+}
+
+/// Length of the longest read whose anchors fit into a single word, or
+/// `usize::MAX` if any read that fits in memory can be packed.
+pub fn maximum_read_length(query_bits: u32) -> usize {
+    1usize.checked_shl(query_bits).unwrap_or(usize::MAX)
 }
 
 #[derive(Debug, Clone)]
@@ -78,19 +121,21 @@ pub struct ChainingResult {
     best_score: f32,
     dp: Vec<f32>,
     predecessors: Vec<usize>,
-    anchors: Vec<Anchor>,
+    anchors: Vec<PackedAnchor>,
     parameters: ChainingParameters,
+    query_bits: u32,
 }
 
 #[derive(Debug)]
 pub struct Chainer {
     k: usize,
     parameters: ChainingParameters,
+    query_bits: u32,
     precomputed_scores: [f32; N_PRECOMPUTED],
 }
 
 impl Chainer {
-    pub fn new(k: usize, parameters: ChainingParameters) -> Self {
+    pub fn new(k: usize, parameters: ChainingParameters, query_bits: u32) -> Self {
         let mut precomputed_scores = [0f32; N_PRECOMPUTED];
         #[allow(clippy::needless_range_loop)]
         for i in 0..N_PRECOMPUTED {
@@ -99,6 +144,7 @@ impl Chainer {
         Chainer {
             k,
             parameters,
+            query_bits,
             precomputed_scores,
         }
     }
@@ -116,10 +162,11 @@ impl Chainer {
     #[inline(never)]
     fn collinear_chaining(
         &self,
-        anchors: Vec<Anchor>,
+        anchors: Vec<PackedAnchor>,
         contig_starts: &ContigStarts,
         read_len: usize,
     ) -> ChainingResult {
+        let query_bits = self.query_bits;
         let n = anchors.len();
         if n == 0 {
             return ChainingResult::default();
@@ -137,42 +184,44 @@ impl Chainer {
 
         // Anchors are sorted by ref_start, so the contig index only moves forward
         let starts = &contig_starts.0;
-        let mut contig_index = contig_starts.index(anchors[0].ref_start());
+        let mut contig_index = contig_starts.index(anchors[0].ref_start(query_bits));
         for i in 0..n {
             let lookup_end = i.saturating_sub(max_lookback);
             let ai = anchors[i];
+            let ai_ref_start = ai.ref_start(query_bits);
+            let ai_query_start = ai.query_start(query_bits);
 
             // Flat start position of the contig that a[i] is on
-            if ai.ref_start() >= starts[contig_index + 1] {
-                contig_index +=
-                    starts[contig_index + 1..].partition_point(|&x| x <= ai.ref_start());
+            if ai_ref_start >= starts[contig_index + 1] {
+                contig_index += starts[contig_index + 1..].partition_point(|&x| x <= ai_ref_start);
             }
             let ref_contig_start = starts[contig_index];
             // Smallest ref_start of an anchor that is on the same contig as a[i]
             // and less than max_ref_gap away from it
             let min_ref_start =
-                ref_contig_start.max((ai.ref_start() + 1).saturating_sub(max_ref_gap));
+                ref_contig_start.max((ai_ref_start + 1).saturating_sub(max_ref_gap));
             for j in (lookup_end..i).rev() {
                 let aj = anchors[j];
+                let aj_ref_start = aj.ref_start(query_bits);
 
                 // Do not attempt to chain to an anchor on a different contig or
                 // too far away. This check works because we go through anchors
                 // in reverse, so all remaining anchors are even further away.
-                if aj.ref_start() < min_ref_start {
+                if aj_ref_start < min_ref_start {
                     break;
                 }
 
-                let Some(dq) = ai.query_start().checked_sub(aj.query_start()) else {
+                let Some(dq) = ai_query_start.checked_sub(aj.query_start(query_bits)) else {
                     // Not collinear
                     continue;
                 };
 
                 debug_assert!(
-                    ai.ref_start() >= aj.ref_start(),
+                    ai_ref_start >= aj_ref_start,
                     "anchors must be sorted by reference start position"
                 );
 
-                let dr = ai.ref_start() - aj.ref_start();
+                let dr = ai_ref_start - aj_ref_start;
 
                 if dq == dr {
                     // Same diagonal (the most common case): Avoid the division since the
@@ -210,10 +259,12 @@ impl Chainer {
             // results. To mitigate the issue, we explicitly check that anchor.
             if best_index != usize::MAX {
                 let aj = anchors[best_index];
+                let aj_ref_start = aj.ref_start(query_bits);
+                let aj_query_start = aj.query_start(query_bits);
 
-                if aj.ref_start() >= min_ref_start && ai.query_start() > aj.query_start() {
-                    let dq = ai.query_start() - aj.query_start();
-                    let dr = ai.ref_start() - aj.ref_start();
+                if aj_ref_start >= min_ref_start && ai_query_start > aj_query_start {
+                    let dq = ai_query_start - aj_query_start;
+                    let dr = ai_ref_start - aj_ref_start;
 
                     let diagonal_ratio = dq.max(dr) as f32 / dq.min(dr) as f32;
                     if dr > 0 && diagonal_ratio <= self.parameters.max_diagonal_ratio {
@@ -239,6 +290,7 @@ impl Chainer {
             predecessors,
             anchors,
             parameters: self.parameters.clone(),
+            query_bits,
         }
     }
 
@@ -284,15 +336,15 @@ impl Chainer {
         let mut chains = vec![];
         for &is_revcomp in &orientations {
             let hits_timer = Instant::now();
-            let mut anchors = hits_to_anchors(&hits[is_revcomp], index);
+            let mut anchors = hits_to_anchors(&hits[is_revcomp], index, self.query_bits);
             time_find_hits += hits_timer.elapsed().as_secs_f64();
 
             let timer = Instant::now();
             n_anchors += anchors.len();
             trace!("Chaining {} anchors", anchors.len());
             debug_assert!(
-                read_len < (1 << ANCHOR_QUERY_BITS),
-                "query positions must fit in ANCHOR_QUERY_BITS bits"
+                read_len <= maximum_read_length(self.query_bits),
+                "query positions must fit in query_bits bits"
             );
             anchors.sort_unstable();
             anchors.dedup();
@@ -386,11 +438,12 @@ fn score_upper_bound(dq: usize, dr: usize, k: usize, parameters: &ChainingParame
 }
 
 fn add_to_anchors_full(
-    anchors: &mut Vec<Anchor>,
+    anchors: &mut Vec<PackedAnchor>,
     query_start: usize,
     query_end: usize,
     index: &StrobemerIndex,
     entry: IndexEntry,
+    query_bits: u32,
 ) {
     let mut min_length_diff = usize::MAX;
     let forward_hash = entry.hash();
@@ -403,18 +456,23 @@ fn add_to_anchors_full(
         let ref_end = ref_start + entry.strobe2_offset() + index.k();
         let length_diff = (query_end - query_start).abs_diff(ref_end - ref_start);
         if length_diff <= min_length_diff {
-            anchors.push(Anchor::new(ref_start, query_start));
-            anchors.push(Anchor::new(ref_end - index.k(), query_end - index.k()));
+            anchors.push(PackedAnchor::new(ref_start, query_start, query_bits));
+            anchors.push(PackedAnchor::new(
+                ref_end - index.k(),
+                query_end - index.k(),
+                query_bits,
+            ));
             min_length_diff = length_diff;
         }
     }
 }
 
 fn add_to_anchors_partial(
-    anchors: &mut Vec<Anchor>,
+    anchors: &mut Vec<PackedAnchor>,
     query_start: usize,
     index: &StrobemerIndex,
     entry: IndexEntry,
+    query_bits: u32,
 ) {
     let forward_hash = entry.get_hash_partial_forward();
     for i in entry.position..index.len() {
@@ -424,11 +482,15 @@ fn add_to_anchors_partial(
             break;
         }
 
-        anchors.push(Anchor::new(entry.ref_start(), query_start));
+        anchors.push(PackedAnchor::new(
+            entry.ref_start(),
+            query_start,
+            query_bits,
+        ));
     }
 }
 
-fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
+fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex, query_bits: u32) -> Vec<PackedAnchor> {
     let mut anchors = vec![];
     for hit in hits {
         if hit.is_filtered {
@@ -436,7 +498,13 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
         }
         if hit.is_partial {
             if let Some(forward_entry) = index.get_partial_forward_from(hit.hash, hit.position) {
-                add_to_anchors_partial(&mut anchors, hit.query_start, index, forward_entry);
+                add_to_anchors_partial(
+                    &mut anchors,
+                    hit.query_start,
+                    index,
+                    forward_entry,
+                    query_bits,
+                );
             }
         } else {
             add_to_anchors_full(
@@ -445,6 +513,7 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
                 hit.query_end,
                 index,
                 index.entry(hit.position),
+                query_bits,
             );
         }
     }
@@ -460,6 +529,7 @@ impl ChainingResult {
         contig_starts: &ContigStarts,
         chains: &mut Vec<Chain>,
     ) {
+        let query_bits = self.query_bits;
         let n = self.anchors.len();
         let valid_score = self.best_score * self.parameters.valid_score_threshold;
 
@@ -485,7 +555,7 @@ impl ChainingResult {
             let mut n_chain_anchors = 1;
 
             let mut matching_bases = k;
-            let mut ref_coverage = self.anchors[i].ref_start();
+            let mut ref_coverage = self.anchors[i].ref_start(query_bits);
 
             while self.predecessors[j] != usize::MAX {
                 j = self.predecessors[j];
@@ -497,9 +567,9 @@ impl ChainingResult {
                 used[j] = true;
 
                 matching_bases += ref_coverage
-                    .saturating_sub(self.anchors[j].ref_start())
+                    .saturating_sub(self.anchors[j].ref_start(query_bits))
                     .min(k);
-                ref_coverage = self.anchors[j].ref_start();
+                ref_coverage = self.anchors[j].ref_start(query_bits);
             }
 
             if overlaps {
@@ -511,12 +581,12 @@ impl ChainingResult {
             let mut chain_anchors = Vec::with_capacity(n_chain_anchors);
             let mut current = i;
             for _ in 0..n_chain_anchors {
-                chain_anchors.push(self.anchors[current]);
+                chain_anchors.push(self.anchors[current].unpack(query_bits));
                 current = self.predecessors[current];
             }
 
-            let first = &self.anchors[j];
-            let last = &self.anchors[i];
+            let first = self.anchors[j].unpack(query_bits);
+            let last = self.anchors[i].unpack(query_bits);
 
             chains.push(Chain {
                 id: chains.len(),
@@ -536,12 +606,11 @@ impl ChainingResult {
 
 #[cfg(test)]
 pub mod test {
-    use crate::{
-        chainer::{Anchor, MAXIMUM_QUERY_LENGTH},
-        refseq::{ContigStarts, MAXIMUM_REFERENCE_LENGTH},
-    };
+    use crate::refseq::ContigStarts;
 
-    use super::{Chainer, ChainingParameters};
+    use super::{
+        Chainer, ChainingParameters, PackedAnchor, anchor_query_bits, maximum_read_length,
+    };
 
     /// A Vec of Anchors
     #[macro_export]
@@ -555,27 +624,51 @@ pub mod test {
         };
     }
 
+    /// A Vec of PackedAnchors, packed with the given number of query bits
+    macro_rules! packed_anchors {
+        ( $query_bits:expr; $( ($ref_start:expr, $query_start:expr) ),* $(,)?) => {
+            {
+                vec![
+                    $( PackedAnchor::new($ref_start, $query_start, $query_bits), )*
+                ]
+            }
+        };
+    }
+
     #[test]
     fn anchor_packing() {
-        for (ref_start, query_start) in [
-            (3_100_000_000, 99_999),
-            (5, 7),
-            (5, 2),
-            (0, (1 << 20) - 1),
-            (1, 0),
-            (MAXIMUM_REFERENCE_LENGTH - 1, MAXIMUM_QUERY_LENGTH - 1),
+        for (query_bits, ref_start, query_start) in [
+            (0, usize::MAX, 0),
+            (1, (1 << 63) - 1, 1),
+            (19, (1 << 45) - 1, (1 << 19) - 1),
+            (32, (1 << 32) - 1, (1 << 32) - 1),
+            (56, (1 << 8) - 1, (1 << 56) - 1),
+            (63, 1, (1 << 63) - 1),
         ] {
-            let anchor = Anchor::new(ref_start, query_start);
-            assert_eq!(anchor.ref_start(), ref_start);
-            assert_eq!(anchor.query_start(), query_start);
+            let anchor = PackedAnchor::new(ref_start, query_start, query_bits);
+            assert_eq!(anchor.ref_start(query_bits), ref_start);
+            assert_eq!(anchor.query_start(query_bits), query_start);
         }
     }
 
     #[test]
+    fn anchor_query_bits_follows_reference_length() {
+        // The reference takes as many bits as its length needs, the query gets the rest
+        assert_eq!(anchor_query_bits(0), 63);
+        assert_eq!(anchor_query_bits(1 << 31), 32);
+        assert_eq!(anchor_query_bits(1 << 32), 31);
+        // There is no upper limit on the reference, it just crowds out the query
+        assert_eq!(anchor_query_bits(usize::MAX), 0);
+
+        assert_eq!(maximum_read_length(32), 1 << 32);
+        assert_eq!(maximum_read_length(0), 1);
+    }
+
+    #[test]
     fn chainer_early_break() {
-        let chainer = Chainer::new(20, ChainingParameters::default());
+        let chainer = Chainer::new(20, ChainingParameters::default(), 32);
         #[rustfmt::skip]
-        let anchors = anchors![
+        let anchors = packed_anchors![32;
             (0, 0),
             (30, 20),
             (60, 0),
@@ -595,16 +688,16 @@ pub mod test {
             max_ref_gap: Some(66),
             ..ChainingParameters::default()
         };
-        let chainer = Chainer::new(20, parameters);
+        let chainer = Chainer::new(20, parameters, 32);
         let chaining_result = chainer.collinear_chaining(anchors, &starts, 2000);
         assert!(chaining_result.best_score > 42.0);
     }
 
     #[test]
     fn linear_score_adjacent_anchors() {
-        let chainer = Chainer::new(20, ChainingParameters::default());
+        let chainer = Chainer::new(20, ChainingParameters::default(), 32);
         #[rustfmt::skip]
-        let anchors = anchors![
+        let anchors = packed_anchors![32;
             (0,0),
             (20,20),
             (40, 40),
@@ -628,9 +721,9 @@ pub mod test {
 
     #[test]
     fn diagonal_ratio_exceeded() {
-        let chainer = Chainer::new(20, ChainingParameters::default());
+        let chainer = Chainer::new(20, ChainingParameters::default(), 32);
         #[rustfmt::skip]
-        let anchors = anchors![
+        let anchors = packed_anchors![32;
             (0,0), (11,1)
         ];
         let starts = ContigStarts::new(vec![0], 200);

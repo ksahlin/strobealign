@@ -9,6 +9,9 @@
 * #685: Add `--be` (default 10000, 0 for no limit) to cap how far a chain is
   extended towards the read ends. This halves peak memory on HG002 ONT reads, from
   26 to 13 GiB.
+* #679: A packed anchor now gives the reference as many bits as its length
+  needs instead of a fixed 44, so the maximum read length depends on the
+  reference.
 
 ## v0.20.0 (2026-11-06)
 

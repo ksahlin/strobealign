@@ -182,7 +182,7 @@ pub fn read_fasta_alt_aware<R: BufRead>(
     assert_eq!(names.len(), starts.len());
     assert_eq!(names.len(), contig_types.len());
 
-    Ok(RefSequence::new(seq, starts, names, contig_types)?)
+    Ok(RefSequence::new(seq, starts, names, contig_types))
 }
 
 pub fn read_fasta<R: BufRead>(reader: &mut R) -> Result<RefSequence, SequenceIOError> {

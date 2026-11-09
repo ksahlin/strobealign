@@ -1600,8 +1600,7 @@ mod tests {
             vec![0],
             vec!["chr1".to_string()],
             vec![ContigType::Regular],
-        )
-        .unwrap();
+        );
         let first = Alignment {
             contig_id: 0,
             contig_start: 100,

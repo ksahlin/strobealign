@@ -1,10 +1,4 @@
-use thiserror::Error;
-
 use crate::packed_seq::{PackedSeq, PackedSeqSlice};
-
-/// Number of bits used to represent reference positions.
-pub const REFERENCE_BITS: u32 = 44;
-pub const MAXIMUM_REFERENCE_LENGTH: usize = 1 << REFERENCE_BITS;
 
 /// A position on a contig. This separate type is here to prevent confusion
 /// with "flat" reference coordinates, which are used everywhere else.
@@ -60,12 +54,6 @@ impl ContigStarts {
     }
 }
 
-#[derive(Error, Debug)]
-pub enum RefSequenceError {
-    #[error("Reference sequence too long")]
-    SequenceTooLong,
-}
-
 #[derive(Debug, Clone)]
 pub enum ContigType {
     // Contig belongs to primary assembly
@@ -89,25 +77,20 @@ pub struct RefSequence {
 }
 
 impl RefSequence {
-    /// Returns an error if the reference is too long
     pub fn new(
         sequence: PackedSeq,
         starts: Vec<usize>,
         names: Vec<String>,
         contig_types: Vec<ContigType>,
-    ) -> Result<Self, RefSequenceError> {
+    ) -> Self {
         assert_eq!(starts.len(), names.len());
-        let total_length = sequence.len();
-        if total_length > MAXIMUM_REFERENCE_LENGTH {
-            return Err(RefSequenceError::SequenceTooLong);
-        }
 
-        Ok(RefSequence {
+        RefSequence {
+            starts: ContigStarts::new(starts, sequence.len()),
             sequence,
-            starts: ContigStarts::new(starts, total_length),
             names,
             contig_types,
-        })
+        }
     }
 
     pub fn sequence(&self) -> &PackedSeq {
@@ -176,7 +159,7 @@ mod test {
         ];
         let starts = vec![0, 4, 7, 9];
         let contig_types = vec![ContigType::Regular];
-        RefSequence::new(sequence, starts, names, contig_types).unwrap()
+        RefSequence::new(sequence, starts, names, contig_types)
     }
 
     #[test]
