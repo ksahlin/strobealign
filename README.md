@@ -310,7 +310,9 @@ supplementary gets its own mapping quality, computed from the second best
 candidate, and duplication detection runs on it the same way it runs on the
 primary.
 
-The supplementary alignment search runs for single-end reads only.
+The supplementary alignment search runs for single-end reads only. Use
+`--no-supplementary` to turn it off, which leaves the primary alignment
+unchanged.
 
 ### Duplication detection
 

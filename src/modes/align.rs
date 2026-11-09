@@ -47,6 +47,7 @@ pub struct MappingParameters {
     pub max_insertion_ref_gap: usize,
     pub min_supplementary_score: u32,
     pub max_supplementary_overlap: f32,
+    pub supplementary: bool,
     pub dropoff_threshold: f32,
     pub rescue_distance: usize,
     pub max_tries: usize,
@@ -68,6 +69,7 @@ impl Default for MappingParameters {
             max_insertion_ref_gap: 200,
             min_supplementary_score: 80,
             max_supplementary_overlap: 0.5,
+            supplementary: true,
             dropoff_threshold: 0.5,
             rescue_distance: 100,
             max_tries: 20,
@@ -561,18 +563,23 @@ pub fn align_single_end_read(
     };
     let mapq = (60 * (best_score - second_best_score)).div_ceil(best_score) as u8;
 
-    let supplementary_timer = Instant::now();
-    let supplementary = get_supplementary_segment(
-        aligner,
-        refseq,
-        &read,
-        index.k(),
-        &best_alignment,
-        chains,
-        mapping_parameters,
-        &mut details.align,
-    );
-    details.align.time_extend_supplementary += supplementary_timer.elapsed().as_secs_f64();
+    let supplementary = if mapping_parameters.supplementary {
+        let supplementary_timer = Instant::now();
+        let supplementary = get_supplementary_segment(
+            aligner,
+            refseq,
+            &read,
+            index.k(),
+            &best_alignment,
+            chains,
+            mapping_parameters,
+            &mut details.align,
+        );
+        details.align.time_extend_supplementary += supplementary_timer.elapsed().as_secs_f64();
+        supplementary
+    } else {
+        None
+    };
 
     let mut reported = vec![Segment {
         alignment: best_alignment,
