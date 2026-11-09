@@ -9,6 +9,9 @@
 * #685: Add `--be` (default 10000, 0 for no limit) to cap how far a chain is
   extended towards the read ends. This halves peak memory on HG002 ONT reads, from
   26 to 13 GiB.
+* #686: Avoid unbounded memory usage when data cannot be written to the
+  output as fast as reads are mapped (that is, when the output file/stdout
+  blocks).
 
 ## v0.20.0 (2026-11-06)
 
