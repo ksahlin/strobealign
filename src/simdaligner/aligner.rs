@@ -343,7 +343,8 @@ impl SimdAligner {
     /// `end_bonus` is added only if the alignment covers the whole query, and never enters the
     /// recurrence; it is applied once, at the end, to choose between the best cell anywhere and
     /// the best cell that finishes the query. That nudge is the difference between this and
-    /// [`local_reference_end_alignment`](SimdAligner::local_reference_end_alignment).
+    /// [`local_reference_end_alignment`](SimdAligner::local_reference_end_alignment). Pass
+    /// `end_bonus: false` when the end of `query` is not an end of the read, to not apply it.
     ///
     /// The CIGAR ends with an insertion only if `end_bonus >= gap_open`, and never with a
     /// deletion when `gap_open > 0`: a local maximum cannot end in a gap. `ref_end` does not
@@ -368,6 +369,7 @@ impl SimdAligner {
         query: &[u8],
         reference: &[u8],
         bandwidth: Option<usize>,
+        end_bonus: bool,
     ) -> AlignmentResult {
         dispatch!(self, ws => ws.local_end_alignment(
             query,
@@ -376,7 +378,7 @@ impl SimdAligner {
             self.scores.mismatch,
             self.scores.gap_open,
             self.scores.gap_extend,
-            self.scores.end_bonus,
+            if end_bonus { self.scores.end_bonus } else { 0 },
             bandwidth,
         ))
     }
@@ -407,6 +409,7 @@ impl SimdAligner {
         query: &[u8],
         reference: &[u8],
         bandwidth: Option<usize>,
+        end_bonus: bool,
     ) -> AlignmentResult {
         dispatch!(self, ws => ws.local_start_alignment(
             query,
@@ -415,7 +418,7 @@ impl SimdAligner {
             self.scores.mismatch,
             self.scores.gap_open,
             self.scores.gap_extend,
-            self.scores.end_bonus,
+            if end_bonus { self.scores.end_bonus } else { 0 },
             bandwidth,
         ))
     }
