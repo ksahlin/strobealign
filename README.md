@@ -29,9 +29,6 @@ strobealign -x -t 8 ref.fa reads_1.fq.gz reads_2.fq.gz > aln.paf
 # Short reads for variant calling: add read group, exclude GRCh38 ALT contigs
 strobealign -t 8 --rg-id=S1 --rg=SM:sample1 --exclude-alt GRCh38.fa reads_1.fq.gz reads_2.fq.gz | samtools sort -o aln.bam
 
-# Long reads
-# TODO
-
 # Metagenomic abundance estimation (for binning)
 strobealign -t 8 --aemb contigs.fa reads_1.fq.gz reads_2.fq.gz > abundances.tsv
 ```
