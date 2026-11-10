@@ -1,0 +1,34 @@
+# See docs at: https://mystmd.org/guide/frontmatter
+version: 1
+project:
+  id: 1a37a434-5fca-4a1a-a7bf-872149d8976a
+  title: strobealign
+  # description:
+  edit_url: null
+  github: https://github.com/ksahlin/strobealign/
+  toc:
+    - file: introduction.md
+    - file: installation.md
+    - file: usage.md
+    - file: evaluation.md  # TODO probably remove this
+    - file: explanation.md
+    - file: reference.md
+    - file: ../CONTRIBUTING.md
+    - file: ../CHANGES.md
+      title: Changelog
+    - file: citation.md
+    - file: license.md
+    - url: https://github.com/ksahlin/strobealign/
+      title: GitHub repository
+      open_in_same_tab: true
+
+site:
+  template: book-theme
+  options:
+    # hide_title_block: true
+    # hide_outline: true
+    # show_navbar_depth: 2
+    # favicon: favicon.ico
+    # logo: site_logo.png
+    logo_text: strobealign
+
