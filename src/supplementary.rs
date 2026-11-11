@@ -1,7 +1,7 @@
 use crate::aligner::Aligner;
 use crate::chain::Chain;
 use crate::details::AlignmentDetails;
-use crate::modes::align::{Alignment, MappingParameters, Segment, extend_seed};
+use crate::modes::align::{Alignment, MappingParameters, Segment, extend_seed_in_interval};
 use crate::read::Read;
 use crate::refseq::RefSequence;
 
@@ -48,11 +48,11 @@ pub fn get_supplementary_segment(
         }
 
         let interval = if chain.query_start >= primary_start {
-            (primary_end, read.len())
+            primary_end..read.len()
         } else {
-            (0, primary_start)
+            0..primary_start
         };
-        let Some(alignment) = extend_seed(
+        let Some(alignment) = extend_seed_in_interval(
             aligner,
             chain,
             refseq,

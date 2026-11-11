@@ -6,6 +6,7 @@ use std::cmp::{Reverse, min};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::mem;
+use std::ops::Range;
 use std::time::Instant;
 
 use fastrand::Rng;
@@ -513,7 +514,6 @@ pub fn align_single_end_read(
             &read,
             mapping_parameters.use_ssw,
             index.k(),
-            (0, read.len()),
         ) else {
             continue;
         };
@@ -662,13 +662,13 @@ fn trace_log(
 
     let (mut ssw, mut pw) = if !mapping_parameters.use_ssw {
         (
-            extend_seed(aligner, chain, refseq, read, true, k, (0, read.len())).unwrap(),
+            extend_seed(aligner, chain, refseq, read, true, k).unwrap(),
             alignment.clone(),
         )
     } else {
         (
             alignment.clone(),
-            extend_seed(aligner, chain, refseq, read, false, k, (0, read.len())).unwrap(),
+            extend_seed(aligner, chain, refseq, read, false, k).unwrap(),
         )
     };
     // manually adds the soft clips
@@ -696,15 +696,29 @@ pub fn extend_seed(
     read: &Read,
     use_ssw: bool,
     k: usize,
-    query_interval: (usize, usize),
+) -> Option<Alignment> {
+    extend_seed_in_interval(aligner, chain, refseq, read, use_ssw, k, 0..read.len())
+}
+
+/// Extend a chain over the given interval of the read (in the chain's
+/// orientation) and return the resulting alignment. Read bases outside the
+/// interval are soft clipped.
+pub fn extend_seed_in_interval(
+    aligner: &Aligner,
+    chain: &mut Chain,
+    refseq: &RefSequence,
+    read: &Read,
+    use_ssw: bool,
+    k: usize,
+    query_interval: Range<usize>,
 ) -> Option<Alignment> {
     let full = if chain.is_revcomp {
         read.rc()
     } else {
         read.seq()
     };
-    let (start, end) = query_interval;
-    let query = &full[start..end];
+    let start = query_interval.start;
+    let query = &full[query_interval];
     let chain_start = chain.query_start.saturating_sub(start);
     let chain_end = chain.query_end.saturating_sub(start).min(query.len());
     let (contig_id, contig_start) = refseq.unflatten(chain.ref_start);
@@ -1021,24 +1035,8 @@ fn extend_paired_seeds(
         let mut ch_max1 = chains[0][0].clone();
         let mut ch_max2 = chains[1][0].clone();
 
-        let alignment1 = extend_seed(
-            aligner,
-            &mut ch_max1,
-            refseq,
-            read1,
-            use_ssw,
-            k,
-            (0, read1.len()),
-        );
-        let alignment2 = extend_seed(
-            aligner,
-            &mut ch_max2,
-            refseq,
-            read2,
-            use_ssw,
-            k,
-            (0, read2.len()),
-        );
+        let alignment1 = extend_seed(aligner, &mut ch_max1, refseq, read1, use_ssw, k);
+        let alignment2 = extend_seed(aligner, &mut ch_max2, refseq, read2, use_ssw, k);
         if let (Some(alignment1), Some(alignment2)) = (alignment1, alignment2) {
             details[0].add_alignment(&alignment1);
             details[1].add_alignment(&alignment2);
@@ -1062,15 +1060,7 @@ fn extend_paired_seeds(
     // the paired-end read as two single-end reads.
     let mut a_indv_max = [None, None];
     for i in 0..2 {
-        a_indv_max[i] = extend_seed(
-            aligner,
-            &mut chains[i][0],
-            refseq,
-            reads[i],
-            use_ssw,
-            k,
-            (0, reads[i].len()),
-        );
+        a_indv_max[i] = extend_seed(aligner, &mut chains[i][0], refseq, reads[i], use_ssw, k);
         details[i].tried_alignment += 1;
         details[i].gapped += a_indv_max[i].as_ref().map_or(0, |a| a.gapped as usize);
         alignment_cache[i].insert(chains[i][0].id, a_indv_max[i].clone());
@@ -1098,15 +1088,7 @@ fn extend_paired_seeds(
             let alignment;
             if let Some(mut this_chain) = chainsp[i].clone() {
                 if let Entry::Vacant(e) = alignment_cache[i].entry(this_chain.id) {
-                    alignment = extend_seed(
-                        aligner,
-                        &mut this_chain,
-                        refseq,
-                        reads[i],
-                        use_ssw,
-                        k,
-                        (0, reads[i].len()),
-                    );
+                    alignment = extend_seed(aligner, &mut this_chain, refseq, reads[i], use_ssw, k);
                     details[i].tried_alignment += 1;
                     details[i].gapped += alignment.as_ref().map_or(0, |a| a.gapped as usize);
                     e.insert(alignment.clone());
@@ -1204,9 +1186,7 @@ fn rescue_read(
         if score_dropoff1 < dropoff {
             break;
         }
-        if let Some(alignment) =
-            extend_seed(aligner, chain, refseq, read1, use_ssw, k, (0, read1.len()))
-        {
+        if let Some(alignment) = extend_seed(aligner, chain, refseq, read1, use_ssw, k) {
             details[0].add_alignment(&alignment);
             alignments1.push(alignment);
 
