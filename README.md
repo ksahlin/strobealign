@@ -56,6 +56,14 @@ Strobealign is available from [Bioconda](https://bioconda.github.io/).
    strobealign --version
    ```
 
+### Homebrew
+
+If you use [Homebrew](https://brew.sh), installing Strobealign is straightforward. Run the following command to get started:
+
+```
+brew install strobealign
+```
+
 ### From source
 
 To compile strobealign from sources, you need a somewhat recent Rust
