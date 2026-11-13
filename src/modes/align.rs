@@ -716,15 +716,15 @@ pub fn extend_seed_in_interval(
     read: &Read,
     use_ssw: bool,
     k: usize,
-    query_interval: Range<usize>,
+    read_interval: Range<usize>,
 ) -> Option<Alignment> {
     let full = if chain.is_revcomp {
         read.rc()
     } else {
         read.seq()
     };
-    let start = query_interval.start;
-    let query = &full[query_interval];
+    let start = read_interval.start;
+    let query = &full[read_interval];
     let chain_start = chain.query_start.saturating_sub(start);
     let chain_end = chain.query_end.saturating_sub(start).min(query.len());
     let (contig_id, contig_start) = refseq.unflatten(chain.ref_start);
