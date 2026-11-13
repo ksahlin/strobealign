@@ -32,7 +32,7 @@ pub fn split_duplications(
             details,
         );
 
-        split.sort_by_key(|segment| Reverse(segment.score));
+        split.sort_by_key(|alignment| Reverse(alignment.score));
         resolved.extend(
             split
                 .into_iter()

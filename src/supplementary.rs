@@ -91,7 +91,7 @@ pub fn get_supplementary_segment(
     Some(Segment { alignment, mapq })
 }
 
-/// Whether a chain and the primary are the two sides of a deletion, insertion
+/// Whether a chain and the primary alignment are the two sides of a deletion, insertion
 /// or duplication.
 fn fits_variant_pattern(
     primary: &Alignment,

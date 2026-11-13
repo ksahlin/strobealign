@@ -289,14 +289,14 @@ the read the best chain misses is kept as well.
 
 ### Supplementary alignments
 
-Strobealign searches for a supplementary alignment when the primary alignment
-does not explain the whole read, which happens when a read crosses a large
-variation. Once the primary is extended, candidate chains are checked against
-two variation patterns: for an insertion, the reference carries on within
-`--si` bases (200 by default) of the primary while the read jumps the inserted
-bases, and for a deletion or a tandem duplication, the read carries on while
-the reference jumps up to `--sd` bases (100,000 by default). A candidate also
-has to be on the same contig and the same strand as the primary, so
+Strobealign searches for a single supplementary alignment when the primary
+alignment does not explain the whole read, which happens when a read crosses a
+large variation. Once the primary is extended, candidate chains are checked
+against two variation patterns: for an insertion, the reference carries on
+within `--si` bases (200 by default) of the primary while the read jumps the
+inserted bases, and for a deletion or a tandem duplication, the read carries on
+while the reference jumps up to `--sd` bases (100,000 by default). A candidate
+also has to be on the same contig and the same strand as the primary, so
 translocations and inversions are not detected. Candidate chains may overlap
 the primary on the read by a fraction `--so` (0.5 by default) of what the
 primary covers.
@@ -307,8 +307,10 @@ the primary. Strobealign reports the best extension as a supplementary record
 if it scores at least `--sm` (80 by default) and meets the primary within
 `--ss` bases (50 by default), either on the read or on the reference. The
 supplementary gets its own mapping quality, computed from the second best
-candidate, and duplication detection runs on it the same way it runs on the
-primary.
+candidate.
+
+Duplication detection is run on the supplementary alignment the same way it is
+run on the primary.
 
 The supplementary alignment search runs for single-end reads only. Use
 `--no-supplementary` to turn it off, which leaves the primary alignment
