@@ -50,7 +50,7 @@ pub fn split_duplications(
     resolved
 }
 
-/// Cuts the alignment into one segment per copy wherever an insertion of at least `min_length`
+/// Cuts the alignment into one alignment per copy wherever an insertion of at least `min_length`
 /// bases turns out to be a tandem duplication. A `min_length` of zero turns this off. Always
 /// returns at least the alignment it was given.
 pub fn reinterpret_insertions(
@@ -73,10 +73,10 @@ pub fn reinterpret_insertions(
     };
     let contig = refseq.contig(alignment.contig_id);
 
-    let mut segments = Vec::new();
-    let mut segment_cigar = Cigar::new();
-    let mut segment_start = alignment.contig_start;
-    let mut segment_clip_left = alignment.soft_clip_left;
+    let mut alignments = Vec::new();
+    let mut current_cigar = Cigar::new();
+    let mut current_start = alignment.contig_start;
+    let mut current_clip_left = alignment.soft_clip_left;
     let mut ref_pos = alignment.contig_start;
     let mut query_pos = alignment.soft_clip_left;
 
@@ -94,52 +94,52 @@ pub fn reinterpret_insertions(
                 details,
             )
         {
-            // The head arm carries the segment being built on past the insertion point, and
+            // The head arm carries the alignment being built on past the insertion point, and
             // the tail arm opens the next one at the second copy.
-            let mut upstream = segment_cigar.clone();
+            let mut upstream = current_cigar.clone();
             upstream.extend(&split.head.cigar);
 
-            if let Some(segment) = build_segment(
+            if let Some(head) = build_alignment(
                 &alignment,
                 upstream,
-                segment_start,
-                segment_clip_left,
+                current_start,
+                current_clip_left,
                 query.len(),
                 &aligner.scores,
             ) {
-                segments.push(segment);
-                segment_cigar = split.tail.cigar;
-                segment_start = copy_start;
-                segment_clip_left = query_pos + split.tail.query_start;
+                alignments.push(head);
+                current_cigar = split.tail.cigar;
+                current_start = copy_start;
+                current_clip_left = query_pos + split.tail.query_start;
                 query_pos += len;
                 continue;
             }
         }
 
-        segment_cigar.push(op, len);
+        current_cigar.push(op, len);
         let (query_len, ref_len) = query_ref_len(op, len);
         query_pos += query_len;
         ref_pos += ref_len;
     }
 
-    if segments.is_empty() {
+    if alignments.is_empty() {
         return vec![alignment];
     }
 
-    let Some(last) = build_segment(
+    let Some(last) = build_alignment(
         &alignment,
-        segment_cigar,
-        segment_start,
-        segment_clip_left,
+        current_cigar,
+        current_start,
+        current_clip_left,
         query.len(),
         &aligner.scores,
     ) else {
         return vec![alignment];
     };
-    segments.push(last);
-    details.duplications += segments.len() - 1;
+    alignments.push(last);
+    details.duplications += alignments.len() - 1;
 
-    segments
+    alignments
 }
 
 /// Aligns the bases inserted at `ref_pos` against both references surrounding the
@@ -179,10 +179,10 @@ fn find_duplication(
     Some((left_start + split.tail.ref_start, split))
 }
 
-/// Makes an alignment for a segment of a duplication split. It needs its own
+/// Makes an alignment for one copy of a duplication split. It needs its own
 /// cigar, reference start, soft clips, score and edit distance, the rest comes
 /// from the original alignment. Returns None if it scores zero or less.
-fn build_segment(
+fn build_alignment(
     source: &Alignment,
     cigar: Cigar,
     ref_start: usize,
