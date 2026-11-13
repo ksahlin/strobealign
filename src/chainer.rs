@@ -69,7 +69,7 @@ impl Default for ChainingParameters {
             gap_length_penalty: 0.05,
             valid_score_threshold: 0.7,
             min_chain_score: 40.0,
-            max_chains_per_interval: 20,
+            max_chains_per_interval: 1000,
             max_ref_gap: None,
             matches_weight: 0.01,
             max_diagonal_ratio: 10.0,

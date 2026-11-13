@@ -282,7 +282,7 @@ controls the chaining look-back window heuristic, `--gd` sets the diagonal gap c
 and `--sg` controls the maximum skip distance on the reference.
 
 Chains are grouped by the read interval they cover, and only the best scoring
-chains of each interval are kept: `--vp` and a cap of `--vn` chains (20 by
+chains of each interval are kept: `--vp` and a cap of `--vn` chains (1000 by
 default) apply per interval. A chain is also kept if it scores at least `--vs`
 (40 by default), even when it scores below `--vp` of the best chain found, so a
 chain that covers a part of the read the best chain misses is kept as well.
