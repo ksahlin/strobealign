@@ -3,7 +3,7 @@ use std::cmp::Reverse;
 use crate::aligner::{Aligner, Scores};
 use crate::cigar::{Cigar, CigarOperation, OpLen};
 use crate::details::AlignmentDetails;
-use crate::modes::align::{Alignment, MappingParameters, Segment};
+use crate::modes::align::{Alignment, AlignmentWithMapq, MappingParameters};
 use crate::packed_seq::PackedSeqSlice;
 use crate::read::Read;
 use crate::refseq::RefSequence;
@@ -15,12 +15,12 @@ pub fn split_duplications(
     aligner: &Aligner,
     refseq: &RefSequence,
     read: &Read,
-    segments: Vec<Segment>,
+    alignments: Vec<AlignmentWithMapq>,
     parameters: &MappingParameters,
     details: &mut AlignmentDetails,
-) -> Vec<Segment> {
+) -> Vec<AlignmentWithMapq> {
     let mut resolved = Vec::new();
-    for Segment { alignment, mapq } in segments {
+    for AlignmentWithMapq { alignment, mapq } in alignments {
         let mut split = reinterpret_insertions(
             aligner,
             alignment,
@@ -36,7 +36,7 @@ pub fn split_duplications(
         resolved.extend(
             split
                 .into_iter()
-                .map(|alignment| Segment { alignment, mapq }),
+                .map(|alignment| AlignmentWithMapq { alignment, mapq }),
         );
     }
 

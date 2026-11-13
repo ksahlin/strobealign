@@ -318,8 +318,8 @@ struct Args {
     min_supplementary_score: u32,
 
     /// Maximum gap between the primary and a supplementary, on the read or the reference
-    #[arg(long = "ss", default_value_t = MappingParameters::default().max_segment_gap, value_name = "N", help_heading = "Supplementary")]
-    max_segment_gap: usize,
+    #[arg(long = "ss", default_value_t = MappingParameters::default().max_supplementary_gap, value_name = "N", help_heading = "Supplementary")]
+    max_supplementary_gap: usize,
 
     /// Longest deletion or tandem duplication a supplementary alignment may describe
     #[arg(long = "sd", default_value_t = MappingParameters::default().max_gap_distance, value_name = "N", help_heading = "Supplementary")]
@@ -618,7 +618,7 @@ fn run() -> Result<(), CliError> {
             args.max_secondary as usize
         },
         secondary_threshold: args.secondary_threshold,
-        max_segment_gap: args.max_segment_gap,
+        max_supplementary_gap: args.max_supplementary_gap,
         max_gap_distance: args.max_gap_distance,
         max_insertion_ref_gap: args.max_insertion_ref_gap,
         min_supplementary_score: args.min_supplementary_score,

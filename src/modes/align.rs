@@ -35,7 +35,7 @@ use crate::read::Read;
 use crate::refseq::{ContigPosition, RefSequence};
 use crate::revcomp::reverse_complement;
 use crate::seeding::SeedingParameters;
-use crate::supplementary::get_supplementary_segment;
+use crate::supplementary::get_supplementary_alignment;
 
 const MAX_PAIR_CHAINS: usize = 1000;
 
@@ -43,7 +43,7 @@ const MAX_PAIR_CHAINS: usize = 1000;
 pub struct MappingParameters {
     pub max_secondary: usize,
     pub secondary_threshold: f32,
-    pub max_segment_gap: usize,
+    pub max_supplementary_gap: usize,
     pub max_gap_distance: usize,
     pub max_insertion_ref_gap: usize,
     pub min_supplementary_score: u32,
@@ -65,7 +65,7 @@ impl Default for MappingParameters {
         MappingParameters {
             max_secondary: 0,
             secondary_threshold: 0.95,
-            max_segment_gap: 50,
+            max_supplementary_gap: 50,
             max_gap_distance: 100_000,
             max_insertion_ref_gap: 200,
             min_supplementary_score: 80,
@@ -141,26 +141,32 @@ impl Alignment {
 }
 
 /// An alignment with its mapping quality.
-pub struct Segment {
+pub struct AlignmentWithMapq {
     pub alignment: Alignment,
     pub mapq: u8,
 }
 
+impl AlignmentWithMapq {
+    fn sa_entry(&self, refseq: &RefSequence, cigar_eqx: bool) -> String {
+        self.alignment.sa_entry(refseq, self.mapq, cigar_eqx)
+    }
+}
+
 fn build_sa_tags(
-    segments: &[Segment],
+    alignments: &[AlignmentWithMapq],
     refseq: &RefSequence,
     cigar_eqx: bool,
 ) -> Vec<Option<String>> {
-    if segments.len() < 2 {
-        return vec![None; segments.len()];
+    if alignments.len() < 2 {
+        return vec![None; alignments.len()];
     }
 
-    let mut entries = Vec::with_capacity(segments.len());
-    for segment in segments {
-        entries.push(segment.alignment.sa_entry(refseq, segment.mapq, cigar_eqx));
+    let mut entries = Vec::with_capacity(alignments.len());
+    for alignment in alignments {
+        entries.push(alignment.sa_entry(refseq, cigar_eqx));
     }
 
-    let mut tags = Vec::with_capacity(segments.len());
+    let mut tags = Vec::with_capacity(alignments.len());
     for i in 0..entries.len() {
         let mut tag = String::new();
         for (j, entry) in entries.iter().enumerate() {
@@ -565,7 +571,7 @@ pub fn align_single_end_read(
 
     let supplementary = if mapping_parameters.supplementary {
         let supplementary_timer = Instant::now();
-        let supplementary = get_supplementary_segment(
+        let supplementary = get_supplementary_alignment(
             aligner,
             refseq,
             &read,
@@ -581,12 +587,12 @@ pub fn align_single_end_read(
         None
     };
 
-    let mut reported = vec![Segment {
+    let mut reported = vec![AlignmentWithMapq {
         alignment: best_alignment,
         mapq,
     }];
     reported.extend(supplementary);
-    let segments = split_duplications(
+    let reported = split_duplications(
         aligner,
         refseq,
         &read,
@@ -594,19 +600,19 @@ pub fn align_single_end_read(
         mapping_parameters,
         &mut details.align,
     );
-    let mut sa_tags = build_sa_tags(&segments, refseq, sam_output.cigar_eqx);
+    let mut sa_tags = build_sa_tags(&reported, refseq, sam_output.cigar_eqx);
 
-    for i in 0..segments.len() {
+    for i in 0..reported.len() {
         let status = if i == 0 {
             AlignmentStatus::Primary
         } else {
             AlignmentStatus::Supplementary
         };
         sam_records.push(sam_output.make_mapped_record(
-            &segments[i].alignment,
+            &reported[i].alignment,
             refseq,
             record,
-            segments[i].mapq,
+            reported[i].mapq,
             status,
             details.clone(),
             sa_tags[i].take(),
@@ -1693,21 +1699,21 @@ mod tests {
             collisions: 0,
         };
 
-        let segments = [
-            Segment {
+        let alignments = [
+            AlignmentWithMapq {
                 alignment: first.clone(),
                 mapq: 60,
             },
-            Segment {
+            AlignmentWithMapq {
                 alignment: second,
                 mapq: 60,
             },
         ];
-        let tags = build_sa_tags(&segments, &refseq, true);
+        let tags = build_sa_tags(&alignments, &refseq, true);
         assert_eq!(tags[0].as_deref(), Some("chr1,11,-,40S70=,60,0;"));
         assert_eq!(tags[1].as_deref(), Some("chr1,101,+,40=70S,60,0;"));
 
-        let only = [Segment {
+        let only = [AlignmentWithMapq {
             alignment: first,
             mapq: 60,
         }];

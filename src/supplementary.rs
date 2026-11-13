@@ -1,14 +1,16 @@
 use crate::aligner::Aligner;
 use crate::chain::Chain;
 use crate::details::AlignmentDetails;
-use crate::modes::align::{Alignment, MappingParameters, Segment, extend_seed_in_interval};
+use crate::modes::align::{
+    Alignment, AlignmentWithMapq, MappingParameters, extend_seed_in_interval,
+};
 use crate::read::Read;
 use crate::refseq::RefSequence;
 
 /// Extend the chains that fit the pattern of a large variation with the
 /// primary and return the best one. Returns `None` if no chain fits or clears
 /// the score floor.
-pub fn get_supplementary_segment(
+pub fn get_supplementary_alignment(
     aligner: &Aligner,
     refseq: &RefSequence,
     read: &Read,
@@ -17,7 +19,7 @@ pub fn get_supplementary_segment(
     chains: &mut [Chain],
     parameters: &MappingParameters,
     details: &mut AlignmentDetails,
-) -> Option<Segment> {
+) -> Option<AlignmentWithMapq> {
     let mut candidates: Vec<&mut Chain> = chains
         .iter_mut()
         .filter(|chain| {
@@ -35,7 +37,7 @@ pub fn get_supplementary_segment(
     details.supplementary_candidates += candidates.len();
 
     let dropoff = candidates.first()?.score * parameters.dropoff_threshold;
-    let max_gap = parameters.max_segment_gap as i64;
+    let max_gap = parameters.max_supplementary_gap as i64;
     let mut best_alignment = None;
     let mut best_score = 0;
     let mut second_best_score = 0;
@@ -66,7 +68,7 @@ pub fn get_supplementary_segment(
         details.supplementary_extended += 1;
         details.add_alignment(&alignment);
 
-        let (read_gap, ref_gap) = segment_gaps(primary, &alignment, read.len());
+        let (read_gap, ref_gap) = alignment_gaps(primary, &alignment, read.len());
         if read_gap.abs() > max_gap && ref_gap.abs() > max_gap {
             continue;
         }
@@ -88,7 +90,7 @@ pub fn get_supplementary_segment(
     let mapq = (60 * best_score.saturating_sub(second_best_score)).div_ceil(best_score) as u8;
     details.supplementary += 1;
 
-    Some(Segment { alignment, mapq })
+    Some(AlignmentWithMapq { alignment, mapq })
 }
 
 /// Whether a chain and the primary alignment are the two sides of a deletion, insertion
@@ -142,7 +144,7 @@ fn fits_variant_pattern(
 }
 
 /// How far apart two alignments end up on the read and on the reference.
-fn segment_gaps(primary: &Alignment, candidate: &Alignment, read_len: usize) -> (i64, i64) {
+fn alignment_gaps(primary: &Alignment, candidate: &Alignment, read_len: usize) -> (i64, i64) {
     if candidate.soft_clip_left >= primary.soft_clip_left {
         (
             candidate.soft_clip_left as i64 - (read_len - primary.soft_clip_right) as i64,
