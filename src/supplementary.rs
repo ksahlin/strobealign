@@ -8,8 +8,8 @@ use crate::read::Read;
 use crate::refseq::RefSequence;
 
 /// Extend the chains that fit the pattern of a large variation with the
-/// primary and return the best one. Returns `None` if no chain fits or clears
-/// the score floor.
+/// primary alignment and return the best one. Returns `None` if no chain fits,
+/// or if the best extension scores below `min_supplementary_score`.
 pub fn get_supplementary_alignment(
     aligner: &Aligner,
     refseq: &RefSequence,
@@ -143,7 +143,8 @@ fn fits_variant_pattern(
     false
 }
 
-/// How far apart two alignments end up on the read and on the reference.
+/// Returns the gaps between two alignments on the read and on the reference,
+/// as (read_gap, ref_gap). A negative gap means the alignments overlap.
 fn alignment_gaps(primary: &Alignment, candidate: &Alignment, read_len: usize) -> (i64, i64) {
     if candidate.soft_clip_left >= primary.soft_clip_left {
         (

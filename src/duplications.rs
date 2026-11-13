@@ -9,8 +9,13 @@ use crate::read::Read;
 use crate::refseq::RefSequence;
 use crate::simdaligner::SplitReferenceAlignment;
 
-/// Each segment holding a duplication split into one per copy, the copies carrying the mapping
-/// quality of the segment they came out of.
+/// Splits each alignment that contains a tandem duplication into one alignment per copy. Each
+/// copy keeps the mapping quality of the alignment it came from.
+///
+/// The returned alignments keep the order of the input alignments: the copies of the first
+/// input alignment come first, then those of the second, and so on. The copies of one input
+/// alignment are sorted by score, best first. With the primary alignment passed first, the
+/// first returned alignment is therefore the best copy of the primary.
 pub fn split_duplications(
     aligner: &Aligner,
     refseq: &RefSequence,
@@ -32,6 +37,8 @@ pub fn split_duplications(
             details,
         );
 
+        // Sort only within one split, so that the copies of the primary alignment stay ahead of
+        // those of the supplementary alignment
         split.sort_by_key(|alignment| Reverse(alignment.score));
         resolved.extend(
             split

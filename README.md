@@ -283,9 +283,9 @@ and `--sg` controls the maximum skip distance on the reference.
 
 Chains are grouped by the read interval they cover, and only the best scoring
 chains of each interval are kept: `--vp` and a cap of `--vn` chains (20 by
-default) apply per interval. A chain is kept if it scores at least `--vs` (40
-by default) or `--vp` of the best chain found, so a chain that covers a part of
-the read the best chain misses is kept as well.
+default) apply per interval. A chain is also kept if it scores at least `--vs`
+(40 by default), even when it scores below `--vp` of the best chain found, so a
+chain that covers a part of the read the best chain misses is kept as well.
 
 ### Supplementary alignments
 
@@ -313,8 +313,7 @@ Duplication detection is run on the supplementary alignment the same way it is
 run on the primary.
 
 The supplementary alignment search runs for single-end reads only. Use
-`--no-supplementary` to turn it off, which leaves the primary alignment
-unchanged.
+`--no-supplementary` to turn it off.
 
 ### Duplication detection
 

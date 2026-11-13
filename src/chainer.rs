@@ -456,6 +456,8 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
     anchors
 }
 
+/// A part of the query covered by chains, with the best chain score and the
+/// number of chains admitted for it
 struct QueryInterval {
     start: usize,
     end: usize,
@@ -463,6 +465,20 @@ struct QueryInterval {
     n_chains: usize,
 }
 
+/// Decides whether a chain covering `start..end` on the query is kept, and
+/// records it in `intervals`.
+///
+/// The chain belongs to the first interval that overlaps it by at least half
+/// of the shorter of the two spans. If there is none, a new interval is added
+/// for the chain and the chain is kept.
+///
+/// Within its interval, a chain scoring higher than the interval's best is
+/// kept, and the interval takes over the chain's span and score. Otherwise the
+/// chain is rejected if it scores below `valid_score_threshold` times the
+/// interval's best, or if the interval already holds `max_chains_per_interval`
+/// chains. Each kept chain increments the interval's chain count.
+///
+/// Returns whether the chain is kept.
 fn admit_chain(
     intervals: &mut Vec<QueryInterval>,
     start: usize,

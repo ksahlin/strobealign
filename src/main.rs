@@ -249,7 +249,7 @@ struct Args {
     #[arg(long = "vp", default_value_t = ChainingParameters::default().valid_score_threshold, help_heading = "Collinear chaining")]
     valid_score_threshold: f32,
 
-    /// Score at which a chain is kept whatever the best chain of the read scores
+    /// Chains scoring at least this are kept even when below the --vp fraction of the best chain
     #[arg(long = "vs", default_value_t = ChainingParameters::default().min_chain_score, help_heading = "Collinear chaining")]
     min_chain_score: f32,
 
@@ -1060,12 +1060,12 @@ fn print_statistics(
         details.align.time_extend * 100. / total
     );
     debug!(
-        "  primary chains:            {:8.2} s  {:5.1} %",
+        "  primary extension:         {:8.2} s  {:5.1} %",
         details.align.time_extend_primary,
         details.align.time_extend_primary * 100. / total
     );
     debug!(
-        "  supplementary search:      {:8.2} s  {:5.1} %",
+        "  supplementary extension:   {:8.2} s  {:5.1} %",
         details.align.time_extend_supplementary,
         details.align.time_extend_supplementary * 100. / total
     );
