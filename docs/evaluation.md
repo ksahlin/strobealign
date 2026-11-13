@@ -1,5 +1,12 @@
-V0.7 Performance
-----------------
+# Evaluation
+
+```{admonition} Historical document
+:class: warning
+
+The results presented here are from ca 2022 and therefore severely outdated.
+```
+
+## V0.7 Performance
 
 We have in below three sections investigated accuracy and runtime metrics for v0.7 on SIM3 and REPEATS datasets included in the preprint, as well as performance of SNV and small indel calling for additional simulated and biological (GIAB) datasets.
 
