@@ -6,6 +6,7 @@ use std::cmp::{Reverse, min};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::mem;
+use std::ops::Range;
 use std::time::Instant;
 
 use fastrand::Rng;
@@ -18,7 +19,7 @@ use crate::chain::Chain;
 use crate::chainer::Anchor;
 use crate::cigar::{Cigar, CigarOperation};
 use crate::details::{AlignmentDetails, ChainDetails, Details};
-use crate::duplications::reinterpret_insertions;
+use crate::duplications::split_duplications;
 use crate::hit::HitsDetails;
 use crate::index::StrobemerIndex;
 use crate::insertsize::InsertSizeDistribution;
@@ -34,6 +35,7 @@ use crate::read::Read;
 use crate::refseq::{ContigPosition, RefSequence};
 use crate::revcomp::reverse_complement;
 use crate::seeding::SeedingParameters;
+use crate::supplementary::get_supplementary_alignment;
 
 const MAX_PAIR_CHAINS: usize = 1000;
 
@@ -41,6 +43,12 @@ const MAX_PAIR_CHAINS: usize = 1000;
 pub struct MappingParameters {
     pub max_secondary: usize,
     pub secondary_threshold: f32,
+    pub max_supplementary_gap: usize,
+    pub max_gap_distance: usize,
+    pub max_insertion_ref_gap: usize,
+    pub min_supplementary_score: u32,
+    pub max_supplementary_overlap: f32,
+    pub supplementary: bool,
     pub dropoff_threshold: f32,
     pub rescue_distance: usize,
     pub max_tries: usize,
@@ -57,6 +65,12 @@ impl Default for MappingParameters {
         MappingParameters {
             max_secondary: 0,
             secondary_threshold: 0.95,
+            max_supplementary_gap: 50,
+            max_gap_distance: 100_000,
+            max_insertion_ref_gap: 200,
+            min_supplementary_score: 80,
+            max_supplementary_overlap: 0.5,
+            supplementary: true,
             dropoff_threshold: 0.5,
             rescue_distance: 100,
             max_tries: 20,
@@ -126,22 +140,33 @@ impl Alignment {
     }
 }
 
+/// An alignment with its mapping quality.
+pub struct AlignmentWithMapq {
+    pub alignment: Alignment,
+    pub mapq: u8,
+}
+
+impl AlignmentWithMapq {
+    fn sa_entry(&self, refseq: &RefSequence, cigar_eqx: bool) -> String {
+        self.alignment.sa_entry(refseq, self.mapq, cigar_eqx)
+    }
+}
+
 fn build_sa_tags(
-    segments: &[Alignment],
-    mapq: u8,
+    alignments: &[AlignmentWithMapq],
     refseq: &RefSequence,
     cigar_eqx: bool,
 ) -> Vec<Option<String>> {
-    if segments.len() < 2 {
-        return vec![None; segments.len()];
+    if alignments.len() < 2 {
+        return vec![None; alignments.len()];
     }
 
-    let mut entries = Vec::with_capacity(segments.len());
-    for segment in segments {
-        entries.push(segment.sa_entry(refseq, mapq, cigar_eqx));
+    let mut entries = Vec::with_capacity(alignments.len());
+    for alignment in alignments {
+        entries.push(alignment.sa_entry(refseq, cigar_eqx));
     }
 
-    let mut tags = Vec::with_capacity(segments.len());
+    let mut tags = Vec::with_capacity(alignments.len());
     for i in 0..entries.len() {
         let mut tag = String::new();
         for (j, entry) in entries.iter().enumerate() {
@@ -156,7 +181,7 @@ fn build_sa_tags(
 }
 
 impl AlignmentDetails {
-    fn add_alignment(&mut self, alignment: &Alignment) {
+    pub fn add_alignment(&mut self, alignment: &Alignment) {
         self.tried_alignment += 1;
         self.gapped += alignment.gapped as usize;
         self.collisions += alignment.collisions;
@@ -474,6 +499,7 @@ pub fn align_single_end_read(
     let mut best_alignment = None;
 
     let read = Read::new(&record.sequence);
+    let primary_timer = Instant::now();
     for (tries, chain) in chains
         .iter_mut()
         .take(mapping_parameters.max_tries)
@@ -533,6 +559,8 @@ pub fn align_single_end_read(
             alignments.push(alignment);
         }
     }
+    details.align.time_extend_primary += primary_timer.elapsed().as_secs_f64();
+
     let Some(best_alignment) = best_alignment else {
         return (
             vec![sam_output.make_unmapped_record(record, details.clone())],
@@ -541,32 +569,50 @@ pub fn align_single_end_read(
     };
     let mapq = (60 * (best_score - second_best_score)).div_ceil(best_score) as u8;
 
-    let mut segments = reinterpret_insertions(
+    let supplementary = if mapping_parameters.supplementary {
+        let supplementary_timer = Instant::now();
+        let supplementary = get_supplementary_alignment(
+            aligner,
+            refseq,
+            &read,
+            index.k(),
+            &best_alignment,
+            chains,
+            mapping_parameters,
+            &mut details.align,
+        );
+        details.align.time_extend_supplementary += supplementary_timer.elapsed().as_secs_f64();
+        supplementary
+    } else {
+        None
+    };
+
+    let mut reported = vec![AlignmentWithMapq {
+        alignment: best_alignment,
+        mapq,
+    }];
+    reported.extend(supplementary);
+    let reported = split_duplications(
         aligner,
-        best_alignment,
         refseq,
         &read,
-        mapping_parameters.min_duplication_length,
-        mapping_parameters.min_duplication_matches,
-        mapping_parameters.duplication_band,
+        reported,
+        mapping_parameters,
         &mut details.align,
     );
+    let mut sa_tags = build_sa_tags(&reported, refseq, sam_output.cigar_eqx);
 
-    // The best scoring segment becomes the primary and the rest supplementary
-    segments.sort_by_key(|segment| Reverse(segment.score));
-    let mut sa_tags = build_sa_tags(&segments, mapq, refseq, sam_output.cigar_eqx);
-
-    for i in 0..segments.len() {
+    for i in 0..reported.len() {
         let status = if i == 0 {
             AlignmentStatus::Primary
         } else {
             AlignmentStatus::Supplementary
         };
         sam_records.push(sam_output.make_mapped_record(
-            &segments[i],
+            &reported[i].alignment,
             refseq,
             record,
-            mapq,
+            reported[i].mapq,
             status,
             details.clone(),
             sa_tags[i].take(),
@@ -649,7 +695,7 @@ fn trace_log(
 
 /// Extend a chain so that it covers the entire read and return the resulting
 /// alignment.
-fn extend_seed(
+pub fn extend_seed(
     aligner: &Aligner,
     chain: &mut Chain,
     refseq: &RefSequence,
@@ -657,19 +703,38 @@ fn extend_seed(
     use_ssw: bool,
     k: usize,
 ) -> Option<Alignment> {
-    let query = if chain.is_revcomp {
+    extend_seed_in_interval(aligner, chain, refseq, read, use_ssw, k, 0..read.len())
+}
+
+/// Extend a chain over the given interval of the read (in the chain's
+/// orientation) and return the resulting alignment. Read bases outside the
+/// interval are soft clipped.
+pub fn extend_seed_in_interval(
+    aligner: &Aligner,
+    chain: &mut Chain,
+    refseq: &RefSequence,
+    read: &Read,
+    use_ssw: bool,
+    k: usize,
+    read_interval: Range<usize>,
+) -> Option<Alignment> {
+    let full = if chain.is_revcomp {
         read.rc()
     } else {
         read.seq()
     };
+    let start = read_interval.start;
+    let query = &full[read_interval];
+    let chain_start = chain.query_start.saturating_sub(start);
+    let chain_end = chain.query_end.saturating_sub(start).min(query.len());
     let (contig_id, contig_start) = refseq.unflatten(chain.ref_start);
     let contig_start = contig_start.0 as usize;
     let contig_end = contig_start + chain.ref_span();
     let contig = refseq.contig(contig_id);
     assert!(contig_end <= contig.len());
 
-    let projected_start = contig_start.saturating_sub(chain.query_start);
-    let projected_end = min(contig_end + query.len() - chain.query_end, contig.len());
+    let projected_start = contig_start.saturating_sub(chain_start);
+    let projected_end = min(contig_end + (query.len() - chain_end), contig.len());
 
     // TODO ugly
     let mut info = AlignmentInfo {
@@ -722,11 +787,14 @@ fn extend_seed(
                 .iter()
                 .filter_map(|a| {
                     let ref_start = a.ref_start() - decode_start - refseq.starts.0[contig_id];
+                    // Remove anchors outside the interval
+                    let query_start = a.query_start().checked_sub(start)?;
+                    if query_start + k > query.len() {
+                        return None;
+                    }
                     // Skip anchors resulting from hash collisions
-                    if query[a.query_start()..a.query_start() + k]
-                        == segment[ref_start..ref_start + k]
-                    {
-                        Some(Anchor::new(ref_start, a.query_start()))
+                    if query[query_start..query_start + k] == segment[ref_start..ref_start + k] {
+                        Some(Anchor::new(ref_start, query_start))
                     } else {
                         collisions += 1;
 
@@ -742,8 +810,8 @@ fn extend_seed(
     Some(Alignment {
         cigar: mem::take(&mut info.cigar),
         edit_distance: info.edit_distance,
-        soft_clip_left: info.query_start,
-        soft_clip_right: query.len() - info.query_end,
+        soft_clip_left: start + info.query_start,
+        soft_clip_right: full.len() - start - info.query_end,
         score: info.score,
         contig_id,
         contig_start: result_start,
@@ -1631,11 +1699,25 @@ mod tests {
             collisions: 0,
         };
 
-        let tags = build_sa_tags(&[first.clone(), second], 60, &refseq, true);
+        let alignments = [
+            AlignmentWithMapq {
+                alignment: first.clone(),
+                mapq: 60,
+            },
+            AlignmentWithMapq {
+                alignment: second,
+                mapq: 60,
+            },
+        ];
+        let tags = build_sa_tags(&alignments, &refseq, true);
         assert_eq!(tags[0].as_deref(), Some("chr1,11,-,40S70=,60,0;"));
         assert_eq!(tags[1].as_deref(), Some("chr1,101,+,40=70S,60,0;"));
 
-        assert_eq!(build_sa_tags(&[first], 60, &refseq, true), vec![None]);
+        let only = [AlignmentWithMapq {
+            alignment: first,
+            mapq: 60,
+        }];
+        assert_eq!(build_sa_tags(&only, &refseq, true), vec![None]);
     }
 
     #[test]
