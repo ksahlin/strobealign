@@ -55,7 +55,6 @@ pub struct ChainingParameters {
     pub gap_length_penalty: f32,
     pub valid_score_threshold: f32,
     pub min_chain_score: f32,
-    pub max_chains_per_interval: usize,
     pub max_ref_gap: Option<usize>,
     pub matches_weight: f32,
     pub max_diagonal_ratio: f32,
@@ -69,7 +68,6 @@ impl Default for ChainingParameters {
             gap_length_penalty: 0.05,
             valid_score_threshold: 0.7,
             min_chain_score: 40.0,
-            max_chains_per_interval: 1000,
             max_ref_gap: None,
             matches_weight: 0.01,
             max_diagonal_ratio: 10.0,
@@ -456,13 +454,11 @@ fn hits_to_anchors(hits: &Vec<Hit>, index: &StrobemerIndex) -> Vec<Anchor> {
     anchors
 }
 
-/// A part of the query covered by chains, with the best chain score and the
-/// number of chains admitted for it
+/// A part of the query covered by chains, with the best chain score
 struct QueryInterval {
     start: usize,
     end: usize,
     best_score: f32,
-    n_chains: usize,
 }
 
 /// Decides whether a chain covering `start..end` on the query is kept, and
@@ -475,8 +471,7 @@ struct QueryInterval {
 /// Within its interval, a chain scoring higher than the interval's best is
 /// kept, and the interval takes over the chain's span and score. Otherwise the
 /// chain is rejected if it scores below `valid_score_threshold` times the
-/// interval's best, or if the interval already holds `max_chains_per_interval`
-/// chains. Each kept chain increments the interval's chain count.
+/// interval's best.
 ///
 /// Returns whether the chain is kept.
 fn admit_chain(
@@ -499,13 +494,9 @@ fn admit_chain(
             interval.start = start;
             interval.end = end;
             interval.best_score = score;
-        } else if score < interval.best_score * parameters.valid_score_threshold
-            || interval.n_chains >= parameters.max_chains_per_interval
-        {
+        } else if score < interval.best_score * parameters.valid_score_threshold {
             return false;
         }
-
-        interval.n_chains += 1;
 
         return true;
     }
@@ -514,7 +505,6 @@ fn admit_chain(
         start,
         end,
         best_score: score,
-        n_chains: 1,
     });
 
     true

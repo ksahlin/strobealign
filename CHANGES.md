@@ -20,8 +20,8 @@
 * #682: Report a supplementary alignment for a single-end read that crosses a
   large insertion, deletion or tandem duplication, instead of soft-clipping the
   part of the read that does not fit the primary alignment (options `--sm`,
-  `--ss`, `--sd`, `--si` and `--so`, see the README). Chains are now kept per read
-  interval (`--vs`, `--vn`), which also changes mapping for paired-end reads.
+  `--ss` and `--so`, see the README). Chains are now kept per read
+  interval (`--vs`), which also changes mapping for paired-end reads.
 
 ## v0.20.0 (2026-11-06)
 

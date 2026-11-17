@@ -7,9 +7,10 @@ use crate::modes::align::{
 use crate::read::Read;
 use crate::refseq::RefSequence;
 
-/// Extend the chains that fit the pattern of a large variation with the
-/// primary alignment and return the best one. Returns `None` if no chain fits,
-/// or if the best extension scores below `min_supplementary_score`.
+/// Extend the chains that may continue the primary alignment over the part of
+/// the read it does not cover and return the best one. Returns `None` if no
+/// chain is a candidate, or if the best extension scores below
+/// `min_supplementary_score`.
 pub fn get_supplementary_alignment(
     aligner: &Aligner,
     refseq: &RefSequence,
@@ -23,13 +24,11 @@ pub fn get_supplementary_alignment(
     let mut candidates: Vec<&mut Chain> = chains
         .iter_mut()
         .filter(|chain| {
-            fits_variant_pattern(
+            is_candidate(
                 primary,
                 refseq,
                 chain,
                 read.len(),
-                parameters.max_gap_distance as i64,
-                parameters.max_insertion_ref_gap as i64,
                 parameters.max_supplementary_overlap,
             )
         })
@@ -54,6 +53,9 @@ pub fn get_supplementary_alignment(
         } else {
             0..primary_start
         };
+        if interval.is_empty() {
+            continue;
+        }
         let Some(alignment) = extend_seed_in_interval(
             aligner,
             chain,
@@ -93,54 +95,32 @@ pub fn get_supplementary_alignment(
     Some(AlignmentWithMapq { alignment, mapq })
 }
 
-/// Whether a chain and the primary alignment are the two sides of a deletion, insertion
-/// or duplication.
-fn fits_variant_pattern(
+/// Whether a chain is worth extending into a supplementary alignment: it is on
+/// the same contig and strand as the primary, and reaches back into the
+/// primary on the read by at most `overlap_fraction` of the primary's read
+/// span.
+fn is_candidate(
     primary: &Alignment,
     refseq: &RefSequence,
     chain: &Chain,
     read_len: usize,
-    max_gap_distance: i64,
-    max_insertion_ref_gap: i64,
     overlap_fraction: f32,
 ) -> bool {
-    let (contig_id, contig_start) = refseq.unflatten(chain.ref_start);
-    let contig_start = contig_start.0 as usize;
+    let (contig_id, _) = refseq.unflatten(chain.ref_start);
     if primary.is_revcomp != chain.is_revcomp || primary.contig_id != contig_id {
         return false;
     }
 
-    let (read_gap, ref_gap) = if chain.query_start >= primary.soft_clip_left {
-        (
-            chain.query_start as i64 - (read_len - primary.soft_clip_right) as i64,
-            contig_start as i64 - (primary.contig_start + primary.length) as i64,
-        )
+    let read_gap = if chain.query_start >= primary.soft_clip_left {
+        chain.query_start as i64 - (read_len - primary.soft_clip_right) as i64
     } else {
-        (
-            primary.soft_clip_left as i64 - chain.query_end as i64,
-            primary.contig_start as i64 - (contig_start + chain.ref_span()) as i64,
-        )
+        primary.soft_clip_left as i64 - chain.query_end as i64
     };
 
     let primary_span = (read_len - primary.soft_clip_left - primary.soft_clip_right) as i64;
     let overlap_tolerance = (primary_span as f32 * overlap_fraction) as i64;
-    if read_gap < -overlap_tolerance {
-        return false;
-    }
 
-    // An insertion: the contig carries straight on while the read jumps the
-    // inserted bases
-    if (0..=max_insertion_ref_gap).contains(&ref_gap) {
-        return true;
-    }
-
-    // A deletion/duplication: the read carries straight on while the contig
-    // jumps bases
-    if read_gap <= overlap_tolerance && (-max_gap_distance..max_gap_distance).contains(&ref_gap) {
-        return true;
-    }
-
-    false
+    read_gap >= -overlap_tolerance
 }
 
 /// Returns the gaps between two alignments on the read and on the reference,

@@ -281,25 +281,20 @@ controls the chaining look-back window heuristic, `--gd` sets the diagonal gap c
 `--gl` sets the gap length cost, `--vp` determines the best-chain score threshold, 
 and `--sg` controls the maximum skip distance on the reference.
 
-Chains are grouped by the read interval they cover, and only the best scoring
-chains of each interval are kept: `--vp` and a cap of `--vn` chains (1000 by
-default) apply per interval. A chain is also kept if it scores at least `--vs`
-(40 by default), even when it scores below `--vp` of the best chain found, so a
-chain that covers a part of the read the best chain misses is kept as well.
+Chains are grouped by the read interval they cover. Within a group, a chain is
+kept if it scores at least `--vp` (0.7 by default) times the best chain of the
+group. A chain covering a new part of the read is kept if it scores at least
+`--vp` times the best chain or at least `--vs` (40 by default), so that the
+supplementary search can use it.
 
 ### Supplementary alignments
 
 Strobealign searches for a single supplementary alignment when the primary
 alignment does not explain the whole read, which happens when a read crosses a
-large variation. Once the primary is extended, candidate chains are checked
-against two variation patterns: for an insertion, the reference carries on
-within `--si` bases (200 by default) of the primary while the read jumps the
-inserted bases, and for a deletion or a tandem duplication, the read carries on
-while the reference jumps up to `--sd` bases (100,000 by default). A candidate
-also has to be on the same contig and the same strand as the primary, so
-translocations and inversions are not detected. Candidate chains may overlap
-the primary on the read by a fraction `--so` (0.5 by default) of what the
-primary covers.
+large variation. Once the primary is extended, every chain on the same contig
+and the same strand as the primary is a candidate, unless it overlaps the
+primary on the read by more than a fraction `--so` (0.5 by default) of what the
+primary covers. Translocations and inversions are not detected.
 
 Candidates are extended like the primary, but only over the read interval the
 primary does not cover, so that the end bonus `-L` pulls the extension towards
