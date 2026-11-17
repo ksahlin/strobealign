@@ -71,7 +71,20 @@ pub struct AlignmentDetails {
     /// No. of insertions re-interpreted as tandem duplications
     pub duplications: usize,
 
+    /// No. of chains beside a primary that fit a variant pattern and were kept as candidates
+    pub supplementary_candidates: usize,
+
+    /// No. of candidates whose extension produced an alignment
+    pub supplementary_extended: usize,
+
+    /// No. of supplementary alignments reported
+    pub supplementary: usize,
+
     pub time_extend: f64,
+
+    pub time_extend_primary: f64,
+
+    pub time_extend_supplementary: f64,
 }
 
 impl ops::AddAssign<AlignmentDetails> for AlignmentDetails {
@@ -84,7 +97,12 @@ impl ops::AddAssign<AlignmentDetails> for AlignmentDetails {
         self.best_alignments += rhs.best_alignments;
         self.duplication_candidates += rhs.duplication_candidates;
         self.duplications += rhs.duplications;
+        self.supplementary_candidates += rhs.supplementary_candidates;
+        self.supplementary_extended += rhs.supplementary_extended;
+        self.supplementary += rhs.supplementary;
         self.time_extend += rhs.time_extend;
+        self.time_extend_primary += rhs.time_extend_primary;
+        self.time_extend_supplementary += rhs.time_extend_supplementary;
     }
 }
 
