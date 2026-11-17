@@ -251,6 +251,7 @@ impl Chainer {
         rescue_distance: usize,
         mcs_strategy: McsStrategy,
         read_len: usize,
+        supplementary: bool,
     ) -> (Vec<Chain>, ChainDetails, HitsDetails) {
         let hits_timer = Instant::now();
 
@@ -321,6 +322,7 @@ impl Chainer {
                 index.k(),
                 is_revcomp == 1,
                 &index.contig_starts,
+                supplementary,
                 &mut chains,
             );
             time_chaining += chaining_timer.elapsed().as_secs_f64();
@@ -511,16 +513,24 @@ fn admit_chain(
 }
 
 impl ChainingResult {
+    /// Extract chains scoring at least `valid_score_threshold` times the best
+    /// chain. With `supplementary`, also extract chains scoring at least
+    /// `min_chain_score`, marked as supplementary.
     fn extract_chains(
         &self,
         k: usize,
         is_revcomp: bool,
         contig_starts: &ContigStarts,
+        supplementary: bool,
         chains: &mut Vec<Chain>,
     ) {
         let n = self.anchors.len();
-        let valid_score = (self.best_score * self.parameters.valid_score_threshold)
-            .min(self.parameters.min_chain_score);
+        let primary_score = self.best_score * self.parameters.valid_score_threshold;
+        let valid_score = if supplementary {
+            primary_score.min(self.parameters.min_chain_score)
+        } else {
+            primary_score
+        };
 
         let mut candidates = vec![];
         for i in 0..n {
@@ -602,6 +612,7 @@ impl ChainingResult {
                 matching_bases,
                 score: score + chain_anchors.len() as f32 * self.parameters.matches_weight,
                 is_revcomp,
+                is_supplementary: score < primary_score,
                 anchors: chain_anchors,
             });
         }
@@ -682,7 +693,7 @@ pub mod test {
             let mut chains = vec![];
             chainer
                 .collinear_chaining(anchors, &starts, 2000)
-                .extract_chains(20, false, &starts, &mut chains);
+                .extract_chains(20, false, &starts, true, &mut chains);
             chains
         };
 
@@ -715,6 +726,33 @@ pub mod test {
         );
 
         assert!((cut.score - whole.score).abs() < 1e-4);
+    }
+
+    #[test]
+    fn low_scoring_chains_are_supplementary() {
+        let chainer = Chainer::new(20, ChainingParameters::default());
+        let starts = ContigStarts::new(vec![0], 100_000);
+        let extract = |supplementary| {
+            let mut chains = vec![];
+            #[rustfmt::skip]
+            let anchors = anchors![
+                (0, 0), (20, 20), (40, 40), (60, 60), (80, 80), (100, 100),
+                (1090, 200), (1110, 220), (1130, 240),
+            ];
+            chainer
+                .collinear_chaining(anchors, &starts, 2000)
+                .extract_chains(20, false, &starts, supplementary, &mut chains);
+            chains
+        };
+
+        let chains = extract(true);
+        assert_eq!(chains.len(), 2);
+        assert!(!chains[0].is_supplementary);
+        assert!(chains[1].is_supplementary);
+
+        let chains = extract(false);
+        assert_eq!(chains.len(), 1);
+        assert!(!chains[0].is_supplementary);
     }
 
     #[test]

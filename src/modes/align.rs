@@ -498,6 +498,7 @@ pub fn align_single_end_read(
     let primary_timer = Instant::now();
     for (tries, chain) in chains
         .iter_mut()
+        .filter(|chain| !chain.is_supplementary)
         .take(mapping_parameters.max_tries)
         .enumerate()
     {

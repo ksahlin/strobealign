@@ -249,7 +249,7 @@ struct Args {
     #[arg(long = "vp", default_value_t = ChainingParameters::default().valid_score_threshold, help_heading = "Collinear chaining")]
     valid_score_threshold: f32,
 
-    /// Chains scoring at least this are kept even when below the --vp fraction of the best chain
+    /// Minimum score of chains below the --vp threshold kept for the supplementary search
     #[arg(long = "vs", default_value_t = ChainingParameters::default().min_chain_score, help_heading = "Collinear chaining")]
     min_chain_score: f32,
 
@@ -1108,12 +1108,17 @@ impl Mapper<'_> {
         for (r1, r2) in chunk {
             trace!("\nQuery: {}\nlength={}", r1.name, r1.len());
 
+            // Only single-end alignment searches for supplementary alignments
+            let supplementary = self.mapping_parameters.supplementary
+                && r2.is_none()
+                && matches!(self.mode, Mode::Sam);
             let (mut chains1, chain_details1, hits_details1) = get_sorted_chains(
                 &r1.sequence,
                 self.index,
                 self.chainer,
                 self.mapping_parameters.rescue_distance,
                 self.mapping_parameters.mcs_strategy,
+                supplementary,
                 &mut rng,
             );
 
@@ -1125,6 +1130,7 @@ impl Mapper<'_> {
                     self.chainer,
                     self.mapping_parameters.rescue_distance,
                     self.mapping_parameters.mcs_strategy,
+                    false,
                     &mut rng,
                 );
                 let mut chains_pair = [chains1, chains2];

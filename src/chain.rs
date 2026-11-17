@@ -27,6 +27,7 @@ pub struct Chain {
     pub matching_bases: usize,
     pub score: f32,
     pub is_revcomp: bool,
+    pub is_supplementary: bool,
     pub anchors: Vec<Anchor>,
 }
 
@@ -63,12 +64,16 @@ impl Display for Chain {
 }
 
 /// Obtain chains for a sequence record, doing rescue if needed.
+///
+/// With `supplementary`, chains kept only for the supplementary search are
+/// also returned.
 pub fn get_sorted_chains(
     sequence: &[u8],
     index: &StrobemerIndex,
     chainer: &Chainer,
     rescue_distance: usize,
     mcs_strategy: McsStrategy,
+    supplementary: bool,
     rng: &mut Rng,
 ) -> (Vec<Chain>, ChainDetails, HitsDetails) {
     let timer = Instant::now();
@@ -87,6 +92,7 @@ pub fn get_sorted_chains(
         rescue_distance,
         mcs_strategy,
         sequence.len(),
+        supplementary,
     );
 
     chain_details.time_randstrobes = time_randstrobes;

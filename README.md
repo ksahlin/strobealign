@@ -281,11 +281,12 @@ controls the chaining look-back window heuristic, `--gd` sets the diagonal gap c
 `--gl` sets the gap length cost, `--vp` determines the best-chain score threshold, 
 and `--sg` controls the maximum skip distance on the reference.
 
-Chains are grouped by the read interval they cover. Within a group, a chain is
-kept if it scores at least `--vp` (0.7 by default) times the best chain of the
-group. A chain covering a new part of the read is kept if it scores at least
-`--vp` times the best chain or at least `--vs` (40 by default), so that the
-supplementary search can use it.
+Chains scoring at least `--vp` (0.7 by default) times the best chain are used
+for the primary alignment. For single-end reads, lower-scoring chains are also
+kept for the supplementary search if they score at least `--vs` (40 by
+default). Chains are grouped by the read interval they cover, and such a chain
+is only kept if it covers a new part of the read or scores at least `--vp`
+times the best chain of its group.
 
 ### Supplementary alignments
 
