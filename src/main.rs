@@ -215,7 +215,7 @@ struct Args {
     aux_len: u32,
 
     /// Enable ancient-DNA mode: use rymer syncmers that tolerate deamination-induced
-    /// C->T / G->A substitutions when seeding
+    /// C->T / G->A substitutions when seeding. Implies --ssw
     #[arg(long, help_heading = "Seeding")]
     adna: bool,
 
@@ -235,9 +235,9 @@ struct Args {
     #[arg(short = 'S', default_value_t = 0.5, help_heading = "Search parameters")]
     dropoff_threshold: f32,
 
-    /// Maximum number of mapping sites to try
-    #[arg(short = 'M', default_value_t = MappingParameters::default().max_tries, help_heading = "Search parameters")]
-    max_tries: usize,
+    /// Maximum number of mapping sites to try [default: 20]
+    #[arg(short = 'M', help_heading = "Search parameters")]
+    max_tries: Option<usize>,
 
     /// Maximum allowed distance (in nucleotides) between filtered seeds.
     /// The lower the value, the more seeds are rescued.
@@ -377,7 +377,13 @@ fn main() -> ExitCode {
 
 fn run() -> Result<(), CliError> {
     sigpipe::reset();
-    let args = Args::parse();
+    let mut args = Args::parse();
+    if args.adna {
+        args.k = args.k.or(Some(17));
+        args.s = args.s.or(args.k.map(|k| k - 2));
+        args.max_tries = args.max_tries.or(Some(500));
+        args.use_ssw = true;
+    }
     let level = if args.trace {
         log::Level::Trace
     } else if args.verbose {
@@ -605,7 +611,9 @@ fn run() -> Result<(), CliError> {
             args.max_secondary as usize
         },
         secondary_threshold: args.secondary_threshold,
-        max_tries: args.max_tries,
+        max_tries: args
+            .max_tries
+            .unwrap_or(MappingParameters::default().max_tries),
         dropoff_threshold: args.dropoff_threshold,
         rescue_distance: args.rescue_distance,
         output_unmapped: !args.only_mapped,
