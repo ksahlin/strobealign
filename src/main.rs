@@ -164,6 +164,11 @@ struct Args {
     )]
     secondary_threshold: f32,
 
+    /// Output SEQ and QUAL for secondary alignments (default: '*'). Useful for downstream
+    /// tools that need secondary reads' bases/qualities.
+    #[arg(long = "secondary-seq", help_heading = "SAM output", hide = true)]
+    secondary_seq: bool,
+
     // Seeding arguments
 
     /// Mean read length [default: estimated from the first 500 records]
@@ -209,6 +214,15 @@ struct Args {
     #[arg(long, default_value_t = DEFAULT_AUX_LEN, value_name = "N", help_heading = "Seeding")]
     aux_len: u32,
 
+    /// Enable ancient-DNA mode: use rymer syncmers that tolerate deamination-induced
+    /// C->T / G->A substitutions when seeding. Implies --ssw
+    #[arg(long, help_heading = "Seeding")]
+    adna: bool,
+
+    /// In aDNA mode, number of leading k-mer positions hashed by RY class. Default: 8
+    #[arg(long = "ry-len", default_value_t = 8, help_heading = "Seeding")]
+    ry_len: usize,
+
     /// Multi-context seed strategy for finding hits
     #[arg(long = "mcs", value_enum, value_name = "STRATEGY", default_value_t = McsStrategy::default(), help_heading = "Search parameters")]
     mcs_strategy: McsStrategy,
@@ -221,9 +235,9 @@ struct Args {
     #[arg(short = 'S', default_value_t = 0.5, help_heading = "Search parameters")]
     dropoff_threshold: f32,
 
-    /// Maximum number of mapping sites to try
-    #[arg(short = 'M', default_value_t = MappingParameters::default().max_tries, help_heading = "Search parameters")]
-    max_tries: usize,
+    /// Maximum number of mapping sites to try [default: 20]
+    #[arg(short = 'M', help_heading = "Search parameters")]
+    max_tries: Option<usize>,
 
     /// Maximum allowed distance (in nucleotides) between filtered seeds.
     /// The lower the value, the more seeds are rescued.
@@ -363,7 +377,13 @@ fn main() -> ExitCode {
 
 fn run() -> Result<(), CliError> {
     sigpipe::reset();
-    let args = Args::parse();
+    let mut args = Args::parse();
+    if args.adna {
+        args.k = args.k.or(Some(17));
+        args.s = args.s.or(args.k.map(|k| k - 2));
+        args.max_tries = args.max_tries.or(Some(500));
+        args.use_ssw = true;
+    }
     let level = if args.trace {
         log::Level::Trace
     } else if args.verbose {
@@ -448,6 +468,13 @@ fn run() -> Result<(), CliError> {
     }
     if let Some(bitcount) = args.c {
         parameters = parameters.with_bitcount(bitcount)?;
+    }
+    parameters = parameters.with_adna(args.adna, args.ry_len);
+    if parameters.adna_mode {
+        info!(
+            "Ancient DNA mode enabled (using rymer syncmers, ry_len={})",
+            parameters.ry_len
+        );
     }
     info!(
         "Read profile: {} {}",
@@ -584,7 +611,9 @@ fn run() -> Result<(), CliError> {
             args.max_secondary as usize
         },
         secondary_threshold: args.secondary_threshold,
-        max_tries: args.max_tries,
+        max_tries: args
+            .max_tries
+            .unwrap_or(MappingParameters::default().max_tries),
         dropoff_threshold: args.dropoff_threshold,
         rescue_distance: args.rescue_distance,
         output_unmapped: !args.only_mapped,
@@ -627,7 +656,13 @@ fn run() -> Result<(), CliError> {
         None if !args.rg.is_empty() => Some("1".to_string()),
         None => None,
     };
-    let sam_output = SamOutput::new(args.details, args.eqx, rg_id.clone(), args.fastq_comments);
+    let sam_output = SamOutput::new(
+        args.details,
+        args.eqx,
+        rg_id.clone(),
+        args.fastq_comments,
+        args.secondary_seq,
+    );
     let read_group = rg_id.map(|s| ReadGroup::new(&s, args.rg));
 
     let header = SamHeader::new(

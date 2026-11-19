@@ -261,6 +261,7 @@ impl Chainer {
                 mcs_strategy,
                 index.filter_cutoff(),
                 rescue_distance,
+                read_len,
             );
         }
         let mut time_find_hits = hits_timer.elapsed().as_secs_f64();
@@ -404,7 +405,10 @@ fn add_to_anchors_full(
         let length_diff = (query_end - query_start).abs_diff(ref_end - ref_start);
         if length_diff <= min_length_diff {
             anchors.push(Anchor::new(ref_start, query_start));
-            anchors.push(Anchor::new(ref_end - index.k(), query_end - index.k()));
+            // Avoid adding a second, identical anchor (might happen in aDNA mode).
+            if ref_start != ref_end - index.k() {
+                anchors.push(Anchor::new(ref_end - index.k(), query_end - index.k()));
+            }
             min_length_diff = length_diff;
         }
     }

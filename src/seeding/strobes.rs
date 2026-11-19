@@ -134,6 +134,29 @@ impl Randstrobe {
             | (is_forward1 << parameters.partial_orientation_pos)
             | (is_forward2 << STROBE2_OFFSET_BITS)
     }
+
+    /// Make a hybrid rymer hash from a single rymer syncmer (used in aDNA mode).
+    /// The rymer part of the syncmer hash is used as the main hash and
+    /// the SW part as the auxiliary hash (see `RymerEncoding::make_syncmer`).
+    /// The strobe2 orientation bit is unused and only the partial orientation
+    /// bit carries the rymer's orientation.
+    ///
+    /// TODO Compress hybrid rymer index
+    pub fn from_rymers(syncmer: Syncmer, ry_len: usize, parameters: &RandstrobeParameters) -> Self {
+        let sw_mask = (1u64 << ry_len) - 1;
+        let sw = syncmer.hash() & sw_mask;
+        // Fill the lower bits with rymer bits as well so that the
+        // main hash does not depend on SW, no matter what aux_len is.
+        let main = (syncmer.hash() & !sw_mask) | ((syncmer.hash() >> ry_len) & sw_mask);
+        let aux = sw << (STROBE2_OFFSET_BITS + 1);
+        let is_forward = syncmer.is_forward() as u64;
+        Randstrobe {
+            hash: Randstrobe::hash(main, aux, is_forward, 0, parameters),
+            hash_revcomp: Randstrobe::hash(main, aux, is_forward ^ 1, 0, parameters),
+            strobe1_pos: syncmer.position,
+            strobe2_pos: syncmer.position,
+        }
+    }
 }
 
 pub struct RandstrobeIterator<I: Iterator<Item = Syncmer>> {
@@ -188,13 +211,46 @@ impl<SI: Iterator<Item = Syncmer>> Iterator for RandstrobeIterator<SI> {
     }
 }
 
+pub struct RymerIterator<I: Iterator<Item = Syncmer>> {
+    parameters: RandstrobeParameters,
+    ry_len: usize,
+    syncmer_iterator: I,
+}
+
+impl<I: Iterator<Item = Syncmer>> RymerIterator<I> {
+    pub fn new(
+        syncmer_iterator: I,
+        parameters: RandstrobeParameters,
+        ry_len: usize,
+    ) -> RymerIterator<I> {
+        RymerIterator {
+            parameters,
+            ry_len,
+            syncmer_iterator,
+        }
+    }
+}
+
+impl<I: Iterator<Item = Syncmer>> Iterator for RymerIterator<I> {
+    type Item = Randstrobe;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let syncmer = self.syncmer_iterator.next()?;
+        Some(Randstrobe::from_rymers(
+            syncmer,
+            self.ry_len,
+            &self.parameters,
+        ))
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
 
     use crate::io::fasta::read_ref;
     use crate::packed_seq::PackedSeq;
-    use crate::seeding::{SeedingParameters, SyncmerIterator};
+    use crate::seeding::{KmerSyncmerIterator, SeedingParameters};
 
     fn read_phix() -> PackedSeq {
         read_ref("tests/phix.fasta").unwrap().contig(0).to_owned()
@@ -204,7 +260,7 @@ mod test {
     fn randstrobe_iterator() {
         let seq = read_phix();
         let parameters = SeedingParameters::new(300);
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             &seq,
             parameters.syncmer.k,
             parameters.syncmer.s,
@@ -226,7 +282,7 @@ mod test {
     fn syncmer_and_randstrobe_iterator_same_count() {
         let seq = read_phix();
         let parameters = SeedingParameters::new(100);
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             &seq,
             parameters.syncmer.k,
             parameters.syncmer.s,
@@ -234,7 +290,7 @@ mod test {
         );
         let syncmer_count = syncmer_iter.count();
 
-        let syncmer_iter = SyncmerIterator::new(
+        let syncmer_iter = KmerSyncmerIterator::new(
             &seq,
             parameters.syncmer.k,
             parameters.syncmer.s,
