@@ -9,7 +9,6 @@ pub use strobes::{DEFAULT_AUX_LEN, RandstrobeIterator, RandstrobeParameters, Rym
 use strobes::Randstrobe;
 pub use syncmers::{
     KmerSyncmerIterator, RymerSyncmerIterator, Syncmer, SyncmerIterator, SyncmerParameters,
-    ry_equal,
 };
 
 #[derive(Debug)]

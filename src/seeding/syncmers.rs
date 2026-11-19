@@ -202,43 +202,6 @@ impl SyncmerEncoding for KmerEncoding {
     }
 }
 
-/// Collision check for aDNA NAM consistency: the first `ry_len` positions use
-/// RY-class equality (A/G vs C/T), the remaining positions require exact
-/// nucleotide equality. The comparison is tried from both ends and succeeds if
-/// either orientation matches.
-pub fn ry_equal(a: &[u8], b: &[u8], ry_len: usize) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    let k = a.len();
-    let mut forward_ok = true;
-    let mut reverse_ok = true;
-    for (i, (&x, &y)) in a.iter().zip(b.iter()).enumerate() {
-        if !forward_ok && !reverse_ok {
-            return false;
-        }
-        let exact = x == y;
-        let ry = {
-            let sx = RYMER_S1[x as usize];
-            let sy = RYMER_S1[y as usize];
-            sx < 4 && sx == sy
-        };
-        if forward_ok {
-            let ok = if i < ry_len { ry } else { exact };
-            if !ok {
-                forward_ok = false;
-            }
-        }
-        if reverse_ok {
-            let ok = if i + ry_len >= k { ry } else { exact };
-            if !ok {
-                reverse_ok = false;
-            }
-        }
-    }
-    forward_ok || reverse_ok
-}
-
 // S1: a, A -> 0; c, C -> 1; g, G -> 0; t, T, u, U -> 1
 #[rustfmt::skip]
 static RYMER_S1: [u8; 256] = [
