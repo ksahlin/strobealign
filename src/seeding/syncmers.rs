@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use std::marker::PhantomData;
 
 use super::InvalidSeedingParameter;
-use super::hash::{xxh32, xxh64};
+use super::hash::xxh64;
 use crate::packed_seq::{PackedSeq, PackedSeqSlice};
 
 /// Trait for types that can serve as a sequence source for `SyncmerIterator`.
@@ -361,7 +361,7 @@ impl SyncmerEncoding for RymerEncoding {
 
     #[inline]
     fn hash_smer(value: (u32, u32)) -> u64 {
-        xxh32(value.0) as u64
+        xxh64(value.0 as u64)
     }
 
     /// The lower `ry_len` bits of the syncmer hash store the strong/weak (SW)
