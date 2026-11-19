@@ -18,9 +18,9 @@
   output as fast as reads are mapped (that is, when the output file/stdout
   blocks).
 * #682: Report a supplementary alignment for a single-end read that crosses a
-  large insertion, deletion or tandem duplication, instead of soft-clipping the
-  part of the read that does not fit the primary alignment (options `--sm`,
-  `--ss`, `--so` and `--vs`, see the README). Chains below the `--vp`
+  large insertion, deletion, tandem duplication or inversion breakpoint,
+  instead of soft-clipping the part of the read that does not fit the primary
+  alignment (options `--sm`, `--ss`, `--so` and `--vs`, see the README). Chains below the `--vp`
   threshold are kept for the supplementary search only.
 
 ## v0.20.0 (2026-11-06)

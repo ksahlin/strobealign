@@ -293,17 +293,19 @@ times the best chain of its group.
 Strobealign searches for a single supplementary alignment when the primary
 alignment does not explain the whole read, which happens when a read crosses a
 large variation. Once the primary is extended, every chain on the same contig
-and the same strand as the primary is a candidate, unless it overlaps the
-primary on the read by more than a fraction `--so` (0.5 by default) of what the
-primary covers. Translocations and inversions are not detected.
+as the primary is a candidate, unless it overlaps the primary on the read by
+more than a fraction `--so` (0.5 by default) of what the primary covers. A
+candidate on the other strand describes an inversion. Translocations are not
+detected.
 
 Candidates are extended like the primary, but only over the read interval the
 primary does not cover, so that the end bonus `-L` pulls the extension towards
 the primary. Strobealign reports the best extension as a supplementary record
 if it scores at least `--sm` (80 by default) and meets the primary within
-`--ss` bases (50 by default), either on the read or on the reference. The
-supplementary gets its own mapping quality, computed from the second best
-candidate.
+`--ss` bases (50 by default), either on the read or on the reference. On the
+reference, an inverted supplementary may meet the primary at either of its
+ends. The supplementary gets its own mapping quality, computed from the second
+best candidate.
 
 Duplication detection is run on the supplementary alignment the same way it is
 run on the primary.
