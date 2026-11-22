@@ -305,7 +305,7 @@ strobealign measures the unit instead, lays it out once per copy and cuts the
 alignment against that tiled reference apart at the tile boundaries.
 
 Strobealign only reports a duplication it found if it passes a threshold of
-`--dm` (0.80 by default) matches over the inserted bases. The alignment is then
+`--dm` (0.5 by default) matches over the inserted bases. The alignment is then
 split into one segment per copy, otherwise the insertion is kept as it is.
 
 The segments have no read overlap and no gap, so the breakpoints are exact on
