@@ -6,6 +6,9 @@ use crate::packed_seq::PackedSeqSlice;
 use crate::read::Read;
 use crate::refseq::RefSequence;
 
+/// Shortest possible unit for a multi copy duplication
+const MIN_UNIT_LENGTH: usize = 20;
+
 /// Cuts the alignment into one segment per copy wherever an insertion of at least `min_length`
 /// bases turns out to be a tandem duplication. A `min_length` of zero turns this off. Always
 /// returns at least the alignment it was given.
@@ -44,7 +47,6 @@ pub fn reinterpret_insertions(
                 &contig,
                 &query[query_pos..query_pos + len],
                 ref_pos,
-                min_length,
                 min_matches,
                 band,
                 details,
@@ -129,7 +131,6 @@ fn find_duplication(
     contig: &PackedSeqSlice,
     insertion: &[u8],
     ref_pos: usize,
-    min_length: usize,
     min_matches: f32,
     band: usize,
     details: &mut AlignmentDetails,
@@ -148,7 +149,6 @@ fn find_duplication(
         &left_reference,
         &right_reference,
         ref_pos,
-        min_length,
         min_matches,
         band,
     ) {
@@ -161,7 +161,6 @@ fn find_duplication(
         &left_reference,
         &right_reference,
         ref_pos,
-        min_length,
         min_matches,
         band,
     )
@@ -173,16 +172,10 @@ fn find_single_copy(
     left_reference: &[u8],
     right_reference: &[u8],
     ref_pos: usize,
-    min_length: usize,
     min_matches: f32,
     band: usize,
 ) -> Option<Duplication> {
     let split = aligner.realign_insertion(insertion, left_reference, right_reference, band)?;
-    let copy_len =
-        (split.head.ref_end - split.head.ref_start) + (split.tail.ref_end - split.tail.ref_start);
-    if copy_len < min_length {
-        return None;
-    }
 
     // Matched bases over the insertion length is a cheap proxy for the identity of the copies.
     let matched = split.head.cigar.matches() + split.tail.cigar.matches();
@@ -211,20 +204,14 @@ fn find_multi_copy(
     left_reference: &[u8],
     right_reference: &[u8],
     ref_pos: usize,
-    min_length: usize,
     min_matches: f32,
     band: usize,
 ) -> Option<Duplication> {
-    // Not enough room for multiple copies
-    if 2 * insertion.len() < 3 * min_length {
-        return None;
-    }
-
     // Find approximate unit length (original copy size)
     let (backward, forward) =
         aligner.insertion_reach(insertion, left_reference, right_reference, band)?;
     let unit_len = forward + backward;
-    if unit_len < min_length {
+    if unit_len < MIN_UNIT_LENGTH {
         return None;
     }
 
@@ -292,15 +279,22 @@ fn find_multi_copy(
             cigar.pop_front();
             ref_skip = first_op.len;
         }
-        let (query_span, _) = query_ref_span(&cigar);
 
-        if !cigar.is_empty() {
-            inner.push(DuplicatedCopy {
-                contig_start: unit_start + ref_skip,
-                query_start,
-                cigar,
-            });
+        if cigar.is_empty() {
+            continue;
         }
+
+        // The multi copy split fails if an inner copy scores zero or less.
+        if aligner.scores.score(&cigar) <= 0 {
+            return None;
+        }
+
+        let (query_span, _) = query_ref_span(&cigar);
+        inner.push(DuplicatedCopy {
+            contig_start: unit_start + ref_skip,
+            query_start,
+            cigar,
+        });
 
         query_start += query_span;
     }
