@@ -299,10 +299,12 @@ default). The re-alignment returns two alignments that bridge the insertion
 gap: one extends the alignment past the insertion point, the other starts
 earlier on the reference, at the second copy. 
 
-An insertion half as long again as the duplicated unit can hold more than two
-copies, and since every jump of a tandem duplication is the same jump,
-strobealign measures the unit instead, lays it out once per copy and cuts the
-alignment against that tiled reference apart at the tile boundaries.
+An insertion can also hold several copies of the duplicated unit, as in an
+expansion of a variable number tandem repeat. Strobealign tries this first: it
+measures the unit by aligning the two ends of the insertion into the reference,
+estimates the number of copies, aligns the insertion against the unit repeated
+that many times and cuts this alignment at the unit boundaries. If there are
+fewer than two copies, or if this fails, it falls back to a single copy.
 
 Strobealign only reports a duplication it found if it passes a threshold of
 `--dm` (0.5 by default) matches over the inserted bases. The alignment is then
