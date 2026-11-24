@@ -515,7 +515,8 @@ fn admit_chain(
 impl ChainingResult {
     /// Extract chains scoring at least `valid_score_threshold` times the best
     /// chain. With `supplementary`, also extract chains scoring at least
-    /// `min_chain_score`, marked as supplementary.
+    /// `min_chain_score` and chains cut where they share a parent with a better
+    /// chain, both marked as supplementary.
     fn extract_chains(
         &self,
         k: usize,
@@ -572,7 +573,12 @@ impl ChainingResult {
                 ref_coverage = self.anchors[j].ref_start();
             }
 
+            // A chain sharing a parent with a better chain is cut to the part
+            // that is not shared. It is only useful for the supplementary search.
             if overlaps {
+                if !supplementary {
+                    continue;
+                }
                 score = self.dp[i] - self.dp[j] + k as f32;
                 if score < valid_score {
                     continue;
@@ -612,7 +618,7 @@ impl ChainingResult {
                 matching_bases,
                 score: score + chain_anchors.len() as f32 * self.parameters.matches_weight,
                 is_revcomp,
-                is_supplementary: score < primary_score,
+                is_supplementary: overlaps || score < primary_score,
                 anchors: chain_anchors,
             });
         }
