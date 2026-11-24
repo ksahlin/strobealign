@@ -284,12 +284,13 @@ fn find_multi_copy(
             continue;
         }
 
-        // The multi copy split fails if an inner copy scores zero or less.
-        if aligner.scores.score(&cigar) <= 0 {
+        // The multi copy split fails if an inner copy scores zero or less, or
+        // covers fewer read bases than the shortest unit.
+        let (query_span, _) = query_ref_span(&cigar);
+        if aligner.scores.score(&cigar) <= 0 || query_span < MIN_UNIT_LENGTH {
             return None;
         }
 
-        let (query_span, _) = query_ref_span(&cigar);
         inner.push(DuplicatedCopy {
             contig_start: unit_start + ref_skip,
             query_start,
