@@ -138,8 +138,8 @@ fn find_duplication(
     details.duplication_candidates += 1;
     let len = insertion.len();
     let padding = len + band;
-    let left_start = ref_pos.saturating_sub(len + padding);
-    let right_end = (ref_pos + len + padding).min(contig.len());
+    let left_start = ref_pos.saturating_sub(padding);
+    let right_end = (ref_pos + padding).min(contig.len());
     let left_reference = contig.decode(left_start, ref_pos);
     let right_reference = contig.decode(ref_pos, right_end);
 
