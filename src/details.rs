@@ -68,8 +68,11 @@ pub struct AlignmentDetails {
     /// No. of insertion candidates considered for duplications
     pub duplication_candidates: usize,
 
-    /// No. of insertions re-interpreted as tandem duplications
+    /// No. of copies reported over all duplications.
     pub duplications: usize,
+
+    /// No. of insertions that came out as more than one copy
+    pub multi_copy_duplications: usize,
 
     pub time_extend: f64,
 }
@@ -84,6 +87,7 @@ impl ops::AddAssign<AlignmentDetails> for AlignmentDetails {
         self.best_alignments += rhs.best_alignments;
         self.duplication_candidates += rhs.duplication_candidates;
         self.duplications += rhs.duplications;
+        self.multi_copy_duplications += rhs.multi_copy_duplications;
         self.time_extend += rhs.time_extend;
     }
 }

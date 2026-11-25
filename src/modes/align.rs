@@ -64,7 +64,7 @@ impl Default for MappingParameters {
             output_unmapped: true,
             use_ssw: false,
             min_duplication_length: 50,
-            min_duplication_matches: 0.80,
+            min_duplication_matches: 0.5,
             duplication_band: 20,
         }
     }

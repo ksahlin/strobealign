@@ -297,10 +297,18 @@ bases (50 by default) is re-aligned against the two sides of the reference
 surrounding the insertion point, within a band of `--dw` diagonals (20 by
 default). The re-alignment returns two alignments that bridge the insertion
 gap: one extends the alignment past the insertion point, the other starts
-earlier on the reference, at the second copy. Strobealign only reports a
-duplication it found if it passes a threshold of `--dm` (0.80 by default)
-matches over the inserted bases. The alignment is then split into one segment
-per copy, otherwise the insertion is kept as it is.
+earlier on the reference, at the second copy. 
+
+An insertion can also hold several copies of the duplicated unit, as in an
+expansion of a variable number tandem repeat. Strobealign tries this first: it
+measures the unit by aligning the two ends of the insertion into the reference,
+estimates the number of copies, aligns the insertion against the unit repeated
+that many times and cuts this alignment at the unit boundaries. If there are
+fewer than two copies, or if this fails, it falls back to a single copy.
+
+Strobealign only reports a duplication it found if it passes a threshold of
+`--dm` (0.5 by default) matches over the inserted bases. The alignment is then
+split into one segment per copy, otherwise the insertion is kept as it is.
 
 The segments have no read overlap and no gap, so the breakpoints are exact on
 both the read and the reference. The best scoring segment becomes the primary
