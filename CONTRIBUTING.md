@@ -40,24 +40,6 @@ Run the tests with `cargo test`.
 There are additional tests that should be run with `tests/run.sh`.
 (These have have not yet been ported to native Rust tests.)
 
-## Building the legacy C++ version of strobealign
-
-Until version 0.17.0, strobealign was written in C++. The code currently still
-exists in the repository. To configure that code, change to the `cpp` directory
-and run `cmake -B build`.
-You can add specify a build type to set some useful compiler options by adding
-one of these options to the command:
-- Use `-DCMAKE_BUILD_TYPE=Release` when building a release (`-O3 -DNDEBUG`) (this is the default)
-- Use `-DCMAKE_BUILD_TYPE=Debug` for development (`-O2 -g`)
-- Use `-DCMAKE_BUILD_TYPE=RelWithDebInfo` for profiling (`-O3 -g -DNDEBUG`)
-
-`-g` gives you debug symbols and `-DNDEBUG` disables assertions.
-
-Then compile the program:
-```
-cmake --build build
-```
-
 ## Testing
 
 Whenever you make changes that could potentially affect mapping results, you can
