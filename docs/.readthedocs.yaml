@@ -1,0 +1,15 @@
+version: 2
+
+build:
+  os: ubuntu-lts-latest
+  tools:
+    nodejs: "latest"
+  jobs:
+    install:
+      - npm install -g mystmd
+    build:
+      html:
+        - cd docs/ && myst build --html
+    post_build:
+        - mkdir --parents $READTHEDOCS_OUTPUT/html/
+        - cp --recursive docs/_build/html/* $READTHEDOCS_OUTPUT/html/
