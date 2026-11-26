@@ -10,7 +10,6 @@ project:
     - file: introduction.md
     - file: installation.md
     - file: usage.md
-    - file: evaluation.md  # TODO probably remove this
     - file: explanation.md
     - file: reference.md
     - file: ../CONTRIBUTING.md
