@@ -264,20 +264,23 @@ impl PiecewiseAligner {
                 let query_part = &query[prev_query_end..prev_query_end + query_diff as usize];
                 let ref_part = &refseq[prev_ref_end..prev_ref_end + ref_diff as usize];
 
-                if ref_diff == query_diff {
-                    let hamming_aligned = hamming_align_global(
+                if ref_diff == query_diff
+                    && let Some(hamming_aligned) = hamming_align_global(
                         query_part,
                         ref_part,
                         self.scores.match_,
                         self.scores.mismatch,
-                    );
-
-                    if hamming_aligned.score > 0
-                        && hamming_aligned.score
-                            > self.scores.match_ as u32
-                                * ((query_part.len() as f32) * 0.85).ceil() as u32
+                    )
+                {
+                    let len = query_diff as i32;
+                    let match_ = self.scores.match_ as i32;
+                    let hamming_score = hamming_aligned.score as i32;
+                    let best_possible_alignment_score =
+                        match_ * (len - 1) - 2 * self.scores.gap_open as i32;
+                    if hamming_score > best_possible_alignment_score
+                        || hamming_score > match_ * ((len as f32) * 0.85).ceil() as i32
                     {
-                        score += hamming_aligned.score as i32;
+                        score += hamming_score;
                         cigar.extend(&hamming_aligned.cigar);
 
                         score += self.k as i32 * self.scores.match_ as i32;

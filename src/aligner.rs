@@ -315,12 +315,13 @@ pub fn hamming_align(
     })
 }
 
+/// Returns None if the score of the alignment would be zero or less.
 pub fn hamming_align_global(
     query: &[u8],
     refseq: &[u8],
     match_: u8,
     mismatch: u8,
-) -> AlignmentInfo {
+) -> Option<AlignmentInfo> {
     let mut score = 0;
     let mut cigar = Cigar::new();
     let mut edit_distance = 0;
@@ -336,14 +337,18 @@ pub fn hamming_align_global(
         }
     }
 
-    AlignmentInfo {
-        cigar,
-        edit_distance,
-        ref_start: 0,
-        ref_end: query.len(),
-        query_start: 0,
-        query_end: query.len(),
-        score: 0.max(score) as u32,
+    if score <= 0 {
+        None
+    } else {
+        Some(AlignmentInfo {
+            cigar,
+            edit_distance,
+            ref_start: 0,
+            ref_end: query.len(),
+            query_start: 0,
+            query_end: query.len(),
+            score: score as u32,
+        })
     }
 }
 
@@ -546,7 +551,7 @@ mod test {
 
     #[test]
     fn hamming_global_perfect_match() {
-        let info = hamming_align_global(b"ACGT", b"ACGT", 3, 7);
+        let info = hamming_align_global(b"ACGT", b"ACGT", 3, 7).unwrap();
         assert_eq!(info.cigar.to_string(), "4=");
         assert_eq!(info.edit_distance, 0);
         assert_eq!(info.score, 4 * 3);
@@ -558,15 +563,12 @@ mod test {
 
     #[test]
     fn hamming_global_all_mismatches() {
-        let info = hamming_align_global(b"AAAA", b"TTTT", 3, 7);
-        assert_eq!(info.cigar.to_string(), "4X");
-        assert_eq!(info.edit_distance, 4);
-        assert_eq!(info.score, 0);
+        assert!(hamming_align_global(b"AAAA", b"TTTT", 3, 7).is_none());
     }
 
     #[test]
     fn hamming_global_mixed_matches_and_mismatches() {
-        let info = hamming_align_global(b"ACGT", b"AGGT", 3, 7);
+        let info = hamming_align_global(b"ACGT", b"AGGT", 3, 7).unwrap();
         assert_eq!(info.cigar.to_string(), "1=1X2=");
         assert_eq!(info.edit_distance, 1);
         assert_eq!(info.score, 3 * 3 - 7);
@@ -574,17 +576,11 @@ mod test {
 
     #[test]
     fn hamming_global_single_base_mismatch() {
-        let info = hamming_align_global(b"A", b"C", 3, 7);
-        assert_eq!(info.cigar.to_string(), "1X");
-        assert_eq!(info.edit_distance, 1);
-        assert_eq!(info.score, 0);
+        assert!(hamming_align_global(b"A", b"C", 3, 7).is_none());
     }
 
     #[test]
     fn hamming_global_score_floored_with_mixed_alignment() {
-        let info = hamming_align_global(b"ACGT", b"AGGA", 3, 7);
-        assert_eq!(info.cigar.to_string(), "1=1X1=1X");
-        assert_eq!(info.edit_distance, 2);
-        assert_eq!(info.score, 0);
+        assert!(hamming_align_global(b"ACGT", b"AGGA", 3, 7).is_none());
     }
 }
