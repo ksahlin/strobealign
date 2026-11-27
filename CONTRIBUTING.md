@@ -60,6 +60,22 @@ then builds strobealign as it is in your working copy and compares the
 two produced BAM files. The baseline BAM is cached and re-used as long as the
 baseline commit does not change.
 
+## Building the documentation
+
+We use [MyST Markdown](https://mystmd.org/), which is available as a package
+from conda-forge. To install (assuming `conda-forge` is in your channel
+list), use
+```
+conda create -n mystmd mystmd
+conda activate mystmd
+```
+Then render the documentation with:
+```
+cd docs
+myst start
+```
+Go to <http://localhost:3000> to view it.
+
 ## Release checklist
 
 - [ ] Increase `STI_FILE_FORMAT` constant if needed
