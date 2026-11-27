@@ -101,6 +101,7 @@ fn single_end_sam() {
     let expected = String::from_utf8(read("tests/phix.se.sam").unwrap()).unwrap();
     let mut cmd = cmd();
     let p = cmd.args([
+        "--supplementary",
         "--chunk-size=3",
         "--no-PG",
         "--eqx",

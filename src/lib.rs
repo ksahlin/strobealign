@@ -22,3 +22,4 @@ pub mod seeding;
 pub mod shuffle;
 pub mod simdaligner;
 pub mod ssw;
+pub mod supplementary;
