@@ -10,6 +10,8 @@ paired-end reads to a reference genome and outputs SAM, PAF, or contig
 abundances. Indexing is fast enough (under a minute for a human genome) that it is
 done on the fly by default.
 
+See also [the full documentation](https://strobealign.readthedocs.io).
+
 ## Getting started
 
 ```sh
@@ -120,7 +122,7 @@ See [index files](manual.md#index-files) for details.
 
 ## Further documentation
 
-- [Manual](manual.md): all command-line options, read profiles, index files,
+- [Full documentation at Read the Docs](https://strobealign.readthedocs.io): all command-line options, read profiles, index files,
   and how strobealign works
 - [Changelog](CHANGES.md)
 - [Contributing](CONTRIBUTING.md)
