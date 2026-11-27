@@ -65,7 +65,7 @@ if ! test -f ${baseline_file}; then
     rm -rf "${srcdir}"
   fi
   if [[ ${mode} = align ]]; then
-    ${baseline_binary} -N 2 -v -t ${threads} ${ref} ${reads[@]} | samtools view -o ${baseline_file}.tmp.${ext}
+    ${baseline_binary} -N 2 --supplementary -v -t ${threads} ${ref} ${reads[@]} | samtools view -o ${baseline_file}.tmp.${ext}
   else
     ${baseline_binary} -N 2 -v -x -t ${threads} ${ref} ${reads[@]} | gzip > ${baseline_file}.tmp.${ext}
   fi
