@@ -68,6 +68,38 @@ controls the chaining look-back window heuristic, `--gd` sets the diagonal gap c
 `--gl` sets the gap length cost, `--vp` determines the best-chain score threshold,
 and `--sg` controls the maximum skip distance on the reference.
 
+Chains scoring at least `--vp` (0.7 by default) times the best chain are used
+for the primary alignment. For single-end reads, lower-scoring chains are also
+kept for the supplementary search if they score at least `--vs` (40 by
+default). Chains are grouped by the read interval they cover, and such a chain
+is only kept if it covers a new part of the read or scores at least `--vp`
+times the best chain of its group.
+
+
+### Supplementary alignments
+
+Strobealign searches for a single supplementary alignment when the primary
+alignment does not explain the whole read, which happens when a read crosses a
+large variation. Once the primary is extended, every chain on the same contig
+and the same strand as the primary is a candidate, unless it overlaps the
+primary on the read by more than a fraction `--so` (0.5 by default) of what the
+primary covers. Translocations and inversions are not detected.
+
+Candidates are extended like the primary, but only over the read interval the
+primary does not cover, so that the end bonus `-L` pulls the extension towards
+the primary. Strobealign reports the best extension as a supplementary record
+if it scores at least `--sm` (80 by default) and meets the primary within
+`--ss` bases (50 by default), either on the read or on the reference. The
+supplementary gets its own mapping quality, computed from the second best
+candidate.
+
+Duplication detection is run on the supplementary alignment the same way it is
+run on the primary.
+
+The supplementary alignment search runs for single-end reads only.
+
+Use `--supplementary` to turn it on.
+
 
 (aemb)=
 ## Abundance estimation mode
