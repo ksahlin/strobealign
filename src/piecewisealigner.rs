@@ -264,24 +264,20 @@ impl PiecewiseAligner {
                 let query_part = &query[prev_query_end..prev_query_end + query_diff as usize];
                 let ref_part = &refseq[prev_ref_end..prev_ref_end + ref_diff as usize];
 
-                if ref_diff == query_diff {
-                    let hamming_aligned = hamming_align_global(
+                if ref_diff == query_diff
+                    && let Some(hamming_aligned) = hamming_align_global(
                         query_part,
                         ref_part,
                         self.scores.match_,
                         self.scores.mismatch,
-                    );
-
-                    let len = query_part.len() as i32;
+                    )
+                {
+                    let len = query_diff as i32;
                     let match_ = self.scores.match_ as i32;
-                    let mismatches = hamming_aligned.edit_distance as i32;
-                    // Unlike hamming_aligned.score, not clamped at 0
-                    let hamming_score =
-                        match_ * (len - mismatches) - self.scores.mismatch as i32 * mismatches;
-                    // A gapped alignment of equal query and ref lengths needs at least one
-                    // insertion and one deletion and thus scores at most
-                    // match * (len - 1) - 2 * gap_open
-                    if hamming_score > match_ * (len - 1) - 2 * self.scores.gap_open as i32
+                    let hamming_score = hamming_aligned.score as i32;
+                    let best_possible_alignment_score =
+                        match_ * (len - 1) - 2 * self.scores.gap_open as i32;
+                    if hamming_score > best_possible_alignment_score
                         || hamming_score > match_ * ((len as f32) * 0.85).ceil() as i32
                     {
                         score += hamming_score;
