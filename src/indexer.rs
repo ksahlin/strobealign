@@ -1,7 +1,11 @@
 use crate::index::{BucketIndex, RandstrobeHash, RefRandstrobe, StrobemerIndex};
 use crate::refseq::RefSequence;
+use crate::seeding::strobes::Randstrobe;
 use crate::seeding::syncmers::SeqAccess;
-use crate::seeding::{RandstrobeIterator, SeedingParameters, SyncmerIterator, SyncmerParameters};
+use crate::seeding::{
+    KmerSyncmerIterator, RandstrobeIterator, RymerIterator, RymerSyncmerIterator,
+    SeedingParameters, SyncmerParameters,
+};
 
 use std::fmt::{Display, Formatter};
 use std::mem::MaybeUninit;
@@ -277,18 +281,39 @@ fn make_randstrobes_parallel(
     randstrobes
 }
 
-fn make_randstrobe_iter<S: SeqAccess>(
-    seq: S,
-    parameters: &SeedingParameters,
-) -> RandstrobeIterator<SyncmerIterator<S>> {
-    let syncmer_iter = SyncmerIterator::new(
-        seq,
-        parameters.syncmer.k,
-        parameters.syncmer.s,
-        parameters.syncmer.t,
-    );
+fn make_randstrobe_iter<S: SeqAccess>(seq: S, parameters: &SeedingParameters) -> SeedIterator<S> {
+    let sp = &parameters.syncmer;
+    if parameters.adna_mode {
+        let syncmer_iter =
+            RymerSyncmerIterator::with_ry_len(seq, sp.k, sp.s, sp.t, parameters.ry_len);
+        SeedIterator::Rymer(RymerIterator::new(
+            syncmer_iter,
+            parameters.randstrobe.clone(),
+            parameters.ry_len,
+        ))
+    } else {
+        let syncmer_iter = KmerSyncmerIterator::new(seq, sp.k, sp.s, sp.t);
+        SeedIterator::Kmer(RandstrobeIterator::new(
+            syncmer_iter,
+            parameters.randstrobe.clone(),
+        ))
+    }
+}
 
-    RandstrobeIterator::new(syncmer_iter, parameters.randstrobe.clone())
+enum SeedIterator<S: SeqAccess> {
+    Kmer(RandstrobeIterator<KmerSyncmerIterator<S>>),
+    Rymer(RymerIterator<RymerSyncmerIterator<S>>),
+}
+
+impl<S: SeqAccess> Iterator for SeedIterator<S> {
+    type Item = Randstrobe;
+
+    fn next(&mut self) -> Option<Randstrobe> {
+        match self {
+            SeedIterator::Kmer(iter) => iter.next(),
+            SeedIterator::Rymer(iter) => iter.next(),
+        }
+    }
 }
 
 impl SyncmerParameters {
