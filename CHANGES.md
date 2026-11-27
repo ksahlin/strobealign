@@ -33,7 +33,7 @@
   GRCh38 ALT contigs.
 * #642: Prefetch index lookups, speeding up mapping by ~7%.
 * #675: Fix very slow chaining on references with many contigs (hundreds of
-  thousands). Contributed by @rhysnewell.
+  thousands). Contributed by [@rhysnewell](https://github.com/rhysnewell/).
 
 ## v0.19.1 (2026-10-19)
 
@@ -100,7 +100,7 @@ In addition, the following functional changes have been made:
 * #504: Introduce collinear chaining as the new default mapping and alignment
   method, replacing NAMs. This reproduces the Minimap2 chaining algorithm
   providing better mapping accuracy. NAMs remain available via the `--nams`
-  flag. Contributed by @NicolasBuchin.
+  flag. Contributed by [@NicolasBuchin](https://github.com/NicolasBuchin/).
 * #527: Improve accuracy by changing the default multi-context seed strategy from
   "rescue" to "always". This means that a partial seed lookup is done every time
   a full seed cannot be found (whereas previously, it was done only if no
@@ -153,17 +153,17 @@ In addition, the following functional changes have been made:
   when appropriate.
   This feature is currently *experimental* and only enabled when using the
   `--mcs` command-line option.
-  Contributed by Ivan Tolstoganov (@Itolstoganov).
+  Contributed by Ivan Tolstoganov ([@Itolstoganov](https://github.com/Itolstoganov/)).
 * #421: Allow references with up to 2^32 contigs (instead of 2^23
   previously) by changing the way randstrobes are stored in the index.
 * #467: Reading a reference with many small references was sped up.
-  Contributed by @luispedro.
+  Contributed by [@luispedro](https://github.com/luispedro/).
 
 ## v0.14.0 (2024-10-03)
 
 * #401: The default number of threads is now 1 instead of 3.
 * #409: Ensure reference names are unique and conform to the SAM
-  specification. Contributed by @drtconway in PR #411.
+  specification. Contributed by [@drtconway](https://github.com/drtconway/) in PR #411.
 * #269, #418: Strobealign scales now much better to systems with many cores.
   Previously, decompressing gzipped-compressed input files was a bottleneck
   starting at about 30 threads.
@@ -171,7 +171,7 @@ In addition, the following functional changes have been made:
   which is about three times as fast as zlib, and decompression is also done in
   a separate thread. We tested up to 128 cores, and strobealign was still
   able to use all cores.
-  Contributed by @telmin.
+  Contributed by [@telmin](https://github.com/telmin/).
 * #447: Switched to a new way for hashing randstrobes in preparation for the
   introduction of multi-context seeds.
   Pre-generated index files (`.sti` files) therefore need to be re-generated.
@@ -184,8 +184,8 @@ In addition, the following functional changes have been made:
 * #394: Added option `--aemb` (abundance estimation for metagenomic binning),
   which makes strobealign output a table with estimated abundance values for
   each contig (instead of SAM or PAF). This was contributed by Shaojun Pan
-  (@psj1997).
-* #386: Parallelize indexing even more by using @alugowski’s
+  ([@psj1997](https://github.com/psj1997/)).
+* #386: Parallelize indexing even more by using [@alugowski](https://github.com/alugowski/)’s
   [poolSTL](https://github.com/alugowski/) `pluggable_sort`.
   Indexing a human reference (measured on CHM13) now takes only ~45 s on a
   recent machine (using 8 threads).
@@ -231,7 +231,7 @@ In addition, the following functional changes have been made:
   below.)
 
   Idea and implementation for this substantial improvement were contributed by
-  Shaojun Pan (@psj1997) (supervised by Luis Pedro @luispedro) and originate in
+  Shaojun Pan ([@psj1997](https://github.com/psj1997/)) (supervised by Luis Pedro [@luispedro](https://github.com/luispedro/)) and originate in
   his work on a "strobealign-lm" (low memory) branch of strobealign. Thanks!
 * #277, #285, PR #306: Support for very large references (exceeding ~20 Gbp) was
   added by switching from 32 bit to 64 bit strobemer indices.
@@ -251,12 +251,12 @@ In addition, the following functional changes have been made:
 
 ## v0.10.0 (2023-06-05)
 
-* #258: Fixed compilation on MinGW. Thanks @teepean.
-* #260: Include full command line in the SAM PG header. Thanks @telmin.
+* #258: Fixed compilation on MinGW. Thanks [@teepean](https://github.com/teepean/).
+* #260: Include full command line in the SAM PG header. Thanks [@telmin](https://github.com/telmin/).
 * #20: By default, emit `M` CIGAR operations instead of `=` and `X`.
   Added option `--eqx` to use `=` and `X` as before.
 * #265: Fixed overflowing read count statistics when processing $2^{31}$ reads
-  or more. Thanks @telmin.
+  or more. Thanks [@telmin](https://github.com/telmin/).
 * #273: Fix handling of interleaved files using `/1` or `/2` suffixes
 
 ## v0.9.0 (2023-03-16)
@@ -325,9 +325,9 @@ mappers, but important when processing many small libraries.
   sets read group id to "1" and the sample name to "mysample").
 * Suppress some logging output by default, and added option `-v` for showing
   full logging output.
-* Issue #206: Added option `-U` for suppressing output of unaligned reads. Thanks @sjaenick.
-* PR #213: Add support for interleaved reads. Thanks @luispedro.
-* PR #213: Add support for reading from a pipe (including stdin). Thanks @luispedro.
+* Issue #206: Added option `-U` for suppressing output of unaligned reads. Thanks [@sjaenick](https://github.com/sjaenick/).
+* PR #213: Add support for interleaved reads. Thanks [@luispedro](https://github.com/luispedro/).
+* PR #213: Add support for reading from a pipe (including stdin). Thanks [@luispedro](https://github.com/luispedro/).
 
 ### Bug fixes
 
