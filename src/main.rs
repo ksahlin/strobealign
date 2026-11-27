@@ -305,9 +305,9 @@ struct Args {
 
     // Supplementary parameters
 
-    /// Do not search for supplementary alignments
-    #[arg(long = "no-supplementary", help_heading = "Supplementary")]
-    no_supplementary: bool,
+    /// Report supplementary alignments
+    #[arg(long = "supplementary", help_heading = "Supplementary")]
+    supplementary: bool,
 
     /// Minimum score for a supplementary alignment to be reported
     #[arg(long = "sm", default_value_t = MappingParameters::default().min_supplementary_score, value_name = "N", help_heading = "Supplementary")]
@@ -609,7 +609,7 @@ fn run() -> Result<(), CliError> {
         max_supplementary_gap: args.max_supplementary_gap,
         min_supplementary_score: args.min_supplementary_score,
         max_supplementary_overlap: args.max_supplementary_overlap,
-        supplementary: !args.no_supplementary,
+        supplementary: args.supplementary,
         max_tries: args.max_tries,
         dropoff_threshold: args.dropoff_threshold,
         rescue_distance: args.rescue_distance,

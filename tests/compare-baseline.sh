@@ -76,7 +76,7 @@ fi
 cargo build
 set -x
 if [[ ${mode} = align ]]; then
-  RUST_BACKTRACE=1 target/debug/strobealign -N 2 -v -t ${threads} ${ref} ${reads[@]} | samtools view -o head.bam
+  RUST_BACKTRACE=1 target/debug/strobealign -N 2 --supplementary -v -t ${threads} ${ref} ${reads[@]} | samtools view -o head.bam
   tests/samdiff.py ${baseline_file} head.bam
 else
   RUST_BACKTRACE=1 target/debug/strobealign -N 2 -v -x -t ${threads} ${ref} ${reads[@]} | gzip > head.paf.gz

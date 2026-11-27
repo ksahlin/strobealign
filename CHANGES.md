@@ -17,7 +17,8 @@
 * #686: Avoid unbounded memory usage when data cannot be written to the
   output as fast as reads are mapped (that is, when the output file/stdout
   blocks).
-* #682: Report a supplementary alignment for a single-end read that crosses a
+* #682: With `--supplementary`,
+  report a supplementary alignment for a single-end read that crosses a
   large insertion, deletion or tandem duplication, instead of soft-clipping the
   part of the read that does not fit the primary alignment (options `--sm`,
   `--ss`, `--so` and `--vs`, see the README). Chains below the `--vp`
