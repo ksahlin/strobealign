@@ -43,7 +43,6 @@ pub fn make_index(
     );
 
     debug!("  Generating seeds: {:.2} s", timer.elapsed().as_secs_f64());
-    // stats.elapsed_generating_seeds = randstrobes_timer.duration();
 
     let timer = Instant::now();
     debug!("  Sorting ...");
@@ -78,17 +77,10 @@ pub fn make_index(
         estimated_number_of_randstrobes as f64 / total_randstrobes as f64
     );
 
-    // stats.elapsed_sorting_seeds = sorting_timer.duration();
-
     let timer = Instant::now();
     debug!("  Generating hash table index ...");
 
-    let mut tot_high_ab = 0;
-    let mut tot_mid_ab = 0;
-
-    stats.tot_occur_once = 0;
-    let mut randstrobe_start_indices = Vec::with_capacity((1usize << bits) + 1);
-    let mut unique_mers = usize::from(!randstrobes.is_empty());
+    let mut bucket_starts = Vec::with_capacity((1usize << bits) + 1);
 
     let mut prev_hash: RandstrobeHash = if randstrobes.is_empty() {
         0
@@ -99,7 +91,7 @@ pub fn make_index(
 
     if !randstrobes.is_empty() {
         let first_hash_n = prev_hash >> (64 - bits);
-        randstrobe_start_indices.resize(first_hash_n as usize + 1, 0);
+        bucket_starts.resize(first_hash_n as usize + 1, 0);
     }
 
     // strobemer_counts[i] is how many strobemers occur i times,
@@ -113,43 +105,27 @@ pub fn make_index(
             count += 1;
             continue;
         }
-        unique_mers += 1;
-
-        if count == 1 {
-            stats.tot_occur_once += 1;
-        } else {
-            if count > 100 {
-                tot_high_ab += 1;
-            } else {
-                tot_mid_ab += 1;
-            }
-            strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
-        }
+        strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
         count = 1;
         let cur_hash_n = cur_hash >> (64 - bits);
-        while randstrobe_start_indices.len() <= cur_hash_n as usize {
-            randstrobe_start_indices.push(position as BucketIndex);
+        while bucket_starts.len() <= cur_hash_n as usize {
+            bucket_starts.push(position as BucketIndex);
         }
         prev_hash = cur_hash;
     }
     // wrap up last entry
-    if count == 1 {
-        stats.tot_occur_once += 1;
-    } else {
-        if count > 100 {
-            tot_high_ab += 1;
-        } else {
-            tot_mid_ab += 1;
-        }
+    if !randstrobes.is_empty() {
         strobemer_counts[count.min(strobemer_counts.len() - 1)] += 1;
     }
-    strobemer_counts[1] = unique_mers;
-    while randstrobe_start_indices.len() < ((1usize << bits) + 1) {
-        randstrobe_start_indices.push(randstrobes.len() as BucketIndex);
+    while bucket_starts.len() < ((1usize << bits) + 1) {
+        bucket_starts.push(randstrobes.len() as BucketIndex);
     }
-    stats.tot_high_ab = tot_high_ab;
-    stats.tot_mid_ab = tot_mid_ab;
 
+    stats.tot_occur_once = strobemer_counts[1] as u64;
+    stats.tot_mid_ab = strobemer_counts[2..=100].iter().sum::<usize>() as u64;
+    stats.tot_high_ab = strobemer_counts[101..].iter().sum::<usize>() as u64;
+
+    let unique_mers = strobemer_counts.iter().sum::<usize>();
     let index_cutoff = (unique_mers as f64 * filter_fraction) as usize;
     stats.index_cutoff = index_cutoff;
 
@@ -172,7 +148,6 @@ pub fn make_index(
         30, // cutoff is around 30-50 on hg38. No reason to have a lower cutoff than this if aligning to a smaller genome or contigs.
         100, // limit upper cutoff for normal NAM finding - use rescue mode instead
     );
-    //stats.elapsed_hash_index = hash_index_timer.duration();
     debug!("    Took {:.2} s", timer.elapsed().as_secs_f64());
     stats.distinct_strobemers = unique_mers as u64;
 
@@ -182,7 +157,7 @@ pub fn make_index(
             bits,
             filter_cutoff,
             randstrobes,
-            randstrobe_start_indices,
+            bucket_starts,
             refseq.starts.clone(),
         ),
         stats,
@@ -203,22 +178,13 @@ fn make_randstrobes_parallel(
     let mut randstrobes = Vec::with_capacity(n);
 
     const SLICE_LENGTH: usize = 10000;
+    let slices = randstrobes
+        .spare_capacity_mut()
+        .chunks_mut(SLICE_LENGTH)
+        .map(|s| Arc::new(Mutex::new(s)))
+        .collect::<Vec<_>>();
+
     let output_slice_index = AtomicUsize::new(0);
-
-    let uninit = randstrobes.spare_capacity_mut();
-    let mut slices = vec![];
-    {
-        let mut slice = uninit;
-        while slice.len() > SLICE_LENGTH {
-            let (left, right) = slice.split_at_mut(SLICE_LENGTH);
-            slices.push(Arc::new(Mutex::new(left)));
-            slice = right;
-        }
-        if !slice.is_empty() {
-            slices.push(Arc::new(Mutex::new(slice)));
-        }
-    }
-
     let contig_index = AtomicUsize::new(0);
     // If we did not allocate a large enough randstrobes vector,
     // additional randstrobes are stored here.
