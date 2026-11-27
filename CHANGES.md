@@ -163,7 +163,7 @@ In addition, the following functional changes have been made:
 
 * #401: The default number of threads is now 1 instead of 3.
 * #409: Ensure reference names are unique and conform to the SAM
-  specification. Contributed by [@drtconway](https://github.com/drtconway/) in PR #411.
+  specification. Contributed by [@drtconway](https://github.com/drtconway/) in [PR #411](https://github.com/ksahlin/strobealign/pull/411/).
 * #269, #418: Strobealign scales now much better to systems with many cores.
   Previously, decompressing gzipped-compressed input files was a bottleneck
   starting at about 30 threads.
@@ -233,7 +233,7 @@ In addition, the following functional changes have been made:
   Idea and implementation for this substantial improvement were contributed by
   Shaojun Pan ([@psj1997](https://github.com/psj1997/)) (supervised by Luis Pedro [@luispedro](https://github.com/luispedro/)) and originate in
   his work on a "strobealign-lm" (low memory) branch of strobealign. Thanks!
-* #277, #285, PR #306: Support for very large references (exceeding ~20 Gbp) was
+* #277, #285, [PR #306](https://github.com/ksahlin/strobealign/pull/306/): Support for very large references (exceeding ~20 Gbp) was
   added by switching from 32 bit to 64 bit strobemer indices.
   This was also enabled and made simpler by the memory layout changes.
   This increases RAM usage by 1 GiB for human-sized genomes.
@@ -263,18 +263,18 @@ In addition, the following functional changes have been made:
 
 * Added progress report (only shown if output is not a terminal; can be
   disabled with `--no-progress`)
-* PR #250: Avoid overeager soft clipping by adding an “end bonus” to the
+* [PR #250](https://github.com/ksahlin/strobealign/pull/250/): Avoid overeager soft clipping by adding an “end bonus” to the
   alignment score if the alignment reaches the 5' or 3' end of the read.
   This is equivalent to penalizing soft-clipping and improves mapping
   accuracy, in particular for short reads, as candidate mapping sites with and
   without soft clipping are compared more fairly. Use `-L` to change the end
   bonus. (This emulates a feature found in BWA-MEM.)
-* Issue #238: Fixed occasionally incorrect soft clipping.
-* PR #239: Fixed an uninitialized variable that could lead to nondeterministic
+* [PR #238](https://github.com/ksahlin/strobealign/issues/238/): Fixed occasionally incorrect soft clipping.
+* [PR #239](https://github.com/ksahlin/strobealign/pull/239/): Fixed an uninitialized variable that could lead to nondeterministic
   results.
-* Issue #137: Compute TLEN (in SAM output) correctly
-* PR #255: Added support for reading gzip-compressed reference FASTA files.
-* Issue #222: Made it possible again to build strobealign from the release
+* [PR #137](https://github.com/ksahlin/strobealign/issues/137/): Compute TLEN (in SAM output) correctly
+* [PR #255](https://github.com/ksahlin/strobealign/pull/255/): Added support for reading gzip-compressed reference FASTA files.
+* [PR #222](https://github.com/ksahlin/strobealign/issues/222/): Made it possible again to build strobealign from the release
   tarball (not only from the Git repository).
 
 ## v0.8.0 (2023-02-01)
@@ -309,44 +309,44 @@ mappers, but important when processing many small libraries.
 
 ### Features
 
-* PR #191 and PR #192: RAM usage was reduced significantly. For the
+* [PR #191](https://github.com/ksahlin/strobealign/pull/191/) and [PR #192](https://github.com/ksahlin/strobealign/pull/192/): RAM usage was reduced significantly. For the
   human genome, for example, it went from from 28 GiB to 21 GiB. (Mapping
   runtime is unaffected.)
-* Issue #121: Deterministic output: Mapped reads are now output in the order
+* [PR #121](https://github.com/ksahlin/strobealign/issues/121/): Deterministic output: Mapped reads are now output in the order
   that they had in the input (this was previously not the case when using
   more than one thread).
-* PR #48, PR #195: The index can now be pre-generated and saved to disk
+* [PR #48](https://github.com/ksahlin/strobealign/pull/48/), [PR #195](https://github.com/ksahlin/strobealign/pull/195/): The index can now be pre-generated and saved to disk
   (`--create-index` and `--use-index`).
 * Added `-h`/`--help` options.
 * Added `--version` option.
-* Issue #31: Added `--rg-id` option for adding read group IDs to each SAM
+* [PR #31](https://github.com/ksahlin/strobealign/issues/31/): Added `--rg-id` option for adding read group IDs to each SAM
   record, and added `--rg` option for adding read group metadata
   (sample, library etc.) to the SAM header (example: `--rg 1 --rg SM:mysample`
   sets read group id to "1" and the sample name to "mysample").
 * Suppress some logging output by default, and added option `-v` for showing
   full logging output.
-* Issue #206: Added option `-U` for suppressing output of unaligned reads. Thanks [@sjaenick](https://github.com/sjaenick/).
-* PR #213: Add support for interleaved reads. Thanks [@luispedro](https://github.com/luispedro/).
-* PR #213: Add support for reading from a pipe (including stdin). Thanks [@luispedro](https://github.com/luispedro/).
+* [PR #206](https://github.com/ksahlin/strobealign/issues/206/): Added option `-U` for suppressing output of unaligned reads. Thanks [@sjaenick](https://github.com/sjaenick/).
+* [PR #213](https://github.com/ksahlin/strobealign/pull/213/): Add support for interleaved reads. Thanks [@luispedro](https://github.com/luispedro/).
+* [PR #213](https://github.com/ksahlin/strobealign/pull/213/): Add support for reading from a pipe (including stdin). Thanks [@luispedro](https://github.com/luispedro/).
 
 ### Bug fixes
 
-* Issue #121: When more than one thread is used, changed behavior so that
+* [PR #121](https://github.com/ksahlin/strobealign/issues/121/): When more than one thread is used, changed behavior so that
   alignments are output in the order that the reads had in the input file.
-* PR #114: Fix read-length estimate on input files with few reads.
-* PR #78: Fixed incorrect template length (TLEN) sign.
-* Issue #56: Unmapped reads did not have quality values in the SAM output.
-* PR #65: Fixed a logic error. This changes some mapping qualites.
-* Issue #141: Remove `/1` and `/2` suffixes from read names if they exist.
-* Issue #142: Template length (TLEN) should be zero when the two reads in a pair
+* [PR #114](https://github.com/ksahlin/strobealign/pull/114/): Fix read-length estimate on input files with few reads.
+* [PR #78](https://github.com/ksahlin/strobealign/pull/78/): Fixed incorrect template length (TLEN) sign.
+* [PR #56](https://github.com/ksahlin/strobealign/issues/56/): Unmapped reads did not have quality values in the SAM output.
+* [PR #65](https://github.com/ksahlin/strobealign/pull/65/): Fixed a logic error. This changes some mapping qualites.
+* [PR #141](https://github.com/ksahlin/strobealign/issues/141/): Remove `/1` and `/2` suffixes from read names if they exist.
+* [PR #142](https://github.com/ksahlin/strobealign/issues/142/): Template length (TLEN) should be zero when the two reads in a pair
   map to different contigs.
-* PR #149: Set mapping quality of unmapped reads to 0 for compatibility
+* [PR #149](https://github.com/ksahlin/strobealign/pull/149/): Set mapping quality of unmapped reads to 0 for compatibility
   with Picard.
-* Issue #148: Fixed SAM output when one read in a pair is mapped and the other
+* [PR #148](https://github.com/ksahlin/strobealign/issues/148/): Fixed SAM output when one read in a pair is mapped and the other
   not.
-* Issue #141: Remove any `/1` and `/2` suffixes from read names.
+* [PR #141](https://github.com/ksahlin/strobealign/issues/141/): Remove any `/1` and `/2` suffixes from read names.
 * Invalid or missing input files no longer lead to a crash.
-* Issue #199: No longer (inadvertently) ignore the `-l` and `-u` command-line
+* [PR #199](https://github.com/ksahlin/strobealign/issues/199/): No longer (inadvertently) ignore the `-l` and `-u` command-line
   options.
 
 ### Developer-oriented changes
@@ -364,7 +364,7 @@ mappers, but important when processing many small libraries.
 ### Other changes
 
 * There is now a Conda package for strobealign on Bioconda.
-* Issue #34: Disabled AVX2 CPU instructions by default as they are sometimes not
+* [PR #34](https://github.com/ksahlin/strobealign/issues/34/): Disabled AVX2 CPU instructions by default as they are sometimes not
   available. Re-enable by running `cmake` with `-DENABLE_AVX=ON`.
 * Added a changelog.
 
