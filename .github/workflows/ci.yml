@@ -16,7 +16,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
     - name: Check formatting
       run: cargo fmt --check
     - name: Run clippy
@@ -42,9 +42,9 @@ jobs:
       github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
       - name: Install Python dependencies
@@ -60,7 +60,7 @@ jobs:
       github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # Baseline comparison needs older commits
       - name: Install Linux dependencies
@@ -70,7 +70,7 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install samtools pysam picard-tools isa-l
       - name: Cache test dataset
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           key: test-data-${{ hashFiles('tests/download.sh') }}
           path: tests/drosophila/
@@ -79,7 +79,7 @@ jobs:
           echo "ci_baseline_commit=$(git --no-pager log -n1 --pretty=format:%H --grep='^Is-new-baseline: yes')" >> "$GITHUB_ENV"
       - name: Cache baseline BAM/PAF
         id: cache-baseline
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           key: baseline-bampaf-${{ env.ci_baseline_commit }}
           path: baseline/bampaf/
